@@ -3,7 +3,7 @@ use super::*;
 
 #[test]
 fn basic_sobol(){
-    assert_eq!(base::sobol_seq(5, 3, 347), ndarray::array![
+    assert_eq!(base::sobol_seq(5, vec![(0.,1.),(0.,1.),(0.,1.)], 347), ndarray::array![
         [0.10731888, 0.14647412, 0.58510387],
         [0.9840305, 0.76333654, 0.19097507],
         [0.3847711, 0.73466134, 0.2616291],
