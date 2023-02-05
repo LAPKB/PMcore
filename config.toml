@@ -1,0 +1,6 @@
+[paths]
+data = "data.csv"
+
+[config]
+cycles = 1024
+engine = "NPAG"
