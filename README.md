@@ -4,6 +4,8 @@ Rust Library with the building blocks needed to create new Non-Parametric algori
 ## Actual functionality
 
 * Generation of Sobol sequences
+* Read setup files
+* Parse Pmetrics input files
 
 ## Missing
 
