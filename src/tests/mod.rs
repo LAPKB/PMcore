@@ -3,7 +3,7 @@ use super::base::*;
 
 #[test]
 fn basic_sobol(){
-    assert_eq!(samplers::sobol(5, vec![(0.,1.),(0.,1.),(0.,1.)], 347), ndarray::array![
+    assert_eq!(lds::sobol(5, vec![(0.,1.),(0.,1.),(0.,1.)], 347), ndarray::array![
         [0.10731888, 0.14647412, 0.58510387],
         [0.9840305, 0.76333654, 0.19097507],
         [0.3847711, 0.73466134, 0.2616291],
@@ -14,7 +14,7 @@ fn basic_sobol(){
 
 #[test]
 fn scaled_sobol(){
-    assert_eq!(samplers::sobol(5, vec![(0.,1.),(0.,2.),(-1.,1.)], 347), ndarray::array![
+    assert_eq!(lds::sobol(5, vec![(0.,1.),(0.,2.),(-1.,1.)], 347), ndarray::array![
         [0.10731888, 0.29294825, 0.17020774],
         [0.9840305, 1.5266731, -0.61804986],
         [0.3847711, 1.4693227, -0.4767418],
@@ -29,4 +29,27 @@ fn read_mandatory_settings(){
     assert_eq!(settings.paths.data, "data.csv");
     assert_eq!(settings.config.cycles, 1024);
     assert_eq!(settings.config.engine, "NPAG");
+}
+
+#[test]
+fn read_test_datafile(){
+    let scenarios = datafile::parse("test.csv".to_string());
+    if let Ok(scenarios) = scenarios {
+        assert_eq!(scenarios.len(), 20);
+        assert_eq!(scenarios.last().unwrap().time, [
+                                                    0.0,
+                                                    24.0,
+                                                    48.0,
+                                                    72.0,
+                                                    96.0,
+                                                    120.0,
+                                                    120.0,
+                                                    120.77,
+                                                    121.75,
+                                                    125.67,
+                                                    128.67,
+                                                    143.67,
+                                                    ]);
+        
+    }
 }

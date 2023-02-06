@@ -1,3 +1,4 @@
+//Low-Discrepancy Sequences Module
 use sobol_burley::sample;
 use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
