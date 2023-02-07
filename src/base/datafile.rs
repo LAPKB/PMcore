@@ -63,7 +63,7 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
         scenarios.push(parse_events_to_scenario(group));
     }
 
-    dbg!(&scenarios);
+    // dbg!(&scenarios);
 
 
     Ok(scenarios)
@@ -74,11 +74,11 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
 //TODO: I should transform the ADDL and II elements into the right dose events
 #[derive(Debug)]
 pub struct Scenario{
-    id: String, //id of the Scenario
+    pub id: String, //id of the Scenario
     pub time: Vec<f32>, //ALL times
-    time_dose: Vec<f32>, //dose times
+    pub time_dose: Vec<f32>, //dose times
     time_obs: Vec<f32>, //obs times
-    dose: Vec<f32>, // dose @ time_dose
+    pub dose: Vec<f32>, // dose @ time_dose
     obs: Vec<f32>, // obs @ time_obs
 }
 
