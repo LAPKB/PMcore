@@ -8,7 +8,7 @@ type Record = HashMap<String, String>;
 struct Event{
     id: String,
     evid: isize,
-    time: f32,
+    time: f64,
     dur: Option<f32>,
     dose: Option<f32>,
     addl: Option<isize>,
@@ -37,7 +37,7 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
         events.push(Event{
             id: record.remove("ID").unwrap(),
             evid: record.remove("EVID").unwrap().parse::<isize>().unwrap(),
-            time: record.remove("TIME").unwrap().parse::<f32>().unwrap(),
+            time: record.remove("TIME").unwrap().parse::<f64>().unwrap(),
             dur: record.remove("DUR").unwrap().parse::<f32>().ok(),
             dose: record.remove("DOSE").unwrap().parse::<f32>().ok(),
             addl: record.remove("ADDL").unwrap().parse::<isize>().ok(),
@@ -75,11 +75,11 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
 #[derive(Debug)]
 pub struct Scenario{
     pub id: String, //id of the Scenario
-    pub time: Vec<f32>, //ALL times
-    pub time_dose: Vec<f32>, //dose times
-    time_obs: Vec<f32>, //obs times
+    pub time: Vec<f64>, //ALL times
+    pub time_dose: Vec<f64>, //dose times
+    pub time_obs: Vec<f64>, //obs times
     pub dose: Vec<f32>, // dose @ time_dose
-    obs: Vec<f32>, // obs @ time_obs
+    pub obs: Vec<f32>, // obs @ time_obs
 }
 
 // Current Limitations:
@@ -103,9 +103,9 @@ pub struct Scenario{
             //based on the DOSE and DUR values
 
 fn parse_events_to_scenario(events: &[Event]) -> Scenario{
-    let mut time: Vec<f32> = vec![];
-    let mut time_dose: Vec<f32> = vec![];  
-    let mut time_obs: Vec<f32> = vec![];
+    let mut time: Vec<f64> = vec![];
+    let mut time_dose: Vec<f64> = vec![];  
+    let mut time_obs: Vec<f64> = vec![];
     let mut dose: Vec<f32> = vec![];
     let mut obs: Vec<f32> = vec![];
     for event in events {

@@ -36,7 +36,7 @@ struct Sim{
 }
 
 impl Simulate for Sim{
-    fn simulate(&self, params: Vec<f64>, y0: Vec<f64>, tspan:[f64;2], scenario: &Scenario) {
+    fn simulate(&self, params: Vec<f64>, y0: Vec<f64>, tspan:[f64;2], scenario: &Scenario) -> (Vec<f64>, Vec<f64>) {
         dbg!(scenario);
         let system = c1_pk {ka: params[0], ke: params[1], scenario: scenario};
         
@@ -46,26 +46,22 @@ impl Simulate for Sim{
         let mut stepper = Rk4::new(system, tspan[0], y0, tspan[1], 1.0e-3);
         // let mut stepper = Dopri5::new(system, 0.0, 20.0, 1.0e-5, y0, 1.0e-14, 1.0e-14);
         let res = stepper.integrate();
-        match res {
-            Ok(stats) => {
-                println!("{}",stats);
-                let x = stepper.x_out().to_vec();
-                let y = stepper.y_out();
-                let yout: Vec<f64> = y.into_iter().map(|x| x.data.0[0][1] ).collect();
-                // dbg!(yout);
-                let mut plot = Plot::new();
-                let trace = Scatter::new(x,yout);
-                plot.add_trace(trace);
-    
-                plot.show();
-            },
-            Err(_) => println!("An error occured."),
-        }
-    
-        
+        let stats = res.unwrap();
+
+        println!("{}",stats);
+        let x = stepper.x_out().to_vec();
+        let y = stepper.y_out();
+        let yout: Vec<f64> = y.into_iter().map(|x| x.data.0[0][1] ).collect();
+        // // dbg!(yout);
+        // let mut plot = Plot::new();
+        // let trace = Scatter::new(x,yout);
+        // plot.add_trace(trace);
+
+        // plot.show();
+  
+        (x, yout)    
     }
 } 
-
 fn main(){
     //to execute this example test.csv should exist in the same folder
     let scenarios = datafile::parse("gendata.csv".to_string()).unwrap();

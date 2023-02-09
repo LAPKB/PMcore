@@ -16,3 +16,4 @@ toml = "0.7.1"
 #examples
 ode_solvers = { path = '../ode-solvers' }
 plotly = "0.8.3"
+interp = "0.1.1"
