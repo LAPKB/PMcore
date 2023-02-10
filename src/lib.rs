@@ -8,6 +8,7 @@ pub mod prelude {
     pub use crate::base::datafile::Scenario;
     pub use crate::base::simulator::Simulate;
     pub use crate::base::simulator::Engine;
+    pub use crate::base::prob::*;
 }
 
 //Tests
