@@ -45,10 +45,10 @@ impl Simulate for Sim{
     
         let mut stepper = Rk4::new(system, tspan[0], y0, tspan[1], 1.0e-3);
         // let mut stepper = Dopri5::new(system, 0.0, 20.0, 1.0e-5, y0, 1.0e-14, 1.0e-14);
-        let res = stepper.integrate();
-        let stats = res.unwrap();
+        let _res = stepper.integrate();
+        // let stats = res.unwrap();
 
-        println!("{}",stats);
+        // println!("{}",stats);
         let x = stepper.x_out().to_vec();
         let y = stepper.y_out();
         let yout: Vec<f64> = y.into_iter().map(|x| x.data.0[0][1] ).collect();
@@ -63,10 +63,9 @@ impl Simulate for Sim{
     }
 } 
 fn main(){
-    //to execute this example test.csv should exist in the same folder
-    let scenarios = datafile::parse("gendata.csv".to_string()).unwrap();
-    let scenario = scenarios.first().unwrap();
-    let engine = Engine::new(Sim{});
-    engine.run(&scenario);
+    // let scenarios = datafile::parse("gendata.csv".to_string()).unwrap();
+    // let scenario = scenarios.first().unwrap();
+    // let engine = Engine::new(Sim{});
+    // let _yout = engine.sim_obs(&scenario);
 
 }

@@ -20,7 +20,7 @@ where
             sim
         }
     }
-    pub fn run(&self, scenario: &Scenario) -> (Vec<f64>, Vec<f64>){
+    pub fn sim_obs(&self, scenario: &Scenario) -> Vec<f64>{
         let (x_out, y_out) = self.sim.simulate(
             vec![0.1,2.0],
             vec![0.0,0.0],
@@ -29,7 +29,7 @@ where
         );
 
         let y_intrp = interp_slice(&x_out, &y_out, &scenario.time_obs[..]);
-        (scenario.time_obs.clone(), y_intrp)
+        y_intrp
     }
 }
 

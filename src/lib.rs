@@ -1,5 +1,6 @@
 #![feature(slice_group_by)]
 pub mod base;
+pub mod npag;
 
 pub mod prelude {
     pub use crate::base::lds::*;
