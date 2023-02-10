@@ -25,7 +25,7 @@ fn scaled_sobol(){
 
 #[test]
 fn read_mandatory_settings(){
-    let settings = settings::read();
+    let settings = settings::read("config.toml".to_string());
     assert_eq!(settings.paths.data, "data.csv");
     assert_eq!(settings.config.cycles, 1024);
     assert_eq!(settings.config.engine, "NPAG");

@@ -3,7 +3,6 @@
     use std::process::exit;
     use toml;
 
-    const FILENAME: &str =  "config.toml";
 
     #[derive(Deserialize)]
     pub struct Data {
@@ -22,11 +21,11 @@
         pub engine: String
     }
 
-    pub fn read() -> Data{
-        let contents = match fs::read_to_string(FILENAME){
+    pub fn read(filename: String) -> Data{
+        let contents = match fs::read_to_string(&filename){
             Ok(c) => c,
             Err(_) => {
-                eprintln!("ERROR: Could not read file {}", FILENAME);
+                eprintln!("ERROR: Could not read file {}", &filename);
                 exit(1);
             }
         };
@@ -35,7 +34,7 @@
             Ok(d) => d,
             Err(e) => {
                 eprintln!("{}",e);
-                eprintln!("ERROR: Unable to load data from {}", FILENAME);
+                eprintln!("ERROR: Unable to load data from {}", &filename);
                 exit(1);
             }
         };
