@@ -14,7 +14,7 @@ struct Event{
     addl: Option<isize>,
     ii: Option<isize>,
     input: Option<isize>,
-    out: Option<f32>,
+    out: Option<f64>,
     outeq: Option<isize>,
     c0: Option<f32>,
     c1: Option<f32>,
@@ -43,7 +43,7 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             addl: record.remove("ADDL").unwrap().parse::<isize>().ok(),
             ii: record.remove("II").unwrap().parse::<isize>().ok(),
             input: record.remove("INPUT").unwrap().parse::<isize>().ok(),
-            out: record.remove("OUT").unwrap().parse::<f32>().ok(),
+            out: record.remove("OUT").unwrap().parse::<f64>().ok(),
             outeq: record.remove("OUTEQ").unwrap().parse::<isize>().ok(),
             c0: record.remove("C0").unwrap().parse::<f32>().ok(),
             c1: record.remove("C1").unwrap().parse::<f32>().ok(),
@@ -79,7 +79,7 @@ pub struct Scenario{
     pub time_dose: Vec<f64>, //dose times
     pub time_obs: Vec<f64>, //obs times
     pub dose: Vec<f32>, // dose @ time_dose
-    pub obs: Vec<f32>, // obs @ time_obs
+    pub obs: Vec<f64>, // obs @ time_obs
 }
 
 // Current Limitations:
@@ -107,7 +107,7 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
     let mut time_dose: Vec<f64> = vec![];  
     let mut time_obs: Vec<f64> = vec![];
     let mut dose: Vec<f32> = vec![];
-    let mut obs: Vec<f32> = vec![];
+    let mut obs: Vec<f64> = vec![];
     for event in events {
         time.push(event.time);
         

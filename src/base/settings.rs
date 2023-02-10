@@ -18,7 +18,8 @@
     #[derive(Deserialize)]
     pub struct Config {
         pub cycles: u32,
-        pub engine: String
+        pub engine: String,
+        pub init_points: usize
     }
 
     pub fn read(filename: String) -> Data{
