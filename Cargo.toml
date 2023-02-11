@@ -17,3 +17,5 @@ toml = "0.7.1"
 ode_solvers = { path = '../ode-solvers' }
 plotly = "0.8.3"
 interp = "0.1.1"
+ndarray-stats = "0.5.1"
+ndarray-linalg = "0.16.0"
