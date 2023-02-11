@@ -1,3 +1,5 @@
+use std::process;
+
 use crate::prelude::{Scenario, Simulate, Engine};
 use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
@@ -25,11 +27,20 @@ where
            //TODO: esto se puede mover a datafile::read
            // 0.020000,0.050000,-0.000200,0.000000
            let sigma = 0.02 + &yobs * 0.5 + &yobs.mapv(|x| x.powi(2)) * (-0.0002);
-           let diff = -(yobs-ypred).mapv(|x| x.powi(2));
-           let two_sigma_sq = -(2.0*&sigma).mapv(|x| x.powi(2));
+           let diff = (yobs-ypred).mapv(|x| x.powi(2));
+           let two_sigma_sq = (2.0*&sigma).mapv(|x| x.powi(2));
            
-           
-           prob.slice_mut(s![i,j]).fill((FRAC_1_SQRT_2PI * sigma * (diff/two_sigma_sq).mapv(|x| x.exp())).product());
+           let aux_vec = FRAC_1_SQRT_2PI * &sigma * (-&diff/&two_sigma_sq).mapv(|x| x.exp());
+           let value = aux_vec.product();
+        //    if value.is_infinite(){
+        //     dbg!((i,j));
+        //     dbg!(&sigma);
+        //     dbg!(&diff);
+        //     dbg!((-&diff/&two_sigma_sq).mapv(|x| x.exp()));
+        //     dbg!(aux_vec);
+        //     process::exit(0x0100);
+        //    }
+           prob.slice_mut(s![i,j]).fill(value);
 
         }
     }
