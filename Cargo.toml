@@ -18,4 +18,5 @@ ode_solvers = { path = '../ode-solvers' }
 plotly = "0.8.3"
 interp = "0.1.1"
 ndarray-stats = "0.5.1"
+linfa-linalg = "0.1.0"
 #ndarray-linalg = "0.16.0" #needs configuring BLAS

@@ -37,7 +37,14 @@ pub fn burke(mut psi: ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(),St
     let sum_log_plam = plam.mapv(|x:f64| x.ln()).sum();
 
     let gap = (w.mapv(|x:f64| x.ln()).sum() + &sum_log_plam).abs() / (1.+ &sum_log_plam);
-    let mu = lam.t().dot(&y)/col as f64;
+    // This dot product should always yield only one item
+    let mu = (lam.t().dot(&y)/col as f64).first().unwrap().clone();
+
+    let mut iter: usize = 0;
+
+    while mu > eps || normR > eps || gap > eps {
+        iter = iter + 1;
+    }
     
 
     Ok(())
