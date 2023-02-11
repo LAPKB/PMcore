@@ -15,7 +15,8 @@ where
     // while eps > THETA_E {
         // psi n_sub rows, nspp columns
         let psi = prob(&sim_eng, &scenarios, &theta);
-        dbg!(psi);
+        dbg!(ipm::burke(psi));
+        // dbg!(psi);
         
     // }
 }
