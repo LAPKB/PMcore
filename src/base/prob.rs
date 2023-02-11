@@ -22,9 +22,9 @@ where
            
            let ypred = Array::from(sim_eng.pred(&scenario, spp.to_vec()));
            let yobs = Array::from(scenario.obs.clone());
-           //esto se puede mover a datafile::read
+           //TODO: esto se puede mover a datafile::read
            // 0.020000,0.050000,-0.000200,0.000000
-           let sigma = 0.02 + &yobs * 0.5 + (-0.0002);
+           let sigma = 0.02 + &yobs * 0.5 + &yobs.mapv(|x| x.powi(2)) * (-0.0002);
            let diff = -(yobs-ypred).mapv(|x| x.powi(2));
            let two_sigma_sq = -(2.0*&sigma).mapv(|x| x.powi(2));
            
