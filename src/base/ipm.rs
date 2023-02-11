@@ -49,20 +49,9 @@ pub fn burke(mut psi: ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(),Bo
 
         let smu = sig * mu;
 
-        let mut inner:ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>> = Array::zeros(col);
-        Zip::from(&mut inner)
-            .and(&lam)
-            .and(&y)
-            .for_each(|inner,lam,y|{
-                *inner = lam/y;
-            });
-        let mut w_plam:ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>> = Array::zeros(col);
-        Zip::from(&mut w_plam)
-            .and(&plam)
-            .and(&w)
-            .for_each(|w_plam,plam,w|{
-                *w_plam = plam/w;
-            });
+        let inner = divide(&lam, &y);
+        let w_plam = divide(&plam, &w);
+
 
         let h = 
             psi.dot(&Array2::from_diag(&inner))
@@ -82,5 +71,17 @@ pub fn burke(mut psi: ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(),Bo
 fn norm_inf(a: ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>>) -> f64{
     let zeros:ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>> = Array::zeros(a.len());
     a.linf_dist(&zeros).unwrap()
+}
+
+fn divide(dividend: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>>, divisor: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>>) -> ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>>{
+    //check than dividend.len() == divisor.len()
+    let mut res:ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>> = Array::zeros(dividend.len());
+    Zip::from(&mut res)
+        .and(dividend)
+        .and(divisor)
+        .for_each(|res,dividend,divisor|{
+            *res = dividend/divisor;
+        });
+    res
 }
 
