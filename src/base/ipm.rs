@@ -28,7 +28,7 @@ pub fn burke(mut psi: ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(),Bo
         return Err("The vector psi*e has a non-positive entry".into());
     }
 
-    let eps = 1e-6;
+    let eps = 1e-8;
     let mut sig = 0.;
     // //dbg!(eps);
     let erow:ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>>  = Array::ones(row);
@@ -57,9 +57,9 @@ pub fn burke(mut psi: ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(),Bo
     while mu > eps || norm_r > eps || gap > eps {
         iter = iter + 1;
         dbg!(iter);
-        //dbg!(mu);
-        //dbg!(gap);
-        //dbg!(norm_r);
+        dbg!(mu);
+        dbg!(gap);
+        dbg!(norm_r);
 
         let smu = sig * mu;
         //dbg!(&smu);
