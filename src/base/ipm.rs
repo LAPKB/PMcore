@@ -5,16 +5,16 @@ use ndarray::{ArrayBase, Dim, OwnedRepr, Array, Array2, array};
 use ndarray_stats::{QuantileExt, DeviationExt};
 
 
-pub fn burke(psi: &mut ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>, f64),Box<dyn error::Error>>{
-    psi.par_mapv_inplace(|x| x.abs());
+pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>, f64),Box<dyn error::Error>>{
+    // psi.par_mapv_inplace(|x| x.abs());
     // //dbg!(&psi);
 
     let (row,col) = psi.dim();
     //dbg!((row,col));
 
-    if row>col {
-        return Err("The matrix PSI has row>col".into());
-    }
+    // if row>col {
+    //     return Err("The matrix PSI has row>col".into());
+    // }
 
     if psi.min().unwrap() < &0.0 {
         return Err("PSI contains negative elements".into());
