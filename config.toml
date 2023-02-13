@@ -4,3 +4,4 @@ data = "data.csv"
 [config]
 cycles = 1024
 engine = "NPAG"
+init_points = 500
