@@ -5,7 +5,7 @@ use ndarray::{ArrayBase, Dim, OwnedRepr, Array, Array2, array};
 use ndarray_stats::{QuantileExt, DeviationExt};
 
 
-pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>, f64),Box<dyn error::Error>>{
+pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>,Box<dyn error::Error>>{
     // psi.par_mapv_inplace(|x| x.abs());
     // //dbg!(&psi);
 
@@ -144,12 +144,12 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
         
     }
     lam = lam/row as f64;
-    let obj = psi.dot(&lam).mapv(|x| x.ln()).sum();
+    // let obj = psi.dot(&lam).mapv(|x| x.ln()).sum();
     lam = &lam/lam.sum();
     // dbg!(lam);
     // dbg!(obj);
     
-    Ok((lam, obj))
+    Ok(lam)
 
 }
 
