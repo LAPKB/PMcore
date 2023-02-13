@@ -69,8 +69,12 @@ where
         if cycle >= settings.config.cycles{
             break;
         }
-        // theta = adaptative_grid(theta, eps)
+        theta = adaptative_grid(theta, eps);
         cycle = cycle+1; 
         last_objf = objf;
     }
+}
+
+fn adaptative_grid(theta: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, _eps: f64) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
+    theta
 }

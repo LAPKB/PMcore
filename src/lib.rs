@@ -1,6 +1,6 @@
 #![feature(slice_group_by)]
 pub mod base;
-pub mod npag;
+pub mod algorithms;
 
 pub mod prelude {
     pub use crate::base::lds::*;
@@ -9,6 +9,7 @@ pub mod prelude {
     pub use crate::base::simulator::Simulate;
     pub use crate::base::simulator::Engine;
     pub use crate::base::prob::*;
+    pub use crate::algorithms::npag::npag;
 }
 
 //Tests
