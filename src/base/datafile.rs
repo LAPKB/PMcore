@@ -9,18 +9,18 @@ struct Event{
     id: String,
     evid: isize,
     time: f64,
-    dur: Option<f32>,
+    // dur: Option<f32>,
     dose: Option<f32>,
-    addl: Option<isize>,
-    ii: Option<isize>,
-    input: Option<isize>,
+    // addl: Option<isize>,
+    // ii: Option<isize>,
+    // input: Option<isize>,
     out: Option<f64>,
-    outeq: Option<isize>,
-    c0: Option<f32>,
-    c1: Option<f32>,
-    c2: Option<f32>,
-    c3: Option<f32>,
-    cov: HashMap<String, f32>
+    // outeq: Option<isize>,
+    // c0: Option<f32>,
+    // c1: Option<f32>,
+    // c2: Option<f32>,
+    // c3: Option<f32>,
+    // cov: HashMap<String, f32>
 }
 pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
 
@@ -38,18 +38,18 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             id: record.remove("ID").unwrap(),
             evid: record.remove("EVID").unwrap().parse::<isize>().unwrap(),
             time: record.remove("TIME").unwrap().parse::<f64>().unwrap(),
-            dur: record.remove("DUR").unwrap().parse::<f32>().ok(),
+            // dur: record.remove("DUR").unwrap().parse::<f32>().ok(),
             dose: record.remove("DOSE").unwrap().parse::<f32>().ok(),
-            addl: record.remove("ADDL").unwrap().parse::<isize>().ok(),
-            ii: record.remove("II").unwrap().parse::<isize>().ok(),
-            input: record.remove("INPUT").unwrap().parse::<isize>().ok(),
+            // addl: record.remove("ADDL").unwrap().parse::<isize>().ok(),
+            // ii: record.remove("II").unwrap().parse::<isize>().ok(),
+            // input: record.remove("INPUT").unwrap().parse::<isize>().ok(),
             out: record.remove("OUT").unwrap().parse::<f64>().ok(),
-            outeq: record.remove("OUTEQ").unwrap().parse::<isize>().ok(),
-            c0: record.remove("C0").unwrap().parse::<f32>().ok(),
-            c1: record.remove("C1").unwrap().parse::<f32>().ok(),
-            c2: record.remove("C2").unwrap().parse::<f32>().ok(),
-            c3: record.remove("C3").unwrap().parse::<f32>().ok(),
-            cov: record.into_iter().map(|(key,value)|return (key, value.parse::<f32>().unwrap())).collect()
+            // outeq: record.remove("OUTEQ").unwrap().parse::<isize>().ok(),
+            // c0: record.remove("C0").unwrap().parse::<f32>().ok(),
+            // c1: record.remove("C1").unwrap().parse::<f32>().ok(),
+            // c2: record.remove("C2").unwrap().parse::<f32>().ok(),
+            // c3: record.remove("C3").unwrap().parse::<f32>().ok(),
+            // cov: record.into_iter().map(|(key,value)|return (key, value.parse::<f32>().unwrap())).collect()
         });
 
     }
@@ -123,10 +123,10 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
 
     Scenario { 
         id: events[0].id.clone(),
-        time: time,
-        time_dose: time_dose,
-        time_obs: time_obs,
-        dose: dose,
-        obs: obs
+        time,
+        time_dose,
+        time_obs,
+        dose,
+        obs
      }
 }
