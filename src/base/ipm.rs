@@ -1,11 +1,11 @@
 use std::error;
 
-use linfa_linalg::{cholesky::{Cholesky, SolveC}, triangular::{SolveTriangular, Triangular}, norm};
-use ndarray::{ArrayBase, Dim, OwnedRepr, Array, Zip, Array2, Ix2, Ix1, array};
+use linfa_linalg::{cholesky::{Cholesky}, triangular::{SolveTriangular}};
+use ndarray::{ArrayBase, Dim, OwnedRepr, Array, Array2, array};
 use ndarray_stats::{QuantileExt, DeviationExt};
 
 
-pub fn burke(mut psi: ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(),Box<dyn error::Error>>{
+pub fn burke(psi: &mut ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>, f64),Box<dyn error::Error>>{
     psi.par_mapv_inplace(|x| x.abs());
     // //dbg!(&psi);
 
@@ -56,10 +56,10 @@ pub fn burke(mut psi: ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(),Bo
 
     while mu > eps || norm_r > eps || gap > eps {
         iter = iter + 1;
-        dbg!(iter);
-        dbg!(mu);
-        dbg!(gap);
-        dbg!(norm_r);
+        // dbg!(iter);
+        // dbg!(mu);
+        // dbg!(gap);
+        // dbg!(norm_r);
 
         let smu = sig * mu;
         //dbg!(&smu);
@@ -143,8 +143,13 @@ pub fn burke(mut psi: ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(),Bo
         //dbg!(&sig);
         
     }
+    lam = lam/row as f64;
+    let obj = psi.dot(&lam).mapv(|x| x.ln()).sum();
+    lam = &lam/lam.sum();
+    // dbg!(lam);
+    // dbg!(obj);
     
-    Ok(())
+    Ok((lam, obj))
 
 }
 
