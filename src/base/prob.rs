@@ -17,7 +17,7 @@ where
 {
     let mut prob = Array::<f64, _>::zeros((scenarios.len(), support_points.shape()[0]).f());
     for (i, scenario) in scenarios.iter().enumerate(){
-        println!("Simulating scenario {} of {}", i, scenarios.len());
+        // println!("Simulating scenario {} of {}", i, scenarios.len());
         for (j, spp) in support_points.axis_iter(Axis(0)).enumerate(){
            
            let ypred = Array::from(sim_eng.pred(&scenario, spp.to_vec()));
