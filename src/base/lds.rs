@@ -4,7 +4,7 @@ use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
 // use ndarray::parallel::prelude::*;
 
-pub fn sobol(n_points: usize, range_params: Vec<(f64,f64)>, seed: u32) -> ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>{
+pub fn sobol(n_points: usize, range_params: &Vec<(f64,f64)>, seed: u32) -> ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>{
     let n_params = range_params.len();
     let mut seq = Array::<f64, _>::zeros((n_points, n_params).f());
     for i in 0..n_points {
