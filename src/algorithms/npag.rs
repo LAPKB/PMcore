@@ -63,7 +63,7 @@ where
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         // let mut lambda_tmp: Vec<f64> = vec![];
         for (index,lam) in lambda.iter().enumerate(){
-            if lam > &1e-8 && lam > &(lambda.max().unwrap()/1000 as f64){
+            if lam > &1e-8 && lam > &(lambda.max().unwrap()/100 as f64){
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi.column(index));
                 // lambda_tmp.push(lam.clone());
@@ -86,7 +86,7 @@ where
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut lambda_tmp: Vec<f64> = vec![];
         for (index,lam) in lambda.iter().enumerate(){
-            if lam > &(lambda.max().unwrap()/1000 as f64){
+            if lam > &(lambda.max().unwrap()/100 as f64){
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi2.column(index));
                 lambda_tmp.push(lam.clone());
@@ -100,8 +100,7 @@ where
         log::info!("Spp: {}", theta.shape()[0]);
         log::info!("{:?}",&theta);
         log::info!("{:?}",&w);
-        // dbg!(&theta);
-        log::info!("Objf: {}", &objf);
+        log::info!("Objf: {}", -2.*&objf);
         // if last_objf > objf{
         //     log::error!("Objf decreased");
         //     break;
@@ -140,13 +139,13 @@ fn adaptative_grid(theta: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, 
         let spp = theta.row(i);
         for (j, val) in spp.into_iter().enumerate(){
             let l = eps * (ranges[j].1 - ranges[j].0);//abs?
-            if val + l > ranges[j].0{
+            if val + l < ranges[j].1{
                 let mut plus = Array::zeros(spp.len());
                 plus[j] = l;
                 plus = plus + spp;
                 evaluate_spp(&mut new_theta, plus, ranges[j]);
             }
-            if val - l < ranges[j].1{
+            if val - l > ranges[j].0{
                 let mut minus = Array::zeros(spp.len());
                 minus[j] = -l;
                 minus = minus + spp;
