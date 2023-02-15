@@ -24,9 +24,9 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
     let mut plam = psi.dot(&ecol);
     // //dbg!(&plam);
     
-    if plam.min().unwrap() <= &1e-15 {
-        return Err("The vector psi*e has a non-positive entry".into());
-    }
+    // if plam.min().unwrap() <= &1e-15 {
+    //     return Err("The vector psi*e has a non-positive entry".into());
+    // }
 
     let eps = 1e-8;
     let mut sig = 0.;
