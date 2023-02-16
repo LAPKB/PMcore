@@ -13,7 +13,7 @@ const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32)
+pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64))
 where
     S: Simulate
 {
@@ -49,7 +49,7 @@ where
         log::info!("Cycle: {}", cycle);
         
         // psi n_sub rows, nspp columns
-        psi = prob(&sim_eng, &scenarios, &theta);
+        psi = prob(&sim_eng, &scenarios, &theta, c);
         (lambda,_) = match ipm::burke(&psi){
             Ok((lambda,objf)) => (lambda, objf),
             Err(err) =>{
