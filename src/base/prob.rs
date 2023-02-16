@@ -11,7 +11,7 @@ const FRAC_1_SQRT_2PI: f64 = std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts
 
 
 
-pub fn prob<S>(sim_eng: &Engine<S>, scenarios: &Vec<Scenario>, support_points: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>
+pub fn prob<S>(sim_eng: &Engine<S>, scenarios: &Vec<Scenario>, support_points: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>, c: (f64,f64,f64,f64)) -> ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>
 where
     S: Simulate
 {
@@ -23,7 +23,7 @@ where
            let yobs = Array::from(scenario.obs.clone());
            //TODO: esto se puede mover a datafile::read
            // 0.020000,0.050000,-0.000200,0.000000
-           let sigma = 0.3 + &yobs * 0.1;// + &yobs.mapv(|x| x.powi(2)) * (0.);
+           let sigma = c.0 + c.1* &yobs + c.2 * &yobs.mapv(|x| x.powi(2))+ c.3 * &yobs.mapv(|x| x.powi(3));
            let diff = (yobs-ypred).mapv(|x| x.powi(2));
            let two_sigma_sq = (2.0*&sigma).mapv(|x| x.powi(2));
            
