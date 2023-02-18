@@ -1,7 +1,7 @@
 # NPcore
 Rust Library with the building blocks needed to create new Non-Parametric algorithms and it's integration with Pmetrics
 
-## Actual functionality
+## Implemented functionality
 
 * Runs models using ODEs
 * Basic NPAG implementation
