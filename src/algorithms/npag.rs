@@ -17,22 +17,25 @@ pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String
 where
     S: Simulate
 {
-    let logfile = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
-        .build("log/output.log").unwrap();
-
-    let config = Config::builder()
-        .appender(Appender::builder().build("logfile", Box::new(logfile)))
-        .build(Root::builder()
-                   .appender("logfile")
-                   .build(LevelFilter::Info)).unwrap();
-
-    log4rs::init_config(config).unwrap();
-
-
-
-
     let settings = settings::read(settings_path);
+
+    match settings.paths.log_out {
+        Some(log_path) => {
+            let logfile = FileAppender::builder()
+            .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+            .build(log_path).unwrap();
+
+        let config = Config::builder()
+            .appender(Appender::builder().build("logfile", Box::new(logfile)))
+            .build(Root::builder()
+                    .appender("logfile")
+                    .build(LevelFilter::Info)).unwrap();
+
+        log4rs::init_config(config).unwrap();
+        },
+        None => {}
+    };
+
     let mut theta = lds::sobol(settings.config.init_points, &ranges, seed);
     let scenarios = datafile::parse(settings.paths.data).unwrap();
     let mut psi: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>;

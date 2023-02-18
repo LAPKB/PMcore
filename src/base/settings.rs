@@ -12,7 +12,8 @@
 
     #[derive(Deserialize)]
     pub struct Paths {
-        pub data: String
+        pub data: String,
+        pub log_out: Option<String>
     }
 
     #[derive(Deserialize)]

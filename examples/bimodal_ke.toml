@@ -1,0 +1,8 @@
+[paths]
+data = "examples/bimodal_ke.csv"
+log_out = "log/bimodal_ke.log"
+
+[config]
+cycles = 1024
+engine = "NPAG"
+init_points = 100
