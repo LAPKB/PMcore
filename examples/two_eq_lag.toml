@@ -1,0 +1,9 @@
+[paths]
+data = "examples/two_eq_lag.csv"
+log_out = "log/two_eq_lag.log"
+
+
+[config]
+cycles = 1024
+engine = "NPAG"
+init_points = 500
