@@ -16,10 +16,9 @@ impl ode_solvers::System<State> for Model<'_> {
         // let t = t - self.lag;
         
         let mut rateiv = [0.0, 0.0];
-        // rateiv[0] = if t>=0.0 && t<= 0.5 {500.0/0.5} else{0.0};
         for infusion in &self.scenario.infusions{
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
-                rateiv[infusion.compartment] = infusion.amount / infusion.dur;
+                rateiv[infusion.compartment] += infusion.amount / infusion.dur;
             }
         }
 
@@ -29,7 +28,7 @@ impl ode_solvers::System<State> for Model<'_> {
 
         //////////////// END USER DEFINED ////////////////
         // for dose in &self.scenario.doses{
-        //     if (t-dose.time as f64).abs() < 1.0e-4 {
+        //     if (t-dose.time).abs() < 1.0e-4 {
         //         y[dose.compartment-1] += dose.dose;
         //     }
         // }
@@ -39,16 +38,21 @@ impl ode_solvers::System<State> for Model<'_> {
 struct Sim{}
 
 impl Simulate for Sim{
-    fn simulate(&self, params: Vec<f64>, tspan:[f64;2], scenario: &Scenario) -> (Vec<f64>, Vec<f64>) {
+    fn simulate(&self, params: Vec<f64>, tspan:[f64;2], scenario: &Scenario) -> (Vec<f64>, Vec<Vec<f64>>) {
         let system = Model {ke: params[0], _v: params[1], scenario: scenario};
         let y0 = State::new(0.0);
         let mut stepper = Rk4::new(system, tspan[0], y0, tspan[1],0.1);
         let _res = stepper.integrate();
         let x = stepper.x_out().to_vec();
         let y = stepper.y_out();
-        let yout: Vec<f64> = y.into_iter().map(|y| {
+
+
+        let yout: Vec<Vec<f64>> = vec![];
+        let y0: Vec<f64> = y.into_iter().map(|y| {
             y[0]/params[1]
         } ).collect();
+
+
         (x, yout)    
     }
 } 
