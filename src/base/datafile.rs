@@ -9,8 +9,8 @@ struct Event{
     id: String,
     evid: isize,
     time: f64,
-    dur: Option<f32>,
-    dose: Option<f32>,
+    dur: Option<f64>,
+    dose: Option<f64>,
     // addl: Option<isize>,
     // ii: Option<isize>,
     input: Option<usize>,
@@ -38,8 +38,8 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             id: record.remove("ID").unwrap(),
             evid: record.remove("EVID").unwrap().parse::<isize>().unwrap(),
             time: record.remove("TIME").unwrap().parse::<f64>().unwrap(),
-            dur: record.remove("DUR").unwrap().parse::<f32>().ok(),
-            dose: record.remove("DOSE").unwrap().parse::<f32>().ok(),
+            dur: record.remove("DUR").unwrap().parse::<f64>().ok(),
+            dose: record.remove("DOSE").unwrap().parse::<f64>().ok(),
             // addl: record.remove("ADDL").unwrap().parse::<isize>().ok(),
             // ii: record.remove("II").unwrap().parse::<isize>().ok(),
             input: record.remove("INPUT").unwrap().parse::<usize>().ok(),
@@ -69,6 +69,13 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     Ok(scenarios)
 }
 
+#[derive(Debug)]
+pub struct Dose {
+    pub time: f64,
+    pub dose: f64,
+    pub compartment: usize
+}
+
 
 //This structure represents a full set of dosing events for a single ID
 //TODO: I should transform the ADDL and II elements into the right dose events
@@ -77,10 +84,11 @@ pub struct Scenario{
     pub id: String, //id of the Scenario
     pub time: Vec<f64>, //ALL times
     pub time_infusion: Vec<f64>,
-    pub time_dose: Vec<f64>, //dose times
+    pub doses: Vec<Dose>,
+    // pub time_dose: Vec<f64>, //dose times
     pub time_obs: Vec<f64>, //obs times
-    pub infusion: Vec<(f64,f64,usize)>,
-    pub dose: Vec<(f32,usize)>, // dose @ time_dose
+    pub infusion: Vec<(f64,f64,usize)>,// dose, dur, comp
+    // pub dose: Vec<(f32,usize)>, // dose @ time_dose
     pub obs: Vec<f64>, // obs @ time_obs
 }
 
@@ -107,10 +115,9 @@ pub struct Scenario{
 fn parse_events_to_scenario(events: &[Event]) -> Scenario{
     let mut time: Vec<f64> = vec![];
     let mut time_infusion: Vec<f64> = vec![];  
-    let mut time_dose: Vec<f64> = vec![];  
+    let mut doses: Vec<Dose> = vec![];
     let mut time_obs: Vec<f64> = vec![];
     let mut infusion: Vec<(f64,f64, usize)> = vec![];
-    let mut dose: Vec<(f32,usize)> = vec![];
     let mut obs: Vec<f64> = vec![];
     for event in events {
         time.push(event.time);
@@ -120,8 +127,7 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
                 infusion.push((event.dose.unwrap().into(),event.dur.unwrap().into(),event.input.unwrap()));
                 time_infusion.push(event.time);
             } else {
-                dose.push((event.dose.unwrap(),event.input.unwrap()));
-                time_dose.push(event.time);
+                doses.push(Dose { time: event.time, dose: event.dose.unwrap(), compartment: event.input.unwrap() });
             }
             
         } else if event.evid == 0 { //obs event
@@ -135,10 +141,9 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
         id: events[0].id.clone(),
         time,
         time_infusion,
-        time_dose,
+        doses,
         time_obs,
         infusion,
-        dose,
         obs
      }
 }
