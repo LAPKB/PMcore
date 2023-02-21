@@ -36,7 +36,7 @@ impl ode_solvers::System<State> for Model<'_> {
         //////////////// END USER DEFINED ////////////////
         for dose in &self.scenario.doses{
             if (t-dose.time as f64).abs() < 1.0e-4 {
-                y[dose.compartment-1] += dose.dose;
+                y[dose.compartment] += dose.dose;
             }
         }
 

@@ -76,19 +76,24 @@ pub struct Dose {
     pub compartment: usize
 }
 
-
+#[derive(Debug)]
+pub struct Infusion {
+    pub time: f64,
+    pub dur: f64,
+    pub amount: f64,
+    pub compartment: usize
+}
 //This structure represents a full set of dosing events for a single ID
 //TODO: I should transform the ADDL and II elements into the right dose events
 #[derive(Debug)]
 pub struct Scenario{
     pub id: String, //id of the Scenario
     pub time: Vec<f64>, //ALL times
-    pub time_infusion: Vec<f64>,
+    pub infusions: Vec<Infusion>,
+    // pub time_infusion: Vec<f64>,
     pub doses: Vec<Dose>,
-    // pub time_dose: Vec<f64>, //dose times
     pub time_obs: Vec<f64>, //obs times
-    pub infusion: Vec<(f64,f64,usize)>,// dose, dur, comp
-    // pub dose: Vec<(f32,usize)>, // dose @ time_dose
+    // pub infusion: Vec<(f64,f64,usize)>,// dose, dur, comp
     pub obs: Vec<f64>, // obs @ time_obs
 }
 
@@ -102,8 +107,6 @@ pub struct Scenario{
 // *  DUR
 // *  C0, C1, C2, C3
 
-//TODO Need support for dur and input to support rateiv
-
 //TODO: time needs to be expanded with the times relevant to ADDL and II
 //TODO: Also dose must be expanded because of the same reason
 
@@ -114,20 +117,31 @@ pub struct Scenario{
 
 fn parse_events_to_scenario(events: &[Event]) -> Scenario{
     let mut time: Vec<f64> = vec![];
-    let mut time_infusion: Vec<f64> = vec![];  
+    // let mut time_infusion: Vec<f64> = vec![];  
     let mut doses: Vec<Dose> = vec![];
+    let mut infusions: Vec<Infusion> = vec![];
     let mut time_obs: Vec<f64> = vec![];
-    let mut infusion: Vec<(f64,f64, usize)> = vec![];
+    // let mut infusion: Vec<(f64,f64, usize)> = vec![];
     let mut obs: Vec<f64> = vec![];
     for event in events {
         time.push(event.time);
         
         if event.evid == 1 { //dose event
             if event.dur.unwrap_or(0.0) > 0.0 {
-                infusion.push((event.dose.unwrap().into(),event.dur.unwrap().into(),event.input.unwrap()));
-                time_infusion.push(event.time);
+                infusions.push(
+                    Infusion { 
+                        time: event.time,
+                        dur: event.dur.unwrap().into(),
+                        amount: event.dose.unwrap().into(),
+                        compartment: event.input.unwrap() - 1
+                    });
             } else {
-                doses.push(Dose { time: event.time, dose: event.dose.unwrap(), compartment: event.input.unwrap() });
+                doses.push(
+                    Dose { 
+                        time: event.time, 
+                        dose: event.dose.unwrap(), 
+                        compartment: event.input.unwrap() - 1
+                    });
             }
             
         } else if event.evid == 0 { //obs event
@@ -140,10 +154,9 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
     Scenario { 
         id: events[0].id.clone(),
         time,
-        time_infusion,
         doses,
+        infusions,
         time_obs,
-        infusion,
         obs
      }
 }

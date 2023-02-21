@@ -17,11 +17,9 @@ impl ode_solvers::System<State> for Model<'_> {
         
         let mut rateiv = [0.0, 0.0];
         // rateiv[0] = if t>=0.0 && t<= 0.5 {500.0/0.5} else{0.0};
-        for index in 0..self.scenario.infusion.len(){
-            if t >= self.scenario.time_infusion[index] &&
-               t <= (self.scenario.time_infusion[index] - self.scenario.infusion[index].1) {
-                rateiv[self.scenario.infusion[index].2 - 1] =
-                    self.scenario.infusion[index].0 / self.scenario.infusion[index].1;
+        for infusion in &self.scenario.infusions{
+            if t >= infusion.time && t <= (infusion.dur + infusion.time) {
+                rateiv[infusion.compartment] = infusion.amount / infusion.dur;
             }
         }
 
