@@ -47,7 +47,7 @@ impl Simulate for Sim{
         let y = stepper.y_out();
 
 
-        let yout: Vec<Vec<f64>> = vec![];
+        let mut yout: Vec<Vec<f64>> = vec![];
         let y0: Vec<f64> = y.into_iter().map(|y| {
             y[0]/params[1]
         } ).collect();
