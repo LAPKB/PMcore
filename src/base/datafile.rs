@@ -15,7 +15,7 @@ struct Event{
     // ii: Option<isize>,
     input: Option<usize>,
     out: Option<f64>,
-    // outeq: Option<isize>,
+    outeq: Option<usize>,
     // c0: Option<f32>,
     // c1: Option<f32>,
     // c2: Option<f32>,
@@ -44,7 +44,7 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             // ii: record.remove("II").unwrap().parse::<isize>().ok(),
             input: record.remove("INPUT").unwrap().parse::<usize>().ok(),
             out: record.remove("OUT").unwrap().parse::<f64>().ok(),
-            // outeq: record.remove("OUTEQ").unwrap().parse::<isize>().ok(),
+            outeq: record.remove("OUTEQ").unwrap().parse::<usize>().ok(),
             // c0: record.remove("C0").unwrap().parse::<f32>().ok(),
             // c1: record.remove("C1").unwrap().parse::<f32>().ok(),
             // c2: record.remove("C2").unwrap().parse::<f32>().ok(),
@@ -90,11 +90,11 @@ pub struct Scenario{
     pub id: String, //id of the Scenario
     pub time: Vec<f64>, //ALL times
     pub infusions: Vec<Infusion>,
-    // pub time_infusion: Vec<f64>,
     pub doses: Vec<Dose>,
-    pub time_obs: Vec<f64>, //obs times
-    // pub infusion: Vec<(f64,f64,usize)>,// dose, dur, comp
-    pub obs: Vec<f64>, // obs @ time_obs
+    pub time_obs: Vec<Vec<f64>>, //obs times
+    pub obs: Vec<Vec<f64>>, // obs @ time_obs
+    pub time_flat: Vec<f64>,
+    pub obs_flat: Vec<f64>
 }
 
 // Current Limitations:
@@ -103,26 +103,21 @@ pub struct Scenario{
 // *  EVID!= 1 or 2
 // *  ADDL & II
 // *  OUTEQ
-// *  INPUT
-// *  DUR
 // *  C0, C1, C2, C3
 
 //TODO: time needs to be expanded with the times relevant to ADDL and II
 //TODO: Also dose must be expanded because of the same reason
 
-// dose: , //This should be a map (or function) with dose values for every time
 // cov: , //this should be a matrix (or function ), with values for each cov and time
-// rateiv: ,//this one should be a function, tht returns the rate calculation for RATEIV
-            //based on the DOSE and DUR values
+
 
 fn parse_events_to_scenario(events: &[Event]) -> Scenario{
     let mut time: Vec<f64> = vec![];
-    // let mut time_infusion: Vec<f64> = vec![];  
     let mut doses: Vec<Dose> = vec![];
     let mut infusions: Vec<Infusion> = vec![];
-    let mut time_obs: Vec<f64> = vec![];
-    // let mut infusion: Vec<(f64,f64, usize)> = vec![];
-    let mut obs: Vec<f64> = vec![];
+    let mut raw_time_obs: Vec<f64> = vec![];
+    let mut raw_obs: Vec<f64> = vec![];
+    let mut raw_outeq: Vec<usize> = vec![];
     for event in events {
         time.push(event.time);
         
@@ -131,8 +126,8 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
                 infusions.push(
                     Infusion { 
                         time: event.time,
-                        dur: event.dur.unwrap().into(),
-                        amount: event.dose.unwrap().into(),
+                        dur: event.dur.unwrap(),
+                        amount: event.dose.unwrap(),
                         compartment: event.input.unwrap() - 1
                     });
             } else {
@@ -145,11 +140,33 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
             }
             
         } else if event.evid == 0 { //obs event
-            obs.push(event.out.unwrap());
-            time_obs.push(event.time);
-        }
-        
+            raw_obs.push(event.out.unwrap());
+            raw_time_obs.push(event.time);
+            raw_outeq.push(event.outeq.unwrap());
+        }       
     }
+
+    let max_outeq = raw_outeq.iter().max().unwrap();
+
+    let mut time_obs: Vec<Vec<f64>> = vec![];
+    let mut obs: Vec<Vec<f64>> = vec![];
+
+    for _ in 0..*max_outeq{
+        time_obs.push(vec![]);
+        obs.push(vec![]);
+    }
+    
+    for ((t,o), eq) in raw_time_obs.iter().zip(raw_obs.iter()).zip(raw_outeq.iter()){
+        time_obs.get_mut(eq-1).unwrap().push(*t);
+        obs.get_mut(eq-1).unwrap().push(*o);
+    }
+
+    let time_flat = time_obs.clone().into_iter().flatten().collect::<Vec<f64>>();
+    let obs_flat = obs.clone().into_iter().flatten().collect::<Vec<f64>>();
+
+    //time_obs[outeq]: Vec<Vec<f64>>
+    //obs[outeq]
+    //num_outeq
 
     Scenario { 
         id: events[0].id.clone(),
@@ -157,6 +174,8 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
         doses,
         infusions,
         time_obs,
-        obs
+        obs,
+        time_flat,
+        obs_flat
      }
 }
