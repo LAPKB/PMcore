@@ -51,6 +51,7 @@ impl Simulate for Sim{
         let y0: Vec<f64> = y.into_iter().map(|y| {
             y[0]/params[1]
         } ).collect();
+        yout.push(y0);
 
 
         (x, yout)    
