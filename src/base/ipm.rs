@@ -3,9 +3,10 @@ use std::error;
 use linfa_linalg::{cholesky::{Cholesky}, triangular::{SolveTriangular}};
 use ndarray::{ArrayBase, Dim, OwnedRepr, Array, Array2, array};
 use ndarray_stats::{QuantileExt, DeviationExt};
+type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
 
-pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>, f64),Box<dyn error::Error>>{
+pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(OneDimArray, f64),Box<dyn error::Error>>{
     // psi.par_mapv_inplace(|x| x.abs());
     // //dbg!(&psi);
 
@@ -49,7 +50,7 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
 
     let sum_log_plam = plam.mapv(|x:f64| x.ln()).sum();
 
-    let mut gap = (w.mapv(|x:f64| x.ln()).sum() + &sum_log_plam).abs() / (1.+ &sum_log_plam);
+    let mut gap = (w.mapv(|x:f64| x.ln()).sum() + sum_log_plam).abs() / (1.+ sum_log_plam);
     let mut  mu = lam.t().dot(&y)/col as f64;
 
     // let mut iter: usize = 0;
@@ -132,7 +133,7 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
         norm_r = norm_inf(r);
         //dbg!(&norm_r);
         let sum_log_plam = plam.mapv(|x:f64| x.ln()).sum();
-        gap = (w.mapv(|x:f64| x.ln()).sum() + &sum_log_plam).abs() / (1.+ &sum_log_plam);
+        gap = (w.mapv(|x:f64| x.ln()).sum() + sum_log_plam).abs() / (1.+ sum_log_plam);
         //dbg!(&gap);
 
         if mu<eps && norm_r>eps {

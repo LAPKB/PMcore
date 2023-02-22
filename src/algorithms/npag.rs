@@ -18,23 +18,7 @@ where
     S: Simulate
 {
     let settings = settings::read(settings_path);
-
-    match settings.paths.log_out {
-        Some(log_path) => {
-            let logfile = FileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
-            .build(log_path).unwrap();
-
-        let config = Config::builder()
-            .appender(Appender::builder().build("logfile", Box::new(logfile)))
-            .build(Root::builder()
-                    .appender("logfile")
-                    .build(LevelFilter::Info)).unwrap();
-
-        log4rs::init_config(config).unwrap();
-        },
-        None => {}
-    };
+    setup_log(&settings);
 
     let mut theta = lds::sobol(settings.config.init_points, &ranges, seed);
     let scenarios = datafile::parse(settings.paths.data).unwrap();
@@ -103,7 +87,7 @@ where
         log::info!("Spp: {}", theta.shape()[0]);
         log::info!("{:?}",&theta);
         log::info!("{:?}",&w);
-        log::info!("Objf: {}", -2.*&objf);
+        log::info!("Objf: {}", -2.*objf);
         // if last_objf > objf{
         //     log::error!("Objf decreased");
         //     break;
@@ -134,7 +118,7 @@ where
     }
 }
 
-fn adaptative_grid(theta: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &Vec<(f64,f64)>) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
+fn adaptative_grid(theta: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
     let (n_spp, _dim) = theta.dim();
     // dbg!(theta.dim());
     let mut new_theta = theta.clone();
@@ -169,4 +153,20 @@ fn evaluate_spp(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, candidat
     if dist > THETA_D{
         theta.push_row(candidate.view()).unwrap();
     }
+}
+
+fn setup_log(settings: &Data){
+    if let Some(log_path) = &settings.paths.log_out {
+        let logfile = FileAppender::builder()
+            .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+            .build(log_path).unwrap();
+
+        let config = Config::builder()
+            .appender(Appender::builder().build("logfile", Box::new(logfile)))
+            .build(Root::builder()
+            .appender("logfile")
+            .build(LevelFilter::Info)).unwrap();
+
+        log4rs::init_config(config).unwrap();
+    };
 }
