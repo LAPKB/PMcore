@@ -52,10 +52,10 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
     let mut gap = (w.mapv(|x:f64| x.ln()).sum() + &sum_log_plam).abs() / (1.+ &sum_log_plam);
     let mut  mu = lam.t().dot(&y)/col as f64;
 
-    let mut iter: usize = 0;
+    // let mut iter: usize = 0;
 
     while mu > eps || norm_r > eps || gap > eps {
-        iter += 1;
+        // iter += 1;
         // dbg!(iter);
         // dbg!(mu);
         // dbg!(gap);
