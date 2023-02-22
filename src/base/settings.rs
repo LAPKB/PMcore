@@ -3,7 +3,6 @@
     use std::process::exit;
     use toml;
 
-
     #[derive(Deserialize)]
     pub struct Data {
         pub paths: Paths,
