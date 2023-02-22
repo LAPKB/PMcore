@@ -3,9 +3,10 @@ use std::error;
 use linfa_linalg::{cholesky::{Cholesky}, triangular::{SolveTriangular}};
 use ndarray::{ArrayBase, Dim, OwnedRepr, Array, Array2, array};
 use ndarray_stats::{QuantileExt, DeviationExt};
+type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
 
-pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>, f64),Box<dyn error::Error>>{
+pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(OneDimArray, f64),Box<dyn error::Error>>{
     // psi.par_mapv_inplace(|x| x.abs());
     // //dbg!(&psi);
 
@@ -38,24 +39,24 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
     // //dbg!(&w);
     let mut ptw = psi.t().dot(&w);
     // //dbg!(&ptw);
-    let shrink = 2.*ptw.max().unwrap().clone();
-    lam = lam * shrink;
-    plam = plam * shrink;
-    w = w/shrink;
-    ptw = ptw/shrink;
+    let shrink = 2.**ptw.max().unwrap();
+    lam *= shrink;
+    plam *= shrink;
+    w /= shrink;
+    ptw /= shrink;
     let mut y = &ecol - &ptw;
     let mut r = &erow - &w*&plam;
     let mut norm_r = norm_inf(r);
 
     let sum_log_plam = plam.mapv(|x:f64| x.ln()).sum();
 
-    let mut gap = (w.mapv(|x:f64| x.ln()).sum() + &sum_log_plam).abs() / (1.+ &sum_log_plam);
+    let mut gap = (w.mapv(|x:f64| x.ln()).sum() + sum_log_plam).abs() / (1.+ sum_log_plam);
     let mut  mu = lam.t().dot(&y)/col as f64;
 
-    let mut iter: usize = 0;
+    // let mut iter: usize = 0;
 
     while mu > eps || norm_r > eps || gap > eps {
-        iter = iter + 1;
+        // iter += 1;
         // dbg!(iter);
         // dbg!(mu);
         // dbg!(gap);
@@ -83,7 +84,7 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
         //dbg!(&smuyinv);
         let rhsdw = &erow/&w - (psi.dot(&smuyinv));
         //dbg!(&rhsdw);
-        let a = rhsdw.clone().into_shape((rhsdw.len().clone(),1))?;
+        let a = rhsdw.clone().into_shape((rhsdw.len(),1))?;
         //todo: cleanup this aux variable
         // //dbg!(uph.t().is_triangular(linfa_linalg::triangular::UPLO::Upper));
 
@@ -132,7 +133,7 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
         norm_r = norm_inf(r);
         //dbg!(&norm_r);
         let sum_log_plam = plam.mapv(|x:f64| x.ln()).sum();
-        gap = (w.mapv(|x:f64| x.ln()).sum() + &sum_log_plam).abs() / (1.+ &sum_log_plam);
+        gap = (w.mapv(|x:f64| x.ln()).sum() + sum_log_plam).abs() / (1.+ sum_log_plam);
         //dbg!(&gap);
 
         if mu<eps && norm_r>eps {
@@ -143,7 +144,7 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
         //dbg!(&sig);
         
     }
-    lam = lam/row as f64;
+    lam /= row as f64;
     let obj = psi.dot(&lam).mapv(|x| x.ln()).sum();
     lam = &lam/lam.sum();
     // dbg!(lam);

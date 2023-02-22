@@ -18,23 +18,7 @@ where
     S: Simulate
 {
     let settings = settings::read(settings_path);
-
-    match settings.paths.log_out {
-        Some(log_path) => {
-            let logfile = FileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
-            .build(log_path).unwrap();
-
-        let config = Config::builder()
-            .appender(Appender::builder().build("logfile", Box::new(logfile)))
-            .build(Root::builder()
-                    .appender("logfile")
-                    .build(LevelFilter::Info)).unwrap();
-
-        log4rs::init_config(config).unwrap();
-        },
-        None => {}
-    };
+    setup_log(&settings);
 
     let mut theta = lds::sobol(settings.config.init_points, &ranges, seed);
     let scenarios = datafile::parse(settings.paths.data).unwrap();
@@ -66,7 +50,7 @@ where
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         // let mut lambda_tmp: Vec<f64> = vec![];
         for (index,lam) in lambda.iter().enumerate(){
-            if lam > &1e-8 && lam > &(lambda.max().unwrap()/100 as f64){
+            if lam > &1e-8 && lam > &(lambda.max().unwrap()/100_f64){
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi.column(index));
                 // lambda_tmp.push(lam.clone());
@@ -89,10 +73,10 @@ where
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut lambda_tmp: Vec<f64> = vec![];
         for (index,lam) in lambda.iter().enumerate(){
-            if lam > &(lambda.max().unwrap()/100 as f64){
+            if lam > &(lambda.max().unwrap()/100_f64){
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi2.column(index));
-                lambda_tmp.push(lam.clone());
+                lambda_tmp.push(*lam);
             }
         }
         theta = stack(Axis(0),&theta_rows).unwrap();
@@ -103,7 +87,7 @@ where
         log::info!("Spp: {}", theta.shape()[0]);
         log::info!("{:?}",&theta);
         log::info!("{:?}",&w);
-        log::info!("Objf: {}", -2.*&objf);
+        log::info!("Objf: {}", -2.*objf);
         // if last_objf > objf{
         //     log::error!("Objf decreased");
         //     break;
@@ -111,7 +95,7 @@ where
         
 
         if (last_objf-objf).abs() <= THETA_G && eps>THETA_E{
-            eps = eps/2.;
+            eps /= 2.;
             if eps <= THETA_E{
                 f1 = pyl.mapv(|x| x.ln()).sum();
                 if (f1- f0).abs() <= THETA_F{
@@ -129,12 +113,12 @@ where
         }
         theta = adaptative_grid(theta, eps, &ranges);
         // dbg!(&theta);
-        cycle = cycle+1; 
+        cycle += 1; 
         last_objf = objf;
     }
 }
 
-fn adaptative_grid(theta: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &Vec<(f64,f64)>) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
+fn adaptative_grid(theta: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
     let (n_spp, _dim) = theta.dim();
     // dbg!(theta.dim());
     let mut new_theta = theta.clone();
@@ -169,4 +153,20 @@ fn evaluate_spp(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, candidat
     if dist > THETA_D{
         theta.push_row(candidate.view()).unwrap();
     }
+}
+
+fn setup_log(settings: &Data){
+    if let Some(log_path) = &settings.paths.log_out {
+        let logfile = FileAppender::builder()
+            .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+            .build(log_path).unwrap();
+
+        let config = Config::builder()
+            .appender(Appender::builder().build("logfile", Box::new(logfile)))
+            .build(Root::builder()
+            .appender("logfile")
+            .build(LevelFilter::Info)).unwrap();
+
+        log4rs::init_config(config).unwrap();
+    };
 }
