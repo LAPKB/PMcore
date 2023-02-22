@@ -102,7 +102,6 @@ pub struct Scenario{
 // This version does not handle
 // *  EVID!= 1 or 2
 // *  ADDL & II
-// *  OUTEQ
 // *  C0, C1, C2, C3
 
 //TODO: time needs to be expanded with the times relevant to ADDL and II
