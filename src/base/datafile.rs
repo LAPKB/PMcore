@@ -23,7 +23,6 @@ struct Event{
     // cov: HashMap<String, f32>
 }
 pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
-
     let mut rdr = csv::ReaderBuilder::new()
         // .delimiter(b',')
         // .escape(Some(b'\\'))
@@ -32,8 +31,7 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut events: Vec<Event> = vec![];
 
     for result in rdr.deserialize() {
-        let mut record: Record = result?;
-        
+        let mut record: Record = result?;   
         events.push(Event{
             id: record.remove("ID").unwrap(),
             evid: record.remove("EVID").unwrap().parse::<isize>().unwrap(),
@@ -51,21 +49,12 @@ pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             // c3: record.remove("C3").unwrap().parse::<f32>().ok(),
             // cov: record.into_iter().map(|(key,value)|return (key, value.parse::<f32>().unwrap())).collect()
         });
-
     }
-
-
     let mut scenarios: Vec<Scenario> = vec![];
-    
     let ev_iter = events.group_by_mut(|a,b| a.id == b.id);
-    
     for group in ev_iter{
         scenarios.push(parse_events_to_scenario(group));
     }
-
-    // dbg!(&scenarios);
-
-
     Ok(scenarios)
 }
 
@@ -96,20 +85,14 @@ pub struct Scenario{
     pub time_flat: Vec<f64>,
     pub obs_flat: Vec<f64>
 }
-
 // Current Limitations:
-
 // This version does not handle
 // *  EVID!= 1 or 2
 // *  ADDL & II
 // *  C0, C1, C2, C3
-
 //TODO: time needs to be expanded with the times relevant to ADDL and II
 //TODO: Also dose must be expanded because of the same reason
-
 // cov: , //this should be a matrix (or function ), with values for each cov and time
-
-
 fn parse_events_to_scenario(events: &[Event]) -> Scenario{
     let mut time: Vec<f64> = vec![];
     let mut doses: Vec<Dose> = vec![];
@@ -137,7 +120,6 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
                         compartment: event.input.unwrap() - 1
                     });
             }
-            
         } else if event.evid == 0 { //obs event
             raw_obs.push(event.out.unwrap());
             raw_time_obs.push(event.time);
@@ -146,27 +128,18 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
     }
 
     let max_outeq = raw_outeq.iter().max().unwrap();
-
     let mut time_obs: Vec<Vec<f64>> = vec![];
     let mut obs: Vec<Vec<f64>> = vec![];
-
     for _ in 0..*max_outeq{
         time_obs.push(vec![]);
         obs.push(vec![]);
-    }
-    
+    }  
     for ((t,o), eq) in raw_time_obs.iter().zip(raw_obs.iter()).zip(raw_outeq.iter()){
         time_obs.get_mut(eq-1).unwrap().push(*t);
         obs.get_mut(eq-1).unwrap().push(*o);
     }
-
     let time_flat = time_obs.clone().into_iter().flatten().collect::<Vec<f64>>();
     let obs_flat = obs.clone().into_iter().flatten().collect::<Vec<f64>>();
-
-    //time_obs[outeq]: Vec<Vec<f64>>
-    //obs[outeq]
-    //num_outeq
-
     Scenario { 
         id: events[0].id.clone(),
         time,
