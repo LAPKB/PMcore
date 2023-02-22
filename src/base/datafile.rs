@@ -126,8 +126,8 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
                 infusions.push(
                     Infusion { 
                         time: event.time,
-                        dur: event.dur.unwrap().into(),
-                        amount: event.dose.unwrap().into(),
+                        dur: event.dur.unwrap(),
+                        amount: event.dose.unwrap(),
                         compartment: event.input.unwrap() - 1
                     });
             } else {

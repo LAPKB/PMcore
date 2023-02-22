@@ -38,11 +38,11 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
     // //dbg!(&w);
     let mut ptw = psi.t().dot(&w);
     // //dbg!(&ptw);
-    let shrink = 2.*ptw.max().unwrap().clone();
-    lam = lam * shrink;
-    plam = plam * shrink;
-    w = w/shrink;
-    ptw = ptw/shrink;
+    let shrink = 2.**ptw.max().unwrap();
+    lam *= shrink;
+    plam *= shrink;
+    w /= shrink;
+    ptw /= shrink;
     let mut y = &ecol - &ptw;
     let mut r = &erow - &w*&plam;
     let mut norm_r = norm_inf(r);
@@ -55,7 +55,7 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
     let mut iter: usize = 0;
 
     while mu > eps || norm_r > eps || gap > eps {
-        iter = iter + 1;
+        iter += 1;
         // dbg!(iter);
         // dbg!(mu);
         // dbg!(gap);
@@ -83,7 +83,7 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
         //dbg!(&smuyinv);
         let rhsdw = &erow/&w - (psi.dot(&smuyinv));
         //dbg!(&rhsdw);
-        let a = rhsdw.clone().into_shape((rhsdw.len().clone(),1))?;
+        let a = rhsdw.clone().into_shape((rhsdw.len(),1))?;
         //todo: cleanup this aux variable
         // //dbg!(uph.t().is_triangular(linfa_linalg::triangular::UPLO::Upper));
 
@@ -143,7 +143,7 @@ pub fn burke(psi: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 2]>>) -> Result<(ArrayBa
         //dbg!(&sig);
         
     }
-    lam = lam/row as f64;
+    lam /= row as f64;
     let obj = psi.dot(&lam).mapv(|x| x.ln()).sum();
     lam = &lam/lam.sum();
     // dbg!(lam);
