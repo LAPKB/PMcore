@@ -161,8 +161,8 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario{
         obs.get_mut(eq-1).unwrap().push(*o);
     }
 
-    let time_flat = time_obs.into_iter().flatten().collect::<Vec<f64>>();
-    let obs_flat = obs.into_iter().flatten().collect::<Vec<f64>>();
+    let time_flat = time_obs.clone().into_iter().flatten().collect::<Vec<f64>>();
+    let obs_flat = obs.clone().into_iter().flatten().collect::<Vec<f64>>();
 
     //time_obs[outeq]: Vec<Vec<f64>>
     //obs[outeq]

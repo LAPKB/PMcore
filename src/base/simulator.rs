@@ -20,19 +20,20 @@ where
             sim
         }
     }
-    pub fn pred(&self, scenario: &Scenario, params: Vec<f64>) -> Vec<Vec<f64>>{
+    pub fn pred(&self, scenario: &Scenario, params: Vec<f64>) -> Vec<f64>{
         let (x_out, y_out) = self.sim.simulate(
             params,
-            [scenario.time.first().unwrap().clone() as f64, scenario.time_obs.last().unwrap().clone() as f64],
+            [scenario.time.first().unwrap().clone() as f64, scenario.time.last().unwrap().clone() as f64],
             scenario
         );
 
-        let y_intrp: Vec<Vec<f64>> = vec![]; 
-        for out in y_out{
-            y_intrp.push(interp_slice(&x_out, &out, &scenario.time_obs[..]));
+        let mut y_intrp: Vec<Vec<f64>> = vec![]; 
+        for (i,out) in y_out.iter().enumerate(){
+            y_intrp.push(interp_slice(&x_out, &out, &scenario.time_obs.get(i).unwrap()[..]));
         }
+        let y_intrp_flat = y_intrp.into_iter().flatten().collect::<Vec<f64>>();
         
-        y_intrp
+        y_intrp_flat
     }
 
 

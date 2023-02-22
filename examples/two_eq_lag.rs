@@ -46,7 +46,7 @@ impl ode_solvers::System<State> for Model<'_> {
 struct Sim{}
 
 impl Simulate for Sim{
-    fn simulate(&self, params: Vec<f64>, tspan:[f64;2], scenario: &Scenario) -> (Vec<f64>, Vec<f64>) {
+    fn simulate(&self, params: Vec<f64>, tspan:[f64;2], scenario: &Scenario) -> (Vec<f64>, Vec<Vec<f64>>) {
         let system = Model {ka: params[0], ke: params[1], _v: params[2], lag: params[3], scenario: scenario};
     
         let y0 = State::new(0.0, 0.0);
@@ -56,10 +56,12 @@ impl Simulate for Sim{
         let _res = stepper.integrate();
         let x = stepper.x_out().to_vec();
         let y = stepper.y_out();
-        
-        let yout: Vec<f64> = y.into_iter().map(|y| {
+
+        let mut yout: Vec<Vec<f64>> = vec![];
+        let y0: Vec<f64> = y.into_iter().map(|y| {
             y[1]/params[2]
         } ).collect();
+        yout.push(y0);
 
   
         (x, yout)    

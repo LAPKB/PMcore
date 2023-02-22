@@ -20,7 +20,7 @@ where
         for (j, spp) in support_points.axis_iter(Axis(0)).enumerate(){
            
            let ypred = Array::from(sim_eng.pred(&scenario, spp.to_vec()));
-           let yobs = Array::from(scenario.obs.clone());
+           let yobs = Array::from(scenario.obs_flat.clone());
            //TODO: esto se puede mover a datafile::read
            let sigma = c.0 + c.1* &yobs + c.2 * &yobs.mapv(|x| x.powi(2))+ c.3 * &yobs.mapv(|x| x.powi(3));
            let diff = (yobs-ypred).mapv(|x| x.powi(2));
