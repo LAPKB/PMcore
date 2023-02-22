@@ -39,7 +39,7 @@ struct Sim{}
 
 impl Simulate for Sim{
     fn simulate(&self, params: Vec<f64>, tspan:[f64;2], scenario: &Scenario) -> (Vec<f64>, Vec<Vec<f64>>) {
-        let system = Model {ke: params[0], _v: params[1], scenario: scenario};
+        let system = Model {ke: params[0], _v: params[1], scenario};
         let y0 = State::new(0.0);
         let mut stepper = Rk4::new(system, tspan[0], y0, tspan[1],0.1);
         let _res = stepper.integrate();
@@ -48,7 +48,7 @@ impl Simulate for Sim{
 
 
         let mut yout: Vec<Vec<f64>> = vec![];
-        let y0: Vec<f64> = y.into_iter().map(|y| {
+        let y0: Vec<f64> = y.iter().map(|y| {
             y[0]/params[1]
         } ).collect();
         yout.push(y0);
