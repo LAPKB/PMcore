@@ -1,5 +1,5 @@
 use crate::prelude::{Scenario, Simulate, Engine};
-use ndarray::{prelude::*};
+use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
 use ndarray::parallel::prelude::*;
 

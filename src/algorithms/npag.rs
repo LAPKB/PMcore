@@ -13,14 +13,17 @@ const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64))
+pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), theta0: Option<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>>)
 where
     S: Simulate + std::marker::Sync
 {
     let settings = settings::read(settings_path);
     setup_log(&settings);
 
-    let mut theta = lds::sobol(settings.config.init_points, &ranges, seed);
+    let mut theta = match theta0 {
+        Some(theta) => theta,
+        None => lds::sobol(settings.config.init_points, &ranges, seed)
+    };
     let scenarios = datafile::parse(settings.paths.data).unwrap();
     let mut psi: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>;
     let mut lambda: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>;
