@@ -15,7 +15,7 @@ const THETA_D: f64 = 1e-4;
 
 pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64))
 where
-    S: Simulate
+    S: Simulate + std::marker::Sync
 {
     let settings = settings::read(settings_path);
     setup_log(&settings);

@@ -21,4 +21,5 @@ ndarray-stats = "0.5.1"
 linfa-linalg = "0.1.0"
 log = "0.4.17"
 log4rs = "1.2.0"
+rayon = "1.6.1"
 #ndarray-linalg = "0.16.0" #needs configuring BLAS
