@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr};
 use ndarray_stats::{QuantileExt, DeviationExt};
 
@@ -13,7 +16,7 @@ const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), theta0: Option<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>>)
+pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), theta0: Option<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>>, state: Rc<RefCell<App>>)
 where
     S: Simulate + std::marker::Sync
 {

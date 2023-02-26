@@ -11,6 +11,7 @@ pub mod prelude {
     pub use crate::base::simulator::Engine;
     pub use crate::base::prob::*;
     pub use crate::algorithms::npag::npag;
+    pub use crate::base::ui::*;
 }
 
 //Tests
