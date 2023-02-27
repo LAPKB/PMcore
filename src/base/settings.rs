@@ -17,7 +17,7 @@
 
     #[derive(Deserialize)]
     pub struct Config {
-        pub cycles: u32,
+        pub cycles: usize,
         pub engine: String,
         pub init_points: usize
     }

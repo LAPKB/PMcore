@@ -1,6 +1,6 @@
 use std::{thread, rc::Rc, cell::RefCell};
 use eyre::Result;
-
+use tokio::sync::mpsc;
 use ode_solvers::*;
 use np_core::prelude::*;
 
@@ -64,8 +64,8 @@ impl Simulate for Sim{
 
 
 fn main() -> Result<()>{
-    let app = Rc::new(RefCell::new(App::new()));
-    let state = app.clone();
+    let (tx, mut rx) = mpsc::unbounded_channel::<App>();
+
     let handler = thread::spawn(move || {
             npag(Engine::new(Sim{}),
             vec![(0.001,50.0),(2.0,250.0)],
@@ -73,11 +73,11 @@ fn main() -> Result<()>{
             347,
             (0.3,0.1,0.0,0.0),
             None,
-            state
+            tx
         );
         }
     );
-    start_ui(app)?;
+    start_ui(rx)?;
     // handler.join().unwrap();
     Ok(())
 }
