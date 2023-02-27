@@ -1,6 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr};
 use ndarray_stats::{QuantileExt, DeviationExt};
 
@@ -8,6 +5,7 @@ use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Appender, Config, Root};
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::prelude::*;
 
@@ -16,7 +14,9 @@ const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), theta0: Option<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>>, state: Rc<RefCell<App>>)
+pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), 
+theta0: Option<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>>, tx: UnboundedSender<App>
+)
 where
     S: Simulate + std::marker::Sync
 {
@@ -98,7 +98,11 @@ where
         //     log::error!("Objf decreased");
         //     break;
         // }
-        
+        let app = App{
+            cycle,
+            objf: -2.*objf
+        };
+        tx.send(app).unwrap();
 
         if (last_objf-objf).abs() <= THETA_G && eps>THETA_E{
             eps /= 2.;
