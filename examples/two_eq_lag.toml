@@ -1,10 +1,10 @@
 [paths]
 data = "examples/two_eq_lag.csv"
 log_out = "log/two_eq_lag.log"
-prior_dist = "theta.csv"
-
+#prior_dist = "theta_two_eq_lag.csv"
+#posterior_dist = "theta_two_eq_lag.csv"
 
 [config]
-cycles = 100
+cycles = 1000
 engine = "NPAG"
 init_points = 1000

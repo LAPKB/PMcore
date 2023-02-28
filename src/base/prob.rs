@@ -13,13 +13,18 @@ where
     prob.axis_iter_mut(Axis(0)).into_par_iter().enumerate().for_each(|(i, mut row)|{
         row.axis_iter_mut(Axis(0)).into_par_iter().enumerate().for_each(|(j, mut element)|{
             let scenario = scenarios.get(i).unwrap();
-            let spp = support_points.row(j);
-            let ypred = Array::from(sim_eng.pred(scenario, spp.to_vec()));
+            let ypred = Array::from(sim_eng.pred(scenario, support_points.row(j).to_vec()));
             let yobs = Array::from(scenario.obs_flat.clone());
+            // log::info!("Yobs[{}]={:?}", i, &yobs);
+            // log::info!("Ypred[{}]={:?}", i, &ypred);
             let sigma = c.0 + c.1* &yobs + c.2 * &yobs.mapv(|x| x.powi(2))+ c.3 * &yobs.mapv(|x| x.powi(3));
             let diff = (yobs-ypred).mapv(|x| x.powi(2));
             let two_sigma_sq = (2.0*&sigma).mapv(|x| x.powi(2));
-            let aux_vec = FRAC_1_SQRT_2PI * &sigma * (-&diff/&two_sigma_sq).mapv(|x| x.exp());
+            let aux_vec = FRAC_1_SQRT_2PI * (-&diff/&two_sigma_sq).mapv(|x| x.exp())/&sigma;
+            // if i == 0 && j == 0 {
+            //     log::info!("PSI[1,1]={:?}",&aux_vec.product());
+            // }
+            // log::info!("Sigma[{}]={:?}", i, &sigma);
             element.fill(aux_vec.product());
         });
     });

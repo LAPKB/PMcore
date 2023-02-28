@@ -65,8 +65,6 @@ where
                 panic!("Error in IPM: {:?}",err);
             }
         };
-
-        
         let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         // let mut lambda_tmp: Vec<f64> = vec![];
@@ -115,7 +113,8 @@ where
         // }
         let state = AppState{
             cycle,
-            objf: -2.*objf
+            objf: -2.*objf,
+            theta: theta.clone()
         };
         tx.send(state).unwrap();
 
@@ -141,17 +140,16 @@ where
         cycle += 1; 
         last_objf = objf;
     }
-    let file = File::create("theta.csv").unwrap();
-    let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-    writer.serialize_array2(&theta).unwrap();
+    if let Some(theta_path) =  &settings.paths.posterior_dist {
+        let file = File::create(theta_path).unwrap();
+        let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        writer.serialize_array2(&theta).unwrap();
+    }    
 }
 
 fn adaptative_grid(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
-    let (n_spp, _dim) = theta.dim();
-    // dbg!(theta.dim());
     let old_theta = theta.clone();
-    for i in 0..n_spp{
-        let spp = old_theta.row(i);
+    for spp in old_theta.rows(){
         for (j, val) in spp.into_iter().enumerate(){
             let l = eps * (ranges[j].1 - ranges[j].0);//abs?
             if val + l < ranges[j].1{
@@ -175,18 +173,17 @@ fn adaptative_grid(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: 
 }
 
 fn evaluate_spp(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, candidate: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>, limits: &[(f64,f64)]){
-    let mut dist = f64::INFINITY;
-
     for spp in theta.rows(){
-        let mut new_dist: f64 = 0.;
+        let mut dist: f64 = 0.;
         for (i, val) in candidate.clone().into_iter().enumerate(){
-            new_dist += (val - spp.get(i).unwrap()).abs() / (limits[i].1 - limits[i].0);
+            dist += (val - spp.get(i).unwrap()).abs() / (limits[i].1 - limits[i].0);
         }
-        dist = dist.min(new_dist);
+        if dist <= THETA_D {
+            return;
+        }
     }
-    if dist > THETA_D{
-        theta.push_row(candidate.view()).unwrap();
-    }
+    theta.push_row(candidate.view()).unwrap();
+
 }
 
 fn setup_log(settings: &Data){
