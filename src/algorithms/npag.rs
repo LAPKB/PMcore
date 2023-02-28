@@ -146,7 +146,7 @@ where
     writer.serialize_array2(&theta).unwrap();
 }
 
-fn adaptative_grid(mut theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
+fn adaptative_grid(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
     let (n_spp, _dim) = theta.dim();
     // dbg!(theta.dim());
     let old_theta = theta.clone();
@@ -158,7 +158,7 @@ fn adaptative_grid(mut theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, e
                 let mut plus = Array::zeros(spp.len());
                 plus[j] = l;
                 plus = plus + spp;
-                evaluate_spp(&mut theta, plus, ranges);
+                evaluate_spp(theta, plus, ranges);
                 // (n_spp, _) = theta.dim();
 
             }
@@ -166,7 +166,7 @@ fn adaptative_grid(mut theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, e
                 let mut minus = Array::zeros(spp.len());
                 minus[j] = -l;
                 minus = minus + spp;
-                evaluate_spp(&mut theta, minus, ranges);
+                evaluate_spp(theta, minus, ranges);
                 // (n_spp, _) = theta.dim();
             }
         }
