@@ -1,7 +1,7 @@
 [paths]
 data = "examples/bimodal_ke.csv"
 log_out = "log/bimodal_ke.log"
-prior_dist = "psi.csv"
+#prior_dist = "psi.csv"
 
 [config]
 cycles = 1024
