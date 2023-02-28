@@ -90,10 +90,12 @@ fn draw_body<'a>(loading: bool, app: &App) -> Paragraph<'a> {
     let loading_text = if loading { "Loading..." } else { "" };
     let cycle_text = format!("Cycle: {}", app.state.cycle);
     let objf_text = format!("-2LL: {}", app.state.objf);
+    let spp_text = format!("#Spp: {}", app.state.theta.shape()[0]);
     Paragraph::new(vec![
         Spans::from(Span::raw(loading_text)),
         Spans::from(Span::raw(cycle_text)),
         Spans::from(Span::raw(objf_text)),
+        Spans::from(Span::raw(spp_text)),
     ])
     .style(Style::default().fg(Color::LightCyan))
     .alignment(Alignment::Left)

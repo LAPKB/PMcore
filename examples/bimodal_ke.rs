@@ -66,7 +66,7 @@ impl Simulate for Sim{
 fn main() -> Result<()>{
     let (tx, rx) = mpsc::unbounded_channel::<AppState>();
 
-    let handler = thread::spawn(move || {
+    thread::spawn(move || {
             npag(Engine::new(Sim{}),
             vec![(0.001,3.0),(25.0,250.0)],
             "examples/bimodal_ke.toml".to_string(),
@@ -77,6 +77,5 @@ fn main() -> Result<()>{
         }
     );
     start_ui(rx)?;
-    handler.join().unwrap();
     Ok(())
 }
