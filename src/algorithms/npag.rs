@@ -1,5 +1,9 @@
+use std::fs::File;
+
+use csv::{ReaderBuilder, WriterBuilder};
 use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr};
-use ndarray_stats::{QuantileExt, DeviationExt};
+use ndarray_stats::QuantileExt;
+use ndarray_csv::{Array2Reader, Array2Writer};
 
 use log::LevelFilter;
 use log4rs::append::file::FileAppender;
@@ -12,21 +16,30 @@ use crate::prelude::*;
 const THETA_E: f64 = 1e-4; //convergence Criteria
 const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
-const THETA_D: f64 = 1e-4;
+const THETA_D: f64 = 1e-3;
 
-pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), 
-theta0: Option<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>>, tx: UnboundedSender<App>
+pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), tx: UnboundedSender<App>
 )
 where
     S: Simulate + std::marker::Sync
 {
     let settings = settings::read(settings_path);
     setup_log(&settings);
-
-    let mut theta = match theta0 {
-        Some(theta) => theta,
+    let mut theta = match &settings.paths.prior_dist {
+        Some(prior_path) => {
+            let file = File::open(prior_path).unwrap();
+            let mut reader = ReaderBuilder::new().has_headers(false).from_reader(file);
+            let array_read: ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 2]>> = reader.deserialize_array2_dynamic().unwrap();
+            array_read
+        },
         None => lds::sobol(settings.config.init_points, &ranges, seed)
+
     };
+
+    // let mut theta = match theta0 {
+    //     Some(theta) => theta,
+    //     None => lds::sobol(settings.config.init_points, &ranges, seed)
+    // };
     let scenarios = datafile::parse(settings.paths.data).unwrap();
     let mut psi: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>;
     let mut lambda: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>;
@@ -56,7 +69,7 @@ where
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         // let mut lambda_tmp: Vec<f64> = vec![];
         for (index,lam) in lambda.iter().enumerate(){
-            if lam > &1e-8 && lam > &(lambda.max().unwrap()/100_f64){
+            if lam > &1e-8 && lam > &(lambda.max().unwrap()/1000_f64){
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi.column(index));
                 // lambda_tmp.push(lam.clone());
@@ -79,7 +92,7 @@ where
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut lambda_tmp: Vec<f64> = vec![];
         for (index,lam) in lambda.iter().enumerate(){
-            if lam > &(lambda.max().unwrap()/100_f64){
+            if lam > &(lambda.max().unwrap()/1000_f64){
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi2.column(index));
                 lambda_tmp.push(*lam);
@@ -126,10 +139,13 @@ where
         cycle += 1; 
         last_objf = objf;
     }
+    let file = File::create("psi.csv").unwrap();
+    let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+    writer.serialize_array2(&theta).unwrap();
 }
 
 fn adaptative_grid(theta: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
-    let (n_spp, _dim) = theta.dim();
+    let (mut n_spp, _dim) = theta.dim();
     // dbg!(theta.dim());
     let mut new_theta = theta.clone();
     for i in 0..n_spp{
@@ -140,24 +156,30 @@ fn adaptative_grid(theta: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, 
                 let mut plus = Array::zeros(spp.len());
                 plus[j] = l;
                 plus = plus + spp;
-                evaluate_spp(&mut new_theta, plus, ranges[j]);
+                evaluate_spp(&mut new_theta, plus, ranges);
+                (n_spp, _) = theta.dim();
+
             }
             if val - l > ranges[j].0{
                 let mut minus = Array::zeros(spp.len());
                 minus[j] = -l;
                 minus = minus + spp;
-                evaluate_spp(&mut new_theta, minus, ranges[j]);
+                evaluate_spp(&mut new_theta, minus, ranges);
+                (n_spp, _) = theta.dim();
             }
         }
     }
     new_theta
 }
 
-fn evaluate_spp(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, candidate: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>, limits: (f64,f64)){
+fn evaluate_spp(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, candidate: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>, limits: &[(f64,f64)]){
     let mut dist = f64::INFINITY;
 
     for spp in theta.rows(){
-        let new_dist = candidate.l1_dist(&spp).unwrap() / (limits.1 - limits.0);
+        let mut new_dist: f64 = 0.;
+        for (i, val) in candidate.clone().into_iter().enumerate(){
+            new_dist += (val - spp.get(i).unwrap()).abs() / (limits[i].1 - limits[i].0);
+        }
         dist = dist.min(new_dist);
     }
     if dist > THETA_D{

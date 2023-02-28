@@ -68,16 +68,15 @@ fn main() -> Result<()>{
 
     let handler = thread::spawn(move || {
             npag(Engine::new(Sim{}),
-            vec![(0.001,50.0),(2.0,250.0)],
+            vec![(0.001,3.0),(25.0,250.0)],
             "examples/bimodal_ke.toml".to_string(),
             347,
-            (0.3,0.1,0.0,0.0),
-            None,
+            (0.0,0.05,0.0,0.0),
             tx
         );
         }
     );
     start_ui(rx)?;
-    // handler.join().unwrap();
+    handler.join().unwrap();
     Ok(())
 }

@@ -12,7 +12,9 @@
     #[derive(Deserialize)]
     pub struct Paths {
         pub data: String,
-        pub log_out: Option<String>
+        pub log_out: Option<String>,
+        pub prior_dist: Option<String>,
+        pub psi_out: Option<String>
     }
 
     #[derive(Deserialize)]
