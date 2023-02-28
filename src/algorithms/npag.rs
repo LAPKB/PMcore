@@ -12,13 +12,14 @@ use log4rs::config::{Appender, Config, Root};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::prelude::*;
+use crate::tui::state::AppState;
 
 const THETA_E: f64 = 1e-4; //convergence Criteria
 const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-3;
 
-pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), tx: UnboundedSender<App>
+pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), tx: UnboundedSender<AppState>
 )
 where
     S: Simulate + std::marker::Sync
@@ -111,11 +112,11 @@ where
         //     log::error!("Objf decreased");
         //     break;
         // }
-        let app = App{
+        let state = AppState{
             cycle,
             objf: -2.*objf
         };
-        tx.send(app).unwrap();
+        tx.send(state).unwrap();
 
         if (last_objf-objf).abs() <= THETA_G && eps>THETA_E{
             eps /= 2.;
@@ -139,7 +140,7 @@ where
         cycle += 1; 
         last_objf = objf;
     }
-    let file = File::create("psi.csv").unwrap();
+    let file = File::create("theta.csv").unwrap();
     let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
     writer.serialize_array2(&theta).unwrap();
 }

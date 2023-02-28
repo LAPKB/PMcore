@@ -1,7 +1,7 @@
 [paths]
 data = "examples/two_eq_lag.csv"
 log_out = "log/two_eq_lag.log"
-prior_dist = "psi.csv"
+prior_dist = "theta.csv"
 
 
 [config]
