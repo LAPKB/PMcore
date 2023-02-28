@@ -26,4 +26,5 @@ eyre = "0.6.8"
 tui = { version="0.19.0", features = ["crossterm"]}
 crossterm = "0.26.0"
 tokio = {version="1.25.0",features=["sync"]}
+ndarray-csv = "0.5.1"
 #ndarray-linalg = "0.16.0" #needs configuring BLAS

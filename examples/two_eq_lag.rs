@@ -1,5 +1,8 @@
 use ode_solvers::*;
 use np_core::prelude::*;
+use tokio::sync::mpsc;
+use eyre::Result;
+use std::thread;
 
 struct Model<'a>{
     ka: f64,
@@ -54,13 +57,20 @@ impl Simulate for Sim{
     }
 } 
 
-fn main(){
+fn main()-> Result<()>{
+    let (tx, mut rx) = mpsc::unbounded_channel::<App>();
+
     let engine = Engine::new(Sim{});
-    npag(engine,
-        vec![(0.1,0.9),(0.001,0.1),(30.0,120.0),(0.0,4.0)],
-        "examples/two_eq_lag.toml".to_string(),
-        347,
-        (0.5,0.1,0.0,0.0),
-        None
-    ); 
+    let handler = thread::spawn(move || {
+        npag(engine,
+            vec![(0.1,0.9),(0.001,0.1),(30.0,120.0),(0.0,4.0)],
+            "examples/two_eq_lag.toml".to_string(),
+            347,
+            (0.1,0.25,-0.001,0.0),
+            tx
+        ); 
+    });
+    start_ui(rx)?;
+    // handler.join().unwrap();
+    Ok(())
 }
