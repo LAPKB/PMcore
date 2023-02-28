@@ -1,4 +1,3 @@
-use std::sync::mpsc::{Receiver, RecvError, Sender};
 use std::thread;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use std::time::Duration;
@@ -26,7 +25,7 @@ impl Events {
                 if crossterm::event::poll(tick_rate).unwrap() {
                     if let crossterm::event::Event::Key(key) = crossterm::event::read().unwrap() {
                         let key = Key::from(key);
-                        event_tx.send(InputEvent::Input(key));
+                        event_tx.send(InputEvent::Input(key)).unwrap();
                     }
                 }
             }

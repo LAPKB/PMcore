@@ -58,10 +58,9 @@ impl Simulate for Sim{
 } 
 
 fn main()-> Result<()>{
-    let (tx, mut rx) = mpsc::unbounded_channel::<AppState>();
-
+    let (tx, rx) = mpsc::unbounded_channel::<AppState>();
     let engine = Engine::new(Sim{});
-    let handler = thread::spawn(move || {
+    let _handler = thread::spawn(move || {
         npag(engine,
             vec![(0.1,0.9),(0.001,0.1),(30.0,120.0),(0.0,4.0)],
             "examples/two_eq_lag.toml".to_string(),

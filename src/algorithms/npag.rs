@@ -57,6 +57,7 @@ where
         
         // psi n_sub rows, nspp columns
         psi = prob(&sim_eng, &scenarios, &theta, c);
+        // dbg!(&psi);
         (lambda,_) = match ipm::burke(&psi){
             Ok((lambda,objf)) => (lambda, objf),
             Err(err) =>{
@@ -135,7 +136,7 @@ where
         if cycle >= settings.config.cycles{
             break;
         }
-        theta = adaptative_grid(theta, eps, &ranges);
+        theta = adaptative_grid(&mut theta, eps, &ranges);
         // dbg!(&theta);
         cycle += 1; 
         last_objf = objf;
@@ -145,32 +146,32 @@ where
     writer.serialize_array2(&theta).unwrap();
 }
 
-fn adaptative_grid(theta: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
-    let (mut n_spp, _dim) = theta.dim();
+fn adaptative_grid(mut theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
+    let (n_spp, _dim) = theta.dim();
     // dbg!(theta.dim());
-    let mut new_theta = theta.clone();
+    let old_theta = theta.clone();
     for i in 0..n_spp{
-        let spp = theta.row(i);
+        let spp = old_theta.row(i);
         for (j, val) in spp.into_iter().enumerate(){
             let l = eps * (ranges[j].1 - ranges[j].0);//abs?
             if val + l < ranges[j].1{
                 let mut plus = Array::zeros(spp.len());
                 plus[j] = l;
                 plus = plus + spp;
-                evaluate_spp(&mut new_theta, plus, ranges);
-                (n_spp, _) = theta.dim();
+                evaluate_spp(&mut theta, plus, ranges);
+                // (n_spp, _) = theta.dim();
 
             }
             if val - l > ranges[j].0{
                 let mut minus = Array::zeros(spp.len());
                 minus[j] = -l;
                 minus = minus + spp;
-                evaluate_spp(&mut new_theta, minus, ranges);
-                (n_spp, _) = theta.dim();
+                evaluate_spp(&mut theta, minus, ranges);
+                // (n_spp, _) = theta.dim();
             }
         }
     }
-    new_theta
+    theta.to_owned()
 }
 
 fn evaluate_spp(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, candidate: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>, limits: &[(f64,f64)]){
