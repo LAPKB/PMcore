@@ -4,4 +4,3 @@ pub mod datafile;
 pub mod simulator;
 pub mod prob;
 pub mod ipm;
-pub mod ui;

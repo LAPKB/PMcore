@@ -1,5 +1,5 @@
 use ode_solvers::*;
-use np_core::prelude::*;
+use np_core::{prelude::*, tui::state::AppState};
 use tokio::sync::mpsc;
 use eyre::Result;
 use std::thread;
@@ -58,7 +58,7 @@ impl Simulate for Sim{
 } 
 
 fn main()-> Result<()>{
-    let (tx, mut rx) = mpsc::unbounded_channel::<App>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<AppState>();
 
     let engine = Engine::new(Sim{});
     let handler = thread::spawn(move || {

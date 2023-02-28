@@ -2,7 +2,7 @@ use std::{thread, rc::Rc, cell::RefCell};
 use eyre::Result;
 use tokio::sync::mpsc;
 use ode_solvers::*;
-use np_core::prelude::*;
+use np_core::{prelude::*, tui::state::AppState};
 
 struct Model<'a>{
     ke: f64,
@@ -64,7 +64,7 @@ impl Simulate for Sim{
 
 
 fn main() -> Result<()>{
-    let (tx, mut rx) = mpsc::unbounded_channel::<App>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<AppState>();
 
     let handler = thread::spawn(move || {
             npag(Engine::new(Sim{}),
