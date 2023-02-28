@@ -30,7 +30,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()>{
         terminal.draw(|rect| draw(rect, &app)).unwrap();
 
         //  Handle inputs
-        let result = match events.next() {
+        let result = match events.recv() {
             Some(InputEvent::Input(key)) => app.do_action(key),
             None => AppReturn::Continue
         };
@@ -68,10 +68,10 @@ where
         .constraints([Constraint::Min(20), Constraint::Length(32)].as_ref())
         .split(chunks[1]);
 
-    let body = draw_body(false, &app);
+    let body = draw_body(false, app);
     rect.render_widget(body, body_chunks[0]);
 
-    let help = draw_help(&app);
+    let help = draw_help(app);
     rect.render_widget(help, body_chunks[1]);
 }
 

@@ -34,7 +34,7 @@ impl Events {
         Events { rx, _tx: tx }
     }
 
-    pub fn next(&mut self) -> Option<InputEvent> {
+    pub fn recv(&mut self) -> Option<InputEvent> {
         match self.rx.try_recv(){
             Ok(event) => Some(event),
             Err(_) => None

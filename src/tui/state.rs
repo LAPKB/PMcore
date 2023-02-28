@@ -10,6 +10,11 @@ impl AppState{
             objf: f64::INFINITY
         }
     }
-    
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
