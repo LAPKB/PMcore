@@ -8,7 +8,7 @@ use std::ptr::copy_nonoverlapping;
 
 #[derive(Clone, Debug)]
 pub struct Permutation {
-    indices: Vec<usize>,
+    pub indices: Vec<usize>,
 }
 
 impl Permutation {

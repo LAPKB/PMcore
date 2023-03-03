@@ -1,9 +1,11 @@
 use std::fs::{File, self};
 
 use csv::{ReaderBuilder, WriterBuilder};
-use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr};
+use linfa_linalg::qr::QR;
+use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr, Array1};
 use ndarray_stats::QuantileExt;
 use ndarray_csv::{Array2Reader, Array2Writer};
+use ndarray_stats::DeviationExt;
 
 use log::LevelFilter;
 use log4rs::append::file::FileAppender;
@@ -79,15 +81,34 @@ where
         theta = stack(Axis(0),&theta_rows).unwrap();
         let psi2 = stack(Axis(1),&psi_columns).unwrap();
 
-        // normalizar las filas de psi
+        // Normalize the rows of Psi
         let mut n_psi = psi2.clone();
         n_psi.axis_iter_mut(Axis(0)).into_par_iter().for_each(
             |mut row| row /= row.sum()
         );
-        // reordenar las columnas de psi
+        // permutate the columns of Psi
         let perm = n_psi.sort_axis_by(Axis(1), |i, j| n_psi.column(i).sum() > n_psi.column(j).sum());
         n_psi = n_psi.permute_axis(Axis(1), &perm);
         // QR decomposition
+        let qr =  n_psi.qr().unwrap();
+        let r = qr.into_r();
+        // Keep the valuable spp
+        let mut keep = 0;
+        //The minimum between the number of subjects and the actual number of support points
+        let lim_loop = n_psi.nrows().min(n_psi.ncols());
+
+        let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+        let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+        for i in 0..lim_loop{
+            let test = norm_zero(&r.column(i).to_owned());
+            if r.get((i,i)).unwrap()/test >= 1e-8{
+                theta_rows.push(theta.row(perm.indices[keep]));
+                psi_columns.push(psi2.column(perm.indices[keep]));
+                keep +=1;
+            }
+        }
+        theta = stack(Axis(0),&theta_rows).unwrap();
+        let psi2 = stack(Axis(1),&psi_columns).unwrap();
 
 
         
@@ -213,4 +234,9 @@ fn setup_log(settings: &Data){
 
         log4rs::init_config(config).unwrap();
     };
+}
+
+fn norm_zero(a: &Array1<f64>) -> f64{
+    let zeros:Array1<f64> = Array::zeros(a.len());
+    a.l2_dist(&zeros).unwrap()
 }

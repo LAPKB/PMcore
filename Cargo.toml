@@ -28,4 +28,5 @@ crossterm = "0.26.0"
 tokio = {version="1.25.0",features=["sync"]}
 ndarray-csv = "0.5.1"
 rawpointer = "0.2.1"
-#ndarray-linalg = "0.16.0" #needs configuring BLAS
+#ndarray-linalg = { version = "0.16.0", features = ["openblas-system"]}
+#openblas-src = { version = "0.10.8", features = ["system"]}
