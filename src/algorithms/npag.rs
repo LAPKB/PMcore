@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File, self};
 
 use csv::{ReaderBuilder, WriterBuilder};
 use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr};
@@ -10,14 +10,17 @@ use log4rs::append::file::FileAppender;
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Appender, Config, Root};
 use tokio::sync::mpsc::UnboundedSender;
-
+use ndarray::parallel::prelude::*;
 use crate::prelude::*;
+
+use crate::base::array_extra::*;
+
 use crate::tui::state::AppState;
 
 const THETA_E: f64 = 1e-4; //convergence Criteria
 const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
-const THETA_D: f64 = 1e-3;
+const THETA_D: f64 = 1e-4;
 
 pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), tx: UnboundedSender<AppState>
 )
@@ -67,19 +70,27 @@ where
         };
         let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-        // let mut lambda_tmp: Vec<f64> = vec![];
         for (index,lam) in lambda.iter().enumerate(){
             if lam > &1e-8 && lam > &(lambda.max().unwrap()/1000_f64){
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi.column(index));
-                // lambda_tmp.push(lam.clone());
             }
         }
         theta = stack(Axis(0),&theta_rows).unwrap();
         let psi2 = stack(Axis(1),&psi_columns).unwrap();
-        // lambda = Array::from(lambda_tmp);
+
+        // normalizar las filas de psi
+        let mut n_psi = psi2.clone();
+        n_psi.axis_iter_mut(Axis(0)).into_par_iter().for_each(
+            |mut row| row /= row.sum()
+        );
+        // reordenar las columnas de psi
+        let perm = n_psi.sort_axis_by(Axis(1), |i, j| n_psi.column(i).sum() > n_psi.column(j).sum());
+        n_psi = n_psi.permute_axis(Axis(1), &perm);
+        // QR decomposition
+
+
         
-        // let psi2 = prob(&sim_eng, &scenarios, &theta);
         (lambda,objf) = match ipm::burke(&psi2){
             Ok((lambda,objf)) => (lambda, objf),
             Err(err) =>{
@@ -101,8 +112,8 @@ where
         theta = stack(Axis(0),&theta_rows).unwrap();
         let psi2 = stack(Axis(1),&psi_columns).unwrap();
         let w = Array::from(lambda_tmp);
+
         let pyl = psi2.dot(&w);
-        
         log::info!("Spp: {}", theta.shape()[0]);
         log::info!("{:?}",&theta);
         log::info!("{:?}",&w);
@@ -187,7 +198,9 @@ fn evaluate_spp(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, candidat
 }
 
 fn setup_log(settings: &Data){
+    
     if let Some(log_path) = &settings.paths.log_out {
+        if let Ok(_)=fs::remove_file(log_path){};
         let logfile = FileAppender::builder()
             .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
             .build(log_path).unwrap();

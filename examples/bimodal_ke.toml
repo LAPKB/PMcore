@@ -2,8 +2,10 @@
 data = "examples/bimodal_ke.csv"
 log_out = "log/bimodal_ke.log"
 #prior_dist = "theta_bimodal_ke.csv"
+#posterior_dist = "theta_bimodal_ke.csv"
+
 
 [config]
 cycles = 1024
 engine = "NPAG"
-init_points = 1000
+init_points = 2129
