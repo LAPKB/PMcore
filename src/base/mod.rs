@@ -78,7 +78,7 @@ S: Simulate + std::marker::Sync + std::marker::Send + 'static
 fn setup_log(settings: &Data){
     
     if let Some(log_path) = &settings.paths.log_out {
-        if let Ok(_)=fs::remove_file(log_path){};
+        if fs::remove_file(log_path).is_ok(){};
         let logfile = FileAppender::builder()
             .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
             .build(log_path).unwrap();

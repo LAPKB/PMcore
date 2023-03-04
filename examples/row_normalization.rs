@@ -10,7 +10,7 @@ fn main(){
         [0.3,0.4,0.2,0.1,0.0],
     ];
 
-    let mut n_psi = x.clone();
+    let mut n_psi = x;
         n_psi.axis_iter_mut(Axis(0)).into_par_iter().for_each(
             |mut row| row /= row.sum()
         );
