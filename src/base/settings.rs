@@ -21,7 +21,9 @@
     pub struct Config {
         pub cycles: usize,
         pub engine: String,
-        pub init_points: usize
+        pub init_points: usize,
+        pub seed: u32,
+        pub tui: bool
     }
 
     pub fn read(filename: String) -> Data{

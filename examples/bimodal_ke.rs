@@ -1,8 +1,6 @@
-use std::thread;
 use eyre::Result;
-use tokio::sync::mpsc;
 use ode_solvers::*;
-use np_core::{prelude::*, tui::state::AppState};
+use np_core::prelude::*;
 
 struct Model<'a>{
     ke: f64,
@@ -64,18 +62,12 @@ impl Simulate for Sim{
 
 
 fn main() -> Result<()>{
-    let (tx, rx) = mpsc::unbounded_channel::<AppState>();
-
-    // thread::spawn(move || {
-            npag(Engine::new(Sim{}),
-            vec![(0.001,3.0),(25.0,250.0)],
-            "examples/bimodal_ke.toml".to_string(),
-            347,
-            (0.0,0.05,0.0,0.0),
-            tx
-        );
-    //     }
-    // );
-    // start_ui(rx)?;
+    start(
+        Engine::new(Sim{}),
+        vec![(0.001,3.0),(25.0,250.0)],
+        "examples/bimodal_ke.toml".to_string(),
+        (0.0,0.05,0.0,0.0)
+    )?;
+    
     Ok(())
 }

@@ -8,3 +8,5 @@ log_out = "log/two_eq_lag.log"
 cycles = 1000
 engine = "NPAG"
 init_points = 1000
+seed = 347
+tui = false
