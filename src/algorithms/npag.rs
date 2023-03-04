@@ -2,7 +2,7 @@ use std::fs::{File, self};
 
 use csv::{ReaderBuilder, WriterBuilder};
 use linfa_linalg::qr::QR;
-use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr, Array1};
+use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr, Array1, s};
 use ndarray_stats::QuantileExt;
 use ndarray_csv::{Array2Reader, Array2Writer};
 use ndarray_stats::DeviationExt;
@@ -22,7 +22,7 @@ use crate::tui::state::AppState;
 const THETA_E: f64 = 1e-4; //convergence Criteria
 const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
-const THETA_D: f64 = 1e-4;
+const THETA_D: f64 = 1e-3;
 
 pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), tx: UnboundedSender<AppState>
 )
@@ -79,40 +79,57 @@ where
             }
         }
         theta = stack(Axis(0),&theta_rows).unwrap();
-        let psi2 = stack(Axis(1),&psi_columns).unwrap();
-
-        // // Normalize the rows of Psi
-        // let mut n_psi = psi2.clone();
-        // n_psi.axis_iter_mut(Axis(0)).into_par_iter().for_each(
-        //     |mut row| row /= row.sum()
-        // );
-        // // permutate the columns of Psi
-        // let perm = n_psi.sort_axis_by(Axis(1), |i, j| n_psi.column(i).sum() > n_psi.column(j).sum());
-        // n_psi = n_psi.permute_axis(Axis(1), &perm);
-        // // QR decomposition
-        // let qr =  n_psi.qr().unwrap();
-        // let r = qr.into_r();
-        // // Keep the valuable spp
-        // let mut keep = 0;
-        // //The minimum between the number of subjects and the actual number of support points
-        // let lim_loop = n_psi.nrows().min(n_psi.ncols());
-
-        // let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-        // let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-        // for i in 0..lim_loop{
-        //     let test = norm_zero(&r.column(i).to_owned());
-        //     if r.get((i,i)).unwrap()/test >= 1e-8{
-        //         theta_rows.push(theta.row(perm.indices[keep]));
-        //         psi_columns.push(psi2.column(perm.indices[keep]));
-        //         keep +=1;
-        //     }
-        // }
-        // theta = stack(Axis(0),&theta_rows).unwrap();
-        // let psi2 = stack(Axis(1),&psi_columns).unwrap();
-
+        psi = stack(Axis(1),&psi_columns).unwrap();
 
         
-        (lambda,objf) = match ipm::burke(&psi2){
+        
+        
+        // Normalize the rows of Psi
+        let mut n_psi = psi.clone();
+        n_psi.axis_iter_mut(Axis(0)).into_par_iter().for_each(
+            |mut row| row /= row.sum()
+        );
+        // permutate the columns of Psi
+        let perm = n_psi.sort_axis_by(Axis(1), |i, j| n_psi.column(i).sum() > n_psi.column(j).sum());
+        n_psi = n_psi.permute_axis(Axis(1), &perm);
+        // QR decomposition
+        match n_psi.qr() {
+            Ok(qr) => {
+                let r = qr.into_r();
+                // Keep the valuable spp
+                let mut keep = 0;
+                //The minimum between the number of subjects and the actual number of support points
+                let lim_loop = n_psi.nrows().min(n_psi.ncols());
+
+                let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+                let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+                for i in 0..lim_loop{
+                    let test = norm_zero(&r.column(i).to_owned());
+                    if r.get((i,i)).unwrap()/test >= 1e-8{
+                        theta_rows.push(theta.row(perm.indices[keep]));
+                        psi_columns.push(psi.column(perm.indices[keep]));
+                        keep +=1;
+                    }
+                }
+                theta = stack(Axis(0),&theta_rows).unwrap();
+                psi = stack(Axis(1),&psi_columns).unwrap();
+            },
+            Err(_) => {
+                log::error!("# support points was {}", psi.ncols());
+                let nsub = psi.nrows();
+                // let perm = psi.sort_axis_by(Axis(1), |i, j| psi.column(i).sum() > psi.column(j).sum());
+                psi = psi.permute_axis(Axis(1), &perm);
+                theta = theta.permute_axis(Axis(0), &perm);
+                psi = psi.slice(s![..,..nsub]).to_owned();
+                theta = theta.slice(s![..nsub,..]).to_owned();
+                log::error!("Pushed down to {}", psi.ncols());
+
+            }
+        }
+        
+
+        
+        (lambda,objf) = match ipm::burke(&psi){
             Ok((lambda,objf)) => (lambda, objf),
             Err(err) =>{
                 //todo: write out report
@@ -126,7 +143,7 @@ where
         for (index,lam) in lambda.iter().enumerate(){
             if lam > &(lambda.max().unwrap()/1000_f64){
                 theta_rows.push(theta.row(index));
-                psi_columns.push(psi2.column(index));
+                psi_columns.push(psi.column(index));
                 lambda_tmp.push(*lam);
             }
         }
