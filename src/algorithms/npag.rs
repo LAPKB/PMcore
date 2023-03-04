@@ -1,16 +1,16 @@
-use std::fs::{File, self};
 
-use csv::{ReaderBuilder, WriterBuilder};
+
+use std::fs::File;
+
+use csv::WriterBuilder;
 use linfa_linalg::qr::QR;
-use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr, Array1, s};
+use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr, Array1, s, Array2};
+use ndarray_csv::Array2Writer;
 use ndarray_stats::QuantileExt;
-use ndarray_csv::{Array2Reader, Array2Writer};
+
 use ndarray_stats::DeviationExt;
 
-use log::LevelFilter;
-use log4rs::append::file::FileAppender;
-use log4rs::encode::pattern::PatternEncoder;
-use log4rs::config::{Appender, Config, Root};
+
 use tokio::sync::mpsc::UnboundedSender;
 use ndarray::parallel::prelude::*;
 use crate::prelude::*;
@@ -24,29 +24,20 @@ const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-3;
 
-pub fn npag<S>(sim_eng: Engine<S>, ranges: Vec<(f64,f64)>, settings_path: String, seed: u32, c: (f64,f64,f64,f64), tx: UnboundedSender<AppState>
+pub fn npag<S>(
+    sim_eng: Engine<S>,
+    ranges: Vec<(f64,f64)>,
+    mut theta: Array2<f64>,
+    scenarios: Vec<Scenario>,
+    c: (f64,f64,f64,f64),
+    tx: UnboundedSender<AppState>,
+    max_cycles: usize,
+    posterior_path: Option<String>
 )
 where
     S: Simulate + std::marker::Sync
 {
-    let settings = settings::read(settings_path);
-    setup_log(&settings);
-    let mut theta = match &settings.paths.prior_dist {
-        Some(prior_path) => {
-            let file = File::open(prior_path).unwrap();
-            let mut reader = ReaderBuilder::new().has_headers(false).from_reader(file);
-            let array_read: ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 2]>> = reader.deserialize_array2_dynamic().unwrap();
-            array_read
-        },
-        None => lds::sobol(settings.config.init_points, &ranges, seed)
-
-    };
-
-    // let mut theta = match theta0 {
-    //     Some(theta) => theta,
-    //     None => lds::sobol(settings.config.init_points, &ranges, seed)
-    // };
-    let scenarios = datafile::parse(settings.paths.data).unwrap();
+    
     let mut psi: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>;
     let mut lambda: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>;
 
@@ -181,7 +172,7 @@ where
             }
         }
 
-        if cycle >= settings.config.cycles{
+        if cycle >= max_cycles{
             break;
         }
         theta = adaptative_grid(&mut theta, eps, &ranges);
@@ -189,11 +180,12 @@ where
         cycle += 1; 
         last_objf = objf;
     }
-    if let Some(theta_path) =  &settings.paths.posterior_dist {
+    if let Some(theta_path) =  posterior_path {
         let file = File::create(theta_path).unwrap();
         let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
         writer.serialize_array2(&theta).unwrap();
-    }    
+    } 
+       
 }
 
 fn adaptative_grid(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
@@ -235,23 +227,7 @@ fn evaluate_spp(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, candidat
 
 }
 
-fn setup_log(settings: &Data){
-    
-    if let Some(log_path) = &settings.paths.log_out {
-        if let Ok(_)=fs::remove_file(log_path){};
-        let logfile = FileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
-            .build(log_path).unwrap();
 
-        let config = Config::builder()
-            .appender(Appender::builder().build("logfile", Box::new(logfile)))
-            .build(Root::builder()
-            .appender("logfile")
-            .build(LevelFilter::Info)).unwrap();
-
-        log4rs::init_config(config).unwrap();
-    };
-}
 
 fn norm_zero(a: &Array1<f64>) -> f64{
     let zeros:Array1<f64> = Array::zeros(a.len());
