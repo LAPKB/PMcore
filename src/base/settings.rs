@@ -3,13 +3,13 @@
     use std::process::exit;
     use toml;
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize,Clone)]
     pub struct Data {
         pub paths: Paths,
         pub config: Config
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize,Clone)]
     pub struct Paths {
         pub data: String,
         pub log_out: Option<String>,
@@ -17,13 +17,14 @@
         pub posterior_dist: Option<String>
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize,Clone)]
     pub struct Config {
         pub cycles: usize,
         pub engine: String,
         pub init_points: usize,
         pub seed: u32,
-        pub tui: bool
+        pub tui: bool,
+        pub pmetrics_outputs: Option<bool>
     }
 
     pub fn read(filename: String) -> Data{

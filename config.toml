@@ -5,3 +5,6 @@ data = "data.csv"
 cycles = 1024
 engine = "NPAG"
 init_points = 500
+seed = 347
+tui = false
+pmetrics_outputs = true
