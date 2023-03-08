@@ -30,7 +30,7 @@ pub fn start<S>(engine: Engine<S>, ranges: Vec<(f64, f64)>, settings_path: Strin
 where
 S: Simulate + std::marker::Sync + std::marker::Send + 'static
 {
-    let settings = settings::read(settings_path.clone());
+    let settings = settings::read(settings_path);
     setup_log(&settings);
     let theta = match &settings.paths.prior_dist {
         Some(prior_path) => {
@@ -89,7 +89,7 @@ where
     S: Simulate + std::marker::Sync
 {
     let (theta, _w, _objf, _cycle, _converged) = 
-        npag(sim_eng,ranges,theta,&scenarios,c,tx,&settings);
+        npag(sim_eng,ranges,theta,scenarios,c,tx,settings);
     
 
     if let Some(theta_path) =  &settings.paths.posterior_dist {

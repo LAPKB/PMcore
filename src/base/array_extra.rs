@@ -1,7 +1,7 @@
 use ndarray::prelude::*;
 use ndarray::{Data, RemoveAxis, Zip};
-
 use rawpointer::PointerExt;
+use std::fmt;
 
 use std::cmp::Ordering;
 use std::ptr::copy_nonoverlapping;
@@ -11,13 +11,22 @@ pub struct Permutation {
     pub indices: Vec<usize>,
 }
 
+#[derive(Debug)]
+pub struct PermutationError;
+impl fmt::Display for PermutationError{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Permutation Error")
+    }
+}
+impl std::error::Error for PermutationError { }
+
 impl Permutation {
-    pub fn from_indices(v: Vec<usize>) -> Result<Self, ()> {
+    pub fn from_indices(v: Vec<usize>) -> Result<Self, PermutationError> {
         let perm = Permutation { indices: v };
         if perm.correct() {
             Ok(perm)
         } else {
-            Err(())
+            Err(PermutationError)
         }
     }
 
