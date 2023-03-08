@@ -1,15 +1,13 @@
+use std::fs::File;
+
+use csv::WriterBuilder;
 use linfa_linalg::qr::QR;
 use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, Array1, s, Array2};
 use ndarray_stats::QuantileExt;
-
 use ndarray_stats::DeviationExt;
-
-
 use tokio::sync::mpsc::UnboundedSender;
 use ndarray::parallel::prelude::*;
 use crate::prelude::*;
-
-use crate::base::array_extra::*;
 
 use crate::tui::state::AppState;
 
@@ -18,6 +16,7 @@ const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-3;
 
+
 pub fn npag<S>(
     sim_eng: Engine<S>,
     ranges: Vec<(f64,f64)>,
@@ -25,7 +24,7 @@ pub fn npag<S>(
     scenarios: &Vec<Scenario>,
     c: (f64,f64,f64,f64),
     tx: UnboundedSender<AppState>,
-    config: &Data
+    settings: &Data
 ) -> (Array2<f64>,Array1<f64>,f64,usize,bool)
 where
     S: Simulate + std::marker::Sync
@@ -43,6 +42,9 @@ where
     let mut cycle = 1;
 
     let mut converged = false;
+
+    let cycles_file = File::create("cycles.csv").unwrap();
+    let mut writer = WriterBuilder::new().has_headers(false).from_writer(cycles_file);
 
     // let mut _pred: Array2<Vec<f64>>;
 
@@ -141,14 +143,24 @@ where
         w = Array::from(lambda_tmp);
 
         let pyl = psi2.dot(&w);
-        log::info!("Spp: {}", theta.shape()[0]);
-        log::info!("{:?}",&theta);
-        log::info!("{:?}",&w);
-        log::info!("Objf: {}", -2.*objf);
+        // log::info!("Spp: {}", theta.nrows());
+        // log::info!("{:?}",&theta);
+        // log::info!("{:?}",&w);
+        // log::info!("Objf: {}", -2.*objf);
         // if last_objf > objf{
         //     log::error!("Objf decreased");
         //     break;
         // }
+        if let Some(output) =  &settings.config.pmetrics_outputs {
+            if *output {
+                //cycles.csv
+                //TODO: I need some sort of reader/writer, so I can keep building over the file
+                writer.write_field(format!("{}",&cycle)).unwrap();
+                writer.write_field(format!("{}",-2.*objf)).unwrap();
+                writer.write_field(format!("{}",theta.nrows())).unwrap();
+                writer.write_record(None::<&[u8]>).unwrap();
+            }
+        } 
         let state = AppState{
             cycle,
             objf: -2.*objf,
@@ -171,7 +183,7 @@ where
             }
         }
 
-        if cycle >= config.config.cycles{
+        if cycle >= settings.config.cycles{
             break;
         }
         theta = adaptative_grid(&mut theta, eps, &ranges);
@@ -179,6 +191,7 @@ where
         cycle += 1; 
         last_objf = objf;
     }
+    writer.flush().unwrap();
     (theta, w, objf, cycle, converged)
     
        

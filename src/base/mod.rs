@@ -2,12 +2,11 @@ use eyre::Result;
 use ndarray::Array2;
 use tokio::sync::mpsc::{self, UnboundedSender};
 use std::fs::{File, self};
-use std::thread;
+use std::thread::spawn;
 use ndarray_csv::{Array2Reader, Array2Writer};
 // use ndarray_csv::Array2Writer;
 use csv::{ReaderBuilder, WriterBuilder};
 use crate::prelude::start_ui;
-// use csv::WriterBuilder;
 use crate::{tui::state::AppState, algorithms::npag::npag};
 use log::LevelFilter;
 use log4rs::append::file::FileAppender;
@@ -23,7 +22,7 @@ pub mod datafile;
 pub mod simulator;
 pub mod prob;
 pub mod ipm;
-pub mod array_extra;
+pub mod array_permutation;
 
 
 pub fn start<S>(engine: Engine<S>, ranges: Vec<(f64, f64)>, settings_path: String, c: (f64,f64,f64,f64)) -> Result<()>
@@ -46,15 +45,14 @@ S: Simulate + std::marker::Sync + std::marker::Send + 'static
     let (tx, rx) = mpsc::unbounded_channel::<AppState>();
 
     if settings.config.tui {
-        thread::spawn(move || {
-                run_npag(engine,
-                    ranges,
-                    theta,
-                    &scenarios,
-                    c,
-                    tx,
-                    &settings
-                );
+        spawn(move || {
+            run_npag(engine,
+                ranges,
+                theta,
+                &scenarios,
+                c,
+                tx,
+                &settings);
             }
         );
         start_ui(rx)?;
@@ -92,10 +90,17 @@ where
         npag(sim_eng,ranges,theta,scenarios,c,tx,settings);
     
 
-    if let Some(theta_path) =  &settings.paths.posterior_dist {
-        let file = File::create(theta_path).unwrap();
-        let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-        writer.serialize_array2(&theta).unwrap();
+    if let Some(output) =  &settings.config.pmetrics_outputs {
+        if *output {
+            //theta.csv
+            let file = File::create("theta.csv").unwrap();
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+            // writer.write_record(&["a", "b"]).unwrap();
+            // I need to obtain the parameter names, perhaps from the config file?
+            writer.serialize_array2(&theta).unwrap();
+
+            
+        }
     } 
 
 }
