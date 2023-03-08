@@ -1,11 +1,5 @@
-
-
-use std::fs::File;
-
-use csv::WriterBuilder;
 use linfa_linalg::qr::QR;
-use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, OwnedRepr, Array1, s, Array2};
-use ndarray_csv::Array2Writer;
+use ndarray::{stack, Axis, ArrayBase, ViewRepr, Dim, Array, Array1, s, Array2};
 use ndarray_stats::QuantileExt;
 
 use ndarray_stats::DeviationExt;
@@ -28,31 +22,35 @@ pub fn npag<S>(
     sim_eng: Engine<S>,
     ranges: Vec<(f64,f64)>,
     mut theta: Array2<f64>,
-    scenarios: Vec<Scenario>,
+    scenarios: &Vec<Scenario>,
     c: (f64,f64,f64,f64),
     tx: UnboundedSender<AppState>,
-    max_cycles: usize,
-    posterior_path: Option<String>
-)
+    config: &Data
+) -> (Array2<f64>,Array1<f64>,f64,usize,bool)
 where
     S: Simulate + std::marker::Sync
 {
     
-    let mut psi: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>;
-    let mut lambda: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>;
+    let mut psi: Array2<f64>;
+    let mut lambda: Array1<f64>;
+    let mut w: Array1<f64> = Array1::default(0);
 
     let mut eps  = 0.2;
     let mut last_objf = -1e30;
-    let mut objf: f64;
+    let mut objf: f64 = f64::INFINITY;
     let mut f0 = -1e30;
     let mut f1:f64;
     let mut cycle = 1;
 
+    let mut converged = false;
+
+    // let mut _pred: Array2<Vec<f64>>;
+
     while eps > THETA_E {
         log::info!("Cycle: {}", cycle);
-        
         // psi n_sub rows, nspp columns
         psi = prob(&sim_eng, &scenarios, &theta, c);
+        // (psi,_pred) = prob(&sim_eng, &scenarios, &theta, c);
         // dbg!(&psi);
         (lambda,_) = match ipm::burke(&psi){
             Ok((lambda,objf)) => (lambda, objf),
@@ -140,7 +138,7 @@ where
         }
         theta = stack(Axis(0),&theta_rows).unwrap();
         let psi2 = stack(Axis(1),&psi_columns).unwrap();
-        let w = Array::from(lambda_tmp);
+        w = Array::from(lambda_tmp);
 
         let pyl = psi2.dot(&w);
         log::info!("Spp: {}", theta.shape()[0]);
@@ -164,6 +162,7 @@ where
                 f1 = pyl.mapv(|x| x.ln()).sum();
                 if (f1- f0).abs() <= THETA_F{
                     log::info!("Likelihood criteria convergence");
+                    converged = true;
                     break;
                 } else {
                     f0 = f1;
@@ -172,7 +171,7 @@ where
             }
         }
 
-        if cycle >= max_cycles{
+        if cycle >= config.config.cycles{
             break;
         }
         theta = adaptative_grid(&mut theta, eps, &ranges);
@@ -180,15 +179,12 @@ where
         cycle += 1; 
         last_objf = objf;
     }
-    if let Some(theta_path) =  posterior_path {
-        let file = File::create(theta_path).unwrap();
-        let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-        writer.serialize_array2(&theta).unwrap();
-    } 
+    return (theta, w, objf, cycle, converged);
+    
        
 }
 
-fn adaptative_grid(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: f64, ranges: &[(f64,f64)]) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
+fn adaptative_grid(theta: &mut Array2<f64>, eps: f64, ranges: &[(f64,f64)]) -> Array2<f64> {
     let old_theta = theta.clone();
     for spp in old_theta.rows(){
         for (j, val) in spp.into_iter().enumerate(){
@@ -213,7 +209,7 @@ fn adaptative_grid(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, eps: 
     theta.to_owned()
 }
 
-fn evaluate_spp(theta: &mut ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>, candidate: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>, limits: &[(f64,f64)]){
+fn evaluate_spp(theta: &mut Array2<f64>, candidate: Array1<f64>, limits: &[(f64,f64)]){
     for spp in theta.rows(){
         let mut dist: f64 = 0.;
         for (i, val) in candidate.clone().into_iter().enumerate(){

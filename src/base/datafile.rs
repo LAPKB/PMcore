@@ -22,7 +22,7 @@ struct Event{
     // c3: Option<f32>,
     // cov: HashMap<String, f32>
 }
-pub fn parse(path: String) -> Result<Vec<Scenario>, Box<dyn Error>> {
+pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
         // .delimiter(b',')
         // .escape(Some(b'\\'))

@@ -33,7 +33,7 @@ fn read_mandatory_settings(){
 
 #[test]
 fn read_test_datafile(){
-    let scenarios = datafile::parse("test.csv".to_string());
+    let scenarios = datafile::parse(&"test.csv".to_string());
     if let Ok(scenarios) = scenarios {
         assert_eq!(scenarios.len(), 20);
         assert_eq!(scenarios.last().unwrap().id, "20");
