@@ -25,7 +25,7 @@ fn scaled_sobol(){
 
 #[test]
 fn read_mandatory_settings(){
-    let settings = settings::read("config.toml".to_string());
+    let settings = settings::read("src/tests/config.toml".to_string());
     assert_eq!(settings.paths.data, "data.csv");
     assert_eq!(settings.config.cycles, 1024);
     assert_eq!(settings.config.engine, "NPAG");
@@ -33,7 +33,7 @@ fn read_mandatory_settings(){
 
 #[test]
 fn read_test_datafile(){
-    let scenarios = datafile::parse(&"test.csv".to_string());
+    let scenarios = datafile::parse(&"src/tests/test.csv".to_string());
     if let Ok(scenarios) = scenarios {
         assert_eq!(scenarios.len(), 20);
         assert_eq!(scenarios.last().unwrap().id, "20");

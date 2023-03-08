@@ -1,3 +1,5 @@
 /target
 /Cargo.lock
 /log
+theta.csv
+cycles.csv
