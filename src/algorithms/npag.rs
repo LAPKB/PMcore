@@ -49,7 +49,7 @@ where
     while eps > THETA_E {
         log::info!("Cycle: {}", cycle);
         // psi n_sub rows, nspp columns
-        psi = prob(&sim_eng, &scenarios, &theta, c);
+        psi = prob(&sim_eng, scenarios, &theta, c);
         // (psi,_pred) = prob(&sim_eng, &scenarios, &theta, c);
         // dbg!(&psi);
         (lambda,_) = match ipm::burke(&psi){
@@ -179,7 +179,7 @@ where
         cycle += 1; 
         last_objf = objf;
     }
-    return (theta, w, objf, cycle, converged);
+    (theta, w, objf, cycle, converged)
     
        
 }
