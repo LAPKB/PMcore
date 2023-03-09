@@ -18,7 +18,7 @@ const THETA_D: f64 = 1e-3;
 
 
 pub fn npag<S>(
-    sim_eng: Engine<S>,
+    sim_eng: &Engine<S>,
     ranges: Vec<(f64,f64)>,
     mut theta: Array2<f64>,
     scenarios: &Vec<Scenario>,
@@ -49,7 +49,7 @@ where
     // let mut _pred: Array2<Vec<f64>>;
 
     while eps > THETA_E {
-        log::info!("Cycle: {}", cycle);
+        // log::info!("Cycle: {}", cycle);
         // psi n_sub rows, nspp columns
         psi = prob(&sim_eng, scenarios, &theta, c);
         // (psi,_pred) = prob(&sim_eng, &scenarios, &theta, c);
