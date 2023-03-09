@@ -91,15 +91,21 @@ where
             writer.flush().unwrap();
 
             //obs.csv
+            //time.csv
             let obs_file = File::create("obs.csv").unwrap();
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(obs_file);
+            let time_file = File::create("time.csv").unwrap();
+            let mut obs_writer = WriterBuilder::new().has_headers(false).from_writer(obs_file);
+            let mut time_writer = WriterBuilder::new().has_headers(false).from_writer(time_file);
             for scenario in scenarios{
                 let obs = Observations(scenario.obs_flat.clone());
-                writer.write_field(format!("{}",obs)).unwrap();
-                writer.write_record(None::<&[u8]>).unwrap();
-                
+                let time = Observations(scenario.time_flat.clone());
+                obs_writer.write_field(format!("{}",obs)).unwrap();
+                obs_writer.write_record(None::<&[u8]>).unwrap();
+                time_writer.write_field(format!("{}",time)).unwrap();
+                time_writer.write_record(None::<&[u8]>).unwrap();
             }
-            writer.flush().unwrap();
+            obs_writer.flush().unwrap();
+            time_writer.flush().unwrap();
         }
     } 
 
