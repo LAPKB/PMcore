@@ -1,7 +1,6 @@
 use eyre::Result;
 use ndarray::{Array2, Axis};
 use tokio::sync::mpsc::{self, UnboundedSender};
-use std::fmt::Display;
 use std::fs::{File, self};
 use std::thread::spawn;
 use ndarray_csv::{Array2Reader, Array2Writer};
