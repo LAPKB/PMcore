@@ -13,7 +13,7 @@ use crate::tui::state::AppState;
 
 const THETA_E: f64 = 1e-4; //convergence Criteria
 const THETA_G: f64 = 1e-4; //objf stop criteria
-const THETA_F: f64 = 1e-2;
+const THETA_F: f64 = 1e-4;
 const THETA_D: f64 = 1e-3;
 
 
@@ -171,7 +171,7 @@ where
             eps /= 2.;
             if eps <= THETA_E{
                 f1 = pyl.mapv(|x| x.ln()).sum();
-                if (f1- f0).abs() <= THETA_F{
+                if (f1-f0).abs() <= THETA_F{
                     log::info!("Likelihood criteria convergence");
                     converged = true;
                     break;
