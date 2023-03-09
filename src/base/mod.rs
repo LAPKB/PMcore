@@ -13,7 +13,7 @@ use log4rs::append::file::FileAppender;
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Appender, Config, Root};
 use self::datafile::Scenario;
-use self::prob::sim_obs;
+use self::prob::{sim_obs, Observations};
 use self::settings::Data;
 use self::simulator::{Engine, Simulate};
 
@@ -78,6 +78,7 @@ where
             // I need to obtain the parameter names, perhaps from the config file?
             writer.serialize_array2(&theta).unwrap();
 
+            //pred.csv
             let pred = sim_obs(&sim_eng, scenarios, &theta);
             let cycles_file = File::create("pred.csv").unwrap();
             let mut writer = WriterBuilder::new().has_headers(false).from_writer(cycles_file);
@@ -86,6 +87,17 @@ where
                     writer.write_field(format!("{}",&elem)).unwrap();
                 }
                 writer.write_record(None::<&[u8]>).unwrap();
+            }
+            writer.flush().unwrap();
+
+            //obs.csv
+            let obs_file = File::create("obs.csv").unwrap();
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(obs_file);
+            for scenario in scenarios{
+                let obs = Observations(scenario.obs_flat.clone());
+                writer.write_field(format!("{}",obs)).unwrap();
+                writer.write_record(None::<&[u8]>).unwrap();
+                
             }
             writer.flush().unwrap();
         }
