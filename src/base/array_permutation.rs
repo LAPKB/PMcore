@@ -13,12 +13,12 @@ pub struct Permutation {
 
 #[derive(Debug)]
 pub struct PermutationError;
-impl fmt::Display for PermutationError{
+impl fmt::Display for PermutationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Permutation Error")
     }
 }
-impl std::error::Error for PermutationError { }
+impl std::error::Error for PermutationError {}
 
 impl Permutation {
     pub fn from_indices(v: Vec<usize>) -> Result<Self, PermutationError> {
@@ -117,9 +117,7 @@ where
         let mut result = Array::uninit(self.dim());
 
         unsafe {
-
             let mut moved_elements = 0;
-
 
             let source_0 = self.raw_view().index_axis_move(axis, 0);
 
@@ -141,4 +139,3 @@ where
         }
     }
 }
-
