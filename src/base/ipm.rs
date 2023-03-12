@@ -40,6 +40,7 @@ pub fn burke(
     let mut mu = lam.t().dot(&y) / col as f64;
 
     while mu > eps || norm_r > eps || gap > eps {
+        // log::info!("IPM cyle");
         let smu = sig * mu;
         let inner = &lam / &y; //divide(&lam, &y);
         let w_plam = &plam / &w; //divide(&plam, &w);

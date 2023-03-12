@@ -52,6 +52,9 @@ where
         // log::info!("Cycle: {}", cycle);
         // psi n_sub rows, nspp columns
         psi = prob(&sim_eng, scenarios, &theta, c);
+        // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
+        //     log::info!("sub {}, sum: {}", i, row.sum());
+        // }
         // (psi,_pred) = prob(&sim_eng, &scenarios, &theta, c);
         // dbg!(&psi);
         (lambda, _) = match ipm::burke(&psi) {
@@ -61,6 +64,7 @@ where
                 panic!("Error in IPM: {:?}", err);
             }
         };
+        // log::info!("lambda: {}", &lambda);
         let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         for (index, lam) in lambda.iter().enumerate() {
@@ -106,14 +110,14 @@ where
                 psi = stack(Axis(1), &psi_columns).unwrap();
             }
             Err(_) => {
-                log::error!("# support points was {}", psi.ncols());
+                log::info!("# support points was {}", psi.ncols());
                 let nsub = psi.nrows();
                 // let perm = psi.sort_axis_by(Axis(1), |i, j| psi.column(i).sum() > psi.column(j).sum());
                 psi = psi.permute_axis(Axis(1), &perm);
                 theta = theta.permute_axis(Axis(0), &perm);
                 psi = psi.slice(s![.., ..nsub]).to_owned();
                 theta = theta.slice(s![..nsub, ..]).to_owned();
-                log::error!("Pushed down to {}", psi.ncols());
+                log::info!("Pushed down to {}", psi.ncols());
             }
         }
 

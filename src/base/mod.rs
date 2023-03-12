@@ -16,7 +16,6 @@ use std::fs::{self, File};
 use std::thread::spawn;
 use std::time::Instant;
 use tokio::sync::mpsc::{self, UnboundedSender};
-
 pub mod array_permutation;
 pub mod datafile;
 pub mod ipm;
@@ -46,7 +45,15 @@ where
         }
         None => lds::sobol(settings.config.init_points, &ranges, settings.config.seed),
     };
-    let scenarios = datafile::parse(&settings.paths.data).unwrap();
+    let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
+    if let Some(exclude) = &settings.config.exclude.clone(){
+        for val in exclude{
+            dbg!(&val);
+            scenarios.remove(val.as_integer().unwrap() as usize);
+            
+        }
+    }
+    
     let (tx, rx) = mpsc::unbounded_channel::<AppState>();
 
     if settings.config.tui {
