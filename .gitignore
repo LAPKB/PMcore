@@ -6,4 +6,5 @@ cycles.csv
 pred.csv
 obs.csv
 time.csv
+posterior.csv
 /examples/iohexol*
