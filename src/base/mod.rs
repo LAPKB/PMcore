@@ -1,6 +1,6 @@
 use self::datafile::Scenario;
-use self::prob::{sim_obs, Observations};
 use self::settings::Data;
+use ndarray::parallel::prelude::*;
 use self::simulator::{Engine, Simulate};
 use crate::prelude::start_ui;
 use crate::{algorithms::npag::npag, tui::state::AppState};
@@ -10,7 +10,7 @@ use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use ndarray::{Array2, Axis};
+use ndarray::{Array2, Axis, Array1};
 use ndarray_csv::{Array2Reader, Array2Writer};
 use std::fs::{self, File};
 use std::thread::spawn;
@@ -46,14 +46,13 @@ where
         None => lds::sobol(settings.config.init_points, &ranges, settings.config.seed),
     };
     let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
-    if let Some(exclude) = &settings.config.exclude.clone(){
-        for val in exclude{
+    if let Some(exclude) = &settings.config.exclude {
+        for val in exclude {
             dbg!(&val);
             scenarios.remove(val.as_integer().unwrap() as usize);
-            
         }
     }
-    
+
     let (tx, rx) = mpsc::unbounded_channel::<AppState>();
 
     if settings.config.tui {
@@ -80,7 +79,7 @@ fn run_npag<S>(
 ) where
     S: Simulate + std::marker::Sync,
 {
-    let (theta, _w, _objf, _cycle, _converged) =
+    let (theta, psi, w, _objf, _cycle, _converged) =
         npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
 
     if let Some(output) = &settings.config.pmetrics_outputs {
@@ -90,15 +89,9 @@ fn run_npag<S>(
             let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
             // writer.write_record(&["a", "b"]).unwrap();
             // I need to obtain the parameter names, perhaps from the config file?
-            writer.serialize_array2(&theta).unwrap();
-
-            //pred.csv
-            let pred = sim_obs(&sim_eng, scenarios, &theta);
-            let cycles_file = File::create("pred.csv").unwrap();
-            let mut writer = WriterBuilder::new()
-                .has_headers(false)
-                .from_writer(cycles_file);
-            for row in pred.axis_iter(Axis(0)) {
+            let mut theta_w = theta.clone();
+            theta_w.push_column(w.view()).unwrap();
+            for row in theta_w.axis_iter(Axis(0)) {
                 for elem in row.axis_iter(Axis(0)) {
                     writer.write_field(format!("{}", &elem)).unwrap();
                 }
@@ -106,26 +99,42 @@ fn run_npag<S>(
             }
             writer.flush().unwrap();
 
+            // posterior.csv
+            let posterior = posterior(psi, w);
+            let file = File::create("posterior.csv").unwrap();
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+            writer.serialize_array2(&posterior).unwrap();
+            
+
+            // //pred.csv
+            // let pred = sim_obs(&sim_eng, scenarios, &theta);
+            // let pred_file = File::create("pred.csv").unwrap();
+            // let mut writer = WriterBuilder::new()
+            //     .has_headers(false)
+            //     .from_writer(pred_file);
+            // for row in pred.axis_iter(Axis(0)) {
+            //     for elem in row.axis_iter(Axis(0)) {
+            //         writer.write_field(format!("{}", &elem)).unwrap();
+            //     }
+            //     writer.write_record(None::<&[u8]>).unwrap();
+            // }
+            // writer.flush().unwrap();
+
             //obs.csv
-            //time.csv
             let obs_file = File::create("obs.csv").unwrap();
-            let time_file = File::create("time.csv").unwrap();
             let mut obs_writer = WriterBuilder::new()
                 .has_headers(false)
                 .from_writer(obs_file);
-            let mut time_writer = WriterBuilder::new()
-                .has_headers(false)
-                .from_writer(time_file);
-            for scenario in scenarios {
-                let obs = Observations(scenario.obs_flat.clone());
-                let time = Observations(scenario.time_flat.clone());
-                obs_writer.write_field(format!("{}", obs)).unwrap();
-                obs_writer.write_record(None::<&[u8]>).unwrap();
-                time_writer.write_field(format!("{}", time)).unwrap();
-                time_writer.write_record(None::<&[u8]>).unwrap();
+            obs_writer.write_record(&["sub_num","time","obs","outeq"]).unwrap();
+            for (id, scenario) in scenarios.into_iter().enumerate() {
+                let observations = scenario.obs_flat.clone();
+                let time = scenario.time_flat.clone();
+
+                for (obs, t) in observations.into_iter().zip(time) {
+                    obs_writer.write_record(&[id.to_string(),t.to_string(),obs.to_string(),"1".to_string()]).unwrap();
+                }
             }
             obs_writer.flush().unwrap();
-            time_writer.flush().unwrap();
         }
     }
 }
@@ -145,4 +154,22 @@ fn setup_log(settings: &Data) {
 
         log4rs::init_config(config).unwrap();
     };
+}
+
+fn posterior(psi: Array2<f64>, w: Array1<f64>) -> Array2<f64>{
+    let py = psi.dot(&w);
+    let mut post: Array2<f64> = Array2::zeros((psi.nrows(),psi.ncols()));
+    post.axis_iter_mut(Axis(0))
+        .into_par_iter()
+        .enumerate()
+        .for_each(|(i, mut row)| {
+            row.axis_iter_mut(Axis(0))
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(j, mut element)| {
+                    let elem = psi.get((i,j)).unwrap()*w.get(j).unwrap()/py.get(i).unwrap();
+                    element.fill(elem.clone());
+                });
+        });
+    post
 }
