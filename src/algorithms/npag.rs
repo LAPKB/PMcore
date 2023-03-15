@@ -24,11 +24,11 @@ pub fn npag<S>(
     c: (f64, f64, f64, f64),
     tx: UnboundedSender<AppState>,
     settings: &Data,
-) -> (Array2<f64>, Array1<f64>, f64, usize, bool)
+) -> (Array2<f64>, Array2<f64>, Array1<f64>, f64, usize, bool)
 where
     S: Simulate + std::marker::Sync,
 {
-    let mut psi: Array2<f64>;
+    let mut psi: Array2<f64> = Array2::default((0,0));
     let mut lambda: Array1<f64>;
     let mut w: Array1<f64> = Array1::default(0);
 
@@ -49,7 +49,7 @@ where
     // let mut _pred: Array2<Vec<f64>>;
 
     while eps > THETA_E {
-        // log::info!("Cycle: {}", cycle);
+        log::info!("Cycle: {}", cycle);
         // psi n_sub rows, nspp columns
         psi = prob(&sim_eng, scenarios, &theta, c);
         // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
@@ -140,12 +140,15 @@ where
             }
         }
         theta = stack(Axis(0), &theta_rows).unwrap();
-        let psi2 = stack(Axis(1), &psi_columns).unwrap();
+        let psi = stack(Axis(1), &psi_columns).unwrap();
         w = Array::from(lambda_tmp);
 
-        let pyl = psi2.dot(&w);
+        let pyl = psi.dot(&w);
         // log::info!("Spp: {}", theta.nrows());
-        // log::info!("{:?}",&theta);
+        log::info!("{:?}",&theta);
+        let mut thetaw = theta.clone();
+        thetaw.push_column(w.clone().t()).unwrap();
+        w.clone().to_vec();
         // log::info!("{:?}",&w);
         // log::info!("Objf: {}", -2.*objf);
         // if last_objf > objf{
@@ -185,6 +188,7 @@ where
         }
 
         if cycle >= settings.config.cycles {
+            log::info!("Maximum number of cycles reached");
             break;
         }
         theta = adaptative_grid(&mut theta, eps, &ranges);
@@ -193,7 +197,7 @@ where
         last_objf = objf;
     }
     writer.flush().unwrap();
-    (theta, w, objf, cycle, converged)
+    (theta,psi, w, objf, cycle, converged)
 }
 
 fn adaptative_grid(theta: &mut Array2<f64>, eps: f64, ranges: &[(f64, f64)]) -> Array2<f64> {
