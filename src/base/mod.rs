@@ -167,8 +167,8 @@ fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64>{
 }
 
 fn population_mean_median(theta: &Array2<f64>,w: &Array1<f64>) -> (Array1<f64>,Array1<f64>){
-    let mut mean = Array1::zeros(w.len());
-    let mut median = Array1::zeros(w.len());
+    let mut mean = Array1::zeros(theta.ncols());
+    let mut median = Array1::zeros(theta.ncols());
     for (i,(mn,mdn)) in mean.iter_mut().zip(&mut median).enumerate(){
         let col = theta.column(i).to_owned() * w.to_owned();
         *mn = col.mean().unwrap();
