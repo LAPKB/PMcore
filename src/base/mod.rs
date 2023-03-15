@@ -12,6 +12,7 @@ use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use ndarray::{Array2, Axis, Array1};
 use ndarray_csv::{Array2Reader, Array2Writer};
+use ndarray_stats::QuantileExt;
 use std::fs::{self, File};
 use std::thread::spawn;
 use std::time::Instant;
@@ -100,7 +101,7 @@ fn run_npag<S>(
             writer.flush().unwrap();
 
             // posterior.csv
-            let posterior = posterior(psi, w);
+            let posterior = posterior(&psi, &w);
             let file = File::create("posterior.csv").unwrap();
             let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
             writer.serialize_array2(&posterior).unwrap();
@@ -108,17 +109,8 @@ fn run_npag<S>(
 
             // //pred.csv
             // let pred = sim_obs(&sim_eng, scenarios, &theta);
-            // let pred_file = File::create("pred.csv").unwrap();
-            // let mut writer = WriterBuilder::new()
-            //     .has_headers(false)
-            //     .from_writer(pred_file);
-            // for row in pred.axis_iter(Axis(0)) {
-            //     for elem in row.axis_iter(Axis(0)) {
-            //         writer.write_field(format!("{}", &elem)).unwrap();
-            //     }
-            //     writer.write_record(None::<&[u8]>).unwrap();
-            // }
-            // writer.flush().unwrap();
+            let (pop_mean, pop_median) = population_mean_median(&theta, &w);
+            
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
@@ -156,8 +148,8 @@ fn setup_log(settings: &Data) {
     };
 }
 
-fn posterior(psi: Array2<f64>, w: Array1<f64>) -> Array2<f64>{
-    let py = psi.dot(&w);
+fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64>{
+    let py = psi.dot(w);
     let mut post: Array2<f64> = Array2::zeros((psi.nrows(),psi.ncols()));
     post.axis_iter_mut(Axis(0))
         .into_par_iter()
@@ -172,4 +164,15 @@ fn posterior(psi: Array2<f64>, w: Array1<f64>) -> Array2<f64>{
                 });
         });
     post
+}
+
+fn population_mean_median(theta: &Array2<f64>,w: &Array1<f64>) -> (Array1<f64>,Array1<f64>){
+    let mut mean = Array1::zeros(w.len());
+    let mut median = Array1::zeros(w.len());
+    for (i,(mn,mdn)) in mean.iter_mut().zip(&mut median).enumerate(){
+        let col = theta.column(i).to_owned() * w.to_owned();
+        *mn = col.mean().unwrap();
+    }
+
+    (mean,median)
 }
