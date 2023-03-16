@@ -1,6 +1,6 @@
 use std::thread;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use std::time::Duration;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use super::key::Key;
 use super::InputEvent;
@@ -35,9 +35,9 @@ impl Events {
     }
 
     pub fn recv(&mut self) -> Option<InputEvent> {
-        match self.rx.try_recv(){
+        match self.rx.try_recv() {
             Ok(event) => Some(event),
-            Err(_) => None
+            Err(_) => None,
         }
     }
 }

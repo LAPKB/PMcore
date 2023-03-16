@@ -1,12 +1,22 @@
-use std::{io::stdout, time::Duration};
 use eyre::Result;
+use std::{io::stdout, time::Duration};
 use tokio::sync::mpsc::UnboundedReceiver;
-use tui::{backend::{CrosstermBackend, Backend}, Terminal, Frame, layout::{Constraint, Direction, Layout, Alignment, Rect}, widgets::{Paragraph, Block, Borders, BorderType, Table, Row, Cell}, style::{Style, Color}, text::{Spans, Span}};
+use tui::{
+    backend::{Backend, CrosstermBackend},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    text::{Span, Spans},
+    widgets::{Block, BorderType, Borders, Cell, Paragraph, Row, Table},
+    Frame, Terminal,
+};
 
-use super::{state::AppState, inputs::{events::Events, InputEvent}, AppReturn, App};
+use super::{
+    inputs::{events::Events, InputEvent},
+    state::AppState,
+    App, AppReturn,
+};
 
-
-pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()>{
+pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
     let stdout = stdout();
     crossterm::terminal::enable_raw_mode()?;
     let backend = CrosstermBackend::new(stdout);
@@ -20,11 +30,9 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()>{
     let mut events = Events::new(tick_rate);
 
     loop {
-        app.state = match rx.try_recv(){
-            Ok(state) => {
-                state
-            },
-            Err(_) => app.state
+        app.state = match rx.try_recv() {
+            Ok(state) => state,
+            Err(_) => app.state,
         };
 
         terminal.draw(|rect| draw(rect, &app)).unwrap();
@@ -32,13 +40,12 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()>{
         //  Handle inputs
         let result = match events.recv() {
             Some(InputEvent::Input(key)) => app.do_action(key),
-            None => AppReturn::Continue
+            None => AppReturn::Continue,
         };
         // Check if we should exit
         if result == AppReturn::Exit {
             break;
         }
-
     }
     terminal.clear()?;
     terminal.show_cursor()?;

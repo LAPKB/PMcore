@@ -6,5 +6,4 @@ pub mod key;
 #[derive(Debug)]
 pub enum InputEvent {
     Input(Key),
-
 }

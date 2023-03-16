@@ -28,7 +28,7 @@ pub fn npag<S>(
 where
     S: Simulate + std::marker::Sync,
 {
-    let mut psi: Array2<f64> = Array2::default((0,0));
+    let mut psi: Array2<f64> = Array2::default((0, 0));
     let mut lambda: Array1<f64>;
     let mut w: Array1<f64> = Array1::default(0);
 
@@ -145,7 +145,7 @@ where
 
         let pyl = psi.dot(&w);
         // log::info!("Spp: {}", theta.nrows());
-        log::info!("{:?}",&theta);
+        log::info!("{:?}", &theta);
         let mut thetaw = theta.clone();
         thetaw.push_column(w.clone().t()).unwrap();
         w.clone().to_vec();
@@ -197,7 +197,7 @@ where
         last_objf = objf;
     }
     writer.flush().unwrap();
-    (theta,psi, w, objf, cycle, converged)
+    (theta, psi, w, objf, cycle, converged)
 }
 
 fn adaptative_grid(theta: &mut Array2<f64>, eps: f64, ranges: &[(f64, f64)]) -> Array2<f64> {

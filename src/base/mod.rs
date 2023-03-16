@@ -1,6 +1,5 @@
 use self::datafile::Scenario;
 use self::settings::Data;
-use ndarray::parallel::prelude::*;
 use self::simulator::{Engine, Simulate};
 use crate::prelude::start_ui;
 use crate::{algorithms::npag::npag, tui::state::AppState};
@@ -10,7 +9,8 @@ use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use ndarray::{Array2, Axis, Array1};
+use ndarray::parallel::prelude::*;
+use ndarray::{Array1, Array2, Axis};
 use ndarray_csv::{Array2Reader, Array2Writer};
 use std::fs::{self, File};
 use std::thread::spawn;
@@ -104,7 +104,6 @@ fn run_npag<S>(
             let file = File::create("posterior.csv").unwrap();
             let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
             writer.serialize_array2(&posterior).unwrap();
-            
 
             // //pred.csv
             // let pred = sim_obs(&sim_eng, scenarios, &theta);
@@ -115,13 +114,22 @@ fn run_npag<S>(
             let mut obs_writer = WriterBuilder::new()
                 .has_headers(false)
                 .from_writer(obs_file);
-            obs_writer.write_record(&["sub_num","time","obs","outeq"]).unwrap();
+            obs_writer
+                .write_record(&["sub_num", "time", "obs", "outeq"])
+                .unwrap();
             for (id, scenario) in scenarios.into_iter().enumerate() {
                 let observations = scenario.obs_flat.clone();
                 let time = scenario.time_flat.clone();
 
                 for (obs, t) in observations.into_iter().zip(time) {
-                    obs_writer.write_record(&[id.to_string(),t.to_string(),obs.to_string(),"1".to_string()]).unwrap();
+                    obs_writer
+                        .write_record(&[
+                            id.to_string(),
+                            t.to_string(),
+                            obs.to_string(),
+                            "1".to_string(),
+                        ])
+                        .unwrap();
                 }
             }
             obs_writer.flush().unwrap();
@@ -146,9 +154,9 @@ fn setup_log(settings: &Data) {
     };
 }
 
-fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64>{
+fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
     let py = psi.dot(w);
-    let mut post: Array2<f64> = Array2::zeros((psi.nrows(),psi.ncols()));
+    let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
     post.axis_iter_mut(Axis(0))
         .into_par_iter()
         .enumerate()
@@ -157,37 +165,35 @@ fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64>{
                 .into_par_iter()
                 .enumerate()
                 .for_each(|(j, mut element)| {
-                    let elem = psi.get((i,j)).unwrap()*w.get(j).unwrap()/py.get(i).unwrap();
+                    let elem = psi.get((i, j)).unwrap() * w.get(j).unwrap() / py.get(i).unwrap();
                     element.fill(elem.clone());
                 });
         });
     post
 }
 
-fn population_mean_median(theta: &Array2<f64>,w: &Array1<f64>) -> (Array1<f64>,Array1<f64>){
+fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>, Array1<f64>) {
     let mut mean = Array1::zeros(theta.ncols());
     let mut median = Array1::zeros(theta.ncols());
 
-    for (i,(mn,mdn)) in mean.iter_mut().zip(&mut median).enumerate(){
-
+    for (i, (mn, mdn)) in mean.iter_mut().zip(&mut median).enumerate() {
         // Calculate the weighted mean
         let col = theta.column(i).to_owned() * w.to_owned();
         *mn = col.sum();
 
         // Calculate the median
         let ct = theta.column(i);
-        let mut tup:Vec<(f64, f64)> = Vec::new();
-        for (ti, wi) in ct.iter().zip(w){
+        let mut tup: Vec<(f64, f64)> = Vec::new();
+        for (ti, wi) in ct.iter().zip(w) {
             tup.push((*ti, *wi));
         }
 
         tup.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
-        
-        let mut wacc:Vec<f64> = Vec::new();
-        let mut widx:usize = 0;
+
+        let mut wacc: Vec<f64> = Vec::new();
+        let mut widx: usize = 0;
 
         for (i, (_, wi)) in tup.iter().enumerate() {
-
             let acc = wi + wacc.last().unwrap_or(&0.0);
             wacc.push(acc);
 
@@ -200,13 +206,11 @@ fn population_mean_median(theta: &Array2<f64>,w: &Array1<f64>) -> (Array1<f64>,A
         let acc2 = wacc.pop().unwrap();
         let acc1 = wacc.pop().unwrap();
         let par2 = tup.get(widx).unwrap().0;
-        let par1 = tup.get(widx-1).unwrap().0;
-        let slope = (par2-par1)/(acc2-acc1);
+        let par1 = tup.get(widx - 1).unwrap().0;
+        let slope = (par2 - par1) / (acc2 - acc1);
 
-        *mdn  = par1 + slope*(0.5 - acc1);
-
+        *mdn = par1 + slope * (0.5 - acc1);
     }
 
-    (mean,median)
-
+    (mean, median)
 }

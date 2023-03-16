@@ -1,14 +1,13 @@
-pub mod ui;
-pub mod state;
-pub mod inputs;
 pub mod actions;
+pub mod inputs;
+pub mod state;
+pub mod ui;
 
 use log::{debug, warn};
 
-use self::actions::{Actions, Action};
+use self::actions::{Action, Actions};
 use self::inputs::key::Key;
 use self::state::AppState;
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum AppReturn {
