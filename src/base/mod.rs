@@ -110,7 +110,6 @@ fn run_npag<S>(
             // //pred.csv
             // let pred = sim_obs(&sim_eng, scenarios, &theta);
             let (pop_mean, pop_median) = population_mean_median(&theta, &w);
-            
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
@@ -169,10 +168,46 @@ fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64>{
 fn population_mean_median(theta: &Array2<f64>,w: &Array1<f64>) -> (Array1<f64>,Array1<f64>){
     let mut mean = Array1::zeros(theta.ncols());
     let mut median = Array1::zeros(theta.ncols());
+
     for (i,(mn,mdn)) in mean.iter_mut().zip(&mut median).enumerate(){
+
+        // Calculate the weighted mean
         let col = theta.column(i).to_owned() * w.to_owned();
-        *mn = col.mean().unwrap();
+        *mn = col.sum();
+
+        // Calculate the median
+        let ct = theta.column(i);
+        let mut tup:Vec<(f64, f64)> = Vec::new();
+        for (ti, wi) in ct.iter().zip(w){
+            tup.push((*ti, *wi));
+        }
+
+        tup.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+        
+        let mut wacc:Vec<f64> = Vec::new();
+        let mut widx:usize = 0;
+
+        for (i, (_, wi)) in tup.iter().enumerate() {
+
+            let acc = wi + wacc.last().unwrap_or(&0.0);
+            wacc.push(acc);
+
+            if acc > 0.5 {
+                widx = i;
+                break;
+            }
+        }
+
+        let acc2 = wacc.pop().unwrap();
+        let acc1 = wacc.pop().unwrap();
+        let par2 = tup.get(widx).unwrap().0;
+        let par1 = tup.get(widx-1).unwrap().0;
+        let slope = (par2-par1)/(acc2-acc1);
+
+        *mdn  = par1 + slope*(0.5 - acc1);
+
     }
 
     (mean,median)
+
 }
