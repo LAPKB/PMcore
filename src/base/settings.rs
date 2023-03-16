@@ -1,8 +1,8 @@
 use serde_derive::Deserialize;
-use toml::value::Array;
 use std::fs;
 use std::process::exit;
 use toml;
+use toml::value::Array;
 
 #[derive(Deserialize, Clone)]
 pub struct Data {
@@ -25,8 +25,7 @@ pub struct Config {
     pub seed: u32,
     pub tui: bool,
     pub pmetrics_outputs: Option<bool>,
-    pub exclude: Option<Array>
-
+    pub exclude: Option<Array>,
 }
 
 pub fn read(filename: String) -> Data {
