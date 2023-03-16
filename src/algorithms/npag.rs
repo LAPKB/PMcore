@@ -51,7 +51,7 @@ where
     while eps > THETA_E {
         log::info!("Cycle: {}", cycle);
         // psi n_sub rows, nspp columns
-        psi = prob(&sim_eng, scenarios, &theta, c);
+        psi = prob(sim_eng, scenarios, &theta, c);
         // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
         //     log::info!("sub {}, sum: {}", i, row.sum());
         // }
