@@ -10,7 +10,7 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use ndarray::parallel::prelude::*;
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_csv::{Array2Reader, Array2Writer};
 use std::fs::{self, File};
 use std::thread::spawn;
@@ -108,6 +108,9 @@ fn run_npag<S>(
             // //pred.csv
             // let pred = sim_obs(&sim_eng, scenarios, &theta);
             let (_pop_mean, _pop_median) = population_mean_median(&theta, &w);
+
+            // For debugging
+            // let posts = posterior_mean_median(&theta, &psi);
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
@@ -210,6 +213,78 @@ fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>,
         let slope = (par2 - par1) / (acc2 - acc1);
 
         *mdn = par1 + slope * (0.5 - acc1);
+    }
+
+    (mean, median)
+}
+
+fn posterior_mean_median(theta: &Array2<f64>, psi: &Array2<f64>) -> (Array2<f64>, Array2<f64>) {
+    let mut mean = Array2::zeros((0, theta.ncols()));
+    let mut median = Array2::zeros((0, theta.ncols()));
+
+    // Normalize psi to get probabilities of each spp for each id
+    let mut psi_norm: Array2<f64> = Array2::zeros((0, psi.ncols()));
+    for row in psi.axis_iter(Axis(0)) {
+        let row_sum = row.sum();
+        let row_norm = &row / row_sum;
+        psi_norm.push_row(row_norm.view());
+    }
+
+    // Transpose normalized psi to get ID (col) by prob (row)
+    let psi_norm_transposed = psi_norm.t();
+
+    // For each subject..
+    for probs in psi_norm_transposed.axis_iter(Axis(1)) {
+        let mut post_mean: Vec<f64> = Vec::new();
+        let mut post_median: Vec<f64> = Vec::new();
+
+        // For each parameter
+        for pars in theta.axis_iter(Axis(1)) {
+            // Calculate the mean
+            let weighted_par = &probs * &pars;
+            let the_mean = weighted_par.sum();
+            post_mean.push(the_mean);
+
+            // Calculate the median
+            let mut tup: Vec<(f64, f64)> = Vec::new();
+
+            for (ti, wi) in pars.iter().zip(probs) {
+                tup.push((*ti, *wi));
+            }
+
+            tup.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+
+            if tup.first().unwrap().1 >= 0.5 {
+                tup.sort_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap());
+            }
+
+            let mut wacc: Vec<f64> = Vec::new();
+            let mut widx: usize = 0;
+
+            for (i, (_, wi)) in tup.iter().enumerate() {
+                let acc = wi + wacc.last().unwrap_or(&0.0);
+                wacc.push(acc);
+
+                if acc > 0.5 {
+                    widx = i;
+                    break;
+                }
+            }
+
+            let acc2 = wacc.pop().unwrap();
+            let acc1 = wacc.pop().unwrap();
+            let par2 = tup.get(widx).unwrap().0;
+            let par1 = tup.get(widx - 1).unwrap().0;
+            let slope = (par2 - par1) / (acc2 - acc1);
+            let the_median = par1 + slope * (0.5 - acc1);
+            post_median.push(the_median);
+        }
+
+        mean.push_row(Array::from(post_mean.clone()).view())
+            .unwrap();
+        median
+            .push_row(Array::from(post_median.clone()).view())
+            .unwrap();
     }
 
     (mean, median)
