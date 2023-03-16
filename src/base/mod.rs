@@ -12,7 +12,6 @@ use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use ndarray::{Array2, Axis, Array1};
 use ndarray_csv::{Array2Reader, Array2Writer};
-use ndarray_stats::QuantileExt;
 use std::fs::{self, File};
 use std::thread::spawn;
 use std::time::Instant;
@@ -109,7 +108,7 @@ fn run_npag<S>(
 
             // //pred.csv
             // let pred = sim_obs(&sim_eng, scenarios, &theta);
-            let (pop_mean, pop_median) = population_mean_median(&theta, &w);
+            let (_pop_mean, _pop_median) = population_mean_median(&theta, &w);
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
