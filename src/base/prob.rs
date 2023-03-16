@@ -1,19 +1,19 @@
-use std::fmt::Display;
+// use std::fmt::Display;
 
 use crate::prelude::{Engine, Scenario, Simulate};
 use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
 use ndarray::Array;
 
-#[derive(Default, Clone)]
-pub struct Observations(pub Vec<f64>);
-impl Display for Observations {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.iter().fold(Ok(()), |result, value| {
-            result.and_then(|_| write!(f, "{},", value))
-        })
-    }
-}
+// #[derive(Default, Clone)]
+// pub struct Observations(pub Vec<f64>);
+// impl Display for Observations {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         self.0.iter().fold(Ok(()), |result, value| {
+//             result.and_then(|_| write!(f, "{},", value))
+//         })
+//     }
+// }
 
 const FRAC_1_SQRT_2PI: f64 =
     std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / 2.0;
@@ -72,11 +72,11 @@ pub fn sim_obs<S>(
     sim_eng: &Engine<S>,
     scenarios: &Vec<Scenario>,
     support_points: &Array2<f64>,
-) -> Array2<Observations>
+) -> Array2<Vec<f64>>
 where
     S: Simulate + Sync,
 {
-    let mut pred: Array2<Observations> =
+    let mut pred: Array2<Vec<f64>> =
         Array2::default((scenarios.len(), support_points.nrows()).f());
     pred.axis_iter_mut(Axis(0))
         .into_par_iter()
@@ -88,7 +88,7 @@ where
                 .for_each(|(j, mut element)| {
                     let scenario = scenarios.get(i).unwrap();
                     let ypred = sim_eng.pred(scenario, support_points.row(j).to_vec());
-                    element.fill(Observations(ypred));
+                    element.fill(ypred);
                 });
         });
     pred

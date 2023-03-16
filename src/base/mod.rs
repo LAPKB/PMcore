@@ -12,6 +12,7 @@ use log4rs::encode::pattern::PatternEncoder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array1, Array2, Axis};
 use ndarray_csv::{Array2Reader, Array2Writer};
+use prob::sim_obs;
 use std::fs::{self, File};
 use std::thread::spawn;
 use std::time::Instant;
@@ -107,7 +108,35 @@ fn run_npag<S>(
 
             // //pred.csv
             // let pred = sim_obs(&sim_eng, scenarios, &theta);
-            let (_pop_mean, _pop_median) = population_mean_median(&theta, &w);
+            let (pop_mean, pop_median) = population_mean_median(&theta, &w);
+            let ndim = pop_mean.len();
+            let pop_mean_pred = sim_obs(&sim_eng, scenarios, &pop_mean.into_shape((1, ndim)).unwrap());
+            let pop_median_pred = sim_obs(&sim_eng, scenarios, &pop_median.into_shape((1, ndim)).unwrap());
+            let pred_file = File::create("pred.csv").unwrap();
+            let mut pred_writer = WriterBuilder::new()
+                .has_headers(false)
+                .from_writer(pred_file);
+            pred_writer
+                .write_record(["id", "time", "outeq", "popMean", "popMedian"])
+                .unwrap();
+            for (id, scenario) in scenarios.iter().enumerate() {
+                let time = scenario.time_flat.clone();
+                let pop_mp = pop_mean_pred.get((id,0)).unwrap().to_owned();
+                let pop_medp = pop_median_pred.get((id,0)).unwrap().to_owned();
+                for ((pop_mp_i, pop_medp_i), t) in pop_mp.into_iter().zip(pop_medp).zip(time) {
+                    pred_writer
+                        .write_record(&[
+                            id.to_string(),
+                            t.to_string(),
+                            "1".to_string(),
+                            pop_mp_i.to_string(),
+                            pop_medp_i.to_string(),
+                        ])
+                        .unwrap();
+                }
+
+            }
+            
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
