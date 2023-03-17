@@ -1,4 +1,5 @@
 use eyre::Result;
+use ndarray::Array1;
 use np_core::prelude::*;
 use ode_solvers::*;
 
@@ -23,7 +24,7 @@ impl ode_solvers::System<State> for Model<'_> {
         dy[1] = ka * y[0] - ke * y[1];
         //////////////// END USER DEFINED ////////////////
         for dose in &self.scenario.doses {
-            if (t - (dose.time+self.lag)).abs() < 499999.0e-7 {
+            if (t - (dose.time+self.lag)).abs() < 999.0e-4 {
                 y[dose.compartment] += dose.dose;
             }
         }
@@ -59,7 +60,7 @@ impl Simulate for Sim {
             .iter()
             .map(|y| {
                 ///////////////////// USER DEFINED ///////////////
-                y[1] / v
+                y[0]
                 //////////////// END USER DEFINED ////////////////
             })
             .collect();
@@ -70,11 +71,17 @@ impl Simulate for Sim {
 }
 
 fn main() -> Result<()> {
-    start(
-        Engine::new(Sim {}),
-        vec![(0.1, 0.9), (0.001, 0.1), (30.0, 120.0), (0.0, 4.0)],
-        "examples/two_eq_lag.toml".to_string(),
-        (0.1, 0.25, -0.001, 0.0),
-    )?;
+    let scenarios = np_core::base::datafile::parse(&"examples/two_eq_lag.csv".to_string()).unwrap();
+    let scenario = scenarios.first().unwrap();
+    dbg!(&scenario);
+    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 82.4722461587669, 1.4065258528674902])));
+    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.45653373718261686, 0.046457990962687504, 82.4722461587669, 1.4065258528674902])));
+    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.053580406975746155, 82.4722461587669, 1.4065258528674902])));
+    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 54.13560247421265, 1.4065258528674902])));
+    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 82.4722461587669, 1.799925994873047])));
+    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 82.4722461587669, 0.])));
+    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 82.4722461587669, 4.])));
+    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.45653373718261686, 0.053580406975746155, 54.13560247421265, 1.799925994873047])));
+
     Ok(())
 }
