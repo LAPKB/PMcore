@@ -14,10 +14,10 @@ use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_csv::{Array2Reader, Array2Writer};
 use prob::sim_obs;
+use std::error;
 use std::fs::{self, File};
 use std::thread::spawn;
 use std::time::Instant;
-use std::error;
 use tokio::sync::mpsc::{self, UnboundedSender};
 pub mod array_permutation;
 pub mod datafile;
@@ -129,7 +129,15 @@ fn run_npag<S>(
                 .has_headers(false)
                 .from_writer(pred_file);
             pred_writer
-                .write_record(["id", "time", "outeq", "popMean", "popMedian", "postMean", "postMedian"])
+                .write_record([
+                    "id",
+                    "time",
+                    "outeq",
+                    "popMean",
+                    "popMedian",
+                    "postMean",
+                    "postMedian",
+                ])
                 .unwrap();
             for (id, scenario) in scenarios.iter().enumerate() {
                 let time = scenario.time_flat.clone();
@@ -137,7 +145,13 @@ fn run_npag<S>(
                 let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
                 let post_mp = post_mean_pred.get(id).unwrap().to_owned();
                 let post_mdp = post_median_pred.get(id).unwrap().to_owned();
-                for ((((pop_mp_i,pop_mdp_i),post_mp_i),post_medp_i),t) in pop_mp.into_iter().zip(pop_medp).zip(post_mp).zip(post_mdp).zip(time) {
+                for ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t) in pop_mp
+                    .into_iter()
+                    .zip(pop_medp)
+                    .zip(post_mp)
+                    .zip(post_mdp)
+                    .zip(time)
+                {
                     pred_writer
                         .write_record(&[
                             id.to_string(),
@@ -146,12 +160,11 @@ fn run_npag<S>(
                             pop_mp_i.to_string(),
                             pop_mdp_i.to_string(),
                             post_mp_i.to_string(),
-                            post_medp_i.to_string()
+                            post_medp_i.to_string(),
                         ])
                         .unwrap();
                 }
             }
-
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
@@ -342,7 +355,7 @@ fn post_predictions<S>(
     scenarios: &Vec<Scenario>,
 ) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>>
 where
-S: Simulate + Sync
+    S: Simulate + Sync,
 {
     if post.nrows() != scenarios.len() {
         return Err("Error calculating the posterior predictions, size mismatch.".into());
