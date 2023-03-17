@@ -45,6 +45,20 @@ where
     let mut writer = WriterBuilder::new()
         .has_headers(false)
         .from_writer(cycles_file);
+    writer.write_field("cycle").unwrap();
+    writer.write_field("-2ll").unwrap();
+    writer.write_field("nspp").unwrap();
+
+    for i in 0..theta.ncols() {
+        writer.write_field(format!("param{}.mean", i)).unwrap();
+    }
+    for i in 0..theta.ncols() {
+        writer.write_field(format!("param{}.median", i)).unwrap();
+    }
+    for i in 0..theta.ncols() {
+        writer.write_field(format!("param{}.sd", i)).unwrap();
+    }
+    writer.write_record(None::<&[u8]>).unwrap();
 
     // let mut _pred: Array2<Vec<f64>>;
 
@@ -174,9 +188,7 @@ where
                         .unwrap();
                 }
                 for param in theta.axis_iter(Axis(1)).into_iter() {
-                    writer
-                        .write_field(format!("{}", param.std(1.)))
-                        .unwrap();
+                    writer.write_field(format!("{}", param.std(1.))).unwrap();
                 }
 
                 writer.write_record(None::<&[u8]>).unwrap();
