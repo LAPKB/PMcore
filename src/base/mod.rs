@@ -125,7 +125,7 @@ fn run_npag<S>(
                 scenarios,
                 &pop_median.into_shape((1, ndim)).unwrap(),
             );
-            
+
             // dbg!(&pop_mean_pred);
             let pred_file = File::create("pred.csv").unwrap();
             let mut pred_writer = WriterBuilder::new()
