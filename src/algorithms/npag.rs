@@ -14,7 +14,7 @@ use crate::tui::state::AppState;
 const THETA_E: f64 = 1e-4; //convergence Criteria
 const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
-const THETA_D: f64 = 1e-3;
+const THETA_D: f64 = 1e-4;
 
 pub fn npag<S>(
     sim_eng: &Engine<S>,

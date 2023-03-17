@@ -108,10 +108,6 @@ fn run_npag<S>(
             // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
             // writer.serialize_array2(&posterior).unwrap();
 
-
-            let sim = sim_obs(&sim_eng, scenarios, &theta);
-            dbg!(&theta);
-
             // pred.csv
             let (pop_mean, pop_median) = population_mean_median(&theta, &w);
             dbg!(&pop_mean);
