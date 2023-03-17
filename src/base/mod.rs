@@ -1,4 +1,5 @@
 use self::datafile::Scenario;
+use self::prob::simple_sim;
 use self::settings::Data;
 use self::simulator::{Engine, Simulate};
 use crate::prelude::start_ui;
@@ -16,6 +17,7 @@ use prob::sim_obs;
 use std::fs::{self, File};
 use std::thread::spawn;
 use std::time::Instant;
+use std::error;
 use tokio::sync::mpsc::{self, UnboundedSender};
 pub mod array_permutation;
 pub mod datafile;
@@ -49,7 +51,6 @@ where
     let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
     if let Some(exclude) = &settings.config.exclude {
         for val in exclude {
-            dbg!(&val);
             scenarios.remove(val.as_integer().unwrap() as usize);
         }
     }
@@ -109,36 +110,48 @@ fn run_npag<S>(
             // pred.csv
             let (pop_mean, pop_median) = population_mean_median(&theta, &w);
             let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
+            let post_mean_pred = post_predictions(&sim_eng, post_mean, &scenarios).unwrap();
+            let post_median_pred = post_predictions(&sim_eng, post_median, &scenarios).unwrap();
+
             let ndim = pop_mean.len();
-            let pop_mean_pred = sim_obs(&sim_eng, scenarios, &pop_mean.into_shape((1, ndim)).unwrap());
-            let pop_median_pred = sim_obs(&sim_eng, scenarios, &pop_median.into_shape((1, ndim)).unwrap());
+            let pop_mean_pred = sim_obs(
+                &sim_eng,
+                scenarios,
+                &pop_mean.into_shape((1, ndim)).unwrap(),
+            );
+            let pop_median_pred = sim_obs(
+                &sim_eng,
+                scenarios,
+                &pop_median.into_shape((1, ndim)).unwrap(),
+            );
             let pred_file = File::create("pred.csv").unwrap();
             let mut pred_writer = WriterBuilder::new()
                 .has_headers(false)
                 .from_writer(pred_file);
             pred_writer
-                .write_record(["id", "time", "outeq", "popMean", "popMedian"])
+                .write_record(["id", "time", "outeq", "popMean", "popMedian", "postMean", "postMedian"])
                 .unwrap();
             for (id, scenario) in scenarios.iter().enumerate() {
                 let time = scenario.time_flat.clone();
-                let pop_mp = pop_mean_pred.get((id,0)).unwrap().to_owned();
-                let pop_medp = pop_median_pred.get((id,0)).unwrap().to_owned();
-                for ((pop_mp_i, pop_medp_i), t) in pop_mp.into_iter().zip(pop_medp).zip(time) {
+                let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
+                let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
+                let post_mp = post_mean_pred.get(id).unwrap().to_owned();
+                let post_mdp = post_median_pred.get(id).unwrap().to_owned();
+                for ((((pop_mp_i,pop_mdp_i),post_mp_i),post_medp_i),t) in pop_mp.into_iter().zip(pop_medp).zip(post_mp).zip(post_mdp).zip(time) {
                     pred_writer
                         .write_record(&[
                             id.to_string(),
                             t.to_string(),
                             "1".to_string(),
                             pop_mp_i.to_string(),
-                            pop_medp_i.to_string(),
+                            pop_mdp_i.to_string(),
+                            post_mp_i.to_string(),
+                            post_medp_i.to_string()
                         ])
                         .unwrap();
                 }
             }
-            
 
-            // For debugging
-            let posts = posterior_mean_median(&theta, &psi, &w);
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
@@ -260,7 +273,7 @@ fn posterior_mean_median(
         let row_w = row.to_owned() * w.to_owned();
         let row_sum = row_w.sum();
         let row_norm = &row_w / row_sum;
-        psi_norm.push_row(row_norm.view());
+        psi_norm.push_row(row_norm.view()).unwrap();
     }
 
     // Transpose normalized psi to get ID (col) by prob (row)
@@ -321,4 +334,30 @@ fn posterior_mean_median(
     }
 
     (mean, median)
+}
+
+fn post_predictions<S>(
+    sim_engine: &Engine<S>,
+    post: Array2<f64>,
+    scenarios: &Vec<Scenario>,
+) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>>
+where
+S: Simulate + Sync
+{
+    if post.nrows() != scenarios.len() {
+        return Err("Error calculating the posterior predictions, size mismatch.".into());
+    }
+    let mut predictions: Array1<Vec<f64>> = Array1::default(post.nrows());
+
+    predictions
+        .axis_iter_mut(Axis(0))
+        .into_par_iter()
+        .enumerate()
+        .for_each(|(i, mut pred)| {
+            let scenario = scenarios.get(i).unwrap();
+            let support_point = post.row(i).to_owned();
+            pred.fill(simple_sim(&sim_engine, scenario, &support_point))
+        });
+
+    return Ok(predictions);
 }
