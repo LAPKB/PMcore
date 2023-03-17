@@ -110,7 +110,8 @@ fn run_npag<S>(
             let (_pop_mean, _pop_median) = population_mean_median(&theta, &w);
 
             // For debugging
-            // let posts = posterior_mean_median(&theta, &psi);
+            let posts = posterior_mean_median(&theta, &psi, &w);
+            dbg!(posts);
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
@@ -218,17 +219,24 @@ fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>,
     (mean, median)
 }
 
-fn posterior_mean_median(theta: &Array2<f64>, psi: &Array2<f64>) -> (Array2<f64>, Array2<f64>) {
+fn posterior_mean_median(
+    theta: &Array2<f64>,
+    psi: &Array2<f64>,
+    w: &Array1<f64>,
+) -> (Array2<f64>, Array2<f64>) {
     let mut mean = Array2::zeros((0, theta.ncols()));
     let mut median = Array2::zeros((0, theta.ncols()));
 
     // Normalize psi to get probabilities of each spp for each id
     let mut psi_norm: Array2<f64> = Array2::zeros((0, psi.ncols()));
     for row in psi.axis_iter(Axis(0)) {
-        let row_sum = row.sum();
-        let row_norm = &row / row_sum;
+        let row_w = row.to_owned() * w.to_owned();
+        let row_sum = row_w.sum();
+        let row_norm = &row_w / row_sum;
         psi_norm.push_row(row_norm.view());
     }
+
+    dbg!(&psi_norm);
 
     // Transpose normalized psi to get ID (col) by prob (row)
     let psi_norm_transposed = psi_norm.t();
