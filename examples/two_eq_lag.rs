@@ -23,7 +23,7 @@ impl ode_solvers::System<State> for Model<'_> {
         dy[1] = ka * y[0] - ke * y[1];
         //////////////// END USER DEFINED ////////////////
         for dose in &self.scenario.doses {
-            if (t - dose.time).abs() < 1.0e-4 {
+            if (t - dose.time).abs() < 0.001 {
                 y[dose.compartment] += dose.dose;
             }
         }

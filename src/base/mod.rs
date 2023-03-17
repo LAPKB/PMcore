@@ -12,7 +12,8 @@ use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
-use ndarray_csv::{Array2Reader, Array2Writer};
+use ndarray_csv::Array2Reader;
+// use ndarray_csv::Array2Writer;
 use prob::sim_obs;
 use std::error;
 use std::fs::{self, File};
@@ -101,14 +102,15 @@ fn run_npag<S>(
             }
             writer.flush().unwrap();
 
-            // posterior.csv
-            let posterior = posterior(&psi, &w);
-            let file = File::create("posterior.csv").unwrap();
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-            writer.serialize_array2(&posterior).unwrap();
+            // // posterior.csv
+            // let posterior = posterior(&psi, &w);
+            // let file = File::create("posterior.csv").unwrap();
+            // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+            // writer.serialize_array2(&posterior).unwrap();
 
             // pred.csv
             let (pop_mean, pop_median) = population_mean_median(&theta, &w);
+            dbg!(&pop_mean);
             let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
             let post_mean_pred = post_predictions(&sim_eng, post_mean, scenarios).unwrap();
             let post_median_pred = post_predictions(&sim_eng, post_median, scenarios).unwrap();
@@ -124,6 +126,8 @@ fn run_npag<S>(
                 scenarios,
                 &pop_median.into_shape((1, ndim)).unwrap(),
             );
+            
+            dbg!(&pop_mean_pred);
             let pred_file = File::create("pred.csv").unwrap();
             let mut pred_writer = WriterBuilder::new()
                 .has_headers(false)
@@ -211,23 +215,23 @@ fn setup_log(settings: &Data) {
     };
 }
 
-fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
-    let py = psi.dot(w);
-    let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
-    post.axis_iter_mut(Axis(0))
-        .into_par_iter()
-        .enumerate()
-        .for_each(|(i, mut row)| {
-            row.axis_iter_mut(Axis(0))
-                .into_par_iter()
-                .enumerate()
-                .for_each(|(j, mut element)| {
-                    let elem = psi.get((i, j)).unwrap() * w.get(j).unwrap() / py.get(i).unwrap();
-                    element.fill(elem);
-                });
-        });
-    post
-}
+// fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
+//     let py = psi.dot(w);
+//     let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
+//     post.axis_iter_mut(Axis(0))
+//         .into_par_iter()
+//         .enumerate()
+//         .for_each(|(i, mut row)| {
+//             row.axis_iter_mut(Axis(0))
+//                 .into_par_iter()
+//                 .enumerate()
+//                 .for_each(|(j, mut element)| {
+//                     let elem = psi.get((i, j)).unwrap() * w.get(j).unwrap() / py.get(i).unwrap();
+//                     element.fill(elem);
+//                 });
+//         });
+//     post
+// }
 
 fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>, Array1<f64>) {
     let mut mean = Array1::zeros(theta.ncols());

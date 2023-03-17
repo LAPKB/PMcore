@@ -49,7 +49,7 @@ where
     // let mut _pred: Array2<Vec<f64>>;
 
     while eps > THETA_E {
-        log::info!("Cycle: {}", cycle);
+        // log::info!("Cycle: {}", cycle);
         // psi n_sub rows, nspp columns
         psi = prob(sim_eng, scenarios, &theta, c);
         // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
@@ -110,7 +110,7 @@ where
                 psi = stack(Axis(1), &psi_columns).unwrap();
             }
             Err(_) => {
-                log::info!("# support points was {}", psi.ncols());
+                log::info!("Cycle {}, #support points was {}",cycle, psi.ncols());
                 let nsub = psi.nrows();
                 // let perm = psi.sort_axis_by(Axis(1), |i, j| psi.column(i).sum() > psi.column(j).sum());
                 psi = psi.permute_axis(Axis(1), &perm);
@@ -145,7 +145,7 @@ where
 
         let pyl = psi.dot(&w);
         // log::info!("Spp: {}", theta.nrows());
-        log::info!("{:?}", &theta);
+        // log::info!("{:?}", &theta);
         let mut thetaw = theta.clone();
         thetaw.push_column(w.clone().t()).unwrap();
         w.clone().to_vec();
