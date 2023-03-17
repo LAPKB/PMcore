@@ -111,7 +111,6 @@ fn run_npag<S>(
 
             // For debugging
             let posts = posterior_mean_median(&theta, &psi, &w);
-            dbg!(posts);
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
@@ -235,8 +234,6 @@ fn posterior_mean_median(
         let row_norm = &row_w / row_sum;
         psi_norm.push_row(row_norm.view());
     }
-
-    dbg!(&psi_norm);
 
     // Transpose normalized psi to get ID (col) by prob (row)
     let psi_norm_transposed = psi_norm.t();
