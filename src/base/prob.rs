@@ -76,8 +76,7 @@ pub fn sim_obs<S>(
 where
     S: Simulate + Sync,
 {
-    let mut pred: Array2<Vec<f64>> =
-        Array2::default((scenarios.len(), support_points.nrows()).f());
+    let mut pred: Array2<Vec<f64>> = Array2::default((scenarios.len(), support_points.nrows()).f());
     pred.axis_iter_mut(Axis(0))
         .into_par_iter()
         .enumerate()
@@ -92,4 +91,15 @@ where
                 });
         });
     pred
+}
+
+pub fn simple_sim<S>(
+    sim_eng: &Engine<S>,
+    scenario: &Scenario,
+    support_point: &Array1<f64>,
+) -> Vec<f64>
+where
+    S: Simulate + Sync,
+{
+    sim_eng.pred(scenario, support_point.to_vec())
 }
