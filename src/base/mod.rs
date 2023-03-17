@@ -110,7 +110,6 @@ fn run_npag<S>(
 
             // pred.csv
             let (pop_mean, pop_median) = population_mean_median(&theta, &w);
-            dbg!(&pop_mean);
             let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
             let post_mean_pred = post_predictions(&sim_eng, post_mean, scenarios).unwrap();
             let post_median_pred = post_predictions(&sim_eng, post_median, scenarios).unwrap();

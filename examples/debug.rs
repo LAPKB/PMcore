@@ -3,6 +3,8 @@ use ndarray::Array1;
 use np_core::prelude::*;
 use ode_solvers::*;
 
+const STEP_SIZE: f64 = 0.1;
+
 struct Model<'a> {
     ka: f64,
     ke: f64,
@@ -24,7 +26,7 @@ impl ode_solvers::System<State> for Model<'_> {
         dy[1] = ka * y[0] - ke * y[1];
         //////////////// END USER DEFINED ////////////////
         for dose in &self.scenario.doses {
-            if (t - (dose.time+self.lag)).abs() < 999.0e-4 {
+            if (t - (dose.time+self.lag)).abs() < (STEP_SIZE/2. - 1.0e-07) {
                 y[dose.compartment] += dose.dose;
             }
         }
@@ -48,7 +50,7 @@ impl Simulate for Sim {
             scenario,
         };
         let y0 = State::new(0.0, 0.0);
-        let mut stepper = Rk4::new(system, tspan[0], y0, tspan[1], 0.1);
+        let mut stepper = Rk4::new(system, tspan[0], y0, tspan[1], STEP_SIZE);
         // let mut stepper = Dopri5::new(system, 0.0, 20.0, 1.0e-5, y0, 1.0e-14, 1.0e-14);
         let _res = stepper.integrate();
         let x = stepper.x_out().to_vec();
@@ -60,7 +62,7 @@ impl Simulate for Sim {
             .iter()
             .map(|y| {
                 ///////////////////// USER DEFINED ///////////////
-                y[0]
+                y[1]/v
                 //////////////// END USER DEFINED ////////////////
             })
             .collect();
