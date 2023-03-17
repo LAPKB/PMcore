@@ -110,7 +110,7 @@ where
                 psi = stack(Axis(1), &psi_columns).unwrap();
             }
             Err(_) => {
-                log::info!("Cycle {}, #support points was {}",cycle, psi.ncols());
+                log::info!("Cycle {}, #support points was {}", cycle, psi.ncols());
                 let nsub = psi.nrows();
                 // let perm = psi.sort_axis_by(Axis(1), |i, j| psi.column(i).sum() > psi.column(j).sum());
                 psi = psi.permute_axis(Axis(1), &perm);
@@ -146,9 +146,9 @@ where
         let pyl = psi.dot(&w);
         // log::info!("Spp: {}", theta.nrows());
         // log::info!("{:?}", &theta);
-        let mut thetaw = theta.clone();
-        thetaw.push_column(w.clone().t()).unwrap();
-        w.clone().to_vec();
+        // let mut thetaw = theta.clone();
+        // thetaw.push_column(w.clone().t()).unwrap();
+        // w.clone().to_vec();
         // log::info!("{:?}",&w);
         // log::info!("Objf: {}", -2.*objf);
         // if last_objf > objf{
@@ -162,6 +162,23 @@ where
                 writer.write_field(format!("{}", &cycle)).unwrap();
                 writer.write_field(format!("{}", -2. * objf)).unwrap();
                 writer.write_field(format!("{}", theta.nrows())).unwrap();
+
+                for param in theta.axis_iter(Axis(1)).into_iter() {
+                    writer
+                        .write_field(format!("{}", param.mean().unwrap()))
+                        .unwrap();
+                }
+                for param in theta.axis_iter(Axis(1)).into_iter() {
+                    writer
+                        .write_field(format!("{}", median(param.to_owned().to_vec())))
+                        .unwrap();
+                }
+                for param in theta.axis_iter(Axis(1)).into_iter() {
+                    writer
+                        .write_field(format!("{}", param.std(1.)))
+                        .unwrap();
+                }
+
                 writer.write_record(None::<&[u8]>).unwrap();
             }
         }
@@ -240,4 +257,16 @@ fn evaluate_spp(theta: &mut Array2<f64>, candidate: Array1<f64>, limits: &[(f64,
 fn norm_zero(a: &Array1<f64>) -> f64 {
     let zeros: Array1<f64> = Array::zeros(a.len());
     a.l2_dist(&zeros).unwrap()
+}
+
+fn median(data: Vec<f64>) -> f64 {
+    let size = data.len();
+    match size {
+        even if even % 2 == 0 => {
+            let fst = data.get((even / 2 - 1) as usize).unwrap();
+            let snd = data.get((even / 2) as usize).unwrap();
+            (fst + snd) / 2.0
+        }
+        odd => *data.get(odd / 2 as usize).unwrap(),
+    }
 }

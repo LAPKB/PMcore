@@ -26,7 +26,7 @@ impl ode_solvers::System<State> for Model<'_> {
         dy[1] = ka * y[0] - ke * y[1];
         //////////////// END USER DEFINED ////////////////
         for dose in &self.scenario.doses {
-            if (t - (dose.time+self.lag)).abs() < (STEP_SIZE/2. - 1.0e-07) {
+            if (t - (dose.time + self.lag)).abs() < (STEP_SIZE / 2. - 1.0e-07) {
                 y[dose.compartment] += dose.dose;
             }
         }
@@ -62,7 +62,7 @@ impl Simulate for Sim {
             .iter()
             .map(|y| {
                 ///////////////////// USER DEFINED ///////////////
-                y[1]/v
+                y[1] / v
                 //////////////// END USER DEFINED ////////////////
             })
             .collect();
@@ -76,14 +76,86 @@ fn main() -> Result<()> {
     let scenarios = np_core::base::datafile::parse(&"examples/two_eq_lag.csv".to_string()).unwrap();
     let scenario = scenarios.first().unwrap();
     dbg!(&scenario);
-    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 82.4722461587669, 1.4065258528674902])));
-    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.45653373718261686, 0.046457990962687504, 82.4722461587669, 1.4065258528674902])));
-    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.053580406975746155, 82.4722461587669, 1.4065258528674902])));
-    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 54.13560247421265, 1.4065258528674902])));
-    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 82.4722461587669, 1.799925994873047])));
-    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 82.4722461587669, 0.])));
-    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.7012468470182522, 0.046457990962687504, 82.4722461587669, 4.])));
-    dbg!(simple_sim(&Engine::new(Sim {}), scenario, &Array1::from(vec![0.45653373718261686, 0.053580406975746155, 54.13560247421265, 1.799925994873047])));
+    dbg!(simple_sim(
+        &Engine::new(Sim {}),
+        scenario,
+        &Array1::from(vec![
+            0.7012468470182522,
+            0.046457990962687504,
+            82.4722461587669,
+            1.4065258528674902
+        ])
+    ));
+    dbg!(simple_sim(
+        &Engine::new(Sim {}),
+        scenario,
+        &Array1::from(vec![
+            0.45653373718261686,
+            0.046457990962687504,
+            82.4722461587669,
+            1.4065258528674902
+        ])
+    ));
+    dbg!(simple_sim(
+        &Engine::new(Sim {}),
+        scenario,
+        &Array1::from(vec![
+            0.7012468470182522,
+            0.053580406975746155,
+            82.4722461587669,
+            1.4065258528674902
+        ])
+    ));
+    dbg!(simple_sim(
+        &Engine::new(Sim {}),
+        scenario,
+        &Array1::from(vec![
+            0.7012468470182522,
+            0.046457990962687504,
+            54.13560247421265,
+            1.4065258528674902
+        ])
+    ));
+    dbg!(simple_sim(
+        &Engine::new(Sim {}),
+        scenario,
+        &Array1::from(vec![
+            0.7012468470182522,
+            0.046457990962687504,
+            82.4722461587669,
+            1.799925994873047
+        ])
+    ));
+    dbg!(simple_sim(
+        &Engine::new(Sim {}),
+        scenario,
+        &Array1::from(vec![
+            0.7012468470182522,
+            0.046457990962687504,
+            82.4722461587669,
+            0.
+        ])
+    ));
+    dbg!(simple_sim(
+        &Engine::new(Sim {}),
+        scenario,
+        &Array1::from(vec![
+            0.7012468470182522,
+            0.046457990962687504,
+            82.4722461587669,
+            4.
+        ])
+    ));
+    dbg!(simple_sim(
+        &Engine::new(Sim {}),
+        scenario,
+        &Array1::from(vec![
+            0.45653373718261686,
+            0.053580406975746155,
+            54.13560247421265,
+            1.799925994873047
+        ])
+    ));
 
     Ok(())
 }
