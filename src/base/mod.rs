@@ -110,8 +110,8 @@ fn run_npag<S>(
             // pred.csv
             let (pop_mean, pop_median) = population_mean_median(&theta, &w);
             let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
-            let post_mean_pred = post_predictions(&sim_eng, post_mean, &scenarios).unwrap();
-            let post_median_pred = post_predictions(&sim_eng, post_median, &scenarios).unwrap();
+            let post_mean_pred = post_predictions(&sim_eng, post_mean, scenarios).unwrap();
+            let post_median_pred = post_predictions(&sim_eng, post_median, scenarios).unwrap();
 
             let ndim = pop_mean.len();
             let pop_mean_pred = sim_obs(
@@ -369,8 +369,8 @@ where
         .for_each(|(i, mut pred)| {
             let scenario = scenarios.get(i).unwrap();
             let support_point = post.row(i).to_owned();
-            pred.fill(simple_sim(&sim_engine, scenario, &support_point))
+            pred.fill(simple_sim(sim_engine, scenario, &support_point))
         });
 
-    return Ok(predictions);
+    Ok(predictions)
 }
