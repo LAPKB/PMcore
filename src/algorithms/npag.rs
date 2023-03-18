@@ -46,7 +46,7 @@ where
         .has_headers(false)
         .from_writer(cycles_file);
     writer.write_field("cycle").unwrap();
-    writer.write_field("-2ll").unwrap();
+    writer.write_field("neg2ll").unwrap();
     writer.write_field("nspp").unwrap();
 
     for i in 0..theta.ncols() {
