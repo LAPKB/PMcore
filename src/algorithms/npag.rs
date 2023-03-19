@@ -49,7 +49,7 @@ where
     writer.write_field("neg2ll").unwrap();
     writer.write_field("nspp").unwrap();
 
-    let meta_file = File::create("meta.csv").unwrap();
+    let meta_file = File::create("meta_rust.csv").unwrap();
     let mut meta_writer = WriterBuilder::new()
         .has_headers(false)
         .from_writer(meta_file);
