@@ -57,7 +57,6 @@ where
     meta_writer.write_field("ncycles").unwrap();
     meta_writer.write_record(None::<&[u8]>).unwrap();
 
-
     for i in 0..theta.ncols() {
         writer.write_field(format!("param{}.mean", i)).unwrap();
     }
@@ -162,7 +161,7 @@ where
                 lambda_tmp.push(*lam);
             }
         }
-        
+
         theta = stack(Axis(0), &theta_rows).unwrap();
         let psi = stack(Axis(1), &psi_columns).unwrap();
         w = Array::from(lambda_tmp);
