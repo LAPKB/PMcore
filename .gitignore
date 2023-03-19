@@ -7,5 +7,5 @@ pred.csv
 obs.csv
 time.csv
 posterior.csv
-meta.csv
+meta*.csv
 /examples/iohexol*
