@@ -49,6 +49,13 @@ where
     writer.write_field("neg2ll").unwrap();
     writer.write_field("nspp").unwrap();
 
+    let meta_file = File::create("meta.csv").unwrap();
+    let mut meta_writer = WriterBuilder::new()
+        .has_headers(false)
+        .from_writer(meta_file);
+    meta_writer.write_field("converged").unwrap();
+    meta_writer.write_field("ncycles").unwrap();
+
     for i in 0..theta.ncols() {
         writer.write_field(format!("param{}.mean", i)).unwrap();
     }
@@ -207,6 +214,9 @@ where
                 f1 = pyl.mapv(|x| x.ln()).sum();
                 if (f1 - f0).abs() <= THETA_F {
                     log::info!("Likelihood criteria convergence");
+                    meta_writer.write_field("true").unwrap();
+                    meta_writer.write_field(format!("{}", cycle)).unwrap();
+                    meta_writer.write_record(None::<&[u8]>).unwrap();
                     converged = true;
                     break;
                 } else {
@@ -218,6 +228,9 @@ where
 
         if cycle >= settings.config.cycles {
             log::info!("Maximum number of cycles reached");
+            meta_writer.write_field("false").unwrap();
+            meta_writer.write_field(format!("{}", cycle)).unwrap();
+            meta_writer.write_record(None::<&[u8]>).unwrap();
             break;
         }
         theta = adaptative_grid(&mut theta, eps, &ranges);
