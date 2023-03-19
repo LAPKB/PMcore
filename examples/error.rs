@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use eyre::Result;
 use np_core::prelude::*;
 use ode_solvers::*;
@@ -7,7 +10,7 @@ const STEP_SIZE: f64 = 0.1;
 struct Model<'a> {
     ka: f64,
     ke: f64,
-    _v: f64,
+    v: f64,
     lag: f64,
     scenario: &'a Scenario,
 }
@@ -16,24 +19,29 @@ type State = Vector2<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&self, t: Time, y: &mut State, dy: &mut State) {
+    fn system(&self, t: Time, x: &mut State, dx: &mut State) {
         let ka = self.ka;
         let ke = self.ke;
-        // let t = t - self.lag;
-        ///////////////////// USER DEFINED ///////////////
-        dy[0] = -ka * y[0];
-        dy[1] = ka * y[0] - ke * y[1];
-        //////////////// END USER DEFINED ////////////////
+        let v = self.v;
+        // let lag = self.lag;
+        let mut rateiv = [0.0, 0.0];
+        for infusion in &self.scenario.infusions {
+            if t >= infusion.time && t <= (infusion.dur + infusion.time) {
+                rateiv[infusion.compartment] += infusion.amount / infusion.dur;
+            }
+        }
+        let t = t - self.lag;
+        dx[0] = -ka * x[0];
+        dx[1] = ka * x[0] - ke * x[1];
+
         for dose in &self.scenario.doses {
             if (dose.time + self.lag) > t-(STEP_SIZE/2.) && (dose.time + self.lag) <= t+(STEP_SIZE / 2.) {
-                y[dose.compartment] += dose.dose;
+                x[dose.compartment] += dose.dose;
             }
         }
     }
 }
-
 struct Sim {}
-
 impl Simulate for Sim {
     fn simulate(
         &self,
@@ -44,29 +52,22 @@ impl Simulate for Sim {
         let system = Model {
             ka: params[0],
             ke: params[1],
-            _v: params[2],
+            v: params[2],
             lag: params[3],
             scenario,
         };
         let y0 = State::new(0.0, 0.0);
         let mut stepper = Rk4::new(system, tspan[0], y0, tspan[1], STEP_SIZE);
-        // let mut stepper = Dopri5::new(system, 0.0, 20.0, 1.0e-5, y0, 1.0e-14, 1.0e-14);
         let _res = stepper.integrate();
         let x = stepper.x_out().to_vec();
         let y = stepper.y_out();
         let mut yout: Vec<Vec<f64>> = vec![];
+        let ka = params[0];
+        let ke = params[1];
         let v = params[2];
-        ///////////////////// ONE PER OUTPUT EQUATION ///////////////
-        let y0: Vec<f64> = y
-            .iter()
-            .map(|y| {
-                ///////////////////// USER DEFINED ///////////////
-                y[1] / v
-                //////////////// END USER DEFINED ////////////////
-            })
-            .collect();
+        let lag = params[3];
+        let y0: Vec<f64> = y.iter().map(|x| x[1] / v).collect();
         yout.push(y0);
-        //////////////// END ONE PER OUTPUT EQUATION ////////////////
         (x, yout)
     }
 }
@@ -74,9 +75,14 @@ impl Simulate for Sim {
 fn main() -> Result<()> {
     start(
         Engine::new(Sim {}),
-        vec![(0.1, 0.9), (0.001, 0.1), (30.0, 120.0), (0.0, 4.0)],
-        "examples/two_eq_lag.toml".to_string(),
-        (0.1, 0.25, -0.001, 0.0),
+        vec![
+            (0.100000, 0.900000),
+            (0.001000, 0.100000),
+            (30.000000, 120.000000),
+            (0.000000, 4.000000),
+        ],
+        "examples/error.toml".to_string(),
+        (0.100000, 0.250000, -0.001000, 0.000000),
     )?;
     Ok(())
 }
