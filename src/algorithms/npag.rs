@@ -185,17 +185,17 @@ where
                 writer.write_field(format!("{}", -2. * objf)).unwrap();
                 writer.write_field(format!("{}", theta.nrows())).unwrap();
 
-                for param in theta.axis_iter(Axis(1)).into_iter() {
+                for param in theta.axis_iter(Axis(1)) {
                     writer
                         .write_field(format!("{}", param.mean().unwrap()))
                         .unwrap();
                 }
-                for param in theta.axis_iter(Axis(1)).into_iter() {
+                for param in theta.axis_iter(Axis(1)) {
                     writer
                         .write_field(format!("{}", median(param.to_owned().to_vec())))
                         .unwrap();
                 }
-                for param in theta.axis_iter(Axis(1)).into_iter() {
+                for param in theta.axis_iter(Axis(1)) {
                     writer.write_field(format!("{}", param.std(1.))).unwrap();
                 }
 
@@ -289,10 +289,10 @@ fn median(data: Vec<f64>) -> f64 {
     let size = data.len();
     match size {
         even if even % 2 == 0 => {
-            let fst = data.get((even / 2 - 1) as usize).unwrap();
-            let snd = data.get((even / 2) as usize).unwrap();
+            let fst = data.get(even / 2 - 1).unwrap();
+            let snd = data.get(even / 2).unwrap();
             (fst + snd) / 2.0
         }
-        odd => *data.get(odd / 2 as usize).unwrap(),
+        odd => *data.get(odd / 2_usize).unwrap(),
     }
 }
