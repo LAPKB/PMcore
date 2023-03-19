@@ -55,6 +55,8 @@ where
         .from_writer(meta_file);
     meta_writer.write_field("converged").unwrap();
     meta_writer.write_field("ncycles").unwrap();
+    meta_writer.write_record(None::<&[u8]>).unwrap();
+
 
     for i in 0..theta.ncols() {
         writer.write_field(format!("param{}.mean", i)).unwrap();
