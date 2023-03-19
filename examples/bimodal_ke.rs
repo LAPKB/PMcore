@@ -29,7 +29,7 @@ impl ode_solvers::System<State> for Model<'_> {
 
         //////////////// END USER DEFINED ////////////////
         // for dose in &self.scenario.doses{
-        //     if (t-dose.time).abs() < 1.0e-4 {
+        //     if (dose.time + self.lag) > t-(STEP_SIZE/2.) && (dose.time + self.lag) <= t+(STEP_SIZE / 2.) {
         //         y[dose.compartment-1] += dose.dose;
         //     }
         // }

@@ -153,6 +153,7 @@ where
                 lambda_tmp.push(*lam);
             }
         }
+        
         theta = stack(Axis(0), &theta_rows).unwrap();
         let psi = stack(Axis(1), &psi_columns).unwrap();
         w = Array::from(lambda_tmp);
@@ -172,7 +173,6 @@ where
         if let Some(output) = &settings.config.pmetrics_outputs {
             if *output {
                 //cycles.csv
-                //TODO: I need some sort of reader/writer, so I can keep building over the file
                 writer.write_field(format!("{}", &cycle)).unwrap();
                 writer.write_field(format!("{}", -2. * objf)).unwrap();
                 writer.write_field(format!("{}", theta.nrows())).unwrap();

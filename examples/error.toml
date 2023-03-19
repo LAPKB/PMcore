@@ -1,0 +1,10 @@
+[paths]
+data="examples/two_eq_lag.csv"
+log_out="log/error.log"
+[config]
+cycles=100
+engine="NPAG"
+init_points=1000
+seed=347
+tui=false
+pmetrics_outputs=true
