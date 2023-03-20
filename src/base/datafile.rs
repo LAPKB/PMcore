@@ -22,7 +22,7 @@ struct Event {
     _c1: Option<f32>,
     _c2: Option<f32>,
     _c3: Option<f32>,
-    covs: HashMap<String, Option<f64>>
+    covs: HashMap<String, Option<f64>>,
 }
 pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
@@ -41,8 +41,8 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             time: record.remove("TIME").unwrap().parse::<f64>().unwrap(),
             dur: record.remove("DUR").unwrap().parse::<f64>().ok(),
             dose: record.remove("DOSE").unwrap().parse::<f64>().ok(),
-            _addl: record.remove("ADDL").unwrap().parse::<isize>().ok(),//TODO: To Be Implemented
-            _ii: record.remove("II").unwrap().parse::<isize>().ok(), //TODO: To Be Implemented
+            _addl: record.remove("ADDL").unwrap().parse::<isize>().ok(), //TODO: To Be Implemented
+            _ii: record.remove("II").unwrap().parse::<isize>().ok(),     //TODO: To Be Implemented
             input: record.remove("INPUT").unwrap().parse::<usize>().ok(),
             out: record.remove("OUT").unwrap().parse::<f64>().ok(),
             outeq: record.remove("OUTEQ").unwrap().parse::<usize>().ok(),
@@ -50,7 +50,10 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             _c1: record.remove("C1").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
             _c2: record.remove("C2").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
             _c3: record.remove("C3").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
-            covs: record.into_iter().map(|(key,value)|return (key, value.parse::<f64>().ok())).collect()
+            covs: record
+                .into_iter()
+                .map(|(key, value)| (key, value.parse::<f64>().ok()))
+                .collect(),
         });
     }
     let mut scenarios: Vec<Scenario> = vec![];
@@ -86,8 +89,8 @@ pub struct Scenario {
     pub time_obs: Vec<Vec<f64>>, //obs times
     pub obs: Vec<Vec<f64>>,      // obs @ time_obs
     pub time_flat: Vec<f64>,
-    pub obs_flat: Vec<f64>,  
-    pub covariates: Covariates                                                                    
+    pub obs_flat: Vec<f64>,
+    pub covariates: Covariates,
 }
 // Current Limitations:
 // This version does not handle
@@ -105,8 +108,12 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario {
     let mut raw_obs: Vec<f64> = vec![];
     let mut raw_outeq: Vec<usize> = vec![];
     let mut covariates: Covariates = Default::default();
-    for key in  events.get(0).unwrap().covs.keys(){
-        covariates.push(Cov { name: key.clone(), times: vec![], values: vec![] });
+    for key in events.get(0).unwrap().covs.keys() {
+        covariates.push(Cov {
+            name: key.clone(),
+            times: vec![],
+            values: vec![],
+        });
     }
     for event in events {
         time.push(event.time);
@@ -133,15 +140,13 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario {
             raw_time_obs.push(event.time);
             raw_outeq.push(event.outeq.unwrap());
         }
-        for (key, op_val) in &event.covs{
+        for (key, op_val) in &event.covs {
             if let Some(val) = op_val {
                 let cov = get_mut_cov(&mut covariates, key.to_string()).unwrap();
                 cov.times.push(event.time);
                 cov.values.push(*val);
             }
         }
-        
-        
     }
 
     let max_outeq = raw_outeq.iter().max().unwrap();
@@ -170,42 +175,40 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario {
         obs,
         time_flat,
         obs_flat,
-        covariates
+        covariates,
     }
 }
 
-
 #[derive(Debug)]
-pub struct Cov{
+pub struct Cov {
     name: String,
     times: Vec<f64>,
-    values: Vec<f64>
+    values: Vec<f64>,
 }
 
 //Covariates
 type Covariates = Vec<Cov>;
 
-
-pub fn get_mut_cov(covs: &mut Covariates, key: String) ->  Option<&mut Cov>{
-    for (i,cov) in covs.iter().enumerate(){
+pub fn get_mut_cov(covs: &mut Covariates, key: String) -> Option<&mut Cov> {
+    for (i, cov) in covs.iter().enumerate() {
         if cov.name == key {
             return covs.get_mut(i);
         }
     }
-    return None;
+    None
 }
 
-pub fn get_cov(covs: &Covariates, key: String) ->  Option<&Cov>{
-    for (i,cov) in covs.iter().enumerate(){
+pub fn get_cov(covs: &Covariates, key: String) -> Option<&Cov> {
+    for (i, cov) in covs.iter().enumerate() {
         if cov.name == key {
             return covs.get(i);
         }
     }
-    return None;
+    None
 }
 
-impl Cov{
-    pub fn interpolate(&self, t: f64) -> f64{
+impl Cov {
+    pub fn interpolate(&self, t: f64) -> f64 {
         interp(&self.times, &self.values, t)
     }
 }
