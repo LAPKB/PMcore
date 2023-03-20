@@ -183,7 +183,7 @@ fn parse_events_to_scenario(events: &[Event]) -> Scenario {
 pub struct Cov {
     name: String,
     times: Vec<f64>,
-    values: Vec<f64>,
+    pub values: Vec<f64>,
 }
 
 //Covariates
