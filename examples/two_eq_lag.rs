@@ -1,5 +1,5 @@
 use eyre::Result;
-use np_core::prelude::*;
+use np_core::prelude::{*, datafile::{get_mut_cov, get_cov}};
 use ode_solvers::*;
 
 const STEP_SIZE: f64 = 0.1;
@@ -19,6 +19,8 @@ impl ode_solvers::System<State> for Model<'_> {
     fn system(&self, t: Time, y: &mut State, dy: &mut State) {
         let ka = self.ka;
         let ke = self.ke;
+        let wt = get_cov(&self.scenario.covariates, "WT".to_string()).unwrap();   
+        let wt = wt.interpolate(t);
         // let t = t - self.lag;
         ///////////////////// USER DEFINED ///////////////
         dy[0] = -ka * y[0];
