@@ -10,6 +10,7 @@ struct Model<'a> {
     _v: f64,
     lag: f64,
     scenario: &'a Scenario,
+    wt: f64
 }
 
 type State = Vector2<f64>;
@@ -19,8 +20,7 @@ impl ode_solvers::System<State> for Model<'_> {
     fn system(&self, t: Time, y: &mut State, dy: &mut State) {
         let ka = self.ka;
         let ke = self.ke;
-        let wt = get_cov(&self.scenario.covariates, "WT".to_string()).unwrap();
-        let _wt = wt.interpolate(t);
+        // let wt = get_cov(&self.scenario.covariates, "WT".to_string()).unwrap().values.first().unwrap();
         // let t = t - self.lag;
         ///////////////////// USER DEFINED ///////////////
         dy[0] = -ka * y[0];
@@ -45,12 +45,15 @@ impl Simulate for Sim {
         tspan: [f64; 2],
         scenario: &Scenario,
     ) -> (Vec<f64>, Vec<Vec<f64>>) {
+         // let wt = get_cov(&self.scenario.covariates, "WT".to_string()).unwrap().values.first().unwrap();
+        // let t = t - self.lag;
         let system = Model {
             ka: params[0],
             ke: params[1],
             _v: params[2],
             lag: params[3],
             scenario,
+            wt: *get_cov(&scenario.covariates, "WT".to_string()).unwrap().values.first().unwrap()
         };
         let y0 = State::new(0.0, 0.0);
         let mut stepper = Rk4::new(system, tspan[0], y0, tspan[1], STEP_SIZE);
