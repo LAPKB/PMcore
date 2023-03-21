@@ -49,14 +49,6 @@ where
     writer.write_field("neg2ll").unwrap();
     writer.write_field("nspp").unwrap();
 
-    let meta_file = File::create("meta_rust.csv").unwrap();
-    let mut meta_writer = WriterBuilder::new()
-        .has_headers(false)
-        .from_writer(meta_file);
-    meta_writer.write_field("converged").unwrap();
-    meta_writer.write_field("ncycles").unwrap();
-    meta_writer.write_record(None::<&[u8]>).unwrap();
-
     for i in 0..theta.ncols() {
         writer.write_field(format!("param{}.mean", i)).unwrap();
     }
@@ -67,6 +59,14 @@ where
         writer.write_field(format!("param{}.sd", i)).unwrap();
     }
     writer.write_record(None::<&[u8]>).unwrap();
+
+    let meta_file = File::create("meta_rust.csv").unwrap();
+    let mut meta_writer = WriterBuilder::new()
+        .has_headers(false)
+        .from_writer(meta_file);
+    meta_writer.write_field("converged").unwrap();
+    meta_writer.write_field("ncycles").unwrap();
+    meta_writer.write_record(None::<&[u8]>).unwrap();
 
     // let mut _pred: Array2<Vec<f64>>;
 
