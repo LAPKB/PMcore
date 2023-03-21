@@ -121,7 +121,7 @@ fn run_npag<S>(
                     post_writer.write_field(format!("{}", sub)).unwrap();
                     post_writer.write_field(format!("{}", spp)).unwrap();
                     for param in theta.row(spp){
-                        post_writer.write_field(format!("{}", param)).unwrap();
+                        post_writer.write_field(format!("{:10}", param)).unwrap();
                     }
                     post_writer.write_field(format!("{}", elem)).unwrap();
                     post_writer.write_record(None::<&[u8]>).unwrap();
