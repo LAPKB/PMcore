@@ -1,6 +1,6 @@
 use ndarray::Array2;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct AppState {
     pub cycle: usize,
     pub objf: f64,
