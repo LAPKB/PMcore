@@ -24,8 +24,10 @@ pub struct Config {
     pub init_points: usize,
     pub seed: u32,
     pub tui: bool,
+    pub parameter_names: Vec<String>,
     pub pmetrics_outputs: Option<bool>,
     pub exclude: Option<Array>,
+    
 }
 
 pub fn read(filename: String) -> Data {

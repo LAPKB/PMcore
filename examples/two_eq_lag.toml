@@ -10,3 +10,4 @@ init_points = 1000
 seed = 347
 tui = false
 pmetrics_outputs = true
+parameter_names=[" Ka","Ke ","V_max","lag"]

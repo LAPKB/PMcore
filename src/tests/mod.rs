@@ -42,6 +42,12 @@ fn read_mandatory_settings() {
 }
 
 #[test]
+fn read_parameter_names(){
+    let settings = settings::read("src/tests/config.toml".to_string());
+    assert_eq!(settings.config.parameter_names, vec!["Ke","V"]);
+}
+
+#[test]
 fn read_test_datafile() {
     let scenarios = datafile::parse(&"src/tests/test.csv".to_string());
     if let Ok(scenarios) = scenarios {
