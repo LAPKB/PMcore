@@ -103,7 +103,30 @@ fn run_npag<S>(
             writer.flush().unwrap();
 
             // // posterior.csv
-            // let posterior = posterior(&psi, &w);
+            let posterior = posterior(&psi, &w);
+            let post_file = File::create("posterior.csv").unwrap();
+            let mut post_writer = WriterBuilder::new()
+                .has_headers(false)
+                .from_writer(post_file);
+            post_writer.write_field("id").unwrap();
+            post_writer.write_field("point").unwrap();
+            for i in 0..theta.ncols() {
+                post_writer.write_field(format!("param{}", i)).unwrap();
+            }
+            post_writer.write_field("prob").unwrap();
+            post_writer.write_record(None::<&[u8]>).unwrap();
+            
+            for (sub, row) in posterior.axis_iter(Axis(0)).enumerate(){
+                for (spp, elem) in row.axis_iter(Axis(0)).enumerate(){
+                    post_writer.write_field(format!("{}", sub)).unwrap();
+                    post_writer.write_field(format!("{}", spp)).unwrap();
+                    for param in theta.row(spp){
+                        post_writer.write_field(format!("{}", param)).unwrap();
+                    }
+                    post_writer.write_field(format!("{}", elem)).unwrap();
+                    post_writer.write_record(None::<&[u8]>).unwrap();
+                }
+            }
             // let file = File::create("posterior.csv").unwrap();
             // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
             // writer.serialize_array2(&posterior).unwrap();
@@ -214,23 +237,23 @@ fn setup_log(settings: &Data) {
     };
 }
 
-// fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
-//     let py = psi.dot(w);
-//     let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
-//     post.axis_iter_mut(Axis(0))
-//         .into_par_iter()
-//         .enumerate()
-//         .for_each(|(i, mut row)| {
-//             row.axis_iter_mut(Axis(0))
-//                 .into_par_iter()
-//                 .enumerate()
-//                 .for_each(|(j, mut element)| {
-//                     let elem = psi.get((i, j)).unwrap() * w.get(j).unwrap() / py.get(i).unwrap();
-//                     element.fill(elem);
-//                 });
-//         });
-//     post
-// }
+fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
+    let py = psi.dot(w);
+    let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
+    post.axis_iter_mut(Axis(0))
+        .into_par_iter()
+        .enumerate()
+        .for_each(|(i, mut row)| {
+            row.axis_iter_mut(Axis(0))
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(j, mut element)| {
+                    let elem = psi.get((i, j)).unwrap() * w.get(j).unwrap() / py.get(i).unwrap();
+                    element.fill(elem);
+                });
+        });
+    post
+}
 
 fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>, Array1<f64>) {
     let mut mean = Array1::zeros(theta.ncols());

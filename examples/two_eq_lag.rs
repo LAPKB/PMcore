@@ -20,8 +20,6 @@ impl ode_solvers::System<State> for Model<'_> {
     fn system(&self, t: Time, y: &mut State, dy: &mut State) {
         let ka = self.ka;
         let ke = self.ke;
-        // let wt = get_cov(&self.scenario.covariates, "WT".to_string()).unwrap().values.first().unwrap();
-        // let t = t - self.lag;
         ///////////////////// USER DEFINED ///////////////
         dy[0] = -ka * y[0];
         dy[1] = ka * y[0] - ke * y[1];
