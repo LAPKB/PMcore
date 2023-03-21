@@ -210,7 +210,7 @@ where
             objf: -2. * objf,
             theta: theta.clone(),
         };
-        tx.send(state).unwrap();
+        tx.send(state.clone()).unwrap();
 
         if (last_objf - objf).abs() <= THETA_G && eps > THETA_E {
             eps /= 2.;

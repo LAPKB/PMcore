@@ -11,3 +11,9 @@ seed = 347
 tui = false
 pmetrics_outputs = true
 parameter_names=[" Ka","Ke ","V_max","lag"]
+
+[randfix]
+KPC = 2.0
+
+[constant]
+KCP = 3.0
