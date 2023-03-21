@@ -48,15 +48,18 @@ where
     writer.write_field("cycle").unwrap();
     writer.write_field("neg2ll").unwrap();
     writer.write_field("nspp").unwrap();
-
+    let parameter_names = &settings.config.parameter_names;
     for i in 0..theta.ncols() {
-        writer.write_field(format!("param{}.mean", i)).unwrap();
+        let param_name = parameter_names.get(i).unwrap();
+        writer.write_field(format!("{param_name}.mean")).unwrap();
     }
     for i in 0..theta.ncols() {
-        writer.write_field(format!("param{}.median", i)).unwrap();
+        let param_name = parameter_names.get(i).unwrap();
+        writer.write_field(format!("{param_name}.median")).unwrap();
     }
     for i in 0..theta.ncols() {
-        writer.write_field(format!("param{}.sd", i)).unwrap();
+        let param_name = parameter_names.get(i).unwrap();
+        writer.write_field(format!("{param_name}.sd")).unwrap();
     }
     writer.write_record(None::<&[u8]>).unwrap();
 

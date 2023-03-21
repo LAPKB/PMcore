@@ -83,7 +83,7 @@ fn run_npag<S>(
     S: Simulate + std::marker::Sync,
 {
     let (theta, psi, w, _objf, _cycle, _converged) =
-        npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
+        npag(&sim_eng, ranges, theta, scenarios, c, tx, &settings);
 
     if let Some(output) = &settings.config.pmetrics_outputs {
         if *output {
@@ -110,8 +110,10 @@ fn run_npag<S>(
                 .from_writer(post_file);
             post_writer.write_field("id").unwrap();
             post_writer.write_field("point").unwrap();
+            let parameter_names = &settings.config.parameter_names;
             for i in 0..theta.ncols() {
-                post_writer.write_field(format!("param{}", i)).unwrap();
+                let param_name = parameter_names.get(i).unwrap();
+                post_writer.write_field(format!("{param_name}")).unwrap();
             }
             post_writer.write_field("prob").unwrap();
             post_writer.write_record(None::<&[u8]>).unwrap();
@@ -121,9 +123,9 @@ fn run_npag<S>(
                     post_writer.write_field(format!("{}", sub)).unwrap();
                     post_writer.write_field(format!("{}", spp)).unwrap();
                     for param in theta.row(spp){
-                        post_writer.write_field(format!("{:10}", param)).unwrap();
+                        post_writer.write_field(format!("{param}")).unwrap();
                     }
-                    post_writer.write_field(format!("{}", elem)).unwrap();
+                    post_writer.write_field(format!("{elem:.10}")).unwrap();
                     post_writer.write_record(None::<&[u8]>).unwrap();
                 }
             }
