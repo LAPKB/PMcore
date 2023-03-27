@@ -30,7 +30,6 @@ pub mod simulator;
 
 pub fn start<S>(
     engine: Engine<S>,
-    ranges: Vec<(f64, f64)>,
     settings_path: String,
     c: (f64, f64, f64, f64),
 ) -> Result<()>
@@ -40,6 +39,7 @@ where
     let now = Instant::now();
     let settings = settings::read(settings_path);
     setup_log(&settings);
+    let ranges = settings.config.param_ranges.clone().unwrap();
     let theta = match &settings.paths.prior_dist {
         Some(prior_path) => {
             let file = File::open(prior_path).unwrap();
@@ -55,7 +55,6 @@ where
             scenarios.remove(val.as_integer().unwrap() as usize);
         }
     }
-
     let (tx, rx) = mpsc::unbounded_channel::<AppState>();
 
     if settings.config.tui {

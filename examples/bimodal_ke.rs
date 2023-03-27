@@ -67,7 +67,6 @@ impl Simulate for Sim {
 fn main() -> Result<()> {
     start(
         Engine::new(Sim {}),
-        vec![(0.001, 3.0), (25.0, 250.0)],
         "examples/bimodal_ke.toml".to_string(),
         (0.0, 0.05, 0.0, 0.0),
     )?;

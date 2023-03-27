@@ -50,7 +50,7 @@ fn read_parameter_names(){
 #[test]
 fn read_parameter_ranges(){
     let settings = settings::read("src/tests/config.toml".to_string());
-    assert_eq!(settings.config.parameter_ranges, vec![vec![0.1, 0.9], vec![0.001, 0.1], vec![30.0, 120.0], vec![0.0, 4.0]]);
+    assert_eq!(settings.config.param_ranges.unwrap(), vec![(0.1, 0.9), (0.001, 0.1), (30.0, 120.0), (0.0, 4.0)]);
 }
 
 
