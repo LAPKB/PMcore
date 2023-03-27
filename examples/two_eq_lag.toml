@@ -10,6 +10,7 @@ init_points = 1000
 seed = 347
 tui = false
 pmetrics_outputs = true
+parameter_ranges=[[0.1, 0.9], [0.001, 0.1], [30.0, 120.0], [0.0, 4.0]]
 parameter_names=[" Ka","Ke ","V_max","lag"]
 
 [randfix]
