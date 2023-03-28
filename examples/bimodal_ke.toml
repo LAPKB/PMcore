@@ -9,8 +9,8 @@ engine = "NPAG"
 init_points = 2129
 seed = 347
 tui = false
-pmetrics_outputs=true
+pmetrics_outputs = true
 
 [parameters]
-Ke=[0.001,3.0]
-V=[25.0,250.0]
+Ke = [0.001, 3.0]
+V = [25.0, 250.0]
