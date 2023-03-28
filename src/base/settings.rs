@@ -120,6 +120,6 @@ pub fn read(filename: String) -> Data {
                 values: rv,
             },
         },
-        parsed: parsed,
+        parsed,
     }
 }
