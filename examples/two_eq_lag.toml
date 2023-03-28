@@ -10,11 +10,10 @@ init_points = 1000
 seed = 347
 tui = false
 pmetrics_outputs = true
-parameter_ranges=[[0.1, 0.9], [0.001, 0.1], [30.0, 120.0], [0.0, 4.0]]
-parameter_names=[" Ka","Ke ","V_max","lag"]
 
-[randfix]
-KPC = 2.0
+[parameters]
+Ka = [0.1,0.9]
+Ke=[0.001,0.1]
+V_max=[30.0,120.0]
+lag = [0.0,4.0]
 
-[constant]
-KCP = 3.0

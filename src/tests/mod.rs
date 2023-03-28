@@ -36,37 +36,32 @@ fn scaled_sobol() {
 #[test]
 fn read_mandatory_settings() {
     let settings = settings::read("src/tests/config.toml".to_string());
-    assert_eq!(settings.paths.data, "data.csv");
-    assert_eq!(settings.config.cycles, 1024);
-    assert_eq!(settings.config.engine, "NPAG");
+    assert_eq!(settings.parsed.paths.data, "data.csv");
+    assert_eq!(settings.parsed.config.cycles, 1024);
+    assert_eq!(settings.parsed.config.engine, "NPAG");
 }
 
 #[test]
 fn read_parameter_names() {
     let settings = settings::read("src/tests/config.toml".to_string());
-    assert_eq!(settings.config.parameter_names, vec!["Ke", "V"]);
+    assert_eq!(settings.computed.primary.names, vec!["ka", "ke", "v"]);
 }
 
 #[test]
 fn read_parameter_ranges() {
     let settings = settings::read("src/tests/config.toml".to_string());
+
     assert_eq!(
-        settings.config.param_ranges.unwrap(),
-        vec![(0.1, 0.9), (0.001, 0.1), (30.0, 120.0), (0.0, 4.0)]
+        settings.computed.primary.ranges,
+        vec![(0.1, 0.9), (0.001, 0.1), (30.0, 120.0)]
     );
 }
 
 #[test]
 fn read_randfix() {
     let settings = settings::read("src/tests/config.toml".to_string());
-    let mut names: Vec<String> = vec![];
-    let mut values: Vec<f64> = vec![];
-    for (rf, val) in settings.randfix.unwrap() {
-        names.push(rf);
-        values.push(val.as_float().unwrap());
-    }
-    assert_eq!(names, vec!["KCP", "KPC"]);
-    assert_eq!(values, vec![5.1, 2.0]);
+    assert_eq!(settings.computed.randfix.names, vec!["KCP", "KPC"]);
+    assert_eq!(settings.computed.randfix.values, vec![5.1, 2.0]);
 }
 
 #[test]

@@ -8,13 +8,16 @@ init_points = 500
 seed = 347
 tui = false
 pmetrics_outputs = true
-parameter_names = ["Ke","V"]
-parameter_ranges = [[0.1, 0.9], [0.001, 0.1], [30.0, 120.0], [0.0, 4.0]]
 
-[randfix]
-KPC = 2.0
-KCP = 5.1
+[parameters]
+ka=[0.1,0.9]
+ke=[0.001,0.1]
+v=[30.0,120.0]
 
 [constant]
-K10 = 5.0
-K01 = -3.0
+K10=10.0
+k20=15.0
+
+[randfix]
+KCP = 5.1
+KPC = 2.0

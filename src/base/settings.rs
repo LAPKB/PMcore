@@ -4,10 +4,32 @@ use std::process::exit;
 use toml::value::Array;
 use toml::{self, Table};
 
-#[derive(Deserialize, Clone, Debug)]
 pub struct Data {
+    pub computed: Computed,
+    pub parsed: Parsed,
+}
+
+pub struct Computed {
+    pub primary: Range,
+    pub constant: Single,
+    pub randfix: Single,
+}
+
+pub struct Range {
+    pub names: Vec<String>,
+    pub ranges: Vec<(f64, f64)>,
+}
+
+pub struct Single {
+    pub names: Vec<String>,
+    pub values: Vec<f64>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Parsed {
     pub paths: Paths,
     pub config: Config,
+    pub parameters: Table,
     pub randfix: Option<Table>,
     pub constant: Option<Table>,
 }
@@ -26,9 +48,6 @@ pub struct Config {
     pub init_points: usize,
     pub seed: u32,
     pub tui: bool,
-    pub parameter_names: Vec<String>,
-    parameter_ranges: Vec<Vec<f64>>,
-    pub param_ranges: Option<Vec<(f64, f64)>>,
     pub pmetrics_outputs: Option<bool>,
     pub exclude: Option<Array>,
 }
@@ -36,13 +55,14 @@ pub struct Config {
 pub fn read(filename: String) -> Data {
     let contents = match fs::read_to_string(&filename) {
         Ok(c) => c,
-        Err(_) => {
+        Err(e) => {
+            eprintln!("{}", e);
             eprintln!("ERROR: Could not read file {}", &filename);
             exit(1);
         }
     };
 
-    let mut config: Data = match toml::from_str(&contents) {
+    let parsed: Parsed = match toml::from_str(&contents) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("{}", e);
@@ -50,18 +70,56 @@ pub fn read(filename: String) -> Data {
             exit(1);
         }
     };
-    let mut p_r = vec![];
-    for range in &config.config.parameter_ranges {
+    //Pri
+    let mut pr = vec![];
+    let mut pn = vec![];
+    for (name, range) in &parsed.parameters {
+        let range = range.as_array().unwrap();
         if range.len() != 2 {
             eprintln!(
                 "ERROR: Ranges can only have 2 elements, {} found",
                 range.len()
             );
-            eprintln!("ERROR: In {:?}", range);
+            eprintln!("ERROR: In {:?}: {:?}", name, range);
             exit(1);
         }
-        p_r.push((*range.first().unwrap(), *range.get(1).unwrap()));
+        pn.push(name.clone());
+        pr.push((range[0].as_float().unwrap(), range[1].as_float().unwrap()));
     }
-    config.config.param_ranges = Some(p_r);
-    config
+    //Constant
+    let mut cn = vec![];
+    let mut cv = vec![];
+    if let Some(constant) = &parsed.constant {
+        for (name, value) in constant {
+            cn.push(name.clone());
+            cv.push(value.as_float().unwrap());
+        }
+    }
+
+    //Randfix
+    let mut rn = vec![];
+    let mut rv = vec![];
+    if let Some(randfix) = &parsed.randfix {
+        for (name, value) in randfix {
+            rn.push(name.clone());
+            rv.push(value.as_float().unwrap());
+        }
+    }
+    Data {
+        computed: Computed {
+            primary: Range {
+                names: pn,
+                ranges: pr,
+            },
+            constant: Single {
+                names: cn,
+                values: cv,
+            },
+            randfix: Single {
+                names: rn,
+                values: rv,
+            },
+        },
+        parsed: parsed,
+    }
 }

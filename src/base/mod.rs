@@ -35,25 +35,29 @@ where
     let now = Instant::now();
     let settings = settings::read(settings_path);
     setup_log(&settings);
-    let ranges = settings.config.param_ranges.clone().unwrap();
-    let theta = match &settings.paths.prior_dist {
+    let ranges = settings.computed.primary.ranges.clone();
+    let theta = match &settings.parsed.paths.prior_dist {
         Some(prior_path) => {
             let file = File::open(prior_path).unwrap();
             let mut reader = ReaderBuilder::new().has_headers(false).from_reader(file);
             let array_read: Array2<f64> = reader.deserialize_array2_dynamic().unwrap();
             array_read
         }
-        None => lds::sobol(settings.config.init_points, &ranges, settings.config.seed),
+        None => lds::sobol(
+            settings.parsed.config.init_points,
+            &ranges,
+            settings.parsed.config.seed,
+        ),
     };
-    let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
-    if let Some(exclude) = &settings.config.exclude {
+    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
+    if let Some(exclude) = &settings.parsed.config.exclude {
         for val in exclude {
             scenarios.remove(val.as_integer().unwrap() as usize);
         }
     }
     let (tx, rx) = mpsc::unbounded_channel::<AppState>();
 
-    if settings.config.tui {
+    if settings.parsed.config.tui {
         spawn(move || {
             run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
             log::info!("Total time: {:.2?}", now.elapsed());
@@ -80,7 +84,7 @@ fn run_npag<S>(
     let (theta, psi, w, _objf, _cycle, _converged) =
         npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
 
-    if let Some(output) = &settings.config.pmetrics_outputs {
+    if let Some(output) = &settings.parsed.config.pmetrics_outputs {
         if *output {
             //theta.csv
             let file = File::create("theta.csv").unwrap();
@@ -105,7 +109,7 @@ fn run_npag<S>(
                 .from_writer(post_file);
             post_writer.write_field("id").unwrap();
             post_writer.write_field("point").unwrap();
-            let parameter_names = &settings.config.parameter_names;
+            let parameter_names = &settings.computed.primary.names;
             for i in 0..theta.ncols() {
                 let param_name = parameter_names.get(i).unwrap();
                 post_writer.write_field(param_name).unwrap();
@@ -218,7 +222,7 @@ fn run_npag<S>(
 }
 
 fn setup_log(settings: &Data) {
-    if let Some(log_path) = &settings.paths.log_out {
+    if let Some(log_path) = &settings.parsed.paths.log_out {
         if fs::remove_file(log_path).is_ok() {};
         let logfile = FileAppender::builder()
             .encoder(Box::new(PatternEncoder::new("{l}: {m}\n")))
