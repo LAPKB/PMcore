@@ -10,5 +10,7 @@ init_points = 2129
 seed = 347
 tui = false
 pmetrics_outputs=true
-parameter_ranges=[[0.001, 3.0], [25.0, 250.0]]
-parameter_names=["Ke","V"]
+
+[parameters]
+Ke=[0.001,3.0]
+V=[25.0,250.0]
