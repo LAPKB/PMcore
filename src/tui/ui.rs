@@ -1,7 +1,5 @@
 use eyre::Result;
-use std::{io::stdout, time::Duration};
-use tokio::sync::mpsc::UnboundedReceiver;
-use tui::{
+use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
@@ -9,6 +7,8 @@ use tui::{
     widgets::{Block, BorderType, Borders, Cell, Paragraph, Row, Table},
     Frame, Terminal,
 };
+use std::{io::stdout, time::Duration};
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::{
     inputs::{events::Events, InputEvent},
