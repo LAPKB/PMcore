@@ -9,3 +9,4 @@ time.csv
 posterior.csv
 meta*.csv
 /examples/iohexol*
+/.idea

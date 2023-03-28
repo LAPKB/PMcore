@@ -1,8 +1,8 @@
 use serde_derive::Deserialize;
 use std::fs;
 use std::process::exit;
-use toml::{self, Table};
 use toml::value::Array;
+use toml::{self, Table};
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Data {
@@ -28,10 +28,9 @@ pub struct Config {
     pub tui: bool,
     pub parameter_names: Vec<String>,
     parameter_ranges: Vec<Vec<f64>>,
-    pub param_ranges: Option<Vec<(f64,f64)>>,
+    pub param_ranges: Option<Vec<(f64, f64)>>,
     pub pmetrics_outputs: Option<bool>,
     pub exclude: Option<Array>,
-    
 }
 
 pub fn read(filename: String) -> Data {
@@ -52,13 +51,16 @@ pub fn read(filename: String) -> Data {
         }
     };
     let mut p_r = vec![];
-    for range in  &config.config.parameter_ranges{
-        if range.len() != 2{
-            eprintln!("ERROR: Ranges can only have 2 elements, {} found", range.len());
+    for range in &config.config.parameter_ranges {
+        if range.len() != 2 {
+            eprintln!(
+                "ERROR: Ranges can only have 2 elements, {} found",
+                range.len()
+            );
             eprintln!("ERROR: In {:?}", range);
             exit(1);
         }
-        p_r.push((*range.get(0).unwrap(),*range.get(1).unwrap()));
+        p_r.push((*range.get(0).unwrap(), *range.get(1).unwrap()));
     }
     config.config.param_ranges = Some(p_r);
     config

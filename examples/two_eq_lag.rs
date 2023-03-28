@@ -10,7 +10,7 @@ struct Model<'a> {
     _v: f64,
     lag: f64,
     scenario: &'a Scenario,
-    wt: f64
+    _wt: f64,
 }
 
 type State = Vector2<f64>;
@@ -43,7 +43,7 @@ impl Simulate for Sim {
         tspan: [f64; 2],
         scenario: &Scenario,
     ) -> (Vec<f64>, Vec<Vec<f64>>) {
-         // let wt = get_cov(&self.scenario.covariates, "WT".to_string()).unwrap().values.first().unwrap();
+        // let wt = get_cov(&self.scenario.covariates, "WT".to_string()).unwrap().values.first().unwrap();
         // let t = t - self.lag;
         let system = Model {
             ka: params[0],
@@ -51,7 +51,11 @@ impl Simulate for Sim {
             _v: params[2],
             lag: params[3],
             scenario,
-            wt: *get_cov(&scenario.covariates, "WT".to_string()).unwrap().values.first().unwrap()
+            _wt: *get_cov(&scenario.covariates, "WT".to_string())
+                .unwrap()
+                .values
+                .first()
+                .unwrap(),
         };
         let y0 = State::new(0.0, 0.0);
         let mut stepper = Rk4::new(system, tspan[0], y0, tspan[1], STEP_SIZE);
@@ -61,6 +65,7 @@ impl Simulate for Sim {
         let y = stepper.y_out();
         let mut yout: Vec<Vec<f64>> = vec![];
         let v = params[2];
+
         ///////////////////// ONE PER OUTPUT EQUATION ///////////////
         let y0: Vec<f64> = y
             .iter()
