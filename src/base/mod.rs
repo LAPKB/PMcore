@@ -28,11 +28,7 @@ pub mod prob;
 pub mod settings;
 pub mod simulator;
 
-pub fn start<S>(
-    engine: Engine<S>,
-    settings_path: String,
-    c: (f64, f64, f64, f64),
-) -> Result<()>
+pub fn start<S>(engine: Engine<S>, settings_path: String, c: (f64, f64, f64, f64)) -> Result<()>
 where
     S: Simulate + std::marker::Sync + std::marker::Send + 'static,
 {
@@ -116,12 +112,12 @@ fn run_npag<S>(
             }
             post_writer.write_field("prob").unwrap();
             post_writer.write_record(None::<&[u8]>).unwrap();
-            
-            for (sub, row) in posterior.axis_iter(Axis(0)).enumerate(){
-                for (spp, elem) in row.axis_iter(Axis(0)).enumerate(){
+
+            for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
+                for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
                     post_writer.write_field(format!("{}", sub)).unwrap();
                     post_writer.write_field(format!("{}", spp)).unwrap();
-                    for param in theta.row(spp){
+                    for param in theta.row(spp) {
                         post_writer.write_field(format!("{param}")).unwrap();
                     }
                     post_writer.write_field(format!("{elem:.10}")).unwrap();
