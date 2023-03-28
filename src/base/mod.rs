@@ -78,7 +78,7 @@ fn run_npag<S>(
     S: Simulate + std::marker::Sync,
 {
     let (theta, psi, w, _objf, _cycle, _converged) =
-        npag(&sim_eng, ranges, theta, scenarios, c, tx, &settings);
+        npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
 
     if let Some(output) = &settings.config.pmetrics_outputs {
         if *output {
@@ -108,7 +108,7 @@ fn run_npag<S>(
             let parameter_names = &settings.config.parameter_names;
             for i in 0..theta.ncols() {
                 let param_name = parameter_names.get(i).unwrap();
-                post_writer.write_field(format!("{param_name}")).unwrap();
+                post_writer.write_field(param_name).unwrap();
             }
             post_writer.write_field("prob").unwrap();
             post_writer.write_record(None::<&[u8]>).unwrap();

@@ -60,7 +60,7 @@ pub fn read(filename: String) -> Data {
             eprintln!("ERROR: In {:?}", range);
             exit(1);
         }
-        p_r.push((*range.get(0).unwrap(), *range.get(1).unwrap()));
+        p_r.push((*range.first().unwrap(), *range.get(1).unwrap()));
     }
     config.config.param_ranges = Some(p_r);
     config
