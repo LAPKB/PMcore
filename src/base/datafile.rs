@@ -36,16 +36,19 @@ pub struct Observation {
     pub outeq: usize,
 }
 /// A Scenario is a collection of blocks that represent a single subject in the Datafile
+#[derive(Debug)]
 pub struct Scenario {
+    pub id: String,
     pub blocks: Vec<Block>,
     pub obs: Vec<f64>,
+    pub obs_times: Vec<f64>,
 }
 /// A Block is a simulation unit, this means that one simulation is made for each block
 type Block = Vec<Event>;
 
 /// A Event represent a single row in the Datafile
-#[derive(Debug)]
-struct Event {
+#[derive(Debug, Clone)]
+pub struct Event {
     id: String,
     evid: isize,
     time: f64,
@@ -62,7 +65,7 @@ struct Event {
     _c3: Option<f32>,
     covs: HashMap<String, Option<f64>>,
 }
-pub fn parse<E>(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
+pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
         // .delimiter(b',')
         // .escape(Some(b'\\'))
@@ -98,6 +101,8 @@ pub fn parse<E>(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut blocks: Vec<Block> = vec![];
     let mut block: Block = vec![];
     let mut obs: Vec<f64> = vec![];
+    let mut times: Vec<f64> = vec![];
+    let mut obs_times: Vec<f64> = vec![];
     let mut id = events[0].id.clone();
     for event in events {
         //Check if the id changed
@@ -105,12 +110,19 @@ pub fn parse<E>(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             if !block.is_empty() {
                 blocks.push(block);
             }
-            let mut block: Block = vec![event];
-            scenarios.push(Scenario { blocks, obs });
-            let obs: Vec<f64> = vec![];
+            scenarios.push(Scenario {
+                id: event.id.clone(),
+                blocks,
+                obs,
+                obs_times,
+            });
+            block = vec![event.clone()];
+            obs = vec![];
             blocks = vec![];
+            obs_times = vec![];
             id = event.id.clone();
         }
+        times.push(event.time);
         //Event validation logic
         if event.evid == 1 {
             if event.dur.unwrap_or(0.0) > 0.0 {
@@ -118,19 +130,29 @@ pub fn parse<E>(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
                 if !block.is_empty() {
                     blocks.push(block);
                 }
-                let mut block: Block = vec![event];
+                block = vec![event];
             } else {
                 check_infusion(&event)?;
                 block.push(event);
             }
         } else if event.evid == 0 {
             check_obs(&event)?;
+            obs_times.push(event.time);
             obs.push(event.out.unwrap());
             block.push(event);
         } else {
             return Err("Error: Unsupported evid".into());
         }
     }
+    if !block.is_empty() {
+        blocks.push(block);
+    }
+    scenarios.push(Scenario {
+        id,
+        blocks,
+        obs,
+        obs_times,
+    });
 
     Ok(scenarios)
 }
