@@ -167,7 +167,7 @@ fn run_npag<S>(
                 ])
                 .unwrap();
             for (id, scenario) in scenarios.iter().enumerate() {
-                let time = scenario.time_flat.clone();
+                let time = scenario.obs_times.clone();
                 let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
                 let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
                 let post_mp = post_mean_pred.get(id).unwrap().to_owned();
@@ -202,8 +202,8 @@ fn run_npag<S>(
                 .write_record(["sub_num", "time", "obs", "outeq"])
                 .unwrap();
             for (id, scenario) in scenarios.iter().enumerate() {
-                let observations = scenario.obs_flat.clone();
-                let time = scenario.time_flat.clone();
+                let observations = scenario.obs.clone();
+                let time = scenario.obs_times.clone();
 
                 for (obs, t) in observations.into_iter().zip(time) {
                     obs_writer
