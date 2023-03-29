@@ -13,10 +13,12 @@ enum TypeEvent {
 
 pub trait Event {
     fn get_type(&self) -> TypeEvent;
+    fn id(&self) -> String;
 }
 
 #[derive(Debug)]
 pub struct Dose {
+    pub id: String,
     pub time: f64,
     pub dose: f64,
     pub compartment: usize,
@@ -25,10 +27,14 @@ impl Event for Dose {
     fn get_type(&self) -> TypeEvent {
         TypeEvent::Dose
     }
+    fn id(&self) -> String {
+        self.id
+    }
 }
 
 #[derive(Debug)]
 pub struct Infusion {
+    pub id: String,
     pub time: f64,
     pub dur: f64,
     pub amount: f64,
@@ -39,9 +45,13 @@ impl Event for Infusion {
     fn get_type(&self) -> TypeEvent {
         TypeEvent::Infusion
     }
+    fn id(&self) -> String {
+        self.id
+    }
 }
 #[derive(Debug)]
 pub struct Observation {
+    pub id: String,
     pub time: f64,
     pub obs: f64,
     pub outeq: usize,
@@ -50,7 +60,11 @@ impl Event for Observation {
     fn get_type(&self) -> TypeEvent {
         TypeEvent::Observation
     }
+    fn id(&self) -> String {
+        self.id
+    }
 }
+pub type Scenario = Vec<Vec<Box<dyn Event>>>;
 
 //This structure represents a single row in the CSV file
 #[derive(Debug)]
@@ -71,7 +85,7 @@ struct RawEvent {
     _c3: Option<f32>,
     covs: HashMap<String, Option<f64>>,
 }
-pub fn parse<E>(path: &String) -> Result<Vec<Box<dyn Event>>, Box<dyn Error>>
+pub fn parse<E>(path: &String) -> Result<Vec<Vec<&mut Box<dyn Event>>>, Box<dyn Error>>
 where
     E: Event,
 {
@@ -112,6 +126,7 @@ where
             //dose event
             if event.dur.unwrap_or(0.0) > 0.0 {
                 events.push(Box::new(Infusion {
+                    id: event.id,
                     time: event.time,
                     dur: event.dur.unwrap(),
                     amount: event.dose.unwrap(),
@@ -119,6 +134,7 @@ where
                 }));
             } else {
                 events.push(Box::new(Dose {
+                    id: event.id,
                     time: event.time,
                     dose: event.dose.unwrap(),
                     compartment: event.input.unwrap() - 1,
@@ -127,6 +143,7 @@ where
         } else if event.evid == 0 {
             //obs event
             events.push(Box::new(Observation {
+                id: event.id,
                 time: event.time,
                 obs: event.out.unwrap(),
                 outeq: event.outeq.unwrap(),
@@ -134,8 +151,16 @@ where
         }
     }
 
-    // let ev_iter = events.group_by_mut(|a, b| a.id == b.id);
-    Ok(events)
+    let ev_iter = events.group_by_mut(|a, b| a.id() == b.id());
+    let mut scenarios: Vec<Vec<&mut Box<dyn Event>>> = vec![];
+    for group in ev_iter {
+        let mut inner_group = vec![];
+        for event in group {
+            inner_group.push(event);
+        }
+        scenarios.push(inner_group);
+    }
+    Ok(scenarios)
 }
 
 #[derive(Debug)]
