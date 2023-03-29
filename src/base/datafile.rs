@@ -5,9 +5,56 @@ use interp::interp;
 
 type Record = HashMap<String, String>;
 
+enum TypeEvent {
+    Infusion,
+    Dose,
+    Observation,
+}
+
+pub trait Event {
+    fn get_type(&self) -> TypeEvent;
+}
+
+#[derive(Debug)]
+pub struct Dose {
+    pub time: f64,
+    pub dose: f64,
+    pub compartment: usize,
+}
+impl Event for Dose {
+    fn get_type(&self) -> TypeEvent {
+        TypeEvent::Dose
+    }
+}
+
+#[derive(Debug)]
+pub struct Infusion {
+    pub time: f64,
+    pub dur: f64,
+    pub amount: f64,
+    pub compartment: usize,
+}
+
+impl Event for Infusion {
+    fn get_type(&self) -> TypeEvent {
+        TypeEvent::Infusion
+    }
+}
+#[derive(Debug)]
+pub struct Observation {
+    pub time: f64,
+    pub obs: f64,
+    pub outeq: usize,
+}
+impl Event for Observation {
+    fn get_type(&self) -> TypeEvent {
+        TypeEvent::Observation
+    }
+}
+
 //This structure represents a single row in the CSV file
 #[derive(Debug)]
-struct Event {
+struct RawEvent {
     id: String,
     evid: isize,
     time: f64,
@@ -24,18 +71,21 @@ struct Event {
     _c3: Option<f32>,
     covs: HashMap<String, Option<f64>>,
 }
-pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
+pub fn parse<E>(path: &String) -> Result<Vec<Box<dyn Event>>, Box<dyn Error>>
+where
+    E: Event,
+{
     let mut rdr = csv::ReaderBuilder::new()
         // .delimiter(b',')
         // .escape(Some(b'\\'))
         .comment(Some(b'#'))
         .from_path(path)
         .unwrap();
-    let mut events: Vec<Event> = vec![];
+    let mut raw_events: Vec<RawEvent> = vec![];
 
     for result in rdr.deserialize() {
         let mut record: Record = result?;
-        events.push(Event {
+        raw_events.push(RawEvent {
             id: record.remove("ID").unwrap(),
             evid: record.remove("EVID").unwrap().parse::<isize>().unwrap(),
             time: record.remove("TIME").unwrap().parse::<f64>().unwrap(),
@@ -56,127 +106,36 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
                 .collect(),
         });
     }
-    let mut scenarios: Vec<Scenario> = vec![];
-    let ev_iter = events.group_by_mut(|a, b| a.id == b.id);
-    for group in ev_iter {
-        scenarios.push(parse_events_to_scenario(group));
-    }
-    Ok(scenarios)
-}
-
-#[derive(Debug)]
-pub struct Dose {
-    pub time: f64,
-    pub dose: f64,
-    pub compartment: usize,
-}
-
-#[derive(Debug)]
-pub struct Infusion {
-    pub time: f64,
-    pub dur: f64,
-    pub amount: f64,
-    pub compartment: usize,
-}
-//This structure represents a full set of dosing events for a single ID
-//TODO: I should transform the ADDL and II elements into the right dose events
-#[derive(Debug)]
-pub struct Scenario {
-    pub id: String,     //id of the Scenario
-    pub time: Vec<f64>, //ALL times
-    pub infusions: Vec<Infusion>,
-    pub doses: Vec<Dose>,
-    pub time_obs: Vec<Vec<f64>>, //obs times
-    pub obs: Vec<Vec<f64>>,      // obs @ time_obs
-    pub time_flat: Vec<f64>,
-    pub obs_flat: Vec<f64>,
-    pub covariates: Covariates,
-}
-// Current Limitations:
-// This version does not handle
-// *  EVID!= 1 or 2
-// *  ADDL & II
-// *  C0, C1, C2, C3
-//TODO: time needs to be expanded with the times relevant to ADDL and II
-//TODO: Also dose must be expanded because of the same reason
-// cov: , //this should be a matrix (or function ), with values for each cov and time
-fn parse_events_to_scenario(events: &[Event]) -> Scenario {
-    let mut time: Vec<f64> = vec![];
-    let mut doses: Vec<Dose> = vec![];
-    let mut infusions: Vec<Infusion> = vec![];
-    let mut raw_time_obs: Vec<f64> = vec![];
-    let mut raw_obs: Vec<f64> = vec![];
-    let mut raw_outeq: Vec<usize> = vec![];
-    let mut covariates: Covariates = Default::default();
-    for key in events.get(0).unwrap().covs.keys() {
-        covariates.push(Cov {
-            name: key.clone(),
-            times: vec![],
-            values: vec![],
-        });
-    }
-    for event in events {
-        time.push(event.time);
-
+    let mut events: Vec<Box<dyn Event>>;
+    for event in raw_events {
         if event.evid == 1 {
             //dose event
             if event.dur.unwrap_or(0.0) > 0.0 {
-                infusions.push(Infusion {
+                events.push(Box::new(Infusion {
                     time: event.time,
                     dur: event.dur.unwrap(),
                     amount: event.dose.unwrap(),
                     compartment: event.input.unwrap() - 1,
-                });
+                }));
             } else {
-                doses.push(Dose {
+                events.push(Box::new(Dose {
                     time: event.time,
                     dose: event.dose.unwrap(),
                     compartment: event.input.unwrap() - 1,
-                });
+                }));
             }
         } else if event.evid == 0 {
             //obs event
-            raw_obs.push(event.out.unwrap());
-            raw_time_obs.push(event.time);
-            raw_outeq.push(event.outeq.unwrap());
-        }
-        for (key, op_val) in &event.covs {
-            if let Some(val) = op_val {
-                let cov = get_mut_cov(&mut covariates, key.to_string()).unwrap();
-                cov.times.push(event.time);
-                cov.values.push(*val);
-            }
+            events.push(Box::new(Observation {
+                time: event.time,
+                obs: event.out.unwrap(),
+                outeq: event.outeq.unwrap(),
+            }));
         }
     }
 
-    let max_outeq = raw_outeq.iter().max().unwrap();
-    let mut time_obs: Vec<Vec<f64>> = vec![];
-    let mut obs: Vec<Vec<f64>> = vec![];
-    for _ in 0..*max_outeq {
-        time_obs.push(vec![]);
-        obs.push(vec![]);
-    }
-    for ((t, o), eq) in raw_time_obs
-        .iter()
-        .zip(raw_obs.iter())
-        .zip(raw_outeq.iter())
-    {
-        time_obs.get_mut(eq - 1).unwrap().push(*t);
-        obs.get_mut(eq - 1).unwrap().push(*o);
-    }
-    let time_flat = time_obs.clone().into_iter().flatten().collect::<Vec<f64>>();
-    let obs_flat = obs.clone().into_iter().flatten().collect::<Vec<f64>>();
-    Scenario {
-        id: events[0].id.clone(),
-        time,
-        doses,
-        infusions,
-        time_obs,
-        obs,
-        time_flat,
-        obs_flat,
-        covariates,
-    }
+    // let ev_iter = events.group_by_mut(|a, b| a.id == b.id);
+    Ok(events)
 }
 
 #[derive(Debug)]
