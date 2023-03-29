@@ -11,25 +11,12 @@ enum TypeEvent {
     Observation,
 }
 
-pub trait Event {
-    fn get_type(&self) -> TypeEvent;
-    fn id(&self) -> String;
-}
-
 #[derive(Debug)]
 pub struct Dose {
     pub id: String,
     pub time: f64,
     pub dose: f64,
     pub compartment: usize,
-}
-impl Event for Dose {
-    fn get_type(&self) -> TypeEvent {
-        TypeEvent::Dose
-    }
-    fn id(&self) -> String {
-        self.id
-    }
 }
 
 #[derive(Debug)]
@@ -41,14 +28,6 @@ pub struct Infusion {
     pub compartment: usize,
 }
 
-impl Event for Infusion {
-    fn get_type(&self) -> TypeEvent {
-        TypeEvent::Infusion
-    }
-    fn id(&self) -> String {
-        self.id
-    }
-}
 #[derive(Debug)]
 pub struct Observation {
     pub id: String,
@@ -56,19 +35,17 @@ pub struct Observation {
     pub obs: f64,
     pub outeq: usize,
 }
-impl Event for Observation {
-    fn get_type(&self) -> TypeEvent {
-        TypeEvent::Observation
-    }
-    fn id(&self) -> String {
-        self.id
-    }
+/// A Scenario is a collection of blocks that represent a single subject in the Datafile
+pub struct Scenario {
+    pub blocks: Vec<Block>,
+    pub obs: Vec<f64>,
 }
-pub type Scenario = Vec<Vec<Box<dyn Event>>>;
+/// A Block is a simulation unit, this means that one simulation is made for each block
+type Block = Vec<Event>;
 
-//This structure represents a single row in the CSV file
+/// A Event represent a single row in the Datafile
 #[derive(Debug)]
-struct RawEvent {
+struct Event {
     id: String,
     evid: isize,
     time: f64,
@@ -85,21 +62,18 @@ struct RawEvent {
     _c3: Option<f32>,
     covs: HashMap<String, Option<f64>>,
 }
-pub fn parse<E>(path: &String) -> Result<Vec<Vec<&mut Box<dyn Event>>>, Box<dyn Error>>
-where
-    E: Event,
-{
+pub fn parse<E>(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
         // .delimiter(b',')
         // .escape(Some(b'\\'))
         .comment(Some(b'#'))
         .from_path(path)
         .unwrap();
-    let mut raw_events: Vec<RawEvent> = vec![];
+    let mut events: Vec<Event> = vec![];
 
     for result in rdr.deserialize() {
         let mut record: Record = result?;
-        raw_events.push(RawEvent {
+        events.push(Event {
             id: record.remove("ID").unwrap(),
             evid: record.remove("EVID").unwrap().parse::<isize>().unwrap(),
             time: record.remove("TIME").unwrap().parse::<f64>().unwrap(),
@@ -120,46 +94,43 @@ where
                 .collect(),
         });
     }
-    let mut events: Vec<Box<dyn Event>>;
-    for event in raw_events {
+    let mut scenarios: Vec<Scenario> = vec![];
+    let mut blocks: Vec<Block> = vec![];
+    let mut block: Block = vec![];
+    let mut obs: Vec<f64> = vec![];
+    let mut id = events[0].id.clone();
+    for event in events {
+        //Check if the id changed
+        if event.id != id {
+            blocks.push(block);
+            let mut block: Block = vec![event];
+            scenarios.push(Scenario { blocks, obs: obs });
+            let obs: Vec<f64> = vec![];
+            blocks = vec![];
+            id = event.id.clone();
+        }
+        //Event validation logic
         if event.evid == 1 {
-            //dose event
             if event.dur.unwrap_or(0.0) > 0.0 {
-                events.push(Box::new(Infusion {
-                    id: event.id,
-                    time: event.time,
-                    dur: event.dur.unwrap(),
-                    amount: event.dose.unwrap(),
-                    compartment: event.input.unwrap() - 1,
-                }));
+                //dose
+                blocks.push(block);
+                //TODO: check if this is a valid dose event
+                let mut block: Block = vec![event];
             } else {
-                events.push(Box::new(Dose {
-                    id: event.id,
-                    time: event.time,
-                    dose: event.dose.unwrap(),
-                    compartment: event.input.unwrap() - 1,
-                }));
+                //infusion
+                //TODO: check if this is a valid infusion event
+                block.push(event);
             }
         } else if event.evid == 0 {
             //obs event
-            events.push(Box::new(Observation {
-                id: event.id,
-                time: event.time,
-                obs: event.out.unwrap(),
-                outeq: event.outeq.unwrap(),
-            }));
+            //TODO: check if this is a valid obs event
+            obs.push(event.out.unwrap());
+            block.push(event);
+        } else {
+            return Err("Error: Unsupported evid".into());
         }
     }
 
-    let ev_iter = events.group_by_mut(|a, b| a.id() == b.id());
-    let mut scenarios: Vec<Vec<&mut Box<dyn Event>>> = vec![];
-    for group in ev_iter {
-        let mut inner_group = vec![];
-        for event in group {
-            inner_group.push(event);
-        }
-        scenarios.push(inner_group);
-    }
     Ok(scenarios)
 }
 

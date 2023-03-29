@@ -28,7 +28,7 @@ pub fn prob<S>(
 ) -> Array2<f64>
 //(Array2<f64>,Array2<Vec<f64>>)
 where
-    S: Simulate + Sync,
+    S: Simulate + Sync + Send,
 {
     // let pred:Arc<Mutex<Array2<Vec<f64>>>> = Arc::new(Mutex::new(Array2::default((scenarios.len(), support_points.nrows()).f())));
     let mut prob = Array2::<f64>::zeros((scenarios.len(), support_points.nrows()).f());
@@ -42,7 +42,7 @@ where
                 .for_each(|(j, mut element)| {
                     let scenario = scenarios.get(i).unwrap();
                     let ypred = Array::from(sim_eng.pred(scenario, support_points.row(j).to_vec()));
-                    let yobs = Array::from(scenario.obs_flat.clone());
+                    let yobs = Array::from(scenario.obs);
                     // let mut lock = pred.lock().unwrap();
                     // let predij = lock.get_mut((i,j)).unwrap();
                     // predij.append(&mut scenario.obs_flat.clone());
