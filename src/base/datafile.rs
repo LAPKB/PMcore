@@ -102,9 +102,11 @@ pub fn parse<E>(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     for event in events {
         //Check if the id changed
         if event.id != id {
-            blocks.push(block);
+            if !block.is_empty() {
+                blocks.push(block);
+            }
             let mut block: Block = vec![event];
-            scenarios.push(Scenario { blocks, obs: obs });
+            scenarios.push(Scenario { blocks, obs });
             let obs: Vec<f64> = vec![];
             blocks = vec![];
             id = event.id.clone();
@@ -112,18 +114,17 @@ pub fn parse<E>(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
         //Event validation logic
         if event.evid == 1 {
             if event.dur.unwrap_or(0.0) > 0.0 {
-                //dose
-                blocks.push(block);
-                //TODO: check if this is a valid dose event
+                check_dose(&event)?;
+                if !block.is_empty() {
+                    blocks.push(block);
+                }
                 let mut block: Block = vec![event];
             } else {
-                //infusion
-                //TODO: check if this is a valid infusion event
+                check_infusion(&event)?;
                 block.push(event);
             }
         } else if event.evid == 0 {
-            //obs event
-            //TODO: check if this is a valid obs event
+            check_obs(&event)?;
             obs.push(event.out.unwrap());
             block.push(event);
         } else {
@@ -132,6 +133,38 @@ pub fn parse<E>(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     }
 
     Ok(scenarios)
+}
+
+fn check_dose(event: &Event) -> Result<(), Box<dyn Error>> {
+    if event.dose.is_none() {
+        return Err("Error: Dose event without dose".into());
+    }
+    if event.input.is_none() {
+        return Err("Error: Dose event without input".into());
+    }
+    Ok(())
+}
+
+fn check_infusion(event: &Event) -> Result<(), Box<dyn Error>> {
+    if event.dose.is_none() {
+        return Err("Error: Infusion event without dose".into());
+    }
+    if event.dur.is_none() {
+        return Err("Error: Infusion event without duration".into());
+    }
+    if event.input.is_none() {
+        return Err("Error: Infusion event without input".into());
+    }
+    Ok(())
+}
+fn check_obs(event: &Event) -> Result<(), Box<dyn Error>> {
+    if event.out.is_none() {
+        return Err("Error: Obs event without out".into());
+    }
+    if event.outeq.is_none() {
+        return Err("Error: Obs event without outeq".into());
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
