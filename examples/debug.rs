@@ -100,6 +100,7 @@ fn main() -> Result<()> {
     let scenarios = np_core::base::datafile::parse(&"examples/bimodal_ke.csv".to_string()).unwrap();
     let scenario = scenarios.first().unwrap();
     let sim = Sim {};
+
     // dbg!(&scenario);
     dbg!(&scenario.obs);
     dbg!(sim.simulate(vec![0.3142161965370178, 119.59214568138123], scenario));
