@@ -33,7 +33,7 @@ pub struct Event {
     _c1: Option<f32>,
     _c2: Option<f32>,
     _c3: Option<f32>,
-    covs: HashMap<String, Option<f64>>,
+    _covs: HashMap<String, Option<f64>>,
 }
 pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
@@ -61,7 +61,7 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             _c1: record.remove("C1").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
             _c2: record.remove("C2").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
             _c3: record.remove("C3").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
-            covs: record
+            _covs: record
                 .into_iter()
                 .map(|(key, value)| (key, value.parse::<f64>().ok()))
                 .collect(),

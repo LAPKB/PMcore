@@ -6,7 +6,7 @@ use ode_solvers::*;
 struct Model<'a> {
     ke: f64,
     _v: f64,
-    scenario: &'a Scenario,
+    _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
 }
 #[derive(Debug, Clone)]
@@ -52,7 +52,7 @@ impl Simulate for Sim {
         let mut system = Model {
             ke: params[0],
             _v: params[1],
-            scenario,
+            _scenario: scenario,
             infusions: vec![],
         };
         let mut yout = vec![];

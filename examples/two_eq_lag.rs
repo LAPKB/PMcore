@@ -1,5 +1,5 @@
 use eyre::Result;
-use np_core::prelude::{*};
+use np_core::prelude::*;
 use ode_solvers::*;
 
 #[derive(Debug, Clone)]
@@ -7,8 +7,8 @@ struct Model<'a> {
     ka: f64,
     ke: f64,
     _v: f64,
-    lag: f64,
-    scenario: &'a Scenario,
+    _lag: f64,
+    _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
 }
 
@@ -43,8 +43,8 @@ impl Simulate for Sim {
             ka: params[0],
             ke: params[1],
             _v: params[2],
-            lag: params[3],
-            scenario,
+            _lag: params[3],
+            _scenario: scenario,
             infusions: vec![],
         };
         let mut yout = vec![];
