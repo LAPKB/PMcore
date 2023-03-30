@@ -5,36 +5,6 @@ use interp::interp;
 
 type Record = HashMap<String, String>;
 
-enum TypeEvent {
-    Infusion,
-    Dose,
-    Observation,
-}
-
-#[derive(Debug)]
-pub struct Dose {
-    pub id: String,
-    pub time: f64,
-    pub dose: f64,
-    pub compartment: usize,
-}
-
-#[derive(Debug)]
-pub struct Infusion {
-    pub id: String,
-    pub time: f64,
-    pub dur: f64,
-    pub amount: f64,
-    pub compartment: usize,
-}
-
-#[derive(Debug)]
-pub struct Observation {
-    pub id: String,
-    pub time: f64,
-    pub obs: f64,
-    pub outeq: usize,
-}
 /// A Scenario is a collection of blocks that represent a single subject in the Datafile
 #[derive(Debug)]
 pub struct Scenario {
@@ -50,15 +20,15 @@ type Block = Vec<Event>;
 #[derive(Debug, Clone)]
 pub struct Event {
     id: String,
-    evid: isize,
-    time: f64,
-    dur: Option<f64>,
-    dose: Option<f64>,
+    pub evid: isize,
+    pub time: f64,
+    pub dur: Option<f64>,
+    pub dose: Option<f64>,
     _addl: Option<isize>,
     _ii: Option<isize>,
-    input: Option<usize>,
+    pub input: Option<usize>,
     out: Option<f64>,
-    outeq: Option<usize>,
+    pub outeq: Option<usize>,
     _c0: Option<f32>,
     _c1: Option<f32>,
     _c2: Option<f32>,
@@ -126,14 +96,14 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
         //Event validation logic
         if event.evid == 1 {
             if event.dur.unwrap_or(0.0) > 0.0 {
+                check_infusion(&event)?;
+                block.push(event);
+            } else {
                 check_dose(&event)?;
                 if !block.is_empty() {
                     blocks.push(block);
                 }
                 block = vec![event];
-            } else {
-                check_infusion(&event)?;
-                block.push(event);
             }
         } else if event.evid == 0 {
             check_obs(&event)?;

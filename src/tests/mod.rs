@@ -71,8 +71,8 @@ fn read_test_datafile() {
         assert_eq!(scenarios.len(), 20);
         assert_eq!(scenarios.last().unwrap().id, "20");
         assert_eq!(
-            scenarios.last().unwrap().times,
-            [0.0, 24.0, 48.0, 72.0, 96.0, 120.0, 120.0, 120.77, 121.75, 125.67, 128.67, 143.67,]
+            scenarios.last().unwrap().obs_times,
+            [120.0, 120.77, 121.75, 125.67, 128.67, 143.67]
         );
     }
 }

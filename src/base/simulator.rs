@@ -6,7 +6,7 @@ use crate::base::datafile::Scenario;
 /// one per observation time in scenario and in the same order
 /// it is not relevant the outeq of the specific event.
 pub trait Simulate {
-    fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> (Vec<f64>, Vec<f64>);
+    fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64>;
 }
 
 pub struct Engine<S>
@@ -24,7 +24,6 @@ where
         Self { sim }
     }
     pub fn pred(&self, scenario: &Scenario, params: Vec<f64>) -> Vec<f64> {
-        let (_x_out, y_out) = self.sim.simulate(params, scenario);
-        y_out
+        self.sim.simulate(params, scenario)
     }
 }
