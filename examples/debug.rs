@@ -6,7 +6,7 @@ use ode_solvers::*;
 struct Model<'a> {
     ke: f64,
     _v: f64,
-    scenario: &'a Scenario,
+    _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
 }
 
@@ -30,11 +30,6 @@ impl ode_solvers::System<State> for Model<'_> {
         dy[0] = -ke * y[0] + rateiv[0];
 
         //////////////// END USER DEFINED ////////////////
-        // for dose in &self.scenario.doses{
-        //     if (dose.time + self.lag) > t-(STEP_SIZE/2.) && (dose.time + self.lag) <= t+(STEP_SIZE / 2.) {
-        //         y[dose.compartment-1] += dose.dose;
-        //     }
-        // }
     }
 }
 
@@ -52,7 +47,7 @@ impl Simulate for Sim {
         let mut system = Model {
             ke: params[0],
             _v: params[1],
-            scenario,
+            _scenario: scenario,
             infusions: vec![],
         };
         let mut yout = vec![];
@@ -87,7 +82,7 @@ impl Simulate for Sim {
                 let _res = stepper.integrate();
                 let y = stepper.y_out();
                 y0 = match y.last() {
-                    Some(y) => *y,
+                    Some(y) => y.clone(),
                     None => y0,
                 };
                 if event.evid == 0 {
@@ -97,11 +92,6 @@ impl Simulate for Sim {
                 time = event.time;
             }
         }
-
-        // let mut yout: Vec<Vec<f64>> = vec![];
-        // let y0: Vec<f64> = y.iter().map(|y| y[0] / params[1]).collect();
-        // yout.push(y0);
-
         yout
     }
 }
