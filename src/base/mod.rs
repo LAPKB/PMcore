@@ -35,7 +35,7 @@ where
     let now = Instant::now();
     let settings = settings::read(settings_path);
     setup_log(&settings);
-    let ranges = settings.computed.primary.ranges.clone();
+    let ranges = settings.computed.random.ranges.clone();
     let theta = match &settings.parsed.paths.prior_dist {
         Some(prior_path) => {
             let file = File::open(prior_path).unwrap();
@@ -109,7 +109,7 @@ fn run_npag<S>(
                 .from_writer(post_file);
             post_writer.write_field("id").unwrap();
             post_writer.write_field("point").unwrap();
-            let parameter_names = &settings.computed.primary.names;
+            let parameter_names = &settings.computed.random.names;
             for i in 0..theta.ncols() {
                 let param_name = parameter_names.get(i).unwrap();
                 post_writer.write_field(param_name).unwrap();
