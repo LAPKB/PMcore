@@ -2,22 +2,31 @@ use eyre::Result;
 use np_core::prelude::*;
 use ode_solvers::*;
 
+#[derive(Debug, Clone)]
 struct Model<'a> {
     ke: f64,
     _v: f64,
     scenario: &'a Scenario,
+    infusions: Vec<Infusion>,
+}
+#[derive(Debug, Clone)]
+pub struct Infusion {
+    pub time: f64,
+    pub dur: f64,
+    pub amount: f64,
+    pub compartment: usize,
 }
 
 type State = Vector1<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&self, t: Time, y: &mut State, dy: &mut State) {
+    fn system(&self, t: Time, y: &State, dy: &mut State) {
         let ke = self.ke;
         // let t = t - self.lag;
 
         let mut rateiv = [0.0, 0.0];
-        for infusion in &self.scenario.infusions {
+        for infusion in &self.infusions {
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
                 rateiv[infusion.compartment] += infusion.amount / infusion.dur;
             }
@@ -35,31 +44,60 @@ impl ode_solvers::System<State> for Model<'_> {
         // }
     }
 }
-
+#[derive(Debug, Clone)]
 struct Sim {}
 
 impl Simulate for Sim {
-    fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> (Vec<f64>, Vec<Vec<f64>>) {
-        let system = Model {
+    fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
+        let mut system = Model {
             ke: params[0],
             _v: params[1],
             scenario,
+            infusions: vec![],
         };
-        // [
-        //     *scenario.time.first().unwrap(),
-        //     *scenario.time.last().unwrap(),
-        // ],
-        let y0 = State::new(0.0);
-        let mut stepper = Rk4::new(system, 0.0, y0, 1.0, 0.1);
-        let _res = stepper.integrate();
-        let x = stepper.x_out().to_vec();
-        let y = stepper.y_out();
-
-        let mut yout: Vec<Vec<f64>> = vec![];
-        let y0: Vec<f64> = y.iter().map(|y| y[0] / params[1]).collect();
-        yout.push(y0);
-
-        (x, yout)
+        let mut yout = vec![];
+        let mut y0 = State::new(0.0);
+        let mut time = 0.0;
+        for block in &scenario.blocks {
+            for event in block {
+                if event.evid == 1 {
+                    if event.dur.unwrap_or(0.0) > 0.0 {
+                        //infusion
+                        system.infusions.push(Infusion {
+                            time: event.time,
+                            dur: event.dur.unwrap(),
+                            amount: event.dose.unwrap(),
+                            compartment: event.input.unwrap() - 1,
+                        });
+                    } else {
+                        //dose
+                        y0[event.input.unwrap() - 1] += event.dose.unwrap();
+                    }
+                }
+                // let mut stepper = Dopri5::new(
+                //     system.clone(),
+                //     time,
+                //     event.time,
+                //     0.001,
+                //     y0,
+                //     1.0e-14,
+                //     1.0e-14,
+                // );
+                let mut stepper = Rk4::new(system.clone(), time, y0, event.time, 0.1);
+                let _res = stepper.integrate();
+                let y = stepper.y_out();
+                y0 = match y.last() {
+                    Some(y) => y.clone(),
+                    None => y0,
+                };
+                if event.evid == 0 {
+                    //obs
+                    yout.push(y0[event.outeq.unwrap() - 1] / params[1]);
+                }
+                time = event.time;
+            }
+        }
+        yout
     }
 }
 

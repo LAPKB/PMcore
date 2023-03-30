@@ -16,13 +16,13 @@ type Time = f64;
 impl ode_solvers::System<State> for Model<'_> {
     fn system(&self, t: Time, y: &State, dy: &mut State) {
         let ke = self.ke;
-        dbg!(&t);
+        // dbg!(&t);
         // let t = t - self.lag;
         let mut rateiv = [0.0];
         for infusion in &self.infusions {
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
                 rateiv[infusion.compartment] += infusion.amount / infusion.dur;
-                dbg!(&rateiv);
+                // dbg!(&rateiv);
             }
         }
         ///////////////////// USER DEFINED ///////////////
@@ -71,17 +71,19 @@ impl Simulate for Sim {
                         });
                     } else {
                         //dose
+                        y0[event.input.unwrap() - 1] += event.dose.unwrap();
                     }
                 }
-                let mut stepper = Dopri5::new(
-                    system.clone(),
-                    time,
-                    event.time,
-                    0.001,
-                    y0,
-                    1.0e-14,
-                    1.0e-14,
-                );
+                // let mut stepper = Dopri5::new(
+                //     system.clone(),
+                //     time,
+                //     event.time,
+                //     0.001,
+                //     y0,
+                //     1.0e-14,
+                //     1.0e-14,
+                // );
+                let mut stepper = Rk4::new(system.clone(), time, y0, event.time, 0.1);
                 let _res = stepper.integrate();
                 let y = stepper.y_out();
                 y0 = match y.last() {
@@ -108,7 +110,7 @@ fn main() -> Result<()> {
     let scenarios = np_core::base::datafile::parse(&"examples/bimodal_ke.csv".to_string()).unwrap();
     let scenario = scenarios.first().unwrap();
     let sim = Sim {};
-    dbg!(&scenario);
+    // dbg!(&scenario);
     dbg!(&scenario.obs);
     dbg!(sim.simulate(vec![0.3142161965370178, 119.59214568138123], scenario));
 
