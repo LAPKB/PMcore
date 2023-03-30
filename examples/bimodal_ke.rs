@@ -70,6 +70,12 @@ fn main() -> Result<()> {
         "examples/bimodal_ke.toml".to_string(),
         (0.0, 0.05, 0.0, 0.0),
     )?;
+    // let scenarios = np_core::base::datafile::parse(&"examples/bimodal_ke.csv".to_string()).unwrap();
+    // let scenario = scenarios.first().unwrap();
+    // let sim = Sim {};
+    // let engine = Engine::new(sim);
+    // dbg!(&scenario.obs);
+    // dbg!(engine.pred(scenario, vec![0.3142161965370178, 119.59214568138123]));
 
     Ok(())
 }
