@@ -81,7 +81,7 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
                 blocks.push(block);
             }
             scenarios.push(Scenario {
-                id: event.id.clone(),
+                id,
                 blocks,
                 obs,
                 obs_times,

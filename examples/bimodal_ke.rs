@@ -23,12 +23,11 @@ type Time = f64;
 impl ode_solvers::System<State> for Model<'_> {
     fn system(&self, t: Time, y: &State, dy: &mut State) {
         let ke = self.ke;
-        // let t = t - self.lag;
 
         let mut rateiv = [0.0, 0.0];
         for infusion in &self.infusions {
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
-                rateiv[infusion.compartment] += infusion.amount / infusion.dur;
+                rateiv[infusion.compartment] = infusion.amount / infusion.dur;
             }
         }
 
@@ -37,11 +36,6 @@ impl ode_solvers::System<State> for Model<'_> {
         dy[0] = -ke * y[0] + rateiv[0];
 
         //////////////// END USER DEFINED ////////////////
-        // for dose in &self.scenario.doses{
-        //     if (dose.time + self.lag) > t-(STEP_SIZE/2.) && (dose.time + self.lag) <= t+(STEP_SIZE / 2.) {
-        //         y[dose.compartment-1] += dose.dose;
-        //     }
-        // }
     }
 }
 #[derive(Debug, Clone)]
@@ -66,7 +60,7 @@ impl Simulate for Sim {
                         system.infusions.push(Infusion {
                             time: event.time,
                             dur: event.dur.unwrap(),
-                            amount: event.dose.unwrap(),
+                            amount: event.dose.unwrap() * 0.5,
                             compartment: event.input.unwrap() - 1,
                         });
                     } else {
@@ -102,11 +96,18 @@ impl Simulate for Sim {
 }
 
 fn main() -> Result<()> {
-    start(
-        Engine::new(Sim {}),
-        "examples/bimodal_ke.toml".to_string(),
-        (0.0, 0.05, 0.0, 0.0),
-    )?;
+    let scenarios = np_core::base::datafile::parse(&"examples/bimodal_ke.csv".to_string()).unwrap();
+    let scenario = scenarios.first().unwrap();
+    // start(
+    //     Engine::new(Sim {}),
+    //     "examples/bimodal_ke.toml".to_string(),
+    //     (0.0, 0.05, 0.0, 0.0),
+    // )?;
+    let sim = Sim {};
+
+    // dbg!(&scenario);
+    dbg!(&scenario.obs);
+    dbg!(sim.simulate(vec![0.3142161965370178, 119.59214568138123], scenario));
 
     Ok(())
 }
