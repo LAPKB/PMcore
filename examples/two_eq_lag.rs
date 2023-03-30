@@ -1,5 +1,5 @@
 use eyre::Result;
-use np_core::prelude::{datafile::get_cov, *};
+use np_core::prelude::{*};
 use ode_solvers::*;
 
 #[derive(Debug, Clone)]
@@ -16,7 +16,7 @@ type State = Vector2<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&self, t: Time, y: &State, dy: &mut State) {
+    fn system(&self, _t: Time, y: &State, dy: &mut State) {
         let ka = self.ka;
         let ke = self.ke;
 
@@ -80,7 +80,7 @@ impl Simulate for Sim {
                 let _res = stepper.integrate();
                 let y = stepper.y_out();
                 y0 = match y.last() {
-                    Some(y) => y.clone(),
+                    Some(y) => *y,
                     None => y0,
                 };
                 if event.evid == 0 {
