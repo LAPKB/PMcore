@@ -87,7 +87,7 @@ impl Simulate for Sim {
                 let _res = stepper.integrate();
                 let y = stepper.y_out();
                 y0 = match y.last() {
-                    Some(y) => y.clone(),
+                    Some(y) => *y,
                     None => y0,
                 };
                 if event.evid == 0 {
