@@ -48,7 +48,7 @@ where
     writer.write_field("cycle").unwrap();
     writer.write_field("neg2ll").unwrap();
     writer.write_field("nspp").unwrap();
-    let parameter_names = &settings.computed.primary.names;
+    let parameter_names = &settings.computed.random.names;
     for i in 0..theta.ncols() {
         let param_name = parameter_names.get(i).unwrap();
         writer.write_field(format!("{param_name}.mean")).unwrap();
