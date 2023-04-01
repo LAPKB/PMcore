@@ -60,7 +60,7 @@ impl Simulate for Sim {
                         system.infusions.push(Infusion {
                             time: event.time,
                             dur: event.dur.unwrap(),
-                            amount: event.dose.unwrap() * 0.5,
+                            amount: event.dose.unwrap(),
                             compartment: event.input.unwrap() - 1,
                         });
                     } else {
@@ -68,15 +68,7 @@ impl Simulate for Sim {
                         y0[event.input.unwrap() - 1] += event.dose.unwrap();
                     }
                 }
-                // let mut stepper = Dopri5::new(
-                //     system.clone(),
-                //     time,
-                //     event.time,
-                //     0.001,
-                //     y0,
-                //     1.0e-14,
-                //     1.0e-14,
-                // );
+                // let mut stepper = Dopri5::new(system.clone(),time,event.time,0.001,y0,1.0e-14,1.0e-14,);
                 let mut stepper = Rk4::new(system.clone(), time, y0, event.time, 0.1);
                 let _res = stepper.integrate();
                 let y = stepper.y_out();
@@ -96,18 +88,18 @@ impl Simulate for Sim {
 }
 
 fn main() -> Result<()> {
-    let scenarios = np_core::base::datafile::parse(&"examples/bimodal_ke.csv".to_string()).unwrap();
-    let scenario = scenarios.first().unwrap();
-    // start(
-    //     Engine::new(Sim {}),
-    //     "examples/bimodal_ke.toml".to_string(),
-    //     (0.0, 0.05, 0.0, 0.0),
-    // )?;
-    let sim = Sim {};
+    // let scenarios = np_core::base::datafile::parse(&"examples/bimodal_ke.csv".to_string()).unwrap();
+    // let scenario = scenarios.first().unwrap();
+    start(
+        Engine::new(Sim {}),
+        "examples/bimodal_ke.toml".to_string(),
+        (0.0, 0.05, 0.0, 0.0),
+    )?;
+    // let sim = Sim {};
 
-    // dbg!(&scenario);
-    dbg!(&scenario.obs);
-    dbg!(sim.simulate(vec![0.3142161965370178, 119.59214568138123], scenario));
+    // // dbg!(&scenario);
+    // dbg!(&scenario.obs);
+    // dbg!(sim.simulate(vec![0.3142161965370178, 119.59214568138123], scenario));
 
     Ok(())
 }
