@@ -12,7 +12,7 @@ serde = "1.0.159"
 serde_derive = "1.0.159"
 sobol_burley = "0.4.0"
 toml = "0.7.3"
-ode_solvers = { git = 'https://github.com/Siel/ode-solvers' }
+ode_solvers = { git = 'https://github.com/Siel/ode-solvers', branch='mut_state' }
 #plotly = "0.8.3"
 interp = "1.0.1"
 ndarray-stats = "0.5.1"
