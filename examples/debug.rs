@@ -2,38 +2,40 @@ use eyre::Result;
 use np_core::prelude::*;
 use ode_solvers::*;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct Model<'a> {
+    ka: f64,
     ke: f64,
     _v: f64,
+    lag: f64,
     _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
+    dose: Option<Dose>,
 }
 
-type State = Vector1<f64>;
+type State = Vector2<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&mut self, t: Time, y: &State, dy: &mut State) {
+    fn system(&mut self, t: Time, y: &mut State, dy: &mut State) {
+        let ka = self.ka;
         let ke = self.ke;
-        // dbg!(&t);
-        // let t = t - self.lag;
-        let mut rateiv = [0.0];
-        for infusion in &self.infusions {
-            if t >= infusion.time && t <= (infusion.dur + infusion.time) {
-                rateiv[infusion.compartment] += infusion.amount / infusion.dur;
-                // dbg!(&rateiv);
+        ///////////////////// USER DEFINED ///////////////
+        dy[0] = -ka * y[0];
+        dy[1] = ka * y[0] - ke * y[1];
+        //////////////// END USER DEFINED ////////////////
+
+        if let Some(dose) = &self.dose {
+            if t >= dose.time {
+                y[dose.compartment] += dose.amount;
+                self.dose = None;
             }
         }
-        ///////////////////// USER DEFINED ///////////////
-
-        dy[0] = -ke * y[0] + rateiv[0];
-
-        //////////////// END USER DEFINED ////////////////
     }
 }
 
 struct Sim {}
+
 #[derive(Debug, Clone)]
 pub struct Infusion {
     pub time: f64,
@@ -41,17 +43,27 @@ pub struct Infusion {
     pub amount: f64,
     pub compartment: usize,
 }
+#[derive(Debug, Clone)]
+pub struct Dose {
+    pub time: f64,
+    pub amount: f64,
+    pub compartment: usize,
+}
 
 impl Simulate for Sim {
     fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
         let mut system = Model {
-            ke: params[0],
-            _v: params[1],
+            ka: params[0],
+            ke: params[1],
+            _v: params[2],
+            lag: params[3],
             _scenario: scenario,
             infusions: vec![],
+            dose: None,
         };
+        let lag = system.lag; // or 0.0
         let mut yout = vec![];
-        let mut y0 = State::new(0.0);
+        let mut y0 = State::new(0.0, 0.0);
         let mut time = 0.0;
         for block in &scenario.blocks {
             for event in block {
@@ -59,35 +71,36 @@ impl Simulate for Sim {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
                         system.infusions.push(Infusion {
-                            time: event.time,
+                            time: event.time + lag,
                             dur: event.dur.unwrap(),
                             amount: event.dose.unwrap(),
                             compartment: event.input.unwrap() - 1,
                         });
                     } else {
                         //dose
-                        y0[event.input.unwrap() - 1] += event.dose.unwrap();
+                        system.dose = Some(Dose {
+                            time: event.time + lag,
+                            amount: event.dose.unwrap(),
+                            compartment: event.input.unwrap() - 1,
+                        });
                     }
                 }
-                // let mut stepper = Dopri5::new(
-                //     system.clone(),
-                //     time,
-                //     event.time,
-                //     0.001,
-                //     y0,
-                //     1.0e-14,
-                //     1.0e-14,
-                // );
-                let mut stepper = Rk4::new(system.clone(), time, y0, event.time, 0.1);
-                let _res = stepper.integrate();
-                let y = stepper.y_out();
-                y0 = match y.last() {
-                    Some(y) => *y,
-                    None => y0,
-                };
+                if event.time == time && event.evid == 1 && event.dur.unwrap_or(0.0) == 0.0 {
+                    y0[event.input.unwrap() - 1] += event.dose.unwrap();
+                } else {
+                    let mut stepper = Rk4::new(system.clone(), time, y0, event.time, 0.1);
+                    let _res = stepper.integrate();
+                    let y = stepper.y_out();
+                    y0 = match y.last() {
+                        Some(y) => *y,
+                        None => y0,
+                    };
+                }
+                dbg!((time, y0 / params[2]));
                 if event.evid == 0 {
                     //obs
-                    yout.push(y0[event.outeq.unwrap() - 1] / params[1]);
+                    //TODO: implement outeq
+                    yout.push(y0[1] / params[2]);
                 }
                 time = event.time;
             }
@@ -97,13 +110,23 @@ impl Simulate for Sim {
 }
 
 fn main() -> Result<()> {
-    let scenarios = np_core::base::datafile::parse(&"examples/bimodal_ke.csv".to_string()).unwrap();
+    let scenarios =
+        np_core::base::datafile::parse(&"examples/data/two_eq_lag.csv".to_string()).unwrap();
     let scenario = scenarios.first().unwrap();
     let sim = Sim {};
 
     // dbg!(&scenario);
+
+    dbg!(sim.simulate(
+        vec![
+            0.10026302337646485,
+            0.08726134181022645,
+            87.63317227363586,
+            0.34867238998413086
+        ],
+        scenario
+    ));
     dbg!(&scenario.obs);
-    dbg!(sim.simulate(vec![0.3142161965370178, 119.59214568138123], scenario));
 
     Ok(())
 }
