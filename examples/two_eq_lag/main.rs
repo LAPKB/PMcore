@@ -7,23 +7,31 @@ struct Model<'a> {
     ka: f64,
     ke: f64,
     _v: f64,
-    _lag: f64,
+    lag: f64,
     _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
+    dose: Option<Dose>,
 }
 
 type State = Vector2<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&self, _t: Time, y: &State, dy: &mut State) {
+    fn system(&mut self, t: Time, y: &State, dy: &mut State) {
         let ka = self.ka;
         let ke = self.ke;
-
+        let lag = self.lag;
         ///////////////////// USER DEFINED ///////////////
         dy[0] = -ka * y[0];
         dy[1] = ka * y[0] - ke * y[1];
         //////////////// END USER DEFINED ////////////////
+
+        if let Some(dose) = &self.dose {
+            if t >= dose.time + lag {
+                dy[dose.compartment] += dose.amount;
+                self.dose = None;
+            }
+        }
     }
 }
 
@@ -36,6 +44,12 @@ pub struct Infusion {
     pub amount: f64,
     pub compartment: usize,
 }
+#[derive(Debug, Clone)]
+pub struct Dose {
+    pub time: f64,
+    pub amount: f64,
+    pub compartment: usize,
+}
 
 impl Simulate for Sim {
     fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
@@ -43,9 +57,10 @@ impl Simulate for Sim {
             ka: params[0],
             ke: params[1],
             _v: params[2],
-            _lag: params[3],
+            lag: params[3],
             _scenario: scenario,
             infusions: vec![],
+            dose: None,
         };
         let mut yout = vec![];
         let mut y0 = State::new(0.0, 0.0);

@@ -10,6 +10,7 @@ struct Model<'a> {
     _v: f64,
     _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
+    dose: Option<Dose>,
 }
 #[derive(Debug, Clone)]
 pub struct Infusion {
@@ -18,15 +19,23 @@ pub struct Infusion {
     pub amount: f64,
     pub compartment: usize,
 }
+#[derive(Debug, Clone)]
+pub struct Dose {
+    pub time: f64,
+    pub amount: f64,
+    pub compartment: usize,
+}
 
 type State = Vector1<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&self, t: Time, y: &State, dy: &mut State) {
+    fn system(&mut self, t: Time, y: &State, dy: &mut State) {
         let ke = self.ke;
 
-        let mut rateiv = [0.0, 0.0];
+        let lag = 0.0;
+
+        let mut rateiv = [0.0];
         for infusion in &self.infusions {
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
                 rateiv[infusion.compartment] = infusion.amount / infusion.dur;
@@ -38,6 +47,13 @@ impl ode_solvers::System<State> for Model<'_> {
         dy[0] = -ke * y[0] + rateiv[0];
 
         //////////////// END USER DEFINED ////////////////
+
+        if let Some(dose) = &self.dose {
+            if t >= dose.time + lag {
+                dy[dose.compartment] += dose.amount;
+                self.dose = None;
+            }
+        }
     }
 }
 #[derive(Debug, Clone)]
@@ -50,6 +66,7 @@ impl Simulate for Sim {
             _v: params[1],
             _scenario: scenario,
             infusions: vec![],
+            dose: None,
         };
         let mut yout = vec![];
         let mut y0 = State::new(0.0);
@@ -67,7 +84,11 @@ impl Simulate for Sim {
                         });
                     } else {
                         //dose
-                        y0[event.input.unwrap() - 1] += event.dose.unwrap();
+                        system.dose = Some(Dose {
+                            time: event.time,
+                            amount: event.dose.unwrap(),
+                            compartment: event.input.unwrap() - 1,
+                        });
                     }
                 }
                 // let mut stepper = Dopri5::new(system.clone(),time,event.time,0.001,y0,1.0e-14,1.0e-14,);
