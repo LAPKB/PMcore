@@ -14,7 +14,7 @@ type State = Vector1<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&self, t: Time, y: &State, dy: &mut State) {
+    fn system(&mut self, t: Time, y: &State, dy: &mut State) {
         let ke = self.ke;
         // dbg!(&t);
         // let t = t - self.lag;
