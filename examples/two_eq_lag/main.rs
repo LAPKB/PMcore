@@ -17,18 +17,17 @@ type State = Vector2<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&mut self, t: Time, y: &State, dy: &mut State) {
+    fn system(&mut self, t: Time, y: &mut State, dy: &mut State) {
         let ka = self.ka;
         let ke = self.ke;
-        let lag = self.lag;
         ///////////////////// USER DEFINED ///////////////
         dy[0] = -ka * y[0];
         dy[1] = ka * y[0] - ke * y[1];
         //////////////// END USER DEFINED ////////////////
 
         if let Some(dose) = &self.dose {
-            if t >= dose.time + lag {
-                dy[dose.compartment] += dose.amount;
+            if t >= dose.time {
+                y[dose.compartment] += dose.amount;
                 self.dose = None;
             }
         }
@@ -62,6 +61,7 @@ impl Simulate for Sim {
             infusions: vec![],
             dose: None,
         };
+        let lag = system.lag; // or 0.0
         let mut yout = vec![];
         let mut y0 = State::new(0.0, 0.0);
         let mut time = 0.0;
@@ -71,7 +71,7 @@ impl Simulate for Sim {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
                         system.infusions.push(Infusion {
-                            time: event.time,
+                            time: event.time + lag,
                             dur: event.dur.unwrap(),
                             amount: event.dose.unwrap(),
                             compartment: event.input.unwrap() - 1,
@@ -79,31 +79,26 @@ impl Simulate for Sim {
                     } else {
                         //dose
                         system.dose = Some(Dose {
-                            time: event.time,
+                            time: event.time + lag,
                             amount: event.dose.unwrap(),
                             compartment: event.input.unwrap() - 1,
                         });
                     }
                 }
-                // let mut stepper = Dopri5::new(
-                //     system.clone(),
-                //     time,
-                //     event.time,
-                //     0.001,
-                //     y0,
-                //     1.0e-14,
-                //     1.0e-14,
-                // );
-                let mut stepper = Rk4::new(system.clone(), time, y0, event.time, 0.1);
-                let _res = stepper.integrate();
-                let y = stepper.y_out();
-                y0 = match y.last() {
-                    Some(y) => *y,
-                    None => y0,
-                };
+                if event.time == time && event.evid == 1 && event.dur.unwrap_or(0.0) > 0.0 {
+                    y0[event.input.unwrap() - 1] += event.dose.unwrap();
+                } else {
+                    let mut stepper = Rk4::new(system.clone(), time, y0, event.time, 0.1);
+                    let _res = stepper.integrate();
+                    let y = stepper.y_out();
+                    y0 = match y.last() {
+                        Some(y) => *y,
+                        None => y0,
+                    };
+                }
                 if event.evid == 0 {
                     //obs
-                    yout.push(y0[event.outeq.unwrap() - 1] / params[1]);
+                    yout.push(y0[event.outeq.unwrap() - 1] / params[2]);
                 }
                 time = event.time;
             }
@@ -116,7 +111,7 @@ fn main() -> Result<()> {
     start(
         Engine::new(Sim {}),
         "examples/two_eq_lag/config.toml".to_string(),
-        (0.1, 0.25, -0.001, 0.0),
+        (0.05, 0.25, 0.0, 0.0),
     )?;
     Ok(())
 }
