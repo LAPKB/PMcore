@@ -1,5 +1,5 @@
 [paths]
-data = "examples/bimodal_ke.csv"
+data = "examples/data/bimodal_ke.csv"
 log_out = "log/bimodal_ke.log"
 #prior_dist = "theta_bimodal_ke.csv"
 
