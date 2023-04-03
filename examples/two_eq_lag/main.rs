@@ -1,5 +1,5 @@
 use eyre::Result;
-use np_core::prelude::*;
+use np_core::prelude::{datafile::Event, *};
 use ode_solvers::*;
 
 #[derive(Debug, Clone)]
@@ -26,9 +26,8 @@ impl ode_solvers::System<State> for Model<'_> {
         //////////////// END USER DEFINED ////////////////
 
         if let Some(dose) = &self.dose {
-            if t >= dose.time {
+            if dose.time > t - (0.1 / 2.) && dose.time <= t + (0.1 / 2.) {
                 y[dose.compartment] += dose.amount;
-                self.dose = None;
             }
         }
     }
@@ -64,9 +63,9 @@ impl Simulate for Sim {
         let lag = system.lag; // or 0.0
         let mut yout = vec![];
         let mut y0 = State::new(0.0, 0.0);
-        let mut time = 0.0;
-        for block in &scenario.blocks {
-            for event in block {
+
+        for (block_index, block) in scenario.blocks.iter().enumerate() {
+            for (event_index, event) in block.iter().enumerate() {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
@@ -84,34 +83,45 @@ impl Simulate for Sim {
                             compartment: event.input.unwrap() - 1,
                         });
                     }
+                } else if event.evid == 0 {
+                    //obs
+                    yout.push(y0[1] / params[2]);
                 }
-                if event.time == time && event.evid == 1 && event.dur.unwrap_or(0.0) > 0.0 {
-                    y0[event.input.unwrap() - 1] += event.dose.unwrap();
-                } else {
-                    let mut stepper = Rk4::new(system.clone(), time, y0, event.time, 0.1);
+                if let Some(next_event) = next_event(&scenario, block_index, event_index) {
+                    let mut stepper =
+                        Rk4::new(system.clone(), event.time, y0, next_event.time, 0.1);
                     let _res = stepper.integrate();
                     let y = stepper.y_out();
+                    // dbg!(&y);
                     y0 = match y.last() {
                         Some(y) => *y,
                         None => y0,
                     };
+                    // dbg!((event.time, next_event.time, y0 / params[2]));
                 }
-                if event.evid == 0 {
-                    //obs
-                    yout.push(y0[event.outeq.unwrap() - 1] / params[2]);
-                }
-                time = event.time;
             }
         }
         yout
     }
 }
 
+fn next_event(scenario: &Scenario, block_index: usize, event_index: usize) -> Option<Event> {
+    let mut next_event = None;
+    if let Some(event) = scenario.blocks[block_index].get(event_index + 1) {
+        next_event = Some(event.clone());
+    } else if let Some(block) = scenario.blocks.get(block_index + 1) {
+        if let Some(event) = block.first() {
+            next_event = Some(event.clone());
+        }
+    }
+    next_event
+}
+
 fn main() -> Result<()> {
     start(
         Engine::new(Sim {}),
         "examples/two_eq_lag/config.toml".to_string(),
-        (0.05, 0.25, 0.0, 0.0),
+        (0.1, 0.25, -0.001, 0.0),
     )?;
     Ok(())
 }
