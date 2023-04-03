@@ -11,9 +11,8 @@ seed = 347
 tui = false
 pmetrics_outputs = true
 
-[parameters]
-Ka = [0.1,0.9]
-Ke=[0.001,0.1]
-V_max=[30.0,120.0]
-lag = [0.0,4.0]
-
+[random]
+Ka = [0.1, 0.9]
+Ke = [0.001, 0.1]
+V_max = [30.0, 120.0]
+lag = [0.0, 4.0]
