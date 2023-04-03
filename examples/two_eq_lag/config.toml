@@ -6,7 +6,7 @@ log_out = "log/two_eq_lag.log"
 [config]
 cycles = 1000
 engine = "NPAG"
-init_points = 10000
+init_points = 15000
 seed = 347
 tui = false
 pmetrics_outputs = true

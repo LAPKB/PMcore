@@ -1,8 +1,6 @@
 use eyre::Result;
-use np_core::prelude::*;
+use np_core::prelude::{datafile::Event, *};
 use ode_solvers::*;
-
-const STEP_SIZE: f64 = 1.0 / 60.0; // one step per minute
 
 #[derive(Debug, Clone)]
 struct Model<'a> {
@@ -70,9 +68,8 @@ impl Simulate for Sim {
         };
         let mut yout = vec![];
         let mut y0 = State::new(0.0);
-        let mut time = 0.0;
-        for block in &scenario.blocks {
-            for event in block {
+        for (block_index, block) in scenario.blocks.iter().enumerate() {
+            for (event_index, event) in block.iter().enumerate() {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
@@ -90,25 +87,33 @@ impl Simulate for Sim {
                             compartment: event.input.unwrap() - 1,
                         });
                     }
-                }
-                // let mut stepper = Dopri5::new(system.clone(),time,event.time,0.001,y0,1.0e-14,1.0e-14,);
-
-                let mut stepper = Rk4::new(system.clone(), time, y0, event.time, STEP_SIZE * 6.0);
-                let _res = stepper.integrate();
-                let y = stepper.y_out();
-                y0 = match y.last() {
-                    Some(y) => *y,
-                    None => y0,
-                };
-                if event.evid == 0 {
+                } else if event.evid == 0 {
                     //obs
                     yout.push(y0[event.outeq.unwrap() - 1] / params[1]);
                 }
-                time = event.time;
+                if let Some(next_event) = next_event(&scenario, block_index, event_index) {
+                    let mut stepper =
+                        Rk4::new(system.clone(), event.time, y0, next_event.time, 0.1);
+                    let _res = stepper.integrate();
+                    let y = stepper.y_out();
+                    y0 = *y.last().unwrap();
+                }
             }
         }
         yout
     }
+}
+
+fn next_event(scenario: &Scenario, block_index: usize, event_index: usize) -> Option<Event> {
+    let mut next_event = None;
+    if let Some(event) = scenario.blocks[block_index].get(event_index + 1) {
+        next_event = Some(event.clone());
+    } else if let Some(block) = scenario.blocks.get(block_index + 1) {
+        if let Some(event) = block.first() {
+            next_event = Some(event.clone());
+        }
+    }
+    next_event
 }
 
 fn main() -> Result<()> {
