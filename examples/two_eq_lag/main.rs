@@ -78,8 +78,11 @@ impl Simulate for Sim {
                         });
                     } else {
                         //dose
-                        //we need to take lag into consideration
-                        y0[event.input.unwrap() - 1] += event.dose.unwrap();
+                        system.dose = Some(Dose {
+                            time: event.time,
+                            amount: event.dose.unwrap(),
+                            compartment: event.input.unwrap() - 1,
+                        });
                     }
                 }
                 // let mut stepper = Dopri5::new(
