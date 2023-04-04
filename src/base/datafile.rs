@@ -13,6 +13,19 @@ pub struct Scenario {
     pub obs: Vec<f64>,
     pub obs_times: Vec<f64>,
 }
+#[derive(Debug, Clone)]
+pub struct Infusion {
+    pub time: f64,
+    pub dur: f64,
+    pub amount: f64,
+    pub compartment: usize,
+}
+#[derive(Debug, Clone)]
+pub struct Dose {
+    pub time: f64,
+    pub amount: f64,
+    pub compartment: usize,
+}
 /// A Block is a simulation unit, this means that one simulation is made for each block
 type Block = Vec<Event>;
 

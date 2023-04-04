@@ -1,5 +1,8 @@
 use eyre::Result;
-use np_core::prelude::{datafile::Event, *};
+use np_core::prelude::{
+    datafile::{Dose, Event, Infusion},
+    *,
+};
 use ode_solvers::*;
 
 #[derive(Debug, Clone)]
@@ -9,19 +12,6 @@ struct Model<'a> {
     _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
     dose: Option<Dose>,
-}
-#[derive(Debug, Clone)]
-pub struct Infusion {
-    pub time: f64,
-    pub dur: f64,
-    pub amount: f64,
-    pub compartment: usize,
-}
-#[derive(Debug, Clone)]
-pub struct Dose {
-    pub time: f64,
-    pub amount: f64,
-    pub compartment: usize,
 }
 
 type State = Vector1<f64>;
@@ -66,6 +56,7 @@ impl Simulate for Sim {
             infusions: vec![],
             dose: None,
         };
+        let lag = 0.0;
         let mut yout = vec![];
         let mut y0 = State::new(0.0);
         for (block_index, block) in scenario.blocks.iter().enumerate() {
@@ -74,7 +65,7 @@ impl Simulate for Sim {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
                         system.infusions.push(Infusion {
-                            time: event.time,
+                            time: event.time + lag,
                             dur: event.dur.unwrap(),
                             amount: event.dose.unwrap(),
                             compartment: event.input.unwrap() - 1,
@@ -82,7 +73,7 @@ impl Simulate for Sim {
                     } else {
                         //dose
                         system.dose = Some(Dose {
-                            time: event.time,
+                            time: event.time + lag,
                             amount: event.dose.unwrap(),
                             compartment: event.input.unwrap() - 1,
                         });
