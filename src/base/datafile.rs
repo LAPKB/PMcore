@@ -12,6 +12,7 @@ pub struct Scenario {
     pub blocks: Vec<Block>,
     pub obs: Vec<f64>,
     pub obs_times: Vec<f64>,
+    pub times: Vec<f64>,
 }
 #[derive(Debug, Clone)]
 pub struct Infusion {
@@ -32,7 +33,7 @@ type Block = Vec<Event>;
 /// A Event represent a single row in the Datafile
 #[derive(Debug, Clone)]
 pub struct Event {
-    id: String,
+    pub id: String,
     pub evid: isize,
     pub time: f64,
     pub dur: Option<f64>,
@@ -98,11 +99,13 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
                 blocks,
                 obs,
                 obs_times,
+                times,
             });
-            block = vec![event.clone()];
+            block = vec![];
             obs = vec![];
             blocks = vec![];
             obs_times = vec![];
+            times = vec![];
             id = event.id.clone();
         }
         times.push(event.time);
@@ -135,6 +138,7 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
         blocks,
         obs,
         obs_times,
+        times,
     });
 
     Ok(scenarios)

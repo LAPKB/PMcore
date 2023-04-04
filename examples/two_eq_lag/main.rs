@@ -1,7 +1,9 @@
 use eyre::Result;
-use np_core::prelude::{datafile::Event, *};
+use np_core::prelude::{
+    datafile::{Dose, Infusion},
+    *,
+};
 use ode_solvers::*;
-
 #[derive(Debug, Clone)]
 struct Model<'a> {
     ka: f64,
@@ -35,20 +37,6 @@ impl ode_solvers::System<State> for Model<'_> {
 
 struct Sim {}
 
-#[derive(Debug, Clone)]
-pub struct Infusion {
-    pub time: f64,
-    pub dur: f64,
-    pub amount: f64,
-    pub compartment: usize,
-}
-#[derive(Debug, Clone)]
-pub struct Dose {
-    pub time: f64,
-    pub amount: f64,
-    pub compartment: usize,
-}
-
 impl Simulate for Sim {
     fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
         let mut system = Model {
@@ -63,9 +51,9 @@ impl Simulate for Sim {
         let lag = system.lag; // or 0.0
         let mut yout = vec![];
         let mut y0 = State::new(0.0, 0.0);
-
-        for (block_index, block) in scenario.blocks.iter().enumerate() {
-            for (event_index, event) in block.iter().enumerate() {
+        let mut index = 0;
+        for block in &scenario.blocks {
+            for event in block {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
@@ -87,34 +75,17 @@ impl Simulate for Sim {
                     //obs
                     yout.push(y0[1] / params[2]);
                 }
-                if let Some(next_event) = next_event(&scenario, block_index, event_index) {
-                    let mut stepper =
-                        Rk4::new(system.clone(), event.time, y0, next_event.time, 0.1);
+                if let Some(next_time) = scenario.times.get(index + 1) {
+                    let mut stepper = Rk4::new(system.clone(), event.time, y0, *next_time, 0.1);
                     let _res = stepper.integrate();
                     let y = stepper.y_out();
-                    // dbg!(&y);
-                    y0 = match y.last() {
-                        Some(y) => *y,
-                        None => y0,
-                    };
-                    // dbg!((event.time, next_event.time, y0 / params[2]));
+                    y0 = *y.last().unwrap();
+                    index += 1;
                 }
             }
         }
         yout
     }
-}
-
-fn next_event(scenario: &Scenario, block_index: usize, event_index: usize) -> Option<Event> {
-    let mut next_event = None;
-    if let Some(event) = scenario.blocks[block_index].get(event_index + 1) {
-        next_event = Some(event.clone());
-    } else if let Some(block) = scenario.blocks.get(block_index + 1) {
-        if let Some(event) = block.first() {
-            next_event = Some(event.clone());
-        }
-    }
-    next_event
 }
 
 fn main() -> Result<()> {
