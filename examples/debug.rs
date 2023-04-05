@@ -55,7 +55,7 @@ impl Simulate for Sim {
         let mut y0 = State::new(0.0, 0.0);
         let mut index = 0;
         for block in &scenario.blocks {
-            for event in block {
+            for event in &block.events {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
@@ -94,7 +94,7 @@ fn main() -> Result<()> {
     let scenarios =
         np_core::base::datafile::parse(&"examples/data/two_eq_lag.csv".to_string()).unwrap();
     let scenario = scenarios.first().unwrap();
-    let event = scenario.blocks.get(5).unwrap().get(6).unwrap();
+    let event = scenario.blocks.get(5).unwrap().events.get(6).unwrap();
     dbg!(event);
     // let sim = Sim {};
     // Vamos a asumir que todos los valores de covs están presentes
