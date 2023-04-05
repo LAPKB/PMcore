@@ -62,7 +62,7 @@ impl Simulate for Sim {
         let mut index: usize = 0;
         for block in &scenario.blocks {
             //if no code is needed here, remove the blocks from the codebase
-            for event in block {
+            for event in &block.events {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion

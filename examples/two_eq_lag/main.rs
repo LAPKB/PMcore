@@ -20,7 +20,7 @@ type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
     fn system(&mut self, t: Time, y: &mut State, dy: &mut State) {
-        /// Random parameters
+        // Random parameters
         let ka = self.ka;
         let ke = self.ke;
         // Covariates
@@ -55,7 +55,7 @@ impl Simulate for Sim {
         let mut y0 = State::new(0.0, 0.0);
         let mut index = 0;
         for block in &scenario.blocks {
-            for event in block {
+            for event in &block.events {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion

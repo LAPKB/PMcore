@@ -4,7 +4,7 @@ use std::error::Error;
 type Record = HashMap<String, String>;
 
 /// A Scenario is a collection of blocks that represent a single subject in the Datafile
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Scenario {
     pub id: String,
     pub blocks: Vec<Block>,
@@ -25,16 +25,24 @@ pub struct Dose {
     pub amount: f64,
     pub compartment: usize,
 }
-struct Cov {
-    name: String,
+#[derive(Debug, Clone)]
+struct CovLine {
     slope: f64,
     intercept: f64,
 }
 
-impl Cov {}
-/// A Block is a simulation unit, this means that one simulation is made for each block
-type Block = Vec<Event>;
+impl CovLine {
+    pub fn interp(&self, x: f64) -> f64 {
+        self.slope * x + self.intercept
+    }
+}
 
+// type Block = Vec<Event>;
+#[derive(Debug, Clone)]
+pub struct Block {
+    pub events: Vec<Event>,
+    covs: HashMap<String, CovLine>,
+}
 /// A Event represent a single row in the Datafile
 #[derive(Debug, Clone)]
 pub struct Event {
@@ -92,7 +100,10 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
 
     let mut scenarios: Vec<Scenario> = vec![];
     let mut blocks: Vec<Block> = vec![];
-    let mut block: Block = vec![];
+    let mut block: Block = Block {
+        events: vec![],
+        covs: HashMap::new(),
+    };
     let mut obs: Vec<f64> = vec![];
     let mut times: Vec<f64> = vec![];
     let mut obs_times: Vec<f64> = vec![];
@@ -106,7 +117,7 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
                     return Err(format!("Error: Covariate {} does not have a value on the first event of subject {}.", key, event.id).into());
                 }
             }
-            if !block.is_empty() {
+            if !block.events.is_empty() {
                 blocks.push(block);
             }
             scenarios.push(Scenario {
@@ -116,7 +127,10 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
                 obs_times,
                 times,
             });
-            block = vec![];
+            block = Block {
+                events: vec![],
+                covs: HashMap::new(),
+            };
             obs = vec![];
             blocks = vec![];
             obs_times = vec![];
@@ -125,37 +139,38 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
         }
         times.push(event.time);
         //Covariate forward filling
-        let event_c = event.clone();
         for (key, val) in &mut event.covs {
             if val.is_none() {
-                // dbg!(&event_c);
-                // dbg!(&block);
-                *val = *block.last().unwrap().covs.get(key).unwrap();
-                // dbg!(&val);
+                *val = *block.events.last().unwrap().covs.get(key).unwrap();
             }
         }
         //Event validation logic
         if event.evid == 1 {
             if event.dur.unwrap_or(0.0) > 0.0 {
                 check_infusion(&event)?;
-                block.push(event);
             } else {
                 check_dose(&event)?;
-                if !block.is_empty() {
-                    blocks.push(block);
-                }
-                block = vec![event];
             }
+
+            if !block.events.is_empty() {
+                blocks.push(block);
+            }
+            // clone the covs from the dose event and put them in the block
+            block = Block {
+                events: vec![],
+                covs: HashMap::new(),
+            };
         } else if event.evid == 0 {
             check_obs(&event)?;
             obs_times.push(event.time);
             obs.push(event.out.unwrap());
-            block.push(event);
         } else {
             return Err("Error: Unsupported evid".into());
         }
+
+        block.events.push(event);
     }
-    if !block.is_empty() {
+    if !block.events.is_empty() {
         blocks.push(block);
     }
     scenarios.push(Scenario {
@@ -165,6 +180,38 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
         obs_times,
         times,
     });
+    // Prepare the linear interpolation of the covariates
+    let scenarios_c = scenarios.clone();
+    for (si, scenario) in scenarios.iter_mut().enumerate() {
+        let scenario_c = scenarios_c.get(si).unwrap();
+        for (bi, block) in scenario.blocks.iter_mut().enumerate() {
+            if let Some(next_block) = scenario_c.blocks.get(bi + 1) {
+                for (key, reg) in &mut block.covs {
+                    let p_v = block
+                        .events
+                        .first()
+                        .unwrap()
+                        .covs
+                        .get(key)
+                        .unwrap()
+                        .unwrap();
+                    let p_t = block.events.first().unwrap().time;
+                    let f_v = next_block
+                        .events
+                        .first()
+                        .unwrap()
+                        .covs
+                        .get(key)
+                        .unwrap()
+                        .unwrap();
+                    let f_t = next_block.events.first().unwrap().time;
+                    let slope = (f_v - p_v) / (f_t - p_t);
+                    let intercept = p_v - slope * p_t;
+                    *reg = CovLine { intercept, slope };
+                }
+            }
+        }
+    }
 
     Ok(scenarios)
 }
