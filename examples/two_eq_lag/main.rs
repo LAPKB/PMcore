@@ -20,8 +20,10 @@ type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
     fn system(&mut self, t: Time, y: &mut State, dy: &mut State) {
+        /// Random parameters
         let ka = self.ka;
         let ke = self.ke;
+        // Covariates
         ///////////////////// USER DEFINED ///////////////
         dy[0] = -ka * y[0];
         dy[1] = ka * y[0] - ke * y[1];

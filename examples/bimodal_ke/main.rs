@@ -61,6 +61,7 @@ impl Simulate for Sim {
         let mut y0 = State::new(0.0);
         let mut index: usize = 0;
         for block in &scenario.blocks {
+            //if no code is needed here, remove the blocks from the codebase
             for event in block {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {

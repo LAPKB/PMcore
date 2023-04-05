@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::error::Error;
 
-use interp::interp;
-
 type Record = HashMap<String, String>;
 
 /// A Scenario is a collection of blocks that represent a single subject in the Datafile
@@ -27,6 +25,13 @@ pub struct Dose {
     pub amount: f64,
     pub compartment: usize,
 }
+struct Cov {
+    name: String,
+    slope: f64,
+    intercept: f64,
+}
+
+impl Cov {}
 /// A Block is a simulation unit, this means that one simulation is made for each block
 type Block = Vec<Event>;
 
@@ -47,7 +52,7 @@ pub struct Event {
     _c1: Option<f32>,
     _c2: Option<f32>,
     _c3: Option<f32>,
-    _covs: HashMap<String, Option<f64>>,
+    pub covs: HashMap<String, Option<f64>>,
 }
 pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
@@ -75,12 +80,16 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             _c1: record.remove("C1").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
             _c2: record.remove("C2").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
             _c3: record.remove("C3").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
-            _covs: record
+            covs: record
                 .into_iter()
-                .map(|(key, value)| (key, value.parse::<f64>().ok()))
+                .map(|(key, value)| {
+                    let val = value.parse::<f64>().ok();
+                    (key, val)
+                })
                 .collect(),
         });
     }
+
     let mut scenarios: Vec<Scenario> = vec![];
     let mut blocks: Vec<Block> = vec![];
     let mut block: Block = vec![];
@@ -88,9 +97,15 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut times: Vec<f64> = vec![];
     let mut obs_times: Vec<f64> = vec![];
     let mut id = events[0].id.clone();
-    for event in events {
-        //Check if the id changed
+
+    for mut event in events {
+        //First event of a scenario
         if event.id != id {
+            for (key, val) in &event.covs {
+                if val.is_none() {
+                    return Err(format!("Error: Covariate {} does not have a value on the first event of subject {}.", key, event.id).into());
+                }
+            }
             if !block.is_empty() {
                 blocks.push(block);
             }
@@ -109,6 +124,16 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             id = event.id.clone();
         }
         times.push(event.time);
+        //Covariate forward filling
+        let event_c = event.clone();
+        for (key, val) in &mut event.covs {
+            if val.is_none() {
+                // dbg!(&event_c);
+                // dbg!(&block);
+                *val = *block.last().unwrap().covs.get(key).unwrap();
+                // dbg!(&val);
+            }
+        }
         //Event validation logic
         if event.evid == 1 {
             if event.dur.unwrap_or(0.0) > 0.0 {
@@ -176,36 +201,36 @@ fn check_obs(event: &Event) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[derive(Debug)]
-pub struct Cov {
-    name: String,
-    times: Vec<f64>,
-    pub values: Vec<f64>,
-}
+// #[derive(Debug)]
+// pub struct Cov {
+//     name: String,
+//     times: Vec<f64>,
+//     pub values: Vec<f64>,
+// }
 
 //Covariates
-type Covariates = Vec<Cov>;
+// type Covariates = Vec<Cov>;
 
-pub fn get_mut_cov(covs: &mut Covariates, key: String) -> Option<&mut Cov> {
-    for (i, cov) in covs.iter().enumerate() {
-        if cov.name == key {
-            return covs.get_mut(i);
-        }
-    }
-    None
-}
+// pub fn get_mut_cov(covs: &mut Covariates, key: String) -> Option<&mut Cov> {
+//     for (i, cov) in covs.iter().enumerate() {
+//         if cov.name == key {
+//             return covs.get_mut(i);
+//         }
+//     }
+//     None
+// }
 
-pub fn get_cov(covs: &Covariates, key: String) -> Option<&Cov> {
-    for (i, cov) in covs.iter().enumerate() {
-        if cov.name == key {
-            return covs.get(i);
-        }
-    }
-    None
-}
+// pub fn get_cov(covs: &Covariates, key: String) -> Option<&Cov> {
+//     for (i, cov) in covs.iter().enumerate() {
+//         if cov.name == key {
+//             return covs.get(i);
+//         }
+//     }
+//     None
+// }
 
-impl Cov {
-    pub fn interpolate(&self, t: f64) -> f64 {
-        interp(&self.times, &self.values, t)
-    }
-}
+// impl Cov {
+//     pub fn interpolate(&self, t: f64) -> f64 {
+//         interp(&self.times, &self.values, t)
+//     }
+// }
