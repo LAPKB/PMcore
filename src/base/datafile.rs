@@ -27,7 +27,7 @@ pub struct Dose {
     pub compartment: usize,
 }
 #[derive(Debug, Clone)]
-struct CovLine {
+pub struct CovLine {
     slope: f64,
     intercept: f64,
 }
@@ -42,7 +42,7 @@ impl CovLine {
 #[derive(Debug, Clone)]
 pub struct Block {
     pub events: Vec<Event>,
-    covs: HashMap<String, CovLine>,
+    pub covs: HashMap<String, CovLine>,
 }
 /// A Event represent a single row in the Datafile
 #[derive(Debug, Clone)]
@@ -186,16 +186,10 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     for (si, scenario) in scenarios.iter_mut().enumerate() {
         let scenario_c = scenarios_c.get(si).unwrap();
         for (bi, block) in scenario.blocks.iter_mut().enumerate() {
+            let mut block_covs: HashMap<String, CovLine> = HashMap::new();
             if let Some(next_block) = scenario_c.blocks.get(bi + 1) {
-                for (key, reg) in &mut block.covs {
-                    let p_v = block
-                        .events
-                        .first()
-                        .unwrap()
-                        .covs
-                        .get(key)
-                        .unwrap()
-                        .unwrap();
+                for (key, p_v) in &block.events.first().unwrap().covs {
+                    let p_v = p_v.unwrap();
                     let p_t = block.events.first().unwrap().time;
                     let f_v = next_block
                         .events
@@ -208,9 +202,21 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
                     let f_t = next_block.events.first().unwrap().time;
                     let slope = (f_v - p_v) / (f_t - p_t);
                     let intercept = p_v - slope * p_t;
-                    *reg = CovLine { intercept, slope };
+                    block_covs.insert(key.clone(), CovLine { intercept, slope });
+                }
+            } else {
+                for (key, p_v) in &block.events.first().unwrap().covs {
+                    let p_v = p_v.unwrap();
+                    block_covs.insert(
+                        key.clone(),
+                        CovLine {
+                            intercept: p_v,
+                            slope: 0.0,
+                        },
+                    );
                 }
             }
+            block.covs = block_covs;
         }
     }
 
@@ -226,7 +232,6 @@ fn check_dose(event: &Event) -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
-
 fn check_infusion(event: &Event) -> Result<(), Box<dyn Error>> {
     if event.dose.is_none() {
         return Err("Error: Infusion event without dose".into());
@@ -248,37 +253,3 @@ fn check_obs(event: &Event) -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
-
-// #[derive(Debug)]
-// pub struct Cov {
-//     name: String,
-//     times: Vec<f64>,
-//     pub values: Vec<f64>,
-// }
-
-//Covariates
-// type Covariates = Vec<Cov>;
-
-// pub fn get_mut_cov(covs: &mut Covariates, key: String) -> Option<&mut Cov> {
-//     for (i, cov) in covs.iter().enumerate() {
-//         if cov.name == key {
-//             return covs.get_mut(i);
-//         }
-//     }
-//     None
-// }
-
-// pub fn get_cov(covs: &Covariates, key: String) -> Option<&Cov> {
-//     for (i, cov) in covs.iter().enumerate() {
-//         if cov.name == key {
-//             return covs.get(i);
-//         }
-//     }
-//     None
-// }
-
-// impl Cov {
-//     pub fn interpolate(&self, t: f64) -> f64 {
-//         interp(&self.times, &self.values, t)
-//     }
-// }

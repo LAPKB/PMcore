@@ -94,8 +94,10 @@ fn main() -> Result<()> {
     let scenarios =
         np_core::base::datafile::parse(&"examples/data/two_eq_lag.csv".to_string()).unwrap();
     let scenario = scenarios.first().unwrap();
-    let event = scenario.blocks.get(5).unwrap().events.get(6).unwrap();
-    dbg!(event);
+    let block = scenario.blocks.get(0).unwrap();
+    dbg!(&block.covs);
+    // dbg!(&block.covs.get("WT").unwrap().interp(12.0));
+
     // let sim = Sim {};
     // Vamos a asumir que todos los valores de covs están presentes
     // dbg!(&scenario.obs);
