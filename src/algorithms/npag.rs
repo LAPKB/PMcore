@@ -239,14 +239,12 @@ where
         }
 
         // If not converged, and not reached maximum cycles, check if user wants to end run
-        if cycle >= settings.parsed.config.cycles {
-            log::info!("Maximum number of cycles reached");
-            meta_writer.write_field("false").unwrap();
-            meta_writer.write_field(format!("{}", cycle)).unwrap();
-            meta_writer.write_record(None::<&[u8]>).unwrap();
+        let stopfile = &settings.parsed.config.stopfile;
+        let do_stop = std::path::Path::new(stopfile).exists();
+        if do_stop {
+            log::info!("Stopfile detected - breaking");
             break;
         }
-
 
         theta = adaptative_grid(&mut theta, eps, &ranges);
         // dbg!(&theta);
