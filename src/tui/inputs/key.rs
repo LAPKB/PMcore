@@ -74,6 +74,12 @@ impl Key {
         matches!(self, Key::Ctrl('c') | Key::Char('q') | Key::Esc)
     }
 
+    /// If end early
+    pub fn is_user_end_signal(&self) -> bool {
+        matches!(self, Key::Ctrl('e'))
+        user_end = true;
+    }
+
     /// Returns the function key corresponding to the given number
     ///
     /// 1 -> F1, etc...
