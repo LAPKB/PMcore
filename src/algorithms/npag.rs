@@ -212,6 +212,7 @@ where
         };
         tx.send(state.clone()).unwrap();
 
+        // Stop if we have reached convergence criteria
         if (last_objf - objf).abs() <= THETA_G && eps > THETA_E {
             eps /= 2.;
             if eps <= THETA_E {
@@ -230,6 +231,7 @@ where
             }
         }
 
+        // Stop if we have reached maximum number of cycles
         if cycle >= settings.parsed.config.cycles {
             log::info!("Maximum number of cycles reached");
             meta_writer.write_field("false").unwrap();
