@@ -10,7 +10,6 @@ init_points = 2129
 seed = 347
 tui = true
 pmetrics_outputs = true
-stopfile = "stop.txt"
 
 [random]
 Ke = [0.001, 3.0]
