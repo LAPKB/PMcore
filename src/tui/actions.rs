@@ -8,7 +8,7 @@ use super::inputs::key::Key;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Action {
     Quit,
-    Stop
+    Stop,
 }
 
 impl Action {
