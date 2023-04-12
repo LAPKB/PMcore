@@ -42,7 +42,7 @@ impl App {
                 Action::Stop => {
                     // Write the "stop.txt" file
                     log::info!("Stop signal received - writing stopfile");
-                    let filename = "stop.txt";
+                    let filename = "stop.txt"; //TO-DO: This should be changed to use the name of the stopfile in settings
                     File::create(filename).unwrap();
                     AppReturn::Continue
                 }
