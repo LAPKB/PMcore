@@ -22,7 +22,7 @@ impl Action {
     pub fn keys(&self) -> &[Key] {
         match self {
             Action::Quit => &[Key::Ctrl('c'), Key::Char('q')],
-            Action::Stop => &[Key::Ctrl('e')],
+            Action::Stop => &[Key::Ctrl('d')],
         }
     }
 }
