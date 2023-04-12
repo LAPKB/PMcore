@@ -74,6 +74,9 @@ impl Key {
         matches!(self, Key::Ctrl('c') | Key::Char('q') | Key::Esc)
     }
 
+    pub fn is_stop(&self) -> bool {
+        matches!(self, Key::Ctrl('e'))
+    }
 
     /// Returns the function key corresponding to the given number
     ///
