@@ -240,13 +240,11 @@ where
             break;
         }
 
-        // If not converged, and not reached maximum cycles, check if user wants to end run
-        if let Some(stopfile) = &settings.parsed.config.stopfile {
-            let stopfile_found = std::path::Path::new(stopfile).exists();
-            if stopfile_found {
-                log::info!("Stopfile detected - breaking");
-                break;
-            }
+        // Stop if stopfile exists
+        let stopfile_found = std::path::Path::new("stop").exists();
+        if stopfile_found {
+            log::info!("Stopfile detected - breaking");
+            break;
         }
 
         theta = adaptative_grid(&mut theta, eps, &ranges);
