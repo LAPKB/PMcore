@@ -166,7 +166,7 @@ where
         }
 
         theta = stack(Axis(0), &theta_rows).unwrap();
-        let psi = stack(Axis(1), &psi_columns).unwrap();
+        psi = stack(Axis(1), &psi_columns).unwrap();
         w = Array::from(lambda_tmp);
 
         let pyl = psi.dot(&w);
