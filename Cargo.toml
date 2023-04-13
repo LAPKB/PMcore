@@ -12,7 +12,7 @@ serde = "1.0.159"
 serde_derive = "1.0.159"
 sobol_burley = "0.4.0"
 toml = "0.7.3"
-ode_solvers = { git = 'https://github.com/Siel/ode-solvers', branch='mut_state' }
+ode_solvers = { git = 'https://github.com/Siel/ode-solvers', branch = 'mut_state' }
 #plotly = "0.8.3"
 interp = "1.0.1"
 ndarray-stats = "0.5.1"
@@ -26,7 +26,6 @@ crossterm = "0.26.1"
 tokio = { version = "1.27.0", features = ["sync", "rt"] }
 ndarray-csv = "0.5.1"
 rawpointer = "0.2.1"
-thiserror = "1.0.40"
 #noisy_float = "0.2.0"
 #ndarray-linalg = { version = "0.16.0", features = ["openblas-system"]}
 #openblas-src = { version = "0.10.8", features = ["system"]}
