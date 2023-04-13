@@ -105,6 +105,7 @@ pub fn read(filename: String) -> Data {
             rv.push(value.as_float().unwrap());
         }
     }
+
     Data {
         computed: Computed {
             random: Range {
