@@ -4,11 +4,11 @@ log_out = "log/bimodal_ke.log"
 #prior_dist = "theta_bimodal_ke.csv"
 
 [config]
-cycles = 9999
+cycles = 1024
 engine = "NPAG"
 init_points = 2129
 seed = 347
-tui = true
+tui = false
 pmetrics_outputs = true
 
 [random]
