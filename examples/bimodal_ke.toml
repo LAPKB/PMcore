@@ -7,7 +7,7 @@ log_out = "log/bimodal_ke.log"
 cycles = 1024
 engine = "NPAG"
 init_points = 2129
-seed = 347
+seed = 22
 tui = true
 pmetrics_outputs = true
 
