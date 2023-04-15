@@ -10,6 +10,9 @@ use std::sync::Mutex;
 use std::collections::hash_map::RandomState;
 use lazy_static::lazy_static;
 use std::hash::{Hash, Hasher};
+use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
+
 
 #[derive(Clone, Debug, PartialEq)]
 struct CacheKey {
@@ -29,8 +32,8 @@ impl Hash for CacheKey {
 }
 
 lazy_static! {
-    static ref YPRED_CACHE: Mutex<SizedCache<CacheKey, ArrayBase<OwnedRepr<f64>, Ix1>>> =
-        Mutex::new(SizedCache::with_size(1000)); // Adjust cache size as needed
+    static ref YPRED_CACHE: DashMap<CacheKey, ArrayBase<OwnedRepr<f64>, Ix1>> =
+        DashMap::with_capacity(1000000); // Adjust cache size as needed
 }
 
 fn get_ypred<S: Simulate + Sync>(
@@ -43,16 +46,17 @@ fn get_ypred<S: Simulate + Sync>(
         i,
         support_point: support_point.clone(),
     };
-    let mut cache = YPRED_CACHE.lock().unwrap();
-    match cache.cache_get(&key) {
-        Some(cached_value) => cached_value.clone(), // Clone the cached value
-        None => {
+
+    match YPRED_CACHE.entry(key.clone()) {
+        Entry::Occupied(entry) => entry.get().clone(), // Clone the cached value
+        Entry::Vacant(entry) => {
             let new_value = Array::from(sim_eng.pred(scenario, support_point.clone()));
-            cache.cache_set(key, new_value.clone());
+            entry.insert(new_value.clone());
             new_value
         }
     }
 }
+
 
 
 
