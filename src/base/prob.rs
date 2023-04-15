@@ -4,16 +4,59 @@ use crate::prelude::{Engine, Scenario, Simulate};
 use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
 use ndarray::Array;
+use ndarray::OwnedRepr;
+use cached::{Cached, SizedCache};
+use std::sync::Mutex;
+use std::collections::hash_map::RandomState;
+use lazy_static::lazy_static;
+use std::hash::{Hash, Hasher};
 
-// #[derive(Default, Clone)]
-// pub struct Observations(pub Vec<f64>);
-// impl Display for Observations {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         self.0.iter().fold(Ok(()), |result, value| {
-//             result.and_then(|_| write!(f, "{},", value))
-//         })
-//     }
-// }
+#[derive(Clone, Debug, PartialEq)]
+struct CacheKey {
+    i: usize,
+    support_point: Vec<f64>,
+}
+
+impl Eq for CacheKey {}
+
+impl Hash for CacheKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.i.hash(state);
+        for value in &self.support_point {
+            value.to_bits().hash(state);
+        }
+    }
+}
+
+lazy_static! {
+    static ref YPRED_CACHE: Mutex<SizedCache<CacheKey, ArrayBase<OwnedRepr<f64>, Ix1>>> =
+        Mutex::new(SizedCache::with_size(1000)); // Adjust cache size as needed
+}
+
+fn get_ypred<S: Simulate + Sync>(
+    sim_eng: &Engine<S>,
+    scenario: &Scenario,
+    support_point: Vec<f64>,
+    i: usize,
+) -> ArrayBase<OwnedRepr<f64>, Ix1> {
+    let key = CacheKey {
+        i,
+        support_point: support_point.clone(),
+    };
+    let mut cache = YPRED_CACHE.lock().unwrap();
+    match cache.cache_get(&key) {
+        Some(cached_value) => cached_value.clone(), // Clone the cached value
+        None => {
+            let new_value = Array::from(sim_eng.pred(scenario, support_point.clone()));
+            cache.cache_set(key, new_value.clone());
+            new_value
+        }
+    }
+}
+
+
+
+
 
 const FRAC_1_SQRT_2PI: f64 =
     std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / 2.0;
@@ -41,13 +84,8 @@ where
                 .enumerate()
                 .for_each(|(j, mut element)| {
                     let scenario = scenarios.get(i).unwrap();
-                    let ypred = Array::from(sim_eng.pred(scenario, support_points.row(j).to_vec()));
+                    let ypred = get_ypred(sim_eng, scenario, support_points.row(j).to_vec(), i);
                     let yobs = Array::from(scenario.obs_flat.clone());
-                    // let mut lock = pred.lock().unwrap();
-                    // let predij = lock.get_mut((i,j)).unwrap();
-                    // predij.append(&mut scenario.obs_flat.clone());
-                    // log::info!("Yobs[{}]={:?}", i, &yobs);
-                    // log::info!("Ypred[{}]={:?}", i, &ypred);
                     let sigma = c.0
                         + c.1 * &yobs
                         + c.2 * &yobs.mapv(|x| x.powi(2))
