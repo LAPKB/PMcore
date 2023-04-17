@@ -44,7 +44,7 @@ fn read_mandatory_settings() {
 #[test]
 fn read_parameter_names() {
     let settings = settings::read("src/tests/config.toml".to_string());
-    assert_eq!(settings.computed.primary.names, vec!["ka", "ke", "v"]);
+    assert_eq!(settings.computed.random.names, vec!["ka", "ke", "v"]);
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn read_parameter_ranges() {
     let settings = settings::read("src/tests/config.toml".to_string());
 
     assert_eq!(
-        settings.computed.primary.ranges,
+        settings.computed.random.ranges,
         vec![(0.1, 0.9), (0.001, 0.1), (30.0, 120.0)]
     );
 }
@@ -60,8 +60,8 @@ fn read_parameter_ranges() {
 #[test]
 fn read_randfix() {
     let settings = settings::read("src/tests/config.toml".to_string());
-    assert_eq!(settings.computed.randfix.names, vec!["KCP", "KPC"]);
-    assert_eq!(settings.computed.randfix.values, vec![5.1, 2.0]);
+    assert_eq!(settings.computed.fixed.names, vec!["KCP", "KPC"]);
+    assert_eq!(settings.computed.fixed.values, vec![5.1, 2.0]);
 }
 
 #[test]

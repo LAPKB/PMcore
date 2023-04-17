@@ -8,7 +8,7 @@ cycles = 1000
 engine = "NPAG"
 init_points = 15000
 seed = 347
-tui = false
+tui = true
 pmetrics_outputs = true
 
 [parameters]
