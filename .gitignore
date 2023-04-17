@@ -11,3 +11,4 @@ meta*.csv
 /examples/iohexol*
 /examples/data/iohexol*
 /.idea
+stop

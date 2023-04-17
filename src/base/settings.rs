@@ -10,9 +10,9 @@ pub struct Data {
 }
 
 pub struct Computed {
-    pub primary: Range,
+    pub random: Range,
     pub constant: Single,
-    pub randfix: Single,
+    pub fixed: Single,
 }
 
 pub struct Range {
@@ -29,8 +29,8 @@ pub struct Single {
 pub struct Parsed {
     pub paths: Paths,
     pub config: Config,
-    pub parameters: Table,
-    pub randfix: Option<Table>,
+    pub random: Table,
+    pub fixed: Option<Table>,
     pub constant: Option<Table>,
 }
 
@@ -50,6 +50,7 @@ pub struct Config {
     pub tui: bool,
     pub pmetrics_outputs: Option<bool>,
     pub exclude: Option<Array>,
+    pub cache: Option<bool>,
 }
 
 pub fn read(filename: String) -> Data {
@@ -73,7 +74,7 @@ pub fn read(filename: String) -> Data {
     //Pri
     let mut pr = vec![];
     let mut pn = vec![];
-    for (name, range) in &parsed.parameters {
+    for (name, range) in &parsed.random {
         let range = range.as_array().unwrap();
         if range.len() != 2 {
             eprintln!(
@@ -99,15 +100,16 @@ pub fn read(filename: String) -> Data {
     //Randfix
     let mut rn = vec![];
     let mut rv = vec![];
-    if let Some(randfix) = &parsed.randfix {
+    if let Some(randfix) = &parsed.fixed {
         for (name, value) in randfix {
             rn.push(name.clone());
             rv.push(value.as_float().unwrap());
         }
     }
+
     Data {
         computed: Computed {
-            primary: Range {
+            random: Range {
                 names: pn,
                 ranges: pr,
             },
@@ -115,7 +117,7 @@ pub fn read(filename: String) -> Data {
                 names: cn,
                 values: cv,
             },
-            randfix: Single {
+            fixed: Single {
                 names: rn,
                 values: rv,
             },

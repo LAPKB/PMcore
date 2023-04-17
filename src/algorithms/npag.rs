@@ -48,7 +48,7 @@ where
     writer.write_field("cycle").unwrap();
     writer.write_field("neg2ll").unwrap();
     writer.write_field("nspp").unwrap();
-    let parameter_names = &settings.computed.primary.names;
+    let parameter_names = &settings.computed.random.names;
     for i in 0..theta.ncols() {
         let param_name = parameter_names.get(i).unwrap();
         writer.write_field(format!("{param_name}.mean")).unwrap();
@@ -72,11 +72,13 @@ where
     meta_writer.write_record(None::<&[u8]>).unwrap();
 
     // let mut _pred: Array2<Vec<f64>>;
+    let cache = settings.parsed.config.cache.unwrap_or(false);
 
     while eps > THETA_E {
         // log::info!("Cycle: {}", cycle);
         // psi n_sub rows, nspp columns
-        psi = prob(sim_eng, scenarios, &theta, c);
+        let cache = if cycle == 1 { false } else { cache };
+        psi = prob(sim_eng, scenarios, &theta, c, cache);
         // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
         //     log::info!("sub {}, sum: {}", i, row.sum());
         // }
@@ -166,7 +168,7 @@ where
         }
 
         theta = stack(Axis(0), &theta_rows).unwrap();
-        let psi = stack(Axis(1), &psi_columns).unwrap();
+        psi = stack(Axis(1), &psi_columns).unwrap();
         w = Array::from(lambda_tmp);
 
         let pyl = psi.dot(&w);
@@ -212,6 +214,7 @@ where
         };
         tx.send(state.clone()).unwrap();
 
+        // Stop if we have reached convergence criteria
         if (last_objf - objf).abs() <= THETA_G && eps > THETA_E {
             eps /= 2.;
             if eps <= THETA_E {
@@ -230,6 +233,7 @@ where
             }
         }
 
+        // Stop if we have reached maximum number of cycles
         if cycle >= settings.parsed.config.cycles {
             log::info!("Maximum number of cycles reached");
             meta_writer.write_field("false").unwrap();
@@ -237,6 +241,14 @@ where
             meta_writer.write_record(None::<&[u8]>).unwrap();
             break;
         }
+
+        // Stop if stopfile exists
+        let stopfile_found = std::path::Path::new("stop").exists();
+        if stopfile_found {
+            log::info!("Stopfile detected - breaking");
+            break;
+        }
+
         theta = adaptative_grid(&mut theta, eps, &ranges);
         // dbg!(&theta);
         cycle += 1;

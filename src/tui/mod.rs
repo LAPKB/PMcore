@@ -8,6 +8,7 @@ use log::{debug, warn};
 use self::actions::{Action, Actions};
 use self::inputs::key::Key;
 use self::state::AppState;
+use std::fs::File;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum AppReturn {
@@ -26,7 +27,7 @@ pub struct App {
 impl App {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        let actions = vec![Action::Quit].into();
+        let actions = vec![Action::Quit, Action::Stop].into();
         let state = AppState::new();
 
         Self { actions, state }
@@ -38,9 +39,16 @@ impl App {
             debug!("Run action [{:?}]", action);
             match action {
                 Action::Quit => AppReturn::Exit,
+                Action::Stop => {
+                    // Write the "stop.txt" file
+                    log::info!("Stop signal received - writing stopfile");
+                    let filename = "stop";
+                    File::create(filename).unwrap();
+                    AppReturn::Continue
+                }
             }
         } else {
-            warn!("No action accociated to {}", key);
+            warn!("No action associated to {}", key);
             AppReturn::Continue
         }
     }

@@ -8,9 +8,10 @@ cycles = 1024
 engine = "NPAG"
 init_points = 2129
 seed = 347
-tui = false
+tui = true
 pmetrics_outputs = true
+cache = true
 
-[parameters]
+[random]
 Ke = [0.001, 3.0]
 V = [25.0, 250.0]
