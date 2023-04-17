@@ -1,18 +1,12 @@
-// use std::fmt::Display;
-
 use crate::prelude::{Engine, Scenario, Simulate};
+use dashmap::mapref::entry::Entry;
+use dashmap::DashMap;
+use lazy_static::lazy_static;
 use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
 use ndarray::Array;
 use ndarray::OwnedRepr;
-use cached::{Cached, SizedCache};
-use std::sync::Mutex;
-use std::collections::hash_map::RandomState;
-use lazy_static::lazy_static;
 use std::hash::{Hash, Hasher};
-use dashmap::DashMap;
-use dashmap::mapref::entry::Entry;
-
 
 #[derive(Clone, Debug, PartialEq)]
 struct CacheKey {
@@ -41,26 +35,25 @@ fn get_ypred<S: Simulate + Sync>(
     scenario: &Scenario,
     support_point: Vec<f64>,
     i: usize,
+    cache: bool,
 ) -> ArrayBase<OwnedRepr<f64>, Ix1> {
     let key = CacheKey {
         i,
         support_point: support_point.clone(),
     };
-
-    match YPRED_CACHE.entry(key.clone()) {
-        Entry::Occupied(entry) => entry.get().clone(), // Clone the cached value
-        Entry::Vacant(entry) => {
-            let new_value = Array::from(sim_eng.pred(scenario, support_point.clone()));
-            entry.insert(new_value.clone());
-            new_value
+    if cache {
+        match YPRED_CACHE.entry(key.clone()) {
+            Entry::Occupied(entry) => entry.get().clone(), // Clone the cached value
+            Entry::Vacant(entry) => {
+                let new_value = Array::from(sim_eng.pred(scenario, support_point.clone()));
+                entry.insert(new_value.clone());
+                new_value
+            }
         }
+    } else {
+        Array::from(sim_eng.pred(scenario, support_point.clone()))
     }
 }
-
-
-
-
-
 
 const FRAC_1_SQRT_2PI: f64 =
     std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / 2.0;
@@ -72,6 +65,7 @@ pub fn prob<S>(
     scenarios: &Vec<Scenario>,
     support_points: &Array2<f64>,
     c: (f64, f64, f64, f64),
+    cache: bool,
 ) -> Array2<f64>
 //(Array2<f64>,Array2<Vec<f64>>)
 where
@@ -88,7 +82,8 @@ where
                 .enumerate()
                 .for_each(|(j, mut element)| {
                     let scenario = scenarios.get(i).unwrap();
-                    let ypred = get_ypred(sim_eng, scenario, support_points.row(j).to_vec(), i);
+                    let ypred =
+                        get_ypred(sim_eng, scenario, support_points.row(j).to_vec(), i, cache);
                     let yobs = Array::from(scenario.obs_flat.clone());
                     let sigma = c.0
                         + c.1 * &yobs

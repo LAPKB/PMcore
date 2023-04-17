@@ -72,11 +72,13 @@ where
     meta_writer.write_record(None::<&[u8]>).unwrap();
 
     // let mut _pred: Array2<Vec<f64>>;
+    let cache = settings.parsed.config.cache.unwrap_or(false);
 
     while eps > THETA_E {
         // log::info!("Cycle: {}", cycle);
         // psi n_sub rows, nspp columns
-        psi = prob(sim_eng, scenarios, &theta, c);
+        let cache = if cycle == 1 { false } else { cache };
+        psi = prob(sim_eng, scenarios, &theta, c, cache);
         // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
         //     log::info!("sub {}, sum: {}", i, row.sum());
         // }
