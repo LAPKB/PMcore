@@ -50,6 +50,7 @@ pub struct Config {
     pub tui: bool,
     pub pmetrics_outputs: Option<bool>,
     pub exclude: Option<Array>,
+    pub cache: Option<bool>,
 }
 
 pub fn read(filename: String) -> Data {
