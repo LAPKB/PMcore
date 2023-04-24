@@ -10,7 +10,7 @@ init_points = 2129
 seed = 347
 tui = true
 pmetrics_outputs = true
-cache = true
+cache = false
 
 [random]
 Ke = [0.001, 3.0]
