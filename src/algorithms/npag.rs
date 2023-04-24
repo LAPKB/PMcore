@@ -1,5 +1,7 @@
 use std::fs::File;
 
+use crate::prelude::sigma::{ErrorPoly, ErrorType};
+use crate::prelude::simulator::sim_obs;
 use crate::prelude::*;
 use csv::WriterBuilder;
 use linfa_linalg::qr::QR;
@@ -78,7 +80,18 @@ where
         // log::info!("Cycle: {}", cycle);
         // psi n_sub rows, nspp columns
         let cache = if cycle == 1 { false } else { cache };
-        psi = prob(sim_eng, scenarios, &theta, c, cache);
+        let ypred = sim_obs(sim_eng, scenarios, &theta, cache);
+
+        psi = prob(
+            &ypred,
+            scenarios,
+            &ErrorPoly {
+                c,
+                gl: 0.0,
+                e_type: ErrorType::Add,
+            },
+        );
+        // psi = prob(sim_eng, scenarios, &theta, c, cache);
         // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
         //     log::info!("sub {}, sum: {}", i, row.sum());
         // }

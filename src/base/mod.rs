@@ -1,6 +1,6 @@
 use self::datafile::Scenario;
-use self::prob::simple_sim;
 use self::settings::Data;
+use self::simulator::simple_sim;
 use self::simulator::{Engine, Simulate};
 use crate::prelude::start_ui;
 use crate::{algorithms::npag::npag, tui::state::AppState};
@@ -14,7 +14,7 @@ use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_csv::Array2Reader;
 // use ndarray_csv::Array2Writer;
-use prob::sim_obs;
+use simulator::sim_obs;
 use std::error;
 use std::fs::{self, File};
 use std::thread::spawn;
@@ -24,8 +24,10 @@ pub mod array_permutation;
 pub mod datafile;
 pub mod ipm;
 pub mod lds;
+pub mod optim;
 pub mod prob;
 pub mod settings;
+pub mod sigma;
 pub mod simulator;
 
 pub fn start<S>(engine: Engine<S>, settings_path: String, c: (f64, f64, f64, f64)) -> Result<()>
@@ -135,7 +137,7 @@ fn run_npag<S>(
             // let file = File::create("posterior.csv").unwrap();
             // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
             // writer.serialize_array2(&posterior).unwrap();
-
+            let cache = settings.parsed.config.cache.unwrap_or(false);
             // pred.csv
             let (pop_mean, pop_median) = population_mean_median(&theta, &w);
             let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
@@ -147,11 +149,13 @@ fn run_npag<S>(
                 &sim_eng,
                 scenarios,
                 &pop_mean.into_shape((1, ndim)).unwrap(),
+                cache,
             );
             let pop_median_pred = sim_obs(
                 &sim_eng,
                 scenarios,
                 &pop_median.into_shape((1, ndim)).unwrap(),
+                cache,
             );
 
             // dbg!(&pop_mean_pred);

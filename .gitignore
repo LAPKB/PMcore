@@ -11,3 +11,5 @@ meta*.csv
 /examples/iohexol*
 /.idea
 stop
+.vscode
+
