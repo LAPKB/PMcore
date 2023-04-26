@@ -116,6 +116,11 @@ fn draw_body<'a>(loading: bool, app: &App, elapsed_time: Duration) -> Paragraph<
     let cycle_text = format!("Cycle: {}", app.state.cycle);
     let objf_text = format!("-2LL: {}", app.state.objf);
     let spp_text = format!("#Spp: {}", app.state.theta.shape()[0]);
+    let conv_text = if app.state.conv {
+        "The run converged!"
+    } else {
+        ""
+    };
 
     // Logic to provide time in sensible units
     let elapsed_seconds = elapsed_time.as_secs();
@@ -136,6 +141,7 @@ fn draw_body<'a>(loading: bool, app: &App, elapsed_time: Duration) -> Paragraph<
         Spans::from(Span::raw(objf_text)),
         Spans::from(Span::raw(spp_text)),
         Spans::from(Span::raw(time_text)),
+        Spans::from(Span::raw(conv_text)),
     ])
     .style(Style::default().fg(Color::LightCyan))
     .alignment(Alignment::Left)
