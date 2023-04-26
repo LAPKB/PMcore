@@ -40,6 +40,14 @@ where
     let mut f0 = -1e30;
     let mut f1: f64;
     let mut cycle = 1;
+    let mut gamma_delta = 0.1;
+    let mut gamma = settings.parsed.error.value;
+
+    let error_type = match settings.parsed.error.class.as_str() {
+        "additive" => ErrorType::Add,
+        "multiplicative" => ErrorType::Mul,
+        _ => panic!("Error type not supported"),
+    };
 
     let mut converged = false;
 
@@ -87,8 +95,8 @@ where
             scenarios,
             &ErrorPoly {
                 c,
-                gl: 0.0,
-                e_type: ErrorType::Add,
+                gl: gamma,
+                e_type: &error_type,
             },
         );
         // psi = prob(sim_eng, scenarios, &theta, c, cache);
@@ -160,7 +168,6 @@ where
                 log::info!("Pushed down to {}", psi.ncols());
             }
         }
-
         (lambda, objf) = match ipm::burke(&psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
@@ -168,6 +175,62 @@ where
                 panic!("Error in IPM: {:?}", err);
             }
         };
+
+        //Gam/Lam optimization
+        let gamma_up = gamma * (1.0 + gamma_delta);
+        let gamma_down = gamma / (1.0 + gamma_delta);
+        let ypred = sim_obs(sim_eng, scenarios, &theta, cache);
+        let psi_up = prob(
+            &ypred,
+            scenarios,
+            &ErrorPoly {
+                c,
+                gl: gamma_up,
+                e_type: &error_type,
+            },
+        );
+        let psi_down = prob(
+            &ypred,
+            scenarios,
+            &ErrorPoly {
+                c,
+                gl: gamma_down,
+                e_type: &error_type,
+            },
+        );
+        let (lambda_up, objf_up) = match ipm::burke(&psi_up) {
+            Ok((lambda, objf)) => (lambda, objf),
+            Err(err) => {
+                //todo: write out report
+                panic!("Error in IPM: {:?}", err);
+            }
+        };
+        let (lambda_down, objf_down) = match ipm::burke(&psi_down) {
+            Ok((lambda, objf)) => (lambda, objf),
+            Err(err) => {
+                //todo: write out report
+                panic!("Error in IPM: {:?}", err);
+            }
+        };
+        if objf_up > objf {
+            gamma = gamma_up;
+            objf = objf_up;
+            gamma_delta *= 4.;
+            lambda = lambda_up;
+            psi = psi_up;
+        }
+        if objf_down > objf {
+            gamma = gamma_down;
+            objf = objf_down;
+            gamma_delta *= 4.;
+            lambda = lambda_down;
+            psi = psi_down;
+        } else {
+            gamma_delta *= 0.5;
+        }
+        if gamma_delta <= 0.01 {
+            gamma_delta = 0.1;
+        }
 
         let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];

@@ -14,6 +14,11 @@ pub struct Computed {
     pub constant: Single,
     pub fixed: Single,
 }
+#[derive(Deserialize, Clone, Debug)]
+pub struct Error {
+    pub value: f64,
+    pub class: String,
+}
 
 pub struct Range {
     pub names: Vec<String>,
@@ -32,6 +37,7 @@ pub struct Parsed {
     pub random: Table,
     pub fixed: Option<Table>,
     pub constant: Option<Table>,
+    pub error: Error,
 }
 
 #[derive(Deserialize, Clone, Debug)]

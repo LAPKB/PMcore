@@ -65,6 +65,13 @@ fn read_randfix() {
 }
 
 #[test]
+fn read_error() {
+    let settings = settings::read("src/tests/config.toml".to_string());
+    assert_eq!(settings.parsed.error.value, 0.5);
+    assert_eq!(settings.parsed.error.class, "additive");
+}
+
+#[test]
 fn read_test_datafile() {
     let scenarios = datafile::parse(&"src/tests/test.csv".to_string());
     if let Ok(scenarios) = scenarios {
