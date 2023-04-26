@@ -29,20 +29,22 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
     let tick_rate = Duration::from_millis(200);
     let mut events = Events::new(tick_rate);
 
+    let start_time = std::time::Instant::now();
+    let mut elapsed_time = Duration::from_secs(0);
+
     loop {
         app.state = match rx.try_recv() {
             Ok(state) => state,
             Err(_) => app.state,
         };
 
-        terminal.draw(|rect| draw(rect, &app)).unwrap();
+        elapsed_time = start_time.elapsed();
+        terminal.draw(|rect| draw(rect, &app, elapsed_time)).unwrap();
 
-        //  Handle inputs
         let result = match events.recv() {
             Some(InputEvent::Input(key)) => app.do_action(key),
             None => AppReturn::Continue,
         };
-        // Check if we should exit
         if result == AppReturn::Exit {
             break;
         }
@@ -53,7 +55,11 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
     Ok(())
 }
 
-pub fn draw<B>(rect: &mut Frame<B>, app: &App)
+
+
+
+
+pub fn draw<B>(rect: &mut Frame<B>, app: &App, elapsed_time: Duration)
 where
     B: Backend,
 {
@@ -75,7 +81,7 @@ where
         .constraints([Constraint::Min(20), Constraint::Length(32)].as_ref())
         .split(chunks[1]);
 
-    let body = draw_body(false, app);
+    let body = draw_body(false, app, elapsed_time);
     rect.render_widget(body, body_chunks[0]);
 
     let help = draw_help(app);
@@ -93,16 +99,30 @@ fn draw_title<'a>() -> Paragraph<'a> {
                 .border_type(BorderType::Plain),
         )
 }
-fn draw_body<'a>(loading: bool, app: &App) -> Paragraph<'a> {
+fn draw_body<'a>(loading: bool, app: &App, elapsed_time: Duration) -> Paragraph<'a> {
     let loading_text = if loading { "Loading..." } else { "" };
     let cycle_text = format!("Cycle: {}", app.state.cycle);
     let objf_text = format!("-2LL: {}", app.state.objf);
     let spp_text = format!("#Spp: {}", app.state.theta.shape()[0]);
+
+    let elapsed_seconds = elapsed_time.as_secs();
+    let (elapsed, unit) = if elapsed_seconds < 60 {
+        (elapsed_seconds, "s")
+    } else if elapsed_seconds < 3600 {
+        let elapsed_minutes = elapsed_seconds / 60;
+        (elapsed_minutes, "m")
+    } else {
+        let elapsed_hours = elapsed_seconds / 3600;
+        (elapsed_hours, "h")
+    };
+    let time_text = format!("Time: {}{}", elapsed, unit);
+
     Paragraph::new(vec![
         Spans::from(Span::raw(loading_text)),
         Spans::from(Span::raw(cycle_text)),
         Spans::from(Span::raw(objf_text)),
         Spans::from(Span::raw(spp_text)),
+        Spans::from(Span::raw(time_text)),
     ])
     .style(Style::default().fg(Color::LightCyan))
     .alignment(Alignment::Left)
