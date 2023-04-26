@@ -39,7 +39,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
         };
 
         // Stop incrementing elapsed time if conv is true
-        if !app.state.conv {
+        if app.state.stop_text.is_empty() {
             let now = Instant::now();
             if now.duration_since(start_time) > tick_rate {
                 elapsed_time += now.duration_since(start_time);
@@ -115,12 +115,9 @@ fn draw_body<'a>(loading: bool, app: &App, elapsed_time: Duration) -> Paragraph<
     let loading_text = if loading { "Loading..." } else { "" };
     let cycle_text = format!("Cycle: {}", app.state.cycle);
     let objf_text = format!("-2LL: {}", app.state.objf);
+    let delta_objf_text = format!("Δ2LL: {}", app.state.delta_objf);
     let spp_text = format!("#Spp: {}", app.state.theta.shape()[0]);
-    let conv_text = if app.state.conv {
-        "The run converged!"
-    } else {
-        ""
-    };
+    let stop_text = format!("{}", app.state.stop_text);
 
     // Logic to provide time in sensible units
     let elapsed_seconds = elapsed_time.as_secs();
@@ -139,9 +136,10 @@ fn draw_body<'a>(loading: bool, app: &App, elapsed_time: Duration) -> Paragraph<
         Spans::from(Span::raw(loading_text)),
         Spans::from(Span::raw(cycle_text)),
         Spans::from(Span::raw(objf_text)),
+        Spans::from(Span::raw(delta_objf_text)),
         Spans::from(Span::raw(spp_text)),
         Spans::from(Span::raw(time_text)),
-        Spans::from(Span::raw(conv_text)),
+        Spans::from(Span::raw(stop_text)),
     ])
     .style(Style::default().fg(Color::LightCyan))
     .alignment(Alignment::Left)
