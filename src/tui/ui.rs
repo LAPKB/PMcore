@@ -7,7 +7,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, Paragraph, Row, Table},
     Frame, Terminal,
 };
-use std::{io::stdout, time::Duration};
+use std::{io::stdout, time::{Duration, Instant}};
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::{
@@ -29,7 +29,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
     let tick_rate = Duration::from_millis(200);
     let mut events = Events::new(tick_rate);
 
-    let start_time = std::time::Instant::now();
+    let mut start_time = Instant::now();
     let mut elapsed_time = Duration::from_secs(0);
 
     loop {
@@ -38,22 +38,34 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
             Err(_) => app.state,
         };
 
-        elapsed_time = start_time.elapsed();
+        // Stop incrementing elapsed time if conv is true
+        if !app.state.conv {
+            let now = Instant::now();
+            if now.duration_since(start_time) > tick_rate {
+                elapsed_time += now.duration_since(start_time);
+                start_time = now;
+            }
+        }
+
         terminal.draw(|rect| draw(rect, &app, elapsed_time)).unwrap();
 
+        // Handle inputs
         let result = match events.recv() {
             Some(InputEvent::Input(key)) => app.do_action(key),
             None => AppReturn::Continue,
         };
+        // Check if we should exit
         if result == AppReturn::Exit {
             break;
         }
     }
+
     terminal.clear()?;
     terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
     Ok(())
 }
+
 
 
 
@@ -105,6 +117,7 @@ fn draw_body<'a>(loading: bool, app: &App, elapsed_time: Duration) -> Paragraph<
     let objf_text = format!("-2LL: {}", app.state.objf);
     let spp_text = format!("#Spp: {}", app.state.theta.shape()[0]);
 
+    // Logic to provide time in sensible units
     let elapsed_seconds = elapsed_time.as_secs();
     let (elapsed, unit) = if elapsed_seconds < 60 {
         (elapsed_seconds, "s")
