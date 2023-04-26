@@ -5,6 +5,7 @@ pub struct AppState {
     pub cycle: usize,
     pub objf: f64,
     pub theta: Array2<f64>,
+    pub conv : bool,
 }
 impl AppState {
     pub fn new() -> Self {
@@ -12,6 +13,7 @@ impl AppState {
             cycle: 0,
             objf: f64::INFINITY,
             theta: Array2::default((0, 0)),
+            conv : false,
         }
     }
 }

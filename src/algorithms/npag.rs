@@ -207,10 +207,11 @@ where
                 writer.write_record(None::<&[u8]>).unwrap();
             }
         }
-        let state = AppState {
+        let mut state = AppState {
             cycle,
             objf: -2. * objf,
             theta: theta.clone(),
+            conv: converged.clone()
         };
         tx.send(state.clone()).unwrap();
 
@@ -225,6 +226,8 @@ where
                     meta_writer.write_field(format!("{}", cycle)).unwrap();
                     meta_writer.write_record(None::<&[u8]>).unwrap();
                     converged = true;
+                    state.conv = true;
+                    tx.send(state.clone()).unwrap();
                     break;
                 } else {
                     f0 = f1;
