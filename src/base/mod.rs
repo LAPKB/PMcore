@@ -123,7 +123,7 @@ fn run_npag<S>(
 
             for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
                 for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                    post_writer.write_field(format!("{}", sub)).unwrap();
+                    post_writer.write_field(format!("{}", scenarios.get(sub).unwrap().id)).unwrap();
                     post_writer.write_field(format!("{}", spp)).unwrap();
                     for param in theta.row(spp) {
                         post_writer.write_field(format!("{param}")).unwrap();
@@ -185,7 +185,7 @@ fn run_npag<S>(
                 {
                     pred_writer
                         .write_record(&[
-                            id.to_string(),
+                            scenarios.get(id).unwrap().id.to_string(),
                             t.to_string(),
                             "1".to_string(),
                             pop_mp_i.to_string(),
@@ -212,7 +212,7 @@ fn run_npag<S>(
                 for (obs, t) in observations.into_iter().zip(time) {
                     obs_writer
                         .write_record(&[
-                            id.to_string(),
+                            scenarios.get(id).unwrap().id.to_string(),
                             t.to_string(),
                             obs.to_string(),
                             "1".to_string(),
