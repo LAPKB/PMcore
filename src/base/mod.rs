@@ -11,7 +11,7 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use ndarray::parallel::prelude::*;
-use ndarray::{Array, Array1, Array2, Axis};
+use ndarray::{Array, Array1, Array2, ArrayView1, Axis};
 use ndarray_csv::Array2Reader;
 // use ndarray_csv::Array2Writer;
 use prob::sim_obs;
@@ -139,28 +139,40 @@ fn run_npag<S>(
             // pred.csv
             let (pop_mean, pop_median) = population_mean_median(&theta, &w);
             let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
-            let post_mean_pred = post_predictions(&sim_eng, post_mean, scenarios).unwrap();
-            let post_median_pred = post_predictions(&sim_eng, post_median, scenarios).unwrap();
 
+            // Interval for predictions (in hours)
+            let dt = 0.25;
+
+            let post_mean_copy = &post_mean.clone();
+
+            let post_mean_pred = predictions(&sim_eng, post_mean, scenarios, dt).unwrap();
+            let post_median_pred = predictions(&sim_eng, post_median, scenarios, dt).unwrap();
+
+            let n_simulations = post_mean_copy.nrows();
             let ndim = pop_mean.len();
-            let pop_mean_pred = sim_obs(
-                &sim_eng,
-                scenarios,
-                &pop_mean.into_shape((1, ndim)).unwrap(),
-            );
-            let pop_median_pred = sim_obs(
-                &sim_eng,
-                scenarios,
-                &pop_median.into_shape((1, ndim)).unwrap(),
-            );
 
-            // dbg!(&pop_mean_pred);
+            // Create pop_mean_rep and pop_median_rep by repeating pop_mean and pop_median row-by-row
+            let mut pop_mean_rep = Array2::zeros((n_simulations, ndim));
+            let mut pop_median_rep = Array2::zeros((n_simulations, ndim));
+            for i in 0..n_simulations {
+                pop_mean_rep.row_mut(i).assign(&ArrayView1::from(&pop_mean));
+                pop_median_rep
+                    .row_mut(i)
+                    .assign(&ArrayView1::from(&pop_median));
+            }
+
+            let pop_mean_pred = predictions(&sim_eng, pop_mean_rep, scenarios, dt).unwrap();
+            let pop_median_pred = predictions(&sim_eng, pop_median_rep, scenarios, dt).unwrap();
+
             let pred_file = File::create("pred.csv").unwrap();
+
             let mut pred_writer = WriterBuilder::new()
                 .has_headers(false)
                 .from_writer(pred_file);
+
+            // Write headers
             pred_writer
-                .write_record([
+                .write_record(&[
                     "id",
                     "time",
                     "outeq",
@@ -170,32 +182,37 @@ fn run_npag<S>(
                     "postMedian",
                 ])
                 .unwrap();
-            for (id, scenario) in scenarios.iter().enumerate() {
-                let time = scenario.time_flat.clone();
-                let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
-                let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
-                let post_mp = post_mean_pred.get(id).unwrap().to_owned();
-                let post_mdp = post_median_pred.get(id).unwrap().to_owned();
-                for ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t) in pop_mp
-                    .into_iter()
-                    .zip(pop_medp)
-                    .zip(post_mp)
-                    .zip(post_mdp)
-                    .zip(time)
-                {
+
+            // Write the data to the CSV file
+            for (i, _scenario) in scenarios.iter().enumerate() {
+                let pop_mean_pred_i = &pop_mean_pred[i];
+                let pop_median_pred_i = &pop_median_pred[i];
+                let post_mean_pred_i = &post_mean_pred[i];
+                let post_median_pred_i = &post_median_pred[i];
+
+                for (t, _) in pop_mean_pred_i.iter().enumerate() {
+                    let pop_mean = pop_mean_pred_i[t].1;
+                    let pop_median = pop_median_pred_i[t].1;
+                    let post_mean = post_mean_pred_i[t].1;
+                    let post_median = post_median_pred_i[t].1;
+
+                    let time = pop_mean_pred_i[t].0;
+
                     pred_writer
                         .write_record(&[
-                            id.to_string(),
-                            t.to_string(),
-                            "1".to_string(),
-                            pop_mp_i.to_string(),
-                            pop_mdp_i.to_string(),
-                            post_mp_i.to_string(),
-                            post_medp_i.to_string(),
+                            i.to_string(),
+                            time.to_string(),
+                            "1".to_string(), // outeq
+                            pop_mean.to_string(),
+                            pop_median.to_string(),
+                            post_mean.to_string(),
+                            post_median.to_string(),
                         ])
                         .unwrap();
                 }
             }
+
+            pred_writer.flush().unwrap();
 
             //obs.csv
             let obs_file = File::create("obs.csv").unwrap();
@@ -380,18 +397,19 @@ fn posterior_mean_median(
     (mean, median)
 }
 
-fn post_predictions<S>(
+fn predictions<S>(
     sim_engine: &Engine<S>,
     post: Array2<f64>,
     scenarios: &Vec<Scenario>,
-) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>>
+    dt: f64,
+) -> Result<Array1<Vec<(f64, f64)>>, Box<dyn std::error::Error>>
 where
     S: Simulate + Sync,
 {
     if post.nrows() != scenarios.len() {
         return Err("Error calculating the posterior predictions, size mismatch.".into());
     }
-    let mut predictions: Array1<Vec<f64>> = Array1::default(post.nrows());
+    let mut predictions: Array1<Vec<(f64, f64)>> = Array1::default(post.nrows());
 
     predictions
         .axis_iter_mut(Axis(0))
@@ -400,7 +418,7 @@ where
         .for_each(|(i, mut pred)| {
             let scenario = scenarios.get(i).unwrap();
             let support_point = post.row(i).to_owned();
-            pred.fill(simple_sim(sim_engine, scenario, &support_point))
+            pred.fill(sim_engine.pred_full(scenario, support_point.to_vec(), dt));
         });
 
     Ok(predictions)
