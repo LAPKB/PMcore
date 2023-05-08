@@ -24,7 +24,7 @@ where
                 .enumerate()
                 .for_each(|(j, mut element)| {
                     let scenario = scenarios.get(i).unwrap();
-                    let yobs = Array::from(scenario.obs_flat.clone());
+                    let yobs = Array::from(scenario.obs.clone());
                     let sigma = sig.sigma(&yobs);
                     element.fill(normal_likelihood(ypred.get((i, j)).unwrap(), yobs, sigma));
                 });

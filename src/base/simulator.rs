@@ -1,20 +1,20 @@
 use crate::base::datafile::Scenario;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
-use interp::interp_slice;
 use lazy_static::lazy_static;
 use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
 use ndarray::Array1;
 use ndarray::{Array, Array2, Axis};
 use std::hash::{Hash, Hasher};
+
+///
+/// return the predicted values for the given scenario and parameters
+/// where the second element of the tuple is the predicted values
+/// one per observation time in scenario and in the same order
+/// it is not relevant the outeq of the specific event.
 pub trait Simulate {
-    fn simulate(
-        &self,
-        params: Vec<f64>,
-        tspan: [f64; 2],
-        scenario: &Scenario,
-    ) -> (Vec<f64>, Vec<Vec<f64>>);
+    fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64>;
 }
 
 pub struct Engine<S>
@@ -32,23 +32,7 @@ where
         Self { sim }
     }
     pub fn pred(&self, scenario: &Scenario, params: Vec<f64>) -> Vec<f64> {
-        let (x_out, y_out) = self.sim.simulate(
-            params,
-            [
-                *scenario.time.first().unwrap(),
-                *scenario.time.last().unwrap(),
-            ],
-            scenario,
-        );
-        let mut y_intrp: Vec<Vec<f64>> = vec![];
-        for (i, out) in y_out.iter().enumerate() {
-            y_intrp.push(interp_slice(
-                &x_out,
-                out,
-                &scenario.time_obs.get(i).unwrap()[..],
-            ));
-        }
-        y_intrp.into_iter().flatten().collect::<Vec<f64>>()
+        self.sim.simulate(params, scenario)
     }
 }
 

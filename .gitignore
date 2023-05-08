@@ -9,6 +9,7 @@ time.csv
 posterior.csv
 meta*.csv
 /examples/iohexol*
+/examples/data/iohexol*
 /.idea
 stop
 .vscode
