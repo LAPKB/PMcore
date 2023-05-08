@@ -1,0 +1,286 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'np_core'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "np_core",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'bimodal_ke'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=bimodal_ke",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "bimodal_ke",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'bimodal_ke'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=bimodal_ke",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "bimodal_ke",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'iohexol'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=iohexol",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "iohexol",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'iohexol'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=iohexol",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "iohexol",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'qr_decomposition'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=qr_decomposition",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "qr_decomposition",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'qr_decomposition'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=qr_decomposition",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "qr_decomposition",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'debug'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=debug",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "debug",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'debug'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=debug",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "debug",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'two_eq_lag'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=two_eq_lag",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "two_eq_lag",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'two_eq_lag'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=two_eq_lag",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "two_eq_lag",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'column_permutation'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=column_permutation",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "column_permutation",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'column_permutation'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=column_permutation",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "column_permutation",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'row_normalization'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=row_normalization",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "row_normalization",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'row_normalization'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=row_normalization",
+                    "--package=np_core"
+                ],
+                "filter": {
+                    "name": "row_normalization",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
