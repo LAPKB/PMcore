@@ -70,16 +70,16 @@ pub fn get_ypred<S: Simulate + Sync>(
         support_point: support_point.clone(),
     };
     if cache {
-        match YPRED_CACHE.entry(key.clone()) {
+        match YPRED_CACHE.entry(key) {
             Entry::Occupied(entry) => entry.get().clone(), // Clone the cached value
             Entry::Vacant(entry) => {
-                let new_value = Array::from(sim_eng.pred(scenario, support_point.clone()));
+                let new_value = Array::from(sim_eng.pred(scenario, support_point));
                 entry.insert(new_value.clone());
                 new_value
             }
         }
     } else {
-        Array::from(sim_eng.pred(scenario, support_point.clone()))
+        Array::from(sim_eng.pred(scenario, support_point))
     }
 }
 
