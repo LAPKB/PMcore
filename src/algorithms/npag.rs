@@ -225,9 +225,8 @@ where
             gamma_delta *= 4.;
             lambda = lambda_down;
             psi = psi_down;
-        } else {
-            gamma_delta *= 0.5;
         }
+        gamma_delta *= 0.5;
         if gamma_delta <= 0.01 {
             gamma_delta = 0.1;
         }
