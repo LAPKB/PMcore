@@ -10,14 +10,18 @@ tui = false
 pmetrics_outputs = true
 
 [random]
-ka=[0.1,0.9]
-ke=[0.001,0.1]
-v=[30.0,120.0]
+ka = [0.1, 0.9]
+ke = [0.001, 0.1]
+v = [30.0, 120.0]
 
 [constant]
-K10=10.0
-k20=15.0
+K10 = 10.0
+k20 = 15.0
 
 [fixed]
 KCP = 5.1
 KPC = 2.0
+
+[error]
+value = 0.5
+class = "additive"
