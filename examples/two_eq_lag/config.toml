@@ -1,5 +1,5 @@
 [paths]
-data = "examples/two_eq_lag.csv"
+data = "examples/data/two_eq_lag.csv"
 log_out = "log/two_eq_lag.log"
 #prior_dist = "theta_two_eq_lag.csv"
 
@@ -8,11 +8,16 @@ cycles = 1000
 engine = "NPAG"
 init_points = 1000
 seed = 347
-tui = true
+tui = false
 pmetrics_outputs = true
+cache = true
 
 [random]
 Ka = [0.1, 0.9]
 Ke = [0.001, 0.1]
 V_max = [30.0, 120.0]
 lag = [0.0, 4.0]
+
+[error]
+value = 0.0
+class = "additive"

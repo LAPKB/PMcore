@@ -1,28 +1,67 @@
+#![allow(dead_code)]
 use std::collections::HashMap;
 use std::error::Error;
 
-use interp::interp;
-
 type Record = HashMap<String, String>;
 
-//This structure represents a single row in the CSV file
-#[derive(Debug)]
-struct Event {
-    id: String,
-    evid: isize,
-    time: f64,
-    dur: Option<f64>,
-    dose: Option<f64>,
+/// A Scenario is a collection of blocks that represent a single subject in the Datafile
+#[derive(Debug, Clone)]
+pub struct Scenario {
+    pub id: String,
+    pub blocks: Vec<Block>,
+    pub obs: Vec<f64>,
+    pub obs_times: Vec<f64>,
+    pub times: Vec<f64>,
+}
+#[derive(Debug, Clone)]
+pub struct Infusion {
+    pub time: f64,
+    pub dur: f64,
+    pub amount: f64,
+    pub compartment: usize,
+}
+#[derive(Debug, Clone)]
+pub struct Dose {
+    pub time: f64,
+    pub amount: f64,
+    pub compartment: usize,
+}
+#[derive(Debug, Clone)]
+pub struct CovLine {
+    slope: f64,
+    intercept: f64,
+}
+
+impl CovLine {
+    pub fn interp(&self, x: f64) -> f64 {
+        self.slope * x + self.intercept
+    }
+}
+
+// type Block = Vec<Event>;
+#[derive(Debug, Clone)]
+pub struct Block {
+    pub events: Vec<Event>,
+    pub covs: HashMap<String, CovLine>,
+}
+/// A Event represent a single row in the Datafile
+#[derive(Debug, Clone)]
+pub struct Event {
+    pub id: String,
+    pub evid: isize,
+    pub time: f64,
+    pub dur: Option<f64>,
+    pub dose: Option<f64>,
     _addl: Option<isize>,
     _ii: Option<isize>,
-    input: Option<usize>,
+    pub input: Option<usize>,
     out: Option<f64>,
-    outeq: Option<usize>,
+    pub outeq: Option<usize>,
     _c0: Option<f32>,
     _c1: Option<f32>,
     _c2: Option<f32>,
     _c3: Option<f32>,
-    covs: HashMap<String, Option<f64>>,
+    pub covs: HashMap<String, Option<f64>>,
 }
 pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
@@ -52,163 +91,165 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             _c3: record.remove("C3").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
             covs: record
                 .into_iter()
-                .map(|(key, value)| (key, value.parse::<f64>().ok()))
+                .map(|(key, value)| {
+                    let val = value.parse::<f64>().ok();
+                    (key, val)
+                })
                 .collect(),
         });
     }
+
     let mut scenarios: Vec<Scenario> = vec![];
-    let ev_iter = events.group_by_mut(|a, b| a.id == b.id);
-    for group in ev_iter {
-        scenarios.push(parse_events_to_scenario(group));
+    let mut blocks: Vec<Block> = vec![];
+    let mut block: Block = Block {
+        events: vec![],
+        covs: HashMap::new(),
+    };
+    let mut obs: Vec<f64> = vec![];
+    let mut times: Vec<f64> = vec![];
+    let mut obs_times: Vec<f64> = vec![];
+    let mut id = events[0].id.clone();
+
+    for mut event in events {
+        //First event of a scenario
+        if event.id != id {
+            for (key, val) in &event.covs {
+                if val.is_none() {
+                    return Err(format!("Error: Covariate {} does not have a value on the first event of subject {}.", key, event.id).into());
+                }
+            }
+            if !block.events.is_empty() {
+                blocks.push(block);
+            }
+            scenarios.push(Scenario {
+                id,
+                blocks,
+                obs,
+                obs_times,
+                times,
+            });
+            block = Block {
+                events: vec![],
+                covs: HashMap::new(),
+            };
+            obs = vec![];
+            blocks = vec![];
+            obs_times = vec![];
+            times = vec![];
+            id = event.id.clone();
+        }
+        times.push(event.time);
+        //Covariate forward filling
+        for (key, val) in &mut event.covs {
+            if val.is_none() {
+                *val = *block.events.last().unwrap().covs.get(key).unwrap();
+            }
+        }
+        //Event validation logic
+        if event.evid == 1 {
+            if event.dur.unwrap_or(0.0) > 0.0 {
+                check_infusion(&event)?;
+            } else {
+                check_dose(&event)?;
+            }
+
+            if !block.events.is_empty() {
+                blocks.push(block);
+            }
+            // clone the covs from the dose event and put them in the block
+            block = Block {
+                events: vec![],
+                covs: HashMap::new(),
+            };
+        } else if event.evid == 0 {
+            check_obs(&event)?;
+            obs_times.push(event.time);
+            obs.push(event.out.unwrap());
+        } else {
+            return Err("Error: Unsupported evid".into());
+        }
+
+        block.events.push(event);
     }
+    if !block.events.is_empty() {
+        blocks.push(block);
+    }
+    scenarios.push(Scenario {
+        id,
+        blocks,
+        obs,
+        obs_times,
+        times,
+    });
+    // Prepare the linear interpolation of the covariates
+    let scenarios_c = scenarios.clone();
+    for (si, scenario) in scenarios.iter_mut().enumerate() {
+        let scenario_c = scenarios_c.get(si).unwrap();
+        for (bi, block) in scenario.blocks.iter_mut().enumerate() {
+            let mut block_covs: HashMap<String, CovLine> = HashMap::new();
+            if let Some(next_block) = scenario_c.blocks.get(bi + 1) {
+                for (key, p_v) in &block.events.first().unwrap().covs {
+                    let p_v = p_v.unwrap();
+                    let p_t = block.events.first().unwrap().time;
+                    let f_v = next_block
+                        .events
+                        .first()
+                        .unwrap()
+                        .covs
+                        .get(key)
+                        .unwrap()
+                        .unwrap();
+                    let f_t = next_block.events.first().unwrap().time;
+                    let slope = (f_v - p_v) / (f_t - p_t);
+                    let intercept = p_v - slope * p_t;
+                    block_covs.insert(key.clone(), CovLine { intercept, slope });
+                }
+            } else {
+                for (key, p_v) in &block.events.first().unwrap().covs {
+                    let p_v = p_v.unwrap();
+                    block_covs.insert(
+                        key.clone(),
+                        CovLine {
+                            intercept: p_v,
+                            slope: 0.0,
+                        },
+                    );
+                }
+            }
+            block.covs = block_covs;
+        }
+    }
+
     Ok(scenarios)
 }
 
-#[derive(Debug)]
-pub struct Dose {
-    pub time: f64,
-    pub dose: f64,
-    pub compartment: usize,
+fn check_dose(event: &Event) -> Result<(), Box<dyn Error>> {
+    if event.dose.is_none() {
+        return Err("Error: Dose event without dose".into());
+    }
+    if event.input.is_none() {
+        return Err("Error: Dose event without input".into());
+    }
+    Ok(())
 }
-
-#[derive(Debug)]
-pub struct Infusion {
-    pub time: f64,
-    pub dur: f64,
-    pub amount: f64,
-    pub compartment: usize,
+fn check_infusion(event: &Event) -> Result<(), Box<dyn Error>> {
+    if event.dose.is_none() {
+        return Err("Error: Infusion event without dose".into());
+    }
+    if event.dur.is_none() {
+        return Err("Error: Infusion event without duration".into());
+    }
+    if event.input.is_none() {
+        return Err("Error: Infusion event without input".into());
+    }
+    Ok(())
 }
-//This structure represents a full set of dosing events for a single ID
-//TODO: I should transform the ADDL and II elements into the right dose events
-#[derive(Debug)]
-pub struct Scenario {
-    pub id: String,     //id of the Scenario
-    pub time: Vec<f64>, //ALL times
-    pub infusions: Vec<Infusion>,
-    pub doses: Vec<Dose>,
-    pub time_obs: Vec<Vec<f64>>, //obs times
-    pub obs: Vec<Vec<f64>>,      // obs @ time_obs
-    pub time_flat: Vec<f64>,
-    pub obs_flat: Vec<f64>,
-    pub covariates: Covariates,
-}
-// Current Limitations:
-// This version does not handle
-// *  EVID!= 1 or 2
-// *  ADDL & II
-// *  C0, C1, C2, C3
-//TODO: time needs to be expanded with the times relevant to ADDL and II
-//TODO: Also dose must be expanded because of the same reason
-// cov: , //this should be a matrix (or function ), with values for each cov and time
-fn parse_events_to_scenario(events: &[Event]) -> Scenario {
-    let mut time: Vec<f64> = vec![];
-    let mut doses: Vec<Dose> = vec![];
-    let mut infusions: Vec<Infusion> = vec![];
-    let mut raw_time_obs: Vec<f64> = vec![];
-    let mut raw_obs: Vec<f64> = vec![];
-    let mut raw_outeq: Vec<usize> = vec![];
-    let mut covariates: Covariates = Default::default();
-    for key in events.get(0).unwrap().covs.keys() {
-        covariates.push(Cov {
-            name: key.clone(),
-            times: vec![],
-            values: vec![],
-        });
+fn check_obs(event: &Event) -> Result<(), Box<dyn Error>> {
+    if event.out.is_none() {
+        return Err("Error: Obs event without out".into());
     }
-    for event in events {
-        time.push(event.time);
-
-        if event.evid == 1 {
-            //dose event
-            if event.dur.unwrap_or(0.0) > 0.0 {
-                infusions.push(Infusion {
-                    time: event.time,
-                    dur: event.dur.unwrap(),
-                    amount: event.dose.unwrap(),
-                    compartment: event.input.unwrap() - 1,
-                });
-            } else {
-                doses.push(Dose {
-                    time: event.time,
-                    dose: event.dose.unwrap(),
-                    compartment: event.input.unwrap() - 1,
-                });
-            }
-        } else if event.evid == 0 {
-            //obs event
-            raw_obs.push(event.out.unwrap());
-            raw_time_obs.push(event.time);
-            raw_outeq.push(event.outeq.unwrap());
-        }
-        for (key, op_val) in &event.covs {
-            if let Some(val) = op_val {
-                let cov = get_mut_cov(&mut covariates, key.to_string()).unwrap();
-                cov.times.push(event.time);
-                cov.values.push(*val);
-            }
-        }
+    if event.outeq.is_none() {
+        return Err("Error: Obs event without outeq".into());
     }
-
-    let max_outeq = raw_outeq.iter().max().unwrap();
-    let mut time_obs: Vec<Vec<f64>> = vec![];
-    let mut obs: Vec<Vec<f64>> = vec![];
-    for _ in 0..*max_outeq {
-        time_obs.push(vec![]);
-        obs.push(vec![]);
-    }
-    for ((t, o), eq) in raw_time_obs
-        .iter()
-        .zip(raw_obs.iter())
-        .zip(raw_outeq.iter())
-    {
-        time_obs.get_mut(eq - 1).unwrap().push(*t);
-        obs.get_mut(eq - 1).unwrap().push(*o);
-    }
-    let time_flat = time_obs.clone().into_iter().flatten().collect::<Vec<f64>>();
-    let obs_flat = obs.clone().into_iter().flatten().collect::<Vec<f64>>();
-    Scenario {
-        id: events[0].id.clone(),
-        time,
-        doses,
-        infusions,
-        time_obs,
-        obs,
-        time_flat,
-        obs_flat,
-        covariates,
-    }
-}
-
-#[derive(Debug)]
-pub struct Cov {
-    name: String,
-    times: Vec<f64>,
-    pub values: Vec<f64>,
-}
-
-//Covariates
-type Covariates = Vec<Cov>;
-
-pub fn get_mut_cov(covs: &mut Covariates, key: String) -> Option<&mut Cov> {
-    for (i, cov) in covs.iter().enumerate() {
-        if cov.name == key {
-            return covs.get_mut(i);
-        }
-    }
-    None
-}
-
-pub fn get_cov(covs: &Covariates, key: String) -> Option<&Cov> {
-    for (i, cov) in covs.iter().enumerate() {
-        if cov.name == key {
-            return covs.get(i);
-        }
-    }
-    None
-}
-
-impl Cov {
-    pub fn interpolate(&self, t: f64) -> f64 {
-        interp(&self.times, &self.values, t)
-    }
+    Ok(())
 }
