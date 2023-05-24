@@ -21,8 +21,6 @@ impl ode_solvers::System<State> for Model<'_> {
     fn system(&mut self, t: Time, y: &mut State, dy: &mut State) {
         let ke = self.ke;
 
-        let lag = 0.0;
-
         let mut rateiv = [0.0];
         for infusion in &self.infusions {
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
@@ -37,8 +35,8 @@ impl ode_solvers::System<State> for Model<'_> {
         //////////////// END USER DEFINED ////////////////
 
         if let Some(dose) = &self.dose {
-            if t >= dose.time + lag {
-                dy[dose.compartment] += dose.amount;
+            if t >= dose.time {
+                y[dose.compartment] += dose.amount;
                 self.dose = None;
             }
         }
