@@ -117,20 +117,8 @@ fn draw_body<'a>(loading: bool, app: &App, elapsed_time: Duration) -> Paragraph<
     let objf_text = format!("-2LL: {}", app.state.objf);
     let delta_objf_text = format!("Δ2LL: {}", app.state.delta_objf);
     let spp_text = format!("#Spp: {}", app.state.theta.shape()[0]);
+    let time_text = format_time(elapsed_time);
     let stop_text = format!("{}", app.state.stop_text);
-
-    // Logic to provide time in sensible units
-    let elapsed_seconds = elapsed_time.as_secs();
-    let (elapsed, unit) = if elapsed_seconds < 60 {
-        (elapsed_seconds, "s")
-    } else if elapsed_seconds < 3600 {
-        let elapsed_minutes = elapsed_seconds / 60;
-        (elapsed_minutes, "m")
-    } else {
-        let elapsed_hours = elapsed_seconds / 3600;
-        (elapsed_hours, "h")
-    };
-    let time_text = format!("Time: {}{}", elapsed, unit);
 
     Paragraph::new(vec![
         Spans::from(Span::raw(loading_text)),
@@ -191,4 +179,19 @@ fn check_size(rect: &Rect) {
     if rect.height < 12 {
         panic!("Require height >= 12, (got {})", rect.height);
     }
+}
+
+fn format_time(elapsed_time: std::time::Duration) -> String {
+    let elapsed_seconds = elapsed_time.as_secs();
+    let (elapsed, unit) = if elapsed_seconds < 60 {
+        (elapsed_seconds, "s")
+    } else if elapsed_seconds < 3600 {
+        let elapsed_minutes = elapsed_seconds / 60;
+        (elapsed_minutes, "m")
+    } else {
+        let elapsed_hours = elapsed_seconds / 3600;
+        (elapsed_hours, "h")
+    };
+    let time_text = format!("Time: {}{}", elapsed, unit);
+    time_text
 }
