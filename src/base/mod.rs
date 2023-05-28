@@ -207,7 +207,7 @@ fn run_npag<S>(
                 .has_headers(false)
                 .from_writer(obs_file);
             obs_writer
-                .write_record(["sub_num", "time", "obs", "outeq"])
+                .write_record(["id", "time", "obs", "outeq"])
                 .unwrap();
             for (id, scenario) in scenarios.iter().enumerate() {
                 let observations = scenario.obs.clone();
