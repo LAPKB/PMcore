@@ -282,7 +282,7 @@ where
                 writer.write_record(None::<&[u8]>).unwrap();
             }
         }
-        
+
         let mut state = AppState {
             cycle,
             objf: -2. * objf,

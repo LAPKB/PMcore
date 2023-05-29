@@ -27,3 +27,17 @@ impl Default for AppState {
         Self::new()
     }
 }
+
+pub struct AppHistory {
+    pub cycles: Vec<AppState>,
+}
+
+impl AppHistory {
+    pub fn new() -> Self {
+        AppHistory { cycles: Vec::new() }
+    }
+
+    pub fn add_cycle(&mut self, cycle: AppState) {
+        self.cycles.push(cycle);
+    }
+}
