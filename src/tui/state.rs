@@ -4,9 +4,10 @@ use ndarray::Array2;
 pub struct AppState {
     pub cycle: usize,
     pub objf: f64,
-    pub delta_objf : f64,
+    pub delta_objf: f64,
     pub theta: Array2<f64>,
-    pub stop_text : String,
+    pub stop_text: String,
+    pub gamlam: f64,
 }
 impl AppState {
     pub fn new() -> Self {
@@ -15,7 +16,8 @@ impl AppState {
             objf: f64::INFINITY,
             delta_objf: 0.0,
             theta: Array2::default((0, 0)),
-            stop_text : "".to_string(),
+            stop_text: "".to_string(),
+            gamlam: 0.0,
         }
     }
 }
