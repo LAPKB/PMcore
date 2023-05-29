@@ -4,14 +4,20 @@ use ndarray::Array2;
 pub struct AppState {
     pub cycle: usize,
     pub objf: f64,
+    pub delta_objf: f64,
     pub theta: Array2<f64>,
+    pub stop_text: String,
+    pub gamlam: f64,
 }
 impl AppState {
     pub fn new() -> Self {
         Self {
             cycle: 0,
             objf: f64::INFINITY,
+            delta_objf: 0.0,
             theta: Array2::default((0, 0)),
+            stop_text: "".to_string(),
+            gamlam: 0.0,
         }
     }
 }
@@ -19,5 +25,19 @@ impl AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct AppHistory {
+    pub cycles: Vec<AppState>,
+}
+
+impl AppHistory {
+    pub fn new() -> Self {
+        AppHistory { cycles: Vec::new() }
+    }
+
+    pub fn add_cycle(&mut self, cycle: AppState) {
+        self.cycles.push(cycle);
     }
 }

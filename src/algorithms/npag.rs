@@ -282,10 +282,14 @@ where
                 writer.write_record(None::<&[u8]>).unwrap();
             }
         }
-        let state = AppState {
+
+        let mut state = AppState {
             cycle,
             objf: -2. * objf,
+            delta_objf: (last_objf - objf).abs(),
             theta: theta.clone(),
+            stop_text: "".to_string(),
+            gamlam: gamma.clone(),
         };
         tx.send(state.clone()).unwrap();
 
@@ -300,6 +304,8 @@ where
                     meta_writer.write_field(format!("{}", cycle)).unwrap();
                     meta_writer.write_record(None::<&[u8]>).unwrap();
                     converged = true;
+                    state.stop_text = "The run converged!".to_string();
+                    tx.send(state.clone()).unwrap();
                     break;
                 } else {
                     f0 = f1;
@@ -314,6 +320,8 @@ where
             meta_writer.write_field("false").unwrap();
             meta_writer.write_field(format!("{}", cycle)).unwrap();
             meta_writer.write_record(None::<&[u8]>).unwrap();
+            state.stop_text = "Maximum number of cycles reached!".to_string();
+            tx.send(state.clone()).unwrap();
             break;
         }
 
@@ -321,6 +329,8 @@ where
         let stopfile_found = std::path::Path::new("stop").exists();
         if stopfile_found {
             log::info!("Stopfile detected - breaking");
+            state.stop_text = "The run was manually stopped!".to_string();
+            tx.send(state.clone()).unwrap();
             break;
         }
 
