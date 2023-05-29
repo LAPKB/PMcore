@@ -282,12 +282,14 @@ where
                 writer.write_record(None::<&[u8]>).unwrap();
             }
         }
+        
         let mut state = AppState {
             cycle,
             objf: -2. * objf,
             delta_objf: (last_objf - objf).abs(),
             theta: theta.clone(),
-            stop_text: "".to_string()
+            stop_text: "".to_string(),
+            gamlam: gamma.clone(),
         };
         tx.send(state.clone()).unwrap();
 
