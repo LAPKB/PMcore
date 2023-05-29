@@ -3,8 +3,11 @@ Rust Library with the building blocks needed to create new Non-Parametric algori
 
 ## Implemented functionality
 
-* Runs models using ODEs
+* Solve ODE-based population pharmacokinetic models
 * Basic NPAG implementation
+* Supports covariates
+* Option to cache results for improved speed
+
 
 ## Examples
 
@@ -19,14 +22,4 @@ cargo run --example bimodal_ke --release
 
 
 
-Look at the corresponding examples/*.toml file to change the configuration of each run.
-
-
-## NOTES
-
-At the moment this library requires the nightly build of the rust compiler, make sure 
-nightly is enabled by typing.
-```
-rustup install nightly
-rustup default nightly
-```
+Look at the corresponding examples/_example_/*.toml file to change the configuration of each run.
