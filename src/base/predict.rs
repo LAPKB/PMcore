@@ -13,26 +13,26 @@ use std::hash::{Hash, Hasher};
 /// where the second element of the tuple is the predicted values
 /// one per observation time in scenario and in the same order
 /// it is not relevant the outeq of the specific event.
-pub trait Simulate {
-    fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64>;
+pub trait Predict {
+    fn predict(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64>;
 }
 
 pub struct Engine<S>
 where
-    S: Simulate,
+    S: Predict,
 {
-    sim: S,
+    ode: S,
 }
 
 impl<S> Engine<S>
 where
-    S: Simulate,
+    S: Predict,
 {
-    pub fn new(sim: S) -> Self {
-        Self { sim }
+    pub fn new(ode: S) -> Self {
+        Self { ode }
     }
     pub fn pred(&self, scenario: &Scenario, params: Vec<f64>) -> Vec<f64> {
-        self.sim.simulate(params, scenario)
+        self.ode.predict(params, scenario)
     }
 }
 
@@ -58,7 +58,7 @@ lazy_static! {
         DashMap::with_capacity(1000000); // Adjust cache size as needed
 }
 
-pub fn get_ypred<S: Simulate + Sync>(
+pub fn get_ypred<S: Predict + Sync>(
     sim_eng: &Engine<S>,
     scenario: &Scenario,
     support_point: Vec<f64>,
@@ -90,7 +90,7 @@ pub fn sim_obs<S>(
     cache: bool,
 ) -> Array2<Array1<f64>>
 where
-    S: Simulate + Sync,
+    S: Predict + Sync,
 {
     let mut pred: Array2<Array1<f64>> =
         Array2::default((scenarios.len(), support_points.nrows()).f());
@@ -117,7 +117,7 @@ pub fn simple_sim<S>(
     support_point: &Array1<f64>,
 ) -> Vec<f64>
 where
-    S: Simulate + Sync,
+    S: Predict + Sync,
 {
     sim_eng.pred(scenario, support_point.to_vec())
 }

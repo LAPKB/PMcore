@@ -45,10 +45,10 @@ impl ode_solvers::System<State> for Model<'_> {
     }
 }
 #[derive(Debug, Clone)]
-struct Sim {}
+struct Ode {}
 
-impl Simulate for Sim {
-    fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
+impl Predict for Ode {
+    fn predict(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
         let mut system = Model {
             ke: params[0],
             _v: params[1],
@@ -62,6 +62,7 @@ impl Simulate for Sim {
         let mut index: usize = 0;
         for block in &scenario.blocks {
             //if no code is needed here, remove the blocks from the codebase
+            //It seems that blocks is an abstractions we're going to end up not using
             for event in &block.events {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
@@ -101,7 +102,7 @@ fn main() -> Result<()> {
     // let scenarios = np_core::base::datafile::parse(&"examples/bimodal_ke.csv".to_string()).unwrap();
     // let scenario = scenarios.first().unwrap();
     start(
-        Engine::new(Sim {}),
+        Engine::new(Ode {}),
         "examples/bimodal_ke/config.toml".to_string(),
         (0.0, 0.05, 0.0, 0.0),
     )?;

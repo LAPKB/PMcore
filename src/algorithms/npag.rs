@@ -1,7 +1,7 @@
 use std::fs::File;
 
+use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
-use crate::prelude::simulator::sim_obs;
 use crate::prelude::*;
 use csv::WriterBuilder;
 use linfa_linalg::qr::QR;
@@ -28,7 +28,7 @@ pub fn npag<S>(
     settings: &Data,
 ) -> (Array2<f64>, Array2<f64>, Array1<f64>, f64, usize, bool)
 where
-    S: Simulate + std::marker::Sync,
+    S: Predict + std::marker::Sync,
 {
     let mut psi: Array2<f64> = Array2::default((0, 0));
     let mut lambda: Array1<f64>;

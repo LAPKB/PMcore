@@ -37,10 +37,10 @@ impl ode_solvers::System<State> for Model<'_> {
     }
 }
 
-struct Sim {}
+struct Ode {}
 
-impl Simulate for Sim {
-    fn simulate(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
+impl Predict for Ode {
+    fn predict(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
         let mut system = Model {
             ka: params[0],
             ke: params[1],
