@@ -3,8 +3,11 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
+    symbols::Marker,
     text::Span,
-    widgets::{Block, BorderType, Borders, Cell, Paragraph, Row, Table},
+    widgets::{
+        Axis, Block, BorderType, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table,
+    },
     Frame, Terminal,
 };
 use std::{
@@ -15,6 +18,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::{
     inputs::{events::Events, InputEvent},
+    state::AppHistory,
     state::AppState,
     App, AppReturn,
 };
@@ -25,6 +29,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let mut app = App::new();
+    let mut app_history = AppHistory::new();
 
     terminal.clear()?;
 
@@ -50,8 +55,16 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
             }
         }
 
+        if !app_history
+            .cycles
+            .iter()
+            .any(|state| state.cycle == app.state.cycle)
+        {
+            app_history.add_cycle(app.state.clone());
+        }
+
         terminal
-            .draw(|rect| draw(rect, &app, elapsed_time))
+            .draw(|rect| draw(rect, &app, &app_history, elapsed_time))
             .unwrap();
 
         // Handle inputs
@@ -71,7 +84,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
     Ok(())
 }
 
-pub fn draw<B>(rect: &mut Frame<B>, app: &App, elapsed_time: Duration)
+pub fn draw<B>(rect: &mut Frame<B>, app: &App, app_history: &AppHistory, elapsed_time: Duration)
 where
     B: Backend,
 {
@@ -81,7 +94,14 @@ where
     // Vertical layout (overall)
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(10)].as_ref())
+        .constraints(
+            [
+                Constraint::Length(3),
+                Constraint::Min(10),
+                Constraint::Min(5),
+            ]
+            .as_ref(),
+        )
         .split(size);
 
     // Title in first chunk (top)
@@ -114,10 +134,19 @@ where
     let commands = draw_commands(app);
     rect.render_widget(commands, body_layout[2]);
 
-    // Bottom chunk for line drawing
-    // Add the code here
+    // Plot chunk
+    let data: Vec<(f64, f64)> = app_history
+        .cycles
+        .iter()
+        .enumerate()
+        .map(|(x, entry)| (x as f64, entry.objf))
+        .collect();
 
-
+    //dbg!(&data);
+    // Plot chunk
+    let points_limit = 10;
+    let plot = draw_plot(&data, points_limit);
+    rect.render_widget(plot, chunks[2]);
 }
 
 fn draw_title<'a>() -> Paragraph<'a> {
@@ -246,12 +275,72 @@ fn draw_commands(app: &App) -> Table {
         .column_spacing(1)
 }
 
+fn draw_plot<'a>(data: &'a [(f64, f64)], points_limit: usize) -> Chart<'a> {
+    let num_points = data.len();
+    let start_index = if num_points > points_limit {
+        num_points - points_limit
+    } else {
+        0
+    };
+    let latest_data = &data[start_index..];
+
+    let y_min = latest_data
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::INFINITY, f64::min);
+    let y_max = latest_data
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let y_margin = (y_max - y_min) * 0.1;
+    let y_bounds = [y_min - y_margin, y_max + y_margin];
+
+    let chart = Chart::new(vec![Dataset::default()
+        .name("-2LL")
+        .marker(Marker::Dot)
+        .style(Style::default().fg(Color::Yellow))
+        .graph_type(GraphType::Line)
+        .data(latest_data)])
+    .block(
+        Block::default()
+            .title(Span::styled(
+                " Plot ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ))
+            .borders(Borders::ALL),
+    )
+    .x_axis(
+        Axis::default()
+            .title("Cycle")
+            .style(Style::default().fg(Color::Gray))
+            .bounds([start_index as f64, (start_index + points_limit - 1) as f64])
+            .labels(vec![
+                Span::raw(start_index.to_string()),
+                Span::raw((start_index + points_limit - 1).to_string()),
+            ]),
+    )
+    .y_axis(
+        Axis::default()
+            .title("-2LL")
+            .style(Style::default().fg(Color::Gray))
+            .bounds(y_bounds)
+            .labels(vec![
+                Span::raw(format!("{:.1}", y_bounds[0])),
+                Span::raw(format!("{:.1}", y_bounds[1])),
+            ]),
+    );
+
+    chart
+}
+
 fn check_size(rect: &Rect) {
     if rect.width < 52 {
-       // panic!("Require width >= 52, (got {})", rect.width);
+        // panic!("Require width >= 52, (got {})", rect.width);
     }
     if rect.height < 12 {
-       // panic!("Require height >= 12, (got {})", rect.height);
+        // panic!("Require height >= 12, (got {})", rect.height);
     }
 }
 
