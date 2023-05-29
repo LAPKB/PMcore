@@ -1,7 +1,7 @@
 use self::datafile::Scenario;
+use self::predict::simple_sim;
+use self::predict::{Engine, Predict};
 use self::settings::Data;
-use self::simulator::simple_sim;
-use self::simulator::{Engine, Simulate};
 use crate::prelude::start_ui;
 use crate::{algorithms::npag::npag, tui::state::AppState};
 use csv::{ReaderBuilder, WriterBuilder};
@@ -14,7 +14,7 @@ use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_csv::Array2Reader;
 // use ndarray_csv::Array2Writer;
-use simulator::sim_obs;
+use predict::sim_obs;
 use std::error;
 use std::fs::{self, File};
 use std::thread::spawn;
@@ -25,14 +25,14 @@ pub mod datafile;
 pub mod ipm;
 pub mod lds;
 pub mod optim;
+pub mod predict;
 pub mod prob;
 pub mod settings;
 pub mod sigma;
-pub mod simulator;
 
 pub fn start<S>(engine: Engine<S>, settings_path: String, c: (f64, f64, f64, f64)) -> Result<()>
 where
-    S: Simulate + std::marker::Sync + std::marker::Send + 'static,
+    S: Predict + std::marker::Sync + std::marker::Send + 'static,
 {
     let now = Instant::now();
     let settings = settings::read(settings_path);
@@ -81,7 +81,7 @@ fn run_npag<S>(
     tx: UnboundedSender<AppState>,
     settings: &Data,
 ) where
-    S: Simulate + std::marker::Sync,
+    S: Predict + std::marker::Sync,
 {
     // Remove stop file if exists
     let filename = "stop";
@@ -390,7 +390,7 @@ fn post_predictions<S>(
     scenarios: &Vec<Scenario>,
 ) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>>
 where
-    S: Simulate + Sync,
+    S: Predict + Sync,
 {
     if post.nrows() != scenarios.len() {
         return Err("Error calculating the posterior predictions, size mismatch.".into());
