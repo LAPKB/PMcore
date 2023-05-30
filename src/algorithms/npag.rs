@@ -287,7 +287,7 @@ where
             cycle,
             objf: -2. * objf,
             delta_objf: (last_objf - objf).abs(),
-            theta: theta.clone(),
+            nspp: theta.shape()[0],
             stop_text: "".to_string(),
             gamlam: gamma.clone(),
         };

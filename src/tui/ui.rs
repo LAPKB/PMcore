@@ -167,7 +167,7 @@ fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
     let objf_text = format!("{:.5}", app.state.objf);
     let delta_objf_text = format!("{:.5}", app.state.delta_objf);
     let gamma_text = format!("{:.5}", app.state.gamlam);
-    let spp_text = format!("{}", app.state.theta.shape()[0]);
+    let spp_text = format!("{}", app.state.nspp);
     let time_text = format_time(elapsed_time);
     let stop_text = format!("{}", app.state.stop_text);
 
