@@ -125,7 +125,9 @@ fn run_npag<S>(
 
             for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
                 for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                    post_writer.write_field(format!("{}", scenarios.get(sub).unwrap().id)).unwrap();
+                    post_writer
+                        .write_field(format!("{}", scenarios.get(sub).unwrap().id))
+                        .unwrap();
                     post_writer.write_field(format!("{}", spp)).unwrap();
                     for param in theta.row(spp) {
                         post_writer.write_field(format!("{param}")).unwrap();

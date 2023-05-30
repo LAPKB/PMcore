@@ -4,11 +4,13 @@ use std::process::exit;
 use toml::value::Array;
 use toml::{self, Table};
 
+#[derive(Debug, Clone)]
 pub struct Data {
     pub computed: Computed,
     pub parsed: Parsed,
 }
 
+#[derive(Debug, Clone)]
 pub struct Computed {
     pub random: Range,
     pub constant: Single,
@@ -20,11 +22,13 @@ pub struct Error {
     pub class: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct Range {
     pub names: Vec<String>,
     pub ranges: Vec<(f64, f64)>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Single {
     pub names: Vec<String>,
     pub values: Vec<f64>,

@@ -23,6 +23,8 @@ use super::{
     App, AppReturn,
 };
 
+use crate::prelude::Data;
+
 pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
     let stdout = stdout();
     crossterm::terminal::enable_raw_mode()?;
@@ -127,7 +129,7 @@ where
     rect.render_widget(status, body_layout[0]);
 
     // Second chunk
-    let options = draw_options();
+    let options = draw_options(app);
     rect.render_widget(options, body_layout[1]);
 
     // Third chunk
@@ -206,16 +208,18 @@ fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         .column_spacing(1)
 }
 
-fn draw_options<'a>() -> Table<'a> {
+fn draw_options<'a>(app: &App) -> Table<'a> {
+    let settings = app.state.options.as_ref();
+
     // Define the table data
     let data = vec![
-        ("Maximum cycles", "Placeholder"),
-        ("Engine", "NPAG"),
-        ("Convergence criteria", "Placeholder"),
-        ("Initial gridpoints", "Placeholder"),
-        ("Error model", "Placeholder"),
-        ("Cache", "Placeholder"),
-        ("Random seed", "Placeholder"),
+        ("Maximum cycles", get_value(settings, |s| &s.parsed.config.cycles)),
+        ("Engine", get_value(settings, |s| &s.parsed.config.engine)),
+        ("Convergence criteria", "Placeholder".to_string()),
+        ("Initial gridpoints", get_value(settings, |s| &s.parsed.config.init_points)),
+        ("Error model", get_value(settings, |s| &s.parsed.error.class)),
+        //("Cache", get_value(settings, |s| &s.parsed.config.cache)),
+        ("Random seed", get_value(settings, |s| &s.parsed.config.seed)),
         // Add more rows as needed
     ];
 
@@ -240,6 +244,14 @@ fn draw_options<'a>() -> Table<'a> {
         )
         .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]) // Set percentage widths for columns
         .column_spacing(1)
+}
+
+fn get_value<T, F>(settings: Option<&Data>, f: F) -> String
+where
+    F: FnOnce(&Data) -> &T,
+    T: std::fmt::Display,
+{
+    settings.map(f).map(|value| format!("{}", value)).unwrap_or_else(|| "Loading...".to_string())
 }
 
 fn draw_commands(app: &App) -> Table {

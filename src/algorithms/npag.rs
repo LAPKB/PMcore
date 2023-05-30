@@ -290,6 +290,7 @@ where
             nspp: theta.shape()[0],
             stop_text: "".to_string(),
             gamlam: gamma.clone(),
+            options: Some(settings.clone()),
         };
         tx.send(state.clone()).unwrap();
 

@@ -1,3 +1,5 @@
+use crate::prelude::Data;
+
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub cycle: usize,
@@ -6,6 +8,7 @@ pub struct AppState {
     pub nspp: usize,
     pub stop_text: String,
     pub gamlam: f64,
+    pub options: Option<Data>,
 }
 impl AppState {
     pub fn new() -> Self {
@@ -16,6 +19,7 @@ impl AppState {
             nspp: 0,
             stop_text: "".to_string(),
             gamlam: 0.0,
+            options: None,
         }
     }
 }
