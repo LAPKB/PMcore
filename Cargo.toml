@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 dashmap = "4.0"
-cached = "0.26.2"
+#cached = "0.26.2"
 lazy_static = "1.4.0"
 csv = "1.2.1"
 ndarray = { version = "0.15.6", features = ["rayon"] }
@@ -17,7 +17,7 @@ sobol_burley = "0.4.0"
 toml = "0.7.3"
 ode_solvers = { git = 'https://github.com/Siel/ode-solvers', branch = 'mut_system' }
 #plotly = "0.8.3"
-interp = "1.0.1"
+#interp = "1.0.1"
 ndarray-stats = "0.5.1"
 linfa-linalg = "0.1.0"
 log = "0.4.17"
