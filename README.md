@@ -1,5 +1,5 @@
 # NPcore
-![build](https://github.com/LAPKB/NPcore/actions/workflows/rust.yml/badge.svg)
+[![build](https://github.com/LAPKB/NPcore/actions/workflows/rust.yml/badge.svg)](https://github.com/LAPKB/NPcore/actions/workflows/rust.yml)
 
 Rust Library with the building blocks needed to create new Non-Parametric algorithms and it's integration with [Pmetrics]([https://link-url-here.org](https://github.com/LAPKB/Pmetrics)).
 
