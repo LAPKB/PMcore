@@ -41,18 +41,12 @@ pub fn burke(
 
     while mu > eps || norm_r > eps || gap > eps {
         // log::info!("IPM cyle");
-        let smu = sig * mu;
         let inner = &lam / &y; //divide(&lam, &y);
-        let w_plam = &plam / &w; //divide(&plam, &w);
-        let h = psi.dot(&Array2::from_diag(&inner)).dot(&psi.t()) + Array2::from_diag(&w_plam);
-        let uph = h.cholesky()?;
-        let uph = uph.t();
-        let smuyinv = smu * (&ecol / &y);
+        let uph = psi.dot(&Array2::from_diag(&inner)).dot(&psi.t())
+            + Array2::from_diag(&(&plam / &w)).cholesky()?.t();
+        let smuyinv = sig * mu * (&ecol / &y);
         let rhsdw = &erow / &w - (psi.dot(&smuyinv));
         let a = rhsdw.clone().into_shape((rhsdw.len(), 1))?;
-        //todo: cleanup this aux variable
-        // //dbg!(uph.t().is_triangular(linfa_linalg::triangular::UPLO::Upper));
-        // uph.solve_into(rhsdw);
         let x = uph
             .t()
             .solve_triangular(&a, linfa_linalg::triangular::UPLO::Lower)?;
