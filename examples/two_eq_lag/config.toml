@@ -8,7 +8,7 @@ cycles = 1000
 engine = "NPAG"
 init_points = 1000
 seed = 347
-tui = false
+tui = true
 pmetrics_outputs = true
 cache = true
 
@@ -21,3 +21,4 @@ lag = [0.0, 4.0]
 [error]
 value = 0.0
 class = "additive"
+poly = [0.1, 0.25, -0.001, 0.0]

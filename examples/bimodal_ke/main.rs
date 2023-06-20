@@ -99,13 +99,9 @@ impl Predict for Ode {
 }
 
 fn main() -> Result<()> {
-    let settings_path = "examples/bimodal_ke/config.toml".to_string();
-    let settings = settings::read(settings_path.clone());
-
     start(
         Engine::new(Ode {}),
-        settings_path,
-        settings.parsed.error.poly,
+        "examples/bimodal_ke/config.toml".to_string(),
     )?;
 
     Ok(())

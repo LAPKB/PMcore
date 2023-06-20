@@ -30,7 +30,7 @@ pub mod prob;
 pub mod settings;
 pub mod sigma;
 
-pub fn start<S>(engine: Engine<S>, settings_path: String, c: (f64, f64, f64, f64)) -> Result<()>
+pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<()>
 where
     S: Predict + std::marker::Sync + std::marker::Send + 'static,
 {
@@ -58,6 +58,7 @@ where
         }
     }
     let (tx, rx) = mpsc::unbounded_channel::<AppState>();
+    let c = settings.parsed.error.poly;
 
     if settings.parsed.config.tui {
         spawn(move || {
