@@ -25,3 +25,4 @@ KPC = 2.0
 [error]
 value = 0.5
 class = "additive"
+poly = [0.0, 0.5, 0.0, 0.0]
