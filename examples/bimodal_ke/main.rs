@@ -1,8 +1,5 @@
 use eyre::Result;
-use np_core::prelude::{
-    datafile::{Dose, Infusion},
-    *,
-};
+use np_core::prelude::{datafile::Infusion, *};
 use ode_solvers::*;
 
 #[derive(Debug, Clone)]
@@ -11,7 +8,6 @@ struct Model<'a> {
     _v: f64,
     _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
-    dose: Option<Dose>,
 }
 
 type State = Vector1<f64>;
@@ -21,7 +17,7 @@ impl ode_solvers::System<State> for Model<'_> {
     fn system(&mut self, t: Time, y: &mut State, dy: &mut State) {
         let ke = self.ke;
 
-        let lag = 0.0;
+        let _lag = 0.0;
 
         let mut rateiv = [0.0];
         for infusion in &self.infusions {
@@ -35,13 +31,6 @@ impl ode_solvers::System<State> for Model<'_> {
         dy[0] = -ke * y[0] + rateiv[0];
 
         //////////////// END USER DEFINED ////////////////
-
-        if let Some(dose) = &self.dose {
-            if t >= dose.time && t <= (dose.time + 0.0) {
-                y[dose.compartment] += dose.amount;
-                self.dose = None;
-            }
-        }
     }
 }
 #[derive(Debug, Clone)]
@@ -54,16 +43,16 @@ impl Predict for Ode {
             _v: params[1],
             _scenario: scenario,
             infusions: vec![],
-            dose: None,
         };
         let lag = 0.0;
         let mut yout = vec![];
-        let mut y0 = State::new(0.0);
+        let mut x = State::new(0.0);
         let mut index: usize = 0;
         for block in &scenario.blocks {
             //if no code is needed here, remove the blocks from the codebase
             //It seems that blocks is an abstractions we're going to end up not using
             for event in &block.events {
+                let mut event_time = event.time;
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
@@ -75,21 +64,26 @@ impl Predict for Ode {
                         });
                     } else {
                         //dose
-                        system.dose = Some(Dose {
-                            time: event.time + lag,
-                            amount: event.dose.unwrap(),
-                            compartment: event.input.unwrap() - 1,
-                        });
+                        if lag > 0.0 {
+                            event_time = event.time + lag;
+                            let mut stepper =
+                                Rk4::new(system.clone(), event.time, x, event_time, 0.1);
+                            let _int = stepper.integrate();
+                            let y = stepper.y_out();
+                            x = *y.last().unwrap();
+                        }
+
+                        x[event.input.unwrap() - 1] += event.dose.unwrap();
                     }
                 } else if event.evid == 0 {
                     //obs
-                    yout.push(y0[event.outeq.unwrap() - 1] / params[1]);
+                    yout.push(x[event.outeq.unwrap() - 1] / params[1]);
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
-                    let mut stepper = Rk4::new(system.clone(), event.time, y0, *next_time, 0.1);
+                    let mut stepper = Rk4::new(system.clone(), event_time, x, *next_time, 0.1);
                     let _res = stepper.integrate();
                     let y = stepper.y_out();
-                    y0 = *y.last().unwrap();
+                    x = *y.last().unwrap();
                     index += 1;
                 }
             }
