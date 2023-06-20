@@ -51,12 +51,14 @@ where
 
     let mut converged = false;
 
+    // cycles.csv
     let cycles_file = File::create("cycles.csv").unwrap();
     let mut writer = WriterBuilder::new()
         .has_headers(false)
         .from_writer(cycles_file);
     writer.write_field("cycle").unwrap();
     writer.write_field("neg2ll").unwrap();
+    writer.write_field("gamlam").unwrap();
     writer.write_field("nspp").unwrap();
     let parameter_names = &settings.computed.random.names;
     for i in 0..theta.ncols() {
@@ -73,6 +75,7 @@ where
     }
     writer.write_record(None::<&[u8]>).unwrap();
 
+    // meta_rust.csv
     let meta_file = File::create("meta_rust.csv").unwrap();
     let mut meta_writer = WriterBuilder::new()
         .has_headers(false)
@@ -263,6 +266,7 @@ where
                 //cycles.csv
                 writer.write_field(format!("{}", &cycle)).unwrap();
                 writer.write_field(format!("{}", -2. * objf)).unwrap();
+                writer.write_field(format!("{}", gamma)).unwrap();
                 writer.write_field(format!("{}", theta.nrows())).unwrap();
 
                 for param in theta.axis_iter(Axis(1)) {
