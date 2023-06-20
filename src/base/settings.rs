@@ -18,6 +18,7 @@ pub struct Computed {
 pub struct Error {
     pub value: f64,
     pub class: String,
+    pub poly: (f64,f64,f64,f64),
 }
 
 pub struct Range {
