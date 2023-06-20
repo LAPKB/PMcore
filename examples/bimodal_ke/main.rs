@@ -37,8 +37,8 @@ impl ode_solvers::System<State> for Model<'_> {
         //////////////// END USER DEFINED ////////////////
 
         if let Some(dose) = &self.dose {
-            if t >= dose.time + lag {
-                dy[dose.compartment] += dose.amount;
+            if t >= dose.time && t <= (dose.time + 0.0) {
+                y[dose.compartment] += dose.amount;
                 self.dose = None;
             }
         }
@@ -86,7 +86,7 @@ impl Predict for Ode {
                     yout.push(y0[event.outeq.unwrap() - 1] / params[1]);
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
-                    let mut stepper = Rk4::new(system.clone(), event.time, y0, *next_time, 0.1);
+                    let mut stepper = Rk4::new(&mut system, event.time, y0, *next_time, 0.1);
                     let _res = stepper.integrate();
                     let y = stepper.y_out();
                     y0 = *y.last().unwrap();
