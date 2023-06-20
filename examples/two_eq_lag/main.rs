@@ -100,7 +100,6 @@ fn main() -> Result<()> {
     start(
         Engine::new(Ode {}),
         "examples/two_eq_lag/config.toml".to_string(),
-        (0.1, 0.25, -0.001, 0.0),
     )?;
     Ok(())
 }
