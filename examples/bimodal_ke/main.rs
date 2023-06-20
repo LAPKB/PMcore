@@ -99,18 +99,15 @@ impl Predict for Ode {
 }
 
 fn main() -> Result<()> {
-    // let scenarios = np_core::base::datafile::parse(&"examples/bimodal_ke.csv".to_string()).unwrap();
-    // let scenario = scenarios.first().unwrap();
+
+    let settings_path = "examples/bimodal_ke/config.toml".to_string();
+    let settings = settings::read(settings_path.clone());
+
     start(
         Engine::new(Ode {}),
-        "examples/bimodal_ke/config.toml".to_string(),
-        (0.0, 0.05, 0.0, 0.0),
+        settings_path,
+        settings.parsed.error.poly,
     )?;
-    // let sim = Sim {};
-
-    // // dbg!(&scenario);
-    // dbg!(&scenario.obs);
-    // dbg!(sim.simulate(vec![0.3142161965370178, 119.59214568138123], scenario));
 
     Ok(())
 }
