@@ -45,7 +45,7 @@ where
 
     let error_type = match settings.parsed.error.class.as_str() {
         "additive" => ErrorType::Add,
-        "multiplicative" => ErrorType::Mul,
+        "proportional" => ErrorType::Prop,
         _ => panic!("Error type not supported"),
     };
 

@@ -12,7 +12,7 @@ pub struct ErrorPoly<'a> {
 
 pub enum ErrorType {
     Add,
-    Mul,
+    Prop,
 }
 
 impl<'a> Sigma for ErrorPoly<'a> {
@@ -23,7 +23,7 @@ impl<'a> Sigma for ErrorPoly<'a> {
             + self.c.3 * yobs.mapv(|x| x.powi(3));
         match self.e_type {
             ErrorType::Add => (alpha.mapv(|x| x.powi(2)) + self.gl.powi(2)).mapv(|x| x.sqrt()),
-            ErrorType::Mul => self.gl * alpha,
+            ErrorType::Prop => self.gl * alpha,
         }
     }
 }

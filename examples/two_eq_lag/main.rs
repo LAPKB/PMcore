@@ -16,7 +16,7 @@ struct Model<'a> {
     cov: Option<&'a HashMap<String, CovLine>>,
 }
 
-type State = Vector2<f64>;
+type State = SVector<f64, 2>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
