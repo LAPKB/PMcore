@@ -10,6 +10,8 @@ Rust Library with the building blocks needed to create new Non-Parametric algori
 * Basic NPAG implementation
 * Supports covariates
 * Option to cache results for improved speed
+* Support for the Pmetrics' Data format
+* Simulator-only runs
 
 
 ## Examples
