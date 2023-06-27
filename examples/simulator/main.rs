@@ -1,6 +1,6 @@
 use eyre::Result;
 use np_core::prelude::{
-    datafile::{parse, CovLine, Infusion},
+    datafile::{CovLine, Infusion},
     simulator::simulate,
     *,
 };
@@ -105,29 +105,25 @@ impl Predict for Ode {
 }
 
 fn main() -> Result<()> {
-    let scenarios = parse(&"examples/data/two_eq_lag.csv".to_string())
-        .ok()
-        .unwrap();
-    let scenario = scenarios.first().unwrap();
-    let ode = Ode {};
-    let params = vec![
-        0.10007869720458984,
-        0.0999935963869095,
-        119.99048137664795,
-        0.6458234786987305,
-    ];
-    let y = ode.predict(params, scenario);
-    println!("{:?}", y);
-    println!("{:?}", scenario.obs);
-    // start(
-    //     Engine::new(Ode {}),
-    //     "examples/two_eq_lag/config.toml".to_string(),
-    // )?;
+    // let scenarios = parse(&"examples/data/two_eq_lag.csv".to_string())
+    //     .ok()
+    //     .unwrap();
+    // let scenario = scenarios.first().unwrap();
+    // let ode = Ode {};
+    // let params = vec![
+    //     0.10007869720458984,
+    //     0.0999935963869095,
+    //     119.99048137664795,
+    //     0.6458234786987305,
+    // ];
+    // let y = ode.predict(params, scenario);
+    // println!("{:?}", y);
+    // println!("{:?}", scenario.obs);
 
-    // simulate(
-    //     Engine::new(Ode {}),
-    //     "examples/two_eq_lag/sim_config.toml".to_string(),
-    // )?;
+    simulate(
+        Engine::new(Ode {}),
+        "examples/simulator/sim_config.toml".to_string(),
+    )?;
 
     Ok(())
 }

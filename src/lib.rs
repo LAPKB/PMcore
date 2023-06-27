@@ -11,7 +11,7 @@ pub mod prelude {
     pub use crate::base::predict::Engine;
     pub use crate::base::predict::Predict;
     pub use crate::base::prob::*;
-    pub use crate::base::settings::Data;
+    pub use crate::base::settings::run::Data;
     pub use crate::base::*;
     pub use crate::tui::ui::*;
 }
