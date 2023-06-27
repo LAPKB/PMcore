@@ -6,6 +6,7 @@ use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
 use ndarray::Array1;
 use ndarray::{Array, Array2, Axis};
+use std::error;
 use std::hash::{Hash, Hasher};
 
 ///
@@ -120,4 +121,30 @@ where
     S: Predict + Sync,
 {
     sim_eng.pred(scenario, support_point.to_vec())
+}
+
+pub fn post_predictions<S>(
+    sim_engine: &Engine<S>,
+    post: Array2<f64>,
+    scenarios: &Vec<Scenario>,
+) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>>
+where
+    S: Predict + Sync,
+{
+    if post.nrows() != scenarios.len() {
+        return Err("Error calculating the posterior predictions, size mismatch.".into());
+    }
+    let mut predictions: Array1<Vec<f64>> = Array1::default(post.nrows());
+
+    predictions
+        .axis_iter_mut(Axis(0))
+        .into_par_iter()
+        .enumerate()
+        .for_each(|(i, mut pred)| {
+            let scenario = scenarios.get(i).unwrap();
+            let support_point = post.row(i).to_owned();
+            pred.fill(simple_sim(sim_engine, scenario, &support_point))
+        });
+
+    Ok(predictions)
 }
