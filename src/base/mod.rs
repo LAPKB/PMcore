@@ -1,7 +1,7 @@
 use self::datafile::Scenario;
 use self::output_statistics::{population_mean_median, posterior, posterior_mean_median};
 use self::predict::{post_predictions, Engine, Predict};
-use self::settings::Data;
+use self::settings::run::Data;
 use crate::prelude::start_ui;
 use crate::{algorithms::npag::npag, tui::state::AppState};
 use csv::{ReaderBuilder, WriterBuilder};
@@ -30,13 +30,14 @@ pub mod predict;
 pub mod prob;
 pub mod settings;
 pub mod sigma;
+pub mod simulator;
 
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<()>
 where
     S: Predict + std::marker::Sync + std::marker::Send + 'static,
 {
     let now = Instant::now();
-    let settings = settings::read(settings_path);
+    let settings = settings::run::read(settings_path);
     setup_log(&settings);
     let ranges = settings.computed.random.ranges.clone();
     let theta = match &settings.parsed.paths.prior_dist {
