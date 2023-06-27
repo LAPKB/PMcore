@@ -122,5 +122,11 @@ fn main() -> Result<()> {
         Engine::new(Ode {}),
         "examples/two_eq_lag/config.toml".to_string(),
     )?;
+
+    // simulate(
+    //     Engine::new(Ode {}),
+    //     "examples/two_eq_lag/config.toml".to_string(),
+    // )?;
+
     Ok(())
 }
