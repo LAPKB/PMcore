@@ -97,17 +97,30 @@ fn run_npag<S>(
         if *output {
             //theta.csv
             let file = File::create("theta.csv").unwrap();
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-            // writer.write_record(&["a", "b"]).unwrap();
-            // I need to obtain the parameter names, perhaps from the config file?
+            let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+
+            let random_names: Vec<&str> = settings
+                .parsed
+                .random
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect();
+
+            let mut theta_header = random_names.iter().cloned().collect::<Vec<_>>();
+            theta_header.push("prob");
+
+            writer.write_record(&theta_header).unwrap();
+
             let mut theta_w = theta.clone();
             theta_w.push_column(w.view()).unwrap();
+
             for row in theta_w.axis_iter(Axis(0)) {
                 for elem in row.axis_iter(Axis(0)) {
                     writer.write_field(format!("{}", &elem)).unwrap();
                 }
                 writer.write_record(None::<&[u8]>).unwrap();
             }
+
             writer.flush().unwrap();
 
             // // posterior.csv
