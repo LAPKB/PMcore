@@ -324,7 +324,7 @@ where
             meta_writer.write_field("false").unwrap();
             meta_writer.write_field(format!("{}", cycle)).unwrap();
             meta_writer.write_record(None::<&[u8]>).unwrap();
-            state.stop_text = "Maximum number of cycles reached!".to_string();
+            state.stop_text = "No (max cycle)".to_string();
             tx.send(state.clone()).unwrap();
             break;
         }
@@ -333,7 +333,7 @@ where
         let stopfile_found = std::path::Path::new("stop").exists();
         if stopfile_found {
             log::info!("Stopfile detected - breaking");
-            state.stop_text = "The run was manually stopped!".to_string();
+            state.stop_text = "No (stopped)".to_string();
             tx.send(state.clone()).unwrap();
             break;
         }

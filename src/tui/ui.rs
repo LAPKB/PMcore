@@ -310,7 +310,7 @@ fn draw_plot(norm_data: &mut Vec<(f64, f64)>) -> Chart {
     let y_labels: Vec<Span> = (0..=3)
         .map(|i| {
             let y = y_min + y_step * (i as f64);
-            Span::from(format!("{:.2}", y)) // format the y value to 2 decimal places
+            Span::from(format!("{:.0}", y))
         })
         .collect();
 
