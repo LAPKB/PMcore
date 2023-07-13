@@ -3,7 +3,7 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    symbols::Marker,
+    symbols,
     text::Span,
     widgets::{
         Axis, Block, BorderType, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table,
@@ -134,7 +134,7 @@ where
     let commands = draw_commands(app);
     rect.render_widget(commands, body_layout[2]);
 
-    // Plot chunk
+    // Prepare the data
     let data: Vec<(f64, f64)> = app_history
         .cycles
         .iter()
@@ -142,10 +142,17 @@ where
         .map(|(x, entry)| (x as f64, entry.objf))
         .collect();
 
-    //dbg!(&data);
-    // Plot chunk
-    let points_limit = 10;
-    let plot = draw_plot(&data, points_limit);
+    let start_index = (data.len() as f64 * 0.1) as usize;
+
+    // Calculate data points and remove infinities
+    let mut norm_data: Vec<(f64, f64)> = data
+        .iter()
+        .filter(|&(_, y)| !y.is_infinite())
+        .skip(start_index)
+        .map(|&(x, y)| (x, y))
+        .collect();
+
+    let plot = draw_plot(&mut norm_data);
     rect.render_widget(plot, chunks[2]);
 }
 
@@ -275,64 +282,65 @@ fn draw_commands(app: &App) -> Table {
         .column_spacing(1)
 }
 
-fn draw_plot<'a>(data: &'a [(f64, f64)], points_limit: usize) -> Chart<'a> {
-    let num_points = data.len();
-    let start_index = if num_points > points_limit {
-        num_points - points_limit
-    } else {
-        0
-    };
-    let latest_data = &data[start_index..];
-
-    let y_min = latest_data
+fn draw_plot(norm_data: &mut Vec<(f64, f64)>) -> Chart {
+    // Find min and max values
+    let (x_min, x_max) = norm_data
         .iter()
-        .map(|(_, y)| *y)
-        .fold(f64::INFINITY, f64::min);
-    let y_max = latest_data
-        .iter()
-        .map(|(_, y)| *y)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let y_margin = (y_max - y_min) * 0.1;
-    let y_bounds = [y_min - y_margin, y_max + y_margin];
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), (x, _)| {
+            (min.min(*x), max.max(*x))
+        });
 
-    let chart = Chart::new(vec![Dataset::default()
+    let (y_min, y_max) = norm_data
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), (_, y)| {
+            (min.min(*y), max.max(*y))
+        });
+
+    // Compute the dynamic step size for the X-labels
+    let step_size = ((x_max - x_min) / 10.0).max(1.0).ceil();
+
+    // Generate X-labels using the dynamic step size
+    let x_labels: Vec<Span> = ((x_min as i64)..=(x_max as i64))
+        .step_by(step_size as usize)
+        .map(|x| Span::from(x.to_string()))
+        .collect();
+
+    // Generate four Y-labels, evenly from y_min to y_max
+    let y_step = (y_max - y_min) / 5.0; // To get 4 labels, we need 3 steps
+    let y_labels: Vec<Span> = (0..=3)
+        .map(|i| {
+            let y = y_min + y_step * (i as f64);
+            Span::from(format!("{:.2}", y)) // format the y value to 2 decimal places
+        })
+        .collect();
+
+    // Prepare the dataset
+    let dataset = vec![Dataset::default()
         .name("-2LL")
-        .marker(Marker::Dot)
-        .style(Style::default().fg(Color::Yellow))
-        .graph_type(GraphType::Line)
-        .data(latest_data)])
-    .block(
-        Block::default()
-            .title(Span::styled(
-                " Plot ",
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            ))
-            .borders(Borders::ALL),
-    )
-    .x_axis(
-        Axis::default()
-            .title("Cycle")
-            .style(Style::default().fg(Color::Gray))
-            .bounds([start_index as f64, (start_index + points_limit - 1) as f64])
-            .labels(vec![
-                Span::raw(start_index.to_string()),
-                Span::raw((start_index + points_limit - 1).to_string()),
-            ]),
-    )
-    .y_axis(
-        Axis::default()
-            .title("-2LL")
-            .style(Style::default().fg(Color::Gray))
-            .bounds(y_bounds)
-            .labels(vec![
-                Span::raw(format!("{:.1}", y_bounds[0])),
-                Span::raw(format!("{:.1}", y_bounds[1])),
-            ]),
-    );
+        .marker(symbols::Marker::Dot)
+        .style(Style::default().fg(Color::Cyan))
+        .graph_type(GraphType::Scatter)
+        .data(norm_data)];
 
-    chart
+    // Return the plot
+    Chart::new(dataset)
+        .x_axis(
+            Axis::default()
+                .title("Cycle")
+                .bounds([x_min, x_max])
+                .labels(x_labels),
+        )
+        .y_axis(
+            Axis::default()
+                .title("-2LL")
+                .bounds([y_min, y_max])
+                .labels(y_labels),
+        )
+        .block(
+            Block::default()
+                .title(" Objective function ")
+                .borders(Borders::ALL),
+        )
 }
 
 fn check_size(rect: &Rect) {
