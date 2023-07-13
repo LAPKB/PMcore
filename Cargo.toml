@@ -6,14 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dashmap = "4.0"
+dashmap = "5.5.0"
 #cached = "0.26.2"
 lazy_static = "1.4.0"
 csv = "1.2.1"
 ndarray = { version = "0.15.6", features = ["rayon"] }
 serde = "1.0.159"
 serde_derive = "1.0.159"
-sobol_burley = "0.4.0"
+sobol_burley = "0.5.0"
 toml = "0.7.3"
 ode_solvers = { git = 'https://github.com/Siel/ode-solvers', branch = 'mut_system' }
 #plotly = "0.8.3"
@@ -24,7 +24,7 @@ log = "0.4.17"
 log4rs = "1.2.0"
 rayon = "1.7.0"
 eyre = "0.6.8"
-ratatui = { version = "0.20.1", features = ["crossterm"] }
+ratatui = { version = "0.21.0", features = ["crossterm"] }
 crossterm = "0.26.1"
 tokio = { version = "1.27.0", features = ["sync", "rt"] }
 ndarray-csv = "0.5.1"
