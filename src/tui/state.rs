@@ -11,7 +11,7 @@ impl AppState {
     pub fn new() -> Self {
         Self {
             cycle: 0,
-            objf: f64::INFINITY,
+            objf: 0.0,
             delta_objf: 0.0,
             nspp: 0,
             stop_text: "".to_string(),
