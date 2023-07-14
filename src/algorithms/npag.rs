@@ -13,8 +13,8 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::tui::state::AppState;
 
-const THETA_E: f64 = 1e-4; //convergence Criteria
-const THETA_G: f64 = 1e-4; //objf stop criteria
+//const THETA_E: f64 = 1e-4; //convergence Criteria
+//const THETA_G: f64 = 1e-4; //objf stop criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
@@ -50,6 +50,11 @@ where
     };
 
     let mut converged = false;
+
+    #[allow(non_snake_case)]
+    let THETA_E = settings.parsed.advanced.THETA_E;
+    #[allow(non_snake_case)]
+    let THETA_G = settings.parsed.advanced.THETA_G;
 
     // cycles.csv
     let cycles_file = File::create("cycles.csv").unwrap();

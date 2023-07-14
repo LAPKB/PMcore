@@ -13,6 +13,7 @@ pub struct Computed {
     pub random: Range,
     pub constant: Single,
     pub fixed: Single,
+    pub advanced: Single,
 }
 #[derive(Deserialize, Clone, Debug)]
 pub struct Error {
@@ -39,6 +40,8 @@ pub struct Parsed {
     pub fixed: Option<Table>,
     pub constant: Option<Table>,
     pub error: Error,
+    #[serde(default)]
+    pub advanced: Advanced,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -58,6 +61,30 @@ pub struct Config {
     pub pmetrics_outputs: Option<bool>,
     pub exclude: Option<Array>,
     pub cache: Option<bool>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[allow(non_snake_case)]
+pub struct Advanced {
+    #[serde(default)]
+    pub THETA_E: f64, // Convergence criteria
+    #[serde(default)]
+    pub THETA_G: f64, // Objective function stop criteria
+    #[serde(default)]
+    pub THETA_F: f64, // ?
+    #[serde(default)]
+    pub THETA_D: f64, // ?
+}
+
+impl Default for Advanced {
+    fn default() -> Self {
+        Self {
+            THETA_E: 1e-4,
+            THETA_G: 1e-4,
+            THETA_F: 1e-2,
+            THETA_D: 1e-2,
+        }
+    }
 }
 
 pub fn read(filename: String) -> Data {
@@ -114,6 +141,20 @@ pub fn read(filename: String) -> Data {
         }
     }
 
+    // Advanced
+    let an = vec![
+        String::from("THETA_E"),
+        String::from("THETA_G"),
+        String::from("THETA_F"),
+        String::from("THETA_D"),
+    ];
+    let av = vec![
+        parsed.advanced.THETA_E,
+        parsed.advanced.THETA_G,
+        parsed.advanced.THETA_F,
+        parsed.advanced.THETA_D,
+    ];
+
     Data {
         computed: Computed {
             random: Range {
@@ -127,6 +168,10 @@ pub fn read(filename: String) -> Data {
             fixed: Single {
                 names: rn,
                 values: rv,
+            },
+            advanced: Single {
+                names: an,
+                values: av,
             },
         },
         parsed,
