@@ -21,9 +21,19 @@ impl<'a> Sigma for ErrorPoly<'a> {
             + self.c.1 * yobs
             + self.c.2 * yobs.mapv(|x| x.powi(2))
             + self.c.3 * yobs.mapv(|x| x.powi(3));
-        match self.e_type {
+
+        let res = match self.e_type {
             ErrorType::Add => (alpha.mapv(|x| x.powi(2)) + self.gl.powi(2)).mapv(|x| x.sqrt()),
             ErrorType::Prop => self.gl * alpha,
-        }
+        };
+
+        res.mapv(|x| {
+            if x.is_nan() || x < 0.0 {
+                log::error!("The computed standard deviation is either NaN or negative!");
+                x
+            } else {
+                x
+            }
+        })
     }
 }
