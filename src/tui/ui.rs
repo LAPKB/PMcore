@@ -23,7 +23,9 @@ use super::{
     App, AppReturn,
 };
 
-pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
+use crate::prelude::Data;
+
+pub fn start_ui(mut rx: UnboundedReceiver<AppState>, settings: Data) -> Result<()> {
     let stdout = stdout();
     crossterm::terminal::enable_raw_mode()?;
     let backend = CrosstermBackend::new(stdout);
@@ -64,7 +66,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
         }
 
         terminal
-            .draw(|rect| draw(rect, &app, &app_history, elapsed_time))
+            .draw(|rect| draw(rect, &app, &app_history, elapsed_time, &settings))
             .unwrap();
 
         // Handle inputs
@@ -84,8 +86,13 @@ pub fn start_ui(mut rx: UnboundedReceiver<AppState>) -> Result<()> {
     Ok(())
 }
 
-pub fn draw<B>(rect: &mut Frame<B>, app: &App, app_history: &AppHistory, elapsed_time: Duration)
-where
+pub fn draw<B>(
+    rect: &mut Frame<B>,
+    app: &App,
+    app_history: &AppHistory,
+    elapsed_time: Duration,
+    settings: &Data,
+) where
     B: Backend,
 {
     let size = rect.size();
@@ -127,7 +134,7 @@ where
     rect.render_widget(status, body_layout[0]);
 
     // Second chunk
-    let options = draw_options();
+    let options = draw_options(settings);
     rect.render_widget(options, body_layout[1]);
 
     // Third chunk
@@ -213,16 +220,29 @@ fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         .column_spacing(1)
 }
 
-fn draw_options<'a>() -> Table<'a> {
+fn draw_options<'a>(settings: &Data) -> Table<'a> {
     // Define the table data
+
+    let cycles = settings.parsed.config.cycles.to_string();
+    let engine = settings.parsed.config.engine.to_string();
+    let conv_crit = "Placeholder".to_string();
+    let indpts = settings.parsed.config.init_points.to_string();
+    let error = settings.parsed.error.class.to_string();
+    let cache = match settings.parsed.config.cache {
+        Some(true) => "Yes".to_string(),
+        Some(false) => "No".to_string(),
+        None => "Not set".to_string(),
+    };
+    let seed = settings.parsed.config.seed.to_string();
+
     let data = vec![
-        ("Maximum cycles", "Placeholder"),
-        ("Engine", "NPAG"),
-        ("Convergence criteria", "Placeholder"),
-        ("Initial gridpoints", "Placeholder"),
-        ("Error model", "Placeholder"),
-        ("Cache", "Placeholder"),
-        ("Random seed", "Placeholder"),
+        ("Maximum cycles", cycles),
+        ("Engine", engine),
+        ("Convergence criteria", conv_crit),
+        ("Initial gridpoints", indpts),
+        ("Error model", error),
+        ("Cache", cache),
+        ("Random seed", seed),
         // Add more rows as needed
     ];
 
