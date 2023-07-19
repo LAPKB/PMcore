@@ -124,12 +124,13 @@ where
     let (tx, rx) = mpsc::unbounded_channel::<AppState>();
     let c = settings.parsed.error.poly;
 
+    let settings_tui = settings.clone();
     if settings.parsed.config.tui {
         spawn(move || {
             run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
             log::info!("Total time: {:.2?}", now.elapsed());
         });
-        start_ui(rx)?;
+        start_ui(rx, settings_tui)?;
     } else {
         run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
         log::info!("Total time: {:.2?}", now.elapsed());
