@@ -82,7 +82,7 @@ impl Default for Advanced {
             THETA_E: 1e-4,
             THETA_G: 1e-4,
             THETA_F: 1e-2,
-            THETA_D: 1e-2,
+            THETA_D: 1e-4,
         }
     }
 }

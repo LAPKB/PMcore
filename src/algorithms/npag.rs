@@ -15,8 +15,8 @@ use crate::tui::state::AppState;
 
 //const THETA_E: f64 = 1e-4; //convergence Criteria
 //const THETA_G: f64 = 1e-4; //objf stop criteria
-const THETA_F: f64 = 1e-2;
-const THETA_D: f64 = 1e-4;
+// const THETA_F: f64 = 1e-2;
+// const THETA_D: f64 = 1e-4;
 
 pub fn npag<S>(
     sim_eng: &Engine<S>,
@@ -55,6 +55,10 @@ where
     let THETA_E = settings.parsed.advanced.THETA_E;
     #[allow(non_snake_case)]
     let THETA_G = settings.parsed.advanced.THETA_G;
+    #[allow(non_snake_case)]
+    let THETA_F = settings.parsed.advanced.THETA_F;
+    #[allow(non_snake_case)]
+    let THETA_D = settings.parsed.advanced.THETA_D;
 
     // cycles.csv
     let cycles_file = File::create("cycles.csv").unwrap();
@@ -343,7 +347,7 @@ where
             break;
         }
 
-        theta = adaptative_grid(&mut theta, eps, &ranges);
+        theta = adaptative_grid(&mut theta, eps, &ranges, THETA_D);
         // dbg!(&theta);
         cycle += 1;
         last_objf = objf;
@@ -352,7 +356,12 @@ where
     (theta, psi, w, objf, cycle, converged)
 }
 
-fn adaptative_grid(theta: &mut Array2<f64>, eps: f64, ranges: &[(f64, f64)]) -> Array2<f64> {
+fn adaptative_grid(
+    theta: &mut Array2<f64>,
+    eps: f64,
+    ranges: &[(f64, f64)],
+    THETA_D: f64,
+) -> Array2<f64> {
     let old_theta = theta.clone();
     for spp in old_theta.rows() {
         for (j, val) in spp.into_iter().enumerate() {
@@ -361,14 +370,14 @@ fn adaptative_grid(theta: &mut Array2<f64>, eps: f64, ranges: &[(f64, f64)]) -> 
                 let mut plus = Array::zeros(spp.len());
                 plus[j] = l;
                 plus = plus + spp;
-                evaluate_spp(theta, plus, ranges);
+                evaluate_spp(theta, plus, ranges, THETA_D);
                 // (n_spp, _) = theta.dim();
             }
             if val - l > ranges[j].0 {
                 let mut minus = Array::zeros(spp.len());
                 minus[j] = -l;
                 minus = minus + spp;
-                evaluate_spp(theta, minus, ranges);
+                evaluate_spp(theta, minus, ranges, THETA_D);
                 // (n_spp, _) = theta.dim();
             }
         }
@@ -376,7 +385,12 @@ fn adaptative_grid(theta: &mut Array2<f64>, eps: f64, ranges: &[(f64, f64)]) -> 
     theta.to_owned()
 }
 
-fn evaluate_spp(theta: &mut Array2<f64>, candidate: Array1<f64>, limits: &[(f64, f64)]) {
+fn evaluate_spp(
+    theta: &mut Array2<f64>,
+    candidate: Array1<f64>,
+    limits: &[(f64, f64)],
+    THETA_D: f64,
+) {
     for spp in theta.rows() {
         let mut dist: f64 = 0.;
         for (i, val) in candidate.clone().into_iter().enumerate() {
