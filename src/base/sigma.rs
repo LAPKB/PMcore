@@ -29,7 +29,10 @@ impl<'a> Sigma for ErrorPoly<'a> {
 
         res.mapv(|x| {
             if x.is_nan() || x < 0.0 {
-                log::error!("The computed standard deviation is either NaN or negative!");
+                log::error!(
+                    "The computed standard deviation is either NaN or negative!: {}",
+                    x
+                );
                 x
             } else {
                 x

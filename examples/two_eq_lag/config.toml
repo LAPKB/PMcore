@@ -7,16 +7,17 @@ log_out = "log/two_eq_lag.log"
 cycles = 1000
 engine = "NPAG"
 init_points = 1000
-seed = 347
+seed = 22
 tui = true
 pmetrics_outputs = true
 cache = true
 
 [random]
-Ka = [0.1, 0.9]
-Ke = [0.001, 0.1]
-V_max = [30.0, 120.0]
+ka = [0.1, 0.9]
+ke = [0.001, 0.1]
 lag = [0.0, 4.0]
+v = [30.0, 120.0]
+
 
 [error]
 value = 0.0

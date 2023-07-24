@@ -183,7 +183,7 @@ fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
     let gamma_text = format!("{:.5}", app.state.gamlam);
     let spp_text = format!("{}", app.state.nspp);
     let time_text = format_time(elapsed_time);
-    let stop_text = format!("{}", app.state.stop_text);
+    let stop_text = app.state.stop_text.to_string();
 
     // Define the table data
     let data = vec![
@@ -302,7 +302,7 @@ fn draw_commands(app: &App) -> Table {
         .column_spacing(1)
 }
 
-fn draw_plot(norm_data: &mut Vec<(f64, f64)>) -> Chart {
+fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
     // Find min and max values
     let (x_min, x_max) = norm_data
         .iter()
