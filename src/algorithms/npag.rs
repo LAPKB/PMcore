@@ -67,6 +67,7 @@ where
     }
     for i in 0..theta.ncols() {
         let param_name = parameter_names.get(i).unwrap();
+
         writer.write_field(format!("{param_name}.median")).unwrap();
     }
     for i in 0..theta.ncols() {
@@ -86,6 +87,34 @@ where
 
     // let mut _pred: Array2<Vec<f64>>;
     let cache = settings.parsed.config.cache.unwrap_or(false);
+
+    // Zero-cycle runs will only reweight the support points, no NPAG
+    if settings.parsed.config.cycles == 0 {
+        let ypred = sim_obs(sim_eng, scenarios, &theta, cache);
+        psi = prob(
+            &ypred,
+            scenarios,
+            &ErrorPoly {
+                c,
+                gl: gamma,
+                e_type: &error_type,
+            },
+        );
+
+        let (w, objf) = ipm::burke(&psi).expect("Error in IPM");
+
+        let state = AppState {
+            cycle: 0,
+            objf: -2. * objf,
+            delta_objf: 0.0,
+            nspp: theta.shape()[0],
+            stop_text: "IPM complete".to_string(),
+            gamlam: gamma.clone(),
+        };
+        tx.send(state.clone()).unwrap();
+
+        return (theta, psi, w, objf, cycle, converged);
+    }
 
     while eps > THETA_E {
         // log::info!("Cycle: {}", cycle);
