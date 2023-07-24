@@ -8,7 +8,7 @@ type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 pub fn burke(
     psi: &ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>,
 ) -> Result<(OneDimArray, f64), Box<dyn error::Error>> {
-    // psi.par_mapv_inplace(|x| x.abs());
+    let psi = psi.mapv(|x| x.abs());
     let (row, col) = psi.dim();
     // if row>col {
     //     return Err("The matrix PSI has row>col".into());

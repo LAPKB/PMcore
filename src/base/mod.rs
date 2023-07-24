@@ -103,10 +103,8 @@ where
             // Convert nested Vec into a single Vec
             let theta_values: Vec<f64> = theta_values.into_iter().flatten().collect();
 
-            let theta_array = Array2::from_shape_vec((n_points, n_params), theta_values)
-                .expect("Failed to create theta Array2");
-
-            theta_array
+            Array2::from_shape_vec((n_points, n_params), theta_values)
+                .expect("Failed to create theta Array2")
         }
         None => lds::sobol(
             settings.parsed.config.init_points,
@@ -169,7 +167,7 @@ fn run_npag<S>(
                 .map(|(name, _)| name.as_str())
                 .collect();
 
-            let mut theta_header = random_names.iter().cloned().collect::<Vec<_>>();
+            let mut theta_header = random_names.to_vec();
             theta_header.push("prob");
 
             writer.write_record(&theta_header).unwrap();
@@ -205,7 +203,7 @@ fn run_npag<S>(
             for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
                 for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
                     post_writer
-                        .write_field(format!("{}", scenarios.get(sub).unwrap().id))
+                        .write_field(&scenarios.get(sub).unwrap().id)
                         .unwrap();
                     post_writer.write_field(format!("{}", spp)).unwrap();
                     for param in theta.row(spp) {

@@ -9,8 +9,10 @@ time.csv
 posterior.csv
 simulation_output.csv
 meta*.csv
-/examples/iohexol*
+/examples/rosuva/*
+/examples/iohexol/*
 /examples/data/iohexol*
+/examples/data/rosuva*
 /.idea
 stop
 .vscode

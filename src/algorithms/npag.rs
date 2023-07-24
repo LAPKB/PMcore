@@ -257,10 +257,10 @@ where
         // w.clone().to_vec();
         // log::info!("{:?}",&w);
         // log::info!("Objf: {}", -2.*objf);
-        // if last_objf > objf{
-        //     log::error!("Objf decreased");
-        //     break;
-        // }
+        if last_objf > objf {
+            log::error!("Objf decreased");
+            break;
+        }
         if let Some(output) = &settings.parsed.config.pmetrics_outputs {
             if *output {
                 //cycles.csv
@@ -293,7 +293,7 @@ where
             delta_objf: (last_objf - objf).abs(),
             nspp: theta.shape()[0],
             stop_text: "".to_string(),
-            gamlam: gamma.clone(),
+            gamlam: gamma,
         };
         tx.send(state.clone()).unwrap();
 
@@ -309,7 +309,7 @@ where
                     meta_writer.write_record(None::<&[u8]>).unwrap();
                     converged = true;
                     state.stop_text = "The run converged!".to_string();
-                    tx.send(state.clone()).unwrap();
+                    tx.send(state).unwrap();
                     break;
                 } else {
                     f0 = f1;
@@ -325,7 +325,7 @@ where
             meta_writer.write_field(format!("{}", cycle)).unwrap();
             meta_writer.write_record(None::<&[u8]>).unwrap();
             state.stop_text = "No (max cycle)".to_string();
-            tx.send(state.clone()).unwrap();
+            tx.send(state).unwrap();
             break;
         }
 
@@ -334,7 +334,7 @@ where
         if stopfile_found {
             log::info!("Stopfile detected - breaking");
             state.stop_text = "No (stopped)".to_string();
-            tx.send(state.clone()).unwrap();
+            tx.send(state).unwrap();
             break;
         }
 

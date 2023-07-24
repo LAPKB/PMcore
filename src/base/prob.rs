@@ -26,14 +26,24 @@ where
                     let scenario = scenarios.get(i).unwrap();
                     let yobs = Array::from(scenario.obs.clone());
                     let sigma = sig.sigma(&yobs);
-                    element.fill(normal_likelihood(ypred.get((i, j)).unwrap(), yobs, sigma));
+                    let ll = normal_likelihood(ypred.get((i, j)).unwrap(), yobs, sigma);
+                    if ll.is_nan() || ll.is_infinite() {
+                        log::info!(
+                            "NaN or Inf Likelihood detected!\nLL:{:?}\nypred: {:?}\nsubject: {}\nSpp: {}",
+                            ll,
+                            &ypred.get((i, j)),
+                            i,
+                            j
+                        )
+                    }
+                    element.fill(ll);
                 });
         });
     prob
 }
 fn normal_likelihood(ypred: &Array1<f64>, yobs: Array1<f64>, sigma: Array1<f64>) -> f64 {
-    let diff = (yobs - ypred).mapv(|x| x.powi(2));
+    let diff = (&yobs - ypred).mapv(|x| x.powi(2));
     let two_sigma_sq = (2.0 * &sigma).mapv(|x| x.powi(2));
-    let aux_vec = FRAC_1_SQRT_2PI * (-&diff / two_sigma_sq).mapv(|x| x.exp()) / sigma;
+    let aux_vec = FRAC_1_SQRT_2PI * (-&diff / two_sigma_sq).mapv(|x| x.exp()) / &sigma;
     aux_vec.product()
 }

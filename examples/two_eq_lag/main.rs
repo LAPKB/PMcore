@@ -1,7 +1,6 @@
 use eyre::Result;
 use np_core::prelude::{
     datafile::{parse, CovLine, Infusion},
-    simulator::simulate,
     *,
 };
 use ode_solvers::*;
@@ -10,8 +9,8 @@ use std::collections::HashMap;
 struct Model<'a> {
     ka: f64,
     ke: f64,
-    _v: f64,
     lag: f64,
+    _v: f64,
     _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
     cov: Option<&'a HashMap<String, CovLine>>,
@@ -48,8 +47,8 @@ impl Predict for Ode {
         let mut system = Model {
             ka: params[0],
             ke: params[1],
-            _v: params[2],
-            lag: params[3],
+            lag: params[2],
+            _v: params[3],
             _scenario: scenario,
             infusions: vec![],
             cov: None,
@@ -89,7 +88,7 @@ impl Predict for Ode {
                     }
                 } else if event.evid == 0 {
                     //obs
-                    yout.push(x[1] / params[2]);
+                    yout.push(x[1] / params[3]);
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
                     let mut stepper = Rk4::new(system.clone(), event_time, x, *next_time, 0.1);
@@ -105,24 +104,24 @@ impl Predict for Ode {
 }
 
 fn main() -> Result<()> {
-    let scenarios = parse(&"examples/data/two_eq_lag.csv".to_string())
-        .ok()
-        .unwrap();
-    let scenario = scenarios.first().unwrap();
-    let ode = Ode {};
-    let params = vec![
-        0.10007869720458984,
-        0.0999935963869095,
-        119.99048137664795,
-        0.6458234786987305,
-    ];
-    let y = ode.predict(params, scenario);
-    println!("{:?}", y);
-    println!("{:?}", scenario.obs);
-    // start(
-    //     Engine::new(Ode {}),
-    //     "examples/two_eq_lag/config.toml".to_string(),
-    // )?;
+    // let scenarios = parse(&"examples/data/two_eq_lag.csv".to_string())
+    //     .ok()
+    //     .unwrap();
+    // let scenario = scenarios.first().unwrap();
+    // let ode = Ode {};
+    // let params = vec![
+    //     0.10007869720458984,
+    //     0.0999935963869095,
+    //     0.6458234786987305,
+    //     119.99048137664795,
+    // ];
+    // let y = ode.predict(params, scenario);
+    // println!("{:?}", y);
+    // println!("{:?}", scenario.obs);
+    start(
+        Engine::new(Ode {}),
+        "examples/two_eq_lag/config.toml".to_string(),
+    )?;
 
     // simulate(
     //     Engine::new(Ode {}),
