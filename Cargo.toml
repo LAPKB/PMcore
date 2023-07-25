@@ -14,7 +14,7 @@ ndarray = { version = "0.15.6", features = ["rayon"] }
 serde = "1.0.159"
 serde_derive = "1.0.159"
 sobol_burley = "0.5.0"
-toml = "0.7.3"
+toml = {version = "0.7.6", features = ["preserve_order"]}
 ode_solvers = { git = 'https://github.com/Siel/ode-solvers', branch = 'mut_system' }
 #plotly = "0.8.3"
 #interp = "1.0.1"
