@@ -148,8 +148,12 @@ fn run_npag<S>(
     S: Predict + std::marker::Sync,
 {
     // Remove stop file if exists
-    let filename = "stop";
-    let _ = std::fs::remove_file(filename);
+    if std::path::Path::new("stop").exists() {
+        match std::fs::remove_file("stop") {
+            Ok(_) => log::info!("Removed previous stop file"),
+            Err(err) => panic!("Unable to remove previois stop file: {}", err),
+        }
+    }
 
     let (theta, psi, w, _objf, _cycle, _converged) =
         npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
