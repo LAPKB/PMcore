@@ -248,19 +248,8 @@ where
         theta = stack(Axis(0), &theta_rows).unwrap();
         psi = stack(Axis(1), &psi_columns).unwrap();
         w = Array::from(lambda_tmp);
-
         let pyl = psi.dot(&w);
-        // log::info!("Spp: {}", theta.nrows());
-        // log::info!("{:?}", &theta);
-        // let mut thetaw = theta.clone();
-        // thetaw.push_column(w.clone().t()).unwrap();
-        // w.clone().to_vec();
-        // log::info!("{:?}",&w);
-        // log::info!("Objf: {}", -2.*objf);
-        if last_objf > objf {
-            log::error!("Objf decreased");
-            break;
-        }
+        
         if let Some(output) = &settings.parsed.config.pmetrics_outputs {
             if *output {
                 //cycles.csv
@@ -296,6 +285,12 @@ where
             gamlam: gamma,
         };
         tx.send(state.clone()).unwrap();
+
+        // If the objective function decreased, log an error.
+        // Increasing objf signals instability of model misspecification.
+        if last_objf > objf {
+            log::error!("Objective function decreased");
+        }
 
         // Stop if we have reached convergence criteria
         if (last_objf - objf).abs() <= THETA_G && eps > THETA_E {
