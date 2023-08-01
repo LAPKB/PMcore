@@ -1,5 +1,5 @@
 use self::datafile::Scenario;
-use self::output_statistics::{population_mean_median, posterior, posterior_mean_median};
+use self::output::{population_mean_median, posterior, posterior_mean_median};
 use self::predict::{post_predictions, Engine, Predict};
 use self::settings::run::Data;
 use crate::prelude::start_ui;
@@ -22,7 +22,7 @@ pub mod datafile;
 pub mod ipm;
 pub mod lds;
 pub mod optim;
-pub mod output_statistics;
+pub mod output;
 pub mod predict;
 pub mod prob;
 pub mod settings;
