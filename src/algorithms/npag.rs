@@ -291,6 +291,9 @@ where
         let stopfile_found = std::path::Path::new("stop").exists();
         if stopfile_found {
             log::info!("Stopfile detected - breaking");
+            meta_writer.write_field("false").unwrap();
+            meta_writer.write_field(format!("{}", cycle)).unwrap();
+            meta_writer.write_record(None::<&[u8]>).unwrap();
             state.stop_text = "No (stopped)".to_string();
             tx.send(state).unwrap();
             break;
