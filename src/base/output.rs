@@ -1,5 +1,70 @@
+use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
+use std::fs::File;
+
+// Cycles
+pub struct CycleWriter {
+    writer: csv::Writer<File>,
+}
+
+impl CycleWriter {
+    pub fn new(file_path: &str, parameter_names: Vec<String>) -> CycleWriter {
+        let file = File::create(file_path).unwrap();
+        let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+
+        // Write headers
+        writer.write_field("cycle").unwrap();
+        writer.write_field("neg2ll").unwrap();
+        writer.write_field("gamlam").unwrap();
+        writer.write_field("nspp").unwrap();
+
+        for param_name in &parameter_names {
+            writer.write_field(format!("{}.mean", param_name)).unwrap();
+            writer
+                .write_field(format!("{}.median", param_name))
+                .unwrap();
+            writer.write_field(format!("{}.sd", param_name)).unwrap();
+        }
+
+        writer.write_record(None::<&[u8]>).unwrap();
+
+        CycleWriter { writer }
+    }
+
+    pub fn write(&mut self, cycle: usize, objf: f64, gamma: f64, theta: &Array2<f64>) {
+        self.writer.write_field(format!("{}", cycle)).unwrap();
+        self.writer.write_field(format!("{}", -2. * objf)).unwrap();
+        self.writer.write_field(format!("{}", gamma)).unwrap();
+        self.writer
+            .write_field(format!("{}", theta.nrows()))
+            .unwrap();
+
+        for param in theta.axis_iter(Axis(1)) {
+            self.writer
+                .write_field(format!("{}", param.mean().unwrap()))
+                .unwrap();
+        }
+
+        for param in theta.axis_iter(Axis(1)) {
+            self.writer
+                .write_field(format!("{}", median(param.to_owned().to_vec())))
+                .unwrap();
+        }
+
+        for param in theta.axis_iter(Axis(1)) {
+            self.writer
+                .write_field(format!("{}", param.std(1.)))
+                .unwrap();
+        }
+
+        self.writer.write_record(None::<&[u8]>).unwrap();
+    }
+
+    pub fn flush(&mut self) {
+        self.writer.flush().unwrap();
+    }
+}
 
 pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
     let py = psi.dot(w);
@@ -17,6 +82,18 @@ pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
                 });
         });
     post
+}
+
+pub fn median(data: Vec<f64>) -> f64 {
+    let size = data.len();
+    match size {
+        even if even % 2 == 0 => {
+            let fst = data.get(even / 2 - 1).unwrap();
+            let snd = data.get(even / 2).unwrap();
+            (fst + snd) / 2.0
+        }
+        odd => *data.get(odd / 2_usize).unwrap(),
+    }
 }
 
 pub fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>, Array1<f64>) {
