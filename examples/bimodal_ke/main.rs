@@ -66,8 +66,15 @@ impl Predict for Ode {
                         //dose
                         if lag > 0.0 {
                             event_time = event.time + lag;
-                            let mut stepper =
-                                Rk4::new(system.clone(), event.time, x, event_time, 0.1);
+                            let mut stepper = Dopri5::new(
+                                system.clone(),
+                                event.time,
+                                event_time,
+                                0.01,
+                                x,
+                                1e-4,
+                                1e-4,
+                            );
                             let _int = stepper.integrate();
                             let y = stepper.y_out();
                             x = *y.last().unwrap();
@@ -80,7 +87,9 @@ impl Predict for Ode {
                     yout.push(x[event.outeq.unwrap() - 1] / params[1]);
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
-                    let mut stepper = Rk4::new(system.clone(), event_time, x, *next_time, 0.1);
+                    //let mut stepper = Rk4::new(system.clone(), event_time, x, *next_time, 0.1);
+                    let mut stepper =
+                        Dopri5::new(system.clone(), event.time, *next_time, 0.01, x, 1e-4, 1e-4);
                     let _res = stepper.integrate();
                     let y = stepper.y_out();
                     x = *y.last().unwrap();
