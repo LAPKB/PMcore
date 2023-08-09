@@ -1,5 +1,6 @@
 use std::fs::File;
 
+use crate::prelude::output::CycleWriter;
 use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
@@ -52,28 +53,8 @@ where
     let mut converged = false;
 
     // cycles.csv
-    let cycles_file = File::create("cycles.csv").unwrap();
-    let mut writer = WriterBuilder::new()
-        .has_headers(false)
-        .from_writer(cycles_file);
-    writer.write_field("cycle").unwrap();
-    writer.write_field("neg2ll").unwrap();
-    writer.write_field("gamlam").unwrap();
-    writer.write_field("nspp").unwrap();
-    let parameter_names = &settings.computed.random.names;
-    for i in 0..theta.ncols() {
-        let param_name = parameter_names.get(i).unwrap();
-        writer.write_field(format!("{param_name}.mean")).unwrap();
-    }
-    for i in 0..theta.ncols() {
-        let param_name = parameter_names.get(i).unwrap();
-        writer.write_field(format!("{param_name}.median")).unwrap();
-    }
-    for i in 0..theta.ncols() {
-        let param_name = parameter_names.get(i).unwrap();
-        writer.write_field(format!("{param_name}.sd")).unwrap();
-    }
-    writer.write_record(None::<&[u8]>).unwrap();
+    let par_names = &settings.computed.random.names;
+    let mut cycle_writer = CycleWriter::new("cycles.csv", par_names.to_vec());
 
     // meta_rust.csv
     let meta_file = File::create("meta_rust.csv").unwrap();
@@ -249,31 +230,19 @@ where
         psi = stack(Axis(1), &psi_columns).unwrap();
         w = Array::from(lambda_tmp);
         let pyl = psi.dot(&w);
-        
-        if let Some(output) = &settings.parsed.config.pmetrics_outputs {
-            if *output {
-                //cycles.csv
-                writer.write_field(format!("{}", &cycle)).unwrap();
-                writer.write_field(format!("{}", -2. * objf)).unwrap();
-                writer.write_field(format!("{}", gamma)).unwrap();
-                writer.write_field(format!("{}", theta.nrows())).unwrap();
 
-                for param in theta.axis_iter(Axis(1)) {
-                    writer
-                        .write_field(format!("{}", param.mean().unwrap()))
-                        .unwrap();
-                }
-                for param in theta.axis_iter(Axis(1)) {
-                    writer
-                        .write_field(format!("{}", median(param.to_owned().to_vec())))
-                        .unwrap();
-                }
-                for param in theta.axis_iter(Axis(1)) {
-                    writer.write_field(format!("{}", param.std(1.))).unwrap();
-                }
+        // If the objective function decreased, log an error
+        if last_objf > objf {
+            log::error!("Objf decreased");
+            break;
+        }
 
-                writer.write_record(None::<&[u8]>).unwrap();
+        // Write cycle output
+        match &settings.parsed.config.pmetrics_outputs {
+            Some(true) => {
+                cycle_writer.write(cycle, objf, gamma, &theta);
             }
+            _ => {}
         }
 
         let mut state = AppState {
@@ -328,6 +297,9 @@ where
         let stopfile_found = std::path::Path::new("stop").exists();
         if stopfile_found {
             log::info!("Stopfile detected - breaking");
+            meta_writer.write_field("false").unwrap();
+            meta_writer.write_field(format!("{}", cycle)).unwrap();
+            meta_writer.write_record(None::<&[u8]>).unwrap();
             state.stop_text = "No (stopped)".to_string();
             tx.send(state).unwrap();
             break;
@@ -338,7 +310,7 @@ where
         cycle += 1;
         last_objf = objf;
     }
-    writer.flush().unwrap();
+    cycle_writer.flush();
     (theta, psi, w, objf, cycle, converged)
 }
 
@@ -384,15 +356,4 @@ fn norm_zero(a: &Array1<f64>) -> f64 {
     a.l2_dist(&zeros).unwrap()
 }
 
-fn median(data: Vec<f64>) -> f64 {
-    let size = data.len();
-    match size {
-        even if even % 2 == 0 => {
-            let fst = data.get(even / 2 - 1).unwrap();
-            let snd = data.get(even / 2).unwrap();
-            (fst + snd) / 2.0
-        }
-        odd => *data.get(odd / 2_usize).unwrap(),
-    }
-}
 // what is pmetrics?
