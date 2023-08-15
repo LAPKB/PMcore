@@ -1,10 +1,12 @@
 use eyre::Result;
 use np_core::prelude::{
-    datafile::{parse, CovLine, Infusion},
+    datafile::{CovLine, Infusion},
     *,
 };
 use ode_solvers::*;
 use std::collections::HashMap;
+const ATOL: f64 = 1e-4;
+const RTOL: f64 = 1e-4;
 #[derive(Debug, Clone)]
 struct Model<'a> {
     ka: f64,
@@ -30,7 +32,7 @@ impl ode_solvers::System<State> for Model<'_> {
         let mut rateiv = [0.0];
         for infusion in &self.infusions {
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
-                rateiv[infusion.compartment] = infusion.amount / infusion.dur;
+                rateiv[infusion.compartment] += infusion.amount / infusion.dur;
             }
         }
         ///////////////////// USER DEFINED ///////////////
@@ -81,8 +83,8 @@ impl Predict for Ode {
                                     *next_time,
                                     1e-3,
                                     x,
-                                    1e-4,
-                                    1e-4,
+                                    RTOL,
+                                    ATOL,
                                 );
 
                                 let _res = stepper.integrate();
@@ -109,16 +111,14 @@ impl Predict for Ode {
                                     lag_time,
                                     1e-3,
                                     x,
-                                    1e-4,
-                                    1e-4,
+                                    RTOL,
+                                    ATOL,
                                 );
 
                                 let _int = stepper.integrate();
                                 let y = stepper.y_out();
                                 x = *y.last().unwrap();
                             }
-                        } else {
-                            log::error!("Panic: Negative Lag!");
                         }
 
                         x[event.input.unwrap() - 1] += event.dose.unwrap();
@@ -130,8 +130,8 @@ impl Predict for Ode {
                                     *next_time,
                                     1e-3,
                                     x,
-                                    1e-4,
-                                    1e-4,
+                                    RTOL,
+                                    ATOL,
                                 );
 
                                 let _res = stepper.integrate();

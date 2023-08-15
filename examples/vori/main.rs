@@ -5,6 +5,8 @@ use np_core::prelude::{
     datafile::{CovLine, Infusion},
     *,
 };
+const ATOL: f64 = 1e-4;
+const RTOL: f64 = 1e-4;
 use ode_solvers::*;
 use std::collections::HashMap;
 #[derive(Debug, Clone)]
@@ -49,7 +51,7 @@ impl ode_solvers::System<State> for Model<'_> {
         let mut rateiv = [0.0]; //TODO: hardcoded
         for infusion in &self.infusions {
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
-                rateiv[infusion.compartment] = infusion.amount / infusion.dur;
+                rateiv[infusion.compartment] += infusion.amount / infusion.dur;
             }
         }
 
@@ -105,10 +107,10 @@ impl Predict for Ode {
                                     system.clone(),
                                     event.time,
                                     *next_time,
-                                    0.01,
+                                    1e-3,
                                     x,
-                                    1e-4,
-                                    1e-4,
+                                    RTOL,
+                                    ATOL,
                                 );
 
                                 let _res = stepper.integrate();
@@ -124,32 +126,38 @@ impl Predict for Ode {
                         if lag > 0.0 {
                             // let mut stepper =
                             //     Rk4::new(system.clone(), event.time, x, lag_time, 0.1);
-                            let mut stepper = Dopri5::new(
-                                system.clone(),
-                                event.time,
-                                lag_time,
-                                0.01,
-                                x,
-                                1e-4,
-                                1e-4,
-                            );
+                            if let Some(next_time) = scenario.times.get(index + 1) {
+                                if *next_time < lag_time {
+                                    log::error!("Panic: lag time overpasses next observation, not implemented. Stopping.");
+                                    panic!("Panic: lag time overpasses next observation, not implemented. Stopping.");
+                                }
+                                let mut stepper = Dopri5::new(
+                                    system.clone(),
+                                    event.time,
+                                    lag_time,
+                                    1e-3,
+                                    x,
+                                    RTOL,
+                                    ATOL,
+                                );
 
-                            let _int = stepper.integrate();
-                            let y = stepper.y_out();
-                            x = *y.last().unwrap();
+                                let _int = stepper.integrate();
+                                let y = stepper.y_out();
+                                x = *y.last().unwrap();
+                            }
                         }
 
                         x[event.input.unwrap() - 1] += event.dose.unwrap();
                         if let Some(next_time) = scenario.times.get(index + 1) {
-                            if *next_time > event.time {
+                            if *next_time > lag_time {
                                 let mut stepper = Dopri5::new(
                                     system.clone(),
                                     lag_time,
                                     *next_time,
-                                    0.01,
+                                    1e-3,
                                     x,
-                                    1e-4,
-                                    1e-4,
+                                    RTOL,
+                                    ATOL,
                                 );
 
                                 let _res = stepper.integrate();
