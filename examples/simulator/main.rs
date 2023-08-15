@@ -21,7 +21,7 @@ type State = SVector<f64, 2>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&mut self, t: Time, x: &mut State, dx: &mut State) {
+    fn system(&self, t: Time, x: &State, dx: &mut State) {
         // Random parameters
         let ka = self.ka;
         let ke = self.ke;

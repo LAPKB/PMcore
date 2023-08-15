@@ -7,6 +7,9 @@ use np_core::prelude::{
 };
 use ode_solvers::*;
 
+const ATOL: f64 = 1e-4;
+const RTOL: f64 = 1e-4;
+
 #[derive(Debug, Clone)]
 struct Model<'a> {
     ke: f64,
@@ -20,7 +23,7 @@ type State = Vector1<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&mut self, t: Time, y: &mut State, dy: &mut State) {
+    fn system(&self, t: Time, y: &State, dy: &mut State) {
         let ke = self.ke;
 
         let _lag = 0.0;
@@ -40,36 +43,6 @@ impl ode_solvers::System<State> for Model<'_> {
     }
 }
 
-// fn simulate_next_state(
-//     state: State,
-//     system: &Model,
-//     scenario: &Scenario,
-//     event: &Event,
-//     index: usize,
-// ) -> State {
-//     if let Some(next_time) = scenario.times.get(index + 1) {
-//         if *next_time > event.time {
-//             let mut stepper = Dopri5::new(
-//                 system.clone(),
-//                 event.time,
-//                 *next_time,
-//                 0.01,
-//                 state,
-//                 1e-4,
-//                 1e-4,
-//             );
-
-//             let _res = stepper.integrate();
-//             let y = stepper.y_out();
-//             let state = *y.last().unwrap();
-//             return state;
-//         } else {
-//             panic!("next time is before event time");
-//         }
-//     } else {
-//         return state;
-//     }
-// }
 #[derive(Debug, Clone)]
 struct Ode {}
 
@@ -108,10 +81,10 @@ impl Predict for Ode {
                                     system.clone(),
                                     event.time,
                                     *next_time,
-                                    0.01,
+                                    1e-3,
                                     x,
-                                    1e-4,
-                                    1e-4,
+                                    RTOL,
+                                    ATOL,
                                 );
 
                                 let _res = stepper.integrate();
@@ -131,10 +104,10 @@ impl Predict for Ode {
                                 system.clone(),
                                 event.time,
                                 lag_time,
-                                0.01,
+                                1e-3,
                                 x,
-                                1e-4,
-                                1e-4,
+                                RTOL,
+                                ATOL,
                             );
 
                             let _int = stepper.integrate();
@@ -149,10 +122,10 @@ impl Predict for Ode {
                                     system.clone(),
                                     lag_time,
                                     *next_time,
-                                    0.01,
+                                    1e-3,
                                     x,
-                                    1e-4,
-                                    1e-4,
+                                    RTOL,
+                                    ATOL,
                                 );
 
                                 let _res = stepper.integrate();
@@ -174,10 +147,10 @@ impl Predict for Ode {
                                 system.clone(),
                                 event.time,
                                 *next_time,
-                                0.01,
+                                1e-3,
                                 x,
-                                1e-4,
-                                1e-4,
+                                RTOL,
+                                ATOL,
                             );
 
                             let _res = stepper.integrate();

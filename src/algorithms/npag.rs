@@ -119,7 +119,7 @@ where
         let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         for (index, lam) in lambda.iter().enumerate() {
-            if lam > &1e-8 && lam > &(lambda.max().unwrap() / 1000_f64) {
+            if *lam > 1e-8 && *lam > lambda.max().unwrap() / 1000_f64 {
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi.column(index));
             }
@@ -249,7 +249,7 @@ where
         psi = stack(Axis(1), &psi_columns).unwrap();
         w = Array::from(lambda_tmp);
         let pyl = psi.dot(&w);
-        
+
         if let Some(output) = &settings.parsed.config.pmetrics_outputs {
             if *output {
                 //cycles.csv
