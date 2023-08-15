@@ -39,3 +39,8 @@ impl AppHistory {
         self.cycles.push(cycle);
     }
 }
+impl Default for AppHistory {
+    fn default() -> Self {
+        Self::new()
+    }
+}

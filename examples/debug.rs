@@ -19,7 +19,7 @@ type State = Vector2<f64>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&mut self, t: Time, y: &mut State, dy: &mut State) {
+    fn system(&self, t: Time, y: &State, dy: &mut State) {
         // Random parameters
         let ka = self.ka;
         let ke = self.ke;
@@ -29,11 +29,11 @@ impl ode_solvers::System<State> for Model<'_> {
         dy[1] = ka * y[0] - ke * y[1];
         //////////////// END USER DEFINED ////////////////
 
-        if let Some(dose) = &self.dose {
-            if dose.time > t - (0.1 / 2.) && dose.time <= t + (0.1 / 2.) {
-                y[dose.compartment] += dose.amount;
-            }
-        }
+        // if let Some(dose) = &self.dose {
+        //     if dose.time > t - (0.1 / 2.) && dose.time <= t + (0.1 / 2.) {
+        //         y[dose.compartment] += dose.amount;
+        //     }
+        // }
     }
 }
 

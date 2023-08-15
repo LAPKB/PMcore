@@ -27,7 +27,7 @@ type State = SVector<f64, 3>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&mut self, t: Time, x: &mut State, dx: &mut State) {
+    fn system(&self, t: Time, x: &State, dx: &mut State) {
         let age50 = self.age50;
         let fa1 = self.fa1;
         let hill = self.hill;
