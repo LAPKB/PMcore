@@ -1,7 +1,183 @@
+use crate::prelude::datafile::Scenario;
+use crate::prelude::predict::{post_predictions, sim_obs, Engine, Predict};
+use crate::prelude::settings::run::Data;
 use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
+use std::error::Error;
 use std::fs::File;
+
+pub fn write_theta(
+    theta: &Array2<f64>,
+    w: &Array1<f64>,
+    settings: &Data,
+) -> Result<(), Box<dyn Error>> {
+    let file = File::create("theta.csv")?;
+    let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+
+    // Create the headers
+    let mut theta_header: Vec<String> = settings
+        .parsed
+        .random
+        .iter()
+        .map(|(name, _)| name.clone())
+        .collect();
+    theta_header.push("prob".to_string());
+
+    writer.write_record(&theta_header)?;
+
+    // Combine the theta and w arrays and write them to the CSV
+    for (theta_row, &w_val) in theta.outer_iter().zip(w.iter()) {
+        let mut row: Vec<String> = theta_row.iter().map(|&val| val.to_string()).collect();
+        row.push(w_val.to_string());
+        writer.write_record(&row)?;
+    }
+
+    writer.flush()?;
+
+    Ok(())
+}
+
+pub fn write_posterior(
+    psi: &Array2<f64>,
+    w: &Array1<f64>,
+    settings: &Data,
+    theta: &Array2<f64>,
+    scenarios: &Vec<Scenario>,
+) -> Result<(), Box<dyn Error>> {
+    // Assuming you want to propagate the csv errors
+
+    let post_file = File::create("posterior.csv").unwrap();
+    let mut post_writer = WriterBuilder::new()
+        .has_headers(false)
+        .from_writer(post_file);
+
+    let posterior = posterior(psi, w);
+
+    post_writer.write_field("id")?;
+    post_writer.write_field("point")?;
+    let parameter_names = &settings.computed.random.names;
+    for i in 0..theta.ncols() {
+        let param_name = parameter_names.get(i).unwrap();
+        post_writer.write_field(param_name)?;
+    }
+    post_writer.write_field("prob")?;
+    post_writer.write_record(None::<&[u8]>)?;
+
+    for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
+        for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
+            post_writer.write_field(&scenarios.get(sub).unwrap().id)?;
+            post_writer.write_field(format!("{}", spp))?;
+            for param in theta.row(spp) {
+                post_writer.write_field(&format!("{param}"))?;
+            }
+            post_writer.write_field(&format!("{elem:.10}"))?;
+            post_writer.write_record(None::<&[u8]>)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn write_pred<S>(
+    theta: &Array2<f64>,
+    w: &Array1<f64>,
+    psi: &Array2<f64>,
+    sim_eng: Engine<S>,
+    scenarios: &Vec<Scenario>,
+    cache: bool,
+) -> Result<(), Box<dyn Error>>
+where
+    S: Predict + std::marker::Sync + std::marker::Send + 'static,
+{
+    let (pop_mean, pop_median) = population_mean_median(&theta, &w);
+    let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
+    let post_mean_pred = post_predictions(&sim_eng, post_mean, scenarios).unwrap();
+    let post_median_pred = post_predictions(&sim_eng, post_median, scenarios).unwrap();
+
+    let ndim = pop_mean.len();
+    let pop_mean_pred = sim_obs(
+        &sim_eng,
+        scenarios,
+        &pop_mean.into_shape((1, ndim)).unwrap(),
+        cache,
+    );
+    let pop_median_pred = sim_obs(
+        &sim_eng,
+        scenarios,
+        &pop_median.into_shape((1, ndim)).unwrap(),
+        cache,
+    );
+
+    let pred_file = File::create("pred.csv").unwrap();
+    let mut pred_writer = WriterBuilder::new()
+        .has_headers(false)
+        .from_writer(pred_file);
+    pred_writer
+        .write_record([
+            "id",
+            "time",
+            "outeq",
+            "popMean",
+            "popMedian",
+            "postMean",
+            "postMedian",
+        ])
+        .unwrap();
+    Ok(for (id, scenario) in scenarios.iter().enumerate() {
+        let time = scenario.obs_times.clone();
+        let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
+        let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
+        let post_mp = post_mean_pred.get(id).unwrap().to_owned();
+        let post_mdp = post_median_pred.get(id).unwrap().to_owned();
+        for ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t) in pop_mp
+            .into_iter()
+            .zip(pop_medp)
+            .zip(post_mp)
+            .zip(post_mdp)
+            .zip(time)
+        {
+            pred_writer
+                .write_record(&[
+                    scenarios.get(id).unwrap().id.to_string(),
+                    t.to_string(),
+                    "1".to_string(),
+                    pop_mp_i.to_string(),
+                    pop_mdp_i.to_string(),
+                    post_mp_i.to_string(),
+                    post_medp_i.to_string(),
+                ])
+                .unwrap();
+        }
+    })
+}
+
+pub fn write_obs(scenarios: &Vec<Scenario>) -> Result<(), Box<dyn Error>> {
+    // Create the file
+    let output_file = File::create("obs.csv")?;
+    let mut csv_writer = WriterBuilder::new()
+        .has_headers(false)
+        .from_writer(output_file);
+
+    // Write the header
+    csv_writer.write_record(&["id", "time", "obs", "outeq"])?;
+
+    // Write the observations
+    for scenario in scenarios {
+        for (observation, time) in scenario.obs.iter().zip(&scenario.obs_times) {
+            csv_writer.write_record(&[
+                scenario.id.to_string(),
+                time.to_string(),
+                observation.to_string(),
+                "1".to_string(),
+            ])?;
+        }
+    }
+
+    // Flush the writer to ensure all data is written to file and handle the result
+    csv_writer.flush()?;
+    Ok(())
+}
 
 // Cycles
 pub struct CycleWriter {

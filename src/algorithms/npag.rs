@@ -234,7 +234,7 @@ where
         // If the objective function decreased, log an error
         if last_objf > objf {
             log::error!("Objf decreased");
-            break;
+            //break;
         }
 
         // Write cycle output
