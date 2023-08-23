@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::error::Error;
 use std::process::exit;
@@ -16,8 +17,33 @@ pub struct Scenario {
 
 impl Scenario {
     pub fn new(events: Vec<Event>) -> Result<Self, Box<dyn Error>> {
-        let scenario = Self::parse_events(events)?;
-        Ok(scenario.process_covariates())
+        let mut scenario = Self::parse_events(events)?;
+        scenario.inyect_covariates_regressions();
+        Ok(scenario)
+    }
+
+    pub fn reorder_with_lag(&self, lag_inputs: Vec<(f64, usize)>) -> Self {
+        if lag_inputs.is_empty() {
+            return self.clone();
+        }
+        let mut events = Vec::new();
+        for block in &self.blocks {
+            for mut event in block.events.clone() {
+                if event.evid == 1 {
+                    for lag_term in &lag_inputs {
+                        if event.input.unwrap() == lag_term.1 {
+                            event.time += lag_term.0;
+                        }
+                    }
+                }
+                events.push(event);
+            }
+        }
+        events.sort_by(|a, b| a.cmp_by_id_then_time(b));
+
+        let mut scenario = Self::parse_events(events).unwrap();
+        scenario.inyect_covariates_regressions();
+        scenario
     }
 
     fn parse_events(events: Vec<Event>) -> Result<Self, Box<dyn Error>> {
@@ -77,7 +103,7 @@ impl Scenario {
         })
     }
 
-    fn process_covariates(mut self) -> Self {
+    fn inyect_covariates_regressions(&mut self) {
         let mut b_it = self.blocks.iter_mut().peekable();
         while let Some(block) = b_it.next() {
             let mut block_covs: HashMap<String, CovLine> = HashMap::new();
@@ -112,7 +138,6 @@ impl Scenario {
             }
             block.covs = block_covs;
         }
-        self
     }
 }
 #[derive(Debug, Clone)]
@@ -146,6 +171,7 @@ pub struct Block {
     pub events: Vec<Event>,
     pub covs: HashMap<String, CovLine>,
 }
+
 /// A Event represent a single row in the Datafile
 #[derive(Debug, Clone)]
 pub struct Event {
@@ -165,6 +191,16 @@ pub struct Event {
     _c3: Option<f32>,
     pub covs: HashMap<String, Option<f64>>,
 }
+
+impl Event {
+    pub fn cmp_by_id_then_time(&self, other: &Self) -> Ordering {
+        match self.id.cmp(&other.id) {
+            Ordering::Equal => self.time.partial_cmp(&other.time).unwrap(),
+            other => other,
+        }
+    }
+}
+
 pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
         // .delimiter(b',')
