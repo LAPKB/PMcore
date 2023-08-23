@@ -55,118 +55,37 @@ impl Predict for Ode {
             infusions: vec![],
             cov: None,
         };
-        let lag = system.lag; // or 0.0
+        let scenario = scenario.reorder_with_lag(vec![(system.lag, 1)]);
         let mut yout = vec![];
         let mut x = State::new(0.0, 0.0);
         let mut index = 0;
         for block in &scenario.blocks {
-            //if no code is needed here, remove the blocks from the codebase
-            //It seems that blocks is an abstractions we're going to end up not using
             system.cov = Some(&block.covs);
             for event in &block.events {
-                let lag_time = event.time + lag;
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
                         system.infusions.push(Infusion {
-                            time: lag_time,
+                            time: event.time,
                             dur: event.dur.unwrap(),
                             amount: event.dose.unwrap(),
                             compartment: event.input.unwrap() - 1,
                         });
-                        // x = simulate_next_state(x, &system, scenario, event, index);
-                        if let Some(next_time) = scenario.times.get(index + 1) {
-                            if *next_time > event.time {
-                                let mut stepper = Dopri5::new(
-                                    system.clone(),
-                                    event.time,
-                                    *next_time,
-                                    1e-3,
-                                    x,
-                                    RTOL,
-                                    ATOL,
-                                );
-
-                                let _res = stepper.integrate();
-                                let y = stepper.y_out();
-                                x = *y.last().unwrap();
-                            } else if *next_time > event.time {
-                                log::error!("Panic: Next event's time is in the past!");
-                                panic!("Panic: Next event's time is in the past!");
-                            }
-                        }
                     } else {
                         //dose
-                        if lag > 0.0 {
-                            // let mut stepper =
-                            //     Rk4::new(system.clone(), event.time, x, lag_time, 0.1);
-                            if let Some(next_time) = scenario.times.get(index + 1) {
-                                if *next_time < lag_time {
-                                    log::error!("Panic: lag time overpasses next observation, not implemented. Stopping.");
-                                    panic!("Panic: lag time overpasses next observation, not implemented. Stopping.");
-                                }
-                                let mut stepper = Dopri5::new(
-                                    system.clone(),
-                                    event.time,
-                                    lag_time,
-                                    1e-3,
-                                    x,
-                                    RTOL,
-                                    ATOL,
-                                );
-
-                                let _int = stepper.integrate();
-                                let y = stepper.y_out();
-                                x = *y.last().unwrap();
-                            }
-                        }
-
                         x[event.input.unwrap() - 1] += event.dose.unwrap();
-                        if let Some(next_time) = scenario.times.get(index + 1) {
-                            if *next_time > lag_time {
-                                let mut stepper = Dopri5::new(
-                                    system.clone(),
-                                    lag_time,
-                                    *next_time,
-                                    1e-3,
-                                    x,
-                                    RTOL,
-                                    ATOL,
-                                );
-
-                                let _res = stepper.integrate();
-                                let y = stepper.y_out();
-                                x = *y.last().unwrap();
-                            } else if *next_time > event.time {
-                                log::error!("Panic: Next event's time is in the past!");
-                                panic!("Panic: Next event's time is in the past!");
-                            }
-                        }
                     }
                 } else if event.evid == 0 {
                     //obs
                     yout.push(x[1] / params[3]);
-                    if let Some(next_time) = scenario.times.get(index + 1) {
-                        // let mut stepper = Rk4::new(system.clone(), lag_time, x, *next_time, 0.1);
-                        if *next_time > event.time {
-                            let mut stepper = Dopri5::new(
-                                system.clone(),
-                                event.time,
-                                *next_time,
-                                1e-3,
-                                x,
-                                1e-4,
-                                1e-4,
-                            );
-
-                            let _res = stepper.integrate();
-                            let y = stepper.y_out();
-                            x = *y.last().unwrap();
-                        } else if *next_time > event.time {
-                            log::error!("Panic: Next event's time is in the past!");
-                            panic!("Panic: Next event's time is in the past!");
-                        }
-                    }
+                }
+                if let Some(next_time) = scenario.times.get(index + 1) {
+                    // let mut stepper = Rk4::new(system.clone(), lag_time, x, *next_time, 0.1);
+                    let mut stepper =
+                        Dopri5::new(system.clone(), event.time, *next_time, 1e-3, x, RTOL, ATOL);
+                    let _res = stepper.integrate();
+                    let y = stepper.y_out();
+                    x = *y.last().unwrap();
                 }
                 index += 1;
             }
