@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["UPLO"],"trait":["IntoTriangular","SolveTriangular","SolveTriangularInplace","Triangular"]};

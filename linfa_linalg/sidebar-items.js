@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["LinalgError","Order"],"mod":["bidiagonal","cholesky","eigh","lobpcg","norm","qr","reflection","svd","triangular","tridiagonal"],"type":["Result"]};

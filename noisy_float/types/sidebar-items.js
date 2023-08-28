@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["n32","n64","r32","r64"],"type":["N32","N64","R32","R64"]};

@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"indenter":[["impl&lt;T&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.72.0/core/fmt/trait.Write.html\" title=\"trait core::fmt::Write\">Write</a> for <a class=\"struct\" href=\"indenter/struct.Indented.html\" title=\"struct indenter::Indented\">Indented</a>&lt;'_, T&gt;<span class=\"where fmt-newline\">where\n    T: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.72.0/core/fmt/trait.Write.html\" title=\"trait core::fmt::Write\">Write</a> + ?<a class=\"trait\" href=\"https://doc.rust-lang.org/1.72.0/core/marker/trait.Sized.html\" title=\"trait core::marker::Sized\">Sized</a>,</span>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

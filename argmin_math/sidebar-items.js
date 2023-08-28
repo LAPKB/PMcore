@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"trait":["ArgminAdd","ArgminConj","ArgminDiv","ArgminDot","ArgminEye","ArgminInv","ArgminL1Norm","ArgminL2Norm","ArgminMinMax","ArgminMul","ArgminRandom","ArgminScaledAdd","ArgminScaledSub","ArgminSignum","ArgminSub","ArgminTranspose","ArgminWeightedDot","ArgminZero","ArgminZeroLike"]};

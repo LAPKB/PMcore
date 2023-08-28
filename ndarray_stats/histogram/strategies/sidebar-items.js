@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Auto","FreedmanDiaconis","Rice","Sqrt","Sturges"],"trait":["BinsBuildingStrategy"]};

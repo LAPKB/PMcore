@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["checkers","prelude","types"],"struct":["NoisyFloat"],"trait":["FloatChecker"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["FormatError","InitError"],"fn":["init_config","init_config_with_err_handler","init_file","init_raw_config","load_config_file"],"mod":["runtime"],"struct":["Deserializers","RawConfig"],"trait":["Deserializable","Deserialize"]};

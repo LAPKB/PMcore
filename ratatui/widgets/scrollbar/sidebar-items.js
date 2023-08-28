@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["DOUBLE_HORIZONTAL","DOUBLE_VERTICAL","HORIZONTAL","VERTICAL"],"enum":["ScrollDirection","ScrollbarOrientation"],"struct":["Scrollbar","ScrollbarState","Set"]};

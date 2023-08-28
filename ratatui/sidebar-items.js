@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"macro":["assert_buffer_eq"],"mod":["backend","buffer","layout","prelude","style","symbols","terminal","text","widgets"]};

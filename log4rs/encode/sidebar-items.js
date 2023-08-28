@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Color"],"mod":["json","pattern","writer"],"struct":["EncoderConfig","Style"],"trait":["Encode","Write"]};

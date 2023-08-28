@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["butcher_tableau","controller","dop853","dop_shared","dopri5","rk4"],"type":["DVector","OVector","SVector","Vector1","Vector2","Vector3","Vector4","Vector5","Vector6"]};

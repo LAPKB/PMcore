@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["NUM_DIMENSIONS","NUM_DIMENSION_SETS_4D"],"fn":["sample","sample_4d"],"mod":["parts"]};

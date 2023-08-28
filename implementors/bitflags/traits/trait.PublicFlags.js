@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"ratatui":[["impl PublicFlags for <a class=\"struct\" href=\"ratatui/style/struct.Modifier.html\" title=\"struct ratatui::style::Modifier\">Modifier</a>"],["impl PublicFlags for <a class=\"struct\" href=\"ratatui/widgets/struct.Borders.html\" title=\"struct ratatui::widgets::Borders\">Borders</a>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

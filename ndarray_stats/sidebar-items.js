@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["errors","histogram","interpolate"],"trait":["CorrelationExt","DeviationExt","EntropyExt","MaybeNan","MaybeNanExt","Quantile1dExt","QuantileExt","Sort1dExt","SummaryStatisticsExt"]};
