@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["roll","trigger"],"struct":["CompoundPolicy","CompoundPolicyConfig","CompoundPolicyDeserializer"]};

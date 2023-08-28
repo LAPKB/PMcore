@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MinMaxError","MultiInputError","QuantileError"],"struct":["EmptyInput","ShapeMismatch"]};

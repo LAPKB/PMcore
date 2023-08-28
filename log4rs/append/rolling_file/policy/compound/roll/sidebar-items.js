@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["delete","fixed_window"],"trait":["Roll"]};

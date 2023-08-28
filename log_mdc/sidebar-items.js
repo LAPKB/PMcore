@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["clear","extend","extend_scoped","get","insert","insert_scoped","iter","remove"],"struct":["ExtendGuard","InsertGuard"]};

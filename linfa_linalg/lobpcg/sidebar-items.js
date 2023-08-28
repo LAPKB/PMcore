@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["lobpcg"],"struct":["Lobpcg","TruncatedEig","TruncatedEigIterator","TruncatedSvd"],"trait":["MagnitudeCorrection"],"type":["LobpcgResult"]};

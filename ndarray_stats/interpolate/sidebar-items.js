@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Higher","Linear","Lower","Midpoint","Nearest"],"trait":["Interpolate"]};

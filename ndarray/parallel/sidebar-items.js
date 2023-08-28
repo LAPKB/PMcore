@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["par_azip"],"mod":["prelude"],"struct":["Parallel"]};

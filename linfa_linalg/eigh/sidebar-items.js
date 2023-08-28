@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":["EigSort","EigValsh","EigValshInto","Eigh","EighInto"]};

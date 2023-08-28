@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="log4rs is a highly configurable logging framework modeled after Java’s Logback and log4j libraries."><title>log4rs - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9bb858ba049f1f21.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="log4rs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0 (5680fa18f 2023-08-23)" data-channel="1.72.0" data-search-js="search-f6292fe389d70017.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ><script src="../static.files/storage-59fd9b8ccb335783.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../log4rs/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../log4rs/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Crate log4rs</a></h2><div class="sidebar-elems"><ul class="block"><li class="version">Version 1.2.0</li><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">log4rs</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../src/log4rs/lib.rs.html#1-590">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>log4rs is a highly configurable logging framework modeled after Java’s
+Logback and log4j libraries.</p>
+<h2 id="architecture"><a href="#architecture">Architecture</a></h2>
+<p>The basic units of configuration are <em>appenders</em>, <em>encoders</em>, <em>filters</em>, and
+<em>loggers</em>.</p>
+<h3 id="appenders"><a href="#appenders">Appenders</a></h3>
+<p>An appender takes a log record and logs it somewhere, for example, to a
+file, the console, or the syslog.</p>
+<p>Implementations:</p>
+<ul>
+<li><a href="append/console/struct.ConsoleAppenderDeserializer.html#configuration">console</a>: requires the <code>console_appender</code> feature.</li>
+<li><a href="append/file/struct.FileAppenderDeserializer.html#configuration">file</a>: requires the <code>file_appender</code> feature.</li>
+<li><a href="append/rolling_file/struct.RollingFileAppenderDeserializer.html#configuration">rolling_file</a>: requires the <code>rolling_file_appender</code> feature and can be configured with the <code>compound_policy</code>.
+<ul>
+<li><a href="append/rolling_file/policy/compound/struct.CompoundPolicyDeserializer.html#configuration">compound</a>: requires the <code>compound_policy</code> feature
+<ul>
+<li>Rollers
+<ul>
+<li><a href="append/rolling_file/policy/compound/roll/delete/struct.DeleteRollerDeserializer.html#configuration">delete</a>: requires the <code>delete_roller</code> feature</li>
+<li><a href="append/rolling_file/policy/compound/roll/fixed_window/struct.FixedWindowRollerDeserializer.html#configuration">fixed_window</a>: requires the <code>fixed_window_roller</code> feature</li>
+</ul>
+</li>
+<li>Triggers
+<ul>
+<li><a href="append/rolling_file/policy/compound/trigger/size/struct.SizeTriggerDeserializer.html#configuration">size</a>: requires the <code>size_trigger</code> feature</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="encoders"><a href="#encoders">Encoders</a></h3>
+<p>An encoder is responsible for taking a log record, transforming it into the
+appropriate output format, and writing it out. An appender will normally
+use an encoder internally.</p>
+<p>Implementations:</p>
+<ul>
+<li><a href="encode/pattern/struct.PatternEncoderDeserializer.html#configuration">pattern</a>: requires the <code>pattern_encoder</code> feature</li>
+<li><a href="encode/json/struct.JsonEncoderDeserializer.html#configuration">json</a>: requires the <code>json_encoder</code> feature</li>
+</ul>
+<h3 id="filters"><a href="#filters">Filters</a></h3>
+<p>Filters are associated with appenders and, like the name would suggest,
+filter log events coming into that appender.</p>
+<p>Implementations:</p>
+<ul>
+<li><a href="filter/threshold/struct.ThresholdFilterDeserializer.html#configuration">threshold</a>: requires the <code>threshold_filter</code> feature</li>
+</ul>
+<h3 id="loggers"><a href="#loggers">Loggers</a></h3>
+<p>A log event is targeted at a specific logger, which are identified by
+string names. The logging macros built in to the <code>log</code> crate set the logger
+of a log event to the one identified by the module containing the
+invocation location.</p>
+<p>Loggers form a hierarchy: logger names are divided into components by “::”.
+One logger is the ancestor of another if the first logger’s component list
+is a prefix of the second logger’s component list.</p>
+<p>Loggers are associated with a maximum log level. Log events for that logger
+with a level above the maximum will be ignored. The maximum log level for
+any logger can be configured manually; if it is not, the level will be
+inherited from the logger’s parent.</p>
+<p>Loggers are also associated with a set of appenders. Appenders can be
+associated directly with a logger. In addition, the appenders of the
+logger’s parent will be associated with the logger unless the logger has
+its <em>additive</em> set to <code>false</code>. Log events sent to the logger that are not
+filtered out by the logger’s maximum log level will be sent to all
+associated appenders.</p>
+<p>The “root” logger is the ancestor of all other loggers. Since it has no
+ancestors, its additivity cannot be configured.</p>
+<h2 id="configuration"><a href="#configuration">Configuration</a></h2>
+<p>log4rs can be configured programmatically by using the builders in the
+<code>config</code> module to construct a log4rs <code>Config</code> object, which can be passed
+to the <code>init_config</code> function.</p>
+<p>The more common configuration method, however, is via a separate config
+file. The <code>init_file</code> function takes the path to a config file as
+well as a <code>Deserializers</code> object which is responsible for instantiating the
+various objects specified by the config file. The <code>file</code> module
+documentation covers the exact configuration syntax, but an example in the
+YAML format is provided below.</p>
+<p>log4rs makes heavy use of Cargo features to enable consumers to pick the
+functionality they wish to use. File-based configuration requires the <code>file</code>
+feature, and each file format requires its own feature as well. In addition,
+each component has its own feature. For example, YAML support requires the
+<code>yaml_format</code> feature and the console appender requires the
+<code>console_appender</code> feature.</p>
+<p>By default, the <code>all_components</code>, <code>gzip</code>, <code>file</code>, and <code>yaml_format</code> features
+are enabled.</p>
+<p>As a convenience, the <code>all_components</code> feature activates all logger components.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2><h3 id="configuration-via-a-yaml-file"><a href="#configuration-via-a-yaml-file">Configuration via a YAML file</a></h3><div class="example-wrap"><pre class="language-yaml"><code># Scan this file for changes every 30 seconds
+refresh_rate: 30 seconds
+
+appenders:
+  # An appender named &quot;stdout&quot; that writes to stdout
+  stdout:
+    kind: console
+
+  # An appender named &quot;requests&quot; that writes to a file with a custom pattern encoder
+  requests:
+    kind: file
+    path: &quot;log/requests.log&quot;
+    encoder:
+      pattern: &quot;{d} - {m}{n}&quot;
+
+# Set the default logging level to &quot;warn&quot; and attach the &quot;stdout&quot; appender to the root
+root:
+  level: warn
+  appenders:
+    - stdout
+
+loggers:
+  # Raise the maximum log level for events sent to the &quot;app::backend::db&quot; logger to &quot;info&quot;
+  app::backend::db:
+    level: info
+
+  # Route log events sent to the &quot;app::requests&quot; logger to the &quot;requests&quot; appender,
+  # and *not* the normal appenders installed at the root
+  app::requests:
+    level: info
+    appenders:
+      - requests
+    additive: false
+</code></pre></div>
+<p>Add the following in your application initialization.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>log4rs::init_file(<span class="string">&quot;log4rs.yml&quot;</span>, Default::default()).unwrap();</code></pre></div>
+<h3 id="programmatically-constructing-a-configuration"><a href="#programmatically-constructing-a-configuration">Programmatically constructing a configuration:</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>log::LevelFilter;
+<span class="kw">use </span>log4rs::append::console::ConsoleAppender;
+<span class="kw">use </span>log4rs::append::file::FileAppender;
+<span class="kw">use </span>log4rs::encode::pattern::PatternEncoder;
+<span class="kw">use </span>log4rs::config::{Appender, Config, Logger, Root};
+
+<span class="kw">fn </span>main() {
+    <span class="kw">let </span>stdout = ConsoleAppender::builder().build();
+
+    <span class="kw">let </span>requests = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new(<span class="string">&quot;{d} - {m}{n}&quot;</span>)))
+        .build(<span class="string">&quot;log/requests.log&quot;</span>)
+        .unwrap();
+
+    <span class="kw">let </span>config = Config::builder()
+        .appender(Appender::builder().build(<span class="string">&quot;stdout&quot;</span>, Box::new(stdout)))
+        .appender(Appender::builder().build(<span class="string">&quot;requests&quot;</span>, Box::new(requests)))
+        .logger(Logger::builder().build(<span class="string">&quot;app::backend::db&quot;</span>, LevelFilter::Info))
+        .logger(Logger::builder()
+            .appender(<span class="string">&quot;requests&quot;</span>)
+            .additive(<span class="bool-val">false</span>)
+            .build(<span class="string">&quot;app::requests&quot;</span>, LevelFilter::Info))
+        .build(Root::builder().appender(<span class="string">&quot;stdout&quot;</span>).build(LevelFilter::Warn))
+        .unwrap();
+
+    <span class="kw">let </span>handle = log4rs::init_config(config).unwrap();
+
+    <span class="comment">// use handle to change logger configuration at runtime
+</span>}</code></pre></div>
+<p>For more examples see the <a href="https://github.com/estk/log4rs/tree/master/examples">examples</a>.</p>
+</div></details><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.init_config"><code>pub use config::<a class="fn" href="config/fn.init_config.html" title="fn log4rs::config::init_config">init_config</a>;</code></div></li><li><div class="item-name" id="reexport.Config"><code>pub use config::<a class="struct" href="config/runtime/struct.Config.html" title="struct log4rs::config::runtime::Config">Config</a>;</code></div></li><li><div class="item-name" id="reexport.init_file"><code>pub use config::<a class="fn" href="config/fn.init_file.html" title="fn log4rs::config::init_file">init_file</a>;</code></div></li><li><div class="item-name" id="reexport.init_raw_config"><code>pub use config::<a class="fn" href="config/fn.init_raw_config.html" title="fn log4rs::config::init_raw_config">init_raw_config</a>;</code></div></li></ul><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="append/index.html" title="mod log4rs::append">append</a></div><div class="desc docblock-short">Appenders</div></li><li><div class="item-name"><a class="mod" href="config/index.html" title="mod log4rs::config">config</a></div><div class="desc docblock-short">All things pertaining to log4rs config. See the docs root for examples.</div></li><li><div class="item-name"><a class="mod" href="encode/index.html" title="mod log4rs::encode">encode</a></div><div class="desc docblock-short">Encoders</div></li><li><div class="item-name"><a class="mod" href="filter/index.html" title="mod log4rs::filter">filter</a></div><div class="desc docblock-short">Filters</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Handle.html" title="struct log4rs::Handle">Handle</a></div><div class="desc docblock-short">A handle to the active logger.</div></li><li><div class="item-name"><a class="struct" href="struct.Logger.html" title="struct log4rs::Logger">Logger</a></div><div class="desc docblock-short">The fully configured log4rs Logger which is appropriate
+to use with the <code>log::set_boxed_logger</code> function.</div></li></ul></section></div></main></body></html>

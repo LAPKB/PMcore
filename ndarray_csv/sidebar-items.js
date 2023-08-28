@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ReadError"],"trait":["Array2Reader","Array2Writer"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["QRDecomp"],"trait":["LeastSquaresQr","LeastSquaresQrInto","QR","QRInto"]};

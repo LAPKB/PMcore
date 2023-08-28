@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A simple pattern-based encoder."><title>log4rs::encode::pattern - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9bb858ba049f1f21.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="log4rs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0 (5680fa18f 2023-08-23)" data-channel="1.72.0" data-search-js="search-f6292fe389d70017.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ><script src="../../../static.files/storage-59fd9b8ccb335783.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../log4rs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../log4rs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module pattern</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">log4rs</a>::<wbr><a href="../index.html">encode</a>::<wbr><a class="mod" href="#">pattern</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../../../src/log4rs/encode/pattern/mod.rs.html#1-979">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A simple pattern-based encoder.</p>
+<p>Requires the <code>pattern_encoder</code> feature.</p>
+<p>The pattern syntax is similar to Rust’s string formatting syntax. It
+consists of raw text interspersed with format arguments. The grammar is:</p>
+<div class="example-wrap"><pre class="language-not_rust"><code>format_string := &lt;text&gt; [ format &lt;text&gt; ] *
+format := &#39;{&#39; formatter [ &#39;:&#39; format_spec ] &#39;}&#39;
+formatter := [ name ] [ &#39;(&#39; argument &#39;)&#39; ] *
+name := identifier
+argument := format_string
+
+format_spec := [ [ fill ] align ] [ min_width ] [ &#39;.&#39; max_width ]
+fill := character
+align := &#39;&lt;&#39; | &#39;&gt;&#39;
+min_width := number
+max_width := number
+</code></pre></div><h2 id="special-characters"><a href="#special-characters">Special characters</a></h2>
+<p>The <code>{</code>, <code>}</code>, <code>(</code>, <code>)</code>, and <code>\</code> characters are part of the pattern syntax;
+they must be escaped to appear in output. Like with Rust’s string
+formatting syntax, type the character twice to escape it. That is, <code>{{</code>
+will be rendered as <code>{</code> in output and <code>))</code> will be rendered as <code>)</code>.</p>
+<p>In addition, these characters may also be escaped by prefixing them with a
+<code>\</code> character. That is, <code>\{</code> will be rendered as <code>{</code>.</p>
+<h2 id="formatters"><a href="#formatters">Formatters</a></h2>
+<p>A formatter inserts a dynamic portion of text into the pattern. It may be
+text derived from a log event or from some other context like the current
+time. Formatters may be passed arguments consisting of parenthesized format
+strings.</p>
+<p>The following formatters are currently supported. Unless otherwise stated,
+a formatter does not accept any argument.</p>
+<ul>
+<li><code>d</code>, <code>date</code> - The current time. By default, the ISO 8601 format is used.
+A custom format may be provided in the syntax accepted by <code>chrono</code>.
+The timezone defaults to local, but can be specified explicitly by
+passing a second argument of <code>utc</code> for UTC or <code>local</code> for local time.
+<ul>
+<li><code>{d}</code> - <code>2016-03-20T14:22:20.644420340-08:00</code></li>
+<li><code>{d(%Y-%m-%d %H:%M:%S)}</code> - <code>2016-03-20 14:22:20</code></li>
+<li><code>{d(%Y-%m-%d %H:%M:%S %Z)(utc)}</code> - <code>2016-03-20 22:22:20 UTC</code></li>
+</ul>
+</li>
+<li><code>f</code>, <code>file</code> - The source file that the log message came from, or <code>???</code> if
+not provided.</li>
+<li><code>h</code>, <code>highlight</code> - Styles its argument according to the log level. The
+style is intense red for errors, red for warnings, blue for info, and
+the default style for all other levels.
+<ul>
+<li><code>{h(the level is {l})}</code> -
+<code style="color: red; font-weight: bold">the level is ERROR</code></li>
+</ul>
+</li>
+<li><code>l</code>, <code>level</code> - The log level.</li>
+<li><code>L</code>, <code>line</code> - The line that the log message came from, or <code>???</code> if not
+provided.</li>
+<li><code>m</code>, <code>message</code> - The log message.</li>
+<li><code>M</code>, <code>module</code> - The module that the log message came from, or <code>???</code> if not
+provided.</li>
+<li><code>P</code>, <code>pid</code> - The current process id.</li>
+<li><code>i</code>, <code>tid</code> - The current system-wide unique thread ID.</li>
+<li><code>n</code> - A platform-specific newline.</li>
+<li><code>t</code>, <code>target</code> - The target of the log message.</li>
+<li><code>T</code>, <code>thread</code> - The name of the current thread.</li>
+<li><code>I</code>, <code>thread_id</code> - The pthread ID of the current thread.</li>
+<li><code>X</code>, <code>mdc</code> - A value from the <a href="https://crates.io/crates/log-mdc">MDC</a>. The first argument specifies
+the key, and the second argument specifies the default value if the
+key is not present in the MDC. The second argument is optional, and
+defaults to the empty string.
+<ul>
+<li><code>{X(user_id)}</code> - <code>123e4567-e89b-12d3-a456-426655440000</code></li>
+<li><code>{X(nonexistent_key)(no mapping)}</code> - <code>no mapping</code></li>
+</ul>
+</li>
+<li>An “unnamed” formatter simply formats its argument, applying the format
+specification.
+<ul>
+<li><code>{({l} {m})}</code> - <code>INFO hello</code></li>
+</ul>
+</li>
+</ul>
+<h2 id="format-specification"><a href="#format-specification">Format Specification</a></h2>
+<p>The format specification determines how the output of a formatter is
+adjusted before being returned.</p>
+<h3 id="fillalignment"><a href="#fillalignment">Fill/Alignment</a></h3>
+<p>The fill and alignment values are used in conjunction with a minimum width
+value (see below) to control the behavior when a formatter’s output is less
+than the minimum. While the default behavior is to pad the output to the
+right with space characters (i.e. left align it), the fill value specifies
+the character used, and the alignment value is one of:</p>
+<ul>
+<li><code>&lt;</code> - Left align by appending the fill character to the formatter output</li>
+<li><code>&gt;</code> - Right align by prepending the fill character to the formatter
+output.</li>
+</ul>
+<h3 id="width"><a href="#width">Width</a></h3>
+<p>By default, the full contents of a formatter’s output will be inserted into
+the pattern output, but both the minimum and maximum lengths can be
+configured. Any output over the maximum length will be truncated, and
+output under the minimum length will be padded (see above).</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<p>The default pattern is <code>{d} {l} {t} - {m}{n}</code> which produces output like
+<code>2016-03-20T22:22:20.644420340+00:00 INFO module::path - this is a log message</code>.</p>
+<p>The pattern <code>{m:&gt;10.15}</code> will right-align the log message to a minimum of
+10 bytes, filling in with space characters, and truncate output after 15
+bytes. The message <code>hello</code> will therefore be displayed as
+<code>     hello</code>, while the message <code>hello there, world!</code> will be
+displayed as <code>hello there, wo</code>.</p>
+<p>The pattern <code>{({l} {m}):15.15}</code> will output the log level and message
+limited to exactly 15 bytes, padding with space characters on the right if
+necessary. The message <code>hello</code> and log level <code>INFO</code> will be displayed as
+<code>INFO hello     </code>, while the message <code>hello, world!</code> and log
+level <code>DEBUG</code> will be truncated to <code>DEBUG hello, wo</code>.</p>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.PatternEncoder.html" title="struct log4rs::encode::pattern::PatternEncoder">PatternEncoder</a></div><div class="desc docblock-short">An <code>Encode</code>r configured via a format string.</div></li><li><div class="item-name"><a class="struct" href="struct.PatternEncoderConfig.html" title="struct log4rs::encode::pattern::PatternEncoderConfig">PatternEncoderConfig</a></div><div class="desc docblock-short">The pattern encoder’s configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.PatternEncoderDeserializer.html" title="struct log4rs::encode::pattern::PatternEncoderDeserializer">PatternEncoderDeserializer</a></div><div class="desc docblock-short">A deserializer for the <code>PatternEncoder</code>.</div></li></ul></section></div></main></body></html>

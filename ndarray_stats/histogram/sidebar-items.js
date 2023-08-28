@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["errors","strategies"],"struct":["Bins","Edges","Grid","GridBuilder","Histogram"],"trait":["HistogramExt"]};

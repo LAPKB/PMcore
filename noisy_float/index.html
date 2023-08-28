@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="This crate contains floating point types that panic if they are set to an illegal value, such as NaN."><title>noisy_float - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9bb858ba049f1f21.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="noisy_float" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0 (5680fa18f 2023-08-23)" data-channel="1.72.0" data-search-js="search-f6292fe389d70017.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ><script src="../static.files/storage-59fd9b8ccb335783.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../noisy_float/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../noisy_float/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Crate noisy_float</a></h2><div class="sidebar-elems"><ul class="block"><li class="version">Version 0.2.0</li><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">noisy_float</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../src/noisy_float/lib.rs.html#15-577">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>This crate contains floating point types that panic if they are set
+to an illegal value, such as NaN.</p>
+<p>The name “Noisy Float” comes from
+the terms “quiet NaN” and “signaling NaN”; “signaling” was too long
+to put in a struct/crate name, so “noisy” is used instead, being the opposite
+of “quiet.”</p>
+<p>The standard types defined in <code>noisy_float::types</code> follow the principle
+demonstrated by Rust’s handling of integer overflow:
+a bad arithmetic operation is considered an error,
+but it is too costly to check everywhere in optimized builds.
+For each floating point number that is created, a <code>debug_assert!</code> invocation is used
+to check if it is valid or not.
+This way, there are guarantees when developing code that floating point
+numbers have valid values,
+but during a release run there is <em>no overhead</em> for using these floating
+point types compared to using <code>f32</code> or <code>f64</code> directly.</p>
+<p>This crate makes use of the num, bounded, signed and floating point traits
+in the popular <code>num_traits</code> crate.
+This crate can be compiled with no_std.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<p>An example using the <code>R64</code> type, which corresponds to <em>finite</em> <code>f64</code> values.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>noisy_float::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">fn </span>geometric_mean(a: R64, b: R64) -&gt; R64 {
+    (a * b).sqrt() <span class="comment">//used just like regular floating point numbers
+</span>}
+
+<span class="kw">fn </span>mean(a: R64, b: R64) -&gt; R64 {
+    (a + b) * <span class="number">0.5 </span><span class="comment">//the RHS of ops can be the underlying float type
+</span>}
+
+<span class="macro">println!</span>(
+    <span class="string">&quot;geometric_mean(10.0, 20.0) = {}&quot;</span>,
+    geometric_mean(r64(<span class="number">10.0</span>), r64(<span class="number">20.0</span>))
+);
+<span class="comment">//prints 14.142...
+</span><span class="macro">assert!</span>(mean(r64(<span class="number">10.0</span>), r64(<span class="number">20.0</span>)) == <span class="number">15.0</span>);</code></pre></div>
+<p>An example using the <code>N32</code> type, which corresponds to <em>non-NaN</em> <code>f32</code> values.
+The float types in this crate are able to implement <code>Eq</code> and <code>Ord</code> properly,
+since NaN is not allowed.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>noisy_float::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">let </span>values = <span class="macro">vec!</span>[n32(<span class="number">3.0</span>), n32(-<span class="number">1.5</span>), n32(<span class="number">71.3</span>), N32::infinity()];
+<span class="macro">assert!</span>(values.iter().cloned().min() == <span class="prelude-val">Some</span>(n32(-<span class="number">1.5</span>)));
+<span class="macro">assert!</span>(values.iter().cloned().max() == <span class="prelude-val">Some</span>(N32::infinity()));</code></pre></div>
+<p>An example converting from R64 to primitive types.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>noisy_float::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>num_traits::cast::ToPrimitive;
+
+<span class="kw">let </span>value_r64: R64 = r64(<span class="number">1.0</span>);
+<span class="kw">let </span>value_f64_a: f64 = value_r64.into();
+<span class="kw">let </span>value_f64_b: f64 = value_r64.raw();
+<span class="kw">let </span>value_u64: u64 = value_r64.to_u64().unwrap();
+
+<span class="macro">assert!</span>(value_f64_a == value_f64_b);
+<span class="macro">assert!</span>(value_f64_a <span class="kw">as </span>u64 == value_u64);</code></pre></div>
+<h2 id="features"><a href="#features">Features</a></h2>
+<p>This crate has the following cargo features:</p>
+<ul>
+<li><code>serde</code>: Enable serialization for all <code>NoisyFloats</code> using serde 1.0 and
+will transparently serialize then as floats</li>
+<li><code>approx</code>: Adds implementations to use <code>NoisyFloat</code> with the <code>approx</code>
+crate</li>
+</ul>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="checkers/index.html" title="mod noisy_float::checkers">checkers</a></div><div class="desc docblock-short">Standard implementations of <code>FloatChecker</code>.</div></li><li><div class="item-name"><a class="mod" href="prelude/index.html" title="mod noisy_float::prelude">prelude</a></div><div class="desc docblock-short">Prelude for the <code>noisy_float</code> crate.</div></li><li><div class="item-name"><a class="mod" href="types/index.html" title="mod noisy_float::types">types</a></div><div class="desc docblock-short">Standard definitions of <code>NoisyFloat</code>.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.NoisyFloat.html" title="struct noisy_float::NoisyFloat">NoisyFloat</a></div><div class="desc docblock-short">A floating point number with a restricted set of legal values.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.FloatChecker.html" title="trait noisy_float::FloatChecker">FloatChecker</a></div><div class="desc docblock-short">Trait for checking whether a floating point number is <em>valid</em>.</div></li></ul></section></div></main></body></html>

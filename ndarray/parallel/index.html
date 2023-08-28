@@ -1,0 +1,97 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Parallelization features for ndarray."><title>ndarray::parallel - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9bb858ba049f1f21.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ndarray" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0 (5680fa18f 2023-08-23)" data-channel="1.72.0" data-search-js="search-f6292fe389d70017.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ><script src="../../static.files/storage-59fd9b8ccb335783.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../ndarray/index.html"><img src="https://rust-ndarray.github.io/images/rust-ndarray_logo.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../ndarray/index.html"><img src="https://rust-ndarray.github.io/images/rust-ndarray_logo.svg" alt="logo"></a><h2 class="location"><a href="#">Module parallel</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">ndarray</a>::<wbr><a class="mod" href="#">parallel</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../../src/ndarray/parallel/mod.rs.html#1-155">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Parallelization features for ndarray.</p>
+<p>Parallelization features are based on the crate <a href="../../rayon/index.html" title="mod rayon">rayon</a> and its parallel
+iterators. Ndarray implements the parallel iterable traits for arrays
+and array views, for some of its iterators and for <a href="../struct.Zip.html" title="struct ndarray::Zip">Zip</a>.
+There are also directly parallelized methods on arrays and on <a href="../struct.Zip.html" title="struct ndarray::Zip">Zip</a>.</p>
+<p>This requires the crate feature <code>rayon</code> to be enabled.</p>
+<p>The following types implement parallel iterators, accessed using these
+methods:</p>
+<ul>
+<li><a href="../type.Array.html" title="type ndarray::Array"><code>Array</code></a>, <a href="../type.ArcArray.html" title="type ndarray::ArcArray"><code>ArcArray</code></a> <code>.par_iter()</code> and <code>.par_iter_mut()</code></li>
+<li><a href="../type.ArrayView.html" title="type ndarray::ArrayView"><code>ArrayView</code></a> <code>.into_par_iter()</code></li>
+<li><a href="../type.ArrayViewMut.html" title="type ndarray::ArrayViewMut"><code>ArrayViewMut</code></a> <code>.into_par_iter()</code></li>
+<li><a href="../iter/struct.AxisIter.html" title="struct ndarray::iter::AxisIter"><code>AxisIter</code></a>, <a href="../iter/struct.AxisIterMut.html" title="struct ndarray::iter::AxisIterMut"><code>AxisIterMut</code></a> <code>.into_par_iter()</code></li>
+<li><a href="../iter/struct.AxisChunksIter.html" title="struct ndarray::iter::AxisChunksIter"><code>AxisChunksIter</code></a>, <a href="../iter/struct.AxisChunksIterMut.html" title="struct ndarray::iter::AxisChunksIterMut"><code>AxisChunksIterMut</code></a> <code>.into_par_iter()</code></li>
+<li><a href="../struct.Zip.html" title="struct ndarray::Zip"><code>Zip</code></a> <code>.into_par_iter()</code></li>
+</ul>
+<p>The following other parallelized methods exist:</p>
+<ul>
+<li><a href="../struct.ArrayBase.html#method.par_map_inplace" title="method ndarray::ArrayBase::par_map_inplace"><code>ArrayBase::par_map_inplace()</code></a></li>
+<li><a href="../struct.ArrayBase.html#method.par_mapv_inplace" title="method ndarray::ArrayBase::par_mapv_inplace"><code>ArrayBase::par_mapv_inplace()</code></a></li>
+<li><a href="../struct.Zip.html#method.par_for_each" title="method ndarray::Zip::par_for_each"><code>Zip::par_for_each()</code></a> (all arities)</li>
+<li><a href="../struct.Zip.html#method.par_map_collect" title="method ndarray::Zip::par_map_collect"><code>Zip::par_map_collect()</code></a> (all arities)</li>
+<li><a href="../struct.Zip.html#method.par_map_assign_into" title="method ndarray::Zip::par_map_assign_into"><code>Zip::par_map_assign_into()</code></a> (all arities)</li>
+</ul>
+<p>Note that you can use the parallel iterator for <a href="../struct.Zip.html" title="struct ndarray::Zip">Zip</a> to access all other
+rayon parallel iterator methods.</p>
+<p>Only the axis iterators are indexed parallel iterators, the rest are all
+“unindexed”. Use ndarray’s <a href="../struct.Zip.html" title="struct ndarray::Zip">Zip</a> for lock step parallel iteration of
+multiple arrays or producers at a time.</p>
+<p>For the unindexed parallel iterators, an inherent method <a href="struct.Parallel.html#method.with_min_len" title="method ndarray::parallel::Parallel::with_min_len"><code>with_min_len</code></a>
+is provided to limit the number of elements each parallel task processes in way that is
+similar to Rayon’s <a href="../../rayon/iter/trait.IndexedParallelIterator.html#method.with_min_len" title="method rayon::iter::IndexedParallelIterator::with_min_len"><code>IndexedParallelIterator::with_min_len</code></a>.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2><h3 id="arrays-and-array-views"><a href="#arrays-and-array-views">Arrays and array views</a></h3>
+<p>Compute the exponential of each element in an array, parallelized.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>ndarray::Array2;
+<span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">let </span><span class="kw-2">mut </span>a = Array2::&lt;f64&gt;::zeros((<span class="number">128</span>, <span class="number">128</span>));
+
+<span class="comment">// Parallel versions of regular array methods
+</span>a.par_map_inplace(|x| <span class="kw-2">*</span>x = x.exp());
+a.par_mapv_inplace(f64::exp);
+
+<span class="comment">// You can also use the parallel iterator directly
+</span>a.par_iter_mut().for_each(|x| <span class="kw-2">*</span>x = x.exp());</code></pre></div>
+<h3 id="axis-iterators"><a href="#axis-iterators">Axis iterators</a></h3>
+<p>Use the parallel <code>.axis_iter()</code> to compute the sum of each row.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>ndarray::Array;
+<span class="kw">use </span>ndarray::Axis;
+<span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">let </span>a = Array::linspace(<span class="number">0.</span>, <span class="number">63.</span>, <span class="number">64</span>).into_shape((<span class="number">4</span>, <span class="number">16</span>)).unwrap();
+<span class="kw">let </span><span class="kw-2">mut </span>sums = Vec::new();
+a.axis_iter(Axis(<span class="number">0</span>))
+ .into_par_iter()
+ .map(|row| row.sum())
+ .collect_into_vec(<span class="kw-2">&amp;mut </span>sums);
+
+<span class="macro">assert_eq!</span>(sums, [<span class="number">120.</span>, <span class="number">376.</span>, <span class="number">632.</span>, <span class="number">888.</span>]);</code></pre></div>
+<h3 id="axis-chunks-iterators"><a href="#axis-chunks-iterators">Axis chunks iterators</a></h3>
+<p>Use the parallel <code>.axis_chunks_iter()</code> to process your data in chunks.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>ndarray::Array;
+<span class="kw">use </span>ndarray::Axis;
+<span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">let </span>a = Array::linspace(<span class="number">0.</span>, <span class="number">63.</span>, <span class="number">64</span>).into_shape((<span class="number">4</span>, <span class="number">16</span>)).unwrap();
+<span class="kw">let </span><span class="kw-2">mut </span>shapes = Vec::new();
+a.axis_chunks_iter(Axis(<span class="number">0</span>), <span class="number">3</span>)
+ .into_par_iter()
+ .map(|chunk| chunk.shape().to_owned())
+ .collect_into_vec(<span class="kw-2">&amp;mut </span>shapes);
+
+<span class="macro">assert_eq!</span>(shapes, [<span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">16</span>], <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">16</span>]]);</code></pre></div>
+<h3 id="zip"><a href="#zip">Zip</a></h3>
+<p>Use zip for lock step function application across several arrays</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>ndarray::Array3;
+<span class="kw">use </span>ndarray::Zip;
+
+<span class="kw">type </span>Array3f64 = Array3&lt;f64&gt;;
+
+<span class="kw">const </span>N: usize = <span class="number">128</span>;
+<span class="kw">let </span>a = Array3f64::from_elem((N, N, N), <span class="number">1.</span>);
+<span class="kw">let </span>b = Array3f64::from_elem(a.dim(), <span class="number">2.</span>);
+<span class="kw">let </span><span class="kw-2">mut </span>c = Array3f64::zeros(a.dim());
+
+Zip::from(<span class="kw-2">&amp;mut </span>c)
+    .and(<span class="kw-2">&amp;</span>a)
+    .and(<span class="kw-2">&amp;</span>b)
+    .par_for_each(|c, <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b| {
+        <span class="kw-2">*</span>c += a - b;
+    });</code></pre></div>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="prelude/index.html" title="mod ndarray::parallel::prelude">prelude</a></div><div class="desc docblock-short">Into- traits for creating parallelized iterators and/or using <a href="macro.par_azip.html" title="macro ndarray::parallel::par_azip"><code>par_azip!</code></a></div></li></ul><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.par_azip.html" title="macro ndarray::parallel::par_azip">par_azip</a></div><div class="desc docblock-short">Parallelized array zip macro: lock step function application across several
+arrays and producers.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Parallel.html" title="struct ndarray::parallel::Parallel">Parallel</a></div><div class="desc docblock-short">Parallel iterator wrapper.</div></li></ul></section></div></main></body></html>
