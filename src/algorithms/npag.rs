@@ -235,10 +235,9 @@ where
         if let Some(output) = &settings.parsed.config.pmetrics_outputs {
             if *output {
                 //cycles.csv
-                writer.write_field(format!("{}", &cycle)).unwrap();
-                writer.write_field(format!("{}", -2. * objf)).unwrap();
-                writer.write_field(format!("{}", gamma)).unwrap();
+                cycle_writer.write(cycle, objf, gamma, &theta);
             }
+        }
 
         // If the objective function decreased, log an error
         if last_objf > objf {
