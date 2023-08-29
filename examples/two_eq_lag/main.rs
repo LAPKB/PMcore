@@ -1,10 +1,12 @@
 use eyre::Result;
 use np_core::prelude::{
-    datafile::{parse, CovLine, Infusion},
+    datafile::{CovLine, Infusion},
     *,
 };
 use ode_solvers::*;
 use std::collections::HashMap;
+const ATOL: f64 = 1e-4;
+const RTOL: f64 = 1e-4;
 #[derive(Debug, Clone)]
 struct Model<'a> {
     ka: f64,
@@ -20,7 +22,7 @@ type State = SVector<f64, 2>;
 type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
-    fn system(&mut self, t: Time, x: &mut State, dx: &mut State) {
+    fn system(&self, t: Time, x: &State, dx: &mut State) {
         // Random parameters
         let ka = self.ka;
         let ke = self.ke;
@@ -30,7 +32,7 @@ impl ode_solvers::System<State> for Model<'_> {
         let mut rateiv = [0.0];
         for infusion in &self.infusions {
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
-                rateiv[infusion.compartment] = infusion.amount / infusion.dur;
+                rateiv[infusion.compartment] += infusion.amount / infusion.dur;
             }
         }
         ///////////////////// USER DEFINED ///////////////
@@ -53,37 +55,24 @@ impl Predict for Ode {
             infusions: vec![],
             cov: None,
         };
-        let lag = system.lag; // or 0.0
+        let scenario = scenario.reorder_with_lag(vec![(system.lag, 1)]);
         let mut yout = vec![];
         let mut x = State::new(0.0, 0.0);
         let mut index = 0;
         for block in &scenario.blocks {
             system.cov = Some(&block.covs);
             for event in &block.events {
-                let mut event_time = event.time;
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
                         system.infusions.push(Infusion {
-                            time: event.time + lag,
+                            time: event.time,
                             dur: event.dur.unwrap(),
                             amount: event.dose.unwrap(),
                             compartment: event.input.unwrap() - 1,
                         });
                     } else {
                         //dose
-                        if lag > 0.0 {
-                            // if lag is greater than 0 and we integrate from the current time to the time plus lag
-                            // then we can start the next integration at the correct time
-                            // and we can give the dose directly to the compartment
-                            event_time = event.time + lag;
-                            let mut stepper =
-                                Rk4::new(system.clone(), event.time, x, event_time, 0.1);
-                            let _int = stepper.integrate();
-                            let y = stepper.y_out();
-                            x = *y.last().unwrap();
-                        }
-
                         x[event.input.unwrap() - 1] += event.dose.unwrap();
                     }
                 } else if event.evid == 0 {
@@ -91,12 +80,14 @@ impl Predict for Ode {
                     yout.push(x[1] / params[3]);
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
-                    let mut stepper = Rk4::new(system.clone(), event_time, x, *next_time, 0.1);
-                    let _int = stepper.integrate();
+                    // let mut stepper = Rk4::new(system.clone(), lag_time, x, *next_time, 0.1);
+                    let mut stepper =
+                        Dopri5::new(system.clone(), event.time, *next_time, 1e-3, x, RTOL, ATOL);
+                    let _res = stepper.integrate();
                     let y = stepper.y_out();
                     x = *y.last().unwrap();
-                    index += 1;
                 }
+                index += 1;
             }
         }
         yout
