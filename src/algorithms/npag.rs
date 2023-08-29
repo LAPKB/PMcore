@@ -231,7 +231,6 @@ where
         w = Array::from(lambda_tmp);
         let pyl = psi.dot(&w);
 
-
         if let Some(output) = &settings.parsed.config.pmetrics_outputs {
             if *output {
                 //cycles.csv
