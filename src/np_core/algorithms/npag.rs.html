@@ -357,6 +357,13 @@
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::File;
 
 <span class="kw">use </span><span class="kw">crate</span>::prelude::output::CycleWriter;
@@ -459,7 +466,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>theta_rows: Vec&lt;ArrayBase&lt;ViewRepr&lt;<span class="kw-2">&amp;</span>f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;&gt; = <span class="macro">vec!</span>[];
         <span class="kw">let </span><span class="kw-2">mut </span>psi_columns: Vec&lt;ArrayBase&lt;ViewRepr&lt;<span class="kw-2">&amp;</span>f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;&gt; = <span class="macro">vec!</span>[];
         <span class="kw">for </span>(index, lam) <span class="kw">in </span>lambda.iter().enumerate() {
-            <span class="kw">if </span>lam &gt; <span class="kw-2">&amp;</span><span class="number">1e-8 </span>&amp;&amp; lam &gt; <span class="kw-2">&amp;</span>(lambda.max().unwrap() / <span class="number">1000_f64</span>) {
+            <span class="kw">if </span><span class="kw-2">*</span>lam &gt; <span class="number">1e-8 </span>&amp;&amp; <span class="kw-2">*</span>lam &gt; lambda.max().unwrap() / <span class="number">1000_f64 </span>{
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi.column(index));
             }
@@ -589,6 +596,13 @@
         psi = stack(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>psi_columns).unwrap();
         w = Array::from(lambda_tmp);
         <span class="kw">let </span>pyl = psi.dot(<span class="kw-2">&amp;</span>w);
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(output) = <span class="kw-2">&amp;</span>settings.parsed.config.pmetrics_outputs {
+            <span class="kw">if </span><span class="kw-2">*</span>output {
+                <span class="comment">//cycles.csv
+                </span>cycle_writer.write(cycle, objf, gamma, <span class="kw-2">&amp;</span>theta);
+            }
+        }
 
         <span class="comment">// If the objective function decreased, log an error
         </span><span class="kw">if </span>last_objf &gt; objf {

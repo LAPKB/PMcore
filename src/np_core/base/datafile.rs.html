@@ -253,9 +253,56 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
-</pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
-</span><span class="kw">use </span>std::collections::HashMap;
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::cmp::Ordering;
+<span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::error::Error;
+<span class="kw">use </span>std::process::exit;
 
 <span class="kw">type </span>Record = HashMap&lt;String, String&gt;;
 
@@ -267,6 +314,132 @@
     <span class="kw">pub </span>obs: Vec&lt;f64&gt;,
     <span class="kw">pub </span>obs_times: Vec&lt;f64&gt;,
     <span class="kw">pub </span>times: Vec&lt;f64&gt;,
+}
+
+<span class="kw">impl </span>Scenario {
+    <span class="kw">pub fn </span>new(events: Vec&lt;Event&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>scenario = <span class="self">Self</span>::parse_events(events)<span class="question-mark">?</span>;
+        scenario.inyect_covariates_regressions();
+        <span class="prelude-val">Ok</span>(scenario)
+    }
+
+    <span class="kw">pub fn </span>reorder_with_lag(<span class="kw-2">&amp;</span><span class="self">self</span>, lag_inputs: Vec&lt;(f64, usize)&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">if </span>lag_inputs.is_empty() {
+            <span class="kw">return </span><span class="self">self</span>.clone();
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>events = Vec::new();
+        <span class="kw">for </span>block <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.blocks {
+            <span class="kw">for </span><span class="kw-2">mut </span>event <span class="kw">in </span>block.events.clone() {
+                <span class="kw">if </span>event.evid == <span class="number">1 </span>{
+                    <span class="kw">for </span>lag_term <span class="kw">in </span><span class="kw-2">&amp;</span>lag_inputs {
+                        <span class="kw">if </span>event.input.unwrap() == lag_term.<span class="number">1 </span>{
+                            event.time += lag_term.<span class="number">0</span>;
+                        }
+                    }
+                }
+                events.push(event);
+            }
+        }
+        events.sort_by(|a, b| a.cmp_by_id_then_time(b));
+
+        <span class="kw">let </span><span class="kw-2">mut </span>scenario = <span class="self">Self</span>::parse_events(events).unwrap();
+        scenario.inyect_covariates_regressions();
+        scenario
+    }
+
+    <span class="kw">fn </span>parse_events(events: Vec&lt;Event&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
+        <span class="kw">let </span>id = events.first().unwrap().id.clone();
+        <span class="kw">let </span><span class="kw-2">mut </span>blocks: Vec&lt;Block&gt; = <span class="macro">vec!</span>[];
+        <span class="kw">let </span><span class="kw-2">mut </span>block: Block = Block {
+            events: <span class="macro">vec!</span>[],
+            covs: HashMap::new(),
+        };
+        <span class="kw">let </span><span class="kw-2">mut </span>obs: Vec&lt;f64&gt; = <span class="macro">vec!</span>[];
+        <span class="kw">let </span><span class="kw-2">mut </span>times: Vec&lt;f64&gt; = <span class="macro">vec!</span>[];
+        <span class="kw">let </span><span class="kw-2">mut </span>obs_times: Vec&lt;f64&gt; = <span class="macro">vec!</span>[];
+
+        <span class="kw">for </span><span class="kw-2">mut </span>event <span class="kw">in </span>events {
+            times.push(event.time);
+            <span class="comment">//Covariate forward filling
+            </span><span class="kw">for </span>(key, val) <span class="kw">in </span><span class="kw-2">&amp;mut </span>event.covs {
+                <span class="kw">if </span>val.is_none() {
+                    <span class="comment">//This will fail if for example the block is empty, Doses always must have the cov values
+                    </span><span class="kw-2">*</span>val = <span class="kw-2">*</span>block.events.last().unwrap().covs.get(key).unwrap();
+                }
+            }
+            <span class="kw">if </span>event.evid == <span class="number">1 </span>{
+                <span class="kw">if </span>event.dur.unwrap_or(<span class="number">0.0</span>) &gt; <span class="number">0.0 </span>{
+                    check_infusion(<span class="kw-2">&amp;</span>event)<span class="question-mark">?</span>;
+                } <span class="kw">else </span>{
+                    check_dose(<span class="kw-2">&amp;</span>event)<span class="question-mark">?</span>;
+                }
+
+                <span class="kw">if </span>!block.events.is_empty() {
+                    blocks.push(block);
+                }
+                block = Block {
+                    events: <span class="macro">vec!</span>[],
+                    covs: HashMap::new(),
+                };
+                <span class="comment">// clone the covs from the dose event and put them in the block
+            </span>} <span class="kw">else if </span>event.evid == <span class="number">0 </span>{
+                check_obs(<span class="kw-2">&amp;</span>event)<span class="question-mark">?</span>;
+                obs_times.push(event.time);
+                obs.push(event.out.unwrap());
+            } <span class="kw">else </span>{
+                <span class="macro">log::error!</span>(<span class="string">&quot;Error: Unsupported evid&quot;</span>);
+                exit(-<span class="number">1</span>);
+            }
+            block.events.push(event);
+        }
+        <span class="kw">if </span>!block.events.is_empty() {
+            blocks.push(block);
+        }
+        <span class="prelude-val">Ok</span>(Scenario {
+            id,
+            blocks,
+            obs,
+            obs_times,
+            times,
+        })
+    }
+
+    <span class="kw">fn </span>inyect_covariates_regressions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">let </span><span class="kw-2">mut </span>b_it = <span class="self">self</span>.blocks.iter_mut().peekable();
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(block) = b_it.next() {
+            <span class="kw">let </span><span class="kw-2">mut </span>block_covs: HashMap&lt;String, CovLine&gt; = HashMap::new();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(next_block) = b_it.peek() {
+                <span class="kw">for </span>(key, p_v) <span class="kw">in </span><span class="kw-2">&amp;</span>block.events.first().unwrap().covs {
+                    <span class="kw">let </span>p_v = p_v.unwrap();
+                    <span class="kw">let </span>p_t = block.events.first().unwrap().time;
+                    <span class="kw">let </span>f_v = next_block
+                        .events
+                        .first()
+                        .unwrap()
+                        .covs
+                        .get(key)
+                        .unwrap()
+                        .unwrap();
+                    <span class="kw">let </span>f_t = next_block.events.first().unwrap().time;
+                    <span class="kw">let </span>slope = (f_v - p_v) / (f_t - p_t);
+                    <span class="kw">let </span>intercept = p_v - slope * p_t;
+                    block_covs.insert(key.clone(), CovLine { intercept, slope });
+                }
+            } <span class="kw">else </span>{
+                <span class="kw">for </span>(key, p_v) <span class="kw">in </span><span class="kw-2">&amp;</span>block.events.first().unwrap().covs {
+                    <span class="kw">let </span>p_v = p_v.unwrap();
+                    block_covs.insert(
+                        key.clone(),
+                        CovLine {
+                            intercept: p_v,
+                            slope: <span class="number">0.0</span>,
+                        },
+                    );
+                }
+            }
+            block.covs = block_covs;
+        }
+    }
 }
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Infusion {
@@ -299,6 +472,7 @@
     <span class="kw">pub </span>events: Vec&lt;Event&gt;,
     <span class="kw">pub </span>covs: HashMap&lt;String, CovLine&gt;,
 }
+
 <span class="doccomment">/// A Event represent a single row in the Datafile
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Event {
@@ -318,6 +492,16 @@
     _c3: <span class="prelude-ty">Option</span>&lt;f32&gt;,
     <span class="kw">pub </span>covs: HashMap&lt;String, <span class="prelude-ty">Option</span>&lt;f64&gt;&gt;,
 }
+
+<span class="kw">impl </span>Event {
+    <span class="kw">pub fn </span>cmp_by_id_then_time(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; Ordering {
+        <span class="kw">match </span><span class="self">self</span>.id.cmp(<span class="kw-2">&amp;</span>other.id) {
+            Ordering::Equal =&gt; <span class="self">self</span>.time.partial_cmp(<span class="kw-2">&amp;</span>other.time).unwrap(),
+            other =&gt; other,
+        }
+    }
+}
+
 <span class="kw">pub fn </span>parse(path: <span class="kw-2">&amp;</span>String) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Scenario&gt;, Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>rdr = csv::ReaderBuilder::new()
         <span class="comment">// .delimiter(b&#39;,&#39;)
@@ -354,125 +538,19 @@
         });
     }
 
-    <span class="kw">let </span><span class="kw-2">mut </span>scenarios: Vec&lt;Scenario&gt; = <span class="macro">vec!</span>[];
-    <span class="kw">let </span><span class="kw-2">mut </span>blocks: Vec&lt;Block&gt; = <span class="macro">vec!</span>[];
-    <span class="kw">let </span><span class="kw-2">mut </span>block: Block = Block {
-        events: <span class="macro">vec!</span>[],
-        covs: HashMap::new(),
-    };
-    <span class="kw">let </span><span class="kw-2">mut </span>obs: Vec&lt;f64&gt; = <span class="macro">vec!</span>[];
-    <span class="kw">let </span><span class="kw-2">mut </span>times: Vec&lt;f64&gt; = <span class="macro">vec!</span>[];
-    <span class="kw">let </span><span class="kw-2">mut </span>obs_times: Vec&lt;f64&gt; = <span class="macro">vec!</span>[];
-    <span class="kw">let </span><span class="kw-2">mut </span>id = events[<span class="number">0</span>].id.clone();
-
-    <span class="kw">for </span><span class="kw-2">mut </span>event <span class="kw">in </span>events {
-        <span class="comment">//First event of a scenario
-        </span><span class="kw">if </span>event.id != id {
-            <span class="kw">for </span>(key, val) <span class="kw">in </span><span class="kw-2">&amp;</span>event.covs {
-                <span class="kw">if </span>val.is_none() {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Error: Covariate {} does not have a value on the first event of subject {}.&quot;</span>, key, event.id).into());
-                }
-            }
-            <span class="kw">if </span>!block.events.is_empty() {
-                blocks.push(block);
-            }
-            scenarios.push(Scenario {
-                id,
-                blocks,
-                obs,
-                obs_times,
-                times,
-            });
-            block = Block {
-                events: <span class="macro">vec!</span>[],
-                covs: HashMap::new(),
-            };
-            obs = <span class="macro">vec!</span>[];
-            blocks = <span class="macro">vec!</span>[];
-            obs_times = <span class="macro">vec!</span>[];
-            times = <span class="macro">vec!</span>[];
-            id = event.id.clone();
-        }
-        times.push(event.time);
-        <span class="comment">//Covariate forward filling
-        </span><span class="kw">for </span>(key, val) <span class="kw">in </span><span class="kw-2">&amp;mut </span>event.covs {
-            <span class="kw">if </span>val.is_none() {
-                <span class="kw-2">*</span>val = <span class="kw-2">*</span>block.events.last().unwrap().covs.get(key).unwrap();
-            }
-        }
-        <span class="comment">//Event validation logic
-        </span><span class="kw">if </span>event.evid == <span class="number">1 </span>{
-            <span class="kw">if </span>event.dur.unwrap_or(<span class="number">0.0</span>) &gt; <span class="number">0.0 </span>{
-                check_infusion(<span class="kw-2">&amp;</span>event)<span class="question-mark">?</span>;
-            } <span class="kw">else </span>{
-                check_dose(<span class="kw-2">&amp;</span>event)<span class="question-mark">?</span>;
-            }
-
-            <span class="kw">if </span>!block.events.is_empty() {
-                blocks.push(block);
-            }
-            <span class="comment">// clone the covs from the dose event and put them in the block
-            </span>block = Block {
-                events: <span class="macro">vec!</span>[],
-                covs: HashMap::new(),
-            };
-        } <span class="kw">else if </span>event.evid == <span class="number">0 </span>{
-            check_obs(<span class="kw-2">&amp;</span>event)<span class="question-mark">?</span>;
-            obs_times.push(event.time);
-            obs.push(event.out.unwrap());
-        } <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error: Unsupported evid&quot;</span>.into());
-        }
-
-        block.events.push(event);
-    }
-    <span class="kw">if </span>!block.events.is_empty() {
-        blocks.push(block);
-    }
-    scenarios.push(Scenario {
-        id,
-        blocks,
-        obs,
-        obs_times,
-        times,
+    <span class="kw">let </span><span class="kw-2">mut </span>event_groups: HashMap&lt;String, Vec&lt;Event&gt;&gt; = HashMap::new();
+    events.into_iter().for_each(|event| {
+        event_groups
+            .entry(event.id.clone())
+            .or_insert_with(Vec::new)
+            .push(event);
     });
-    <span class="comment">// Prepare the linear interpolation of the covariates
-    </span><span class="kw">let </span>scenarios_c = scenarios.clone();
-    <span class="kw">for </span>(si, scenario) <span class="kw">in </span>scenarios.iter_mut().enumerate() {
-        <span class="kw">let </span>scenario_c = scenarios_c.get(si).unwrap();
-        <span class="kw">for </span>(bi, block) <span class="kw">in </span>scenario.blocks.iter_mut().enumerate() {
-            <span class="kw">let </span><span class="kw-2">mut </span>block_covs: HashMap&lt;String, CovLine&gt; = HashMap::new();
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(next_block) = scenario_c.blocks.get(bi + <span class="number">1</span>) {
-                <span class="kw">for </span>(key, p_v) <span class="kw">in </span><span class="kw-2">&amp;</span>block.events.first().unwrap().covs {
-                    <span class="kw">let </span>p_v = p_v.unwrap();
-                    <span class="kw">let </span>p_t = block.events.first().unwrap().time;
-                    <span class="kw">let </span>f_v = next_block
-                        .events
-                        .first()
-                        .unwrap()
-                        .covs
-                        .get(key)
-                        .unwrap()
-                        .unwrap();
-                    <span class="kw">let </span>f_t = next_block.events.first().unwrap().time;
-                    <span class="kw">let </span>slope = (f_v - p_v) / (f_t - p_t);
-                    <span class="kw">let </span>intercept = p_v - slope * p_t;
-                    block_covs.insert(key.clone(), CovLine { intercept, slope });
-                }
-            } <span class="kw">else </span>{
-                <span class="kw">for </span>(key, p_v) <span class="kw">in </span><span class="kw-2">&amp;</span>block.events.first().unwrap().covs {
-                    <span class="kw">let </span>p_v = p_v.unwrap();
-                    block_covs.insert(
-                        key.clone(),
-                        CovLine {
-                            intercept: p_v,
-                            slope: <span class="number">0.0</span>,
-                        },
-                    );
-                }
-            }
-            block.covs = block_covs;
-        }
+
+    <span class="kw">let </span><span class="kw-2">mut </span>scenarios: Vec&lt;Scenario&gt; = <span class="macro">vec!</span>[];
+
+    <span class="kw">for </span>(_id, s_events) <span class="kw">in </span>event_groups {
+        <span class="kw">let </span>scenario = Scenario::new(s_events)<span class="question-mark">?</span>;
+        scenarios.push(scenario);
     }
 
     <span class="prelude-val">Ok</span>(scenarios)
@@ -480,31 +558,45 @@
 
 <span class="kw">fn </span>check_dose(event: <span class="kw-2">&amp;</span>Event) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     <span class="kw">if </span>event.dose.is_none() {
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error: Dose event without dose&quot;</span>.into());
+        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Dose event without dose&quot;</span>);
+        <span class="comment">//return Err(&quot;Error: Dose event without dose&quot;.into());
+        </span>exit(-<span class="number">1</span>);
     }
     <span class="kw">if </span>event.input.is_none() {
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error: Dose event without input&quot;</span>.into());
+        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Dose event without input&quot;</span>);
+        <span class="comment">//return Err(&quot;Error: Dose event without input&quot;.into());
+        </span>exit(-<span class="number">1</span>);
     }
     <span class="prelude-val">Ok</span>(())
 }
 <span class="kw">fn </span>check_infusion(event: <span class="kw-2">&amp;</span>Event) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     <span class="kw">if </span>event.dose.is_none() {
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error: Infusion event without dose&quot;</span>.into());
+        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Infusion event without dose&quot;</span>);
+        <span class="comment">//return Err(&quot;Error: Infusion event without dose&quot;.into());
+        </span>exit(-<span class="number">1</span>);
     }
     <span class="kw">if </span>event.dur.is_none() {
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error: Infusion event without duration&quot;</span>.into());
+        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Infusion event without duration&quot;</span>);
+        <span class="comment">//return Err(&quot;Error: Infusion event without duration&quot;.into());
+        </span>exit(-<span class="number">1</span>);
     }
     <span class="kw">if </span>event.input.is_none() {
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error: Infusion event without input&quot;</span>.into());
+        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Infusion event without input&quot;</span>);
+        <span class="comment">//return Err(&quot;Error: Infusion event without input&quot;.into());
+        </span>exit(-<span class="number">1</span>);
     }
     <span class="prelude-val">Ok</span>(())
 }
 <span class="kw">fn </span>check_obs(event: <span class="kw-2">&amp;</span>Event) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     <span class="kw">if </span>event.out.is_none() {
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error: Obs event without out&quot;</span>.into());
+        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Obs event without out&quot;</span>);
+        <span class="comment">//return Err(&quot;Error: Obs event without out&quot;.into());
+        </span>exit(-<span class="number">1</span>);
     }
     <span class="kw">if </span>event.outeq.is_none() {
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error: Obs event without outeq&quot;</span>.into());
+        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Obs event without outeq&quot;</span>);
+        <span class="comment">//return Err(&quot;Error: Obs event without outeq&quot;.into());
+        </span>exit(-<span class="number">1</span>);
     }
     <span class="prelude-val">Ok</span>(())
 }
