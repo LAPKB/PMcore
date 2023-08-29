@@ -238,7 +238,7 @@ where
                 writer.write_field(format!("{}", &cycle)).unwrap();
                 writer.write_field(format!("{}", -2. * objf)).unwrap();
                 writer.write_field(format!("{}", gamma)).unwrap();
-
+            }
 
         // If the objective function decreased, log an error
         if last_objf > objf {
