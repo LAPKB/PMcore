@@ -3,6 +3,25 @@ use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use std::fs::File;
 
+/// Defines the result objects from an NPAG run
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct NPResult {
+    pub theta: Array2<f64>,
+    pub psi: Array2<f64>,
+    pub w: Array1<f64>,
+    pub objf: f64,
+    pub cycles: usize,
+    pub converged: bool,
+}
+
+pub struct NPCycleLog {
+    pub cycle: usize,
+    pub objf: f64,
+    pub gamlam: f64,
+    pub theta: Array2<f64>,
+}
+
 // Cycles
 pub struct CycleWriter {
     writer: csv::Writer<File>,

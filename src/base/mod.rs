@@ -32,16 +32,16 @@ pub mod simulator;
 /// Defines the result objects from an NPAG run
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct NPAGresult {
-    theta: Array2<f64>,
-    psi: Array2<f64>,
-    w: Array1<f64>,
-    objf: f64,
-    cycle: usize,
-    converged: bool,
+pub struct NPResult {
+    pub theta: Array2<f64>,
+    pub psi: Array2<f64>,
+    pub w: Array1<f64>,
+    pub objf: f64,
+    pub cycles: usize,
+    pub converged: bool,
 }
 
-pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPAGresult>
+pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
 where
     S: Predict + std::marker::Sync + std::marker::Send + 'static,
 {
@@ -136,7 +136,7 @@ where
 
     let settings_tui = settings.clone();
 
-    let npag_result: NPAGresult;
+    let npag_result: NPResult;
 
     if settings.parsed.config.tui {
         let ui_handle = spawn(move || {
@@ -150,7 +150,7 @@ where
         npag_result = run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
         log::info!("Total time: {:.2?}", now.elapsed());
     }
-    
+
     Ok(npag_result)
 }
 
@@ -162,7 +162,7 @@ fn run_npag<S>(
     c: (f64, f64, f64, f64),
     tx: UnboundedSender<AppState>,
     settings: &Data,
-) -> NPAGresult
+) -> NPResult
 where
     S: Predict + std::marker::Sync,
 {
@@ -174,8 +174,7 @@ where
         }
     }
 
-    let (theta, psi, w, objf, cycle, converged) =
-        npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
+    let result = npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
 
     if let Some(output) = &settings.parsed.config.pmetrics_outputs {
         if *output {
@@ -195,8 +194,8 @@ where
 
             writer.write_record(&theta_header).unwrap();
 
-            let mut theta_w = theta.clone();
-            theta_w.push_column(w.view()).unwrap();
+            let mut theta_w = result.theta.clone();
+            theta_w.push_column(result.w.view()).unwrap();
 
             for row in theta_w.axis_iter(Axis(0)) {
                 for elem in row.axis_iter(Axis(0)) {
@@ -208,7 +207,7 @@ where
             writer.flush().unwrap();
 
             // // posterior.csv
-            let posterior = posterior(&psi, &w);
+            let posterior = posterior(&result.psi, &result.w);
             let post_file = File::create("posterior.csv").unwrap();
             let mut post_writer = WriterBuilder::new()
                 .has_headers(false)
@@ -216,7 +215,7 @@ where
             post_writer.write_field("id").unwrap();
             post_writer.write_field("point").unwrap();
             let parameter_names = &settings.computed.random.names;
-            for i in 0..theta.ncols() {
+            for i in 0..result.theta.ncols() {
                 let param_name = parameter_names.get(i).unwrap();
                 post_writer.write_field(param_name).unwrap();
             }
@@ -229,7 +228,7 @@ where
                         .write_field(&scenarios.get(sub).unwrap().id)
                         .unwrap();
                     post_writer.write_field(format!("{}", spp)).unwrap();
-                    for param in theta.row(spp) {
+                    for param in result.theta.row(spp) {
                         post_writer.write_field(format!("{param}")).unwrap();
                     }
                     post_writer.write_field(format!("{elem:.10}")).unwrap();
@@ -241,8 +240,9 @@ where
             // writer.serialize_array2(&posterior).unwrap();
             let cache = settings.parsed.config.cache.unwrap_or(false);
             // pred.csv
-            let (pop_mean, pop_median) = population_mean_median(&theta, &w);
-            let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
+            let (pop_mean, pop_median) = population_mean_median(&result.theta, &result.w);
+            let (post_mean, post_median) =
+                posterior_mean_median(&result.theta, &result.psi, &result.w);
             let post_mean_pred = post_predictions(&sim_eng, post_mean, scenarios).unwrap();
             let post_median_pred = post_predictions(&sim_eng, post_median, scenarios).unwrap();
 
@@ -330,14 +330,7 @@ where
         }
     }
 
-    NPAGresult {
-        theta,
-        psi,
-        w,
-        objf,
-        cycle,
-        converged,
-    }
+    result
 }
 
 fn setup_log(settings: &Data) {
