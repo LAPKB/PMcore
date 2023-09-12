@@ -1,5 +1,5 @@
 use self::datafile::Scenario;
-use self::output::{population_mean_median, posterior, posterior_mean_median};
+use self::output::{population_mean_median, posterior, posterior_mean_median, NPResult};
 use self::predict::{post_predictions, Engine, Predict};
 use self::settings::run::Data;
 use crate::prelude::start_ui;
@@ -10,7 +10,7 @@ use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{Array2, Axis};
 
 use predict::sim_obs;
 use std::fs::{self, File};
@@ -28,18 +28,6 @@ pub mod prob;
 pub mod settings;
 pub mod sigma;
 pub mod simulator;
-
-/// Defines the result objects from an NPAG run
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct NPResult {
-    pub theta: Array2<f64>,
-    pub psi: Array2<f64>,
-    pub w: Array1<f64>,
-    pub objf: f64,
-    pub cycles: usize,
-    pub converged: bool,
-}
 
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
 where

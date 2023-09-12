@@ -13,8 +13,10 @@ pub struct NPResult {
     pub objf: f64,
     pub cycles: usize,
     pub converged: bool,
+    pub cycle_log: Vec<NPCycleLog>,
 }
 
+#[derive(Debug, Clone)]
 pub struct NPCycleLog {
     pub cycle: usize,
     pub objf: f64,

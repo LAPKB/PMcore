@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use crate::prelude::output::{CycleWriter, NPCycleLog};
+use crate::prelude::output::{CycleWriter, NPCycleLog, NPResult};
 use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
@@ -339,6 +339,7 @@ where
         objf,
         cycles: cycle,
         converged,
+        cycle_log,
     }
     // (theta, psi, w, objf, cycle, converged)
 }
