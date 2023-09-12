@@ -1,4 +1,5 @@
 use std::fs::File;
+// use std::process::exit;
 
 use crate::prelude::output::{CycleWriter, NPCycle, NPResult};
 use crate::prelude::predict::sim_obs;
@@ -121,6 +122,8 @@ where
         let perm = n_psi.sort_axis_by(Axis(1), |i, j| {
             n_psi.column(i).sum() > n_psi.column(j).sum()
         });
+        // dbg!(perm);
+        // exit(1);
         n_psi = n_psi.permute_axis(Axis(1), &perm);
         // QR decomposition
         match n_psi.qr() {

@@ -14,11 +14,8 @@ ndarray = { version = "0.15.6", features = ["rayon"] }
 serde = "1.0.159"
 serde_derive = "1.0.159"
 sobol_burley = "0.5.0"
-toml = {version = "0.7.6", features = ["preserve_order"]}
-# ode_solvers = { git = 'https://github.com/Siel/ode-solvers', branch = 'mut_system' }
+toml = { version = "0.7.6", features = ["preserve_order"] }
 ode_solvers = "0.3.7"
-#plotly = "0.8.3"
-#interp = "1.0.1"
 ndarray-stats = "0.5.1"
 linfa-linalg = "0.1.0"
 log = "0.4.17"
@@ -32,9 +29,13 @@ ndarray-csv = "0.5.1"
 rawpointer = "0.2.1"
 argmin = "0.8.1"
 itertools = "0.11.0"
-#noisy_float = "0.2.0"
-#ndarray-linalg = { version = "0.16.0", features = ["openblas-system"]}
-#openblas-src = { version = "0.10.8", features = ["system"]}
+faer-core = "0.9"
+# faer-lu = "0.9"
+faer-qr = "0.9"
+# faer-cholesky = "0.9"
+# faer-svd = "0.9"
+dyn-stack = "0.9.0"
+
 
 [profile.release]
 codegen-units = 1
