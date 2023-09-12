@@ -100,7 +100,5 @@ fn main() -> Result<()> {
         "examples/bimodal_ke/config.toml".to_string(),
     )?;
 
-    dbg!(res);
-
     Ok(())
 }

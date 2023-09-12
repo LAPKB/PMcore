@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use crate::prelude::output::CycleWriter;
+use crate::prelude::output::{CycleWriter, NPCycleLog};
 use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
@@ -27,7 +27,7 @@ pub fn npag<S>(
     c: (f64, f64, f64, f64),
     tx: UnboundedSender<AppState>,
     settings: &Data,
-) -> (Array2<f64>, Array2<f64>, Array1<f64>, f64, usize, bool)
+) -> NPResult
 where
     S: Predict + std::marker::Sync,
 {
@@ -53,10 +53,12 @@ where
     let mut converged = false;
 
     // cycles.csv
+    //TODO: Move out of NPAG
     let par_names = &settings.computed.random.names;
     let mut cycle_writer = CycleWriter::new("cycles.csv", par_names.to_vec());
 
     // meta_rust.csv
+    //TODO: Move out of NPAG
     let meta_file = File::create("meta_rust.csv").unwrap();
     let mut meta_writer = WriterBuilder::new()
         .has_headers(false)
@@ -64,6 +66,9 @@ where
     meta_writer.write_field("converged").unwrap();
     meta_writer.write_field("ncycles").unwrap();
     meta_writer.write_record(None::<&[u8]>).unwrap();
+
+    // Instead we're using NPCycleLog
+    let mut cycle_log: Vec<NPCycleLog> = Vec::new();
 
     // let mut _pred: Array2<Vec<f64>>;
     let cache = settings.parsed.config.cache.unwrap_or(false);
@@ -231,12 +236,21 @@ where
         w = Array::from(lambda_tmp);
         let pyl = psi.dot(&w);
 
+        //TODO: Move out of NPAG
         if let Some(output) = &settings.parsed.config.pmetrics_outputs {
             if *output {
                 //cycles.csv
                 cycle_writer.write(cycle, objf, gamma, &theta);
             }
         }
+
+        // Append cycle info to cycle_log
+        cycle_log.push(NPCycleLog {
+            cycle,
+            objf,
+            gamlam: gamma,
+            theta: theta.clone(),
+        });
 
         // If the objective function decreased, log an error
         if last_objf > objf {
@@ -318,7 +332,15 @@ where
         last_objf = objf;
     }
     cycle_writer.flush();
-    (theta, psi, w, objf, cycle, converged)
+    NPResult {
+        theta,
+        psi,
+        w,
+        objf,
+        cycles: cycle,
+        converged,
+    }
+    // (theta, psi, w, objf, cycle, converged)
 }
 
 fn adaptative_grid(theta: &mut Array2<f64>, eps: f64, ranges: &[(f64, f64)]) -> Array2<f64> {
