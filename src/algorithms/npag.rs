@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use crate::prelude::output::{CycleWriter, NPCycleLog, NPResult};
+use crate::prelude::output::{CycleWriter, NPCycle, NPResult};
 use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
@@ -11,8 +11,6 @@ use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
 use ndarray_stats::DeviationExt;
 use ndarray_stats::QuantileExt;
 use tokio::sync::mpsc::UnboundedSender;
-
-use crate::tui::state::AppState;
 
 const THETA_E: f64 = 1e-4; //convergence Criteria
 const THETA_G: f64 = 1e-4; //objf stop criteria
@@ -25,7 +23,7 @@ pub fn npag<S>(
     mut theta: Array2<f64>,
     scenarios: &Vec<Scenario>,
     c: (f64, f64, f64, f64),
-    tx: UnboundedSender<AppState>,
+    tx: UnboundedSender<NPCycle>,
     settings: &Data,
 ) -> NPResult
 where
@@ -67,8 +65,8 @@ where
     meta_writer.write_field("ncycles").unwrap();
     meta_writer.write_record(None::<&[u8]>).unwrap();
 
-    // Instead we're using NPCycleLog
-    let mut cycle_log: Vec<NPCycleLog> = Vec::new();
+    // Instead we're using NPCycle
+    let mut cycle_log: Vec<NPCycle> = Vec::new();
 
     // let mut _pred: Array2<Vec<f64>>;
     let cache = settings.parsed.config.cache.unwrap_or(false);
@@ -244,14 +242,6 @@ where
             }
         }
 
-        // Append cycle info to cycle_log
-        cycle_log.push(NPCycleLog {
-            cycle,
-            objf,
-            gamlam: gamma,
-            theta: theta.clone(),
-        });
-
         // If the objective function decreased, log an error
         if last_objf > objf {
             log::error!("Objf decreased");
@@ -259,19 +249,17 @@ where
         }
 
         // Write cycle output
-        match &settings.parsed.config.pmetrics_outputs {
-            Some(true) => {
-                cycle_writer.write(cycle, objf, gamma, &theta);
-            }
-            _ => {}
+        if let Some(true) = &settings.parsed.config.pmetrics_outputs {
+            cycle_writer.write(cycle, objf, gamma, &theta);
         }
 
-        let mut state = AppState {
+        let mut state = NPCycle {
             cycle,
             objf: -2. * objf,
             delta_objf: (last_objf - objf).abs(),
             nspp: theta.shape()[0],
             stop_text: "".to_string(),
+            theta: theta.clone(),
             gamlam: gamma,
         };
         tx.send(state.clone()).unwrap();
@@ -325,6 +313,8 @@ where
             tx.send(state).unwrap();
             break;
         }
+        // Append cycle info to cycle_log
+        cycle_log.push(state);
 
         theta = adaptative_grid(&mut theta, eps, &ranges);
         // dbg!(&theta);

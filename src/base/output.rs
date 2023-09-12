@@ -13,15 +13,36 @@ pub struct NPResult {
     pub objf: f64,
     pub cycles: usize,
     pub converged: bool,
-    pub cycle_log: Vec<NPCycleLog>,
+    pub cycle_log: Vec<NPCycle>,
 }
 
 #[derive(Debug, Clone)]
-pub struct NPCycleLog {
+pub struct NPCycle {
     pub cycle: usize,
     pub objf: f64,
     pub gamlam: f64,
     pub theta: Array2<f64>,
+    pub stop_text: String,
+    pub nspp: usize,
+    pub delta_objf: f64,
+}
+impl NPCycle {
+    pub fn new() -> Self {
+        Self {
+            cycle: 0,
+            objf: 0.0,
+            gamlam: 0.0,
+            theta: Array2::default((0, 0)),
+            stop_text: "".to_string(),
+            nspp: 0,
+            delta_objf: 0.0,
+        }
+    }
+}
+impl Default for NPCycle {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // Cycles

@@ -1,9 +1,9 @@
 use self::datafile::Scenario;
-use self::output::{population_mean_median, posterior, posterior_mean_median, NPResult};
+use self::output::{population_mean_median, posterior, posterior_mean_median, NPCycle, NPResult};
 use self::predict::{post_predictions, Engine, Predict};
 use self::settings::run::Data;
+use crate::algorithms::npag::npag;
 use crate::prelude::start_ui;
-use crate::{algorithms::npag::npag, tui::state::AppState};
 use csv::WriterBuilder;
 use eyre::Result;
 use log::LevelFilter;
@@ -119,7 +119,7 @@ where
             scenarios.remove(val.as_integer().unwrap() as usize);
         }
     }
-    let (tx, rx) = mpsc::unbounded_channel::<AppState>();
+    let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
     let c = settings.parsed.error.poly;
 
     let settings_tui = settings.clone();
@@ -148,7 +148,7 @@ fn run_npag<S>(
     theta: Array2<f64>,
     scenarios: &Vec<Scenario>,
     c: (f64, f64, f64, f64),
-    tx: UnboundedSender<AppState>,
+    tx: UnboundedSender<NPCycle>,
     settings: &Data,
 ) -> NPResult
 where

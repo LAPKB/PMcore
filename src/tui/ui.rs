@@ -19,13 +19,12 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use super::{
     inputs::{events::Events, InputEvent},
     state::AppHistory,
-    state::AppState,
     App, AppReturn,
 };
 
-use crate::prelude::Data;
+use crate::prelude::{output::NPCycle, Data};
 
-pub fn start_ui(mut rx: UnboundedReceiver<AppState>, settings: Data) -> Result<()> {
+pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()> {
     let stdout = stdout();
     crossterm::terminal::enable_raw_mode()?;
     let backend = CrosstermBackend::new(stdout);
