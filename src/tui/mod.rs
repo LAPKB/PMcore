@@ -5,9 +5,10 @@ pub mod ui;
 
 use log::{debug, warn};
 
+use crate::prelude::output::NPCycle;
+
 use self::actions::{Action, Actions};
 use self::inputs::key::Key;
-use self::state::AppState;
 use std::fs::File;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -21,14 +22,14 @@ pub struct App {
     /// Contextual actions
     actions: Actions,
     /// State
-    state: AppState,
+    state: NPCycle,
 }
 
 impl App {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let actions = vec![Action::Quit, Action::Stop].into();
-        let state = AppState::new();
+        let state = NPCycle::new();
 
         Self { actions, state }
     }
@@ -56,7 +57,7 @@ impl App {
     pub fn actions(&self) -> &Actions {
         &self.actions
     }
-    pub fn state(&self) -> &AppState {
+    pub fn state(&self) -> &NPCycle {
         &self.state
     }
 }
