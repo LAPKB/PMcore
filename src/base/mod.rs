@@ -10,7 +10,7 @@ use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use ndarray::{Array2, Axis};
+use ndarray::{Array1, Array2, Axis};
 
 use predict::sim_obs;
 use std::fs::{self, File};
@@ -29,7 +29,19 @@ pub mod settings;
 pub mod sigma;
 pub mod simulator;
 
-pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<()>
+/// Defines the result objects from an NPAG run
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct NPAGresult {
+    theta: Array2<f64>,
+    psi: Array2<f64>,
+    w: Array1<f64>,
+    objf: f64,
+    cycle: usize,
+    converged: bool,
+}
+
+pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPAGresult>
 where
     S: Predict + std::marker::Sync + std::marker::Send + 'static,
 {
@@ -123,17 +135,23 @@ where
     let c = settings.parsed.error.poly;
 
     let settings_tui = settings.clone();
+
+    let npag_result: NPAGresult;
+
     if settings.parsed.config.tui {
-        spawn(move || {
-            run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
-            log::info!("Total time: {:.2?}", now.elapsed());
+        let ui_handle = spawn(move || {
+            start_ui(rx, settings_tui).expect("Failed to start UI");
         });
-        start_ui(rx, settings_tui)?;
+
+        npag_result = run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
+        log::info!("Total time: {:.2?}", now.elapsed());
+        ui_handle.join().expect("UI thread panicked");
     } else {
-        run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
+        npag_result = run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
         log::info!("Total time: {:.2?}", now.elapsed());
     }
-    Ok(())
+    
+    Ok(npag_result)
 }
 
 fn run_npag<S>(
@@ -144,7 +162,8 @@ fn run_npag<S>(
     c: (f64, f64, f64, f64),
     tx: UnboundedSender<AppState>,
     settings: &Data,
-) where
+) -> NPAGresult
+where
     S: Predict + std::marker::Sync,
 {
     // Remove stop file if exists
@@ -155,7 +174,7 @@ fn run_npag<S>(
         }
     }
 
-    let (theta, psi, w, _objf, _cycle, _converged) =
+    let (theta, psi, w, objf, cycle, converged) =
         npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
 
     if let Some(output) = &settings.parsed.config.pmetrics_outputs {
@@ -309,6 +328,15 @@ fn run_npag<S>(
             }
             obs_writer.flush().unwrap();
         }
+    }
+
+    NPAGresult {
+        theta,
+        psi,
+        w,
+        objf,
+        cycle,
+        converged,
     }
 }
 
