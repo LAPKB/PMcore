@@ -21,6 +21,7 @@ pub mod array_permutation;
 pub mod datafile;
 pub mod ipm;
 pub mod lds;
+pub mod linalg;
 pub mod optim;
 pub mod output;
 pub mod predict;
@@ -119,6 +120,7 @@ where
             scenarios.remove(val.as_integer().unwrap() as usize);
         }
     }
+
     let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
     let c = settings.parsed.error.poly;
 

@@ -117,7 +117,7 @@ impl Predict for Ode {
                             system.clone(),
                             event.time,
                             *next_time,
-                            1e-4,
+                            1e-3,
                             x,
                             RTOL,
                             ATOL,

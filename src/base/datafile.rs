@@ -252,6 +252,8 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
         scenarios.push(scenario);
     }
 
+    scenarios.sort_by(|a, b| a.id.cmp(&b.id));
+
     Ok(scenarios)
 }
 
