@@ -1,14 +1,18 @@
 use std::fs::File;
+use std::process::exit;
 // use std::process::exit;
 
+use crate::prelude::linalg::faer_qr_decomp;
 use crate::prelude::output::{CycleWriter, NPCycle, NPResult};
 use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
 use csv::WriterBuilder;
+use faer_core::ComplexField;
 use linfa_linalg::qr::QR;
 use ndarray::parallel::prelude::*;
 use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
+use ndarray_csv::Array2Writer;
 use ndarray_stats::DeviationExt;
 use ndarray_stats::QuantileExt;
 use tokio::sync::mpsc::UnboundedSender;
@@ -87,6 +91,11 @@ where
                 e_type: &error_type,
             },
         );
+        {
+            let file = File::create("psi.csv").unwrap();
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+            writer.serialize_array2(&psi).unwrap();
+        }
         // psi = prob(sim_eng, scenarios, &theta, c, cache);
         // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
         //     log::info!("sub {}, sum: {}", i, row.sum());
@@ -104,7 +113,7 @@ where
         let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         for (index, lam) in lambda.iter().enumerate() {
-            if *lam > 1e-8 && *lam > lambda.max().unwrap() / 1000_f64 {
+            if *lam > lambda.max().unwrap() / 1000_f64 {
                 theta_rows.push(theta.row(index));
                 psi_columns.push(psi.column(index));
             }
@@ -118,46 +127,121 @@ where
             .axis_iter_mut(Axis(0))
             .into_par_iter()
             .for_each(|mut row| row /= row.sum());
-        // permutate the columns of Psi
-        let perm = n_psi.sort_axis_by(Axis(1), |i, j| {
-            n_psi.column(i).sum() > n_psi.column(j).sum()
-        });
-        // dbg!(perm);
-        // exit(1);
-        n_psi = n_psi.permute_axis(Axis(1), &perm);
-        // QR decomposition
-        match n_psi.qr() {
-            Ok(qr) => {
-                let r = qr.into_r();
-                // Keep the valuable spp
-                let mut keep = 0;
-                //The minimum between the number of subjects and the actual number of support points
-                let lim_loop = n_psi.nrows().min(n_psi.ncols());
+        // for row in n_psi.rows_mut() {
+        //     let row_sum = row.sum();
+        //     for elem in row {
+        //         *elem /= row_sum
+        //     }
+        // }
+        // // permutate the columns of n_Psi
+        // let perm = n_psi.sort_axis_by(Axis(1), |i, j| {
+        //     norm_zero(&n_psi.column(i).to_owned()) > norm_zero(&n_psi.column(j).to_owned())
+        // });
+        // // dbg!(perm);
+        // // exit(1);
 
-                let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-                let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-                for i in 0..lim_loop {
-                    let test = norm_zero(&r.column(i).to_owned());
-                    if r.get((i, i)).unwrap() / test >= 1e-8 {
-                        theta_rows.push(theta.row(perm.indices[keep]));
-                        psi_columns.push(psi.column(perm.indices[keep]));
-                        keep += 1;
-                    }
-                }
-                theta = stack(Axis(0), &theta_rows).unwrap();
-                psi = stack(Axis(1), &psi_columns).unwrap();
-            }
-            Err(_) => {
-                log::info!("Cycle {}, #support points was {}", cycle, psi.ncols());
-                let nsub = psi.nrows();
-                // let perm = psi.sort_axis_by(Axis(1), |i, j| psi.column(i).sum() > psi.column(j).sum());
-                psi = psi.permute_axis(Axis(1), &perm);
-                theta = theta.permute_axis(Axis(0), &perm);
-                psi = psi.slice(s![.., ..nsub]).to_owned();
-                theta = theta.slice(s![..nsub, ..]).to_owned();
-                log::info!("Pushed down to {}", psi.ncols());
+        // n_psi = n_psi.permute_axis(Axis(1), &perm);
+        // // let r = n_psi.qr().unwrap().into_r();
+        // // dbg!(r);
+
+        // // for (i, col) in n_psi.columns().into_iter().enumerate() {
+        // //     dbg!(col.get(i).unwrap() / norm_zero(&col.to_owned()));
+        // // }
+        // // exit(1);
+        // // QR decomposition
+        // match n_psi.qr() {
+        //     Ok(qr) => {
+        //         let r = qr.into_r();
+        //         // Keep the valuable spp
+        //         let mut keep = 0;
+        //         //The minimum between the number of subjects and the actual number of support points
+        //         let lim_loop = psi.nrows().min(psi.ncols());
+
+        //         let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+        //         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+        //         for i in 0..lim_loop {
+        //             let test = norm_zero(&r.column(i).to_owned()); //the full column? or the triangular one?
+        //             if r.get((i, i)).unwrap() / test >= 1e-8 {
+        //                 theta_rows.push(theta.row(perm.indices[i]));
+        //                 psi_columns.push(psi.column(perm.indices[i]));
+        //                 keep += 1;
+        //             }
+        //         }
+        //         theta = stack(Axis(0), &theta_rows).unwrap();
+        //         psi = stack(Axis(1), &psi_columns).unwrap();
+        //         log::info!(
+        //             "QR decomp, cycle {}, keep: {}, thrown {}",
+        //             cycle,
+        //             keep,
+        //             lim_loop - keep
+        //         );
+        //     }
+        //     Err(_) => {
+        //         log::info!("Cycle {}, #support points was {}", cycle, psi.ncols());
+        //         let nsub = psi.nrows();
+        //         // let perm = psi.sort_axis_by(Axis(1), |i, j| psi.column(i).sum() > psi.column(j).sum());
+        //         psi = psi.permute_axis(Axis(1), &perm);
+        //         theta = theta.permute_axis(Axis(0), &perm);
+        //         psi = psi.slice(s![.., ..nsub]).to_owned();
+        //         theta = theta.slice(s![..nsub, ..]).to_owned();
+        //         log::info!("Pushed down to {}", psi.ncols());
+        //     }
+        // }
+        {
+            let file = File::create("n_psi.csv").unwrap();
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+            writer.serialize_array2(&n_psi).unwrap();
+        }
+        let (_r, perm) = faer_qr_decomp(&n_psi);
+        n_psi = n_psi.permute_axis(
+            Axis(1),
+            &Permutation {
+                indices: perm.clone(),
+            },
+        );
+        let r = n_psi.qr().unwrap().into_r();
+        {
+            let file = File::create("r.csv").unwrap();
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+            writer.serialize_array2(&r).unwrap();
+        }
+        // for i in 0..20 {
+        //     println!("i={}, r[i,i]={}", i, r.get((i, i)).unwrap());
+        // }
+        // exit(-1);
+        // Keep the valuable spp
+        let mut keep = 0;
+        //The minimum between the number of subjects and the actual number of support points
+        let lim_loop = psi.nrows().min(psi.ncols());
+        let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+        let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+        for i in 0..lim_loop {
+            let test = norm_zero(&r.column(i).to_owned()); //the full column? or the triangular one?
+                                                           // dbg!(r.get((i, i)).unwrap());
+                                                           // dbg!(test);
+                                                           // dbg!(r.get((i, i)).unwrap().abs() / test);
+            let ratio = r.get((i, i)).unwrap() / test; // what happen if the diagonal value is negative?
+            if ratio.abs() >= 1e-8 || ratio.is_nan() {
+                theta_rows.push(theta.row(perm[i]));
+                psi_columns.push(psi.column(perm[i]));
+                keep += 1;
+            } else {
+                // dbg!(i);
+                // dbg!(r.get((i, i)).unwrap());
+                // dbg!(test);
+                // dbg!(&r.column(i));
+                // exit(-1);
             }
         }
+        theta = stack(Axis(0), &theta_rows).unwrap();
+        psi = stack(Axis(1), &psi_columns).unwrap();
+
+        log::info!(
+            "QR decomp, cycle {}, keep: {}, thrown {}",
+            cycle,
+            keep,
+            lim_loop - keep
+        );
         (lambda, objf) = match ipm::burke(&psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
@@ -221,20 +305,20 @@ where
             gamma_delta = 0.1;
         }
 
-        let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-        let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-        let mut lambda_tmp: Vec<f64> = vec![];
-        for (index, lam) in lambda.iter().enumerate() {
-            if lam > &(lambda.max().unwrap() / 1000_f64) {
-                theta_rows.push(theta.row(index));
-                psi_columns.push(psi.column(index));
-                lambda_tmp.push(*lam);
-            }
-        }
+        // let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+        // let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+        // let mut lambda_tmp: Vec<f64> = vec![];
+        // for (index, lam) in lambda.iter().enumerate() {
+        //     if lam > &(lambda.max().unwrap() / 1000_f64) {
+        //         theta_rows.push(theta.row(index));
+        //         psi_columns.push(psi.column(index));
+        //         lambda_tmp.push(*lam);
+        //     }
+        // }
 
-        theta = stack(Axis(0), &theta_rows).unwrap();
-        psi = stack(Axis(1), &psi_columns).unwrap();
-        w = Array::from(lambda_tmp);
+        // theta = stack(Axis(0), &theta_rows).unwrap();
+        // psi = stack(Axis(1), &psi_columns).unwrap();
+        w = Array::from(lambda);
         let pyl = psi.dot(&w);
 
         //TODO: Move out of NPAG
@@ -243,12 +327,6 @@ where
                 //cycles.csv
                 cycle_writer.write(cycle, objf, gamma, &theta);
             }
-        }
-
-        // If the objective function decreased, log an error
-        if last_objf > objf {
-            log::error!("Objf decreased");
-            break;
         }
 
         // Write cycle output
