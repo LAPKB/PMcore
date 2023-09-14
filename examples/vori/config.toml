@@ -1,27 +1,27 @@
 [paths]
-data="examples/data/vori.csv"
-log_out="log/vori.log"
+data = "examples/data/vori.csv"
+log_out = "log/vori.log"
 [config]
-cycles=100
-engine="NPAG"
-init_points=10000
-seed=347
-tui=true
-pmetrics_outputs=true
+cycles = 1000
+engine = "NPAG"
+init_points = 10000
+seed = 347
+tui = true
+pmetrics_outputs = true
 cache = true
 [random]
-Age50 = [1.0,24.0]
-FA1 = [0.1,1.0]
-Hill = [0.01,5.0]
-Ka = [0.01,15.0]
-KCP = [0.01,15.0]
-Km = [5.0,60.0]
-KPC = [0.01,15.0]
-Vc0 = [1.0,5.0]
-Vmax0 = [1.0,60.0]
+Age50 = [1.0, 24.0]
+FA1 = [0.1, 1.0]
+Hill = [0.01, 5.0]
+Ka = [0.01, 15.0]
+KCP = [0.01, 15.0]
+Km = [5.0, 60.0]
+KPC = [0.01, 15.0]
+Vc0 = [1.0, 5.0]
+Vmax0 = [1.0, 60.0]
 [fixed]
 [constant]
 [error]
 value = 2.8
 class = "proportional"
-poly = [0.02,0.1,0.0,0.0]
+poly = [0.02, 0.1, 0.0, 0.0]

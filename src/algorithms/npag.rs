@@ -11,7 +11,7 @@ use csv::WriterBuilder;
 use faer_core::ComplexField;
 use linfa_linalg::qr::QR;
 use ndarray::parallel::prelude::*;
-use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
+use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr, ViewRepr};
 use ndarray_csv::Array2Writer;
 use ndarray_stats::DeviationExt;
 use ndarray_stats::QuantileExt;
@@ -127,70 +127,26 @@ where
             .axis_iter_mut(Axis(0))
             .into_par_iter()
             .for_each(|mut row| row /= row.sum());
-        // for row in n_psi.rows_mut() {
-        //     let row_sum = row.sum();
-        //     for elem in row {
-        //         *elem /= row_sum
-        //     }
+
+        // {
+        //     let file = File::create("n_psi.csv").unwrap();
+        //     let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        //     writer.serialize_array2(&n_psi).unwrap();
         // }
-        // // permutate the columns of n_Psi
-        // let perm = n_psi.sort_axis_by(Axis(1), |i, j| {
-        //     norm_zero(&n_psi.column(i).to_owned()) > norm_zero(&n_psi.column(j).to_owned())
-        // });
-        // // dbg!(perm);
-        // // exit(1);
+        if n_psi.ncols() > n_psi.nrows() {
+            let nrows = n_psi.nrows();
+            let ncols = n_psi.ncols();
 
-        // n_psi = n_psi.permute_axis(Axis(1), &perm);
-        // // let r = n_psi.qr().unwrap().into_r();
-        // // dbg!(r);
-
-        // // for (i, col) in n_psi.columns().into_iter().enumerate() {
-        // //     dbg!(col.get(i).unwrap() / norm_zero(&col.to_owned()));
-        // // }
-        // // exit(1);
-        // // QR decomposition
-        // match n_psi.qr() {
-        //     Ok(qr) => {
-        //         let r = qr.into_r();
-        //         // Keep the valuable spp
-        //         let mut keep = 0;
-        //         //The minimum between the number of subjects and the actual number of support points
-        //         let lim_loop = psi.nrows().min(psi.ncols());
-
-        //         let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-        //         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-        //         for i in 0..lim_loop {
-        //             let test = norm_zero(&r.column(i).to_owned()); //the full column? or the triangular one?
-        //             if r.get((i, i)).unwrap() / test >= 1e-8 {
-        //                 theta_rows.push(theta.row(perm.indices[i]));
-        //                 psi_columns.push(psi.column(perm.indices[i]));
-        //                 keep += 1;
-        //             }
-        //         }
-        //         theta = stack(Axis(0), &theta_rows).unwrap();
-        //         psi = stack(Axis(1), &psi_columns).unwrap();
-        //         log::info!(
-        //             "QR decomp, cycle {}, keep: {}, thrown {}",
-        //             cycle,
-        //             keep,
-        //             lim_loop - keep
-        //         );
-        //     }
-        //     Err(_) => {
-        //         log::info!("Cycle {}, #support points was {}", cycle, psi.ncols());
-        //         let nsub = psi.nrows();
-        //         // let perm = psi.sort_axis_by(Axis(1), |i, j| psi.column(i).sum() > psi.column(j).sum());
-        //         psi = psi.permute_axis(Axis(1), &perm);
-        //         theta = theta.permute_axis(Axis(0), &perm);
-        //         psi = psi.slice(s![.., ..nsub]).to_owned();
-        //         theta = theta.slice(s![..nsub, ..]).to_owned();
-        //         log::info!("Pushed down to {}", psi.ncols());
-        //     }
-        // }
-        {
-            let file = File::create("n_psi.csv").unwrap();
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-            writer.serialize_array2(&n_psi).unwrap();
+            let diff = ncols - nrows;
+            let zeros = Array2::<f64>::zeros((diff, ncols));
+            let mut new_n_psi = Array2::<f64>::zeros((nrows + diff, ncols));
+            new_n_psi.slice_mut(s![..nrows, ..]).assign(&n_psi);
+            new_n_psi.slice_mut(s![nrows.., ..]).assign(&zeros);
+            n_psi = new_n_psi;
+            log::info!(
+                "Cycle: {}. nspp>nsub. n_psi matrix has been expanded.",
+                cycle
+            );
         }
         let (_r, perm) = faer_qr_decomp(&n_psi);
         n_psi = n_psi.permute_axis(
@@ -200,37 +156,23 @@ where
             },
         );
         let r = n_psi.qr().unwrap().into_r();
-        {
-            let file = File::create("r.csv").unwrap();
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-            writer.serialize_array2(&r).unwrap();
-        }
-        // for i in 0..20 {
-        //     println!("i={}, r[i,i]={}", i, r.get((i, i)).unwrap());
+        // {
+        //     let file = File::create("r.csv").unwrap();
+        //     let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        //     writer.serialize_array2(&r).unwrap();
         // }
-        // exit(-1);
-        // Keep the valuable spp
         let mut keep = 0;
         //The minimum between the number of subjects and the actual number of support points
         let lim_loop = psi.nrows().min(psi.ncols());
         let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
         for i in 0..lim_loop {
-            let test = norm_zero(&r.column(i).to_owned()); //the full column? or the triangular one?
-                                                           // dbg!(r.get((i, i)).unwrap());
-                                                           // dbg!(test);
-                                                           // dbg!(r.get((i, i)).unwrap().abs() / test);
-            let ratio = r.get((i, i)).unwrap() / test; // what happen if the diagonal value is negative?
-            if ratio.abs() >= 1e-8 || ratio.is_nan() {
+            let test = norm_zero(&r.column(i).to_owned());
+            let ratio = r.get((i, i)).unwrap() / test;
+            if ratio.abs() >= 1e-8 {
                 theta_rows.push(theta.row(perm[i]));
                 psi_columns.push(psi.column(perm[i]));
                 keep += 1;
-            } else {
-                // dbg!(i);
-                // dbg!(r.get((i, i)).unwrap());
-                // dbg!(test);
-                // dbg!(&r.column(i));
-                // exit(-1);
             }
         }
         theta = stack(Axis(0), &theta_rows).unwrap();
@@ -240,7 +182,7 @@ where
             "QR decomp, cycle {}, keep: {}, thrown {}",
             cycle,
             keep,
-            lim_loop - keep
+            n_psi.ncols() - keep
         );
         (lambda, objf) = match ipm::burke(&psi) {
             Ok((lambda, objf)) => (lambda, objf),
