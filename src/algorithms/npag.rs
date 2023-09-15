@@ -122,8 +122,7 @@ where
         let perm = n_psi.sort_axis_by(Axis(1), |i, j| {
             n_psi.column(i).sum() > n_psi.column(j).sum()
         });
-        // dbg!(perm);
-        // exit(1);
+
         n_psi = n_psi.permute_axis(Axis(1), &perm);
         // QR decomposition
         match n_psi.qr() {
@@ -320,13 +319,24 @@ where
         cycle_log.push(state);
 
         theta = adaptative_grid(&mut theta, eps, &ranges);
-        // dbg!(&theta);
         cycle += 1;
         last_objf = objf;
     }
     cycle_writer.flush();
+
+    // Read parameter names from settings
+    // TODO: Add support for fixed and constant parameters
+    let par_names = settings
+        .parsed
+        .random
+        .iter()
+        .map(|(name, _)| name.clone())
+        .collect();
+
     NPResult {
+        scenarios: scenarios.clone(),
         theta,
+        par_names,
         psi,
         w,
         objf,
