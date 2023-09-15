@@ -1,19 +1,205 @@
+use crate::base::predict::*;
+use crate::prelude::{Engine, Scenario};
 use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use std::fs::File;
 
 /// Defines the result objects from an NPAG run
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct NPResult {
+    pub scenarios: Vec<Scenario>,
     pub theta: Array2<f64>,
+    pub par_names: Vec<String>,
     pub psi: Array2<f64>,
     pub w: Array1<f64>,
     pub objf: f64,
     pub cycles: usize,
     pub converged: bool,
     pub cycle_log: Vec<NPCycle>,
+}
+
+impl NPResult {
+    /// Writes theta, the population support points and their probabilities
+    pub fn write_theta(&self) {
+        let result = (|| {
+            let theta: Array2<f64> = self.theta.clone();
+            let w: Array1<f64> = self.w.clone();
+
+            let file = File::create("theta.csv")?;
+            let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+
+            // Create the headers
+            let mut theta_header = self.par_names.clone();
+            theta_header.push("prob".to_string());
+            writer.write_record(&theta_header)?;
+
+            // Write contents
+            for (theta_row, &w_val) in theta.outer_iter().zip(w.iter()) {
+                let mut row: Vec<String> = theta_row.iter().map(|&val| val.to_string()).collect();
+                row.push(w_val.to_string());
+                writer.write_record(&row)?;
+            }
+            writer.flush()
+        })();
+
+        if let Err(e) = result {
+            log::error!("Error while writing theta: {}", e);
+        }
+    }
+
+    /// Writes the posterior support points for each individual
+    pub fn write_posterior(&self) {
+        let result = (|| {
+            let theta: Array2<f64> = self.theta.clone();
+            let w: Array1<f64> = self.w.clone();
+            let psi: Array2<f64> = self.psi.clone();
+            let par_names: Vec<String> = self.par_names.clone();
+            let scenarios = self.scenarios.clone();
+
+            let posterior = posterior(&psi, &w);
+
+            let file = File::create("posterior.csv")?;
+            let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+
+            // Create the headers
+            writer.write_field("id")?;
+            writer.write_field("point")?;
+            for i in 0..theta.ncols() {
+                let param_name = par_names.get(i).unwrap();
+                writer.write_field(param_name)?;
+            }
+            writer.write_field("prob")?;
+            writer.write_record(None::<&[u8]>)?;
+
+            // Write contents
+            for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
+                for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
+                    writer.write_field(&scenarios.get(sub).unwrap().id)?;
+                    writer.write_field(format!("{}", spp))?;
+                    for param in theta.row(spp) {
+                        writer.write_field(&format!("{param}"))?;
+                    }
+                    writer.write_field(&format!("{elem:.10}"))?;
+                    writer.write_record(None::<&[u8]>)?;
+                }
+            }
+            writer.flush()
+        })();
+
+        if let Err(e) = result {
+            log::error!("Error while writing posterior: {}", e);
+        }
+    }
+
+    /// Write the observations, which is the reformatted input data
+    pub fn write_obs(&self) {
+        let result = (|| {
+            let scenarios = self.scenarios.clone();
+
+            let file = File::create("obs.csv")?;
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+
+            // Create the headers
+            writer.write_record(&["id", "time", "obs", "outeq"])?;
+
+            // Write contents
+            for scenario in scenarios {
+                for (observation, time) in scenario.obs.iter().zip(&scenario.obs_times) {
+                    writer.write_record(&[
+                        scenario.id.to_string(),
+                        time.to_string(),
+                        observation.to_string(),
+                        "1".to_string(),
+                    ])?;
+                }
+            }
+            writer.flush()
+        })();
+
+        if let Err(e) = result {
+            log::error!("Error while writing observations: {}", e);
+        }
+    }
+
+    /// Writes the predictions
+    pub fn write_pred<S>(&self, engine: &Engine<S>)
+    where
+        S: Predict + std::marker::Sync + std::marker::Send + 'static,
+    {
+        let result = (|| {
+            let scenarios = self.scenarios.clone();
+            let theta: Array2<f64> = self.theta.clone();
+            let w: Array1<f64> = self.w.clone();
+            let psi: Array2<f64> = self.psi.clone();
+
+            let (pop_mean, pop_median) = population_mean_median(&theta, &w);
+            let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
+            let post_mean_pred = post_predictions(&engine, post_mean, &scenarios).unwrap();
+            let post_median_pred = post_predictions(&engine, post_median, &scenarios).unwrap();
+
+            let ndim = pop_mean.len();
+            let pop_mean_pred = sim_obs(
+                &engine,
+                &scenarios,
+                &pop_mean.into_shape((1, ndim)).unwrap(),
+                false,
+            );
+            let pop_median_pred = sim_obs(
+                &engine,
+                &scenarios,
+                &pop_median.into_shape((1, ndim)).unwrap(),
+                false,
+            );
+
+            let file = File::create("pred.csv")?;
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+
+            // Create the headers
+            writer.write_record(&[
+                "id",
+                "time",
+                "outeq",
+                "popMean",
+                "popMedian",
+                "postMean",
+                "postMedian",
+            ])?;
+
+            // Write contents
+            for (id, scenario) in scenarios.iter().enumerate() {
+                let time = scenario.obs_times.clone();
+                let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
+                let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
+                let post_mp = post_mean_pred.get(id).unwrap().to_owned();
+                let post_mdp = post_median_pred.get(id).unwrap().to_owned();
+                for ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t) in pop_mp
+                    .into_iter()
+                    .zip(pop_medp)
+                    .zip(post_mp)
+                    .zip(post_mdp)
+                    .zip(time)
+                {
+                    writer
+                        .write_record(&[
+                            scenarios.get(id).unwrap().id.to_string(),
+                            t.to_string(),
+                            "1".to_string(),
+                            pop_mp_i.to_string(),
+                            pop_mdp_i.to_string(),
+                            post_mp_i.to_string(),
+                            post_medp_i.to_string(),
+                        ])
+                        .unwrap();
+                }
+            }
+            writer.flush()
+        })();
+
+        if let Err(e) = result {
+            log::error!("Error while writing predictions: {}", e);
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
