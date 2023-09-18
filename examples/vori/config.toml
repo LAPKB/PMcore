@@ -2,7 +2,7 @@
 data = "examples/data/vori.csv"
 log_out = "log/vori.log"
 [config]
-cycles = 1000
+cycles = 10000
 engine = "NPAG"
 init_points = 10000
 seed = 347

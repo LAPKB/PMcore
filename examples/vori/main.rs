@@ -5,8 +5,8 @@ use np_core::prelude::{
     datafile::{CovLine, Infusion},
     *,
 };
-const ATOL: f64 = 1e-5;
-const RTOL: f64 = 1e-5;
+const ATOL: f64 = 1e-4;
+const RTOL: f64 = 1e-4;
 use ode_solvers::*;
 use std::collections::HashMap;
 #[derive(Debug, Clone)]
