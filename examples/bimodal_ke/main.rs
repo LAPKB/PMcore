@@ -80,7 +80,7 @@ impl Predict for Ode {
                     yout.push(x[event.outeq.unwrap() - 1] / params[1]);
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
-                    // let mut stepper = Rk4::new(system.clone(), lag_time, x, *next_time, 0.1);
+                    //TODO: use the last dx as the initial one for the next simulation.
                     let mut stepper =
                         Dopri5::new(system.clone(), event.time, *next_time, 1e-3, x, RTOL, ATOL);
                     let _res = stepper.integrate();
