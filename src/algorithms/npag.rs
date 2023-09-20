@@ -110,6 +110,7 @@ where
                 cycle
             );
         }
+        //Rank-Revealing Factorization
         let (_r, perm) = faer_qr_decomp(&n_psi);
         n_psi = n_psi.permute_axis(
             Axis(1),
@@ -267,7 +268,6 @@ where
         cycle += 1;
         last_objf = objf;
     }
-    // cycle_writer.flush();
 
     NPResult::new(
         scenarios.clone(),
@@ -323,5 +323,3 @@ fn norm_zero(a: &Array1<f64>) -> f64 {
     let zeros: Array1<f64> = Array::zeros(a.len());
     a.l2_dist(&zeros).unwrap()
 }
-
-// what is pmetrics?
