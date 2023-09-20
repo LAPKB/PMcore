@@ -53,6 +53,11 @@ impl NPResult {
             par_names,
         }
     }
+    // Writes meta_rust.csv
+    pub fn write_meta(&self) {
+        let mut meta_writer = MetaWriter::new();
+        meta_writer.write(self.converged, self.cycles);
+    }
 
     /// Writes theta, the population support points and their probabilities
     pub fn write_theta(&self) {
