@@ -95,7 +95,7 @@ impl Predict for Ode {
 }
 
 fn main() -> Result<()> {
-    let res = start(
+    let _result = start(
         Engine::new(Ode {}),
         "examples/bimodal_ke/config.toml".to_string(),
     )?;

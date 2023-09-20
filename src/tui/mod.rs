@@ -3,9 +3,8 @@ pub mod inputs;
 pub mod state;
 pub mod ui;
 
-use log::{debug, warn};
-
 use crate::prelude::output::NPCycle;
+use log::{debug, trace};
 
 use self::actions::{Action, Actions};
 use self::inputs::key::Key;
@@ -49,7 +48,7 @@ impl App {
                 }
             }
         } else {
-            warn!("No action associated to {}", key);
+            trace!("{} was registered, but it has no associated action", key);
             AppReturn::Continue
         }
     }
