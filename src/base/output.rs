@@ -351,6 +351,38 @@ impl CycleWriter {
     }
 }
 
+// Meta
+#[derive(Debug)]
+pub struct MetaWriter {
+    writer: csv::Writer<File>,
+}
+
+impl MetaWriter {
+    pub fn new() -> MetaWriter {
+        let meta_file = File::create("meta_rust.csv").unwrap();
+        let mut meta_writer = WriterBuilder::new()
+            .has_headers(false)
+            .from_writer(meta_file);
+        meta_writer.write_field("converged").unwrap();
+        meta_writer.write_field("ncycles").unwrap();
+        meta_writer.write_record(None::<&[u8]>).unwrap();
+        MetaWriter {
+            writer: meta_writer,
+        }
+    }
+
+    pub fn write(&mut self, converged: bool, cycle: usize) {
+        self.writer.write_field(converged.to_string()).unwrap();
+        self.writer.write_field(format!("{}", cycle)).unwrap();
+        self.writer.write_record(None::<&[u8]>).unwrap();
+        self.flush();
+    }
+
+    fn flush(&mut self) {
+        self.writer.flush().unwrap();
+    }
+}
+
 pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
     let py = psi.dot(w);
     let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
