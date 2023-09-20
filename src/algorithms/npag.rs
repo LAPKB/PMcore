@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::process::exit;
+
 // use std::process::exit;
 
 use crate::prelude::linalg::faer_qr_decomp;
@@ -8,10 +8,9 @@ use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
 use csv::WriterBuilder;
-use faer_core::ComplexField;
 use linfa_linalg::qr::QR;
 use ndarray::parallel::prelude::*;
-use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr, ViewRepr};
+use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
 use ndarray_csv::Array2Writer;
 use ndarray_stats::DeviationExt;
 use ndarray_stats::QuantileExt;
@@ -170,8 +169,8 @@ where
             let test = norm_zero(&r.column(i).to_owned());
             let ratio = r.get((i, i)).unwrap() / test;
             if ratio.abs() >= 1e-8 {
-                theta_rows.push(theta.row(perm[i]));
-                psi_columns.push(psi.column(perm[i]));
+                theta_rows.push(theta.row(*perm.get(i).unwrap()));
+                psi_columns.push(psi.column(*perm.get(i).unwrap()));
                 keep += 1;
             }
         }
