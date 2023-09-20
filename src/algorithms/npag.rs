@@ -49,7 +49,6 @@ where
 
     let mut converged = false;
     let mut cycle_log = CycleLog::new(&settings.computed.random.names);
-    let mut meta_writer = MetaWriter::new();
 
     // let mut _pred: Array2<Vec<f64>>;
     let cache = settings.parsed.config.cache.unwrap_or(false);
@@ -232,7 +231,6 @@ where
                 f1 = pyl.mapv(|x| x.ln()).sum();
                 if (f1 - f0).abs() <= THETA_F {
                     log::info!("Likelihood criteria convergence");
-                    meta_writer.write(true, cycle);
                     converged = true;
                     state.stop_text = "The run converged!".to_string();
                     tx.send(state).unwrap();
@@ -247,17 +245,14 @@ where
         // Stop if we have reached maximum number of cycles
         if cycle >= settings.parsed.config.cycles {
             log::info!("Maximum number of cycles reached");
-            meta_writer.write(false, cycle);
             state.stop_text = "No (max cycle)".to_string();
             tx.send(state).unwrap();
             break;
         }
 
         // Stop if stopfile exists
-        let stopfile_found = std::path::Path::new("stop").exists();
-        if stopfile_found {
+        if std::path::Path::new("stop").exists() {
             log::info!("Stopfile detected - breaking");
-            meta_writer.write(false, cycle);
             state.stop_text = "No (stopped)".to_string();
             tx.send(state).unwrap();
             break;

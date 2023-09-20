@@ -169,7 +169,8 @@ where
             result.write_theta();
             result.write_posterior();
             result.write_obs();
-            result.write_pred(&sim_eng)
+            result.write_pred(&sim_eng);
+            result.write_meta();
         }
     }
 
