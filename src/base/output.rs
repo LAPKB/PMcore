@@ -1,4 +1,5 @@
 use crate::base::predict::*;
+use crate::prelude::*;
 use crate::prelude::{Engine, Scenario};
 use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
@@ -10,16 +11,49 @@ use std::fs::File;
 pub struct NPResult {
     pub scenarios: Vec<Scenario>,
     pub theta: Array2<f64>,
-    pub par_names: Vec<String>,
     pub psi: Array2<f64>,
     pub w: Array1<f64>,
     pub objf: f64,
     pub cycles: usize,
     pub converged: bool,
     pub cycle_log: Vec<NPCycle>,
+    pub par_names: Vec<String>,
 }
 
 impl NPResult {
+    /// Create a new NPResult object
+    pub fn new(
+        scenarios: Vec<Scenario>,
+        theta: Array2<f64>,
+        psi: Array2<f64>,
+        w: Array1<f64>,
+        objf: f64,
+        cycles: usize,
+        converged: bool,
+        cycle_log: Vec<NPCycle>,
+        settings: &Data,
+    ) -> Self {
+        // TODO: Add support for fixed and constant parameters
+
+        let par_names = settings
+            .parsed
+            .random
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect();
+        Self {
+            scenarios,
+            theta,
+            psi,
+            w,
+            objf,
+            cycles,
+            converged,
+            cycle_log,
+            par_names,
+        }
+    }
+
     /// Writes theta, the population support points and their probabilities
     pub fn write_theta(&self) {
         let result = (|| {
@@ -101,7 +135,7 @@ impl NPResult {
             let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
             // Create the headers
-            writer.write_record(&["id", "time", "obs", "outeq"])?;
+            writer.write_record(["id", "time", "obs", "outeq"])?;
 
             // Write contents
             for scenario in scenarios {
@@ -135,18 +169,18 @@ impl NPResult {
 
             let (pop_mean, pop_median) = population_mean_median(&theta, &w);
             let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
-            let post_mean_pred = post_predictions(&engine, post_mean, &scenarios).unwrap();
-            let post_median_pred = post_predictions(&engine, post_median, &scenarios).unwrap();
+            let post_mean_pred = post_predictions(engine, post_mean, &scenarios).unwrap();
+            let post_median_pred = post_predictions(engine, post_median, &scenarios).unwrap();
 
             let ndim = pop_mean.len();
             let pop_mean_pred = sim_obs(
-                &engine,
+                engine,
                 &scenarios,
                 &pop_mean.into_shape((1, ndim)).unwrap(),
                 false,
             );
             let pop_median_pred = sim_obs(
-                &engine,
+                engine,
                 &scenarios,
                 &pop_median.into_shape((1, ndim)).unwrap(),
                 false,
@@ -156,7 +190,7 @@ impl NPResult {
             let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
             // Create the headers
-            writer.write_record(&[
+            writer.write_record([
                 "id",
                 "time",
                 "outeq",
