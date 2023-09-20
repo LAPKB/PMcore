@@ -3,7 +3,7 @@ use std::fs::File;
 // use std::process::exit;
 
 use crate::prelude::linalg::faer_qr_decomp;
-use crate::prelude::output::{CycleWriter, NPCycle, NPResult};
+use crate::prelude::output::{CycleLog, NPCycle, NPResult};
 use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
@@ -11,7 +11,7 @@ use csv::WriterBuilder;
 use linfa_linalg::qr::QR;
 use ndarray::parallel::prelude::*;
 use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
-use ndarray_csv::Array2Writer;
+// use ndarray_csv::Array2Writer;
 use ndarray_stats::DeviationExt;
 use ndarray_stats::QuantileExt;
 use tokio::sync::mpsc::UnboundedSender;
@@ -57,7 +57,10 @@ where
     // cycles.csv
     //TODO: Move out of NPAG
     let par_names = &settings.computed.random.names;
-    let mut cycle_writer = CycleWriter::new("cycles.csv", par_names.to_vec());
+    // let mut cycle_writer = CycleWriter::new("cycles.csv", par_names.to_vec());
+    // Instead we're using NPCycle
+    let mut cycle_log = CycleLog::new(par_names);
+    // let mut cycle_log: Vec<NPCycle> = Vec::new();
 
     // meta_rust.csv
     //TODO: Move out of NPAG
@@ -68,9 +71,6 @@ where
     meta_writer.write_field("converged").unwrap();
     meta_writer.write_field("ncycles").unwrap();
     meta_writer.write_record(None::<&[u8]>).unwrap();
-
-    // Instead we're using NPCycle
-    let mut cycle_log: Vec<NPCycle> = Vec::new();
 
     // let mut _pred: Array2<Vec<f64>>;
     let cache = settings.parsed.config.cache.unwrap_or(false);
@@ -260,12 +260,6 @@ where
         // theta = stack(Axis(0), &theta_rows).unwrap();
         // psi = stack(Axis(1), &psi_columns).unwrap();
 
-        //TODO: Move out of NPAG
-        // Write cycle output
-        if let Some(true) = &settings.parsed.config.pmetrics_outputs {
-            cycle_writer.write(cycle, objf, gamma, &theta);
-        }
-
         let mut state = NPCycle {
             cycle,
             objf: -2. * objf,
@@ -276,6 +270,14 @@ where
             gamlam: gamma,
         };
         tx.send(state.clone()).unwrap();
+
+        // //TODO: Move out of NPAG
+        // // Write cycle output
+        // if let Some(true) = &settings.parsed.config.pmetrics_outputs {
+        //     cycle_writer.write(cycle, objf, gamma, &theta);
+        // }
+        // // Append cycle info to cycle_log
+        // cycle_log.push(state);
 
         // If the objective function decreased, log an error.
         // Increasing objf signals instability of model misspecification.
@@ -329,14 +331,13 @@ where
             tx.send(state).unwrap();
             break;
         }
-        // Append cycle info to cycle_log
-        cycle_log.push(state);
+        cycle_log.push(state, settings.parsed.config.pmetrics_outputs.unwrap());
 
         theta = adaptative_grid(&mut theta, eps, &ranges);
         cycle += 1;
         last_objf = objf;
     }
-    cycle_writer.flush();
+    // cycle_writer.flush();
 
     NPResult::new(
         scenarios.clone(),
