@@ -7,7 +7,7 @@ use ndarray::{Array, Array1, Array2, Axis};
 use std::fs::File;
 
 /// Defines the result objects from an NPAG run
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct NPResult {
     pub scenarios: Vec<Scenario>,
     pub theta: Array2<f64>,
@@ -16,7 +16,7 @@ pub struct NPResult {
     pub objf: f64,
     pub cycles: usize,
     pub converged: bool,
-    pub cycle_log: Vec<NPCycle>,
+    pub cycle_log: CycleLog,
     pub par_names: Vec<String>,
 }
 
@@ -30,7 +30,7 @@ impl NPResult {
         objf: f64,
         cycles: usize,
         converged: bool,
-        cycle_log: Vec<NPCycle>,
+        cycle_log: CycleLog,
         settings: &Data,
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
@@ -235,6 +235,28 @@ impl NPResult {
         }
     }
 }
+#[derive(Debug)]
+pub struct CycleLog {
+    pub cycles: Vec<NPCycle>,
+    cycle_writer: CycleWriter,
+}
+impl CycleLog {
+    pub fn new(par_names: &[String]) -> Self {
+        let cycle_writer = CycleWriter::new("cycles.csv", par_names.to_vec());
+        Self {
+            cycles: Vec::new(),
+            cycle_writer,
+        }
+    }
+    pub fn push(&mut self, npcycle: NPCycle, write_ouput: bool) {
+        if write_ouput {
+            self.cycle_writer
+                .write(npcycle.cycle, npcycle.objf, npcycle.gamlam, &npcycle.theta);
+            self.cycle_writer.flush();
+        }
+        self.cycles.push(npcycle);
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct NPCycle {
@@ -266,6 +288,7 @@ impl Default for NPCycle {
 }
 
 // Cycles
+#[derive(Debug)]
 pub struct CycleWriter {
     writer: csv::Writer<File>,
 }
