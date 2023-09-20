@@ -6,6 +6,9 @@ cycles.csv
 pred.csv
 obs.csv
 time.csv
+n_psi.csv
+psi.csv
+r.csv
 posterior.csv
 simulation_output.csv
 meta*.csv
