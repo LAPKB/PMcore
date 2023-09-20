@@ -1,5 +1,5 @@
 use crate::prelude::linalg::faer_qr_decomp;
-use crate::prelude::output::{CycleLog, MetaWriter, NPCycle, NPResult};
+use crate::prelude::output::{CycleLog, NPCycle, NPResult};
 use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
