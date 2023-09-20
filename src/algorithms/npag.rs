@@ -1,13 +1,8 @@
-use std::fs::File;
-
-// use std::process::exit;
-
 use crate::prelude::linalg::faer_qr_decomp;
-use crate::prelude::output::{CycleLog, NPCycle, NPResult};
+use crate::prelude::output::{CycleLog, MetaWriter, NPCycle, NPResult};
 use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
-use csv::WriterBuilder;
 use linfa_linalg::qr::QR;
 use ndarray::parallel::prelude::*;
 use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
@@ -53,24 +48,8 @@ where
     };
 
     let mut converged = false;
-
-    // cycles.csv
-    //TODO: Move out of NPAG
-    let par_names = &settings.computed.random.names;
-    // let mut cycle_writer = CycleWriter::new("cycles.csv", par_names.to_vec());
-    // Instead we're using NPCycle
-    let mut cycle_log = CycleLog::new(par_names);
-    // let mut cycle_log: Vec<NPCycle> = Vec::new();
-
-    // meta_rust.csv
-    //TODO: Move out of NPAG
-    let meta_file = File::create("meta_rust.csv").unwrap();
-    let mut meta_writer = WriterBuilder::new()
-        .has_headers(false)
-        .from_writer(meta_file);
-    meta_writer.write_field("converged").unwrap();
-    meta_writer.write_field("ncycles").unwrap();
-    meta_writer.write_record(None::<&[u8]>).unwrap();
+    let mut cycle_log = CycleLog::new(&settings.computed.random.names);
+    let mut meta_writer = MetaWriter::new();
 
     // let mut _pred: Array2<Vec<f64>>;
     let cache = settings.parsed.config.cache.unwrap_or(false);
@@ -90,17 +69,6 @@ where
                 e_type: &error_type,
             },
         );
-        // {
-        //     let file = File::create("psi.csv").unwrap();
-        //     let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-        //     writer.serialize_array2(&psi).unwrap();
-        // }
-        // psi = prob(sim_eng, scenarios, &theta, c, cache);
-        // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
-        //     log::info!("sub {}, sum: {}", i, row.sum());
-        // }
-        // (psi,_pred) = prob(&sim_eng, &scenarios, &theta, c);
-        // dbg!(&psi);
         (lambda, _) = match ipm::burke(&psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
@@ -127,11 +95,6 @@ where
             .into_par_iter()
             .for_each(|mut row| row /= row.sum());
 
-        // {
-        //     let file = File::create("n_psi.csv").unwrap();
-        //     let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-        //     writer.serialize_array2(&n_psi).unwrap();
-        // }
         if n_psi.ncols() > n_psi.nrows() {
             let nrows = n_psi.nrows();
             let ncols = n_psi.ncols();
@@ -155,11 +118,6 @@ where
             },
         );
         let r = n_psi.qr().unwrap().into_r();
-        // {
-        //     let file = File::create("r.csv").unwrap();
-        //     let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-        //     writer.serialize_array2(&r).unwrap();
-        // }
         let mut keep = 0;
         //The minimum between the number of subjects and the actual number of support points
         let lim_loop = psi.nrows().min(psi.ncols());
@@ -246,20 +204,6 @@ where
             gamma_delta = 0.1;
         }
 
-        // let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-        // let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-        // let mut lambda_tmp: Vec<f64> = vec![];
-        // for (index, lam) in lambda.iter().enumerate() {
-        //     if lam > &(lambda.max().unwrap() / 1000_f64) {
-        //         theta_rows.push(theta.row(index));
-        //         psi_columns.push(psi.column(index));
-        //         lambda_tmp.push(*lam);
-        //     }
-        // }
-
-        // theta = stack(Axis(0), &theta_rows).unwrap();
-        // psi = stack(Axis(1), &psi_columns).unwrap();
-
         let mut state = NPCycle {
             cycle,
             objf: -2. * objf,
@@ -270,14 +214,6 @@ where
             gamlam: gamma,
         };
         tx.send(state.clone()).unwrap();
-
-        // //TODO: Move out of NPAG
-        // // Write cycle output
-        // if let Some(true) = &settings.parsed.config.pmetrics_outputs {
-        //     cycle_writer.write(cycle, objf, gamma, &theta);
-        // }
-        // // Append cycle info to cycle_log
-        // cycle_log.push(state);
 
         // If the objective function decreased, log an error.
         // Increasing objf signals instability of model misspecification.
@@ -295,9 +231,7 @@ where
                 f1 = pyl.mapv(|x| x.ln()).sum();
                 if (f1 - f0).abs() <= THETA_F {
                     log::info!("Likelihood criteria convergence");
-                    meta_writer.write_field("true").unwrap();
-                    meta_writer.write_field(format!("{}", cycle)).unwrap();
-                    meta_writer.write_record(None::<&[u8]>).unwrap();
+                    meta_writer.write(true, cycle);
                     converged = true;
                     state.stop_text = "The run converged!".to_string();
                     tx.send(state).unwrap();
@@ -312,9 +246,7 @@ where
         // Stop if we have reached maximum number of cycles
         if cycle >= settings.parsed.config.cycles {
             log::info!("Maximum number of cycles reached");
-            meta_writer.write_field("false").unwrap();
-            meta_writer.write_field(format!("{}", cycle)).unwrap();
-            meta_writer.write_record(None::<&[u8]>).unwrap();
+            meta_writer.write(false, cycle);
             state.stop_text = "No (max cycle)".to_string();
             tx.send(state).unwrap();
             break;
@@ -324,9 +256,7 @@ where
         let stopfile_found = std::path::Path::new("stop").exists();
         if stopfile_found {
             log::info!("Stopfile detected - breaking");
-            meta_writer.write_field("false").unwrap();
-            meta_writer.write_field(format!("{}", cycle)).unwrap();
-            meta_writer.write_record(None::<&[u8]>).unwrap();
+            meta_writer.write(false, cycle);
             state.stop_text = "No (stopped)".to_string();
             tx.send(state).unwrap();
             break;
