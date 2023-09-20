@@ -90,11 +90,11 @@ where
                 e_type: &error_type,
             },
         );
-        {
-            let file = File::create("psi.csv").unwrap();
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-            writer.serialize_array2(&psi).unwrap();
-        }
+        // {
+        //     let file = File::create("psi.csv").unwrap();
+        //     let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        //     writer.serialize_array2(&psi).unwrap();
+        // }
         // psi = prob(sim_eng, scenarios, &theta, c, cache);
         // for (i, row) in psi.axis_iter(Axis(0)).into_iter().enumerate() {
         //     log::info!("sub {}, sum: {}", i, row.sum());
@@ -259,17 +259,8 @@ where
 
         // theta = stack(Axis(0), &theta_rows).unwrap();
         // psi = stack(Axis(1), &psi_columns).unwrap();
-        w = Array::from(lambda);
-        let pyl = psi.dot(&w);
 
         //TODO: Move out of NPAG
-        if let Some(output) = &settings.parsed.config.pmetrics_outputs {
-            if *output {
-                //cycles.csv
-                cycle_writer.write(cycle, objf, gamma, &theta);
-            }
-        }
-
         // Write cycle output
         if let Some(true) = &settings.parsed.config.pmetrics_outputs {
             cycle_writer.write(cycle, objf, gamma, &theta);
@@ -291,6 +282,9 @@ where
         if last_objf > objf {
             log::error!("Objective function decreased");
         }
+
+        w = Array::from(lambda);
+        let pyl = psi.dot(&w);
 
         // Stop if we have reached convergence criteria
         if (last_objf - objf).abs() <= THETA_G && eps > THETA_E {
@@ -342,29 +336,19 @@ where
         cycle += 1;
         last_objf = objf;
     }
-    // cycle_writer.flush();
+    cycle_writer.flush();
 
-    // Read parameter names from settings
-    // TODO: Add support for fixed and constant parameters
-    let par_names = settings
-        .parsed
-        .random
-        .iter()
-        .map(|(name, _)| name.clone())
-        .collect();
-
-    NPResult {
-        scenarios: scenarios.clone(),
+    NPResult::new(
+        scenarios.clone(),
         theta,
-        par_names,
         psi,
         w,
         objf,
-        cycles: cycle,
+        cycle,
         converged,
         cycle_log,
-    }
-    // (theta, psi, w, objf, cycle, converged)
+        settings,
+    )
 }
 
 fn adaptative_grid(theta: &mut Array2<f64>, eps: f64, ranges: &[(f64, f64)]) -> Array2<f64> {
