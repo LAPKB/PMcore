@@ -2,7 +2,7 @@
 data = "examples/data/vori.csv"
 log_out = "log/vori.log"
 [config]
-cycles = 10000
+cycles = 100
 engine = "NPAG"
 init_points = 10000
 seed = 347
@@ -22,6 +22,6 @@ Vmax0 = [1.0, 60.0]
 [fixed]
 [constant]
 [error]
-value = 2.8
-class = "proportional"
+value = 1.4
+class = "additive"
 poly = [0.02, 0.1, 0.0, 0.0]

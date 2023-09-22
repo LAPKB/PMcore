@@ -15,7 +15,7 @@ fn main() {
     //Fortran - DQRDC
     // 1.2 1.7 0.8 0.7 0.6
     // 1 0 2 3 4
-    let x = Mat::with_dims(x.nrows(), x.ncols(), |i, j| x[[i, j]]);
+    let x = Mat::from_fn(x.nrows(), x.ncols(), |i, j| x[[i, j]]);
     let rank = x.nrows().min(x.ncols());
     let blocksize = compute::recommended_blocksize::<f64>(x.nrows(), x.ncols());
     let mut mem =

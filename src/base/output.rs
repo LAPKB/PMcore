@@ -253,7 +253,7 @@ impl CycleLog {
             cycle_writer,
         }
     }
-    pub fn push(&mut self, npcycle: NPCycle, write_ouput: bool) {
+    pub fn push_and_write(&mut self, npcycle: NPCycle, write_ouput: bool) {
         if write_ouput {
             self.cycle_writer
                 .write(npcycle.cycle, npcycle.objf, npcycle.gamlam, &npcycle.theta);
