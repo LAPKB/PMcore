@@ -4,8 +4,7 @@ use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
 
-use ndarray::parallel::prelude::*;
-use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
+use ndarray::{stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
 // use ndarray_csv::Array2Writer;
 use ndarray_stats::DeviationExt;
 use ndarray_stats::QuantileExt;
@@ -87,15 +86,9 @@ where
         theta = stack(Axis(0), &theta_rows).unwrap();
         psi = stack(Axis(1), &psi_columns).unwrap();
 
-        // Normalize the rows of Psi
-        let mut n_psi = psi.clone();
-        n_psi
-            .axis_iter_mut(Axis(0))
-            .into_par_iter()
-            .for_each(|mut row| row /= row.sum());
-
         //Rank-Revealing Factorization
-        let (r, perm) = qr(&n_psi);
+        let (r, perm) = qr(&psi);
+        let nspp = psi.ncols();
         let mut keep = 0;
         //The minimum between the number of subjects and the actual number of support points
         let lim_loop = psi.nrows().min(psi.ncols());
@@ -114,10 +107,10 @@ where
         psi = stack(Axis(1), &psi_columns).unwrap();
 
         log::info!(
-            "QR decomp, cycle {}, keep: {}, thrown {}",
+            "QR decomp, cycle {}, kept: {}, thrown {}",
             cycle,
             keep,
-            n_psi.ncols() - keep
+            nspp - keep
         );
         (lambda, objf) = match ipm::burke(&psi) {
             Ok((lambda, objf)) => (lambda, objf),
