@@ -1,10 +1,7 @@
 use csv::ReaderBuilder;
-use faer::{assert_matrix_eq, mat, IntoFaer, IntoNdarray};
 use faer::{Faer, Mat};
-use linfa_linalg::qr::QR;
-use ndarray::{Array2, Axis};
+use ndarray::Array2;
 use ndarray_csv::Array2Reader;
-use np_core::prelude::{linalg::faer_qr_decomp, Permutation, PermuteArray};
 use std::fs::File;
 
 fn main() {
@@ -50,5 +47,4 @@ fn main() {
     // }
     dbg!(forward);
     dbg!(inverse);
-    dbg!(perm);
 }
