@@ -110,14 +110,14 @@ where
             );
         }
         //Rank-Revealing Factorization
-        let (_r, perm) = faer_qr_decomp(&n_psi);
-        n_psi = n_psi.permute_axis(
-            Axis(1),
-            &Permutation {
-                indices: perm.clone(),
-            },
-        );
-        let r = n_psi.qr().unwrap().into_r();
+        let (r, perm) = faer_qr_decomp(&n_psi);
+        // n_psi = n_psi.permute_axis(
+        //     Axis(1),
+        //     &Permutation {
+        //         indices: perm.clone(),
+        //     },
+        // );
+        // let r = n_psi.qr().unwrap().into_r();
         let mut keep = 0;
         //The minimum between the number of subjects and the actual number of support points
         let lim_loop = psi.nrows().min(psi.ncols());
@@ -257,7 +257,7 @@ where
             tx.send(state).unwrap();
             break;
         }
-        cycle_log.push(state, settings.parsed.config.pmetrics_outputs.unwrap());
+        cycle_log.push_and_write(state, settings.parsed.config.pmetrics_outputs.unwrap());
 
         theta = adaptative_grid(&mut theta, eps, &ranges);
         cycle += 1;

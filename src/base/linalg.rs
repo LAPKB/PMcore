@@ -4,7 +4,8 @@ use faer_qr::col_pivoting::compute;
 use ndarray::Array2;
 
 pub fn faer_qr_decomp(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
-    let x = Mat::with_dims(x.nrows(), x.ncols(), |i, j| x[[i, j]]);
+    let x = Mat::from_fn(x.nrows(), x.ncols(), |i, j| x[[i, j]]);
+
     let rank = x.nrows().min(x.ncols());
     let blocksize = compute::recommended_blocksize::<f64>(x.nrows(), x.ncols());
     let mut mem =
