@@ -1,5 +1,6 @@
 use faer::{Faer, Mat};
-use ndarray::Array2;
+use ndarray::parallel::prelude::*;
+use ndarray::{Array2, Axis};
 
 pub fn qr(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
     // TODO: we need more testing but this code seems to be not needed
@@ -18,8 +19,12 @@ pub fn qr(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
     //         cycle
     //     );
     // }
-    let x = Mat::from_fn(x.nrows(), x.ncols(), |i, j| x[[i, j]]);
-    let qr = x.col_piv_qr();
+    let mut n_x = x.clone();
+    n_x.axis_iter_mut(Axis(0))
+        .into_par_iter()
+        .for_each(|mut row| row /= row.sum());
+    let mat_x = Mat::from_fn(n_x.nrows(), n_x.ncols(), |i, j| n_x[[i, j]]);
+    let qr = mat_x.col_piv_qr();
     let r_mat = qr.compute_r();
     let (forward, _inverse) = qr.col_permutation().into_arrays();
     //TODO: migrate all my matrix operations to faer or look for faer's own conversion implementation
