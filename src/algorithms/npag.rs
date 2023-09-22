@@ -1,9 +1,9 @@
-use crate::prelude::linalg::faer_qr_decomp;
+use crate::prelude::linalg::qr;
 use crate::prelude::output::{CycleLog, NPCycle, NPResult};
 use crate::prelude::predict::sim_obs;
 use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
-use linfa_linalg::qr::QR;
+
 use ndarray::parallel::prelude::*;
 use ndarray::{s, stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
 // use ndarray_csv::Array2Writer;
@@ -94,30 +94,8 @@ where
             .into_par_iter()
             .for_each(|mut row| row /= row.sum());
 
-        if n_psi.ncols() > n_psi.nrows() {
-            let nrows = n_psi.nrows();
-            let ncols = n_psi.ncols();
-
-            let diff = ncols - nrows;
-            let zeros = Array2::<f64>::zeros((diff, ncols));
-            let mut new_n_psi = Array2::<f64>::zeros((nrows + diff, ncols));
-            new_n_psi.slice_mut(s![..nrows, ..]).assign(&n_psi);
-            new_n_psi.slice_mut(s![nrows.., ..]).assign(&zeros);
-            n_psi = new_n_psi;
-            log::info!(
-                "Cycle: {}. nspp>nsub. n_psi matrix has been expanded.",
-                cycle
-            );
-        }
         //Rank-Revealing Factorization
-        let (r, perm) = faer_qr_decomp(&n_psi);
-        // n_psi = n_psi.permute_axis(
-        //     Axis(1),
-        //     &Permutation {
-        //         indices: perm.clone(),
-        //     },
-        // );
-        // let r = n_psi.qr().unwrap().into_r();
+        let (r, perm) = qr(&n_psi);
         let mut keep = 0;
         //The minimum between the number of subjects and the actual number of support points
         let lim_loop = psi.nrows().min(psi.ncols());
