@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"np_core":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.72.0/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"struct\" href=\"np_core/base/array_permutation/struct.PermutationError.html\" title=\"struct np_core::base::array_permutation::PermutationError\">PermutationError</a>"]]
+"np_core":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.72.1/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"struct\" href=\"np_core/base/array_permutation/struct.PermutationError.html\" title=\"struct np_core::base::array_permutation::PermutationError\">PermutationError</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
