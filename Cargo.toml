@@ -35,7 +35,7 @@ faer-qr = "0.11.0"
 # faer-cholesky = "0.9"
 # faer-svd = "0.9"
 dyn-stack = "0.9.0"
-faer = { version = "0.11.0", features = ["ndarray"] }
+faer = { version = "0.11.0", features = ["nalgebra", "ndarray"] }
 
 
 [profile.release]
