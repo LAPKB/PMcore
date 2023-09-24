@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["np_core"];
+window.ALL_CRATES = ["npcore"];

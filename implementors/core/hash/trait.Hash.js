@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"np_core":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.72.1/core/hash/trait.Hash.html\" title=\"trait core::hash::Hash\">Hash</a> for <a class=\"enum\" href=\"np_core/tui/inputs/key/enum.Key.html\" title=\"enum np_core::tui::inputs::key::Key\">Key</a>"]]
+"npcore":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.72.1/core/hash/trait.Hash.html\" title=\"trait core::hash::Hash\">Hash</a> for <a class=\"enum\" href=\"npcore/tui/inputs/key/enum.Key.html\" title=\"enum npcore::tui::inputs::key::Key\">Key</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
