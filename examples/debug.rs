@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use eyre::Result;
 use ndarray::Array;
-use np_core::prelude::{
+use npcore::prelude::{
     datafile::{CovLine, Infusion},
     *,
 };
@@ -178,7 +178,7 @@ impl Predict for Ode {
 
 fn main() -> Result<()> {
     let scenarios =
-        np_core::base::datafile::parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
+        npcore::base::datafile::parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
     let scenario = scenarios.first().unwrap();
     // let block = scenario.blocks.get(0).unwrap();
     // dbg!(&block.covs);

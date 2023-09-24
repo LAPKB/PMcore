@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 use eyre::Result;
-use np_core::prelude::{
+use npcore::prelude::{
     datafile::{CovLine, Infusion},
     *,
 };

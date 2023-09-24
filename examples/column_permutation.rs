@@ -1,5 +1,5 @@
 use ndarray::prelude::*;
-use np_core::prelude::*;
+use npcore::prelude::*;
 
 fn main() {
     let a = array![
