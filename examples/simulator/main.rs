@@ -1,5 +1,5 @@
 use eyre::Result;
-use np_core::prelude::{
+use npcore::prelude::{
     datafile::{CovLine, Infusion},
     simulator::simulate,
     *,

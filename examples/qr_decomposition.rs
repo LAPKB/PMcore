@@ -1,7 +1,7 @@
 use linfa_linalg::qr::QR;
 use ndarray::{array, Array, Array1, Array2, Axis};
 use ndarray_stats::DeviationExt;
-use np_core::prelude::{PermuteArray, SortArray};
+use npcore::prelude::{PermuteArray, SortArray};
 fn norm_zero(a: &Array1<f64>) -> f64 {
     let zeros: Array1<f64> = Array::zeros(a.len());
     a.l2_dist(&zeros).unwrap()
