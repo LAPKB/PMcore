@@ -2,7 +2,17 @@
 name = "np_core"
 version = "0.1.0"
 edition = "2021"
-authors = ["Julián D. Otálvaro <juliandavid347@gmail.com>", "Markus Hovd", "Michael Neely", "Walter Yamada"]
+authors = [
+    "Julián D. Otálvaro <juliandavid347@gmail.com>",
+    "Markus Hovd",
+    "Michael Neely",
+    "Walter Yamada",
+]
+description = "Rust Library with the building blocks needed to create new Non-Parametric algorithms and its integration with Pmetrics."
+license = "GPL-3.0"
+license-file = "LICENSE"
+documentation = "https://lapkb.github.io/NPcore/np_core/"
+repository = "https://github.com/LAPKB/NPcore"
 
 [dependencies]
 dashmap = "5.5.0"
