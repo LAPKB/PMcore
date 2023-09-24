@@ -10,7 +10,6 @@ authors = [
 ]
 description = "Rust Library with the building blocks needed to create new Non-Parametric algorithms and its integration with Pmetrics."
 license = "GPL-3.0"
-license-file = "LICENSE"
 documentation = "https://lapkb.github.io/NPcore/np_core/"
 repository = "https://github.com/LAPKB/NPcore"
 
