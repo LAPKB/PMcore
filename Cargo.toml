@@ -15,25 +15,25 @@ repository = "https://github.com/LAPKB/NPcore"
 exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
-dashmap = "5.5.0"
+dashmap = "5.5.3"
 #cached = "0.26.2"
 lazy_static = "1.4.0"
 csv = "1.2.1"
 ndarray = { version = "0.15.6", features = ["rayon"] }
-serde = "1.0.159"
-serde_derive = "1.0.159"
+serde = "1.0.188"
+serde_derive = "1.0.188"
 sobol_burley = "0.5.0"
-toml = { version = "0.8.0", features = ["preserve_order"] }
+toml = { version = "0.8.1", features = ["preserve_order"] }
 ode_solvers = "0.3.7"
 ndarray-stats = "0.5.1"
 linfa-linalg = "0.1.0"
-log = "0.4.17"
+log = "0.4.20"
 log4rs = "1.2.0"
-rayon = "1.7.0"
+rayon = "1.8.0"
 eyre = "0.6.8"
 ratatui = { version = "0.23.0", features = ["crossterm"] }
 crossterm = "0.27.0"
-tokio = { version = "1.27.0", features = ["sync", "rt"] }
+tokio = { version = "1.32.0", features = ["sync", "rt"] }
 ndarray-csv = "0.5.2"
 rawpointer = "0.2.1"
 argmin = "0.8.1"
