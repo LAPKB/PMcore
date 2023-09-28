@@ -86,12 +86,12 @@
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(test)]
-</span><span class="kw">use </span><span class="kw">super</span>::base::<span class="kw-2">*</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>basic_sobol() {
     <span class="macro">assert_eq!</span>(
-        lds::sobol(<span class="number">5</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">1.</span>)], <span class="number">347</span>),
+        sobol::generate(<span class="number">5</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">1.</span>)], <span class="number">347</span>),
         <span class="macro">ndarray::array!</span>[
             [<span class="number">0.10731887817382813</span>, <span class="number">0.14647412300109863</span>, <span class="number">0.5851038694381714</span>],
             [<span class="number">0.9840304851531982</span>, <span class="number">0.7633365392684937</span>, <span class="number">0.19097506999969482</span>],
@@ -105,7 +105,7 @@
 <span class="attr">#[test]
 </span><span class="kw">fn </span>scaled_sobol() {
     <span class="macro">assert_eq!</span>(
-        lds::sobol(<span class="number">5</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">2.</span>), (-<span class="number">1.</span>, <span class="number">1.</span>)], <span class="number">347</span>),
+        sobol::generate(<span class="number">5</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">2.</span>), (-<span class="number">1.</span>, <span class="number">1.</span>)], <span class="number">347</span>),
         <span class="macro">ndarray::array!</span>[
             [
                 <span class="number">0.10731887817382813</span>,

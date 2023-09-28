@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Permutation","PermutationError"],"trait":["PermuteArray","SortArray"]};

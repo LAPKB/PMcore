@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["start"],"mod":["array_permutation","datafile","ipm","lds","linalg","optim","output","predict","prob","settings","sigma","simulator"]};

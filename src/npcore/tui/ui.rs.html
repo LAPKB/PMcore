@@ -412,7 +412,7 @@
     App, AppReturn,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPCycle, Data};
+<span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPCycle, settings::run::Data};
 
 <span class="kw">pub fn </span>start_ui(<span class="kw-2">mut </span>rx: UnboundedReceiver&lt;NPCycle&gt;, settings: Data) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>stdout = stdout();

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["algorithms","base","prelude","tui"]};
+window.SIDEBAR_ITEMS = {"mod":["algorithms","prelude","routines","tui"]};

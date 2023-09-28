@@ -252,50 +252,13 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::linalg::qr;
-<span class="kw">use </span><span class="kw">crate</span>::prelude::output::{CycleLog, NPCycle, NPResult};
-<span class="kw">use </span><span class="kw">crate</span>::prelude::predict::sim_obs;
-<span class="kw">use </span><span class="kw">crate</span>::prelude::sigma::{ErrorPoly, ErrorType};
-<span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
-
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>datafile::Scenario;
 <span class="kw">use </span>ndarray::{stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
+<span class="kw">use </span>output::{CycleLog, NPCycle, NPResult};
+<span class="kw">use </span>predict::{sim_obs, Engine, Predict};
+<span class="kw">use </span>settings::run::Data;
+<span class="kw">use </span>sigma::{ErrorPoly, ErrorType};
 <span class="comment">// use ndarray_csv::Array2Writer;
 </span><span class="kw">use </span>ndarray_stats::DeviationExt;
 <span class="kw">use </span>ndarray_stats::QuantileExt;
@@ -349,7 +312,7 @@
         </span><span class="kw">let </span>cache = <span class="kw">if </span>cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ cache };
         <span class="kw">let </span>ypred = sim_obs(sim_eng, scenarios, <span class="kw-2">&amp;</span>theta, cache);
 
-        psi = prob(
+        psi = prob::calculate_psi(
             <span class="kw-2">&amp;</span>ypred,
             scenarios,
             <span class="kw-2">&amp;</span>ErrorPoly {
@@ -378,7 +341,7 @@
         psi = stack(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>psi_columns).unwrap();
 
         <span class="comment">//Rank-Revealing Factorization
-        </span><span class="kw">let </span>(r, perm) = qr(<span class="kw-2">&amp;</span>psi);
+        </span><span class="kw">let </span>(r, perm) = qr::calculate_r(<span class="kw-2">&amp;</span>psi);
         <span class="kw">let </span>nspp = psi.ncols();
         <span class="kw">let </span><span class="kw-2">mut </span>keep = <span class="number">0</span>;
         <span class="comment">//The minimum between the number of subjects and the actual number of support points
@@ -415,7 +378,7 @@
         </span><span class="kw">let </span>gamma_up = gamma * (<span class="number">1.0 </span>+ gamma_delta);
         <span class="kw">let </span>gamma_down = gamma / (<span class="number">1.0 </span>+ gamma_delta);
         <span class="kw">let </span>ypred = sim_obs(sim_eng, scenarios, <span class="kw-2">&amp;</span>theta, cache);
-        <span class="kw">let </span>psi_up = prob(
+        <span class="kw">let </span>psi_up = prob::calculate_psi(
             <span class="kw-2">&amp;</span>ypred,
             scenarios,
             <span class="kw-2">&amp;</span>ErrorPoly {
@@ -424,7 +387,7 @@
                 e_type: <span class="kw-2">&amp;</span>error_type,
             },
         );
-        <span class="kw">let </span>psi_down = prob(
+        <span class="kw">let </span>psi_down = prob::calculate_psi(
             <span class="kw-2">&amp;</span>ypred,
             scenarios,
             <span class="kw-2">&amp;</span>ErrorPoly {
@@ -521,7 +484,7 @@
         }
         cycle_log.push_and_write(state, settings.parsed.config.pmetrics_outputs.unwrap());
 
-        theta = adaptative_grid(<span class="kw-2">&amp;mut </span>theta, eps, <span class="kw-2">&amp;</span>ranges);
+        theta = expansion::adaptative_grid(<span class="kw-2">&amp;mut </span>theta, eps, <span class="kw-2">&amp;</span>ranges, THETA_D);
         cycle += <span class="number">1</span>;
         last_objf = objf;
     }
@@ -537,43 +500,6 @@
         cycle_log,
         settings,
     )
-}
-
-<span class="kw">fn </span>adaptative_grid(theta: <span class="kw-2">&amp;mut </span>Array2&lt;f64&gt;, eps: f64, ranges: <span class="kw-2">&amp;</span>[(f64, f64)]) -&gt; Array2&lt;f64&gt; {
-    <span class="kw">let </span>old_theta = theta.clone();
-    <span class="kw">for </span>spp <span class="kw">in </span>old_theta.rows() {
-        <span class="kw">for </span>(j, val) <span class="kw">in </span>spp.into_iter().enumerate() {
-            <span class="kw">let </span>l = eps * (ranges[j].<span class="number">1 </span>- ranges[j].<span class="number">0</span>); <span class="comment">//abs?
-            </span><span class="kw">if </span>val + l &lt; ranges[j].<span class="number">1 </span>{
-                <span class="kw">let </span><span class="kw-2">mut </span>plus = Array::zeros(spp.len());
-                plus[j] = l;
-                plus = plus + spp;
-                evaluate_spp(theta, plus, ranges);
-                <span class="comment">// (n_spp, _) = theta.dim();
-            </span>}
-            <span class="kw">if </span>val - l &gt; ranges[j].<span class="number">0 </span>{
-                <span class="kw">let </span><span class="kw-2">mut </span>minus = Array::zeros(spp.len());
-                minus[j] = -l;
-                minus = minus + spp;
-                evaluate_spp(theta, minus, ranges);
-                <span class="comment">// (n_spp, _) = theta.dim();
-            </span>}
-        }
-    }
-    theta.to_owned()
-}
-
-<span class="kw">fn </span>evaluate_spp(theta: <span class="kw-2">&amp;mut </span>Array2&lt;f64&gt;, candidate: Array1&lt;f64&gt;, limits: <span class="kw-2">&amp;</span>[(f64, f64)]) {
-    <span class="kw">for </span>spp <span class="kw">in </span>theta.rows() {
-        <span class="kw">let </span><span class="kw-2">mut </span>dist: f64 = <span class="number">0.</span>;
-        <span class="kw">for </span>(i, val) <span class="kw">in </span>candidate.clone().into_iter().enumerate() {
-            dist += (val - spp.get(i).unwrap()).abs() / (limits[i].<span class="number">1 </span>- limits[i].<span class="number">0</span>);
-        }
-        <span class="kw">if </span>dist &lt;= THETA_D {
-            <span class="kw">return</span>;
-        }
-    }
-    theta.push_row(candidate.view()).unwrap();
 }
 
 <span class="kw">fn </span>norm_zero(a: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; f64 {
