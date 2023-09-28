@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use eyre::Result;
 use ndarray::Array;
 use npcore::prelude::{
-    datafile::{CovLine, Infusion},
-    *,
+    datafile::{CovLine, Infusion, Scenario},
+    predict::Predict,
 };
 use ode_solvers::*;
 
@@ -178,7 +178,7 @@ impl Predict for Ode {
 
 fn main() -> Result<()> {
     let scenarios =
-        npcore::base::datafile::parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
+        npcore::routines::datafile::parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
     let scenario = scenarios.first().unwrap();
     // let block = scenario.blocks.get(0).unwrap();
     // dbg!(&block.covs);

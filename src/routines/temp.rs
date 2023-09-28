@@ -1,32 +1,21 @@
-use self::datafile::Scenario;
-use self::output::{NPCycle, NPResult};
-use self::predict::{Engine, Predict};
-use self::settings::run::Data;
 use crate::algorithms::npag::npag;
 use crate::prelude::start_ui;
+use crate::prelude::*;
+use datafile::Scenario;
 use eyre::Result;
 use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use ndarray::Array2;
+use output::{NPCycle, NPResult};
+use predict::{Engine, Predict};
+use settings::run::Data;
 
 use std::fs::{self, File};
 use std::thread::spawn;
 use std::time::Instant;
 use tokio::sync::mpsc::{self, UnboundedSender};
-pub mod array_permutation;
-pub mod datafile;
-pub mod ipm;
-pub mod lds;
-pub mod linalg;
-pub mod optim;
-pub mod output;
-pub mod predict;
-pub mod prob;
-pub mod settings;
-pub mod sigma;
-pub mod simulator;
 
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
 where
@@ -105,7 +94,7 @@ where
             Array2::from_shape_vec((n_points, n_params), theta_values)
                 .expect("Failed to create theta Array2")
         }
-        None => lds::sobol(
+        None => sobol::generate(
             settings.parsed.config.init_points,
             &ranges,
             settings.parsed.config.seed,

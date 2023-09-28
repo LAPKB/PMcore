@@ -1,8 +1,8 @@
 use eyre::Result;
 use npcore::prelude::{
-    datafile::{CovLine, Infusion},
+    datafile::{CovLine, Infusion, Scenario},
+    predict::{Engine, Predict},
     simulator::simulate,
-    *,
 };
 use ode_solvers::*;
 use std::collections::HashMap;

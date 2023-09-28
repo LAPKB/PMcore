@@ -2,7 +2,7 @@ use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
 use sobol_burley::sample;
 
-pub fn sobol(
+pub fn generate(
     n_points: usize,
     range_params: &Vec<(f64, f64)>,
     seed: u32,

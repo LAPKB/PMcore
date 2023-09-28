@@ -2,7 +2,7 @@ use faer::{Faer, IntoFaer, IntoNdarray};
 use ndarray::parallel::prelude::*;
 use ndarray::{Array2, Axis};
 
-pub fn qr(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
+pub fn calculate_r(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
     // TODO: we need more testing but this code seems not to be needed
     // if n_psi.ncols() > n_psi.nrows() {
     //     let nrows = n_psi.nrows();

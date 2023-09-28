@@ -1,9 +1,10 @@
-use crate::base::predict::*;
 use crate::prelude::*;
-use crate::prelude::{Engine, Scenario};
 use csv::WriterBuilder;
+use datafile::Scenario;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
+use predict::{post_predictions, sim_obs, Engine, Predict};
+use settings::run::Data;
 use std::fs::File;
 
 /// Defines the result objects from an NPAG run

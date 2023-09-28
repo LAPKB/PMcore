@@ -1,10 +1,10 @@
 #[cfg(test)]
-use super::base::*;
+use crate::prelude::*;
 
 #[test]
 fn basic_sobol() {
     assert_eq!(
-        lds::sobol(5, &vec![(0., 1.), (0., 1.), (0., 1.)], 347),
+        sobol::generate(5, &vec![(0., 1.), (0., 1.), (0., 1.)], 347),
         ndarray::array![
             [0.10731887817382813, 0.14647412300109863, 0.5851038694381714],
             [0.9840304851531982, 0.7633365392684937, 0.19097506999969482],
@@ -18,7 +18,7 @@ fn basic_sobol() {
 #[test]
 fn scaled_sobol() {
     assert_eq!(
-        lds::sobol(5, &vec![(0., 1.), (0., 2.), (-1., 1.)], 347),
+        sobol::generate(5, &vec![(0., 1.), (0., 2.), (-1., 1.)], 347),
         ndarray::array![
             [
                 0.10731887817382813,

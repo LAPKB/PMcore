@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
 use eyre::Result;
-use npcore::prelude::{
-    datafile::{CovLine, Infusion},
-    *,
+use npcore::{
+    prelude::{
+        datafile::{CovLine, Infusion, Scenario},
+        predict::{Engine, Predict},
+    },
+    routines::temp::start,
 };
 use ode_solvers::*;
 

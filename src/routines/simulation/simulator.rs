@@ -1,11 +1,9 @@
-use super::datafile;
-use super::predict::sim_obs;
-use crate::base::settings;
-use crate::prelude::{Engine, Predict};
+use crate::prelude::*;
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
 use ndarray::Array2;
 use ndarray_csv::Array2Reader;
+use predict::{sim_obs, Engine, Predict};
 use std::fs::File;
 
 pub fn simulate<S>(engine: Engine<S>, settings_path: String) -> Result<()>
