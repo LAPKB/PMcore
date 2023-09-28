@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["npag"]};
+window.SIDEBAR_ITEMS = {"mod":["npag"],"trait":["Algorithm"]};

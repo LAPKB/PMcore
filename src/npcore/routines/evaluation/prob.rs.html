@@ -56,12 +56,15 @@
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>datafile::Scenario;
-<span class="kw">use </span>sigma::Sigma;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array, Array2};
+<span class="kw">use </span>sigma::Sigma;
 
 <span class="kw">const </span>FRAC_1_SQRT_2PI: f64 =
     std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / <span class="number">2.0</span>;
@@ -69,7 +72,11 @@
 <span class="comment">//TODO: I might need to implement that cache manually
 //Example: https://github.com/jaemk/cached/issues/16
 
-</span><span class="kw">pub fn </span>calculate_psi&lt;S&gt;(ypred: <span class="kw-2">&amp;</span>Array2&lt;Array1&lt;f64&gt;&gt;, scenarios: <span class="kw-2">&amp;</span>Vec&lt;Scenario&gt;, sig: <span class="kw-2">&amp;</span>S) -&gt; Array2&lt;f64&gt;
+</span><span class="kw">pub fn </span>calculate_psi&lt;S&gt;(
+    ypred: <span class="kw-2">&amp;</span>Array2&lt;Array1&lt;f64&gt;&gt;,
+    scenarios: <span class="kw-2">&amp;</span>Vec&lt;Scenario&gt;,
+    sig: <span class="kw-2">&amp;</span>S,
+) -&gt; Array2&lt;f64&gt;
 <span class="kw">where
     </span>S: Sigma + Sync,
 {
@@ -102,7 +109,6 @@
                     //     dbg!(&amp;yobs);
                     //     dbg!(&amp;sigma);
                     // }
-                    
                     </span>element.fill(ll);
                 });
         });

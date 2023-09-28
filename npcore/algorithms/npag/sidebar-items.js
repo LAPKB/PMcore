@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["npag"]};
+window.SIDEBAR_ITEMS = {"struct":["NPAG"]};
