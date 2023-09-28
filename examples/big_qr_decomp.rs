@@ -31,7 +31,7 @@ fn main() {
     let x = Mat::from_fn(array_read.nrows(), array_read.ncols(), |i, j| {
         array_read[[i, j]]
     });
-    let x: Mat<f64> = x.into();
+    let x: Mat<f64> = x;
     let qr = x.col_piv_qr();
     let r_mat = qr.compute_r();
     let (forward, inverse) = qr.col_permutation().into_arrays();
