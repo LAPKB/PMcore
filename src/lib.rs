@@ -43,8 +43,8 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use ndarray::Array2;
-use prelude::algorithms::npag::NPAG;
-use prelude::algorithms::Algorithm;
+
+use prelude::algorithms::initialize_algorithm;
 use prelude::{
     datafile::Scenario,
     output::{NPCycle, NPResult},
@@ -61,7 +61,7 @@ mod tests;
 
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
 where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static,
+    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
@@ -177,13 +177,13 @@ fn run_npag<S>(
     sim_eng: Engine<S>,
     ranges: Vec<(f64, f64)>,
     theta: Array2<f64>,
-    scenarios: &[Scenario],
+    scenarios: &Vec<Scenario>,
     c: (f64, f64, f64, f64),
     tx: UnboundedSender<NPCycle>,
     settings: &Data,
 ) -> NPResult
 where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static,
+    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     // Remove stop file if exists
     if std::path::Path::new("stop").exists() {
@@ -193,11 +193,21 @@ where
         }
     }
 
-    let algorithm = NPAG::<S>::initialize(
+    // let algorithm = NPAG::<S>::initialize(
+    //     sim_eng,
+    //     ranges,
+    //     theta,
+    //     scenarios.to_owned(),
+    //     c,
+    //     tx,
+    //     settings.clone(),
+    // );
+    let mut algorithm = initialize_algorithm(
+        algorithms::Type::NPAG,
         sim_eng,
         ranges,
         theta,
-        scenarios.to_owned(),
+        scenarios.clone(),
         c,
         tx,
         settings.clone(),

@@ -18,16 +18,17 @@ pub trait Predict {
     fn predict(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64>;
 }
 
+#[derive(Clone, Debug)]
 pub struct Engine<S>
 where
-    S: Predict,
+    S: Predict + Clone,
 {
     ode: S,
 }
 
 impl<S> Engine<S>
 where
-    S: Predict,
+    S: Predict + Clone,
 {
     pub fn new(ode: S) -> Self {
         Self { ode }
@@ -59,7 +60,7 @@ lazy_static! {
         DashMap::with_capacity(1000000); // Adjust cache size as needed
 }
 
-pub fn get_ypred<S: Predict + Sync>(
+pub fn get_ypred<S: Predict + Sync + Clone>(
     sim_eng: &Engine<S>,
     scenario: &Scenario,
     support_point: Vec<f64>,
@@ -91,7 +92,7 @@ pub fn sim_obs<S>(
     cache: bool,
 ) -> Array2<Array1<f64>>
 where
-    S: Predict + Sync,
+    S: Predict + Sync + Clone,
 {
     let mut pred: Array2<Array1<f64>> =
         Array2::default((scenarios.len(), support_points.nrows()).f());
@@ -118,7 +119,7 @@ pub fn simple_sim<S>(
     support_point: &Array1<f64>,
 ) -> Vec<f64>
 where
-    S: Predict + Sync,
+    S: Predict + Sync + Clone,
 {
     sim_eng.pred(scenario, support_point.to_vec())
 }
@@ -129,7 +130,7 @@ pub fn post_predictions<S>(
     scenarios: &Vec<Scenario>,
 ) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>>
 where
-    S: Predict + Sync,
+    S: Predict + Sync + Clone,
 {
     if post.nrows() != scenarios.len() {
         return Err("Error calculating the posterior predictions, size mismatch.".into());

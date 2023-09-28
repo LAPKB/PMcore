@@ -45,6 +45,7 @@ impl ode_solvers::System<State> for Model<'_> {
     }
 }
 
+#[derive(Debug, Clone)]
 struct Ode {}
 
 impl Predict for Ode {

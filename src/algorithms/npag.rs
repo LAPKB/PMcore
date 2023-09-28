@@ -1,16 +1,18 @@
 use crate::prelude::{
+    algorithms::Algorithm,
     datafile::Scenario,
     evaluation::sigma::{ErrorPoly, ErrorType},
+    expansion, ipm,
+    output::NPResult,
     output::{CycleLog, NPCycle},
+    prob, qr,
     settings::run::Data,
+    simulation::predict::Engine,
     simulation::predict::{sim_obs, Predict},
-    *,
 };
-use algorithms::Algorithm;
+
 use ndarray::{stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
-use output::NPResult;
-use simulation::predict::Engine;
 use tokio::sync::mpsc::UnboundedSender;
 
 const THETA_E: f64 = 1e-4; //convergence Criteria
@@ -19,7 +21,7 @@ const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 pub struct NPAG<S>
 where
-    S: Predict + std::marker::Sync,
+    S: Predict + std::marker::Sync + Clone,
 {
     engine: Engine<S>,
     ranges: Vec<(f64, f64)>,
@@ -47,27 +49,27 @@ where
 
 impl<S> Algorithm<S> for NPAG<S>
 where
-    S: Predict + std::marker::Sync,
+    S: Predict + std::marker::Sync + Clone,
 {
-    fn initialize(
-        sim_eng: Engine<S>,
-        ranges: Vec<(f64, f64)>,
-        theta: Array2<f64>,
-        scenarios: Vec<Scenario>,
-        c: (f64, f64, f64, f64),
-        tx: UnboundedSender<NPCycle>,
-        settings: Data,
-    ) -> Self {
-        NPAG::new(sim_eng, ranges, theta, scenarios, c, tx, settings)
-    }
-    fn fit(self) -> (Engine<S>, NPResult) {
+    // fn initialize(
+    //     sim_eng: Engine<S>,
+    //     ranges: Vec<(f64, f64)>,
+    //     theta: Array2<f64>,
+    //     scenarios: Vec<Scenario>,
+    //     c: (f64, f64, f64, f64),
+    //     tx: UnboundedSender<NPCycle>,
+    //     settings: Data,
+    // ) -> Self {
+    //     NPAG::new(sim_eng, ranges, theta, scenarios, c, tx, settings)
+    // }
+    fn fit(&mut self) -> (Engine<S>, NPResult) {
         self.run()
     }
 }
 
 impl<S> NPAG<S>
 where
-    S: Predict + std::marker::Sync,
+    S: Predict + std::marker::Sync + Clone,
 {
     pub fn new(
         sim_eng: Engine<S>,
@@ -111,7 +113,7 @@ where
         }
     }
 
-    pub fn run(mut self) -> (Engine<S>, NPResult) {
+    pub fn run(&mut self) -> (Engine<S>, NPResult) {
         while self.eps > THETA_E {
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
@@ -252,7 +254,7 @@ where
                 log::error!("Objective function decreased");
             }
 
-            self.w = Array::from(self.lambda);
+            self.w = self.lambda.clone();
             let pyl = self.psi.dot(&self.w);
 
             // Stop if we have reached convergence criteria
@@ -296,18 +298,18 @@ where
             self.cycle += 1;
             self.last_objf = self.objf;
         }
+
         (
-            self.engine,
+            self.engine.clone(),
             NPResult::new(
-                self.scenarios,
-                self.theta,
-                self.psi,
-                self.w,
+                self.scenarios.clone(),
+                self.theta.clone(),
+                self.psi.clone(),
+                self.w.clone(),
                 self.objf,
                 self.cycle,
                 self.converged,
-                self.cycle_log,
-                self.settings,
+                self.settings.clone(),
             ),
         )
     }

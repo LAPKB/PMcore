@@ -17,7 +17,6 @@ pub struct NPResult {
     pub objf: f64,
     pub cycles: usize,
     pub converged: bool,
-    pub cycle_log: CycleLog,
     pub par_names: Vec<String>,
 }
 
@@ -31,7 +30,6 @@ impl NPResult {
         objf: f64,
         cycles: usize,
         converged: bool,
-        cycle_log: CycleLog,
         settings: Data,
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
@@ -50,7 +48,6 @@ impl NPResult {
             objf,
             cycles,
             converged,
-            cycle_log,
             par_names,
         }
     }
@@ -165,7 +162,7 @@ impl NPResult {
     /// Writes the predictions
     pub fn write_pred<S>(&self, engine: &Engine<S>)
     where
-        S: Predict + std::marker::Sync + std::marker::Send + 'static,
+        S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
     {
         let result = (|| {
             let scenarios = self.scenarios.clone();
