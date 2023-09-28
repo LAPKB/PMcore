@@ -91,7 +91,7 @@ impl Predict for Ode {
                                 let _res = stepper.integrate();
                                 let y = stepper.y_out();
                                 x = *y.last().unwrap();
-                            } else if *next_time > event.time {
+                            } else if *next_time < event.time {
                                 log::error!("Panic: Next event's time is in the past!");
                                 panic!("Panic: Next event's time is in the past!");
                             }
@@ -163,7 +163,7 @@ impl Predict for Ode {
                             let _res = stepper.integrate();
                             let y = stepper.y_out();
                             x = *y.last().unwrap();
-                        } else if *next_time > event.time {
+                        } else if *next_time < event.time {
                             log::error!("Panic: Next event's time is in the past!");
                             panic!("Panic: Next event's time is in the past!");
                         }

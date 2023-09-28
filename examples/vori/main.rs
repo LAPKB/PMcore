@@ -141,7 +141,7 @@ impl Predict for Ode {
 }
 
 fn eval_outeq(
-    params: &Vec<f64>,
+    params: &[f64],
     cov: &HashMap<String, CovLine>,
     x: &State,
     time: f64,
