@@ -8,7 +8,7 @@ use std::fs::File;
 
 pub fn simulate<S>(engine: Engine<S>, settings_path: String) -> Result<()>
 where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static,
+    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let settings = settings::simulator::read(settings_path);
     let theta_file = File::open(settings.paths.theta).unwrap();

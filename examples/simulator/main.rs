@@ -40,7 +40,7 @@ impl ode_solvers::System<State> for Model<'_> {
         //////////////// END USER DEFINED ////////////////
     }
 }
-
+#[derive(Debug, Clone)]
 struct Ode {}
 
 impl Predict for Ode {
