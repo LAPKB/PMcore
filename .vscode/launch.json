@@ -7,16 +7,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'np_core'",
+            "name": "Debug unit tests in library 'npcore'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
-                    "name": "np_core",
+                    "name": "npcore",
                     "kind": "lib"
                 }
             },
@@ -31,7 +31,7 @@
                 "args": [
                     "build",
                     "--example=bimodal_ke",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "bimodal_ke",
@@ -50,7 +50,7 @@
                     "test",
                     "--no-run",
                     "--example=bimodal_ke",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "bimodal_ke",
@@ -68,7 +68,7 @@
                 "args": [
                     "build",
                     "--example=iohexol",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "iohexol",
@@ -87,7 +87,7 @@
                     "test",
                     "--no-run",
                     "--example=iohexol",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "iohexol",
@@ -105,7 +105,7 @@
                 "args": [
                     "build",
                     "--example=qr_decomposition",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "qr_decomposition",
@@ -124,7 +124,7 @@
                     "test",
                     "--no-run",
                     "--example=qr_decomposition",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "qr_decomposition",
@@ -142,7 +142,7 @@
                 "args": [
                     "build",
                     "--example=debug",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "debug",
@@ -161,7 +161,7 @@
                     "test",
                     "--no-run",
                     "--example=debug",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "debug",
@@ -179,7 +179,7 @@
                 "args": [
                     "build",
                     "--example=two_eq_lag",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "two_eq_lag",
@@ -198,7 +198,7 @@
                     "test",
                     "--no-run",
                     "--example=two_eq_lag",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "two_eq_lag",
@@ -216,7 +216,7 @@
                 "args": [
                     "build",
                     "--example=column_permutation",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "column_permutation",
@@ -235,7 +235,7 @@
                     "test",
                     "--no-run",
                     "--example=column_permutation",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "column_permutation",
@@ -253,7 +253,7 @@
                 "args": [
                     "build",
                     "--example=row_normalization",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "row_normalization",
@@ -272,7 +272,7 @@
                     "test",
                     "--no-run",
                     "--example=row_normalization",
-                    "--package=np_core"
+                    "--package=npcore"
                 ],
                 "filter": {
                     "name": "row_normalization",

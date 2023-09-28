@@ -32,7 +32,7 @@ impl NPResult {
         cycles: usize,
         converged: bool,
         cycle_log: CycleLog,
-        settings: &Data,
+        settings: Data,
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
 

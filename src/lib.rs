@@ -1,6 +1,4 @@
-pub mod algorithms {
-    pub mod npag;
-}
+pub mod algorithms;
 pub mod routines {
     pub mod datafile;
     pub mod initialization {
@@ -30,6 +28,7 @@ pub mod routines {
 pub mod tui;
 
 pub mod prelude {
+    pub use crate::algorithms;
     pub use crate::prelude::evaluation::{prob, sigma, *};
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization::*;
@@ -38,13 +37,14 @@ pub mod prelude {
     pub use crate::tui::ui::*;
 }
 
-use algorithms::npag::npag;
 use eyre::Result;
 use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use ndarray::Array2;
+use prelude::algorithms::npag::NPAG;
+use prelude::algorithms::Algorithm;
 use prelude::{
     datafile::Scenario,
     output::{NPCycle, NPResult},
@@ -193,7 +193,18 @@ where
         }
     }
 
-    let result = npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
+    let algorithm = NPAG::<S>::initialize(
+        sim_eng,
+        ranges,
+        theta,
+        scenarios.clone(),
+        c,
+        tx,
+        settings.clone(),
+    );
+    let (sim_eng, result) = algorithm.fit();
+
+    // let result = npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
 
     if let Some(output) = &settings.parsed.config.pmetrics_outputs {
         if *output {
