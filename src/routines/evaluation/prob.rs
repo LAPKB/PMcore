@@ -1,5 +1,6 @@
-use super::sigma::Sigma;
-use crate::prelude::Scenario;
+use crate::prelude::*;
+use datafile::Scenario;
+use sigma::Sigma;
 use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
 use ndarray::{Array, Array2};
@@ -10,7 +11,7 @@ const FRAC_1_SQRT_2PI: f64 =
 //TODO: I might need to implement that cache manually
 //Example: https://github.com/jaemk/cached/issues/16
 
-pub fn prob<S>(ypred: &Array2<Array1<f64>>, scenarios: &Vec<Scenario>, sig: &S) -> Array2<f64>
+pub fn calculate_psi<S>(ypred: &Array2<Array1<f64>>, scenarios: &Vec<Scenario>, sig: &S) -> Array2<f64>
 where
     S: Sigma + Sync,
 {

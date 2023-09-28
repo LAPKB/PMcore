@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 use eyre::Result;
-use npcore::prelude::{
-    datafile::{CovLine, Infusion},
-    *,
+use npcore::{
+    prelude::{
+        datafile::{CovLine, Infusion, Scenario},
+        predict::{Engine, Predict},
+    },
+    routines::temp::start,
 };
 const ATOL: f64 = 1e-4;
 const RTOL: f64 = 1e-4;

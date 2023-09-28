@@ -22,7 +22,7 @@ use super::{
     App, AppReturn,
 };
 
-use crate::prelude::{output::NPCycle, Data};
+use crate::prelude::{output::NPCycle, settings::run::Data};
 
 pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()> {
     let stdout = stdout();

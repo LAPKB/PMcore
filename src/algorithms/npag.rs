@@ -1,10 +1,10 @@
-use crate::prelude::linalg::qr;
-use crate::prelude::output::{CycleLog, NPCycle, NPResult};
-use crate::prelude::predict::sim_obs;
-use crate::prelude::sigma::{ErrorPoly, ErrorType};
 use crate::prelude::*;
-
+use datafile::Scenario;
 use ndarray::{stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
+use output::{CycleLog, NPCycle, NPResult};
+use predict::{sim_obs, Engine, Predict};
+use settings::run::Data;
+use sigma::{ErrorPoly, ErrorType};
 // use ndarray_csv::Array2Writer;
 use ndarray_stats::DeviationExt;
 use ndarray_stats::QuantileExt;
@@ -58,7 +58,7 @@ where
         let cache = if cycle == 1 { false } else { cache };
         let ypred = sim_obs(sim_eng, scenarios, &theta, cache);
 
-        psi = prob(
+        psi = prob::calculate_psi(
             &ypred,
             scenarios,
             &ErrorPoly {
@@ -87,7 +87,7 @@ where
         psi = stack(Axis(1), &psi_columns).unwrap();
 
         //Rank-Revealing Factorization
-        let (r, perm) = qr(&psi);
+        let (r, perm) = qr::calculate_r(&psi);
         let nspp = psi.ncols();
         let mut keep = 0;
         //The minimum between the number of subjects and the actual number of support points
@@ -124,7 +124,7 @@ where
         let gamma_up = gamma * (1.0 + gamma_delta);
         let gamma_down = gamma / (1.0 + gamma_delta);
         let ypred = sim_obs(sim_eng, scenarios, &theta, cache);
-        let psi_up = prob(
+        let psi_up = prob::calculate_psi(
             &ypred,
             scenarios,
             &ErrorPoly {
@@ -133,7 +133,7 @@ where
                 e_type: &error_type,
             },
         );
-        let psi_down = prob(
+        let psi_down = prob::calculate_psi(
             &ypred,
             scenarios,
             &ErrorPoly {
@@ -230,7 +230,7 @@ where
         }
         cycle_log.push_and_write(state, settings.parsed.config.pmetrics_outputs.unwrap());
 
-        theta = adaptative_grid(&mut theta, eps, &ranges);
+        theta = expansion::adaptative_grid(&mut theta, eps, &ranges, THETA_D);
         cycle += 1;
         last_objf = objf;
     }
@@ -246,43 +246,6 @@ where
         cycle_log,
         settings,
     )
-}
-
-fn adaptative_grid(theta: &mut Array2<f64>, eps: f64, ranges: &[(f64, f64)]) -> Array2<f64> {
-    let old_theta = theta.clone();
-    for spp in old_theta.rows() {
-        for (j, val) in spp.into_iter().enumerate() {
-            let l = eps * (ranges[j].1 - ranges[j].0); //abs?
-            if val + l < ranges[j].1 {
-                let mut plus = Array::zeros(spp.len());
-                plus[j] = l;
-                plus = plus + spp;
-                evaluate_spp(theta, plus, ranges);
-                // (n_spp, _) = theta.dim();
-            }
-            if val - l > ranges[j].0 {
-                let mut minus = Array::zeros(spp.len());
-                minus[j] = -l;
-                minus = minus + spp;
-                evaluate_spp(theta, minus, ranges);
-                // (n_spp, _) = theta.dim();
-            }
-        }
-    }
-    theta.to_owned()
-}
-
-fn evaluate_spp(theta: &mut Array2<f64>, candidate: Array1<f64>, limits: &[(f64, f64)]) {
-    for spp in theta.rows() {
-        let mut dist: f64 = 0.;
-        for (i, val) in candidate.clone().into_iter().enumerate() {
-            dist += (val - spp.get(i).unwrap()).abs() / (limits[i].1 - limits[i].0);
-        }
-        if dist <= THETA_D {
-            return;
-        }
-    }
-    theta.push_row(candidate.view()).unwrap();
 }
 
 fn norm_zero(a: &Array1<f64>) -> f64 {
