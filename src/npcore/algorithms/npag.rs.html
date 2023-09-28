@@ -316,19 +316,23 @@
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{
+    algorithms::Algorithm,
     datafile::Scenario,
     evaluation::sigma::{ErrorPoly, ErrorType},
+    expansion, ipm,
+    output::NPResult,
     output::{CycleLog, NPCycle},
+    prob, qr,
     settings::run::Data,
+    simulation::predict::Engine,
     simulation::predict::{sim_obs, Predict},
-    <span class="kw-2">*</span>,
 };
-<span class="kw">use </span>algorithms::Algorithm;
+
 <span class="kw">use </span>ndarray::{stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
-<span class="kw">use </span>output::NPResult;
-<span class="kw">use </span>simulation::predict::Engine;
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
 <span class="kw">const </span>THETA_E: f64 = <span class="number">1e-4</span>; <span class="comment">//convergence Criteria
@@ -337,7 +341,7 @@
 <span class="kw">const </span>THETA_D: f64 = <span class="number">1e-4</span>;
 <span class="kw">pub struct </span>NPAG&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync,
+    </span>S: Predict + std::marker::Sync + Clone,
 {
     engine: Engine&lt;S&gt;,
     ranges: Vec&lt;(f64, f64)&gt;,
@@ -365,27 +369,27 @@
 
 <span class="kw">impl</span>&lt;S&gt; Algorithm&lt;S&gt; <span class="kw">for </span>NPAG&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync,
+    </span>S: Predict + std::marker::Sync + Clone,
 {
-    <span class="kw">fn </span>initialize(
-        sim_eng: Engine&lt;S&gt;,
-        ranges: Vec&lt;(f64, f64)&gt;,
-        theta: Array2&lt;f64&gt;,
-        scenarios: Vec&lt;Scenario&gt;,
-        c: (f64, f64, f64, f64),
-        tx: UnboundedSender&lt;NPCycle&gt;,
-        settings: Data,
-    ) -&gt; <span class="self">Self </span>{
-        NPAG::new(sim_eng, ranges, theta, scenarios, c, tx, settings)
-    }
-    <span class="kw">fn </span>fit(<span class="self">self</span>) -&gt; (Engine&lt;S&gt;, NPResult) {
+    <span class="comment">// fn initialize(
+    //     sim_eng: Engine&lt;S&gt;,
+    //     ranges: Vec&lt;(f64, f64)&gt;,
+    //     theta: Array2&lt;f64&gt;,
+    //     scenarios: Vec&lt;Scenario&gt;,
+    //     c: (f64, f64, f64, f64),
+    //     tx: UnboundedSender&lt;NPCycle&gt;,
+    //     settings: Data,
+    // ) -&gt; Self {
+    //     NPAG::new(sim_eng, ranges, theta, scenarios, c, tx, settings)
+    // }
+    </span><span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (Engine&lt;S&gt;, NPResult) {
         <span class="self">self</span>.run()
     }
 }
 
 <span class="kw">impl</span>&lt;S&gt; NPAG&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync,
+    </span>S: Predict + std::marker::Sync + Clone,
 {
     <span class="kw">pub fn </span>new(
         sim_eng: Engine&lt;S&gt;,
@@ -429,7 +433,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; (Engine&lt;S&gt;, NPResult) {
+    <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (Engine&lt;S&gt;, NPResult) {
         <span class="kw">while </span><span class="self">self</span>.eps &gt; THETA_E {
             <span class="comment">// log::info!(&quot;Cycle: {}&quot;, cycle);
             // psi n_sub rows, nspp columns
@@ -570,7 +574,7 @@
                 <span class="macro">log::error!</span>(<span class="string">&quot;Objective function decreased&quot;</span>);
             }
 
-            <span class="self">self</span>.w = Array::from(<span class="self">self</span>.lambda);
+            <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
             <span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
 
             <span class="comment">// Stop if we have reached convergence criteria
@@ -614,18 +618,18 @@
             <span class="self">self</span>.cycle += <span class="number">1</span>;
             <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
         }
+
         (
-            <span class="self">self</span>.engine,
+            <span class="self">self</span>.engine.clone(),
             NPResult::new(
-                <span class="self">self</span>.scenarios,
-                <span class="self">self</span>.theta,
-                <span class="self">self</span>.psi,
-                <span class="self">self</span>.w,
+                <span class="self">self</span>.scenarios.clone(),
+                <span class="self">self</span>.theta.clone(),
+                <span class="self">self</span>.psi.clone(),
+                <span class="self">self</span>.w.clone(),
                 <span class="self">self</span>.objf,
                 <span class="self">self</span>.cycle,
                 <span class="self">self</span>.converged,
-                <span class="self">self</span>.cycle_log,
-                <span class="self">self</span>.settings,
+                <span class="self">self</span>.settings.clone(),
             ),
         )
     }

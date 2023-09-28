@@ -148,6 +148,7 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::datafile::Scenario;
 <span class="kw">use </span>dashmap::mapref::entry::Entry;
 <span class="kw">use </span>dashmap::DashMap;
@@ -168,16 +169,17 @@
     <span class="kw">fn </span>predict(<span class="kw-2">&amp;</span><span class="self">self</span>, params: Vec&lt;f64&gt;, scenario: <span class="kw-2">&amp;</span>Scenario) -&gt; Vec&lt;f64&gt;;
 }
 
-<span class="kw">pub struct </span>Engine&lt;S&gt;
+<span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>Engine&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict,
+    </span>S: Predict + Clone,
 {
     ode: S,
 }
 
 <span class="kw">impl</span>&lt;S&gt; Engine&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict,
+    </span>S: Predict + Clone,
 {
     <span class="kw">pub fn </span>new(ode: S) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ ode }
@@ -209,7 +211,7 @@
         DashMap::with_capacity(<span class="number">1000000</span>); <span class="comment">// Adjust cache size as needed
 </span>}
 
-<span class="kw">pub fn </span>get_ypred&lt;S: Predict + Sync&gt;(
+<span class="kw">pub fn </span>get_ypred&lt;S: Predict + Sync + Clone&gt;(
     sim_eng: <span class="kw-2">&amp;</span>Engine&lt;S&gt;,
     scenario: <span class="kw-2">&amp;</span>Scenario,
     support_point: Vec&lt;f64&gt;,
@@ -241,7 +243,7 @@
     cache: bool,
 ) -&gt; Array2&lt;Array1&lt;f64&gt;&gt;
 <span class="kw">where
-    </span>S: Predict + Sync,
+    </span>S: Predict + Sync + Clone,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>pred: Array2&lt;Array1&lt;f64&gt;&gt; =
         Array2::default((scenarios.len(), support_points.nrows()).f());
@@ -268,7 +270,7 @@
     support_point: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;,
 ) -&gt; Vec&lt;f64&gt;
 <span class="kw">where
-    </span>S: Predict + Sync,
+    </span>S: Predict + Sync + Clone,
 {
     sim_eng.pred(scenario, support_point.to_vec())
 }
@@ -279,7 +281,7 @@
     scenarios: <span class="kw-2">&amp;</span>Vec&lt;Scenario&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Array1&lt;Vec&lt;f64&gt;&gt;, Box&lt;<span class="kw">dyn </span>error::Error&gt;&gt;
 <span class="kw">where
-    </span>S: Predict + Sync,
+    </span>S: Predict + Sync + Clone,
 {
     <span class="kw">if </span>post.nrows() != scenarios.len() {
         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error calculating the posterior predictions, size mismatch.&quot;</span>.into());

@@ -52,7 +52,7 @@
 
 <span class="kw">pub fn </span>simulate&lt;S&gt;(engine: Engine&lt;S&gt;, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static</span>,
+    </span>S: Predict + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
 {
     <span class="kw">let </span>settings = settings::simulator::read(settings_path);
     <span class="kw">let </span>theta_file = File::open(settings.paths.theta).unwrap();

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["npag"],"trait":["Algorithm"]};
+window.SIDEBAR_ITEMS = {"enum":["Type"],"fn":["initialize_algorithm"],"mod":["npag"],"trait":["Algorithm"]};

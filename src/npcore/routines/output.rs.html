@@ -535,9 +535,6 @@
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>datafile::Scenario;
@@ -557,7 +554,6 @@
     <span class="kw">pub </span>objf: f64,
     <span class="kw">pub </span>cycles: usize,
     <span class="kw">pub </span>converged: bool,
-    <span class="kw">pub </span>cycle_log: CycleLog,
     <span class="kw">pub </span>par_names: Vec&lt;String&gt;,
 }
 
@@ -571,7 +567,6 @@
         objf: f64,
         cycles: usize,
         converged: bool,
-        cycle_log: CycleLog,
         settings: Data,
     ) -&gt; <span class="self">Self </span>{
         <span class="comment">// TODO: Add support for fixed and constant parameters
@@ -590,7 +585,6 @@
             objf,
             cycles,
             converged,
-            cycle_log,
             par_names,
         }
     }
@@ -705,7 +699,7 @@
     <span class="doccomment">/// Writes the predictions
     </span><span class="kw">pub fn </span>write_pred&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;)
     <span class="kw">where
-        </span>S: Predict + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static</span>,
+        </span>S: Predict + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
     {
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>scenarios = <span class="self">self</span>.scenarios.clone();
