@@ -11,7 +11,7 @@ use crate::prelude::{
     simulation::predict::{sim_obs, Predict},
 };
 
-use ndarray::{stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
+use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -51,17 +51,6 @@ impl<S> Algorithm<S> for NPAG<S>
 where
     S: Predict + std::marker::Sync + Clone,
 {
-    // fn initialize(
-    //     sim_eng: Engine<S>,
-    //     ranges: Vec<(f64, f64)>,
-    //     theta: Array2<f64>,
-    //     scenarios: Vec<Scenario>,
-    //     c: (f64, f64, f64, f64),
-    //     tx: UnboundedSender<NPCycle>,
-    //     settings: Data,
-    // ) -> Self {
-    //     NPAG::new(sim_eng, ranges, theta, scenarios, c, tx, settings)
-    // }
     fn fit(&mut self) -> NPResult {
         self.run()
     }
@@ -136,43 +125,38 @@ where
                     panic!("Error in IPM: {:?}", err);
                 }
             };
-            // log::info!("lambda: {}", &lambda);
-            let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-            let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
+
+            let mut keep = Vec::<usize>::new();
             for (index, lam) in self.lambda.iter().enumerate() {
                 if *lam > self.lambda.max().unwrap() / 1000_f64 {
-                    theta_rows.push(self.theta.row(index));
-                    psi_columns.push(self.psi.column(index));
+                    keep.push(index);
                 }
             }
-            self.theta = stack(Axis(0), &theta_rows).unwrap();
-            self.psi = stack(Axis(1), &psi_columns).unwrap();
+
+            self.theta = self.theta.select(Axis(0), &keep);
+            self.psi = self.psi.select(Axis(1), &keep);
 
             //Rank-Revealing Factorization
             let (r, perm) = qr::calculate_r(&self.psi);
             let nspp = self.psi.ncols();
-            let mut keep = 0;
+            let mut keep = Vec::<usize>::new();
             //The minimum between the number of subjects and the actual number of support points
             let lim_loop = self.psi.nrows().min(self.psi.ncols());
-            let mut theta_rows: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
-            let mut psi_columns: Vec<ArrayBase<ViewRepr<&f64>, Dim<[usize; 1]>>> = vec![];
             for i in 0..lim_loop {
                 let test = norm_zero(&r.column(i).to_owned());
                 let ratio = r.get((i, i)).unwrap() / test;
                 if ratio.abs() >= 1e-8 {
-                    theta_rows.push(self.theta.row(*perm.get(i).unwrap()));
-                    psi_columns.push(self.psi.column(*perm.get(i).unwrap()));
-                    keep += 1;
+                    keep.push(*perm.get(i).unwrap());
                 }
             }
-            self.theta = stack(Axis(0), &theta_rows).unwrap();
-            self.psi = stack(Axis(1), &psi_columns).unwrap();
+            self.theta = self.theta.select(Axis(0), &keep);
+            self.psi = self.psi.select(Axis(1), &keep);
 
             log::info!(
                 "QR decomp, cycle {}, kept: {}, thrown {}",
                 self.cycle,
-                keep,
-                nspp - keep
+                self.psi.ncols(),
+                nspp - self.psi.ncols()
             );
             (self.lambda, self.objf) = match ipm::burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
