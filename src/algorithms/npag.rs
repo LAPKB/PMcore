@@ -114,6 +114,14 @@ where
     }
 
     pub fn run(&mut self) -> NPResult {
+        // TODO: Move to an initialization routine?
+        if std::path::Path::new("stop").exists() {
+            match std::fs::remove_file("stop") {
+                Ok(_) => log::info!("Removed previous stop file"),
+                Err(err) => panic!("Unable to remove previous stop file: {}", err),
+            }
+        }
+
         while self.eps > THETA_E {
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
@@ -183,6 +191,7 @@ where
             };
 
             //Gam/Lam optimization
+            // TODO: Move this to e.g. /evaluation/error.rs
             let gamma_up = self.gamma * (1.0 + self.gamma_delta);
             let gamma_down = self.gamma / (1.0 + self.gamma_delta);
             let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);

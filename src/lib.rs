@@ -48,7 +48,6 @@ use ndarray::Array2;
 
 use prelude::algorithms::initialize_algorithm;
 use prelude::{
-    datafile::Scenario,
     output::{NPCycle, NPResult},
     predict::{Engine, Predict},
     settings::run::Data,
@@ -57,7 +56,7 @@ use prelude::{
 use std::fs;
 use std::thread::spawn;
 use std::{fs::File, time::Instant};
-use tokio::sync::mpsc::{self, UnboundedSender};
+use tokio::sync::mpsc::{self};
 //Tests
 mod tests;
 
@@ -153,13 +152,8 @@ where
     }
 
     let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
-    let c = settings.parsed.error.poly;
-
-    let settings_tui = settings.clone();
-
 
     let algorithm_config = &settings.parsed.config.engine;
-
     let alg_type: algorithms::Type = match algorithm_config.as_str() {
         "NPAG" => algorithms::Type::NPAG,
         "POSTPROB" => algorithms::Type::POSTPROB,
@@ -169,27 +163,27 @@ where
         }
     };
 
-    // TODO: Move to init
-    // Remove stop file if exists
-    if std::path::Path::new("stop").exists() {
-        match std::fs::remove_file("stop") {
-            Ok(_) => log::info!("Removed previous stop file"),
-            Err(err) => panic!("Unable to remove previous stop file: {}", err),
-        }
-    }
-
     let mut algorithm = initialize_algorithm(
         alg_type,
         engine.clone(),
         ranges,
         theta,
         scenarios.clone(),
-        c,
+        settings.parsed.error.poly,
         tx,
         settings.clone(),
     );
 
+    // Spawn new thread for TUI
+    let settings_tui = settings.clone();
+    if settings.parsed.config.tui {
+        let _ui_handle = spawn(move || {
+            start_ui(rx, settings_tui).expect("Failed to start TUI");
+        });
+    }
+
     let result = algorithm.fit();
+    log::info!("Total time: {:.2?}", now.elapsed());
 
     if let Some(output) = &settings.parsed.config.pmetrics_outputs {
         if *output {
