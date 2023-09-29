@@ -162,11 +162,11 @@ where
             start_ui(rx, settings_tui).expect("Failed to start UI");
         });
 
-        npag_result = run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
+        npag_result = run_npag(engine, ranges, theta, scenarios, c, tx, settings);
         log::info!("Total time: {:.2?}", now.elapsed());
         ui_handle.join().expect("UI thread panicked");
     } else {
-        npag_result = run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
+        npag_result = run_npag(engine, ranges, theta, scenarios, c, tx, settings);
         log::info!("Total time: {:.2?}", now.elapsed());
     }
 
@@ -177,10 +177,10 @@ fn run_npag<S>(
     sim_eng: Engine<S>,
     ranges: Vec<(f64, f64)>,
     theta: Array2<f64>,
-    scenarios: &Vec<Scenario>,
+    scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
     tx: UnboundedSender<NPCycle>,
-    settings: &Data,
+    settings: Data,
 ) -> NPResult
 where
     S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
@@ -202,17 +202,17 @@ where
     //     tx,
     //     settings.clone(),
     // );
-    let mut algorithm = initialize_algorithm(
+    let mut algorithm = Box::new(initialize_algorithm(
         algorithms::Type::NPAG,
-        sim_eng,
+        sim_eng.clone(),
         ranges,
         theta,
-        scenarios.clone(),
+        scenarios,
         c,
         tx,
         settings.clone(),
-    );
-    let (sim_eng, result) = algorithm.fit();
+    ));
+    let result = algorithm.fit();
 
     // let result = npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
 
