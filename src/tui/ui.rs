@@ -1,3 +1,5 @@
+//! Defines the Terminal User Interface (TUI) for NPcore
+
 use eyre::Result;
 use ratatui::{
     backend::{Backend, CrosstermBackend},

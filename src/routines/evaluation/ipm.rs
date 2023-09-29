@@ -94,21 +94,9 @@ pub fn burke(
     Ok((lam, obj))
 }
 
+/// Computes the infinity norm (or maximum norm) of a 1-dimensional array
+/// The infinity norm is the maximum, absolute value of its elements
 fn norm_inf(a: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>) -> f64 {
     let zeros: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::zeros(a.len());
     a.linf_dist(&zeros).unwrap()
 }
-
-// fn divide(dividend: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>>, divisor: &ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>>) -> ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>>{
-//     //check than dividend.len() == divisor.len()
-//     //check than none of the elements of divisor == 0
-//     //return a Result
-//     let mut res:ArrayBase<OwnedRepr<f64>,Dim<[usize; 1]>> = Array::zeros(dividend.len());
-//     Zip::from(&mut res)
-//         .and(dividend)
-//         .and(divisor)
-//         .for_each(|res,dividend,divisor|{
-//             *res = dividend/divisor;
-//         });
-//     res
-// }
