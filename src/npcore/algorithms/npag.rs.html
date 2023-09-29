@@ -299,22 +299,6 @@
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{
     algorithms::Algorithm,
     datafile::Scenario,
@@ -328,7 +312,7 @@
     simulation::predict::{sim_obs, Predict},
 };
 
-<span class="kw">use </span>ndarray::{stack, Array, Array1, Array2, ArrayBase, Axis, Dim, ViewRepr};
+<span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
@@ -368,18 +352,7 @@
 <span class="kw">where
     </span>S: Predict + std::marker::Sync + Clone,
 {
-    <span class="comment">// fn initialize(
-    //     sim_eng: Engine&lt;S&gt;,
-    //     ranges: Vec&lt;(f64, f64)&gt;,
-    //     theta: Array2&lt;f64&gt;,
-    //     scenarios: Vec&lt;Scenario&gt;,
-    //     c: (f64, f64, f64, f64),
-    //     tx: UnboundedSender&lt;NPCycle&gt;,
-    //     settings: Data,
-    // ) -&gt; Self {
-    //     NPAG::new(sim_eng, ranges, theta, scenarios, c, tx, settings)
-    // }
-    </span><span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
+    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="self">self</span>.run()
     }
 }
@@ -453,43 +426,38 @@
                     </span><span class="macro">panic!</span>(<span class="string">&quot;Error in IPM: {:?}&quot;</span>, err);
                 }
             };
-            <span class="comment">// log::info!(&quot;lambda: {}&quot;, &amp;lambda);
-            </span><span class="kw">let </span><span class="kw-2">mut </span>theta_rows: Vec&lt;ArrayBase&lt;ViewRepr&lt;<span class="kw-2">&amp;</span>f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;&gt; = <span class="macro">vec!</span>[];
-            <span class="kw">let </span><span class="kw-2">mut </span>psi_columns: Vec&lt;ArrayBase&lt;ViewRepr&lt;<span class="kw-2">&amp;</span>f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;&gt; = <span class="macro">vec!</span>[];
+
+            <span class="kw">let </span><span class="kw-2">mut </span>keep = Vec::&lt;usize&gt;::new();
             <span class="kw">for </span>(index, lam) <span class="kw">in </span><span class="self">self</span>.lambda.iter().enumerate() {
                 <span class="kw">if </span><span class="kw-2">*</span>lam &gt; <span class="self">self</span>.lambda.max().unwrap() / <span class="number">1000_f64 </span>{
-                    theta_rows.push(<span class="self">self</span>.theta.row(index));
-                    psi_columns.push(<span class="self">self</span>.psi.column(index));
+                    keep.push(index);
                 }
             }
-            <span class="self">self</span>.theta = stack(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>theta_rows).unwrap();
-            <span class="self">self</span>.psi = stack(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>psi_columns).unwrap();
+
+            <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
+            <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
 
             <span class="comment">//Rank-Revealing Factorization
             </span><span class="kw">let </span>(r, perm) = qr::calculate_r(<span class="kw-2">&amp;</span><span class="self">self</span>.psi);
             <span class="kw">let </span>nspp = <span class="self">self</span>.psi.ncols();
-            <span class="kw">let </span><span class="kw-2">mut </span>keep = <span class="number">0</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>keep = Vec::&lt;usize&gt;::new();
             <span class="comment">//The minimum between the number of subjects and the actual number of support points
             </span><span class="kw">let </span>lim_loop = <span class="self">self</span>.psi.nrows().min(<span class="self">self</span>.psi.ncols());
-            <span class="kw">let </span><span class="kw-2">mut </span>theta_rows: Vec&lt;ArrayBase&lt;ViewRepr&lt;<span class="kw-2">&amp;</span>f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;&gt; = <span class="macro">vec!</span>[];
-            <span class="kw">let </span><span class="kw-2">mut </span>psi_columns: Vec&lt;ArrayBase&lt;ViewRepr&lt;<span class="kw-2">&amp;</span>f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;&gt; = <span class="macro">vec!</span>[];
             <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..lim_loop {
                 <span class="kw">let </span>test = norm_zero(<span class="kw-2">&amp;</span>r.column(i).to_owned());
                 <span class="kw">let </span>ratio = r.get((i, i)).unwrap() / test;
                 <span class="kw">if </span>ratio.abs() &gt;= <span class="number">1e-8 </span>{
-                    theta_rows.push(<span class="self">self</span>.theta.row(<span class="kw-2">*</span>perm.get(i).unwrap()));
-                    psi_columns.push(<span class="self">self</span>.psi.column(<span class="kw-2">*</span>perm.get(i).unwrap()));
-                    keep += <span class="number">1</span>;
+                    keep.push(<span class="kw-2">*</span>perm.get(i).unwrap());
                 }
             }
-            <span class="self">self</span>.theta = stack(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>theta_rows).unwrap();
-            <span class="self">self</span>.psi = stack(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>psi_columns).unwrap();
+            <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
+            <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
 
             <span class="macro">log::info!</span>(
                 <span class="string">&quot;QR decomp, cycle {}, kept: {}, thrown {}&quot;</span>,
                 <span class="self">self</span>.cycle,
-                keep,
-                nspp - keep
+                <span class="self">self</span>.psi.ncols(),
+                nspp - <span class="self">self</span>.psi.ncols()
             );
             (<span class="self">self</span>.lambda, <span class="self">self</span>.objf) = <span class="kw">match </span>ipm::burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
