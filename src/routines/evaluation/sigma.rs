@@ -1,20 +1,35 @@
 use ndarray::Array1;
 
+/// Contains information on the observation error
 pub trait Sigma {
     fn sigma(&self, yobs: &Array1<f64>) -> Array1<f64>;
 }
 
+/// ErrorPoly contains the information on uncertainties in observations
+///
+/// The elements of the error polynomial corresponds to the terms in SD = C0 + C1 x obs + C2*obs^2 + C3*obs^3
+///
+/// See [ErrorType] for more information
 pub struct ErrorPoly<'a> {
     pub c: (f64, f64, f64, f64),
     pub gl: f64,
     pub e_type: &'a ErrorType,
 }
 
+/// ErrorType defines the current error model
+///
+/// # Multiplicative / Proportional
+/// error = SD * γ (gamma)
+///
+/// # Additive
+/// error = (SD<sup>2</sup> + lambda<sup>2</sup>)<sup>0.5</sup>
 pub enum ErrorType {
     Add,
     Prop,
 }
 
+/// Computes the error of an observation given its value, the error model, and the error polynomial
+/// Observations are weighted by 1/error<sup>2</sup>
 impl<'a> Sigma for ErrorPoly<'a> {
     fn sigma(&self, yobs: &Array1<f64>) -> Array1<f64> {
         let alpha = self.c.0
@@ -30,10 +45,10 @@ impl<'a> Sigma for ErrorPoly<'a> {
         res.mapv(|x| {
             if x.is_nan() || x < 0.0 {
                 log::error!(
-                    "The computed standard deviation is either NaN or negative!: {}",
+                    "The computed standard deviation is either NaN or negative (SD = {}), coercing to 0",
                     x
                 );
-                x
+                0.0
             } else {
                 x
             }
