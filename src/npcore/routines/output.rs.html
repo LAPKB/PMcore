@@ -535,6 +535,8 @@
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>datafile::Scenario;
@@ -545,6 +547,7 @@
 <span class="kw">use </span>std::fs::File;
 
 <span class="doccomment">/// Defines the result objects from an NPAG run
+/// An [NPResult] contains the necessary information to generate predictions and summary statistics
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>NPResult {
     <span class="kw">pub </span>scenarios: Vec&lt;Scenario&gt;,
@@ -594,7 +597,8 @@
         meta_writer.write(<span class="self">self</span>.converged, <span class="self">self</span>.cycles);
     }
 
-    <span class="doccomment">/// Writes theta, the population support points and their probabilities
+    <span class="doccomment">/// Writes theta, which containts the population support points and their associated probabilities
+    /// Each row is one support point, the last column being probability
     </span><span class="kw">pub fn </span>write_theta(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();

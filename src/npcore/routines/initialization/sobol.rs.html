@@ -27,11 +27,20 @@
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>ndarray::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array, ArrayBase, OwnedRepr};
 <span class="kw">use </span>sobol_burley::sample;
 
-<span class="kw">pub fn </span>generate(
+<span class="doccomment">/// Generates a 2-dimensional array containing a Sobol sequence within the given ranges
+/// # Returns
+/// A 2D array where each row is a point, and each column corresponds to a parameter.
+</span><span class="kw">pub fn </span>generate(
     n_points: usize,
     range_params: <span class="kw-2">&amp;</span>Vec&lt;(f64, f64)&gt;,
     seed: u32,
@@ -53,7 +62,10 @@
     }
     seq
 }
+
 <span class="comment">//TODO: It should be possible to avoid one of the for-loops
 //this improvement should happen automatically if switching columns with rows.
 //theta0 = hcat([a .+ (b - a) .* Sobol.next!(s) for i = 1:n_theta0]...)
+
+//TODO: Implement alternative samplers, such as uniform and Normal distributions
 </span></code></pre></div></section></main></body></html>

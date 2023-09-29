@@ -149,6 +149,7 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::datafile::Scenario;
 <span class="kw">use </span>dashmap::mapref::entry::Entry;
 <span class="kw">use </span>dashmap::DashMap;
@@ -160,8 +161,9 @@
 <span class="kw">use </span>std::error;
 <span class="kw">use </span>std::hash::{Hash, Hasher};
 
-<span class="doccomment">///
-/// return the predicted values for the given scenario and parameters
+<span class="kw">const </span>CACHE_SIZE: usize = <span class="number">1000000</span>;
+
+<span class="doccomment">/// return the predicted values for the given scenario and parameters
 /// where the second element of the tuple is the predicted values
 /// one per observation time in scenario and in the same order
 /// it is not relevant the outeq of the specific event.
@@ -208,7 +210,7 @@
 
 <span class="macro">lazy_static! </span>{
     <span class="kw">static </span><span class="kw-2">ref </span>YPRED_CACHE: DashMap&lt;CacheKey, Array1&lt;f64&gt;&gt; =
-        DashMap::with_capacity(<span class="number">1000000</span>); <span class="comment">// Adjust cache size as needed
+        DashMap::with_capacity(CACHE_SIZE); <span class="comment">// Adjust cache size as needed
 </span>}
 
 <span class="kw">pub fn </span>get_ypred&lt;S: Predict + Sync + Clone&gt;(

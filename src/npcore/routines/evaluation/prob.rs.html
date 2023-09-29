@@ -53,12 +53,6 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>datafile::Scenario;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
@@ -69,9 +63,7 @@
 <span class="kw">const </span>FRAC_1_SQRT_2PI: f64 =
     std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / <span class="number">2.0</span>;
 
-<span class="comment">//TODO: I might need to implement that cache manually
-//Example: https://github.com/jaemk/cached/issues/16
-
+<span class="doccomment">/// Calculate the Ψ (psi) matrix, which contains the likelihood of each support point (column) for each subject (row)
 </span><span class="kw">pub fn </span>calculate_psi&lt;S&gt;(
     ypred: <span class="kw-2">&amp;</span>Array2&lt;Array1&lt;f64&gt;&gt;,
     scenarios: <span class="kw-2">&amp;</span>Vec&lt;Scenario&gt;,
@@ -103,18 +95,14 @@
                             j
                         )
                     }
-                    <span class="comment">// if i== 0 &amp;&amp; j == 0 {
-                    //     dbg!(&amp;ll);
-                    //     dbg!(ypred.get((i, j)).unwrap());
-                    //     dbg!(&amp;yobs);
-                    //     dbg!(&amp;sigma);
-                    // }
-                    </span>element.fill(ll);
+                    element.fill(ll);
                 });
         });
     prob
 }
-<span class="kw">fn </span>normal_likelihood(ypred: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;, yobs: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;, sigma: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; f64 {
+
+<span class="doccomment">/// Calculate the normal likelihood
+</span><span class="kw">pub fn </span>normal_likelihood(ypred: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;, yobs: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;, sigma: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; f64 {
     <span class="kw">let </span>diff = (yobs - ypred).mapv(|x| x.powi(<span class="number">2</span>));
     <span class="kw">let </span>two_sigma_sq = (<span class="number">2.0 </span>* sigma).mapv(|x| x.powi(<span class="number">2</span>));
     <span class="kw">let </span>aux_vec = FRAC_1_SQRT_2PI * (-<span class="kw-2">&amp;</span>diff / two_sigma_sq).mapv(|x| x.exp()) / sigma;

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["calculate_psi"]};
+window.SIDEBAR_ITEMS = {"fn":["calculate_psi","normal_likelihood"]};

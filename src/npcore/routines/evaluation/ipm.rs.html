@@ -100,18 +100,6 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::error;
 
 <span class="kw">use </span>linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
@@ -208,22 +196,10 @@
     <span class="prelude-val">Ok</span>((lam, obj))
 }
 
-<span class="kw">fn </span>norm_inf(a: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;) -&gt; f64 {
+<span class="doccomment">/// Computes the infinity norm (or maximum norm) of a 1-dimensional array
+/// The infinity norm is the maximum, absolute value of its elements
+</span><span class="kw">fn </span>norm_inf(a: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;) -&gt; f64 {
     <span class="kw">let </span>zeros: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt; = Array::zeros(a.len());
     a.linf_dist(<span class="kw-2">&amp;</span>zeros).unwrap()
 }
-
-<span class="comment">// fn divide(dividend: &amp;ArrayBase&lt;OwnedRepr&lt;f64&gt;,Dim&lt;[usize; 1]&gt;&gt;, divisor: &amp;ArrayBase&lt;OwnedRepr&lt;f64&gt;,Dim&lt;[usize; 1]&gt;&gt;) -&gt; ArrayBase&lt;OwnedRepr&lt;f64&gt;,Dim&lt;[usize; 1]&gt;&gt;{
-//     //check than dividend.len() == divisor.len()
-//     //check than none of the elements of divisor == 0
-//     //return a Result
-//     let mut res:ArrayBase&lt;OwnedRepr&lt;f64&gt;,Dim&lt;[usize; 1]&gt;&gt; = Array::zeros(dividend.len());
-//     Zip::from(&amp;mut res)
-//         .and(dividend)
-//         .and(divisor)
-//         .for_each(|res,dividend,divisor|{
-//             *res = dividend/divisor;
-//         });
-//     res
-// }
-</span></code></pre></div></section></main></body></html>
+</code></pre></div></section></main></body></html>
