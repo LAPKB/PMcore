@@ -9,7 +9,8 @@ use ndarray::{Array, Array2, Axis};
 use std::error;
 use std::hash::{Hash, Hasher};
 
-///
+const CACHE_SIZE: usize = 1000000;
+
 /// return the predicted values for the given scenario and parameters
 /// where the second element of the tuple is the predicted values
 /// one per observation time in scenario and in the same order
@@ -57,7 +58,7 @@ impl Hash for CacheKey {
 
 lazy_static! {
     static ref YPRED_CACHE: DashMap<CacheKey, Array1<f64>> =
-        DashMap::with_capacity(1000000); // Adjust cache size as needed
+        DashMap::with_capacity(CACHE_SIZE); // Adjust cache size as needed
 }
 
 pub fn get_ypred<S: Predict + Sync + Clone>(

@@ -8,9 +8,7 @@ use sigma::Sigma;
 const FRAC_1_SQRT_2PI: f64 =
     std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / 2.0;
 
-//TODO: I might need to implement that cache manually
-//Example: https://github.com/jaemk/cached/issues/16
-
+/// Calculate the Ψ (psi) matrix, which contains the likelihood of each support point (column) for each subject (row)
 pub fn calculate_psi<S>(
     ypred: &Array2<Array1<f64>>,
     scenarios: &Vec<Scenario>,
@@ -42,18 +40,14 @@ where
                             j
                         )
                     }
-                    // if i== 0 && j == 0 {
-                    //     dbg!(&ll);
-                    //     dbg!(ypred.get((i, j)).unwrap());
-                    //     dbg!(&yobs);
-                    //     dbg!(&sigma);
-                    // }
                     element.fill(ll);
                 });
         });
     prob
 }
-fn normal_likelihood(ypred: &Array1<f64>, yobs: &Array1<f64>, sigma: &Array1<f64>) -> f64 {
+
+/// Calculate the normal likelihood
+pub fn normal_likelihood(ypred: &Array1<f64>, yobs: &Array1<f64>, sigma: &Array1<f64>) -> f64 {
     let diff = (yobs - ypred).mapv(|x| x.powi(2));
     let two_sigma_sq = (2.0 * sigma).mapv(|x| x.powi(2));
     let aux_vec = FRAC_1_SQRT_2PI * (-&diff / two_sigma_sq).mapv(|x| x.exp()) / sigma;

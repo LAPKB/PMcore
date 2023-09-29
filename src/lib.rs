@@ -1,3 +1,5 @@
+//! NPcore is a framework for developing and running non-parametric algorithms for population pharmacokinetic modelling
+
 pub mod algorithms;
 pub mod routines {
     pub mod datafile;
