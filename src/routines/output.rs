@@ -8,6 +8,7 @@ use settings::run::Data;
 use std::fs::File;
 
 /// Defines the result objects from an NPAG run
+/// An [NPResult] contains the necessary information to generate predictions and summary statistics
 #[derive(Debug)]
 pub struct NPResult {
     pub scenarios: Vec<Scenario>,
@@ -57,7 +58,8 @@ impl NPResult {
         meta_writer.write(self.converged, self.cycles);
     }
 
-    /// Writes theta, the population support points and their probabilities
+    /// Writes theta, which containts the population support points and their associated probabilities
+    /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) {
         let result = (|| {
             let theta: Array2<f64> = self.theta.clone();

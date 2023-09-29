@@ -2,6 +2,9 @@ use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
 use sobol_burley::sample;
 
+/// Generates a 2-dimensional array containing a Sobol sequence within the given ranges
+/// # Returns
+/// A 2D array where each row is a point, and each column corresponds to a parameter.
 pub fn generate(
     n_points: usize,
     range_params: &Vec<(f64, f64)>,
@@ -24,6 +27,9 @@ pub fn generate(
     }
     seq
 }
+
 //TODO: It should be possible to avoid one of the for-loops
 //this improvement should happen automatically if switching columns with rows.
 //theta0 = hcat([a .+ (b - a) .* Sobol.next!(s) for i = 1:n_theta0]...)
+
+//TODO: Implement alternative samplers, such as uniform and Normal distributions
