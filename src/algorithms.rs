@@ -48,8 +48,8 @@ where
         Type::NPAG => Box::new(npag::NPAG::new(
             sim_eng, ranges, theta, scenarios, c, tx, settings,
         )),
-        Type::POSTPROB => Box::new(npag::NPAG::new(
-            sim_eng, ranges, theta, scenarios, c, tx, settings,
+        Type::POSTPROB => Box::new(postprob::POSTPROB::new(
+            sim_eng, theta, scenarios, c, tx, settings,
         )),
     }
 }
