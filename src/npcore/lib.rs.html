@@ -414,11 +414,11 @@
             start_ui(rx, settings_tui).expect(<span class="string">&quot;Failed to start UI&quot;</span>);
         });
 
-        npag_result = run_npag(engine, ranges, theta, <span class="kw-2">&amp;</span>scenarios, c, tx, <span class="kw-2">&amp;</span>settings);
+        npag_result = run_npag(engine, ranges, theta, scenarios, c, tx, settings);
         <span class="macro">log::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
         ui_handle.join().expect(<span class="string">&quot;UI thread panicked&quot;</span>);
     } <span class="kw">else </span>{
-        npag_result = run_npag(engine, ranges, theta, <span class="kw-2">&amp;</span>scenarios, c, tx, <span class="kw-2">&amp;</span>settings);
+        npag_result = run_npag(engine, ranges, theta, scenarios, c, tx, settings);
         <span class="macro">log::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
     }
 
@@ -429,10 +429,10 @@
     sim_eng: Engine&lt;S&gt;,
     ranges: Vec&lt;(f64, f64)&gt;,
     theta: Array2&lt;f64&gt;,
-    scenarios: <span class="kw-2">&amp;</span>Vec&lt;Scenario&gt;,
+    scenarios: Vec&lt;Scenario&gt;,
     c: (f64, f64, f64, f64),
     tx: UnboundedSender&lt;NPCycle&gt;,
-    settings: <span class="kw-2">&amp;</span>Data,
+    settings: Data,
 ) -&gt; NPResult
 <span class="kw">where
     </span>S: Predict + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
@@ -454,17 +454,17 @@
     //     tx,
     //     settings.clone(),
     // );
-    </span><span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(
+    </span><span class="kw">let </span><span class="kw-2">mut </span>algorithm = Box::new(initialize_algorithm(
         algorithms::Type::NPAG,
-        sim_eng,
+        sim_eng.clone(),
         ranges,
         theta,
-        scenarios.clone(),
+        scenarios,
         c,
         tx,
         settings.clone(),
-    );
-    <span class="kw">let </span>(sim_eng, result) = algorithm.fit();
+    ));
+    <span class="kw">let </span>result = algorithm.fit();
 
     <span class="comment">// let result = npag(&amp;sim_eng, ranges, theta, scenarios, c, tx, settings);
 
