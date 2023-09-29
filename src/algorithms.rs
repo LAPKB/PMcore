@@ -6,9 +6,11 @@ use simulation::predict::{Engine, Predict};
 use tokio::sync::mpsc::UnboundedSender;
 
 pub mod npag;
+mod postprob;
 
 pub enum Type {
     NPAG,
+    POSTPROB,
 }
 
 pub trait Algorithm<S> {
@@ -44,6 +46,9 @@ where
 {
     match alg_type {
         Type::NPAG => Box::new(npag::NPAG::new(
+            sim_eng, ranges, theta, scenarios, c, tx, settings,
+        )),
+        Type::POSTPROB => Box::new(npag::NPAG::new(
             sim_eng, ranges, theta, scenarios, c, tx, settings,
         )),
     }
