@@ -158,36 +158,35 @@ where
     let settings_tui = settings.clone();
 
     let npag_result: NPResult;
-    let algorithm = &settings.parsed.config.engine;
 
-    match algorithm.as_str() {
-        "NPAG" => {
-            if settings.parsed.config.tui {
-                let ui_handle = spawn(move || {
-                    start_ui(rx, settings_tui).expect("Failed to start UI");
-                });
+    let algorithm_config = &settings.parsed.config.engine;
 
-                npag_result = run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
-                log::info!("Total time: {:.2?}", now.elapsed());
-                ui_handle.join().expect("UI thread panicked");
-            } else {
-                npag_result = run_npag(engine, ranges, theta, &scenarios, c, tx, &settings);
-                log::info!("Total time: {:.2?}", now.elapsed());
-            }
-        },
-        "POSTPROB" => {
-            npag_result = run_postprob(engine, ranges, theta, &scenarios, c, tx, &settings);
-        },
+    let alg_type: algorithms::Type = match algorithm_config.as_str() {
+        "NPAG" => algorithms::Type::NPAG,
+        "POSTPROB" => algorithms::Type::POSTPROB,
         _ => {
-            eprintln!("Error: Algorithm not recognized: {}", algorithm);
+            eprintln!("Error: Algorithm not recognized: {}", algorithm_config);
             std::process::exit(-1)
         }
-    }
+    };
+
+    let mut algorithm = initialize_algorithm(
+        alg_type,
+        engine,
+        ranges,
+        theta,
+        scenarios.clone(),
+        c,
+        tx,
+        settings.clone(),
+    );
+
+    npag_result = npcore_run(engine, ranges, theta, &scenarios, c, tx, &settings, algorithm);
 
     Ok(npag_result)
 }
 
-fn run_npag<S>(
+fn npcore_run<S>(
     sim_eng: Engine<S>,
     ranges: Vec<(f64, f64)>,
     theta: Array2<f64>,
@@ -195,6 +194,7 @@ fn run_npag<S>(
     c: (f64, f64, f64, f64),
     tx: UnboundedSender<NPCycle>,
     settings: &Data,
+    algorithm: algorithms::Algorithm<S>,
 ) -> NPResult
 where
     S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
@@ -207,59 +207,8 @@ where
         }
     }
 
-    let mut algorithm = initialize_algorithm(
-        algorithms::Type::NPAG,
-        sim_eng,
-        ranges,
-        theta,
-        scenarios.clone(),
-        c,
-        tx,
-        settings.clone(),
-    );
+
     let (sim_eng, result) = algorithm.fit();
-
-    // let result = npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
-
-    if let Some(output) = &settings.parsed.config.pmetrics_outputs {
-        if *output {
-            result.write_theta();
-            result.write_posterior();
-            result.write_obs();
-            result.write_pred(&sim_eng);
-            result.write_meta();
-        }
-    }
-
-    result
-}
-
-fn run_postprob<S>(
-    sim_eng: Engine<S>,
-    ranges: Vec<(f64, f64)>,
-    theta: Array2<f64>,
-    scenarios: &Vec<Scenario>,
-    c: (f64, f64, f64, f64),
-    tx: UnboundedSender<NPCycle>,
-    settings: &Data,
-) -> NPResult
-where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
-{
-
-    let mut algorithm = initialize_algorithm(
-        algorithms::Type::POSTPROB,
-        sim_eng,
-        ranges,
-        theta,
-        scenarios.clone(),
-        c,
-        tx,
-        settings.clone(),
-    );
-    let (sim_eng, result) = algorithm.fit();
-
-    // let result = npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
 
     if let Some(output) = &settings.parsed.config.pmetrics_outputs {
         if *output {
