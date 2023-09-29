@@ -157,7 +157,6 @@ where
 
     let settings_tui = settings.clone();
 
-    let npag_result: NPResult;
 
     let algorithm_config = &settings.parsed.config.engine;
 
@@ -170,35 +169,7 @@ where
         }
     };
 
-    let mut algorithm = initialize_algorithm(
-        alg_type,
-        engine,
-        ranges,
-        theta,
-        scenarios.clone(),
-        c,
-        tx,
-        settings.clone(),
-    );
-
-    npag_result = npcore_run(engine, ranges, theta, &scenarios, c, tx, &settings, algorithm);
-
-    Ok(npag_result)
-}
-
-fn npcore_run<S>(
-    sim_eng: Engine<S>,
-    ranges: Vec<(f64, f64)>,
-    theta: Array2<f64>,
-    scenarios: &Vec<Scenario>,
-    c: (f64, f64, f64, f64),
-    tx: UnboundedSender<NPCycle>,
-    settings: &Data,
-    algorithm: algorithms::Algorithm<S>,
-) -> NPResult
-where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
-{
+    // TODO: Move to init
     // Remove stop file if exists
     if std::path::Path::new("stop").exists() {
         match std::fs::remove_file("stop") {
@@ -207,20 +178,30 @@ where
         }
     }
 
+    let mut algorithm = initialize_algorithm(
+        alg_type,
+        engine.clone(),
+        ranges,
+        theta,
+        scenarios.clone(),
+        c,
+        tx,
+        settings.clone(),
+    );
 
-    let (sim_eng, result) = algorithm.fit();
+    let result = algorithm.fit();
 
     if let Some(output) = &settings.parsed.config.pmetrics_outputs {
         if *output {
             result.write_theta();
             result.write_posterior();
             result.write_obs();
-            result.write_pred(&sim_eng);
+            result.write_pred(&engine);
             result.write_meta();
         }
     }
 
-    result
+    Ok(result)
 }
 
 //TODO: move elsewhere
