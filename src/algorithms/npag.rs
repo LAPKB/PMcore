@@ -62,7 +62,7 @@ where
     // ) -> Self {
     //     NPAG::new(sim_eng, ranges, theta, scenarios, c, tx, settings)
     // }
-    fn fit(&mut self) -> (Engine<S>, NPResult) {
+    fn fit(&mut self) -> NPResult {
         self.run()
     }
 }
@@ -113,7 +113,7 @@ where
         }
     }
 
-    pub fn run(&mut self) -> (Engine<S>, NPResult) {
+    pub fn run(&mut self) -> NPResult {
         while self.eps > THETA_E {
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
@@ -299,18 +299,15 @@ where
             self.last_objf = self.objf;
         }
 
-        (
-            self.engine.clone(),
-            NPResult::new(
-                self.scenarios.clone(),
-                self.theta.clone(),
-                self.psi.clone(),
-                self.w.clone(),
-                self.objf,
-                self.cycle,
-                self.converged,
-                self.settings.clone(),
-            ),
+        NPResult::new(
+            self.scenarios.clone(),
+            self.theta.clone(),
+            self.psi.clone(),
+            self.w.clone(),
+            self.objf,
+            self.cycle,
+            self.converged,
+            self.settings.clone(),
         )
     }
 }
