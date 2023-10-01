@@ -60,6 +60,21 @@ impl<S> NPAG<S>
 where
     S: Predict + std::marker::Sync + Clone,
 {
+    /// Creates a new NPAG instance.
+    ///
+    /// # Parameters
+    ///
+    /// - `sim_eng`: An instance of the prediction engine.
+    /// - `ranges`: A vector of value ranges for each parameter.
+    /// - `theta`: An initial parameter matrix.
+    /// - `scenarios`: A vector of scenarios.
+    /// - `c`: A tuple containing coefficients for the error polynomial.
+    /// - `tx`: An unbounded sender for communicating progress.
+    /// - `settings`: Data settings and configurations.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `NPAG` instance.
     pub fn new(
         sim_eng: Engine<S>,
         ranges: Vec<(f64, f64)>,
@@ -106,8 +121,8 @@ where
         while self.eps > THETA_E {
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
-            let cache = if self.cycle == 1 { false } else { self.cache };
-            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
+            self.cache = if self.cycle == 1 { false } else { self.cache };
+            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, self.cache);
 
             self.psi = prob::calculate_psi(
                 &ypred,
@@ -138,7 +153,7 @@ where
 
             //Rank-Revealing Factorization
             let (r, perm) = qr::calculate_r(&self.psi);
-            let nspp = self.psi.ncols();
+
             let mut keep = Vec::<usize>::new();
             //The minimum between the number of subjects and the actual number of support points
             let lim_loop = self.psi.nrows().min(self.psi.ncols());
@@ -149,15 +164,15 @@ where
                     keep.push(*perm.get(i).unwrap());
                 }
             }
-            self.theta = self.theta.select(Axis(0), &keep);
-            self.psi = self.psi.select(Axis(1), &keep);
-
             log::info!(
                 "QR decomp, cycle {}, kept: {}, thrown {}",
                 self.cycle,
-                self.psi.ncols(),
-                nspp - self.psi.ncols()
+                keep.len(),
+                self.psi.ncols() - keep.len()
             );
+            self.theta = self.theta.select(Axis(0), &keep);
+            self.psi = self.psi.select(Axis(1), &keep);
+
             (self.lambda, self.objf) = match ipm::burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
@@ -166,60 +181,7 @@ where
                 }
             };
 
-            //Gam/Lam optimization
-            let gamma_up = self.gamma * (1.0 + self.gamma_delta);
-            let gamma_down = self.gamma / (1.0 + self.gamma_delta);
-            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
-            let psi_up = prob::calculate_psi(
-                &ypred,
-                &self.scenarios,
-                &ErrorPoly {
-                    c: self.c,
-                    gl: gamma_up,
-                    e_type: &self.error_type,
-                },
-            );
-            let psi_down = prob::calculate_psi(
-                &ypred,
-                &self.scenarios,
-                &ErrorPoly {
-                    c: self.c,
-                    gl: gamma_down,
-                    e_type: &self.error_type,
-                },
-            );
-            let (lambda_up, objf_up) = match ipm::burke(&psi_up) {
-                Ok((lambda, objf)) => (lambda, objf),
-                Err(err) => {
-                    //todo: write out report
-                    panic!("Error in IPM: {:?}", err);
-                }
-            };
-            let (lambda_down, objf_down) = match ipm::burke(&psi_down) {
-                Ok((lambda, objf)) => (lambda, objf),
-                Err(err) => {
-                    //todo: write out report
-                    panic!("Error in IPM: {:?}", err);
-                }
-            };
-            if objf_up > self.objf {
-                self.gamma = gamma_up;
-                self.objf = objf_up;
-                self.gamma_delta *= 4.;
-                self.lambda = lambda_up;
-                self.psi = psi_up;
-            }
-            if objf_down > self.objf {
-                self.gamma = gamma_down;
-                self.objf = objf_down;
-                self.gamma_delta *= 4.;
-                self.lambda = lambda_down;
-                self.psi = psi_down;
-            }
-            self.gamma_delta *= 0.5;
-            if self.gamma_delta <= 0.01 {
-                self.gamma_delta = 0.1;
-            }
+            self.optim_gamma();
 
             let mut state = NPCycle {
                 cycle: self.cycle,
@@ -277,8 +239,7 @@ where
             self.cycle_log
                 .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
 
-            self.theta =
-                expansion::adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
+            self.adaptative_grid();
             self.cycle += 1;
             self.last_objf = self.objf;
         }
@@ -293,6 +254,66 @@ where
             self.converged,
             self.settings.clone(),
         )
+    }
+
+    fn adaptative_grid(&mut self) {
+        self.theta = expansion::adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
+    }
+
+    fn optim_gamma(&mut self) {
+        let gamma_up = self.gamma * (1.0 + self.gamma_delta);
+        let gamma_down = self.gamma / (1.0 + self.gamma_delta);
+        let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, self.cache);
+        let psi_up = prob::calculate_psi(
+            &ypred,
+            &self.scenarios,
+            &ErrorPoly {
+                c: self.c,
+                gl: gamma_up,
+                e_type: &self.error_type,
+            },
+        );
+        let psi_down = prob::calculate_psi(
+            &ypred,
+            &self.scenarios,
+            &ErrorPoly {
+                c: self.c,
+                gl: gamma_down,
+                e_type: &self.error_type,
+            },
+        );
+        let (lambda_up, objf_up) = match ipm::burke(&psi_up) {
+            Ok((lambda, objf)) => (lambda, objf),
+            Err(err) => {
+                //todo: write out report
+                panic!("Error in IPM: {:?}", err);
+            }
+        };
+        let (lambda_down, objf_down) = match ipm::burke(&psi_down) {
+            Ok((lambda, objf)) => (lambda, objf),
+            Err(err) => {
+                //todo: write out report
+                panic!("Error in IPM: {:?}", err);
+            }
+        };
+        if objf_up > self.objf {
+            self.gamma = gamma_up;
+            self.objf = objf_up;
+            self.gamma_delta *= 4.;
+            self.lambda = lambda_up;
+            self.psi = psi_up;
+        }
+        if objf_down > self.objf {
+            self.gamma = gamma_down;
+            self.objf = objf_down;
+            self.gamma_delta *= 4.;
+            self.lambda = lambda_down;
+            self.psi = psi_down;
+        }
+        self.gamma_delta *= 0.5;
+        if self.gamma_delta <= 0.01 {
+            self.gamma_delta = 0.1;
+        }
     }
 }
 fn norm_zero(a: &Array1<f64>) -> f64 {

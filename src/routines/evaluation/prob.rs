@@ -8,7 +8,44 @@ use sigma::Sigma;
 const FRAC_1_SQRT_2PI: f64 =
     std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / 2.0;
 
-/// Calculate the Ψ (psi) matrix, which contains the likelihood of each support point (column) for each subject (row)
+/// Calculate the Ψ (psi) matrix, which contains the likelihood of each support point (column)
+/// for each subject (row).
+///
+/// The Ψ (psi) matrix represents the likelihood of each subject's observations under different
+/// scenarios or support points. It is computed based on the provided predicted values `ypred`,
+/// a list of `Scenario` structures, and a sigma estimation method `sig`.
+///
+/// # Arguments
+///
+/// * `ypred` - A 2D Array containing predicted values for each subject and support point.
+///            Rows represent subjects, and columns represent support points.
+///
+/// * `scenarios` - A reference to a Vec<Scenario> containing information about different scenarios.
+///
+/// * `sig` - A trait object implementing the Sigma trait, used to estimate sigma values for likelihood
+///           calculations.
+///
+/// # Returns
+///
+/// A 2D Array of f64 representing the Ψ (psi) matrix. Each element of this matrix represents the
+/// likelihood of a subject's observations under a specific support point scenario.
+///
+/// # Example
+///
+/// ```
+/// use ndarray::{Array2, Array1};
+/// use your_module::{calculate_psi, Scenario, Sigma};
+///
+/// // Define your scenarios and predicted values (ypred) here.
+///
+/// // Calculate the Ψ (psi) matrix.
+/// let psi_matrix = calculate_psi(&ypred, &scenarios, &YourSigmaImplementation);
+/// ```
+///
+/// In this example, `psi_matrix` will contain the likelihood values for each subject and scenario.
+///
+/// Note: This function assumes that the input data structures are correctly formatted and consistent.
+///
 pub fn calculate_psi<S>(
     ypred: &Array2<Array1<f64>>,
     scenarios: &Vec<Scenario>,

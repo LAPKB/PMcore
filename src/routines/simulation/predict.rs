@@ -86,6 +86,46 @@ pub fn get_ypred<S: Predict + Sync + Clone>(
     }
 }
 
+/// Simulate observations for multiple scenarios and support points.
+///
+/// This function performs simulation of observations for multiple scenarios and support points
+/// using the provided simulation engine `sim_eng`. It returns a 2D Array where each element
+/// represents the simulated observations for a specific scenario and support point.
+///
+/// # Arguments
+///
+/// * `sim_eng` - A reference to the simulation engine implementing the `Predict` trait.
+///
+/// * `scenarios` - A reference to a Vec<Scenario> containing information about different scenarios.
+///
+/// * `support_points` - A 2D Array (Array2<f64>) representing the support points. Each row
+///                     corresponds to a different support point scenario.
+///
+/// * `cache` - A boolean flag indicating whether to cache predicted values during simulation.
+///
+/// # Returns
+///
+/// A 2D Array (Array2<Array1<f64>>) where each element is an Array1<f64> representing the
+/// simulated observations for a specific scenario and support point.
+///
+/// # Example
+///
+/// ```
+/// use your_module::{sim_obs, Engine, Scenario, Predict};
+/// use ndarray::{Array2, Array1};
+///
+/// // Define your simulation engine, scenarios, support points, and cache flag here.
+///
+/// // Simulate observations.
+/// let observations = sim_obs(&sim_engine, &scenarios, &support_points, true);
+/// ```
+///
+/// In this example, `observations` will contain the simulated observations for multiple scenarios
+/// and support points.
+///
+/// Note: This function allows for optional caching of predicted values, which can improve
+/// performance when simulating observations for multiple scenarios.
+///
 pub fn sim_obs<S>(
     sim_eng: &Engine<S>,
     scenarios: &Vec<Scenario>,

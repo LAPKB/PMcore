@@ -2,6 +2,36 @@ use faer::{Faer, IntoFaer, IntoNdarray};
 use ndarray::parallel::prelude::*;
 use ndarray::{Array2, Axis};
 
+/// Calculates the R matrix and column permutation of the QR decomposition for a row-normalized matrix.
+///
+/// This function takes an input matrix `x` of type `Array2<f64>`, performs row normalization,
+/// and then computes the QR decomposition. It returns two values:
+///
+/// # Arguments
+///
+/// * `x` - An Array2<f64> matrix representing the input data.
+///
+/// # Returns
+///
+/// A tuple containing:
+///
+/// * `r` - An Array2<f64> representing the R matrix of the QR decomposition.
+/// * `perm` - A Vec<usize> containing the column permutation indices applied during the QR decomposition.
+///
+/// # Example
+///
+/// ```
+/// use ndarray::Array2;
+/// let x = Array2::<f64>::from_shape_vec((3, 3), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]).unwrap();
+/// let (r, perm) = calculate_r(&x);
+/// ```
+///
+/// In this example, `r` will contain the R matrix, and `perm` will hold the column permutation indices.
+///
+/// Note: This function assumes that the input matrix `x` is non-empty and has consistent dimensions.
+/// ```
+///
+/// ```
 pub fn calculate_r(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
     // TODO: we need more testing but this code seems not to be needed
     // if n_psi.ncols() > n_psi.nrows() {
