@@ -55,11 +55,31 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>ndarray::Array1;
 
 <span class="doccomment">/// Contains information on the observation error
 </span><span class="kw">pub trait </span>Sigma {
-    <span class="kw">fn </span>sigma(<span class="kw-2">&amp;</span><span class="self">self</span>, yobs: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; Array1&lt;f64&gt;;
+    <span class="doccomment">/// Estimates the standard deviation of the observation error for given observations.
+    ///
+    /// # Arguments
+    ///
+    /// * `yobs` - A 1-dimensional Array containing observed values.
+    ///
+    /// # Returns
+    ///
+    /// A 1-dimensional Array representing the estimated standard deviation of the observation error.
+    </span><span class="kw">fn </span>sigma(<span class="kw-2">&amp;</span><span class="self">self</span>, yobs: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; Array1&lt;f64&gt;;
 }
 
 <span class="doccomment">/// ErrorPoly contains the information on uncertainties in observations
@@ -81,8 +101,10 @@
 /// # Additive
 /// error = (SD&lt;sup&gt;2&lt;/sup&gt; + lambda&lt;sup&gt;2&lt;/sup&gt;)&lt;sup&gt;0.5&lt;/sup&gt;
 </span><span class="kw">pub enum </span>ErrorType {
-    Add,
-    Prop,
+    <span class="doccomment">/// Additive error model: error = sqrt(SD^2 + lambda^2).
+    </span>Add,
+    <span class="doccomment">/// Multiplicative error model: error = SD * gamma.
+    </span>Prop,
 }
 
 <span class="doccomment">/// Computes the error of an observation given its value, the error model, and the error polynomial

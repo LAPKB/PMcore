@@ -100,6 +100,81 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::error;
 
 <span class="kw">use </span>linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
@@ -107,7 +182,55 @@
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 <span class="kw">type </span>OneDimArray = ArrayBase&lt;OwnedRepr&lt;f64&gt;, ndarray::Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;;
 
-<span class="kw">pub fn </span>burke(
+<span class="doccomment">/// Apply the Burke&#39;s Interior Point Method (IPM) to solve a specific optimization problem.
+///
+/// The Burke&#39;s IPM is an iterative optimization technique used for solving convex optimization
+/// problems. It is applied to a matrix `psi`, iteratively updating variables and calculating
+/// an objective function until convergence.
+///
+/// # Arguments
+///
+/// * `psi` - A reference to a 2D Array representing the input matrix for optimization.
+///
+/// # Returns
+///
+/// A `Result` containing a tuple with two elements:
+///
+/// * `lam` - An Array1&lt;f64&gt; representing the solution of the optimization problem.
+/// * `obj` - A f64 value representing the objective function value at the solution.
+///
+/// # Errors
+///
+/// This function returns an error if any of the optimization steps encounter issues. The error
+/// type is a boxed dynamic error (`Box&lt;dyn error::Error&gt;`).
+///
+/// # Example
+///
+/// ```
+/// use your_module::{burke, OneDimArray};
+/// use ndarray::{Array2, Array1};
+///
+/// // Define your input matrix &#39;psi&#39; here.
+///
+/// // Solve the optimization problem using Burke&#39;s IPM.
+/// let result = burke(&amp;psi);
+///
+/// match result {
+///     Ok((lam, obj)) =&gt; {
+///         // Successfully solved the optimization problem using Burke&#39;s IPM.
+///         // &#39;lam&#39; contains the solution, and &#39;obj&#39; contains the objective function value.
+///     },
+///     Err(err) =&gt; {
+///         // Handle the error if optimization fails.
+///         eprintln!(&quot;Error: {:?}&quot;, err);
+///     },
+/// }
+/// ```
+///
+/// Note: This function applies the Interior Point Method (IPM) to iteratively update variables
+/// until convergence, solving the convex optimization problem.
+///
+</span><span class="kw">pub fn </span>burke(
     psi: <span class="kw-2">&amp;</span>ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">2</span>]&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(OneDimArray, f64), Box&lt;<span class="kw">dyn </span>error::Error&gt;&gt; {
     <span class="kw">let </span>psi = psi.mapv(|x| x.abs());
@@ -196,8 +319,35 @@
     <span class="prelude-val">Ok</span>((lam, obj))
 }
 
-<span class="doccomment">/// Computes the infinity norm (or maximum norm) of a 1-dimensional array
-/// The infinity norm is the maximum, absolute value of its elements
+<span class="doccomment">/// Computes the infinity norm (or maximum norm) of a 1-dimensional array.
+///
+/// The infinity norm of a 1-dimensional array is defined as the maximum absolute value of its elements.
+///
+/// # Arguments
+///
+/// * `a` - A 1-dimensional array (ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; 1]&gt;&gt;) for which the infinity
+///         norm is computed.
+///
+/// # Returns
+///
+/// A f64 value representing the infinity norm of the input array.
+///
+/// # Example
+///
+/// ```
+/// use your_module::norm_inf;
+/// use ndarray::{Array1, array};
+///
+/// // Define your 1-dimensional array &#39;a&#39; here.
+///
+/// // Calculate the infinity norm.
+/// let infinity_norm = norm_inf(a);
+/// ```
+///
+/// In this example, `infinity_norm` will contain the maximum absolute value of the elements in array &#39;a&#39;.
+///
+/// Note: This function calculates the infinity norm of a 1-dimensional array.
+///
 </span><span class="kw">fn </span>norm_inf(a: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;) -&gt; f64 {
     <span class="kw">let </span>zeros: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt; = Array::zeros(a.len());
     a.linf_dist(<span class="kw-2">&amp;</span>zeros).unwrap()

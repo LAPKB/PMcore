@@ -248,6 +248,7 @@
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! NPcore is a framework for developing and running non-parametric algorithms for population pharmacokinetic modelling
 
 </span><span class="kw">pub mod </span>algorithms;
@@ -282,6 +283,7 @@
 <span class="kw">pub mod </span>prelude {
     <span class="kw">pub use </span><span class="kw">crate</span>::algorithms;
     <span class="kw">pub use </span><span class="kw">crate</span>::prelude::evaluation::{prob, sigma, <span class="kw-2">*</span>};
+    <span class="kw">pub use </span><span class="kw">crate</span>::qr::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::initialization::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::optimization::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::simulation::<span class="kw-2">*</span>;
