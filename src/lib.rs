@@ -32,6 +32,7 @@ pub mod tui;
 pub mod prelude {
     pub use crate::algorithms;
     pub use crate::prelude::evaluation::{prob, sigma, *};
+    pub use crate::qr::*;
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization::*;
     pub use crate::routines::simulation::*;

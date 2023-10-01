@@ -5,6 +5,54 @@ use ndarray::{array, Array, Array2, ArrayBase, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
+/// Apply the Burke's Interior Point Method (IPM) to solve a specific optimization problem.
+///
+/// The Burke's IPM is an iterative optimization technique used for solving convex optimization
+/// problems. It is applied to a matrix `psi`, iteratively updating variables and calculating
+/// an objective function until convergence.
+///
+/// # Arguments
+///
+/// * `psi` - A reference to a 2D Array representing the input matrix for optimization.
+///
+/// # Returns
+///
+/// A `Result` containing a tuple with two elements:
+///
+/// * `lam` - An Array1<f64> representing the solution of the optimization problem.
+/// * `obj` - A f64 value representing the objective function value at the solution.
+///
+/// # Errors
+///
+/// This function returns an error if any of the optimization steps encounter issues. The error
+/// type is a boxed dynamic error (`Box<dyn error::Error>`).
+///
+/// # Example
+///
+/// ```
+/// use your_module::{burke, OneDimArray};
+/// use ndarray::{Array2, Array1};
+///
+/// // Define your input matrix 'psi' here.
+///
+/// // Solve the optimization problem using Burke's IPM.
+/// let result = burke(&psi);
+///
+/// match result {
+///     Ok((lam, obj)) => {
+///         // Successfully solved the optimization problem using Burke's IPM.
+///         // 'lam' contains the solution, and 'obj' contains the objective function value.
+///     },
+///     Err(err) => {
+///         // Handle the error if optimization fails.
+///         eprintln!("Error: {:?}", err);
+///     },
+/// }
+/// ```
+///
+/// Note: This function applies the Interior Point Method (IPM) to iteratively update variables
+/// until convergence, solving the convex optimization problem.
+///
 pub fn burke(
     psi: &ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>,
 ) -> Result<(OneDimArray, f64), Box<dyn error::Error>> {
@@ -94,8 +142,35 @@ pub fn burke(
     Ok((lam, obj))
 }
 
-/// Computes the infinity norm (or maximum norm) of a 1-dimensional array
-/// The infinity norm is the maximum, absolute value of its elements
+/// Computes the infinity norm (or maximum norm) of a 1-dimensional array.
+///
+/// The infinity norm of a 1-dimensional array is defined as the maximum absolute value of its elements.
+///
+/// # Arguments
+///
+/// * `a` - A 1-dimensional array (ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>) for which the infinity
+///         norm is computed.
+///
+/// # Returns
+///
+/// A f64 value representing the infinity norm of the input array.
+///
+/// # Example
+///
+/// ```
+/// use your_module::norm_inf;
+/// use ndarray::{Array1, array};
+///
+/// // Define your 1-dimensional array 'a' here.
+///
+/// // Calculate the infinity norm.
+/// let infinity_norm = norm_inf(a);
+/// ```
+///
+/// In this example, `infinity_norm` will contain the maximum absolute value of the elements in array 'a'.
+///
+/// Note: This function calculates the infinity norm of a 1-dimensional array.
+///
 fn norm_inf(a: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>) -> f64 {
     let zeros: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::zeros(a.len());
     a.linf_dist(&zeros).unwrap()
