@@ -110,6 +110,9 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{
     algorithms::Algorithm,
     datafile::Scenario,
@@ -154,6 +157,18 @@
 {
     <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="self">self</span>.run()
+    }
+    <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
+        NPResult::new(
+            <span class="self">self</span>.scenarios.clone(),
+            <span class="self">self</span>.theta.clone(),
+            <span class="self">self</span>.psi.clone(),
+            <span class="self">self</span>.w.clone(),
+            <span class="self">self</span>.objf,
+            <span class="self">self</span>.cycle,
+            <span class="self">self</span>.converged,
+            <span class="self">self</span>.settings.clone(),
+        )
     }
 }
 
@@ -210,16 +225,7 @@
         <span class="self">self</span>.w = w;
         <span class="self">self</span>.objf = objf;
 
-        NPResult::new(
-            <span class="self">self</span>.scenarios.clone(),
-            <span class="self">self</span>.theta.clone(),
-            <span class="self">self</span>.psi.clone(),
-            <span class="self">self</span>.w.clone(),
-            <span class="self">self</span>.objf,
-            <span class="self">self</span>.cycle,
-            <span class="self">self</span>.converged,
-            <span class="self">self</span>.settings.clone(),
-        )
+        <span class="self">self</span>.to_npresult()
     }
 }
 </code></pre></div></section></main></body></html>

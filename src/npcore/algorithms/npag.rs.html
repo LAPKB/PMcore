@@ -308,11 +308,39 @@
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{
     algorithms::Algorithm,
     datafile::Scenario,
     evaluation::sigma::{ErrorPoly, ErrorType},
-    expansion, ipm,
+    ipm,
+    optimization::expansion::adaptative_grid,
     output::NPResult,
     output::{CycleLog, NPCycle},
     prob, qr,
@@ -329,6 +357,7 @@
 </span><span class="kw">const </span>THETA_G: f64 = <span class="number">1e-4</span>; <span class="comment">//objf stop criteria
 </span><span class="kw">const </span>THETA_F: f64 = <span class="number">1e-2</span>;
 <span class="kw">const </span>THETA_D: f64 = <span class="number">1e-4</span>;
+
 <span class="kw">pub struct </span>NPAG&lt;S&gt;
 <span class="kw">where
     </span>S: Predict + std::marker::Sync + Clone,
@@ -364,13 +393,40 @@
     <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="self">self</span>.run()
     }
+    <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
+        NPResult::new(
+            <span class="self">self</span>.scenarios.clone(),
+            <span class="self">self</span>.theta.clone(),
+            <span class="self">self</span>.psi.clone(),
+            <span class="self">self</span>.w.clone(),
+            <span class="self">self</span>.objf,
+            <span class="self">self</span>.cycle,
+            <span class="self">self</span>.converged,
+            <span class="self">self</span>.settings.clone(),
+        )
+    }
 }
 
 <span class="kw">impl</span>&lt;S&gt; NPAG&lt;S&gt;
 <span class="kw">where
     </span>S: Predict + std::marker::Sync + Clone,
 {
-    <span class="kw">pub fn </span>new(
+    <span class="doccomment">/// Creates a new NPAG instance.
+    ///
+    /// # Parameters
+    ///
+    /// - `sim_eng`: An instance of the prediction engine.
+    /// - `ranges`: A vector of value ranges for each parameter.
+    /// - `theta`: An initial parameter matrix.
+    /// - `scenarios`: A vector of scenarios.
+    /// - `c`: A tuple containing coefficients for the error polynomial.
+    /// - `tx`: An unbounded sender for communicating progress.
+    /// - `settings`: Data settings and configurations.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `NPAG` instance.
+    </span><span class="kw">pub fn </span>new(
         sim_eng: Engine&lt;S&gt;,
         ranges: Vec&lt;(f64, f64)&gt;,
         theta: Array2&lt;f64&gt;,
@@ -410,6 +466,68 @@
             scenarios,
             c,
         }
+    }
+
+    <span class="kw">fn </span>optim_gamma(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="comment">//Gam/Lam optimization
+        // TODO: Move this to e.g. /evaluation/error.rs
+        </span><span class="kw">let </span>gamma_up = <span class="self">self</span>.gamma * (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
+        <span class="kw">let </span>gamma_down = <span class="self">self</span>.gamma / (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
+        <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, <span class="self">self</span>.cache);
+        <span class="kw">let </span>psi_up = prob::calculate_psi(
+            <span class="kw-2">&amp;</span>ypred,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
+            <span class="kw-2">&amp;</span>ErrorPoly {
+                c: <span class="self">self</span>.c,
+                gl: gamma_up,
+                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+            },
+        );
+        <span class="kw">let </span>psi_down = prob::calculate_psi(
+            <span class="kw-2">&amp;</span>ypred,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
+            <span class="kw-2">&amp;</span>ErrorPoly {
+                c: <span class="self">self</span>.c,
+                gl: gamma_down,
+                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+            },
+        );
+        <span class="kw">let </span>(lambda_up, objf_up) = <span class="kw">match </span>ipm::burke(<span class="kw-2">&amp;</span>psi_up) {
+            <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="comment">//todo: write out report
+                </span><span class="macro">panic!</span>(<span class="string">&quot;Error in IPM: {:?}&quot;</span>, err);
+            }
+        };
+        <span class="kw">let </span>(lambda_down, objf_down) = <span class="kw">match </span>ipm::burke(<span class="kw-2">&amp;</span>psi_down) {
+            <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="comment">//todo: write out report
+                </span><span class="macro">panic!</span>(<span class="string">&quot;Error in IPM: {:?}&quot;</span>, err);
+            }
+        };
+        <span class="kw">if </span>objf_up &gt; <span class="self">self</span>.objf {
+            <span class="self">self</span>.gamma = gamma_up;
+            <span class="self">self</span>.objf = objf_up;
+            <span class="self">self</span>.gamma_delta <span class="kw-2">*</span>= <span class="number">4.</span>;
+            <span class="self">self</span>.lambda = lambda_up;
+            <span class="self">self</span>.psi = psi_up;
+        }
+        <span class="kw">if </span>objf_down &gt; <span class="self">self</span>.objf {
+            <span class="self">self</span>.gamma = gamma_down;
+            <span class="self">self</span>.objf = objf_down;
+            <span class="self">self</span>.gamma_delta <span class="kw-2">*</span>= <span class="number">4.</span>;
+            <span class="self">self</span>.lambda = lambda_down;
+            <span class="self">self</span>.psi = psi_down;
+        }
+        <span class="self">self</span>.gamma_delta <span class="kw-2">*</span>= <span class="number">0.5</span>;
+        <span class="kw">if </span><span class="self">self</span>.gamma_delta &lt;= <span class="number">0.01 </span>{
+            <span class="self">self</span>.gamma_delta = <span class="number">0.1</span>;
+        }
+    }
+
+    <span class="kw">fn </span>adaptative_grid(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        adaptative_grid(<span class="kw-2">&amp;mut </span><span class="self">self</span>.theta, <span class="self">self</span>.eps, <span class="kw-2">&amp;</span><span class="self">self</span>.ranges, THETA_D);
     }
 
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
@@ -456,7 +574,7 @@
 
             <span class="comment">//Rank-Revealing Factorization
             </span><span class="kw">let </span>(r, perm) = qr::calculate_r(<span class="kw-2">&amp;</span><span class="self">self</span>.psi);
-            <span class="kw">let </span>nspp = <span class="self">self</span>.psi.ncols();
+
             <span class="kw">let </span><span class="kw-2">mut </span>keep = Vec::&lt;usize&gt;::new();
             <span class="comment">//The minimum between the number of subjects and the actual number of support points
             </span><span class="kw">let </span>lim_loop = <span class="self">self</span>.psi.nrows().min(<span class="self">self</span>.psi.ncols());
@@ -467,15 +585,15 @@
                     keep.push(<span class="kw-2">*</span>perm.get(i).unwrap());
                 }
             }
-            <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
-            <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
-
             <span class="macro">log::info!</span>(
                 <span class="string">&quot;QR decomp, cycle {}, kept: {}, thrown {}&quot;</span>,
                 <span class="self">self</span>.cycle,
-                <span class="self">self</span>.psi.ncols(),
-                nspp - <span class="self">self</span>.psi.ncols()
+                keep.len(),
+                <span class="self">self</span>.psi.ncols() - keep.len()
             );
+            <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
+            <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
+
             (<span class="self">self</span>.lambda, <span class="self">self</span>.objf) = <span class="kw">match </span>ipm::burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
                 <span class="prelude-val">Err</span>(err) =&gt; {
@@ -484,61 +602,7 @@
                 }
             };
 
-            <span class="comment">//Gam/Lam optimization
-            // TODO: Move this to e.g. /evaluation/error.rs
-            </span><span class="kw">let </span>gamma_up = <span class="self">self</span>.gamma * (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
-            <span class="kw">let </span>gamma_down = <span class="self">self</span>.gamma / (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
-            <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
-            <span class="kw">let </span>psi_up = prob::calculate_psi(
-                <span class="kw-2">&amp;</span>ypred,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
-                <span class="kw-2">&amp;</span>ErrorPoly {
-                    c: <span class="self">self</span>.c,
-                    gl: gamma_up,
-                    e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-                },
-            );
-            <span class="kw">let </span>psi_down = prob::calculate_psi(
-                <span class="kw-2">&amp;</span>ypred,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
-                <span class="kw-2">&amp;</span>ErrorPoly {
-                    c: <span class="self">self</span>.c,
-                    gl: gamma_down,
-                    e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-                },
-            );
-            <span class="kw">let </span>(lambda_up, objf_up) = <span class="kw">match </span>ipm::burke(<span class="kw-2">&amp;</span>psi_up) {
-                <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="comment">//todo: write out report
-                    </span><span class="macro">panic!</span>(<span class="string">&quot;Error in IPM: {:?}&quot;</span>, err);
-                }
-            };
-            <span class="kw">let </span>(lambda_down, objf_down) = <span class="kw">match </span>ipm::burke(<span class="kw-2">&amp;</span>psi_down) {
-                <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="comment">//todo: write out report
-                    </span><span class="macro">panic!</span>(<span class="string">&quot;Error in IPM: {:?}&quot;</span>, err);
-                }
-            };
-            <span class="kw">if </span>objf_up &gt; <span class="self">self</span>.objf {
-                <span class="self">self</span>.gamma = gamma_up;
-                <span class="self">self</span>.objf = objf_up;
-                <span class="self">self</span>.gamma_delta <span class="kw-2">*</span>= <span class="number">4.</span>;
-                <span class="self">self</span>.lambda = lambda_up;
-                <span class="self">self</span>.psi = psi_up;
-            }
-            <span class="kw">if </span>objf_down &gt; <span class="self">self</span>.objf {
-                <span class="self">self</span>.gamma = gamma_down;
-                <span class="self">self</span>.objf = objf_down;
-                <span class="self">self</span>.gamma_delta <span class="kw-2">*</span>= <span class="number">4.</span>;
-                <span class="self">self</span>.lambda = lambda_down;
-                <span class="self">self</span>.psi = psi_down;
-            }
-            <span class="self">self</span>.gamma_delta <span class="kw-2">*</span>= <span class="number">0.5</span>;
-            <span class="kw">if </span><span class="self">self</span>.gamma_delta &lt;= <span class="number">0.01 </span>{
-                <span class="self">self</span>.gamma_delta = <span class="number">0.1</span>;
-            }
+            <span class="self">self</span>.optim_gamma();
 
             <span class="kw">let </span><span class="kw-2">mut </span>state = NPCycle {
                 cycle: <span class="self">self</span>.cycle,
@@ -596,22 +660,12 @@
             <span class="self">self</span>.cycle_log
                 .push_and_write(state, <span class="self">self</span>.settings.parsed.config.pmetrics_outputs.unwrap());
 
-            <span class="self">self</span>.theta =
-                expansion::adaptative_grid(<span class="kw-2">&amp;mut </span><span class="self">self</span>.theta, <span class="self">self</span>.eps, <span class="kw-2">&amp;</span><span class="self">self</span>.ranges, THETA_D);
+            <span class="self">self</span>.adaptative_grid();
             <span class="self">self</span>.cycle += <span class="number">1</span>;
             <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
         }
 
-        NPResult::new(
-            <span class="self">self</span>.scenarios.clone(),
-            <span class="self">self</span>.theta.clone(),
-            <span class="self">self</span>.psi.clone(),
-            <span class="self">self</span>.w.clone(),
-            <span class="self">self</span>.objf,
-            <span class="self">self</span>.cycle,
-            <span class="self">self</span>.converged,
-            <span class="self">self</span>.settings.clone(),
-        )
+        <span class="self">self</span>.to_npresult()
     }
 }
 <span class="kw">fn </span>norm_zero(a: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; f64 {
