@@ -43,6 +43,18 @@ where
     fn fit(&mut self) -> NPResult {
         self.run()
     }
+    fn to_npresult(&self) -> NPResult {
+        NPResult::new(
+            self.scenarios.clone(),
+            self.theta.clone(),
+            self.psi.clone(),
+            self.w.clone(),
+            self.objf,
+            self.cycle,
+            self.converged,
+            self.settings.clone(),
+        )
+    }
 }
 
 impl<S> POSTPROB<S>
@@ -98,15 +110,6 @@ where
         self.w = w;
         self.objf = objf;
 
-        NPResult::new(
-            self.scenarios.clone(),
-            self.theta.clone(),
-            self.psi.clone(),
-            self.w.clone(),
-            self.objf,
-            self.cycle,
-            self.converged,
-            self.settings.clone(),
-        )
+        self.to_npresult()
     }
 }

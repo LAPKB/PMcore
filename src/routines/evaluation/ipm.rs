@@ -5,6 +5,34 @@ use ndarray::{array, Array, Array2, ArrayBase, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
+/// Apply the Burke's Interior Point Method (IPM) to solve a specific optimization problem.
+///
+/// The Burke's IPM is an iterative optimization technique used for solving convex optimization
+/// problems. It is applied to a matrix `psi`, iteratively updating variables and calculating
+/// an objective function until convergence.
+///
+/// # Arguments
+///
+/// * `psi` - A reference to a 2D Array representing the input matrix for optimization.
+///
+/// # Returns
+///
+/// A `Result` containing a tuple with two elements:
+///
+/// * `lam` - An Array1<f64> representing the solution of the optimization problem.
+/// * `obj` - A f64 value representing the objective function value at the solution.
+///
+/// # Errors
+///
+/// This function returns an error if any of the optimization steps encounter issues. The error
+/// type is a boxed dynamic error (`Box<dyn error::Error>`).
+///
+/// # Example
+///
+///
+/// Note: This function applies the Interior Point Method (IPM) to iteratively update variables
+/// until convergence, solving the convex optimization problem.
+///
 pub fn burke(
     psi: &ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>,
 ) -> Result<(OneDimArray, f64), Box<dyn error::Error>> {

@@ -26,9 +26,8 @@ pub trait Algorithm<S> {
     // ) -> Self
     // where
     //     S: Predict + std::marker::Sync;
-    fn fit(&mut self) -> NPResult
-    where
-        S: Predict + std::marker::Sync + Clone;
+    fn fit(&mut self) -> NPResult;
+    fn to_npresult(&self) -> NPResult;
 }
 
 pub fn initialize_algorithm<S>(

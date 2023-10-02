@@ -2,6 +2,15 @@ use ndarray::Array1;
 
 /// Contains information on the observation error
 pub trait Sigma {
+    /// Estimates the standard deviation of the observation error for given observations.
+    ///
+    /// # Arguments
+    ///
+    /// * `yobs` - A 1-dimensional Array containing observed values.
+    ///
+    /// # Returns
+    ///
+    /// A 1-dimensional Array representing the estimated standard deviation of the observation error.
     fn sigma(&self, yobs: &Array1<f64>) -> Array1<f64>;
 }
 
@@ -23,6 +32,7 @@ pub struct ErrorPoly<'a> {
 ///
 /// # Additive
 /// error = (SD<sup>2</sup> + lambda<sup>2</sup>)<sup>0.5</sup>
+#[derive(Debug, Clone)]
 pub enum ErrorType {
     Add,
     Prop,
