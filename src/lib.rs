@@ -48,7 +48,6 @@ use ndarray::Array2;
 
 use prelude::algorithms::initialize_algorithm;
 use prelude::{
-    datafile::Scenario,
     output::{NPCycle, NPResult},
     predict::{Engine, Predict},
     settings::run::Data,
@@ -57,7 +56,7 @@ use prelude::{
 use std::fs;
 use std::thread::spawn;
 use std::{fs::File, time::Instant};
-use tokio::sync::mpsc::{self, UnboundedSender};
+use tokio::sync::mpsc::{self};
 //Tests
 mod tests;
 
@@ -153,82 +152,50 @@ where
     }
 
     let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
-    let c = settings.parsed.error.poly;
 
-    let settings_tui = settings.clone();
-
-    let npag_result: NPResult;
-
-    if settings.parsed.config.tui {
-        let ui_handle = spawn(move || {
-            start_ui(rx, settings_tui).expect("Failed to start UI");
-        });
-
-        npag_result = run_npag(engine, ranges, theta, scenarios, c, tx, settings);
-        log::info!("Total time: {:.2?}", now.elapsed());
-        ui_handle.join().expect("UI thread panicked");
-    } else {
-        npag_result = run_npag(engine, ranges, theta, scenarios, c, tx, settings);
-        log::info!("Total time: {:.2?}", now.elapsed());
-    }
-
-    Ok(npag_result)
-}
-
-fn run_npag<S>(
-    sim_eng: Engine<S>,
-    ranges: Vec<(f64, f64)>,
-    theta: Array2<f64>,
-    scenarios: Vec<Scenario>,
-    c: (f64, f64, f64, f64),
-    tx: UnboundedSender<NPCycle>,
-    settings: Data,
-) -> NPResult
-where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
-{
-    // Remove stop file if exists
-    if std::path::Path::new("stop").exists() {
-        match std::fs::remove_file("stop") {
-            Ok(_) => log::info!("Removed previous stop file"),
-            Err(err) => panic!("Unable to remove previous stop file: {}", err),
+    let algorithm_config = &settings.parsed.config.engine;
+    let alg_type: algorithms::Type = match algorithm_config.as_str() {
+        "NPAG" => algorithms::Type::NPAG,
+        "POSTPROB" => algorithms::Type::POSTPROB,
+        _ => {
+            eprintln!("Error: Algorithm not recognized: {}", algorithm_config);
+            std::process::exit(-1)
         }
-    }
+    };
 
-    // let algorithm = NPAG::<S>::initialize(
-    //     sim_eng,
-    //     ranges,
-    //     theta,
-    //     scenarios.to_owned(),
-    //     c,
-    //     tx,
-    //     settings.clone(),
-    // );
-    let mut algorithm = Box::new(initialize_algorithm(
-        algorithms::Type::NPAG,
-        sim_eng.clone(),
+    let mut algorithm = initialize_algorithm(
+        alg_type,
+        engine.clone(),
         ranges,
         theta,
-        scenarios,
-        c,
+        scenarios.clone(),
+        settings.parsed.error.poly,
         tx,
         settings.clone(),
-    ));
-    let result = algorithm.fit();
+    );
 
-    // let result = npag(&sim_eng, ranges, theta, scenarios, c, tx, settings);
+    // Spawn new thread for TUI
+    let settings_tui = settings.clone();
+    if settings.parsed.config.tui {
+        let _ui_handle = spawn(move || {
+            start_ui(rx, settings_tui).expect("Failed to start TUI");
+        });
+    }
+
+    let result = algorithm.fit();
+    log::info!("Total time: {:.2?}", now.elapsed());
 
     if let Some(output) = &settings.parsed.config.pmetrics_outputs {
         if *output {
             result.write_theta();
             result.write_posterior();
             result.write_obs();
-            result.write_pred(&sim_eng);
+            result.write_pred(&engine);
             result.write_meta();
         }
     }
 
-    result
+    Ok(result)
 }
 
 //TODO: move elsewhere
