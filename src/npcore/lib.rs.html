@@ -215,39 +215,6 @@
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! NPcore is a framework for developing and running non-parametric algorithms for population pharmacokinetic modelling
 
 </span><span class="kw">pub mod </span>algorithms;
@@ -298,7 +265,6 @@
 
 <span class="kw">use </span>prelude::algorithms::initialize_algorithm;
 <span class="kw">use </span>prelude::{
-    datafile::Scenario,
     output::{NPCycle, NPResult},
     predict::{Engine, Predict},
     settings::run::Data,
@@ -307,7 +273,7 @@
 <span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::thread::spawn;
 <span class="kw">use </span>std::{fs::File, time::Instant};
-<span class="kw">use </span>tokio::sync::mpsc::{<span class="self">self</span>, UnboundedSender};
+<span class="kw">use </span>tokio::sync::mpsc::{<span class="self">self</span>};
 <span class="comment">//Tests
 </span><span class="kw">mod </span>tests;
 
@@ -403,82 +369,50 @@
     }
 
     <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;NPCycle&gt;();
-    <span class="kw">let </span>c = settings.parsed.error.poly;
 
-    <span class="kw">let </span>settings_tui = settings.clone();
-
-    <span class="kw">let </span>npag_result: NPResult;
-
-    <span class="kw">if </span>settings.parsed.config.tui {
-        <span class="kw">let </span>ui_handle = spawn(<span class="kw">move </span>|| {
-            start_ui(rx, settings_tui).expect(<span class="string">&quot;Failed to start UI&quot;</span>);
-        });
-
-        npag_result = run_npag(engine, ranges, theta, scenarios, c, tx, settings);
-        <span class="macro">log::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
-        ui_handle.join().expect(<span class="string">&quot;UI thread panicked&quot;</span>);
-    } <span class="kw">else </span>{
-        npag_result = run_npag(engine, ranges, theta, scenarios, c, tx, settings);
-        <span class="macro">log::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
-    }
-
-    <span class="prelude-val">Ok</span>(npag_result)
-}
-
-<span class="kw">fn </span>run_npag&lt;S&gt;(
-    sim_eng: Engine&lt;S&gt;,
-    ranges: Vec&lt;(f64, f64)&gt;,
-    theta: Array2&lt;f64&gt;,
-    scenarios: Vec&lt;Scenario&gt;,
-    c: (f64, f64, f64, f64),
-    tx: UnboundedSender&lt;NPCycle&gt;,
-    settings: Data,
-) -&gt; NPResult
-<span class="kw">where
-    </span>S: Predict + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
-{
-    <span class="comment">// Remove stop file if exists
-    </span><span class="kw">if </span>std::path::Path::new(<span class="string">&quot;stop&quot;</span>).exists() {
-        <span class="kw">match </span>std::fs::remove_file(<span class="string">&quot;stop&quot;</span>) {
-            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::info!</span>(<span class="string">&quot;Removed previous stop file&quot;</span>),
-            <span class="prelude-val">Err</span>(err) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unable to remove previous stop file: {}&quot;</span>, err),
+    <span class="kw">let </span>algorithm_config = <span class="kw-2">&amp;</span>settings.parsed.config.engine;
+    <span class="kw">let </span>alg_type: algorithms::Type = <span class="kw">match </span>algorithm_config.as_str() {
+        <span class="string">&quot;NPAG&quot; </span>=&gt; algorithms::Type::NPAG,
+        <span class="string">&quot;POSTPROB&quot; </span>=&gt; algorithms::Type::POSTPROB,
+        <span class="kw">_ </span>=&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">&quot;Error: Algorithm not recognized: {}&quot;</span>, algorithm_config);
+            std::process::exit(-<span class="number">1</span>)
         }
-    }
+    };
 
-    <span class="comment">// let algorithm = NPAG::&lt;S&gt;::initialize(
-    //     sim_eng,
-    //     ranges,
-    //     theta,
-    //     scenarios.to_owned(),
-    //     c,
-    //     tx,
-    //     settings.clone(),
-    // );
-    </span><span class="kw">let </span><span class="kw-2">mut </span>algorithm = Box::new(initialize_algorithm(
-        algorithms::Type::NPAG,
-        sim_eng.clone(),
+    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(
+        alg_type,
+        engine.clone(),
         ranges,
         theta,
-        scenarios,
-        c,
+        scenarios.clone(),
+        settings.parsed.error.poly,
         tx,
         settings.clone(),
-    ));
+    );
+
+    <span class="comment">// Spawn new thread for TUI
+    </span><span class="kw">let </span>settings_tui = settings.clone();
+    <span class="kw">if </span>settings.parsed.config.tui {
+        <span class="kw">let </span>_ui_handle = spawn(<span class="kw">move </span>|| {
+            start_ui(rx, settings_tui).expect(<span class="string">&quot;Failed to start TUI&quot;</span>);
+        });
+    }
+
     <span class="kw">let </span>result = algorithm.fit();
+    <span class="macro">log::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
 
-    <span class="comment">// let result = npag(&amp;sim_eng, ranges, theta, scenarios, c, tx, settings);
-
-    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(output) = <span class="kw-2">&amp;</span>settings.parsed.config.pmetrics_outputs {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(output) = <span class="kw-2">&amp;</span>settings.parsed.config.pmetrics_outputs {
         <span class="kw">if </span><span class="kw-2">*</span>output {
             result.write_theta();
             result.write_posterior();
             result.write_obs();
-            result.write_pred(<span class="kw-2">&amp;</span>sim_eng);
+            result.write_pred(<span class="kw-2">&amp;</span>engine);
             result.write_meta();
         }
     }
 
-    result
+    <span class="prelude-val">Ok</span>(result)
 }
 
 <span class="comment">//TODO: move elsewhere

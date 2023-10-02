@@ -537,6 +537,8 @@
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
 <a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>datafile::Scenario;
@@ -558,6 +560,7 @@
     <span class="kw">pub </span>cycles: usize,
     <span class="kw">pub </span>converged: bool,
     <span class="kw">pub </span>par_names: Vec&lt;String&gt;,
+    <span class="kw">pub </span>settings: Data,
 }
 
 <span class="kw">impl </span>NPResult {
@@ -589,6 +592,7 @@
             cycles,
             converged,
             par_names,
+            settings,
         }
     }
     <span class="comment">// Writes meta_rust.csv

@@ -299,6 +299,15 @@
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{
     algorithms::Algorithm,
     datafile::Scenario,
@@ -404,6 +413,14 @@
     }
 
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
+        <span class="comment">// TODO: Move to an initialization routine?
+        </span><span class="kw">if </span>std::path::Path::new(<span class="string">&quot;stop&quot;</span>).exists() {
+            <span class="kw">match </span>std::fs::remove_file(<span class="string">&quot;stop&quot;</span>) {
+                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::info!</span>(<span class="string">&quot;Removed previous stop file&quot;</span>),
+                <span class="prelude-val">Err</span>(err) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unable to remove previous stop file: {}&quot;</span>, err),
+            }
+        }
+
         <span class="kw">while </span><span class="self">self</span>.eps &gt; THETA_E {
             <span class="comment">// log::info!(&quot;Cycle: {}&quot;, cycle);
             // psi n_sub rows, nspp columns
@@ -468,6 +485,7 @@
             };
 
             <span class="comment">//Gam/Lam optimization
+            // TODO: Move this to e.g. /evaluation/error.rs
             </span><span class="kw">let </span>gamma_up = <span class="self">self</span>.gamma * (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
             <span class="kw">let </span>gamma_down = <span class="self">self</span>.gamma / (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
             <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
