@@ -59,6 +59,11 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
             }
         }
 
+        // Break if we receive a stop text
+        if !app.state.stop_text.is_empty() {
+            break;
+        }
+
         // If we receive a new NPCycle, add it to the app_history
         if !app_history
             .cycles
@@ -87,6 +92,9 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
     terminal.clear()?;
     terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
+    terminal
+            .draw(|rect| draw(rect, &app, &app_history, elapsed_time, &settings))
+            .unwrap();
     Ok(())
 }
 
