@@ -19,6 +19,7 @@ pub struct NPResult {
     pub cycles: usize,
     pub converged: bool,
     pub par_names: Vec<String>,
+    pub settings: Data,
 }
 
 impl NPResult {
@@ -50,6 +51,7 @@ impl NPResult {
             cycles,
             converged,
             par_names,
+            settings,
         }
     }
     // Writes meta_rust.csv
