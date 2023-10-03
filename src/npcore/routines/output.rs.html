@@ -539,6 +539,20 @@
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>datafile::Scenario;
@@ -595,6 +609,20 @@
             settings,
         }
     }
+
+    <span class="kw">pub fn </span>write_outputs&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, write: bool, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;)
+    <span class="kw">where
+        </span>S: Predict + std::marker::Sync + <span class="lifetime">&#39;static </span>+ Clone + std::marker::Send,
+    {
+        <span class="kw">if </span>write {
+            <span class="self">self</span>.write_theta();
+            <span class="self">self</span>.write_posterior();
+            <span class="self">self</span>.write_obs();
+            <span class="self">self</span>.write_pred(<span class="kw-2">&amp;</span>engine);
+            <span class="self">self</span>.write_meta();
+        }
+    }
+
     <span class="comment">// Writes meta_rust.csv
     </span><span class="kw">pub fn </span>write_meta(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span><span class="kw-2">mut </span>meta_writer = MetaWriter::new();

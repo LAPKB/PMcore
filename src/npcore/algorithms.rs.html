@@ -52,14 +52,27 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, datafile::Scenario, output::NPCycle, settings::run::Data};
-<span class="kw">use </span>ndarray::Array2;
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, output::NPCycle, settings::run::Data};
+
 <span class="kw">use </span>output::NPResult;
 <span class="kw">use </span>prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>simulation::predict::{Engine, Predict};
-<span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
+<span class="kw">use </span>tokio::sync::mpsc;
 
-<span class="kw">pub mod </span>npag;
+<span class="kw">mod </span>npag;
 <span class="kw">mod </span>postprob;
 
 <span class="kw">pub enum </span>Type {
@@ -67,43 +80,56 @@
     POSTPROB,
 }
 
-<span class="kw">pub trait </span>Algorithm&lt;S&gt; {
-    <span class="comment">// fn initialize(
-    //     self,
-    //     sim_eng: Engine&lt;S&gt;,
-    //     ranges: Vec&lt;(f64, f64)&gt;,
-    //     theta: Array2&lt;f64&gt;,
-    //     scenarios: Vec&lt;Scenario&gt;,
-    //     c: (f64, f64, f64, f64),
-    //     tx: UnboundedSender&lt;NPCycle&gt;,
-    //     settings: Data,
-    // ) -&gt; Self
-    // where
-    //     S: Predict + std::marker::Sync;
-    </span><span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult;
+<span class="kw">pub trait </span>Algorithm {
+    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult;
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult;
 }
 
 <span class="kw">pub fn </span>initialize_algorithm&lt;S&gt;(
-    alg_type: Type,
-    sim_eng: Engine&lt;S&gt;,
-    ranges: Vec&lt;(f64, f64)&gt;,
-    theta: Array2&lt;f64&gt;,
-    scenarios: Vec&lt;Scenario&gt;,
-    c: (f64, f64, f64, f64),
-    tx: UnboundedSender&lt;NPCycle&gt;,
+    engine: Engine&lt;S&gt;,
     settings: Data,
-) -&gt; Box&lt;<span class="kw">dyn </span>Algorithm&lt;S&gt;&gt;
+    tx: mpsc::UnboundedSender&lt;NPCycle&gt;,
+) -&gt; Box&lt;<span class="kw">dyn </span>Algorithm&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync + <span class="lifetime">&#39;static </span>+ Clone,
+    </span>S: Predict + std::marker::Sync + Clone + <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">match </span>alg_type {
-        Type::NPAG =&gt; Box::new(npag::NPAG::new(
-            sim_eng, ranges, theta, scenarios, c, tx, settings,
+    <span class="kw">if </span>std::path::Path::new(<span class="string">&quot;stop&quot;</span>).exists() {
+        <span class="kw">match </span>std::fs::remove_file(<span class="string">&quot;stop&quot;</span>) {
+            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::info!</span>(<span class="string">&quot;Removed previous stop file&quot;</span>),
+            <span class="prelude-val">Err</span>(err) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unable to remove previous stop file: {}&quot;</span>, err),
+        }
+    }
+    <span class="kw">let </span>ranges = settings.computed.random.ranges.clone();
+    <span class="kw">let </span>theta = initialization::sample_space(<span class="kw-2">&amp;</span>settings, <span class="kw-2">&amp;</span>ranges);
+    <span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.parsed.paths.data).unwrap();
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(exclude) = <span class="kw-2">&amp;</span>settings.parsed.config.exclude {
+        <span class="kw">for </span>val <span class="kw">in </span>exclude {
+            scenarios.remove(val.as_integer().unwrap() <span class="kw">as </span>usize);
+        }
+    }
+    <span class="comment">//This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
+    </span><span class="kw">match </span>settings.parsed.config.engine.as_str() {
+        <span class="string">&quot;NPAG&quot; </span>=&gt; Box::new(npag::NPAG::new(
+            engine,
+            ranges,
+            theta,
+            scenarios,
+            settings.parsed.error.poly,
+            tx,
+            settings,
         )),
-        Type::POSTPROB =&gt; Box::new(postprob::POSTPROB::new(
-            sim_eng, theta, scenarios, c, tx, settings,
+        <span class="string">&quot;POSTPROB&quot; </span>=&gt; Box::new(postprob::POSTPROB::new(
+            engine,
+            theta,
+            scenarios,
+            settings.parsed.error.poly,
+            tx,
+            settings,
         )),
+        alg =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">&quot;Error: Algorithm not recognized: {}&quot;</span>, alg);
+            std::process::exit(-<span class="number">1</span>)
+        }
     }
 }
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["sobol"]};
+window.SIDEBAR_ITEMS = {"fn":["sample_space"],"mod":["sobol"]};

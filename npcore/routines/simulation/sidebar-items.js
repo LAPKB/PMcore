@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["predict","simulator"]};
+window.SIDEBAR_ITEMS = {"mod":["predict"]};
