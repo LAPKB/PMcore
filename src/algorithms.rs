@@ -1,11 +1,11 @@
-use crate::prelude::{self, datafile::Scenario, output::NPCycle, settings::run::Data};
-use ndarray::Array2;
+use crate::prelude::{self, output::NPCycle, settings::run::Data};
+
 use output::NPResult;
 use prelude::*;
 use simulation::predict::{Engine, Predict};
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc;
 
-pub mod npag;
+mod npag;
 mod postprob;
 
 pub enum Type {
@@ -13,42 +13,55 @@ pub enum Type {
     POSTPROB,
 }
 
-pub trait Algorithm<S> {
-    // fn initialize(
-    //     self,
-    //     sim_eng: Engine<S>,
-    //     ranges: Vec<(f64, f64)>,
-    //     theta: Array2<f64>,
-    //     scenarios: Vec<Scenario>,
-    //     c: (f64, f64, f64, f64),
-    //     tx: UnboundedSender<NPCycle>,
-    //     settings: Data,
-    // ) -> Self
-    // where
-    //     S: Predict + std::marker::Sync;
+pub trait Algorithm {
     fn fit(&mut self) -> NPResult;
     fn to_npresult(&self) -> NPResult;
 }
 
 pub fn initialize_algorithm<S>(
-    alg_type: Type,
-    sim_eng: Engine<S>,
-    ranges: Vec<(f64, f64)>,
-    theta: Array2<f64>,
-    scenarios: Vec<Scenario>,
-    c: (f64, f64, f64, f64),
-    tx: UnboundedSender<NPCycle>,
+    engine: Engine<S>,
     settings: Data,
-) -> Box<dyn Algorithm<S>>
+    tx: mpsc::UnboundedSender<NPCycle>,
+) -> Box<dyn Algorithm>
 where
-    S: Predict + std::marker::Sync + 'static + Clone,
+    S: Predict + std::marker::Sync + Clone + 'static,
 {
-    match alg_type {
-        Type::NPAG => Box::new(npag::NPAG::new(
-            sim_eng, ranges, theta, scenarios, c, tx, settings,
+    if std::path::Path::new("stop").exists() {
+        match std::fs::remove_file("stop") {
+            Ok(_) => log::info!("Removed previous stop file"),
+            Err(err) => panic!("Unable to remove previous stop file: {}", err),
+        }
+    }
+    let ranges = settings.computed.random.ranges.clone();
+    let theta = initialization::sample_space(&settings, &ranges);
+    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
+    if let Some(exclude) = &settings.parsed.config.exclude {
+        for val in exclude {
+            scenarios.remove(val.as_integer().unwrap() as usize);
+        }
+    }
+    //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
+    match settings.parsed.config.engine.as_str() {
+        "NPAG" => Box::new(npag::NPAG::new(
+            engine,
+            ranges,
+            theta,
+            scenarios,
+            settings.parsed.error.poly,
+            tx,
+            settings,
         )),
-        Type::POSTPROB => Box::new(postprob::POSTPROB::new(
-            sim_eng, theta, scenarios, c, tx, settings,
+        "POSTPROB" => Box::new(postprob::POSTPROB::new(
+            engine,
+            theta,
+            scenarios,
+            settings.parsed.error.poly,
+            tx,
+            settings,
         )),
+        alg => {
+            eprintln!("Error: Algorithm not recognized: {}", alg);
+            std::process::exit(-1)
+        }
     }
 }

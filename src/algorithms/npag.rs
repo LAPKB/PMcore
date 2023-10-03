@@ -49,7 +49,7 @@ where
     settings: Data,
 }
 
-impl<S> Algorithm<S> for NPAG<S>
+impl<S> Algorithm for NPAG<S>
 where
     S: Predict + std::marker::Sync + Clone,
 {
@@ -194,14 +194,6 @@ where
     }
 
     pub fn run(&mut self) -> NPResult {
-        // TODO: Move to an initialization routine?
-        if std::path::Path::new("stop").exists() {
-            match std::fs::remove_file("stop") {
-                Ok(_) => log::info!("Removed previous stop file"),
-                Err(err) => panic!("Unable to remove previous stop file: {}", err),
-            }
-        }
-
         while self.eps > THETA_E {
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
