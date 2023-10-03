@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["algorithms","entrypoints","prelude","routines","tui"]};
+window.SIDEBAR_ITEMS = {"mod":["algorithms","entrypoints","logger","prelude","routines","tui"]};
