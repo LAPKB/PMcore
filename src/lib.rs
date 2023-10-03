@@ -25,12 +25,14 @@ pub mod routines {
     }
 }
 pub mod entrypoints;
+pub mod logger;
 pub mod tui;
 
 pub mod prelude {
     pub use crate::algorithms;
     pub use crate::entrypoints::simulate;
     pub use crate::entrypoints::start;
+    pub use crate::logger;
     pub use crate::prelude::evaluation::{prob, sigma, *};
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization::*;

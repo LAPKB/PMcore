@@ -3,20 +3,14 @@ use crate::prelude::output::NPCycle;
 use crate::prelude::{
     output::NPResult,
     predict::{Engine, Predict},
-    settings::run::Data,
     *,
 };
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
 
-use log::LevelFilter;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Config, Root};
-use log4rs::encode::pattern::PatternEncoder;
 use ndarray::Array2;
 use ndarray_csv::Array2Reader;
 use predict::sim_obs;
-use std::fs;
 use std::fs::File;
 use std::thread::spawn;
 use std::time::Instant;
@@ -64,7 +58,7 @@ where
 {
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
-    setup_log(&settings);
+    logger::setup_log(&settings);
     let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), tx);
     // Spawn new thread for TUI
@@ -83,22 +77,4 @@ where
     }
 
     Ok(result)
-}
-
-//TODO: move elsewhere
-fn setup_log(settings: &Data) {
-    if let Some(log_path) = &settings.parsed.paths.log_out {
-        if fs::remove_file(log_path).is_ok() {};
-        let logfile = FileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new("{l}: {m}\n")))
-            .build(log_path)
-            .unwrap();
-
-        let config = Config::builder()
-            .appender(Appender::builder().build("logfile", Box::new(logfile)))
-            .build(Root::builder().appender("logfile").build(LevelFilter::Info))
-            .unwrap();
-
-        log4rs::init_config(config).unwrap();
-    };
 }
