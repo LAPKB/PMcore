@@ -1,23 +1,23 @@
 use crate::prelude::settings::run::Data;
-use log::LevelFilter;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Config, Root};
-use log4rs::encode::pattern::PatternEncoder;
-use std::fs;
+use tracing::Level;
+use tracing_subscriber::fmt;
 
 pub fn setup_log(settings: &Data) {
     if let Some(log_path) = &settings.parsed.paths.log_out {
-        if fs::remove_file(log_path).is_ok() {};
-        let logfile = FileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new("{l}: {m}\n")))
-            .build(log_path)
-            .unwrap();
+        if std::fs::remove_file(log_path).is_ok() {};
 
-        let config = Config::builder()
-            .appender(Appender::builder().build("logfile", Box::new(logfile)))
-            .build(Root::builder().appender("logfile").build(LevelFilter::Info))
-            .unwrap();
+        let subscriber = fmt::Subscriber::builder()
+            .with_max_level(Level::INFO)
+            .with_writer(std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(log_path)
+                .unwrap())
+            .with_ansi(false)
+            .finish();
 
-        log4rs::init_config(config).unwrap();
-    };
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("Setting default subscriber failed");
+    }
 }

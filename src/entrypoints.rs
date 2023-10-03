@@ -59,6 +59,7 @@ where
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
     logger::setup_log(&settings);
+    tracing::info!("Starting NPcore");
     let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), tx);
     // Spawn new thread for TUI
