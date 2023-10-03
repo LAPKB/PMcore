@@ -36,7 +36,7 @@ where
     settings: Data,
 }
 
-impl<S> Algorithm<S> for POSTPROB<S>
+impl<S> Algorithm for POSTPROB<S>
 where
     S: Predict + std::marker::Sync + Clone,
 {
@@ -95,7 +95,6 @@ where
 
     pub fn run(&mut self) -> NPResult {
         let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, false);
-
         self.psi = prob::calculate_psi(
             &ypred,
             &self.scenarios,
@@ -105,11 +104,9 @@ where
                 e_type: &self.error_type,
             },
         );
-
         let (w, objf) = ipm::burke(&self.psi).expect("Error in IPM");
         self.w = w;
         self.objf = objf;
-
         self.to_npresult()
     }
 }

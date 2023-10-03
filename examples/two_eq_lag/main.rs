@@ -1,9 +1,7 @@
 use eyre::Result;
-use npcore::{
-    prelude::{
-        datafile::{CovLine, Infusion, Scenario},
-        predict::{Engine, Predict},
-    },
+use npcore::prelude::{
+    datafile::{CovLine, Infusion, Scenario},
+    predict::{Engine, Predict},
     start,
 };
 use ode_solvers::*;

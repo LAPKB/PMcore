@@ -54,6 +54,20 @@ impl NPResult {
             settings,
         }
     }
+
+    pub fn write_outputs<S>(&self, write: bool, engine: &Engine<S>)
+    where
+        S: Predict + std::marker::Sync + 'static + Clone + std::marker::Send,
+    {
+        if write {
+            self.write_theta();
+            self.write_posterior();
+            self.write_obs();
+            self.write_pred(&engine);
+            self.write_meta();
+        }
+    }
+
     // Writes meta_rust.csv
     pub fn write_meta(&self) {
         let mut meta_writer = MetaWriter::new();
