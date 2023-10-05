@@ -20,3 +20,4 @@ meta*.csv
 stop
 .vscode
 
+*.f90
