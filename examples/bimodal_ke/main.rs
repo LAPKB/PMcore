@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-
+#![allow(dead_code)]
+#![allow(unused_variables)]
 use eyre::Result;
 use npcore::prelude::{
     datafile::{CovLine, Infusion, Scenario},
@@ -7,14 +7,27 @@ use npcore::prelude::{
     start,
 };
 use ode_solvers::*;
+use std::collections::HashMap;
 
 const ATOL: f64 = 1e-4;
 const RTOL: f64 = 1e-4;
 
+#[derive(Debug, Clone, Copy)]
+struct PopParams {
+    ke: f64,
+    v: f64,
+}
+impl PopParams {
+    fn new(params: Vec<f64>) -> Self {
+        PopParams {
+            ke: params[0],
+            v: params[1],
+        }
+    }
+}
 #[derive(Debug, Clone)]
 struct Model<'a> {
-    ke: f64,
-    _v: f64,
+    params: PopParams,
     _scenario: &'a Scenario,
     infusions: Vec<Infusion>,
     cov: Option<&'a HashMap<String, CovLine>>,
@@ -25,7 +38,7 @@ type Time = f64;
 
 impl ode_solvers::System<State> for Model<'_> {
     fn system(&self, t: Time, y: &State, dy: &mut State) {
-        let ke = self.ke;
+        let ke = self.params.ke;
 
         let _lag = 0.0;
 
@@ -44,14 +57,27 @@ impl ode_solvers::System<State> for Model<'_> {
     }
 }
 
+fn eval_outeq(
+    params: &PopParams,
+    cov: &HashMap<String, CovLine>,
+    x: &State,
+    time: f64,
+    outeq: usize,
+) -> f64 {
+    match outeq {
+        1 => x[0] / params.v,
+        _ => panic!("Invalid output equation"),
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Ode {}
 
 impl Predict for Ode {
     fn predict(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
+        let params = PopParams::new(params);
         let mut system = Model {
-            ke: params[0],
-            _v: params[1],
+            params: params,
             _scenario: scenario,
             infusions: vec![],
             cov: None,
@@ -78,7 +104,14 @@ impl Predict for Ode {
                     }
                 } else if event.evid == 0 {
                     //obs
-                    yout.push(x[event.outeq.unwrap() - 1] / params[1]);
+                    yout.push(eval_outeq(
+                        &params,
+                        system.cov.unwrap(),
+                        &x,
+                        event.time,
+                        event.outeq.unwrap(),
+                    ));
+                    // yout.push(x[event.outeq.unwrap() - 1] / params[1]);
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
                     //TODO: use the last dx as the initial one for the next simulation.

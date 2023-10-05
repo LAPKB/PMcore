@@ -38,13 +38,13 @@ ndarray-csv = "0.5.2"
 rawpointer = "0.2.1"
 argmin = "0.8.1"
 itertools = "0.11.0"
-faer-core = { version = "0.11.0", features = [] }
+faer-core = { version = "0.12.0", features = [] }
 # faer-lu = "0.9"
-faer-qr = "0.11.0"
+faer-qr = "0.12.0"
 # faer-cholesky = "0.9"
 # faer-svd = "0.9"
 dyn-stack = "0.9.0"
-faer = { version = "0.11.0", features = ["nalgebra", "ndarray"] }
+faer = { version = "0.12.0", features = ["nalgebra", "ndarray"] }
 
 
 [profile.release]
