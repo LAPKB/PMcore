@@ -17,14 +17,15 @@ Rust Library with the building blocks needed to create new Non-Parametric algori
 
 ## Examples
 
-There are two examples using NPAG implemented in this repository.
+There are two examples using NPAG implemented in this repository, `bimodal_ke` and `two_eq_lag`. 
 
-run the following commands to run them:
-
+You may run them with the following command
 ```
-cargo run --example two_eq_lag --release
-cargo run --example bimodal_ke --release
+cargo run --example example_name --release
 ```
+Be sure to replace `example_name` with the respective example.
+Look at the corresponding `examples/_example_/*.toml`-file to change the configuration for each run.
 
+## Documentation
 
-Look at the corresponding `examples/_example_/*.toml`-file to change the configuration of each run.
+For more information on how to use this crate, please review the [documentation](https://lapkb.github.io/NPcore/)
