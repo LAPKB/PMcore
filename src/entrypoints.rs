@@ -18,7 +18,7 @@ use tokio::sync::mpsc::{self};
 
 pub fn simulate<S>(engine: Engine<S>, settings_path: String) -> Result<()>
 where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
+    S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let settings = settings::simulator::read(settings_path);
     let theta_file = File::open(settings.paths.theta).unwrap();
@@ -54,7 +54,7 @@ where
 }
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
 where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
+    S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
     let settings = settings::run::read(settings_path);

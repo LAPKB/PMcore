@@ -24,7 +24,7 @@ pub fn initialize_algorithm<S>(
     tx: mpsc::UnboundedSender<NPCycle>,
 ) -> Box<dyn Algorithm>
 where
-    S: Predict + std::marker::Sync + Clone + 'static,
+    S: Predict<'static> + std::marker::Sync + Clone + 'static,
 {
     if std::path::Path::new("stop").exists() {
         match std::fs::remove_file("stop") {

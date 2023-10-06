@@ -23,7 +23,7 @@ const THETA_D: f64 = 1e-4;
 
 pub struct NPAG<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     engine: Engine<S>,
     ranges: Vec<(f64, f64)>,
@@ -51,7 +51,7 @@ where
 
 impl<S> Algorithm for NPAG<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     fn fit(&mut self) -> NPResult {
         self.run()
@@ -72,7 +72,7 @@ where
 
 impl<S> NPAG<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     /// Creates a new NPAG instance.
     ///
@@ -99,7 +99,7 @@ where
         settings: Data,
     ) -> Self
     where
-        S: Predict + std::marker::Sync,
+        S: Predict<'static> + std::marker::Sync,
     {
         Self {
             engine: sim_eng,

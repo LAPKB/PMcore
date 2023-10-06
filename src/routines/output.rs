@@ -55,9 +55,9 @@ impl NPResult {
         }
     }
 
-    pub fn write_outputs<S>(&self, write: bool, engine: &Engine<S>)
+    pub fn write_outputs<'a, S>(&self, write: bool, engine: &Engine<S>)
     where
-        S: Predict + std::marker::Sync + 'static + Clone + std::marker::Send,
+        S: Predict<'static> + std::marker::Sync + 'static + Clone + std::marker::Send,
     {
         if write {
             self.write_theta();
@@ -178,9 +178,9 @@ impl NPResult {
     }
 
     /// Writes the predictions
-    pub fn write_pred<S>(&self, engine: &Engine<S>)
+    pub fn write_pred<'a, S>(&self, engine: &Engine<S>)
     where
-        S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
+        S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
     {
         let result = (|| {
             let scenarios = self.scenarios.clone();
