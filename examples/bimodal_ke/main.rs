@@ -11,23 +11,24 @@ use ode_solvers::*;
 const ATOL: f64 = 1e-4;
 const RTOL: f64 = 1e-4;
 
+type State = Vector1<f64>;
+type Time = f64;
 #[derive(Debug, Clone)]
 struct Model {
-    ke: f64,
-    v: f64,
+    params: HashMap<String, f64>,
     _scenario: Scenario,
     infusions: Vec<Infusion>,
     cov: Option<HashMap<String, CovLine>>,
 }
-
-type State = Vector1<f64>;
-type Time = f64;
+impl Model {
+    pub fn get_param(&self, str: &str) -> f64 {
+        *self.params.get(str).unwrap()
+    }
+}
 
 impl ode_solvers::System<State> for Model {
     fn system(&self, t: Time, y: &State, dy: &mut State) {
-        let ke = self.ke;
-
-        let _lag = 0.0;
+        let ke = self.get_param("ke");
 
         let mut rateiv = [0.0];
         for infusion in &self.infusions {
@@ -51,16 +52,16 @@ impl<'a> Predict<'a> for Ode {
     type Model = Model;
     type State = State;
     fn initial_system(&self, params: &Vec<f64>, scenario: Scenario) -> Self::Model {
+        let params = HashMap::from([("ke".to_string(), params[0]), ("v".to_string(), params[1])]);
         Model {
-            ke: params[0],
-            v: params[1],
+            params,
             _scenario: scenario,
             infusions: vec![],
             cov: None,
         }
     }
     fn get_output(&self, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
-        let v = system.v;
+        let v = system.get_param("v");
         match outeq {
             1 => x[0] / v,
             _ => panic!("Invalid output equation"),
