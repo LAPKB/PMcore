@@ -14,6 +14,19 @@ use std::hash::{Hash, Hasher};
 
 const CACHE_SIZE: usize = 1000000;
 
+#[derive(Debug, Clone)]
+pub struct Model {
+    params: HashMap<String, f64>,
+    _scenario: Scenario,
+    infusions: Vec<Infusion>,
+    cov: Option<HashMap<String, CovLine>>,
+}
+impl Model {
+    pub fn get_param(&self, str: &str) -> f64 {
+        *self.params.get(str).unwrap()
+    }
+}
+
 /// return the predicted values for the given scenario and parameters
 /// where the second element of the tuple is the predicted values
 /// one per observation time in scenario and in the same order
