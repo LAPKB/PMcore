@@ -18,7 +18,7 @@ use tokio::sync::mpsc::UnboundedSender;
 /// Reweights the prior probabilities to the observed data and error model
 pub struct POSTPROB<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     engine: Engine<S>,
     psi: Array2<f64>,
@@ -38,7 +38,7 @@ where
 
 impl<S> Algorithm for POSTPROB<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     fn fit(&mut self) -> NPResult {
         self.run()
@@ -59,7 +59,7 @@ where
 
 impl<S> POSTPROB<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     pub fn new(
         sim_eng: Engine<S>,
@@ -70,7 +70,7 @@ where
         settings: Data,
     ) -> Self
     where
-        S: Predict + std::marker::Sync,
+        S: Predict<'static> + std::marker::Sync,
     {
         Self {
             engine: sim_eng,

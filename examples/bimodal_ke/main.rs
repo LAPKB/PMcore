@@ -12,18 +12,18 @@ const ATOL: f64 = 1e-4;
 const RTOL: f64 = 1e-4;
 
 #[derive(Debug, Clone)]
-struct Model<'a> {
+struct Model {
     ke: f64,
-    _v: f64,
-    _scenario: &'a Scenario,
+    v: f64,
+    _scenario: Scenario,
     infusions: Vec<Infusion>,
-    cov: Option<&'a HashMap<String, CovLine>>,
+    cov: Option<HashMap<String, CovLine>>,
 }
 
 type State = Vector1<f64>;
 type Time = f64;
 
-impl ode_solvers::System<State> for Model<'_> {
+impl ode_solvers::System<State> for Model {
     fn system(&self, t: Time, y: &State, dy: &mut State) {
         let ke = self.ke;
 
@@ -47,51 +47,52 @@ impl ode_solvers::System<State> for Model<'_> {
 #[derive(Debug, Clone)]
 struct Ode {}
 
-impl Predict for Ode {
-    fn predict(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64> {
-        let mut system = Model {
+impl<'a> Predict<'a> for Ode {
+    type Model = Model;
+    type State = State;
+    fn initial_system(&self, params: &Vec<f64>, scenario: Scenario) -> Self::Model {
+        Model {
             ke: params[0],
-            _v: params[1],
+            v: params[1],
             _scenario: scenario,
             infusions: vec![],
             cov: None,
-        };
-        // let scenario = scenario.reorder_with_lag(vec![]);
-        let mut yout = vec![];
-        let mut x = State::new(0.0);
-        let mut index: usize = 0;
-        for block in &scenario.blocks {
-            system.cov = Some(&block.covs);
-            for event in &block.events {
-                if event.evid == 1 {
-                    if event.dur.unwrap_or(0.0) > 0.0 {
-                        //infusion
-                        system.infusions.push(Infusion {
-                            time: event.time,
-                            dur: event.dur.unwrap(),
-                            amount: event.dose.unwrap(),
-                            compartment: event.input.unwrap() - 1,
-                        });
-                    } else {
-                        //dose
-                        x[event.input.unwrap() - 1] += event.dose.unwrap();
-                    }
-                } else if event.evid == 0 {
-                    //obs
-                    yout.push(x[event.outeq.unwrap() - 1] / params[1]);
-                }
-                if let Some(next_time) = scenario.times.get(index + 1) {
-                    //TODO: use the last dx as the initial one for the next simulation.
-                    let mut stepper =
-                        Dopri5::new(system.clone(), event.time, *next_time, 1e-3, x, RTOL, ATOL);
-                    let _res = stepper.integrate();
-                    let y = stepper.y_out();
-                    x = *y.last().unwrap();
-                }
-                index += 1;
-            }
         }
-        yout
+    }
+    fn get_output(&self, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
+        let v = system.v;
+        match outeq {
+            1 => x[0] / v,
+            _ => panic!("Invalid output equation"),
+        }
+    }
+    fn initial_state(&self) -> State {
+        State::default()
+    }
+    fn add_infusion(&self, mut system: Self::Model, infusion: Infusion) -> Model {
+        system.infusions.push(infusion);
+        system
+    }
+    fn add_covs(&self, mut system: Self::Model, cov: Option<HashMap<String, CovLine>>) -> Model {
+        system.cov = cov;
+        system
+    }
+    fn add_dose(&self, mut state: Self::State, dose: f64, compartment: usize) -> Self::State {
+        state[compartment] += dose;
+        state
+    }
+    fn state_step(
+        &self,
+        mut x: Self::State,
+        system: Self::Model,
+        time: f64,
+        next_time: f64,
+    ) -> State {
+        let mut stepper = Dopri5::new(system, time, next_time, 1e-3, x, RTOL, ATOL);
+        let _res = stepper.integrate();
+        let y = stepper.y_out();
+        x = *y.last().unwrap();
+        x
     }
 }
 
