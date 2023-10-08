@@ -55,7 +55,7 @@ impl NPResult {
         }
     }
 
-    pub fn write_outputs<'a, S>(&self, write: bool, engine: &Engine<S>)
+    pub fn write_outputs<'a, S>(&self, write: bool, engine: &Engine<S>, idelta: f64)
     where
         S: Predict<'static> + std::marker::Sync + 'static + Clone + std::marker::Send,
     {
@@ -63,7 +63,7 @@ impl NPResult {
             self.write_theta();
             self.write_posterior();
             self.write_obs();
-            self.write_pred(&engine);
+            self.write_pred(&engine, idelta);
             self.write_meta();
         }
     }
@@ -178,12 +178,19 @@ impl NPResult {
     }
 
     /// Writes the predictions
-    pub fn write_pred<'a, S>(&self, engine: &Engine<S>)
+    pub fn write_pred<'a, S>(&self, engine: &Engine<S>, idelta: f64)
     where
         S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
     {
         let result = (|| {
-            let scenarios = self.scenarios.clone();
+            let mut scenarios = self.scenarios.clone();
+            // Add an event interval to each scenario
+            if idelta > 0.0 {
+                scenarios.iter_mut().for_each(|scenario| {
+                    *scenario = scenario.add_event_interval(idelta);
+                });
+            }
+
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
             let psi: Array2<f64> = self.psi.clone();
