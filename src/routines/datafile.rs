@@ -22,6 +22,70 @@ impl Scenario {
         Ok(scenario)
     }
 
+    pub fn add_event_interval(&self, interval: f64) -> Self {
+        // Clone the underlying Event data instead of the references
+        let all_events = self
+            .clone()
+            .blocks
+            .iter()
+            .flat_map(|block| block.events.iter().cloned())
+            .collect::<Vec<_>>();
+
+        // Determine the start and end times
+        let start_time = all_events.first().unwrap().time;
+        let end_time = all_events.last().unwrap().time;
+
+        // Determine the unique output equations in the events
+        // TODO: This should be read from the model / engine
+        let mut outeqs: Vec<_> = all_events.iter().filter_map(|event| event.outeq).collect();
+        outeqs.sort_unstable();
+        outeqs.dedup();
+
+        // Generate dummy events
+        let mut new_events = vec![];
+        let mut current_time = start_time + interval; // Start from the first interval after the start time
+        while current_time < end_time {
+            current_time = (current_time / interval).round() * interval; // Round to the nearest interval
+            current_time = decimals(current_time, 4); // Round to 4 decimal places
+            for outeq in &outeqs {
+                new_events.push(Event {
+                    id: self.id.clone(),
+                    evid: 0,
+                    time: current_time,
+                    dur: None,
+                    dose: None,
+                    _addl: None,
+                    _ii: None,
+                    input: None,
+                    out: Some(-99.0),
+                    outeq: Some(*outeq),
+                    _c0: None,
+                    _c1: None,
+                    _c2: None,
+                    _c3: None,
+                    covs: HashMap::new(),
+                });
+            }
+            current_time += interval;
+        }
+
+        // Combine all_events with new_events
+        let mut combined_events = all_events;
+        combined_events.extend(new_events.iter().cloned());
+
+        // Sort the events by time
+        combined_events.sort_by(|a, b| a.cmp_by_id_then_time(b));
+        // Remove duplicate events based on time and outeq
+        // In essence, no need to have two predictions at the same time for the same outeq
+        let time_tolerance = 1e-4;
+        combined_events.sort_by(|a, b| a.cmp_by_id_then_time(b));
+        combined_events.dedup_by(|a, b| {
+            (a.time - b.time).abs() < time_tolerance && a.outeq == b.outeq && a.evid == b.evid
+        });
+
+        Scenario::new(combined_events).unwrap()
+    }
+
     pub fn reorder_with_lag(&self, lag_inputs: Vec<(f64, usize)>) -> Self {
         if lag_inputs.is_empty() {
             return self.clone();
@@ -300,4 +364,9 @@ fn check_obs(event: &Event) -> Result<(), Box<dyn Error>> {
         exit(-1);
     }
     Ok(())
+}
+
+fn decimals(value: f64, places: u32) -> f64 {
+    let multiplier = 10f64.powi(places as i32);
+    (value * multiplier).round() / multiplier
 }
