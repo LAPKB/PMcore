@@ -22,7 +22,10 @@ impl Scenario {
         Ok(scenario)
     }
 
-    pub fn add_event_interval(&self, interval: f64) -> Self {
+    /// Adds "mock" events to a Scenario in order to generate predictions at those times
+    /// The interval is mapped to the `idelta`-setting in the configuration time
+    /// Time after dose (tad) will ensure that predictions are made until the last dose + tad
+    pub fn add_event_interval(&self, interval: f64, tad: f64) -> Self {
         // Clone the underlying Event data instead of the references
         let all_events = self
             .clone()
@@ -33,7 +36,20 @@ impl Scenario {
 
         // Determine the start and end times
         let start_time = all_events.first().unwrap().time;
-        let end_time = all_events.last().unwrap().time;
+        let mut end_time = all_events.last().unwrap().time;
+
+        // Pad end time to accomodate time after dose
+        if tad > 0.0 {
+            let last_dose_time = all_events
+                .iter()
+                .filter(|event| event.evid == 1)
+                .map(|event| event.time)
+                .fold(std::f64::NEG_INFINITY, f64::max);
+
+            if end_time < last_dose_time + tad {
+                end_time = last_dose_time + tad
+            }
+        }
 
         // Determine the unique output equations in the events
         // TODO: This should be read from the model / engine
@@ -44,7 +60,7 @@ impl Scenario {
         // Generate dummy events
         let mut new_events = vec![];
         let mut current_time = start_time + interval; // Start from the first interval after the start time
-        while current_time < end_time {
+        while current_time <= end_time {
             current_time = (current_time / interval).round() * interval; // Round to the nearest interval
             current_time = decimals(current_time, 4); // Round to 4 decimal places
             for outeq in &outeqs {
