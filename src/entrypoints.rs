@@ -73,8 +73,9 @@ where
     log::info!("Total time: {:.2?}", now.elapsed());
 
     let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
+    let tad = settings.parsed.config.tad.unwrap_or(0.0);
     if let Some(write) = &settings.parsed.config.pmetrics_outputs {
-        result.write_outputs(*write, &engine, idelta);
+        result.write_outputs(*write, &engine, idelta, tad);
     }
 
     Ok(result)
