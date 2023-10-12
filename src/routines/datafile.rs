@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::process::exit;
 
+use crate::tui::inputs::events::Events;
+
 type Record = HashMap<String, String>;
 
 /// A Scenario is a collection of blocks that represent a single subject in the Datafile
@@ -180,8 +182,8 @@ pub struct Event {
     pub time: f64,
     pub dur: Option<f64>,
     pub dose: Option<f64>,
-    pub _addl: Option<isize>,
-    pub _ii: Option<isize>,
+    pub addl: Option<isize>,
+    pub ii: Option<f64>,
     pub input: Option<usize>,
     pub out: Option<f64>,
     pub outeq: Option<usize>,
@@ -218,8 +220,8 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             time: record.remove("TIME").unwrap().parse::<f64>().unwrap(),
             dur: record.remove("DUR").unwrap().parse::<f64>().ok(),
             dose: record.remove("DOSE").unwrap().parse::<f64>().ok(),
-            _addl: record.remove("ADDL").unwrap().parse::<isize>().ok(), //TODO: To Be Implemented
-            _ii: record.remove("II").unwrap().parse::<isize>().ok(),     //TODO: To Be Implemented
+            addl: record.remove("ADDL").unwrap().parse::<isize>().ok(),
+            ii: record.remove("II").unwrap().parse::<f64>().ok(),
             input: record.remove("INPUT").unwrap().parse::<usize>().ok(),
             out: record.remove("OUT").unwrap().parse::<f64>().ok(),
             outeq: record.remove("OUTEQ").unwrap().parse::<usize>().ok(),
@@ -235,6 +237,50 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
                 })
                 .collect(),
         });
+    }
+
+    // Expand ADDL and II events
+    let mut addl_events: Vec<Event> = vec![];
+    for event in &events {
+        if event.evid == 1
+            && event.addl.is_some()
+            && event.addl.unwrap() != 0
+            && event.ii.is_some()
+            && event.ii.unwrap() > 0.0
+        {
+            let mut ev = event.clone();
+            log::info!("Expanding ADDL event for subject {:?}", ev.id);
+            let interval = ev.ii.unwrap();
+            let repetitions = ev.addl.unwrap().abs();
+            let direction = ev.addl.unwrap().signum();
+            ev.addl = None;
+            ev.ii = None;
+
+            for _ in 1..=repetitions {
+                ev.time += (direction as f64) * interval;
+                addl_events.push(ev.clone());
+            }
+        }
+    }
+    events.extend(addl_events);
+    events.sort_by(|a, b| a.cmp_by_id_then_time(b));
+
+    let min_times: HashMap<String, f64> = events.iter().map(|event| (&event.id, event.time)).fold(
+        HashMap::new(),
+        |mut acc, (id, time)| {
+            acc.entry(id.clone())
+                .and_modify(|e| *e = (*e).min(time))
+                .or_insert(time);
+            acc
+        },
+    );
+
+    for event in &mut events {
+        if let Some(&min_time) = min_times.get(&event.id) {
+            if min_time < 0.0 {
+                event.time -= min_time;
+            }
+        }
     }
 
     let mut event_groups: HashMap<String, Vec<Event>> = HashMap::new();

@@ -85,3 +85,35 @@ fn read_test_datafile() {
         //TODO: Uncomment this
     }
 }
+
+#[test]
+fn test_addl() {
+    let scenarios_result = datafile::parse(&"src/tests/addl_test.csv".to_string());
+    assert!(scenarios_result.is_ok(), "Failed to parse scenarios");
+
+    let scenarios = scenarios_result.unwrap();
+    assert!(!scenarios.is_empty(), "No scenarios parsed");
+
+    let first_scenario = scenarios
+        .iter()
+        .find(|s| s.id == "1")
+        .expect("Scenario with ID 1 not found");
+    let second_scenario = scenarios
+        .iter()
+        .find(|s| s.id == "2")
+        .expect("Scenario with ID 2 not found");
+
+    // Negative ADDL, observations shifted forward
+    assert_eq!(first_scenario.obs_times, vec![129.0]);
+    assert_eq!(
+        first_scenario.times,
+        vec![0.0, 12.0, 24.0, 36.0, 48.0, 60.0, 72.0, 84.0, 96.0, 108.0, 120.0, 129.0]
+    );
+
+    // Positive ADDL, no shift in observations
+    assert_eq!(second_scenario.obs_times, vec![9.0]);
+    assert_eq!(
+        second_scenario.times,
+        vec![0.0, 9.0, 12.0, 24.0, 36.0, 48.0, 60.0, 72.0, 84.0, 96.0, 108.0, 120.0]
+    );
+}
