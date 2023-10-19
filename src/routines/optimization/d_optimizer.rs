@@ -75,7 +75,7 @@ where
     }
     pub fn optimize_point(self, spp: Array1<f64>) -> Result<Array1<f64>, Error> {
         let simplex = create_initial_simplex(&spp);
-        let solver = NelderMead::new(simplex).with_sd_tolerance(1e-8)?;
+        let solver = NelderMead::new(simplex).with_sd_tolerance(1e-12)?;
         let res = Executor::new(self, solver)
             .configure(|state| state.max_iters(5))
             // .add_observer(SlogLogger::term(), ObserverMode::Always)

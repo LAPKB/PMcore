@@ -5,7 +5,7 @@ log_out = "log/two_eq_lag.log"
 
 [config]
 cycles = 1000
-engine = "NPAG"
+engine = "NPOD"
 init_points = 1000
 seed = 22
 tui = true

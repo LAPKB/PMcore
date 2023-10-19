@@ -5,7 +5,7 @@ log_out = "log/bimodal_ke.log"
 
 [config]
 cycles = 1024
-engine = "NPOD"
+engine = "NPAG"
 init_points = 2129
 seed = 347
 tui = true
