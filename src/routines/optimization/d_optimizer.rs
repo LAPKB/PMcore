@@ -75,7 +75,7 @@ where
     }
     pub fn optimize_point(self, spp: Array1<f64>) -> Result<Array1<f64>, Error> {
         let simplex = create_initial_simplex(&spp);
-        let solver = NelderMead::new(simplex).with_sd_tolerance(1e-12)?;
+        let solver = NelderMead::new(simplex).with_sd_tolerance(1e-2)?;
         let res = Executor::new(self, solver)
             .configure(|state| state.max_iters(5))
             // .add_observer(SlogLogger::term(), ObserverMode::Always)
@@ -86,7 +86,7 @@ where
 
 fn create_initial_simplex(initial_point: &Array1<f64>) -> Vec<Array1<f64>> {
     let num_dimensions = initial_point.len();
-    let perturbation_percentage = 0.05; // 5% perturbation
+    let perturbation_percentage = 0.008;
 
     // Initialize a Vec to store the vertices of the simplex
     let mut vertices = Vec::new();
