@@ -1,29 +1,26 @@
-use crate::{
-    prelude::{
-        algorithms::Algorithm,
-        datafile::Scenario,
-        evaluation::sigma::{ErrorPoly, ErrorType},
-        ipm,
-        output::NPResult,
-        output::{CycleLog, NPCycle},
-        prob, qr,
-        settings::run::Data,
-        simulation::predict::Engine,
-        simulation::predict::{sim_obs, Predict},
-    },
-    routines::expansion::adaptative_grid::adaptative_grid,
+use crate::prelude::{
+    algorithms::Algorithm,
+    condensation::prune::prune,
+    datafile::Scenario,
+    evaluation::sigma::{ErrorPoly, ErrorType},
+    ipm,
+    optimization::d_optimizer::SppOptimizer,
+    output::NPResult,
+    output::{CycleLog, NPCycle},
+    prob, qr,
+    settings::run::Data,
+    simulation::predict::Engine,
+    simulation::predict::{sim_obs, Predict},
 };
 
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-const THETA_E: f64 = 1e-4; //convergence Criteria
-const THETA_G: f64 = 1e-4; //objf stop criteria
-const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
+const THETA_F: f64 = 1e-2;
 
-pub struct NPAG<S>
+pub struct NPOD<S>
 where
     S: Predict + std::marker::Sync + Clone,
 {
@@ -33,11 +30,8 @@ where
     theta: Array2<f64>,
     lambda: Array1<f64>,
     w: Array1<f64>,
-    eps: f64,
     last_objf: f64,
     objf: f64,
-    f0: f64,
-    f1: f64,
     cycle: usize,
     gamma_delta: f64,
     gamma: f64,
@@ -51,7 +45,7 @@ where
     settings: Data,
 }
 
-impl<S> Algorithm for NPAG<S>
+impl<S> Algorithm for NPOD<S>
 where
     S: Predict + std::marker::Sync + Clone,
 {
@@ -72,11 +66,11 @@ where
     }
 }
 
-impl<S> NPAG<S>
+impl<S> NPOD<S>
 where
     S: Predict + std::marker::Sync + Clone,
 {
-    /// Creates a new NPAG instance.
+    /// Creates a new NPOD instance.
     ///
     /// # Parameters
     ///
@@ -90,7 +84,7 @@ where
     ///
     /// # Returns
     ///
-    /// Returns a new `NPAG` instance.
+    /// Returns a new `NPOD` instance.
     pub fn new(
         sim_eng: Engine<S>,
         ranges: Vec<(f64, f64)>,
@@ -110,11 +104,8 @@ where
             theta,
             lambda: Array1::default(0),
             w: Array1::default(0),
-            eps: 0.2,
             last_objf: -1e30,
             objf: f64::INFINITY,
-            f0: -1e30,
-            f1: f64::default(),
             cycle: 1,
             gamma_delta: 0.1,
             gamma: settings.parsed.error.value,
@@ -191,12 +182,9 @@ where
         }
     }
 
-    fn adaptative_grid(&mut self) {
-        adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
-    }
-
     pub fn run(&mut self) -> NPResult {
-        while self.eps > THETA_E {
+        while (self.last_objf - self.objf).abs() > THETA_F {
+            self.last_objf = self.objf;
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
@@ -281,22 +269,16 @@ where
             self.w = self.lambda.clone();
             let pyl = self.psi.dot(&self.w);
 
-            // Stop if we have reached convergence criteria
-            if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
-                self.eps /= 2.;
-                if self.eps <= THETA_E {
-                    self.f1 = pyl.mapv(|x| x.ln()).sum();
-                    if (self.f1 - self.f0).abs() <= THETA_F {
-                        log::info!("Likelihood criteria convergence");
-                        self.converged = true;
-                        state.stop_text = "The run converged!".to_string();
-                        self.tx.send(state).unwrap();
-                        break;
-                    } else {
-                        self.f0 = self.f1;
-                        self.eps = 0.2;
-                    }
-                }
+            // Add new point to theta based on the optimization of the D function
+            let sigma = ErrorPoly {
+                c: self.c,
+                gl: self.gamma,
+                e_type: &self.error_type,
+            };
+            for spp in self.theta.clone().rows() {
+                let optimizer = SppOptimizer::new(&self.engine, &self.scenarios, &sigma, &pyl);
+                let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
+                prune(&mut self.theta, candidate_point, &self.ranges, THETA_D);
             }
 
             // Stop if we have reached maximum number of cycles
@@ -314,12 +296,14 @@ where
                 self.tx.send(state).unwrap();
                 break;
             }
+            //TODO: the cycle migh break before reaching this point
             self.cycle_log
                 .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
 
-            self.adaptative_grid();
             self.cycle += 1;
-            self.last_objf = self.objf;
+
+            // log::info!("cycle: {}, objf: {}", self.cycle, self.objf);
+            // dbg!((self.last_objf - self.objf).abs());
         }
 
         self.to_npresult()

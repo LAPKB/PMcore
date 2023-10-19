@@ -29,7 +29,7 @@ pub fn adaptative_grid(
     theta.to_owned()
 }
 
-fn evaluate_spp(
+pub fn evaluate_spp(
     theta: &mut Array2<f64>,
     candidate: Array1<f64>,
     limits: &[(f64, f64)],
