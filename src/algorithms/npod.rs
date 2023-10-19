@@ -12,7 +12,7 @@ use crate::prelude::{
     simulation::predict::Engine,
     simulation::predict::{sim_obs, Predict},
 };
-
+use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
@@ -275,10 +275,22 @@ where
                 gl: self.gamma,
                 e_type: &self.error_type,
             };
+            // for spp in self.theta.clone().rows() {
+            //     let optimizer = SppOptimizer::new(&self.engine, &self.scenarios, &sigma, &pyl);
+            //     let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
+            //     prune(&mut self.theta, candidate_point, &self.ranges, THETA_D);
+            // }
+            let mut candididate_points: Vec<Array1<f64>> = Vec::default();
             for spp in self.theta.clone().rows() {
+                candididate_points.push(spp.to_owned());
+            }
+            candididate_points.par_iter_mut().for_each(|spp| {
                 let optimizer = SppOptimizer::new(&self.engine, &self.scenarios, &sigma, &pyl);
                 let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
-                prune(&mut self.theta, candidate_point, &self.ranges, THETA_D);
+                *spp = candidate_point;
+            });
+            for cp in candididate_points {
+                prune(&mut self.theta, cp, &self.ranges, THETA_D);
             }
 
             // Stop if we have reached maximum number of cycles
