@@ -1,6 +1,6 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-use argmin::core::observers::{ObserverMode, SlogLogger};
+// #![allow(dead_code)]
+// #![allow(unused_variables)]
+// use argmin::core::observers::{ObserverMode, SlogLogger};
 use argmin::core::{CostFunction, Error, Executor, TerminationReason, TerminationStatus};
 use argmin::solver::neldermead::NelderMead;
 use eyre::Result;
@@ -99,7 +99,6 @@ impl ode_solvers::System<State> for Model<'_> {
 
             if v > 0.0 && u > 0.0 {
                 let start = 0.00001;
-                let tol = 1.0e-10;
                 let step = -2.0 * start;
                 // CALL ELDERY(1,START,XM0BEST1,VALMIN1,TOL,STEP,1000,BESTM0,0,ICONV,NITER,ICNT)
                 let bm0 = BESTM0 {
@@ -183,7 +182,6 @@ impl ode_solvers::System<State> for Model<'_> {
             }
             if v > 0.0 && u > 0.0 {
                 //START(1) = .00001
-                let tol = 1.0e-10;
                 // STEP(1)= -.2D0*START(1)
                 // CALL ELDERY(1,START,XM0BEST1,VALMIN1,TOL,STEP,1000,BESTM0,0,ICONV,NITER,ICNT)
                 let bm0 = BESTM0 {
@@ -252,13 +250,20 @@ impl ode_solvers::System<State> for Model<'_> {
 
             if v > 0.0 && u > 0.0 {
                 //START(1) = .00001
-                let tol = 1.0e-10;
+                let start = 0.00001;
+                let step = -2.0 * start;
                 // STEP(1)= -.2D0*START(1)
                 // CALL ELDERY(1,START,XM0BEST1,VALMIN1,TOL,STEP,1000,BESTM0,0,ICONV,NITER,ICNT)
-                let xm0best1 = 0.0;
-                let valmin1 = 0.0;
-                let iconv = 0.0;
-                if iconv == 0.0 {
+                let bm0 = BESTM0 {
+                    u,
+                    v,
+                    w,
+                    h1,
+                    h2,
+                    xx,
+                };
+                let (xm0best1, valmin1, iconv) = bm0.get_best(start, step);
+                if iconv == false {
                     panic!("NO CONVERGENCE ON SELECTION OF BEST M0 FOR r1.");
                 }
                 if valmin1 < 1.0e-10 {
@@ -272,14 +277,21 @@ impl ode_solvers::System<State> for Model<'_> {
                         // START(1) = XM0EST
                         // STEP(1)= -.2D0*START(1)
                         // CALL ELDERY(1,START,XM0BEST2,VALMIN2,TOL,STEP,1000,BESTM0,0,ICONV,NITER,ICNT)
-                        let xm0best2 = 0.0;
-                        let valmin2 = 0.0;
-                        let iconv = 0.0;
+
+                        let bm0 = BESTM0 {
+                            u,
+                            v,
+                            w,
+                            h1,
+                            h2,
+                            xx,
+                        };
+                        let (xm0best2, valmin2, iconv) = bm0.get_best(xm0est, -2.0 * xm0est);
                         xm0best = xm0best1;
                         if valmin2 < valmin1 {
                             xm0best = xm0best2;
                         }
-                        if iconv == 0.0 {
+                        if iconv == false {
                             panic!("NO CONVERGENCE ON SELECTION OF BEST M0 FOR s.");
                         } //235
                     } //237
