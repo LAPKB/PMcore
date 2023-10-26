@@ -5,7 +5,9 @@ use npcore::prelude::{
     datafile::{CovLine, Infusion, Scenario},
     predict::{Engine, Predict},
     start,
+    start_with_data
 };
+use npcore::prelude::*;
 use ode_solvers::*;
 
 const ATOL: f64 = 1e-4;
@@ -101,6 +103,27 @@ fn main() -> Result<()> {
     let _result = start(
         Engine::new(Ode {}),
         "examples/bimodal_ke/config.toml".to_string(),
+    )?;
+
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn new_entry_test() -> Result<()> {
+
+    let settings_path = "examples/bimodal_ke/config.toml".to_string();
+    let settings = settings::run::read(settings_path);
+    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
+    if let Some(exclude) = &settings.parsed.config.exclude {
+        for val in exclude {
+            scenarios.remove(val.as_integer().unwrap() as usize);
+        }
+    }
+
+    let _result = start_with_data(
+        Engine::new(Ode {}),
+        "examples/bimodal_ke/config.toml".to_string(),
+        scenarios,
     )?;
 
     Ok(())
