@@ -1,7 +1,7 @@
 use crate::prelude::{self, output::NPCycle, settings::run::Data};
 
 use output::NPResult;
-use prelude::*;
+use prelude::{datafile::Scenario, *};
 use simulation::predict::{Engine, Predict};
 use tokio::sync::mpsc;
 
@@ -21,6 +21,7 @@ pub trait Algorithm {
 pub fn initialize_algorithm<S>(
     engine: Engine<S>,
     settings: Data,
+    scenarios: Vec<Scenario>,
     tx: mpsc::UnboundedSender<NPCycle>,
 ) -> Box<dyn Algorithm>
 where
@@ -34,12 +35,7 @@ where
     }
     let ranges = settings.computed.random.ranges.clone();
     let theta = initialization::sample_space(&settings, &ranges);
-    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
-    if let Some(exclude) = &settings.parsed.config.exclude {
-        for val in exclude {
-            scenarios.remove(val.as_integer().unwrap() as usize);
-        }
-    }
+
     //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
     match settings.parsed.config.engine.as_str() {
         "NPAG" => Box::new(npag::NPAG::new(
