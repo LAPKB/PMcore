@@ -5,6 +5,7 @@ use crate::prelude::{
     predict::{Engine, Predict},
     *,
 };
+use crate::routines::datafile::Scenario;
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
 
@@ -60,7 +61,13 @@ where
     let settings = settings::run::read(settings_path);
     logger::setup_log(&settings);
     let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
-    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), tx);
+    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
+    if let Some(exclude) = &settings.parsed.config.exclude {
+        for val in exclude {
+            scenarios.remove(val.as_integer().unwrap() as usize);
+        }
+    }
+    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
     if settings.parsed.config.tui {
