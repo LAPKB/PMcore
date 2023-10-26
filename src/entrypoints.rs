@@ -6,6 +6,7 @@ use crate::prelude::{
     *,
 };
 use crate::routines::datafile::Scenario;
+
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
 
@@ -67,6 +68,35 @@ where
             scenarios.remove(val.as_integer().unwrap() as usize);
         }
     }
+    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
+    // Spawn new thread for TUI
+    let settings_tui = settings.clone();
+    if settings.parsed.config.tui {
+        let _ui_handle = spawn(move || {
+            start_ui(rx, settings_tui).expect("Failed to start TUI");
+        });
+    }
+
+    let result = algorithm.fit();
+    log::info!("Total time: {:.2?}", now.elapsed());
+
+    if let Some(write) = &settings.parsed.config.pmetrics_outputs {
+        result.write_outputs(*write, &engine);
+    }
+
+    Ok(result)
+}
+
+pub fn start_with_data<S>(engine: Engine<S>, settings_path: String, scenarios: Vec<Scenario>) -> Result<NPResult>
+where
+    S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
+{
+    let now = Instant::now();
+    let settings = settings::run::read(settings_path);
+    logger::setup_log(&settings);
+    let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
+    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
+
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
