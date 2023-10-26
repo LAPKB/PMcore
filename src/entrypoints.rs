@@ -87,7 +87,7 @@ where
     Ok(result)
 }
 
-pub fn start_with_data<S>(engine: Engine<S>, settings_path: String, scenarios: Vec<Scenario>) -> Result<NPResult>
+pub fn start_with_data<S>(engine: Engine<S>, settings_path: String, mut scenarios: Vec<Scenario>) -> Result<NPResult>
 where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
@@ -95,7 +95,6 @@ where
     let settings = settings::run::read(settings_path);
     logger::setup_log(&settings);
     let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
-    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
 
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     // Spawn new thread for TUI
