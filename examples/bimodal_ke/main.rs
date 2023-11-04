@@ -4,10 +4,10 @@ use eyre::Result;
 use npcore::prelude::{
     datafile::{CovLine, Infusion, Scenario},
     predict::{Engine, Predict},
-    start,
-    start_with_data
+    settings,
+    datafile,
+    start, start_with_data,
 };
-use npcore::prelude::*;
 use ode_solvers::*;
 
 const ATOL: f64 = 1e-4;
@@ -113,7 +113,6 @@ fn main() -> Result<()> {
 
 #[allow(dead_code)]
 fn new_entry_test() -> Result<()> {
-
     let settings_path = "examples/bimodal_ke/config.toml".to_string();
     let settings = settings::run::read(settings_path);
     let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
