@@ -39,7 +39,7 @@ impl Scenario {
         let mut end_time = all_events.last().unwrap().time;
 
         // Pad end time to accomodate time after dose
-        if tad > 0.0{
+        if tad > 0.0 {
             let last_dose_time = all_events
                 .iter()
                 .filter(|event| event.evid == 1)
