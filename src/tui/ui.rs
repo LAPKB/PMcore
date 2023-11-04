@@ -98,15 +98,13 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
     Ok(())
 }
 
-pub fn draw<B>(
-    rect: &mut Frame<B>,
+pub fn draw(
+    rect: &mut Frame,
     app: &App,
     app_history: &AppHistory,
     elapsed_time: Duration,
     settings: &Data,
-) where
-    B: Backend,
-{
+) {
     let size = rect.size();
     check_size(&size);
 
