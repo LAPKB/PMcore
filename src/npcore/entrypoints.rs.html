@@ -114,6 +114,8 @@
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::output::NPCycle;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{
@@ -196,8 +198,10 @@
     <span class="kw">let </span>result = algorithm.fit();
     <span class="macro">log::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
 
+    <span class="kw">let </span>idelta = settings.parsed.config.idelta.unwrap_or(<span class="number">0.0</span>);
+    <span class="kw">let </span>tad = settings.parsed.config.tad.unwrap_or(<span class="number">0.0</span>);
     <span class="kw">if let </span><span class="prelude-val">Some</span>(write) = <span class="kw-2">&amp;</span>settings.parsed.config.pmetrics_outputs {
-        result.write_outputs(<span class="kw-2">*</span>write, <span class="kw-2">&amp;</span>engine);
+        result.write_outputs(<span class="kw-2">*</span>write, <span class="kw-2">&amp;</span>engine, idelta, tad);
     }
 
     <span class="prelude-val">Ok</span>(result)

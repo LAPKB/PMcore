@@ -137,6 +137,8 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde_derive::Deserialize;
 <span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::process::exit;
@@ -202,6 +204,8 @@
     <span class="kw">pub </span>pmetrics_outputs: <span class="prelude-ty">Option</span>&lt;bool&gt;,
     <span class="kw">pub </span>exclude: <span class="prelude-ty">Option</span>&lt;Array&gt;,
     <span class="kw">pub </span>cache: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+    <span class="kw">pub </span>idelta: <span class="prelude-ty">Option</span>&lt;f64&gt;,
+    <span class="kw">pub </span>tad: <span class="prelude-ty">Option</span>&lt;f64&gt;,
 }
 
 <span class="kw">pub fn </span>read(filename: String) -&gt; Data {

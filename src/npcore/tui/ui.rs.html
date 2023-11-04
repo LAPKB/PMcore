@@ -493,8 +493,8 @@
     terminal.show_cursor()<span class="question-mark">?</span>;
     crossterm::terminal::disable_raw_mode()<span class="question-mark">?</span>;
     terminal
-            .draw(|rect| draw(rect, <span class="kw-2">&amp;</span>app, <span class="kw-2">&amp;</span>app_history, elapsed_time, <span class="kw-2">&amp;</span>settings))
-            .unwrap();
+        .draw(|rect| draw(rect, <span class="kw-2">&amp;</span>app, <span class="kw-2">&amp;</span>app_history, elapsed_time, <span class="kw-2">&amp;</span>settings))
+        .unwrap();
     <span class="prelude-val">Ok</span>(())
 }
 
