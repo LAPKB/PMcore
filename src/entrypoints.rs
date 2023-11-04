@@ -89,7 +89,11 @@ where
     Ok(result)
 }
 
-pub fn start_with_data<S>(engine: Engine<S>, settings_path: String, mut scenarios: Vec<Scenario>) -> Result<NPResult>
+pub fn start_with_data<S>(
+    engine: Engine<S>,
+    settings_path: String,
+    scenarios: Vec<Scenario>,
+) -> Result<NPResult>
 where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
@@ -110,8 +114,10 @@ where
     let result = algorithm.fit();
     log::info!("Total time: {:.2?}", now.elapsed());
 
+    let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
+    let tad = settings.parsed.config.tad.unwrap_or(0.0);
     if let Some(write) = &settings.parsed.config.pmetrics_outputs {
-        result.write_outputs(*write, &engine);
+        result.write_outputs(*write, &engine, idelta, tad);
     }
 
     Ok(result)
