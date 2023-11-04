@@ -63,6 +63,8 @@ pub struct Config {
     pub pmetrics_outputs: Option<bool>,
     pub exclude: Option<Array>,
     pub cache: Option<bool>,
+    pub idelta: Option<f64>,
+    pub tad: Option<f64>,
 }
 
 pub fn read(filename: String) -> Data {

@@ -91,6 +91,9 @@ impl<'a> Predict<'a> for Ode {
         time: f64,
         next_time: f64,
     ) -> State {
+        if time == next_time {
+            return x;
+        }
         let mut stepper = Dopri5::new(system, time, next_time, 1e-3, x, RTOL, ATOL);
         let _res = stepper.integrate();
         let y = stepper.y_out();
