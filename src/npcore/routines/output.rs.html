@@ -610,9 +610,9 @@
         }
     }
 
-    <span class="kw">pub fn </span>write_outputs&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, write: bool, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;)
+    <span class="kw">pub fn </span>write_outputs&lt;<span class="lifetime">&#39;a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, write: bool, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;)
     <span class="kw">where
-        </span>S: Predict + std::marker::Sync + <span class="lifetime">&#39;static </span>+ Clone + std::marker::Send,
+        </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + <span class="lifetime">&#39;static </span>+ Clone + std::marker::Send,
     {
         <span class="kw">if </span>write {
             <span class="self">self</span>.write_theta();
@@ -733,9 +733,9 @@
     }
 
     <span class="doccomment">/// Writes the predictions
-    </span><span class="kw">pub fn </span>write_pred&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;)
+    </span><span class="kw">pub fn </span>write_pred&lt;<span class="lifetime">&#39;a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;)
     <span class="kw">where
-        </span>S: Predict + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
+        </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
     {
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>scenarios = <span class="self">self</span>.scenarios.clone();

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["simulate","start"]};
+window.SIDEBAR_ITEMS = {"fn":["simulate","start","start_with_data"]};

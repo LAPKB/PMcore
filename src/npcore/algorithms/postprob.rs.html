@@ -130,7 +130,7 @@
 /// Reweights the prior probabilities to the observed data and error model
 </span><span class="kw">pub struct </span>POSTPROB&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync + Clone,
+    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + Clone,
 {
     engine: Engine&lt;S&gt;,
     psi: Array2&lt;f64&gt;,
@@ -150,7 +150,7 @@
 
 <span class="kw">impl</span>&lt;S&gt; Algorithm <span class="kw">for </span>POSTPROB&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync + Clone,
+    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + Clone,
 {
     <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="self">self</span>.run()
@@ -171,7 +171,7 @@
 
 <span class="kw">impl</span>&lt;S&gt; POSTPROB&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync + Clone,
+    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + Clone,
 {
     <span class="kw">pub fn </span>new(
         sim_eng: Engine&lt;S&gt;,
@@ -182,7 +182,7 @@
         settings: Data,
     ) -&gt; <span class="self">Self
     </span><span class="kw">where
-        </span>S: Predict + std::marker::Sync,
+        </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync,
     {
         <span class="self">Self </span>{
             engine: sim_eng,

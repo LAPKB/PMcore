@@ -78,6 +78,42 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::output::NPCycle;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{
@@ -85,6 +121,8 @@
     predict::{Engine, Predict},
     <span class="kw-2">*</span>,
 };
+<span class="kw">use </span><span class="kw">crate</span>::routines::datafile::Scenario;
+
 <span class="kw">use </span>csv::{ReaderBuilder, WriterBuilder};
 <span class="kw">use </span>eyre::Result;
 
@@ -98,7 +136,7 @@
 
 <span class="kw">pub fn </span>simulate&lt;S&gt;(engine: Engine&lt;S&gt;, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
+    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
 {
     <span class="kw">let </span>settings = settings::simulator::read(settings_path);
     <span class="kw">let </span>theta_file = File::open(settings.paths.theta).unwrap();
@@ -134,13 +172,19 @@
 }
 <span class="kw">pub fn </span>start&lt;S&gt;(engine: Engine&lt;S&gt;, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
+    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
 {
     <span class="kw">let </span>now = Instant::now();
     <span class="kw">let </span>settings = settings::run::read(settings_path);
     logger::setup_log(<span class="kw-2">&amp;</span>settings);
     <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;NPCycle&gt;();
-    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(engine.clone(), settings.clone(), tx);
+    <span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.parsed.paths.data).unwrap();
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(exclude) = <span class="kw-2">&amp;</span>settings.parsed.config.exclude {
+        <span class="kw">for </span>val <span class="kw">in </span>exclude {
+            scenarios.remove(val.as_integer().unwrap() <span class="kw">as </span>usize);
+        }
+    }
+    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     <span class="comment">// Spawn new thread for TUI
     </span><span class="kw">let </span>settings_tui = settings.clone();
     <span class="kw">if </span>settings.parsed.config.tui {
@@ -158,4 +202,31 @@
 
     <span class="prelude-val">Ok</span>(result)
 }
-</code></pre></div></section></main></body></html>
+
+<span class="kw">pub fn </span>start_with_data&lt;S&gt;(engine: Engine&lt;S&gt;, settings_path: String, <span class="kw-2">mut </span>scenarios: Vec&lt;Scenario&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt;
+<span class="kw">where
+    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
+{
+    <span class="kw">let </span>now = Instant::now();
+    <span class="kw">let </span>settings = settings::run::read(settings_path);
+    logger::setup_log(<span class="kw-2">&amp;</span>settings);
+    <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;NPCycle&gt;();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
+    <span class="comment">// Spawn new thread for TUI
+    </span><span class="kw">let </span>settings_tui = settings.clone();
+    <span class="kw">if </span>settings.parsed.config.tui {
+        <span class="kw">let </span>_ui_handle = spawn(<span class="kw">move </span>|| {
+            start_ui(rx, settings_tui).expect(<span class="string">&quot;Failed to start TUI&quot;</span>);
+        });
+    }
+
+    <span class="kw">let </span>result = algorithm.fit();
+    <span class="macro">log::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(write) = <span class="kw-2">&amp;</span>settings.parsed.config.pmetrics_outputs {
+        result.write_outputs(<span class="kw-2">*</span>write, <span class="kw-2">&amp;</span>engine);
+    }
+
+    <span class="prelude-val">Ok</span>(result)
+}</code></pre></div></section></main></body></html>

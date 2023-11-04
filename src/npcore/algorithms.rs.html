@@ -61,14 +61,10 @@
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, output::NPCycle, settings::run::Data};
 
 <span class="kw">use </span>output::NPResult;
-<span class="kw">use </span>prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>prelude::{datafile::Scenario, <span class="kw-2">*</span>};
 <span class="kw">use </span>simulation::predict::{Engine, Predict};
 <span class="kw">use </span>tokio::sync::mpsc;
 
@@ -88,10 +84,11 @@
 <span class="kw">pub fn </span>initialize_algorithm&lt;S&gt;(
     engine: Engine&lt;S&gt;,
     settings: Data,
+    scenarios: Vec&lt;Scenario&gt;,
     tx: mpsc::UnboundedSender&lt;NPCycle&gt;,
 ) -&gt; Box&lt;<span class="kw">dyn </span>Algorithm&gt;
 <span class="kw">where
-    </span>S: Predict + std::marker::Sync + Clone + <span class="lifetime">&#39;static</span>,
+    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + Clone + <span class="lifetime">&#39;static</span>,
 {
     <span class="kw">if </span>std::path::Path::new(<span class="string">&quot;stop&quot;</span>).exists() {
         <span class="kw">match </span>std::fs::remove_file(<span class="string">&quot;stop&quot;</span>) {
@@ -101,12 +98,7 @@
     }
     <span class="kw">let </span>ranges = settings.computed.random.ranges.clone();
     <span class="kw">let </span>theta = initialization::sample_space(<span class="kw-2">&amp;</span>settings, <span class="kw-2">&amp;</span>ranges);
-    <span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.parsed.paths.data).unwrap();
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(exclude) = <span class="kw-2">&amp;</span>settings.parsed.config.exclude {
-        <span class="kw">for </span>val <span class="kw">in </span>exclude {
-            scenarios.remove(val.as_integer().unwrap() <span class="kw">as </span>usize);
-        }
-    }
+
     <span class="comment">//This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
     </span><span class="kw">match </span>settings.parsed.config.engine.as_str() {
         <span class="string">&quot;NPAG&quot; </span>=&gt; Box::new(npag::NPAG::new(
