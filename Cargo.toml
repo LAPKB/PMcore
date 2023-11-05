@@ -8,15 +8,13 @@ authors = [
     "Michael Neely",
     "Walter Yamada",
 ]
-description = "Rust Library with the building blocks needed to create new Non-Parametric algorithms and its integration with Pmetrics."
+description = "Rust library with the building blocks needed to create new Non-Parametric algorithms and its integration with Pmetrics."
 license = "GPL-3.0"
 documentation = "https://lapkb.github.io/NPcore/npcore/"
 repository = "https://github.com/LAPKB/NPcore"
 exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
-tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 dashmap = "5.5.3"
 #cached = "0.26.2"
 lazy_static = "1.4.0"
@@ -33,21 +31,23 @@ log = "0.4.20"
 log4rs = "1.2.0"
 rayon = "1.8.0"
 eyre = "0.6.8"
-ratatui = { version = "0.23.0", features = ["crossterm"] }
+ratatui = { version = "0.24.0", features = ["crossterm"] }
 crossterm = "0.27.0"
 tokio = { version = "1.32.0", features = ["sync", "rt"] }
 ndarray-csv = "0.5.2"
 rawpointer = "0.2.1"
 argmin = "0.8.1"
 itertools = "0.11.0"
-faer-core = { version = "0.11.0", features = [] }
+faer-core = { version = "0.14.0", features = [] }
 # faer-lu = "0.9"
-faer-qr = "0.11.0"
+faer-qr = "0.14.0"
 # faer-cholesky = "0.9"
 # faer-svd = "0.9"
-dyn-stack = "0.9.0"
-faer = { version = "0.11.0", features = ["nalgebra", "ndarray"] }
-
+dyn-stack = "0.10.0"
+faer = { version = "0.14.0", features = ["nalgebra", "ndarray"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
+chrono = "0.4.19"
 
 [profile.release]
 codegen-units = 1

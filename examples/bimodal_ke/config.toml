@@ -11,6 +11,7 @@ seed = 347
 tui = true
 pmetrics_outputs = true
 cache = true
+log_level = "info"
 
 [random]
 Ke = [0.001, 3.0]
