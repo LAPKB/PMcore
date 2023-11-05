@@ -4,6 +4,7 @@ use eyre::Result;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
+    text::Line,
     Frame, Terminal,
 };
 use std::{
@@ -145,6 +146,14 @@ pub fn draw(
     let commands = draw_commands(app);
     rect.render_widget(commands, body_layout[2]);
 
+    // Bottom chunk (plot and logs)
+    let bottom_chunk = chunks[2];
+    let bottom_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(bottom_chunk);
+
+    // Plot
     // Prepare the data
     let data: Vec<(f64, f64)> = app_history
         .cycles
@@ -164,5 +173,20 @@ pub fn draw(
         .collect();
 
     let plot = draw_plot(&mut norm_data);
-    rect.render_widget(plot, chunks[2]);
+    rect.render_widget(plot, bottom_layout[0]);
+
+    // Logs
+    // Iterate through app_history and get cycle and objf
+    let logtext: Vec<Line> = app_history
+        .cycles
+        .iter()
+        .map(|entry| {
+            let cycle = entry.cycle.to_string();
+            let objf = entry.objf.to_string();
+            Line::from(format!("Cycle {} has -2LL {}", cycle, objf))
+        })
+        .collect();
+
+    let logs = draw_logs(&logtext);
+    rect.render_widget(logs, bottom_layout[1])
 }

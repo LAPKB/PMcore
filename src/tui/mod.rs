@@ -1,8 +1,8 @@
 pub mod actions;
+pub mod components;
 pub mod inputs;
 pub mod state;
 pub mod ui;
-pub mod components;
 
 use crate::prelude::output::NPCycle;
 
