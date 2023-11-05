@@ -79,7 +79,7 @@ where
     }
 
     let result = algorithm.fit();
-    log::info!("Total time: {:.2?}", now.elapsed());
+    tracing::info!("Total time: {:.2?}", now.elapsed());
 
     let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
     let tad = settings.parsed.config.tad.unwrap_or(0.0);
