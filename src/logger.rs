@@ -3,6 +3,8 @@ use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry::Registry;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::fmt::time::{self, FormatTime};
+use std::io;
 
 use crate::routines::settings::run::Data;
 
@@ -17,7 +19,7 @@ pub fn setup_log(settings: &Data) {
 
     let env_filter = EnvFilter::new(log_level);
 
-    let stdout_log = Format::default().compact();
+    let stdout_log = Format::default().compact().with_timer(CompactTimestamp);
 
     // Start with a base subscriber from the registry
     let subscriber = Registry::default().with(env_filter);
@@ -35,7 +37,7 @@ pub fn setup_log(settings: &Data) {
         let file_layer = fmt::layer()
             .with_writer(file)
             .with_ansi(false)
-            .event_format(stdout_log);
+            .event_format(stdout_log.clone());
 
         // Add the file layer to the subscriber
         subscriber.with(file_layer).init();
@@ -50,4 +52,13 @@ pub fn setup_log(settings: &Data) {
     }
 
     tracing::info!("Logging is configured with level: {}", log_level);
+}
+
+#[derive(Clone)]
+struct CompactTimestamp;
+
+impl FormatTime for CompactTimestamp {
+    fn format_time(&self, w: &mut tracing_subscriber::fmt::format::Writer<'_>) -> Result<(), std::fmt::Error> {
+        write!(w, "{}", chrono::Local::now().format("%H:%M:%S"))
+    }
 }
