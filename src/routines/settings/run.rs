@@ -63,6 +63,7 @@ pub struct Config {
     pub pmetrics_outputs: Option<bool>,
     pub exclude: Option<Array>,
     pub cache: Option<bool>,
+    pub log_level: Option<String>,
 }
 
 pub fn read(filename: String) -> Data {

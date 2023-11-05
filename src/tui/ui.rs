@@ -2,7 +2,7 @@
 
 use eyre::Result;
 use ratatui::{
-    backend::{Backend, CrosstermBackend},
+    backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
@@ -93,20 +93,18 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
     terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
     terminal
-            .draw(|rect| draw(rect, &app, &app_history, elapsed_time, &settings))
-            .unwrap();
+        .draw(|rect| draw(rect, &app, &app_history, elapsed_time, &settings))
+        .unwrap();
     Ok(())
 }
 
-pub fn draw<B>(
-    rect: &mut Frame<B>,
+pub fn draw(
+    rect: &mut Frame,
     app: &App,
     app_history: &AppHistory,
     elapsed_time: Duration,
     settings: &Data,
-) where
-    B: Backend,
-{
+) {
     let size = rect.size();
     check_size(&size);
 
