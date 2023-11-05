@@ -61,6 +61,7 @@ where
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
     logger::setup_log(&settings);
+    tracing::info!("Starting NPcore");
     let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
     let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
     if let Some(exclude) = &settings.parsed.config.exclude {
@@ -112,7 +113,7 @@ where
     }
 
     let result = algorithm.fit();
-    log::info!("Total time: {:.2?}", now.elapsed());
+    tracing::info!("Total time: {:.2?}", now.elapsed());
 
     let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
     let tad = settings.parsed.config.tad.unwrap_or(0.0);

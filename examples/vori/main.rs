@@ -127,8 +127,11 @@ impl Predict for Ode {
                         let y = stepper.y_out();
                         x = *y.last().unwrap();
                     } else if event.time > *next_time {
-                        log::error!("next time is in the past!");
-                        log::error!("event_time: {}\nnext_time: {}", event.time, *next_time);
+                        tracing::error!(
+                            "The next event before the current: event_time: {}, next_time: {}",
+                            event.time,
+                            *next_time
+                        );
                     }
                 }
                 index += 1;

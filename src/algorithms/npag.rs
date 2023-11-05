@@ -195,7 +195,9 @@ where
 
     pub fn run(&mut self) -> NPResult {
         while self.eps > THETA_E {
-            // log::info!("Cycle: {}", cycle);
+            // Enter a span for each cycle, provding context for further errors
+            let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
+            let _enter = cycle_span.enter();
             // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
             let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
@@ -240,12 +242,16 @@ where
                     keep.push(*perm.get(i).unwrap());
                 }
             }
-            log::info!(
-                "QR decomp, cycle {}, kept: {}, thrown {}",
-                self.cycle,
-                keep.len(),
-                self.psi.ncols() - keep.len()
-            );
+
+            // If a support point is dropped, log it
+            if self.psi.ncols() != keep.len() {
+                tracing::info!(
+                    "QR decomposition dropped {} SPP, kept {}",
+                    self.psi.ncols() - keep.len(),
+                    keep.len(),
+                );
+            }
+
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
@@ -270,10 +276,13 @@ where
             };
             self.tx.send(state.clone()).unwrap();
 
-            // If the objective function decreased, log an error.
-            // Increasing objf signals instability of model misspecification.
+            // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
-                log::error!("Objective function decreased");
+                tracing::error!(
+                    "Objective function decreased from {} to {}",
+                    self.last_objf,
+                    self.objf
+                );
             }
 
             self.w = self.lambda.clone();
@@ -285,7 +294,7 @@ where
                 if self.eps <= THETA_E {
                     self.f1 = pyl.mapv(|x| x.ln()).sum();
                     if (self.f1 - self.f0).abs() <= THETA_F {
-                        log::info!("Likelihood criteria convergence");
+                        tracing::info!("Likelihood criteria convergence, -2LL: {:.1}", self.objf);
                         self.converged = true;
                         state.stop_text = "The run converged!".to_string();
                         self.tx.send(state).unwrap();
@@ -299,7 +308,7 @@ where
 
             // Stop if we have reached maximum number of cycles
             if self.cycle >= self.settings.parsed.config.cycles {
-                log::info!("Maximum number of cycles reached");
+                tracing::info!("Maximum number of cycles reached");
                 state.stop_text = "No (max cycle)".to_string();
                 self.tx.send(state).unwrap();
                 break;
@@ -307,7 +316,7 @@ where
 
             // Stop if stopfile exists
             if std::path::Path::new("stop").exists() {
-                log::info!("Stopfile detected - breaking");
+                tracing::info!("Stopfile detected - breaking");
                 state.stop_text = "No (stopped)".to_string();
                 self.tx.send(state).unwrap();
                 break;

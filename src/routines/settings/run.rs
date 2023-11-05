@@ -65,6 +65,7 @@ pub struct Config {
     pub cache: Option<bool>,
     pub idelta: Option<f64>,
     pub tad: Option<f64>,
+    pub log_level: Option<String>,
 }
 
 pub fn read(filename: String) -> Data {

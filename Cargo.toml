@@ -8,7 +8,7 @@ authors = [
     "Michael Neely",
     "Walter Yamada",
 ]
-description = "Rust Library with the building blocks needed to create new Non-Parametric algorithms and its integration with Pmetrics."
+description = "Rust library with the building blocks needed to create new Non-Parametric algorithms and its integration with Pmetrics."
 license = "GPL-3.0"
 documentation = "https://lapkb.github.io/NPcore/npcore/"
 repository = "https://github.com/LAPKB/NPcore"
@@ -16,7 +16,6 @@ exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
 dashmap = "5.5.3"
-#cached = "0.26.2"
 lazy_static = "1.4.0"
 csv = "1.2.1"
 ndarray = { version = "0.15.6", features = ["rayon"] }
@@ -27,8 +26,6 @@ toml = { version = "0.8.1", features = ["preserve_order"] }
 ode_solvers = "0.3.7"
 ndarray-stats = "0.5.1"
 linfa-linalg = "0.1.0"
-log = "0.4.20"
-log4rs = "1.2.0"
 rayon = "1.8.0"
 eyre = "0.6.8"
 ratatui = { version = "0.24.0", features = ["crossterm"] }
@@ -45,7 +42,9 @@ faer-qr = "0.14.0"
 # faer-svd = "0.9"
 dyn-stack = "0.10.0"
 faer = { version = "0.14.0", features = ["nalgebra", "ndarray"] }
-
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
+chrono = "0.4"
 
 [profile.release]
 codegen-units = 1
