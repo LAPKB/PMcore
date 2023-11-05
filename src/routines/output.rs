@@ -99,7 +99,7 @@ impl NPResult {
         })();
 
         if let Err(e) = result {
-            log::error!("Error while writing theta: {}", e);
+            tracing::error!("Error while writing theta: {}", e);
         }
     }
 
@@ -143,7 +143,7 @@ impl NPResult {
         })();
 
         if let Err(e) = result {
-            log::error!("Error while writing posterior: {}", e);
+            tracing::error!("Error while writing posterior: {}", e);
         }
     }
 
@@ -173,7 +173,7 @@ impl NPResult {
         })();
 
         if let Err(e) = result {
-            log::error!("Error while writing observations: {}", e);
+            tracing::error!("Error while writing observations: {}", e);
         }
     }
 
@@ -252,7 +252,7 @@ impl NPResult {
         })();
 
         if let Err(e) = result {
-            log::error!("Error while writing predictions: {}", e);
+            tracing::error!("Error while writing predictions: {}", e);
         }
     }
 }

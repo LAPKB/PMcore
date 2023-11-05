@@ -71,7 +71,7 @@ where
     }
 
     let result = algorithm.fit();
-    log::info!("Total time: {:.2?}", now.elapsed());
+    tracing::info!("Total time: {:.2?}", now.elapsed());
 
     if let Some(write) = &settings.parsed.config.pmetrics_outputs {
         result.write_outputs(*write, &engine);

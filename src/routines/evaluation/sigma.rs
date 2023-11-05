@@ -54,7 +54,7 @@ impl<'a> Sigma for ErrorPoly<'a> {
 
         res.mapv(|x| {
             if x.is_nan() || x < 0.0 {
-                log::error!(
+                tracing::error!(
                     "The computed standard deviation is either NaN or negative (SD = {}), coercing to 0",
                     x
                 );

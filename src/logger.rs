@@ -1,10 +1,9 @@
+use tracing_subscriber::fmt::time::FormatTime;
 use tracing_subscriber::fmt::{self, format::Format};
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry::Registry;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
-use tracing_subscriber::fmt::time::{self, FormatTime};
-use std::io;
 
 use crate::routines::settings::run::Data;
 
@@ -58,7 +57,10 @@ pub fn setup_log(settings: &Data) {
 struct CompactTimestamp;
 
 impl FormatTime for CompactTimestamp {
-    fn format_time(&self, w: &mut tracing_subscriber::fmt::format::Writer<'_>) -> Result<(), std::fmt::Error> {
+    fn format_time(
+        &self,
+        w: &mut tracing_subscriber::fmt::format::Writer<'_>,
+    ) -> Result<(), std::fmt::Error> {
         write!(w, "{}", chrono::Local::now().format("%H:%M:%S"))
     }
 }

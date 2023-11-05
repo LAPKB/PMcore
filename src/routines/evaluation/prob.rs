@@ -32,7 +32,7 @@ where
                     let sigma = sig.sigma(&yobs);
                     let ll = normal_likelihood(ypred.get((i, j)).unwrap(), &yobs, &sigma);
                     if ll.is_nan() || ll.is_infinite() {
-                        log::info!(
+                        tracing::info!(
                             "NaN or Inf Likelihood detected!\nLL:{:?}\nypred: {:?}\nsubject: {}\nSpp: {}",
                             ll,
                             &ypred.get((i, j)),
