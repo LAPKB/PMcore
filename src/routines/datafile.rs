@@ -166,7 +166,7 @@ impl Scenario {
                 obs_times.push(event.time);
                 obs.push(event.out.unwrap());
             } else {
-                log::error!("Error: Unsupported evid");
+                tracing::error!("Error: Unsupported evid: {evid}", evid = event.evid);
                 exit(-1);
             }
             block.events.push(event);
@@ -339,12 +339,12 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
 
 fn check_dose(event: &Event) -> Result<(), Box<dyn Error>> {
     if event.dose.is_none() {
-        log::error!("Error: Dose event without dose");
+        tracing::error!("Error: Dose event without dose");
         //return Err("Error: Dose event without dose".into());
         exit(-1);
     }
     if event.input.is_none() {
-        log::error!("Error: Dose event without input");
+        tracing::error!("Error: Dose event without input");
         //return Err("Error: Dose event without input".into());
         exit(-1);
     }
@@ -352,17 +352,17 @@ fn check_dose(event: &Event) -> Result<(), Box<dyn Error>> {
 }
 fn check_infusion(event: &Event) -> Result<(), Box<dyn Error>> {
     if event.dose.is_none() {
-        log::error!("Error: Infusion event without dose");
+        tracing::error!("Error: Infusion event without dose");
         //return Err("Error: Infusion event without dose".into());
         exit(-1);
     }
     if event.dur.is_none() {
-        log::error!("Error: Infusion event without duration");
+        tracing::error!("Error: Infusion event without duration");
         //return Err("Error: Infusion event without duration".into());
         exit(-1);
     }
     if event.input.is_none() {
-        log::error!("Error: Infusion event without input");
+        tracing::error!("Error: Infusion event without input");
         //return Err("Error: Infusion event without input".into());
         exit(-1);
     }
@@ -370,12 +370,12 @@ fn check_infusion(event: &Event) -> Result<(), Box<dyn Error>> {
 }
 fn check_obs(event: &Event) -> Result<(), Box<dyn Error>> {
     if event.out.is_none() {
-        log::error!("Error: Obs event without out");
+        tracing::error!("Error: Obs event without out");
         //return Err("Error: Obs event without out".into());
         exit(-1);
     }
     if event.outeq.is_none() {
-        log::error!("Error: Obs event without outeq");
+        tracing::error!("Error: Obs event without outeq");
         //return Err("Error: Obs event without outeq".into());
         exit(-1);
     }

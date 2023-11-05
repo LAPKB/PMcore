@@ -12,6 +12,7 @@ tui = true
 pmetrics_outputs = true
 cache = true
 idelta = 0.1
+log_level = "info"
 
 [random]
 Ke = [0.001, 3.0]
