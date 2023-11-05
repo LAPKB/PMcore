@@ -28,7 +28,7 @@ where
 {
     if std::path::Path::new("stop").exists() {
         match std::fs::remove_file("stop") {
-            Ok(_) => log::info!("Removed previous stop file"),
+            Ok(_) => tracing::info!("Removed previous stop file"),
             Err(err) => panic!("Unable to remove previous stop file: {}", err),
         }
     }

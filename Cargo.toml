@@ -16,7 +16,6 @@ exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
 dashmap = "5.5.3"
-#cached = "0.26.2"
 lazy_static = "1.4.0"
 csv = "1.2.1"
 ndarray = { version = "0.15.6", features = ["rayon"] }
@@ -27,8 +26,6 @@ toml = { version = "0.8.1", features = ["preserve_order"] }
 ode_solvers = "0.3.7"
 ndarray-stats = "0.5.1"
 linfa-linalg = "0.1.0"
-log = "0.4.20"
-log4rs = "1.2.0"
 rayon = "1.8.0"
 eyre = "0.6.8"
 ratatui = { version = "0.24.0", features = ["crossterm"] }

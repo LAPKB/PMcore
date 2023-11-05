@@ -4,7 +4,6 @@ pub mod state;
 pub mod ui;
 
 use crate::prelude::output::NPCycle;
-use log::{debug, trace};
 
 use self::actions::{Action, Actions};
 use self::inputs::key::Key;
@@ -36,19 +35,19 @@ impl App {
     /// Handle a user action
     pub fn do_action(&mut self, key: Key) -> AppReturn {
         if let Some(action) = self.actions.find(key) {
-            debug!("Run action [{:?}]", action);
+            tracing::debug!("Run action [{:?}]", action);
             match action {
                 Action::Quit => AppReturn::Exit,
                 Action::Stop => {
                     // Write the "stop.txt" file
-                    log::info!("Stop signal received - writing stopfile");
+                    tracing::info!("Stop signal received - writing stopfile");
                     let filename = "stop";
                     File::create(filename).unwrap();
                     AppReturn::Continue
                 }
             }
         } else {
-            trace!("{} was registered, but it has no associated action", key);
+            tracing::trace!("{} was registered, but it has no associated action", key);
             AppReturn::Continue
         }
     }
