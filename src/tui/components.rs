@@ -2,14 +2,14 @@ use std::time::Duration;
 
 /// This file contains the different components of the TUI
 /// The purpose is to create common components with generic methods
-
 use ratatui::{
     layout::{Alignment, Constraint},
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize},
     symbols,
-    text::Span,
+    text::{Line, Span},
     widgets::{
         Axis, Block, BorderType, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table,
+        Wrap,
     },
 };
 
@@ -215,6 +215,14 @@ pub fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
                 .title(" Objective function ")
                 .borders(Borders::ALL),
         )
+}
+
+pub fn draw_logs<'a>(text: &'a Vec<Line>) -> Paragraph<'a> {
+    Paragraph::new(text.clone())
+        .block(Block::new().title(" Logs ").borders(Borders::ALL))
+        .style(Style::new().white().on_black())
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: true })
 }
 
 fn format_time(elapsed_time: std::time::Duration) -> String {
