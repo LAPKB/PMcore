@@ -47,7 +47,7 @@ dyn-stack = "0.10.0"
 faer = { version = "0.14.0", features = ["nalgebra", "ndarray"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
-chrono = "0.4.19"
+chrono = "0.4"
 
 [profile.release]
 codegen-units = 1
