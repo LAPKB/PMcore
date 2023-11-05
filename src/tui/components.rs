@@ -1,6 +1,21 @@
+use std::time::Duration;
+
 /// This file contains the different components of the TUI
 /// The purpose is to create common components with generic methods
 
+use ratatui::{
+    layout::{Alignment, Constraint},
+    style::{Color, Modifier, Style},
+    symbols,
+    text::Span,
+    widgets::{
+        Axis, Block, BorderType, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table,
+    },
+};
+
+use super::App;
+
+use crate::prelude::settings::run::Data;
 
 pub fn draw_title<'a>() -> Paragraph<'a> {
     Paragraph::new("NPcore Execution")
@@ -200,4 +215,19 @@ pub fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
                 .title(" Objective function ")
                 .borders(Borders::ALL),
         )
+}
+
+fn format_time(elapsed_time: std::time::Duration) -> String {
+    let elapsed_seconds = elapsed_time.as_secs();
+    let (elapsed, unit) = if elapsed_seconds < 60 {
+        (elapsed_seconds, "s")
+    } else if elapsed_seconds < 3600 {
+        let elapsed_minutes = elapsed_seconds / 60;
+        (elapsed_minutes, "m")
+    } else {
+        let elapsed_hours = elapsed_seconds / 3600;
+        (elapsed_hours, "h")
+    };
+    let time_text = format!("{}{}", elapsed, unit);
+    time_text
 }
