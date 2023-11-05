@@ -87,7 +87,7 @@
                     <span class="kw">let </span>sigma = sig.sigma(<span class="kw-2">&amp;</span>yobs);
                     <span class="kw">let </span>ll = normal_likelihood(ypred.get((i, j)).unwrap(), <span class="kw-2">&amp;</span>yobs, <span class="kw-2">&amp;</span>sigma);
                     <span class="kw">if </span>ll.is_nan() || ll.is_infinite() {
-                        <span class="macro">log::info!</span>(
+                        <span class="macro">tracing::info!</span>(
                             <span class="string">&quot;NaN or Inf Likelihood detected!\nLL:{:?}\nypred: {:?}\nsubject: {}\nSpp: {}&quot;</span>,
                             ll,
                             <span class="kw-2">&amp;</span>ypred.get((i, j)),

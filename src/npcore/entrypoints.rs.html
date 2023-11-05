@@ -122,6 +122,7 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::output::NPCycle;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{
@@ -185,6 +186,7 @@
     <span class="kw">let </span>now = Instant::now();
     <span class="kw">let </span>settings = settings::run::read(settings_path);
     logger::setup_log(<span class="kw-2">&amp;</span>settings);
+    <span class="macro">tracing::info!</span>(<span class="string">&quot;Starting NPcore&quot;</span>);
     <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;NPCycle&gt;();
     <span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.parsed.paths.data).unwrap();
     <span class="kw">if let </span><span class="prelude-val">Some</span>(exclude) = <span class="kw-2">&amp;</span>settings.parsed.config.exclude {
@@ -202,7 +204,7 @@
     }
 
     <span class="kw">let </span>result = algorithm.fit();
-    <span class="macro">log::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
+    <span class="macro">tracing::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
 
     <span class="kw">let </span>idelta = settings.parsed.config.idelta.unwrap_or(<span class="number">0.0</span>);
     <span class="kw">let </span>tad = settings.parsed.config.tad.unwrap_or(<span class="number">0.0</span>);
@@ -236,7 +238,7 @@
     }
 
     <span class="kw">let </span>result = algorithm.fit();
-    <span class="macro">log::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
+    <span class="macro">tracing::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
 
     <span class="kw">let </span>idelta = settings.parsed.config.idelta.unwrap_or(<span class="number">0.0</span>);
     <span class="kw">let </span>tad = settings.parsed.config.tad.unwrap_or(<span class="number">0.0</span>);

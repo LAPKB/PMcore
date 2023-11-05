@@ -59,14 +59,12 @@
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>actions;
 <span class="kw">pub mod </span>inputs;
 <span class="kw">pub mod </span>state;
 <span class="kw">pub mod </span>ui;
 
 <span class="kw">use </span><span class="kw">crate</span>::prelude::output::NPCycle;
-<span class="kw">use </span>log::{debug, trace};
 
 <span class="kw">use </span><span class="self">self</span>::actions::{Action, Actions};
 <span class="kw">use </span><span class="self">self</span>::inputs::key::Key;
@@ -98,19 +96,19 @@
     <span class="doccomment">/// Handle a user action
     </span><span class="kw">pub fn </span>do_action(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Key) -&gt; AppReturn {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(action) = <span class="self">self</span>.actions.find(key) {
-            <span class="macro">debug!</span>(<span class="string">&quot;Run action [{:?}]&quot;</span>, action);
+            <span class="macro">tracing::debug!</span>(<span class="string">&quot;Run action [{:?}]&quot;</span>, action);
             <span class="kw">match </span>action {
                 Action::Quit =&gt; AppReturn::Exit,
                 Action::Stop =&gt; {
                     <span class="comment">// Write the &quot;stop.txt&quot; file
-                    </span><span class="macro">log::info!</span>(<span class="string">&quot;Stop signal received - writing stopfile&quot;</span>);
+                    </span><span class="macro">tracing::info!</span>(<span class="string">&quot;Stop signal received - writing stopfile&quot;</span>);
                     <span class="kw">let </span>filename = <span class="string">&quot;stop&quot;</span>;
                     File::create(filename).unwrap();
                     AppReturn::Continue
                 }
             }
         } <span class="kw">else </span>{
-            <span class="macro">trace!</span>(<span class="string">&quot;{} was registered, but it has no associated action&quot;</span>, key);
+            <span class="macro">tracing::trace!</span>(<span class="string">&quot;{} was registered, but it has no associated action&quot;</span>, key);
             AppReturn::Continue
         }
     }

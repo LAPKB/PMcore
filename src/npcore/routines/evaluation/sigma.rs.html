@@ -121,7 +121,7 @@
 
         res.mapv(|x| {
             <span class="kw">if </span>x.is_nan() || x &lt; <span class="number">0.0 </span>{
-                <span class="macro">log::error!</span>(
+                <span class="macro">tracing::error!</span>(
                     <span class="string">&quot;The computed standard deviation is either NaN or negative (SD = {}), coercing to 0&quot;</span>,
                     x
                 );

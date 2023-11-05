@@ -554,7 +554,7 @@
                 obs_times.push(event.time);
                 obs.push(event.out.unwrap());
             } <span class="kw">else </span>{
-                <span class="macro">log::error!</span>(<span class="string">&quot;Error: Unsupported evid&quot;</span>);
+                <span class="macro">tracing::error!</span>(<span class="string">&quot;Error: Unsupported evid: {evid}&quot;</span>, evid = event.evid);
                 exit(-<span class="number">1</span>);
             }
             block.events.push(event);
@@ -727,12 +727,12 @@
 
 <span class="kw">fn </span>check_dose(event: <span class="kw-2">&amp;</span>Event) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     <span class="kw">if </span>event.dose.is_none() {
-        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Dose event without dose&quot;</span>);
+        <span class="macro">tracing::error!</span>(<span class="string">&quot;Error: Dose event without dose&quot;</span>);
         <span class="comment">//return Err(&quot;Error: Dose event without dose&quot;.into());
         </span>exit(-<span class="number">1</span>);
     }
     <span class="kw">if </span>event.input.is_none() {
-        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Dose event without input&quot;</span>);
+        <span class="macro">tracing::error!</span>(<span class="string">&quot;Error: Dose event without input&quot;</span>);
         <span class="comment">//return Err(&quot;Error: Dose event without input&quot;.into());
         </span>exit(-<span class="number">1</span>);
     }
@@ -740,17 +740,17 @@
 }
 <span class="kw">fn </span>check_infusion(event: <span class="kw-2">&amp;</span>Event) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     <span class="kw">if </span>event.dose.is_none() {
-        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Infusion event without dose&quot;</span>);
+        <span class="macro">tracing::error!</span>(<span class="string">&quot;Error: Infusion event without dose&quot;</span>);
         <span class="comment">//return Err(&quot;Error: Infusion event without dose&quot;.into());
         </span>exit(-<span class="number">1</span>);
     }
     <span class="kw">if </span>event.dur.is_none() {
-        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Infusion event without duration&quot;</span>);
+        <span class="macro">tracing::error!</span>(<span class="string">&quot;Error: Infusion event without duration&quot;</span>);
         <span class="comment">//return Err(&quot;Error: Infusion event without duration&quot;.into());
         </span>exit(-<span class="number">1</span>);
     }
     <span class="kw">if </span>event.input.is_none() {
-        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Infusion event without input&quot;</span>);
+        <span class="macro">tracing::error!</span>(<span class="string">&quot;Error: Infusion event without input&quot;</span>);
         <span class="comment">//return Err(&quot;Error: Infusion event without input&quot;.into());
         </span>exit(-<span class="number">1</span>);
     }
@@ -758,12 +758,12 @@
 }
 <span class="kw">fn </span>check_obs(event: <span class="kw-2">&amp;</span>Event) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     <span class="kw">if </span>event.out.is_none() {
-        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Obs event without out&quot;</span>);
+        <span class="macro">tracing::error!</span>(<span class="string">&quot;Error: Obs event without out&quot;</span>);
         <span class="comment">//return Err(&quot;Error: Obs event without out&quot;.into());
         </span>exit(-<span class="number">1</span>);
     }
     <span class="kw">if </span>event.outeq.is_none() {
-        <span class="macro">log::error!</span>(<span class="string">&quot;Error: Obs event without outeq&quot;</span>);
+        <span class="macro">tracing::error!</span>(<span class="string">&quot;Error: Obs event without outeq&quot;</span>);
         <span class="comment">//return Err(&quot;Error: Obs event without outeq&quot;.into());
         </span>exit(-<span class="number">1</span>);
     }

@@ -139,6 +139,7 @@
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde_derive::Deserialize;
 <span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::process::exit;
@@ -206,6 +207,7 @@
     <span class="kw">pub </span>cache: <span class="prelude-ty">Option</span>&lt;bool&gt;,
     <span class="kw">pub </span>idelta: <span class="prelude-ty">Option</span>&lt;f64&gt;,
     <span class="kw">pub </span>tad: <span class="prelude-ty">Option</span>&lt;f64&gt;,
+    <span class="kw">pub </span>log_level: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
 <span class="kw">pub fn </span>read(filename: String) -&gt; Data {

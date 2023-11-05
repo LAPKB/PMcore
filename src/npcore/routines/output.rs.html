@@ -661,7 +661,7 @@
         })();
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">log::error!</span>(<span class="string">&quot;Error while writing theta: {}&quot;</span>, e);
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;Error while writing theta: {}&quot;</span>, e);
         }
     }
 
@@ -705,7 +705,7 @@
         })();
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">log::error!</span>(<span class="string">&quot;Error while writing posterior: {}&quot;</span>, e);
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;Error while writing posterior: {}&quot;</span>, e);
         }
     }
 
@@ -735,7 +735,7 @@
         })();
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">log::error!</span>(<span class="string">&quot;Error while writing observations: {}&quot;</span>, e);
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;Error while writing observations: {}&quot;</span>, e);
         }
     }
 
@@ -821,7 +821,7 @@
         })();
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">log::error!</span>(<span class="string">&quot;Error while writing predictions: {}&quot;</span>, e);
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;Error while writing predictions: {}&quot;</span>, e);
         }
     }
 }

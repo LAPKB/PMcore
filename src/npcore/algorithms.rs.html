@@ -92,7 +92,7 @@
 {
     <span class="kw">if </span>std::path::Path::new(<span class="string">&quot;stop&quot;</span>).exists() {
         <span class="kw">match </span>std::fs::remove_file(<span class="string">&quot;stop&quot;</span>) {
-            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::info!</span>(<span class="string">&quot;Removed previous stop file&quot;</span>),
+            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">tracing::info!</span>(<span class="string">&quot;Removed previous stop file&quot;</span>),
             <span class="prelude-val">Err</span>(err) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unable to remove previous stop file: {}&quot;</span>, err),
         }
     }
