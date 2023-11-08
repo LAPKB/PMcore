@@ -220,7 +220,7 @@ pub fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
 pub fn draw_logs<'a>(text: &'a Vec<Line>) -> Paragraph<'a> {
     Paragraph::new(text.clone())
         .block(Block::new().title(" Logs ").borders(Borders::ALL))
-        .style(Style::new().white().on_black())
+        .style(Style::new().white())
         .alignment(Alignment::Left)
         .wrap(Wrap { trim: true })
 }
