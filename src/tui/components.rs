@@ -9,11 +9,11 @@ use ratatui::{
     text::{Line, Span},
     widgets::{
         Axis, Block, BorderType, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table,
-        Wrap,
+        Wrap, Tabs,
     },
 };
 
-use super::App;
+use super::{App, state::AppHistory};
 
 use crate::prelude::settings::run::Data;
 
@@ -217,12 +217,37 @@ pub fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
         )
 }
 
-pub fn draw_logs<'a>(text: &'a Vec<Line>) -> Paragraph<'a> {
+pub fn draw_logs<'a>(app_history: &AppHistory) -> Paragraph<'a> {
+    let text: Vec<Line> = app_history
+    .cycles
+    .iter()
+    .map(|entry| {
+        let cycle = entry.cycle.to_string();
+        let objf = entry.objf.to_string();
+        Line::from(format!("Cycle {} has -2LL {}", cycle, objf))
+    })
+    .collect();
+
     Paragraph::new(text.clone())
         .block(Block::new().title(" Logs ").borders(Borders::ALL))
         .style(Style::new().white())
         .alignment(Alignment::Left)
         .wrap(Wrap { trim: true })
+}
+
+
+pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
+    
+    let titles = app.tab_titles.clone();
+    let index = app.tab_index.clone();
+    let tabs = Tabs::new(titles.clone())
+        .block(Block::default().borders(Borders::ALL))
+        .style(Style::default().fg(Color::Cyan))
+        .highlight_style(Style::default().fg(Color::Yellow))
+        .divider(Span::raw("|"))
+        .select(index);
+
+    tabs
 }
 
 fn format_time(elapsed_time: std::time::Duration) -> String {

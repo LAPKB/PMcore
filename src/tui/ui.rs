@@ -146,13 +146,25 @@ pub fn draw(
     let commands = draw_commands(app);
     rect.render_widget(commands, body_layout[2]);
 
-    // Bottom chunk (plot and logs)
+    // Bottom chunk (tabs)
     let bottom_chunk = chunks[2];
-    let bottom_layout = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+    let tab_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(10), Constraint::Percentage(90)].as_ref())
         .split(bottom_chunk);
 
+    let tabs = draw_tabs(&app);
+    rect.render_widget(tabs, tab_layout[0]);
+
+    // Tab content
+    let tab_content = match app.tab_index {
+        0 => draw_logs(app_history),
+        1 => draw_logs(app_history),
+        2 => draw_logs(app_history),
+        _ => unreachable!(),
+    };
+    rect.render_widget(tab_content, tab_layout[1]);
+    
     // Plot
     // Prepare the data
     let data: Vec<(f64, f64)> = app_history
@@ -165,28 +177,15 @@ pub fn draw(
     let start_index = (data.len() as f64 * 0.1) as usize;
 
     // Calculate data points and remove infinities
-    let mut norm_data: Vec<(f64, f64)> = data
+    let mut _norm_data: Vec<(f64, f64)> = data
         .iter()
         .filter(|&(_, y)| !y.is_infinite())
         .skip(start_index)
         .map(|&(x, y)| (x, y))
         .collect();
 
-    let plot = draw_plot(&mut norm_data);
-    rect.render_widget(plot, bottom_layout[0]);
+    //let plot = draw_plot(&mut norm_data);
+    //rect.render_widget(plot, bottom_layout[0]);
 
-    // Logs
-    // Iterate through app_history and get cycle and objf
-    let logtext: Vec<Line> = app_history
-        .cycles
-        .iter()
-        .map(|entry| {
-            let cycle = entry.cycle.to_string();
-            let objf = entry.objf.to_string();
-            Line::from(format!("Cycle {} has -2LL {}", cycle, objf))
-        })
-        .collect();
 
-    let logs = draw_logs(&logtext);
-    rect.render_widget(logs, bottom_layout[1])
 }
