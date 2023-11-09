@@ -5,7 +5,7 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     text::Line,
-    Frame, Terminal,
+    Frame, Terminal, widgets::Paragraph,
 };
 use std::{
     io::stdout,
@@ -15,7 +15,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::{
     inputs::{events::Events, InputEvent},
-    state::AppHistory,
+    state::CycleHistory,
     App, AppReturn,
 };
 
@@ -28,7 +28,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let mut app = App::new();
-    let mut app_history = AppHistory::new();
+    let mut cycle_history = CycleHistory::new();
 
     terminal.clear()?;
 
@@ -61,17 +61,17 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
         }
 
         // If we receive a new NPCycle, add it to the app_history
-        if !app_history
+        if !cycle_history
             .cycles
             .iter()
             .any(|state| state.cycle == app.state.cycle)
         {
-            app_history.add_cycle(app.state.clone());
+            cycle_history.add_cycle(app.state.clone());
         }
 
         // Draw the terminal
         terminal
-            .draw(|rect| draw(rect, &app, &app_history, elapsed_time, &settings))
+            .draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings))
             .unwrap();
 
         // Handle inputs
@@ -89,7 +89,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
     terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
     terminal
-        .draw(|rect| draw(rect, &app, &app_history, elapsed_time, &settings))
+        .draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings))
         .unwrap();
     Ok(())
 }
@@ -97,7 +97,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
 pub fn draw(
     rect: &mut Frame,
     app: &App,
-    app_history: &AppHistory,
+    cycle_history: &CycleHistory,
     elapsed_time: Duration,
     settings: &Data,
 ) {
@@ -156,18 +156,9 @@ pub fn draw(
     let tabs = draw_tabs(&app);
     rect.render_widget(tabs, tab_layout[0]);
 
-    // Tab content
-    let tab_content = match app.tab_index {
-        0 => draw_logs(app_history),
-        1 => draw_logs(app_history),
-        2 => draw_logs(app_history),
-        _ => unreachable!(),
-    };
-    rect.render_widget(tab_content, tab_layout[1]);
-    
     // Plot
     // Prepare the data
-    let data: Vec<(f64, f64)> = app_history
+    let data: Vec<(f64, f64)> = cycle_history
         .cycles
         .iter()
         .enumerate()
@@ -177,15 +168,22 @@ pub fn draw(
     let start_index = (data.len() as f64 * 0.1) as usize;
 
     // Calculate data points and remove infinities
-    let mut _norm_data: Vec<(f64, f64)> = data
+    let mut norm_data: Vec<(f64, f64)> = data
         .iter()
         .filter(|&(_, y)| !y.is_infinite())
         .skip(start_index)
         .map(|&(x, y)| (x, y))
         .collect();
 
-    //let plot = draw_plot(&mut norm_data);
-    //rect.render_widget(plot, bottom_layout[0]);
-
+    // Tab content
+    let tab_content_height = tab_layout[1].height;
+    let tab_content = match app.tab_index {
+        0 => draw_logs(cycle_history, tab_content_height),
+        0 => draw_logs(cycle_history, tab_content_height),
+        2 => draw_logs(cycle_history, tab_content_height),
+        _ => unreachable!(),
+    };
+    rect.render_widget(tab_content, tab_layout[1]);
+    
 
 }
