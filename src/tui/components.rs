@@ -4,7 +4,7 @@ use std::time::Duration;
 /// The purpose is to create common components with generic methods
 use ratatui::{
     layout::{Alignment, Constraint},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Color, Modifier, Style},
     symbols,
     text::{Line, Span},
     widgets::{
@@ -256,6 +256,63 @@ pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
         .select(index);
 
     tabs
+}
+
+fn get_computed_settings(settings: &Data) -> Vec<Row> {
+    let computed = settings.computed.clone();
+    let mut rows = Vec::new();
+    let key_style = Style::default().fg(Color::LightCyan);
+    let help_style = Style::default().fg(Color::Gray);
+
+    // Iterate over the random ranges
+    for (name, &(start, end)) in computed.random.names.iter().zip(&computed.random.ranges) {
+        let row = Row::new(vec![
+            Cell::from(Span::styled(name.to_string(), key_style)),
+            Cell::from(Span::styled(
+                format!("{:.2} - {:.2}", start, end),
+                help_style,
+            )),
+        ]);
+        rows.push(row);
+    }
+
+    // Iterate over the constant values
+    for (name, &value) in computed
+        .constant
+        .names
+        .iter()
+        .zip(&computed.constant.values)
+    {
+        let row = Row::new(vec![
+            Cell::from(Span::styled(name.to_string(), key_style)),
+            Cell::from(Span::styled(format!("{:.2} (Constant)", value), help_style)),
+        ]);
+        rows.push(row);
+    }
+
+    // Iterate over the fixed values
+    for (name, &value) in computed.fixed.names.iter().zip(&computed.fixed.values) {
+        let row = Row::new(vec![
+            Cell::from(Span::styled(name.to_string(), key_style)),
+            Cell::from(Span::styled(format!("{:.2} (Fixed)", value), help_style)),
+        ]);
+        rows.push(row);
+    }
+
+    rows
+}
+
+pub fn draw_parameter_bounds(settings: &Data) -> Table {
+    let rows = get_computed_settings(&settings);
+    Table::new(rows)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Plain)
+                .title(" Parameters "),
+        )
+        .widths(&[Constraint::Percentage(20), Constraint::Percentage(80)]) // Set percentage widths for columns
+        .column_spacing(1)
 }
 
 fn format_time(elapsed_time: std::time::Duration) -> String {
