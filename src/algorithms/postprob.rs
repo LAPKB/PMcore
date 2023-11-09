@@ -4,7 +4,6 @@ use crate::{
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
         ipm,
-        output::NPCycle,
         output::NPResult,
         prob,
         settings::run::Data,

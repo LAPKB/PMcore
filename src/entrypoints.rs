@@ -1,5 +1,4 @@
 use crate::algorithms::initialize_algorithm;
-use crate::prelude::output::NPCycle;
 use crate::prelude::{
     output::NPResult,
     predict::{Engine, Predict},
