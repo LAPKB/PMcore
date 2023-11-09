@@ -1,15 +1,18 @@
-use crate::prelude::{
-    algorithms::Algorithm,
-    datafile::Scenario,
-    evaluation::sigma::{ErrorPoly, ErrorType},
-    ipm,
-    optimization::expansion::adaptative_grid,
-    output::NPResult,
-    output::{CycleLog, NPCycle},
-    prob, qr,
-    settings::run::Data,
-    simulation::predict::Engine,
-    simulation::predict::{sim_obs, Predict},
+use crate::{
+    prelude::{
+        algorithms::Algorithm,
+        datafile::Scenario,
+        evaluation::sigma::{ErrorPoly, ErrorType},
+        ipm,
+        optimization::expansion::adaptative_grid,
+        output::NPResult,
+        output::{CycleLog, NPCycle},
+        prob, qr,
+        settings::run::Data,
+        simulation::predict::Engine,
+        simulation::predict::{sim_obs, Predict},
+    },
+    tui::ui::Comm,
 };
 
 use ndarray::{Array, Array1, Array2, Axis};
@@ -45,7 +48,7 @@ where
     cache: bool,
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
-    tx: UnboundedSender<NPCycle>,
+    tx: UnboundedSender<Comm>,
     settings: Data,
 }
 
@@ -95,7 +98,7 @@ where
         theta: Array2<f64>,
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender<NPCycle>,
+        tx: UnboundedSender<Comm>,
         settings: Data,
     ) -> Self
     where
@@ -265,16 +268,15 @@ where
 
             self.optim_gamma();
 
-            let mut state = NPCycle {
+            let state = NPCycle {
                 cycle: self.cycle,
                 objf: -2. * self.objf,
                 delta_objf: (self.last_objf - self.objf).abs(),
                 nspp: self.theta.shape()[0],
-                stop_text: "".to_string(),
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
             };
-            self.tx.send(state.clone()).unwrap();
+            self.tx.send(Comm::NPCycle(state.clone())).unwrap();
 
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
@@ -296,8 +298,6 @@ where
                     if (self.f1 - self.f0).abs() <= THETA_F {
                         tracing::info!("Likelihood criteria convergence, -2LL: {:.1}", self.objf);
                         self.converged = true;
-                        state.stop_text = "The run converged!".to_string();
-                        self.tx.send(state).unwrap();
                         break;
                     } else {
                         self.f0 = self.f1;
@@ -308,17 +308,13 @@ where
 
             // Stop if we have reached maximum number of cycles
             if self.cycle >= self.settings.parsed.config.cycles {
-                tracing::info!("Maximum number of cycles reached");
-                state.stop_text = "No (max cycle)".to_string();
-                self.tx.send(state).unwrap();
+                tracing::warn!("Maximum number of cycles reached");
                 break;
             }
 
             // Stop if stopfile exists
             if std::path::Path::new("stop").exists() {
-                tracing::info!("Stopfile detected - breaking");
-                state.stop_text = "No (stopped)".to_string();
-                self.tx.send(state).unwrap();
+                tracing::warn!("Stopfile detected - breaking");
                 break;
             }
             self.cycle_log
@@ -329,6 +325,7 @@ where
             self.last_objf = self.objf;
         }
 
+        self.tx.send(Comm::Stop(true)).unwrap();
         self.to_npresult()
     }
 }
