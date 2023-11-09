@@ -18,10 +18,16 @@ use super::{
     App, AppReturn,
 };
 
+pub enum Comm {
+    NPCycle(NPCycle),
+    Message(String),
+    Stop(bool),
+}
+
 use crate::prelude::{output::NPCycle, settings::run::Data};
 use crate::tui::components::*;
 
-pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()> {
+pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
     let stdout = stdout();
     crossterm::terminal::enable_raw_mode()?;
     let backend = CrosstermBackend::new(stdout);
@@ -40,34 +46,29 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
 
     // Main UI loop
     loop {
-        app.state = match rx.try_recv() {
-            Ok(state) => state,
-            Err(_) => app.state,
+        let _ = match rx.try_recv() {
+            Ok(comm) => match comm {
+                Comm::NPCycle(cycle) => {
+                    app.state = cycle.clone();
+                    cycle_history.add_cycle(cycle);
+                }
+                Comm::Message(_msg) => {}
+                Comm::Stop(stop) => {
+                    if stop {
+                        break; //TODO: Replace with graceful exit from TUI
+                    }
+                }
+            },
+            Err(_) => {}
         };
 
-        // Stop incrementing elapsed time if conv is true
-        if app.state.stop_text.is_empty() {
-            let now = Instant::now();
-            if now.duration_since(start_time) > tick_rate {
-                elapsed_time += now.duration_since(start_time);
-                start_time = now;
-            }
+        // Update elapsed time
+        let now = Instant::now();
+        if now.duration_since(start_time) > tick_rate {
+            elapsed_time += now.duration_since(start_time);
+            start_time = now;
         }
-
-        // Break if we receive a stop text
-        if !app.state.stop_text.is_empty() {
-            break;
-        }
-
-        // If we receive a new NPCycle, add it to the app_history
-        if !cycle_history
-            .cycles
-            .iter()
-            .any(|state| state.cycle == app.state.cycle)
-        {
-            cycle_history.add_cycle(app.state.clone());
-        }
-
+        
         // Draw the terminal
         terminal
             .draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings))
@@ -87,9 +88,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
     terminal.clear()?;
     terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
-    terminal
-        .draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings))
-        .unwrap();
+    //terminal.draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings)).unwrap();
     Ok(())
 }
 

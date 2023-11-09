@@ -292,7 +292,6 @@ pub struct NPCycle {
     pub objf: f64,
     pub gamlam: f64,
     pub theta: Array2<f64>,
-    pub stop_text: String,
     pub nspp: usize,
     pub delta_objf: f64,
 }
@@ -303,7 +302,6 @@ impl NPCycle {
             objf: 0.0,
             gamlam: 0.0,
             theta: Array2::default((0, 0)),
-            stop_text: "".to_string(),
             nspp: 0,
             delta_objf: 0.0,
         }

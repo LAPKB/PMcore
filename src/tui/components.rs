@@ -37,7 +37,7 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
     let gamma_text = format!("{:.5}", app.state.gamlam);
     let spp_text = format!("{}", app.state.nspp);
     let time_text = format_time(elapsed_time);
-    let stop_text = app.state.stop_text.to_string();
+    let conv_text = "Placeholder".to_string();
 
     // Define the table data
     let data = vec![
@@ -47,7 +47,7 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         ("Gamma/Lambda", gamma_text),
         ("Support points", spp_text),
         ("Elapsed time", time_text),
-        ("Convergence", stop_text),
+        ("Convergence", conv_text),
         // Add more rows as needed
     ];
 

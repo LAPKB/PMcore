@@ -62,7 +62,7 @@ where
     let settings = settings::run::read(settings_path);
     logger::setup_log(&settings);
     tracing::info!("Starting NPcore");
-    let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
+    let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
     if let Some(exclude) = &settings.parsed.config.exclude {
         for val in exclude {
@@ -101,7 +101,7 @@ where
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
     logger::setup_log(&settings);
-    let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
+    let (tx, rx) = mpsc::unbounded_channel::<Comm>();
 
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     // Spawn new thread for TUI
