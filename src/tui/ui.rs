@@ -4,9 +4,6 @@ use eyre::Result;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
-    prelude::Rect,
-    text::Line,
-    widgets::Paragraph,
     Frame, Terminal,
 };
 use std::{
@@ -189,8 +186,8 @@ pub fn draw(
             rect.render_widget(plot, tab_layout[1]);
         }
         2 => {
-            let logs = draw_logs(cycle_history, inner_height);
-            rect.render_widget(logs, tab_layout[1]);
+            let par_bounds = draw_parameter_bounds(&settings);
+            rect.render_widget(par_bounds, tab_layout[1]);
         }
         _ => unreachable!(),
     };

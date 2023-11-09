@@ -34,7 +34,7 @@ impl App {
         let actions = vec![Action::Quit, Action::Stop, Action::Next].into();
         let state = NPCycle::new();
         let tab_index = 0;
-        let tab_titles = vec!["Logs", "Plot", "Settings"];
+        let tab_titles = vec!["Logs", "Plot", "Parameters"];
 
         Self {
             actions,
