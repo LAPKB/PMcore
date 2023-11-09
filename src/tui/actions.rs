@@ -24,7 +24,7 @@ impl Action {
         match self {
             Action::Quit => &[Key::Char('q')],
             Action::Stop => &[Key::Ctrl('d')],
-            Action::Next => &[Key::Char('n')]
+            Action::Next => &[Key::Char('n')],
         }
     }
 }
