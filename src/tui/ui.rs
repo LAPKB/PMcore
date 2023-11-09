@@ -41,9 +41,8 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
     let tick_rate = Duration::from_millis(200);
     let mut events = Events::new(tick_rate);
 
-    let mut start_time = Instant::now();
+    let start_time = Instant::now();
     let mut elapsed_time = Duration::from_secs(0);
-
     // Main UI loop
     loop {
         let _ = match rx.try_recv() {
@@ -64,11 +63,8 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
 
         // Update elapsed time
         let now = Instant::now();
-        if now.duration_since(start_time) > tick_rate {
-            elapsed_time += now.duration_since(start_time);
-            start_time = now;
-        }
-        
+        elapsed_time = now.duration_since(start_time);
+
         // Draw the terminal
         terminal
             .draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings))
@@ -85,10 +81,13 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
         }
     }
 
-    terminal.clear()?;
+    terminal
+        .draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings))
+        .unwrap();
+    println!();
     terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
-    //terminal.draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings)).unwrap();
+
     Ok(())
 }
 
