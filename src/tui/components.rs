@@ -13,7 +13,7 @@ use ratatui::{
     },
 };
 
-use super::{App, state::AppHistory};
+use super::{App, state::CycleHistory};
 
 use crate::prelude::settings::run::Data;
 
@@ -217,23 +217,34 @@ pub fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
         )
 }
 
-pub fn draw_logs<'a>(app_history: &AppHistory) -> Paragraph<'a> {
+pub fn draw_logs<'a>(app_history: &CycleHistory, height: u16) -> Paragraph<'a> {
     let text: Vec<Line> = app_history
-    .cycles
-    .iter()
-    .map(|entry| {
-        let cycle = entry.cycle.to_string();
-        let objf = entry.objf.to_string();
-        Line::from(format!("Cycle {} has -2LL {}", cycle, objf))
-    })
-    .collect();
+        .cycles
+        .iter()
+        .map(|entry| {
+            let cycle = entry.cycle.to_string();
+            let objf = entry.objf.to_string();
+            Line::from(format!("Cycle {} has -2LL {}", cycle, objf))
+        })
+        .collect();
 
-    Paragraph::new(text.clone())
-        .block(Block::new().title(" Logs ").borders(Borders::ALL))
-        .style(Style::new().white())
+    let to_text = text.len();
+    // Prevent underflow with saturating_sub
+    let from_text = to_text.saturating_sub(height as usize);
+
+    let show_text = if from_text < to_text {
+        text[from_text..to_text].to_vec()
+    } else {
+        Vec::new()
+    };
+
+    Paragraph::new(show_text)
+        .block(Block::default().title(" Logs ").borders(Borders::ALL))
+        .style(Style::default().fg(Color::White))
         .alignment(Alignment::Left)
         .wrap(Wrap { trim: true })
 }
+
 
 
 pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
