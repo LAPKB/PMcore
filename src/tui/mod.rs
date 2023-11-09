@@ -36,7 +36,12 @@ impl App {
         let tab_index = 0;
         let tab_titles = vec!["Logs", "Plot", "Settings"];
 
-        Self { actions, state , tab_index, tab_titles}
+        Self {
+            actions,
+            state,
+            tab_index,
+            tab_titles,
+        }
     }
 
     /// Handle a user action
@@ -51,7 +56,7 @@ impl App {
                     let filename = "stop";
                     File::create(filename).unwrap();
                     AppReturn::Continue
-                },
+                }
                 Action::Next => {
                     self.tab_index = self.tab_index + 1;
                     if self.tab_index >= self.tab_titles.len() {
@@ -61,7 +66,10 @@ impl App {
                 }
             }
         } else {
-            tracing::trace!("The {} key was registered, but it has no associated action", key);
+            tracing::trace!(
+                "The {} key was registered, but it has no associated action",
+                key
+            );
             AppReturn::Continue
         }
     }

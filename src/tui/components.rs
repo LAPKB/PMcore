@@ -9,11 +9,11 @@ use ratatui::{
     text::{Line, Span},
     widgets::{
         Axis, Block, BorderType, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table,
-        Wrap, Tabs,
+        Tabs, Wrap,
     },
 };
 
-use super::{App, state::CycleHistory};
+use super::{state::CycleHistory, App};
 
 use crate::prelude::settings::run::Data;
 
@@ -245,10 +245,7 @@ pub fn draw_logs<'a>(app_history: &CycleHistory, height: u16) -> Paragraph<'a> {
         .wrap(Wrap { trim: true })
 }
 
-
-
 pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
-    
     let titles = app.tab_titles.clone();
     let index = app.tab_index.clone();
     let tabs = Tabs::new(titles.clone())

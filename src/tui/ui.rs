@@ -4,8 +4,10 @@ use eyre::Result;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
+    prelude::Rect,
     text::Line,
-    Frame, Terminal, widgets::Paragraph,
+    widgets::Paragraph,
+    Frame, Terminal,
 };
 use std::{
     io::stdout,
@@ -176,14 +178,20 @@ pub fn draw(
         .collect();
 
     // Tab content
-    let tab_content_height = tab_layout[1].height;
-    let tab_content = match app.tab_index {
-        0 => draw_logs(cycle_history, tab_content_height),
-        0 => draw_logs(cycle_history, tab_content_height),
-        2 => draw_logs(cycle_history, tab_content_height),
+    let inner_height = tab_layout[1].height;
+    match app.tab_index {
+        0 => {
+            let logs = draw_logs(cycle_history, inner_height);
+            rect.render_widget(logs, tab_layout[1]);
+        }
+        1 => {
+            let plot = draw_plot(&mut norm_data);
+            rect.render_widget(plot, tab_layout[1]);
+        }
+        2 => {
+            let logs = draw_logs(cycle_history, inner_height);
+            rect.render_widget(logs, tab_layout[1]);
+        }
         _ => unreachable!(),
     };
-    rect.render_widget(tab_content, tab_layout[1]);
-    
-
 }
