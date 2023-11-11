@@ -70,7 +70,16 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
 
         // Draw the terminal
         terminal
-            .draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings))
+            .draw(|rect| {
+                draw(
+                    rect,
+                    &app,
+                    &cycle_history,
+                    elapsed_time,
+                    &settings,
+                    &log_history,
+                )
+            })
             .unwrap();
 
         // Handle inputs
@@ -85,7 +94,16 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
     }
 
     terminal
-        .draw(|rect| draw(rect, &app, &cycle_history, elapsed_time, &settings))
+        .draw(|rect| {
+            draw(
+                rect,
+                &app,
+                &cycle_history,
+                elapsed_time,
+                &settings,
+                &log_history,
+            )
+        })
         .unwrap();
     println!();
     terminal.show_cursor()?;
@@ -100,6 +118,7 @@ pub fn draw(
     cycle_history: &CycleHistory,
     elapsed_time: Duration,
     settings: &Data,
+    log_history: &Vec<String>,
 ) {
     let size = rect.size();
 
@@ -179,7 +198,7 @@ pub fn draw(
     let inner_height = tab_layout[1].height;
     match app.tab_index {
         0 => {
-            let logs = draw_logs(cycle_history, inner_height);
+            let logs = draw_logs(log_history, inner_height);
             rect.render_widget(logs, tab_layout[1]);
         }
         1 => {

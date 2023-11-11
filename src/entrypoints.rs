@@ -101,7 +101,6 @@ where
     let settings = settings::run::read(settings_path);
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     logger::setup_log(&settings, tx.clone());
-   
 
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     // Spawn new thread for TUI

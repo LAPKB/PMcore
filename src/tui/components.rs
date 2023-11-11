@@ -13,7 +13,7 @@ use ratatui::{
     },
 };
 
-use super::{state::CycleHistory, App};
+use super::App;
 
 use crate::prelude::settings::run::Data;
 
@@ -217,21 +217,15 @@ pub fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
         )
 }
 
-pub fn draw_logs<'a>(app_history: &CycleHistory, height: u16) -> Paragraph<'a> {
-    let text: Vec<Line> = app_history
-        .cycles
-        .iter()
-        .map(|entry| {
-            let cycle = entry.cycle.to_string();
-            let objf = entry.objf.to_string();
-            Line::from(format!("Cycle {} has -2LL {}", cycle, objf))
-        })
-        .collect();
+pub fn draw_logs<'a>(log_history: &'a Vec<String>, height: u16) -> Paragraph<'a> {
+    // Convert each String in log_history to a Line
+    let text: Vec<Line> = log_history.iter().map(|s| Line::from(s.as_str())).collect();
 
     let to_text = text.len();
     // Prevent underflow with saturating_sub
     let from_text = to_text.saturating_sub(height as usize);
 
+    // Create a slice of the text to be displayed
     let show_text = if from_text < to_text {
         text[from_text..to_text].to_vec()
     } else {
