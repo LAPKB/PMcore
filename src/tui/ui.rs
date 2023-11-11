@@ -44,7 +44,9 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
     let mut events = Events::new(tick_rate);
 
     let start_time = Instant::now();
+    #[allow(unused_assignments)]
     let mut elapsed_time = Duration::from_secs(0);
+
     // Main UI loop
     loop {
         let _ = match rx.try_recv() {
@@ -56,7 +58,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
                 Comm::Message(_msg) => {}
                 Comm::Stop(stop) => {
                     if stop {
-                        break; //TODO: Replace with graceful exit from TUI
+                        //exit(-1); //TODO: Replace with graceful exit from TUI
                     }
                 }
                 Comm::LogMessage(msg) => log_history.push(msg),
@@ -93,6 +95,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
         }
     }
 
+    // Draw one last image
     terminal
         .draw(|rect| {
             draw(
@@ -105,7 +108,6 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
             )
         })
         .unwrap();
-    println!();
     terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
 

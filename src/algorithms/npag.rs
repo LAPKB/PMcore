@@ -249,9 +249,8 @@ where
             // If a support point is dropped, log it
             if self.psi.ncols() != keep.len() {
                 tracing::info!(
-                    "QR decomposition dropped {} SPP, kept {}",
+                    "QRD dropped {} support point(s)",
                     self.psi.ncols() - keep.len(),
-                    keep.len(),
                 );
             }
 
@@ -296,7 +295,7 @@ where
                 if self.eps <= THETA_E {
                     self.f1 = pyl.mapv(|x| x.ln()).sum();
                     if (self.f1 - self.f0).abs() <= THETA_F {
-                        tracing::info!("Likelihood criteria convergence, -2LL: {:.1}", self.objf);
+                        tracing::info!("The run converged");
                         self.converged = true;
                         break;
                     } else {
