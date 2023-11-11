@@ -1,66 +1,53 @@
-use tracing_subscriber::fmt::time::FormatTime;
-use tracing_subscriber::fmt::{self, format::Format};
-use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
-use tracing_subscriber::registry::Registry;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
+use tracing::Subscriber;
+use tracing_subscriber::{fmt, layer::Context, prelude::*, registry::Registry, Layer, EnvFilter};
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::routines::settings::run::Data;
+use crate::tui::ui::Comm;
 
-pub fn setup_log(settings: &Data) {
+pub fn setup_log(settings: &Data, tx: UnboundedSender<Comm>) {
     let log_level = settings
         .parsed
         .config
         .log_level
         .as_ref()
         .map(|level| level.as_str())
-        .unwrap_or("info"); // Default to 'info' if not set
+        .unwrap_or("info");
 
     let env_filter = EnvFilter::new(log_level);
+    let format_layer = fmt::layer().compact();
 
-    let stdout_log = Format::default().compact().with_timer(CompactTimestamp);
+    // Custom RatatuiLogLayer
+    let ratatui_log_layer = RatatuiLogLayer::new(tx);
 
-    // Start with a base subscriber from the registry
-    let subscriber = Registry::default().with(env_filter);
+    // Combine layers
+    let subscriber = Registry::default()
+        .with(env_filter)
+        .with(format_layer)
+        .with(ratatui_log_layer);
 
-    // Check if a log file path is provided
-    if let Some(log_path) = &settings.parsed.paths.log_out {
-        // Ensure the log file is created or truncated
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(log_path)
-            .expect("Failed to open log file");
-
-        let file_layer = fmt::layer()
-            .with_writer(file)
-            .with_ansi(false)
-            .event_format(stdout_log.clone());
-
-        // Add the file layer to the subscriber
-        subscriber.with(file_layer).init();
-    } else {
-        // Add stdout layer only if no log file is specified
-        let stdout_layer = fmt::layer()
-            .event_format(stdout_log)
-            .with_writer(std::io::stdout);
-
-        // Add the stdout layer to the subscriber
-        subscriber.with(stdout_layer).init();
-    }
-
-    tracing::info!("Logging is configured with level: {}", log_level);
+    subscriber.init();
 }
 
-#[derive(Clone)]
-struct CompactTimestamp;
+// Custom Layer for sending log messages
+struct RatatuiLogLayer {
+    sender: UnboundedSender<Comm>,
+}
 
-impl FormatTime for CompactTimestamp {
-    fn format_time(
-        &self,
-        w: &mut tracing_subscriber::fmt::format::Writer<'_>,
-    ) -> Result<(), std::fmt::Error> {
-        write!(w, "{}", chrono::Local::now().format("%H:%M:%S"))
+impl RatatuiLogLayer {
+    pub fn new(sender: UnboundedSender<Comm>) -> Self {
+        RatatuiLogLayer {
+            sender
+        }
+    }
+}
+
+impl<S: Subscriber> Layer<S> for RatatuiLogLayer {
+    fn on_event(&self, event: &tracing::Event<'_>, ctx: Context<S>) {
+        let mut buffer = String::new();
+        if ctx.event_format(event, &mut buffer).is_ok() {
+            // Send the formatted message through Comm
+            let _ = self.sender.send(Comm::LogMessage(buffer));
+        }
     }
 }

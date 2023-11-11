@@ -22,6 +22,7 @@ pub enum Comm {
     NPCycle(NPCycle),
     Message(String),
     Stop(bool),
+    LogMessage(String),
 }
 
 use crate::prelude::{output::NPCycle, settings::run::Data};
@@ -34,6 +35,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
     let mut app = App::new();
     let mut cycle_history = CycleHistory::new();
+    let mut log_history: Vec<String> = Vec::new();
 
     terminal.clear()?;
 
@@ -57,6 +59,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
                         break; //TODO: Replace with graceful exit from TUI
                     }
                 }
+                Comm::LogMessage(msg) => log_history.push(msg),
             },
             Err(_) => {}
         };
