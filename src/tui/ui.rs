@@ -110,6 +110,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
         .unwrap();
     terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
+    println!();
 
     Ok(())
 }

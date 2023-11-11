@@ -85,6 +85,7 @@ where
     if let Some(write) = &settings.parsed.config.pmetrics_outputs {
         result.write_outputs(*write, &engine, idelta, tad);
     }
+    tracing::info!("Program complete");
 
     Ok(result)
 }
