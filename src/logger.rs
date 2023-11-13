@@ -20,7 +20,7 @@ pub fn setup_log(settings: &Data, ui_tx: UnboundedSender<Comm>) {
         .unwrap_or("info")
         .to_lowercase();
 
-    let env_filter = EnvFilter::new(log_level);
+    let env_filter = EnvFilter::new(&log_level);
 
     // Define a registry with that level as an environment filter
     let subscriber = Registry::default().with(env_filter);

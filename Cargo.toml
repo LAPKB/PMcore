@@ -12,7 +12,7 @@ description = "Rust library with the building blocks needed to create new Non-Pa
 license = "GPL-3.0"
 documentation = "https://lapkb.github.io/NPcore/npcore/"
 repository = "https://github.com/LAPKB/NPcore"
-exclude = [".github/*", ".vscode/*"]
+exclude = [".github/*", ".vscode/*", "debug.rs", "examples/faer_qr.rs", "examples/drusano/*", "examples/two_eq_lag/*", "examples/vori/*"]
 
 [dependencies]
 dashmap = "5.5.3"
