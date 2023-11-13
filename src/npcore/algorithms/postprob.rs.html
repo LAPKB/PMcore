@@ -110,17 +110,21 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{
-    algorithms::Algorithm,
-    datafile::Scenario,
-    evaluation::sigma::{ErrorPoly, ErrorType},
-    ipm,
-    output::NPCycle,
-    output::NPResult,
-    prob,
-    settings::run::Data,
-    simulation::predict::Engine,
-    simulation::predict::{sim_obs, Predict},
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    prelude::{
+        algorithms::Algorithm,
+        datafile::Scenario,
+        evaluation::sigma::{ErrorPoly, ErrorType},
+        ipm,
+        output::NPResult,
+        prob,
+        settings::run::Data,
+        simulation::predict::Engine,
+        simulation::predict::{sim_obs, Predict},
+    },
+    tui::ui::Comm,
 };
 
 <span class="kw">use </span>ndarray::{Array1, Array2};
@@ -144,7 +148,7 @@
     scenarios: Vec&lt;Scenario&gt;,
     c: (f64, f64, f64, f64),
     <span class="attr">#[allow(dead_code)]
-    </span>tx: UnboundedSender&lt;NPCycle&gt;,
+    </span>tx: UnboundedSender&lt;Comm&gt;,
     settings: Data,
 }
 
@@ -178,7 +182,7 @@
         theta: Array2&lt;f64&gt;,
         scenarios: Vec&lt;Scenario&gt;,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender&lt;NPCycle&gt;,
+        tx: UnboundedSender&lt;Comm&gt;,
         settings: Data,
     ) -&gt; <span class="self">Self
     </span><span class="kw">where

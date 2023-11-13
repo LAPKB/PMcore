@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["draw","start_ui"]};
+window.SIDEBAR_ITEMS = {"enum":["Comm"],"fn":["draw","start_ui"]};

@@ -96,6 +96,9 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::{<span class="self">self</span>, Display};
 <span class="kw">use </span>std::slice::Iter;
@@ -107,20 +110,22 @@
 </span><span class="kw">pub enum </span>Action {
     Quit,
     Stop,
+    Next,
 }
 
 <span class="kw">impl </span>Action {
     <span class="doccomment">/// All available actions
     </span><span class="kw">pub fn </span>iterator() -&gt; Iter&lt;<span class="lifetime">&#39;static</span>, Action&gt; {
-        <span class="kw">static </span>ACTIONS: [Action; <span class="number">2</span>] = [Action::Quit, Action::Stop];
+        <span class="kw">static </span>ACTIONS: [Action; <span class="number">3</span>] = [Action::Quit, Action::Stop, Action::Next];
         ACTIONS.iter()
     }
 
     <span class="doccomment">/// List of key associated to action
     </span><span class="kw">pub fn </span>keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Key] {
         <span class="kw">match </span><span class="self">self </span>{
-            Action::Quit =&gt; <span class="kw-2">&amp;</span>[Key::Ctrl(<span class="string">&#39;c&#39;</span>), Key::Char(<span class="string">&#39;q&#39;</span>)],
+            Action::Quit =&gt; <span class="kw-2">&amp;</span>[Key::Char(<span class="string">&#39;q&#39;</span>)],
             Action::Stop =&gt; <span class="kw-2">&amp;</span>[Key::Ctrl(<span class="string">&#39;d&#39;</span>)],
+            Action::Next =&gt; <span class="kw-2">&amp;</span>[Key::Char(<span class="string">&#39;n&#39;</span>)],
         }
     }
 }
@@ -129,6 +134,7 @@
 </span><span class="kw">impl </span>Display <span class="kw">for </span>Action {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">let </span>str = <span class="kw">match </span><span class="self">self </span>{
+            Action::Next =&gt; <span class="string">&quot;Next&quot;</span>,
             Action::Quit =&gt; <span class="string">&quot;Quit&quot;</span>,
             Action::Stop =&gt; <span class="string">&quot;Stop&quot;</span>,
         };

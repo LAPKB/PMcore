@@ -166,6 +166,55 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Defines the Terminal User Interface (TUI) for NPcore
 
 </span><span class="kw">use </span>eyre::Result;
@@ -182,20 +231,28 @@
 
 <span class="kw">use super</span>::{
     inputs::{events::Events, InputEvent},
-    state::AppHistory,
+    state::CycleHistory,
     App, AppReturn,
 };
+
+<span class="kw">pub enum </span>Comm {
+    NPCycle(NPCycle),
+    Message(String),
+    Stop(bool),
+    LogMessage(String),
+}
 
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPCycle, settings::run::Data};
 <span class="kw">use </span><span class="kw">crate</span>::tui::components::<span class="kw-2">*</span>;
 
-<span class="kw">pub fn </span>start_ui(<span class="kw-2">mut </span>rx: UnboundedReceiver&lt;NPCycle&gt;, settings: Data) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<span class="kw">pub fn </span>start_ui(<span class="kw-2">mut </span>rx: UnboundedReceiver&lt;Comm&gt;, settings: Data) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>stdout = stdout();
     crossterm::terminal::enable_raw_mode()<span class="question-mark">?</span>;
     <span class="kw">let </span>backend = CrosstermBackend::new(stdout);
     <span class="kw">let </span><span class="kw-2">mut </span>terminal = Terminal::new(backend)<span class="question-mark">?</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>app = App::new();
-    <span class="kw">let </span><span class="kw-2">mut </span>app_history = AppHistory::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>cycle_history = CycleHistory::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>log_history: Vec&lt;String&gt; = Vec::new();
 
     terminal.clear()<span class="question-mark">?</span>;
 
@@ -203,42 +260,45 @@
     </span><span class="kw">let </span>tick_rate = Duration::from_millis(<span class="number">200</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>events = Events::new(tick_rate);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>start_time = Instant::now();
-    <span class="kw">let </span><span class="kw-2">mut </span>elapsed_time = Duration::from_secs(<span class="number">0</span>);
+    <span class="kw">let </span>start_time = Instant::now();
+    <span class="attr">#[allow(unused_assignments)]
+    </span><span class="kw">let </span><span class="kw-2">mut </span>elapsed_time = Duration::from_secs(<span class="number">0</span>);
 
     <span class="comment">// Main UI loop
     </span><span class="kw">loop </span>{
-        app.state = <span class="kw">match </span>rx.try_recv() {
-            <span class="prelude-val">Ok</span>(state) =&gt; state,
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; app.state,
+        <span class="kw">let _ </span>= <span class="kw">match </span>rx.try_recv() {
+            <span class="prelude-val">Ok</span>(comm) =&gt; <span class="kw">match </span>comm {
+                Comm::NPCycle(cycle) =&gt; {
+                    app.state = cycle.clone();
+                    cycle_history.add_cycle(cycle);
+                }
+                Comm::Message(_msg) =&gt; {}
+                Comm::Stop(stop) =&gt; {
+                    <span class="kw">if </span>stop {
+                        <span class="comment">//exit(-1); //TODO: Replace with graceful exit from TUI
+                    </span>}
+                }
+                Comm::LogMessage(msg) =&gt; log_history.push(msg),
+            },
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {}
         };
 
-        <span class="comment">// Stop incrementing elapsed time if conv is true
-        </span><span class="kw">if </span>app.state.stop_text.is_empty() {
-            <span class="kw">let </span>now = Instant::now();
-            <span class="kw">if </span>now.duration_since(start_time) &gt; tick_rate {
-                elapsed_time += now.duration_since(start_time);
-                start_time = now;
-            }
-        }
-
-        <span class="comment">// Break if we receive a stop text
-        </span><span class="kw">if </span>!app.state.stop_text.is_empty() {
-            <span class="kw">break</span>;
-        }
-
-        <span class="comment">// If we receive a new NPCycle, add it to the app_history
-        </span><span class="kw">if </span>!app_history
-            .cycles
-            .iter()
-            .any(|state| state.cycle == app.state.cycle)
-        {
-            app_history.add_cycle(app.state.clone());
-        }
+        <span class="comment">// Update elapsed time
+        </span><span class="kw">let </span>now = Instant::now();
+        elapsed_time = now.duration_since(start_time);
 
         <span class="comment">// Draw the terminal
         </span>terminal
-            .draw(|rect| draw(rect, <span class="kw-2">&amp;</span>app, <span class="kw-2">&amp;</span>app_history, elapsed_time, <span class="kw-2">&amp;</span>settings))
+            .draw(|rect| {
+                draw(
+                    rect,
+                    <span class="kw-2">&amp;</span>app,
+                    <span class="kw-2">&amp;</span>cycle_history,
+                    elapsed_time,
+                    <span class="kw-2">&amp;</span>settings,
+                    <span class="kw-2">&amp;</span>log_history,
+                )
+            })
             .unwrap();
 
         <span class="comment">// Handle inputs
@@ -252,21 +312,33 @@
         }
     }
 
-    terminal.clear()<span class="question-mark">?</span>;
+    <span class="comment">// Draw one last image
+    </span>terminal
+        .draw(|rect| {
+            draw(
+                rect,
+                <span class="kw-2">&amp;</span>app,
+                <span class="kw-2">&amp;</span>cycle_history,
+                elapsed_time,
+                <span class="kw-2">&amp;</span>settings,
+                <span class="kw-2">&amp;</span>log_history,
+            )
+        })
+        .unwrap();
     terminal.show_cursor()<span class="question-mark">?</span>;
     crossterm::terminal::disable_raw_mode()<span class="question-mark">?</span>;
-    terminal
-        .draw(|rect| draw(rect, <span class="kw-2">&amp;</span>app, <span class="kw-2">&amp;</span>app_history, elapsed_time, <span class="kw-2">&amp;</span>settings))
-        .unwrap();
+    <span class="macro">println!</span>();
+
     <span class="prelude-val">Ok</span>(())
 }
 
 <span class="kw">pub fn </span>draw(
     rect: <span class="kw-2">&amp;mut </span>Frame,
     app: <span class="kw-2">&amp;</span>App,
-    app_history: <span class="kw-2">&amp;</span>AppHistory,
+    cycle_history: <span class="kw-2">&amp;</span>CycleHistory,
     elapsed_time: Duration,
     settings: <span class="kw-2">&amp;</span>Data,
+    log_history: <span class="kw-2">&amp;</span>Vec&lt;String&gt;,
 ) {
     <span class="kw">let </span>size = rect.size();
 
@@ -313,8 +385,19 @@
     </span><span class="kw">let </span>commands = draw_commands(app);
     rect.render_widget(commands, body_layout[<span class="number">2</span>]);
 
-    <span class="comment">// Prepare the data
-    </span><span class="kw">let </span>data: Vec&lt;(f64, f64)&gt; = app_history
+    <span class="comment">// Bottom chunk (tabs)
+    </span><span class="kw">let </span>bottom_chunk = chunks[<span class="number">2</span>];
+    <span class="kw">let </span>tab_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(<span class="number">10</span>), Constraint::Percentage(<span class="number">90</span>)].as_ref())
+        .split(bottom_chunk);
+
+    <span class="kw">let </span>tabs = draw_tabs(<span class="kw-2">&amp;</span>app);
+    rect.render_widget(tabs, tab_layout[<span class="number">0</span>]);
+
+    <span class="comment">// Plot
+    // Prepare the data
+    </span><span class="kw">let </span>data: Vec&lt;(f64, f64)&gt; = cycle_history
         .cycles
         .iter()
         .enumerate()
@@ -331,7 +414,22 @@
         .map(|<span class="kw-2">&amp;</span>(x, y)| (x, y))
         .collect();
 
-    <span class="kw">let </span>plot = draw_plot(<span class="kw-2">&amp;mut </span>norm_data);
-    rect.render_widget(plot, chunks[<span class="number">2</span>]);
+    <span class="comment">// Tab content
+    </span><span class="kw">let </span>inner_height = tab_layout[<span class="number">1</span>].height;
+    <span class="kw">match </span>app.tab_index {
+        <span class="number">0 </span>=&gt; {
+            <span class="kw">let </span>logs = draw_logs(log_history, inner_height);
+            rect.render_widget(logs, tab_layout[<span class="number">1</span>]);
+        }
+        <span class="number">1 </span>=&gt; {
+            <span class="kw">let </span>plot = draw_plot(<span class="kw-2">&amp;mut </span>norm_data);
+            rect.render_widget(plot, tab_layout[<span class="number">1</span>]);
+        }
+        <span class="number">2 </span>=&gt; {
+            <span class="kw">let </span>par_bounds = draw_parameter_bounds(<span class="kw-2">&amp;</span>settings);
+            rect.render_widget(par_bounds, tab_layout[<span class="number">1</span>]);
+        }
+        <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+    };
 }
 </code></pre></div></section></main></body></html>

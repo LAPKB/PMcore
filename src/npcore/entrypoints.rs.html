@@ -124,7 +124,6 @@
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
-<span class="kw">use </span><span class="kw">crate</span>::prelude::output::NPCycle;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{
     output::NPResult,
     predict::{Engine, Predict},
@@ -185,9 +184,9 @@
 {
     <span class="kw">let </span>now = Instant::now();
     <span class="kw">let </span>settings = settings::run::read(settings_path);
-    logger::setup_log(<span class="kw-2">&amp;</span>settings);
+    <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;Comm&gt;();
+    logger::setup_log(<span class="kw-2">&amp;</span>settings, tx.clone());
     <span class="macro">tracing::info!</span>(<span class="string">&quot;Starting NPcore&quot;</span>);
-    <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;NPCycle&gt;();
     <span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.parsed.paths.data).unwrap();
     <span class="kw">if let </span><span class="prelude-val">Some</span>(exclude) = <span class="kw-2">&amp;</span>settings.parsed.config.exclude {
         <span class="kw">for </span>val <span class="kw">in </span>exclude {
@@ -211,6 +210,7 @@
     <span class="kw">if let </span><span class="prelude-val">Some</span>(write) = <span class="kw-2">&amp;</span>settings.parsed.config.pmetrics_outputs {
         result.write_outputs(<span class="kw-2">*</span>write, <span class="kw-2">&amp;</span>engine, idelta, tad);
     }
+    <span class="macro">tracing::info!</span>(<span class="string">&quot;Program complete&quot;</span>);
 
     <span class="prelude-val">Ok</span>(result)
 }
@@ -225,8 +225,8 @@
 {
     <span class="kw">let </span>now = Instant::now();
     <span class="kw">let </span>settings = settings::run::read(settings_path);
-    logger::setup_log(<span class="kw-2">&amp;</span>settings);
-    <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;NPCycle&gt;();
+    <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;Comm&gt;();
+    logger::setup_log(<span class="kw-2">&amp;</span>settings, tx.clone());
 
     <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     <span class="comment">// Spawn new thread for TUI

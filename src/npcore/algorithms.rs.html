@@ -61,7 +61,7 @@
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, output::NPCycle, settings::run::Data};
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, settings::run::Data};
 
 <span class="kw">use </span>output::NPResult;
 <span class="kw">use </span>prelude::{datafile::Scenario, <span class="kw-2">*</span>};
@@ -85,7 +85,7 @@
     engine: Engine&lt;S&gt;,
     settings: Data,
     scenarios: Vec&lt;Scenario&gt;,
-    tx: mpsc::UnboundedSender&lt;NPCycle&gt;,
+    tx: mpsc::UnboundedSender&lt;Comm&gt;,
 ) -&gt; Box&lt;<span class="kw">dyn </span>Algorithm&gt;
 <span class="kw">where
     </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + Clone + <span class="lifetime">&#39;static</span>,

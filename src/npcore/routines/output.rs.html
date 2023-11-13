@@ -560,6 +560,8 @@
 <a href="#560" id="560">560</a>
 <a href="#561" id="561">561</a>
 <a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>datafile::Scenario;
@@ -639,6 +641,7 @@
     <span class="doccomment">/// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     </span><span class="kw">pub fn </span>write_theta(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="macro">tracing::info!</span>(<span class="string">&quot;Writing final parameter distribution...&quot;</span>);
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
             <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
@@ -667,6 +670,7 @@
 
     <span class="doccomment">/// Writes the posterior support points for each individual
     </span><span class="kw">pub fn </span>write_posterior(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="macro">tracing::info!</span>(<span class="string">&quot;Writing posterior parameter probabilities...&quot;</span>);
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
             <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
@@ -711,6 +715,7 @@
 
     <span class="doccomment">/// Write the observations, which is the reformatted input data
     </span><span class="kw">pub fn </span>write_obs(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="macro">tracing::info!</span>(<span class="string">&quot;Writing (expanded) observations...&quot;</span>);
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>scenarios = <span class="self">self</span>.scenarios.clone();
 
@@ -744,6 +749,7 @@
     <span class="kw">where
         </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
     {
+        <span class="macro">tracing::info!</span>(<span class="string">&quot;Writing individual predictions...&quot;</span>);
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span><span class="kw-2">mut </span>scenarios = <span class="self">self</span>.scenarios.clone();
             <span class="comment">// Add an event interval to each scenario
@@ -854,7 +860,6 @@
     <span class="kw">pub </span>objf: f64,
     <span class="kw">pub </span>gamlam: f64,
     <span class="kw">pub </span>theta: Array2&lt;f64&gt;,
-    <span class="kw">pub </span>stop_text: String,
     <span class="kw">pub </span>nspp: usize,
     <span class="kw">pub </span>delta_objf: f64,
 }
@@ -865,7 +870,6 @@
             objf: <span class="number">0.0</span>,
             gamlam: <span class="number">0.0</span>,
             theta: Array2::default((<span class="number">0</span>, <span class="number">0</span>)),
-            stop_text: <span class="string">&quot;&quot;</span>.to_string(),
             nspp: <span class="number">0</span>,
             delta_objf: <span class="number">0.0</span>,
         }

@@ -333,21 +333,21 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{
-    algorithms::Algorithm,
-    datafile::Scenario,
-    evaluation::sigma::{ErrorPoly, ErrorType},
-    ipm,
-    optimization::expansion::adaptative_grid,
-    output::NPResult,
-    output::{CycleLog, NPCycle},
-    prob, qr,
-    settings::run::Data,
-    simulation::predict::Engine,
-    simulation::predict::{sim_obs, Predict},
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    prelude::{
+        algorithms::Algorithm,
+        datafile::Scenario,
+        evaluation::sigma::{ErrorPoly, ErrorType},
+        ipm,
+        optimization::expansion::adaptative_grid,
+        output::NPResult,
+        output::{CycleLog, NPCycle},
+        prob, qr,
+        settings::run::Data,
+        simulation::predict::Engine,
+        simulation::predict::{sim_obs, Predict},
+    },
+    tui::ui::Comm,
 };
 
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
@@ -383,7 +383,7 @@
     cache: bool,
     scenarios: Vec&lt;Scenario&gt;,
     c: (f64, f64, f64, f64),
-    tx: UnboundedSender&lt;NPCycle&gt;,
+    tx: UnboundedSender&lt;Comm&gt;,
     settings: Data,
 }
 
@@ -433,7 +433,7 @@
         theta: Array2&lt;f64&gt;,
         scenarios: Vec&lt;Scenario&gt;,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender&lt;NPCycle&gt;,
+        tx: UnboundedSender&lt;Comm&gt;,
         settings: Data,
     ) -&gt; <span class="self">Self
     </span><span class="kw">where
@@ -534,8 +534,9 @@
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="kw">while </span><span class="self">self</span>.eps &gt; THETA_E {
             <span class="comment">// Enter a span for each cycle, provding context for further errors
-            </span><span class="kw">let </span>cycle_span = <span class="macro">tracing::span!</span>(tracing::Level::INFO, <span class="string">&quot;Cycle&quot;</span>, cycle = <span class="self">self</span>.cycle);
+            </span><span class="kw">let </span>cycle_span = <span class="macro">tracing::span!</span>(tracing::Level::INFO, <span class="string">&quot;Cycle&quot;</span>,  cycle = <span class="self">self</span>.cycle);
             <span class="kw">let </span>_enter = cycle_span.enter();
+
             <span class="comment">// psi n_sub rows, nspp columns
             </span><span class="kw">let </span>cache = <span class="kw">if </span><span class="self">self</span>.cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ <span class="self">self</span>.cache };
             <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
@@ -584,9 +585,8 @@
             <span class="comment">// If a support point is dropped, log it
             </span><span class="kw">if </span><span class="self">self</span>.psi.ncols() != keep.len() {
                 <span class="macro">tracing::info!</span>(
-                    <span class="string">&quot;QR decomposition dropped {} SPP, kept {}&quot;</span>,
+                    <span class="string">&quot;QRD dropped {} support point(s)&quot;</span>,
                     <span class="self">self</span>.psi.ncols() - keep.len(),
-                    keep.len(),
                 );
             }
 
@@ -603,16 +603,15 @@
 
             <span class="self">self</span>.optim_gamma();
 
-            <span class="kw">let </span><span class="kw-2">mut </span>state = NPCycle {
+            <span class="kw">let </span>state = NPCycle {
                 cycle: <span class="self">self</span>.cycle,
                 objf: -<span class="number">2. </span>* <span class="self">self</span>.objf,
                 delta_objf: (<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs(),
                 nspp: <span class="self">self</span>.theta.shape()[<span class="number">0</span>],
-                stop_text: <span class="string">&quot;&quot;</span>.to_string(),
                 theta: <span class="self">self</span>.theta.clone(),
                 gamlam: <span class="self">self</span>.gamma,
             };
-            <span class="self">self</span>.tx.send(state.clone()).unwrap();
+            <span class="self">self</span>.tx.send(Comm::NPCycle(state.clone())).unwrap();
 
             <span class="comment">// Increasing objf signals instability or model misspecification.
             </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
@@ -632,10 +631,8 @@
                 <span class="kw">if </span><span class="self">self</span>.eps &lt;= THETA_E {
                     <span class="self">self</span>.f1 = pyl.mapv(|x| x.ln()).sum();
                     <span class="kw">if </span>(<span class="self">self</span>.f1 - <span class="self">self</span>.f0).abs() &lt;= THETA_F {
-                        <span class="macro">tracing::info!</span>(<span class="string">&quot;Likelihood criteria convergence, -2LL: {:.1}&quot;</span>, <span class="self">self</span>.objf);
+                        <span class="macro">tracing::info!</span>(<span class="string">&quot;The run converged&quot;</span>);
                         <span class="self">self</span>.converged = <span class="bool-val">true</span>;
-                        state.stop_text = <span class="string">&quot;The run converged!&quot;</span>.to_string();
-                        <span class="self">self</span>.tx.send(state).unwrap();
                         <span class="kw">break</span>;
                     } <span class="kw">else </span>{
                         <span class="self">self</span>.f0 = <span class="self">self</span>.f1;
@@ -646,17 +643,13 @@
 
             <span class="comment">// Stop if we have reached maximum number of cycles
             </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.parsed.config.cycles {
-                <span class="macro">tracing::info!</span>(<span class="string">&quot;Maximum number of cycles reached&quot;</span>);
-                state.stop_text = <span class="string">&quot;No (max cycle)&quot;</span>.to_string();
-                <span class="self">self</span>.tx.send(state).unwrap();
+                <span class="macro">tracing::warn!</span>(<span class="string">&quot;Maximum number of cycles reached&quot;</span>);
                 <span class="kw">break</span>;
             }
 
             <span class="comment">// Stop if stopfile exists
             </span><span class="kw">if </span>std::path::Path::new(<span class="string">&quot;stop&quot;</span>).exists() {
-                <span class="macro">tracing::info!</span>(<span class="string">&quot;Stopfile detected - breaking&quot;</span>);
-                state.stop_text = <span class="string">&quot;No (stopped)&quot;</span>.to_string();
-                <span class="self">self</span>.tx.send(state).unwrap();
+                <span class="macro">tracing::warn!</span>(<span class="string">&quot;Stopfile detected - breaking&quot;</span>);
                 <span class="kw">break</span>;
             }
             <span class="self">self</span>.cycle_log
@@ -667,6 +660,7 @@
             <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
         }
 
+        <span class="self">self</span>.tx.send(Comm::Stop(<span class="bool-val">true</span>)).unwrap();
         <span class="self">self</span>.to_npresult()
     }
 }

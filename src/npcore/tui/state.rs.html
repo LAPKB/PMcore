@@ -22,20 +22,20 @@
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::output::NPCycle;
 
 <span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>AppHistory {
+</span><span class="kw">pub struct </span>CycleHistory {
     <span class="kw">pub </span>cycles: Vec&lt;NPCycle&gt;,
 }
 
-<span class="kw">impl </span>AppHistory {
+<span class="kw">impl </span>CycleHistory {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-        AppHistory { cycles: Vec::new() }
+        CycleHistory { cycles: Vec::new() }
     }
 
     <span class="kw">pub fn </span>add_cycle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cycle: NPCycle) {
         <span class="self">self</span>.cycles.push(cycle);
     }
 }
-<span class="kw">impl </span>Default <span class="kw">for </span>AppHistory {
+<span class="kw">impl </span>Default <span class="kw">for </span>CycleHistory {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::new()
     }
