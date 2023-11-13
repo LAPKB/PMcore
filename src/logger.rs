@@ -30,7 +30,7 @@ pub fn setup_log(settings: &Data, ui_tx: UnboundedSender<Comm>) {
         .write(true)
         .truncate(true)
         .open(&settings.parsed.paths.log_out)
-        .expect("Failed to open log file");
+        .expect("Failed to open log file - does the directory exist?");
 
     let file_layer = fmt::layer()
         .with_writer(file)
