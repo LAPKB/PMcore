@@ -1,5 +1,4 @@
 use crate::algorithms::initialize_algorithm;
-use crate::prelude::output::NPCycle;
 use crate::prelude::{
     output::NPResult,
     predict::{Engine, Predict},
@@ -60,9 +59,9 @@ where
 {
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
-    logger::setup_log(&settings);
+    let (tx, rx) = mpsc::unbounded_channel::<Comm>();
+    logger::setup_log(&settings, tx.clone());
     tracing::info!("Starting NPcore");
-    let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
     let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
     if let Some(exclude) = &settings.parsed.config.exclude {
         for val in exclude {
@@ -86,6 +85,7 @@ where
     if let Some(write) = &settings.parsed.config.pmetrics_outputs {
         result.write_outputs(*write, &engine, idelta, tad);
     }
+    tracing::info!("Program complete");
 
     Ok(result)
 }
@@ -100,8 +100,8 @@ where
 {
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
-    logger::setup_log(&settings);
-    let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
+    let (tx, rx) = mpsc::unbounded_channel::<Comm>();
+    logger::setup_log(&settings, tx.clone());
 
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     // Spawn new thread for TUI

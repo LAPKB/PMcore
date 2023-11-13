@@ -1,4 +1,4 @@
-use crate::prelude::{self, output::NPCycle, settings::run::Data};
+use crate::prelude::{self, settings::run::Data};
 
 use output::NPResult;
 use prelude::{datafile::Scenario, *};
@@ -22,7 +22,7 @@ pub fn initialize_algorithm<S>(
     engine: Engine<S>,
     settings: Data,
     scenarios: Vec<Scenario>,
-    tx: mpsc::UnboundedSender<NPCycle>,
+    tx: mpsc::UnboundedSender<Comm>,
 ) -> Box<dyn Algorithm>
 where
     S: Predict<'static> + std::marker::Sync + Clone + 'static,

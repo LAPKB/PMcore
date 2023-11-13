@@ -1,8 +1,8 @@
 pub mod actions;
+pub mod components;
 pub mod inputs;
 pub mod state;
 pub mod ui;
-pub mod components;
 
 use crate::prelude::output::NPCycle;
 
@@ -22,15 +22,26 @@ pub struct App {
     actions: Actions,
     /// State
     state: NPCycle,
+    /// Index for tab
+    tab_index: usize,
+    /// Tab titles
+    tab_titles: Vec<&'static str>,
 }
 
 impl App {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        let actions = vec![Action::Quit, Action::Stop].into();
+        let actions = vec![Action::Quit, Action::Stop, Action::Next].into();
         let state = NPCycle::new();
+        let tab_index = 0;
+        let tab_titles = vec!["Logs", "Plot", "Parameters"];
 
-        Self { actions, state }
+        Self {
+            actions,
+            state,
+            tab_index,
+            tab_titles,
+        }
     }
 
     /// Handle a user action
@@ -46,9 +57,19 @@ impl App {
                     File::create(filename).unwrap();
                     AppReturn::Continue
                 }
+                Action::Next => {
+                    self.tab_index = self.tab_index + 1;
+                    if self.tab_index >= self.tab_titles.len() {
+                        self.tab_index = 0;
+                    }
+                    AppReturn::Continue
+                }
             }
         } else {
-            tracing::trace!("{} was registered, but it has no associated action", key);
+            tracing::trace!(
+                "The {} key was registered, but it has no associated action",
+                key
+            );
             AppReturn::Continue
         }
     }

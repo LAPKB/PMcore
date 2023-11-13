@@ -14,20 +14,28 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::{
     inputs::{events::Events, InputEvent},
-    state::AppHistory,
+    state::CycleHistory,
     App, AppReturn,
 };
+
+pub enum Comm {
+    NPCycle(NPCycle),
+    Message(String),
+    Stop(bool),
+    LogMessage(String),
+}
 
 use crate::prelude::{output::NPCycle, settings::run::Data};
 use crate::tui::components::*;
 
-pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()> {
+pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
     let stdout = stdout();
     crossterm::terminal::enable_raw_mode()?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let mut app = App::new();
-    let mut app_history = AppHistory::new();
+    let mut cycle_history = CycleHistory::new();
+    let mut log_history: Vec<String> = Vec::new();
 
     terminal.clear()?;
 
@@ -35,42 +43,45 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
     let tick_rate = Duration::from_millis(200);
     let mut events = Events::new(tick_rate);
 
-    let mut start_time = Instant::now();
+    let start_time = Instant::now();
+    #[allow(unused_assignments)]
     let mut elapsed_time = Duration::from_secs(0);
 
     // Main UI loop
     loop {
-        app.state = match rx.try_recv() {
-            Ok(state) => state,
-            Err(_) => app.state,
+        let _ = match rx.try_recv() {
+            Ok(comm) => match comm {
+                Comm::NPCycle(cycle) => {
+                    app.state = cycle.clone();
+                    cycle_history.add_cycle(cycle);
+                }
+                Comm::Message(_msg) => {}
+                Comm::Stop(stop) => {
+                    if stop {
+                        //exit(-1); //TODO: Replace with graceful exit from TUI
+                    }
+                }
+                Comm::LogMessage(msg) => log_history.push(msg),
+            },
+            Err(_) => {}
         };
 
-        // Stop incrementing elapsed time if conv is true
-        if app.state.stop_text.is_empty() {
-            let now = Instant::now();
-            if now.duration_since(start_time) > tick_rate {
-                elapsed_time += now.duration_since(start_time);
-                start_time = now;
-            }
-        }
-
-        // Break if we receive a stop text
-        if !app.state.stop_text.is_empty() {
-            break;
-        }
-
-        // If we receive a new NPCycle, add it to the app_history
-        if !app_history
-            .cycles
-            .iter()
-            .any(|state| state.cycle == app.state.cycle)
-        {
-            app_history.add_cycle(app.state.clone());
-        }
+        // Update elapsed time
+        let now = Instant::now();
+        elapsed_time = now.duration_since(start_time);
 
         // Draw the terminal
         terminal
-            .draw(|rect| draw(rect, &app, &app_history, elapsed_time, &settings))
+            .draw(|rect| {
+                draw(
+                    rect,
+                    &app,
+                    &cycle_history,
+                    elapsed_time,
+                    &settings,
+                    &log_history,
+                )
+            })
             .unwrap();
 
         // Handle inputs
@@ -84,21 +95,33 @@ pub fn start_ui(mut rx: UnboundedReceiver<NPCycle>, settings: Data) -> Result<()
         }
     }
 
-    terminal.clear()?;
+    // Draw one last image
+    terminal
+        .draw(|rect| {
+            draw(
+                rect,
+                &app,
+                &cycle_history,
+                elapsed_time,
+                &settings,
+                &log_history,
+            )
+        })
+        .unwrap();
     terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
-    terminal
-        .draw(|rect| draw(rect, &app, &app_history, elapsed_time, &settings))
-        .unwrap();
+    println!();
+
     Ok(())
 }
 
 pub fn draw(
     rect: &mut Frame,
     app: &App,
-    app_history: &AppHistory,
+    cycle_history: &CycleHistory,
     elapsed_time: Duration,
     settings: &Data,
+    log_history: &Vec<String>,
 ) {
     let size = rect.size();
 
@@ -145,8 +168,19 @@ pub fn draw(
     let commands = draw_commands(app);
     rect.render_widget(commands, body_layout[2]);
 
+    // Bottom chunk (tabs)
+    let bottom_chunk = chunks[2];
+    let tab_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(10), Constraint::Percentage(90)].as_ref())
+        .split(bottom_chunk);
+
+    let tabs = draw_tabs(&app);
+    rect.render_widget(tabs, tab_layout[0]);
+
+    // Plot
     // Prepare the data
-    let data: Vec<(f64, f64)> = app_history
+    let data: Vec<(f64, f64)> = cycle_history
         .cycles
         .iter()
         .enumerate()
@@ -163,6 +197,21 @@ pub fn draw(
         .map(|&(x, y)| (x, y))
         .collect();
 
-    let plot = draw_plot(&mut norm_data);
-    rect.render_widget(plot, chunks[2]);
+    // Tab content
+    let inner_height = tab_layout[1].height;
+    match app.tab_index {
+        0 => {
+            let logs = draw_logs(log_history, inner_height);
+            rect.render_widget(logs, tab_layout[1]);
+        }
+        1 => {
+            let plot = draw_plot(&mut norm_data);
+            rect.render_widget(plot, tab_layout[1]);
+        }
+        2 => {
+            let par_bounds = draw_parameter_bounds(&settings);
+            rect.render_widget(par_bounds, tab_layout[1]);
+        }
+        _ => unreachable!(),
+    };
 }
