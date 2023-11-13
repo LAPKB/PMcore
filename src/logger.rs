@@ -17,7 +17,8 @@ pub fn setup_log(settings: &Data, ui_tx: UnboundedSender<Comm>) {
         .log_level
         .as_ref()
         .map(|level| level.as_str())
-        .unwrap_or("info");
+        .unwrap_or("info")
+        .to_lowercase();
 
     let env_filter = EnvFilter::new(log_level);
 
