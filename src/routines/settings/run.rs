@@ -49,7 +49,7 @@ pub struct Parsed {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Paths {
     pub data: String,
-    pub log_out: Option<String>,
+    pub log_out: String,
     pub prior_dist: Option<String>,
 }
 

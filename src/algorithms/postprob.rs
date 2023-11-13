@@ -1,14 +1,16 @@
-use crate::prelude::{
-    algorithms::Algorithm,
-    datafile::Scenario,
-    evaluation::sigma::{ErrorPoly, ErrorType},
-    ipm,
-    output::NPCycle,
-    output::NPResult,
-    prob,
-    settings::run::Data,
-    simulation::predict::Engine,
-    simulation::predict::{sim_obs, Predict},
+use crate::{
+    prelude::{
+        algorithms::Algorithm,
+        datafile::Scenario,
+        evaluation::sigma::{ErrorPoly, ErrorType},
+        ipm,
+        output::NPResult,
+        prob,
+        settings::run::Data,
+        simulation::predict::Engine,
+        simulation::predict::{sim_obs, Predict},
+    },
+    tui::ui::Comm,
 };
 
 use ndarray::{Array1, Array2};
@@ -32,7 +34,7 @@ where
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
     #[allow(dead_code)]
-    tx: UnboundedSender<NPCycle>,
+    tx: UnboundedSender<Comm>,
     settings: Data,
 }
 
@@ -66,7 +68,7 @@ where
         theta: Array2<f64>,
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender<NPCycle>,
+        tx: UnboundedSender<Comm>,
         settings: Data,
     ) -> Self
     where

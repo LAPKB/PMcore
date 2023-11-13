@@ -77,6 +77,7 @@ impl NPResult {
     /// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) {
+        tracing::info!("Writing final parameter distribution...");
         let result = (|| {
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
@@ -105,6 +106,7 @@ impl NPResult {
 
     /// Writes the posterior support points for each individual
     pub fn write_posterior(&self) {
+        tracing::info!("Writing posterior parameter probabilities...");
         let result = (|| {
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
@@ -149,6 +151,7 @@ impl NPResult {
 
     /// Write the observations, which is the reformatted input data
     pub fn write_obs(&self) {
+        tracing::info!("Writing (expanded) observations...");
         let result = (|| {
             let scenarios = self.scenarios.clone();
 
@@ -182,6 +185,7 @@ impl NPResult {
     where
         S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
     {
+        tracing::info!("Writing individual predictions...");
         let result = (|| {
             let mut scenarios = self.scenarios.clone();
             // Add an event interval to each scenario
@@ -292,7 +296,6 @@ pub struct NPCycle {
     pub objf: f64,
     pub gamlam: f64,
     pub theta: Array2<f64>,
-    pub stop_text: String,
     pub nspp: usize,
     pub delta_objf: f64,
 }
@@ -303,7 +306,6 @@ impl NPCycle {
             objf: 0.0,
             gamlam: 0.0,
             theta: Array2::default((0, 0)),
-            stop_text: "".to_string(),
             nspp: 0,
             delta_objf: 0.0,
         }
