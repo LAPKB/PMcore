@@ -34,7 +34,7 @@ impl Model {
 pub trait Predict<'a> {
     type Model: 'a + Clone;
     type State;
-    fn initial_system(&self, params: &Vec<f64>, scenario: Scenario) -> Self::Model;
+    fn initial_system(&self, params: &Vec<f64>, scenario: Scenario) -> (Self::Model, Scenario);
     fn initial_state(&self) -> Self::State;
     fn add_covs(&self, system: Self::Model, cov: Option<HashMap<String, CovLine>>) -> Self::Model;
     fn add_infusion(&self, system: Self::Model, infusion: Infusion) -> Self::Model;
@@ -65,7 +65,7 @@ where
         Self { ode }
     }
     pub fn pred(&self, scenario: Scenario, params: Vec<f64>) -> Vec<f64> {
-        let system = self.ode.initial_system(&params, scenario.clone());
+        let (system, scenario) = self.ode.initial_system(&params, scenario.clone());
         let mut yout = vec![];
         let mut x = self.ode.initial_state();
         let mut index: usize = 0;
