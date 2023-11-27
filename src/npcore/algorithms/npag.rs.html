@@ -346,8 +346,8 @@
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
-    tui::ui::Comm, routines::expansion::adaptative_grid::adaptative_grid,
-
+    routines::expansion::adaptative_grid::adaptative_grid,
+    tui::ui::Comm,
 };
 
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
@@ -534,7 +534,7 @@
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="kw">while </span><span class="self">self</span>.eps &gt; THETA_E {
             <span class="comment">// Enter a span for each cycle, provding context for further errors
-            </span><span class="kw">let </span>cycle_span = <span class="macro">tracing::span!</span>(tracing::Level::INFO, <span class="string">&quot;Cycle&quot;</span>,  cycle = <span class="self">self</span>.cycle);
+            </span><span class="kw">let </span>cycle_span = <span class="macro">tracing::span!</span>(tracing::Level::INFO, <span class="string">&quot;Cycle&quot;</span>, cycle = <span class="self">self</span>.cycle);
             <span class="kw">let </span>_enter = cycle_span.enter();
 
             <span class="comment">// psi n_sub rows, nspp columns
@@ -615,7 +615,7 @@
 
             <span class="comment">// Increasing objf signals instability or model misspecification.
             </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
-                <span class="macro">tracing::error!</span>(
+                <span class="macro">tracing::debug!</span>(
                     <span class="string">&quot;Objective function decreased from {} to {}&quot;</span>,
                     <span class="self">self</span>.last_objf,
                     <span class="self">self</span>.objf

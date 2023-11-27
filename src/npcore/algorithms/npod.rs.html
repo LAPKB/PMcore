@@ -320,20 +320,26 @@
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{prelude::{
-    algorithms::Algorithm,
-    condensation::prune::prune,
-    datafile::Scenario,
-    evaluation::sigma::{ErrorPoly, ErrorType},
-    ipm,
-    optimization::d_optimizer::SppOptimizer,
-    output::NPResult,
-    output::{CycleLog, NPCycle},
-    prob, qr,
-    settings::run::Data,
-    simulation::predict::Engine,
-    simulation::predict::{sim_obs, Predict},
-}, tui::ui::Comm};
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    prelude::{
+        algorithms::Algorithm,
+        condensation::prune::prune,
+        datafile::Scenario,
+        evaluation::sigma::{ErrorPoly, ErrorType},
+        ipm,
+        optimization::d_optimizer::SppOptimizer,
+        output::NPResult,
+        output::{CycleLog, NPCycle},
+        prob, qr,
+        settings::run::Data,
+        simulation::predict::Engine,
+        simulation::predict::{sim_obs, Predict},
+    },
+    tui::ui::Comm,
+};
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
@@ -614,8 +620,8 @@
                 prune(<span class="kw-2">&amp;mut </span><span class="self">self</span>.theta, cp, <span class="kw-2">&amp;</span><span class="self">self</span>.ranges, THETA_D);
             }
 
-           <span class="comment">// Stop if we have reached maximum number of cycles
-           </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.parsed.config.cycles {
+            <span class="comment">// Stop if we have reached maximum number of cycles
+            </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.parsed.config.cycles {
                 <span class="macro">tracing::warn!</span>(<span class="string">&quot;Maximum number of cycles reached&quot;</span>);
                 <span class="kw">break</span>;
             }
