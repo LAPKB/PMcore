@@ -1,4 +1,4 @@
-use crate::prelude::{
+use crate::{prelude::{
     algorithms::Algorithm,
     condensation::prune::prune,
     datafile::Scenario,
@@ -11,7 +11,7 @@ use crate::prelude::{
     settings::run::Data,
     simulation::predict::Engine,
     simulation::predict::{sim_obs, Predict},
-};
+}, tui::ui::Comm};
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
@@ -22,7 +22,7 @@ const THETA_F: f64 = 1e-2;
 
 pub struct NPOD<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     engine: Engine<S>,
     ranges: Vec<(f64, f64)>,
@@ -41,13 +41,13 @@ where
     cache: bool,
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
-    tx: UnboundedSender<NPCycle>,
+    tx: UnboundedSender<Comm>,
     settings: Data,
 }
 
 impl<S> Algorithm for NPOD<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     fn fit(&mut self) -> NPResult {
         self.run()
@@ -68,7 +68,7 @@ where
 
 impl<S> NPOD<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     /// Creates a new NPOD instance.
     ///
@@ -91,11 +91,11 @@ where
         theta: Array2<f64>,
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender<NPCycle>,
+        tx: UnboundedSender<Comm>,
         settings: Data,
     ) -> Self
     where
-        S: Predict + std::marker::Sync,
+        S: Predict<'static> + std::marker::Sync,
     {
         Self {
             engine: sim_eng,
@@ -230,7 +230,7 @@ where
                     keep.push(*perm.get(i).unwrap());
                 }
             }
-            log::info!(
+            tracing::info!(
                 "QR decomp, cycle {}, kept: {}, thrown {}",
                 self.cycle,
                 keep.len(),
@@ -249,21 +249,20 @@ where
 
             self.optim_gamma();
 
-            let mut state = NPCycle {
+            let state = NPCycle {
                 cycle: self.cycle,
                 objf: -2. * self.objf,
                 delta_objf: (self.last_objf - self.objf).abs(),
                 nspp: self.theta.shape()[0],
-                stop_text: "".to_string(),
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
             };
-            self.tx.send(state.clone()).unwrap();
+            self.tx.send(Comm::NPCycle(state.clone())).unwrap();
 
             // If the objective function decreased, log an error.
             // Increasing objf signals instability of model misspecification.
             if self.last_objf > self.objf {
-                log::error!("Objective function decreased");
+                tracing::error!("Objective function decreased");
             }
 
             self.w = self.lambda.clone();
@@ -293,19 +292,15 @@ where
                 prune(&mut self.theta, cp, &self.ranges, THETA_D);
             }
 
-            // Stop if we have reached maximum number of cycles
-            if self.cycle >= self.settings.parsed.config.cycles {
-                log::info!("Maximum number of cycles reached");
-                state.stop_text = "No (max cycle)".to_string();
-                self.tx.send(state).unwrap();
+           // Stop if we have reached maximum number of cycles
+           if self.cycle >= self.settings.parsed.config.cycles {
+                tracing::warn!("Maximum number of cycles reached");
                 break;
             }
 
             // Stop if stopfile exists
             if std::path::Path::new("stop").exists() {
-                log::info!("Stopfile detected - breaking");
-                state.stop_text = "No (stopped)".to_string();
-                self.tx.send(state).unwrap();
+                tracing::warn!("Stopfile detected - breaking");
                 break;
             }
             //TODO: the cycle migh break before reaching this point
