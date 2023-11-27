@@ -274,8 +274,8 @@
 </span><span class="kw">pub struct </span>Model {
     params: HashMap&lt;String, f64&gt;,
     _scenario: Scenario,
-    infusions: Vec&lt;Infusion&gt;,
-    cov: <span class="prelude-ty">Option</span>&lt;HashMap&lt;String, CovLine&gt;&gt;,
+    _infusions: Vec&lt;Infusion&gt;,
+    _cov: <span class="prelude-ty">Option</span>&lt;HashMap&lt;String, CovLine&gt;&gt;,
 }
 <span class="kw">impl </span>Model {
     <span class="kw">pub fn </span>get_param(<span class="kw-2">&amp;</span><span class="self">self</span>, str: <span class="kw-2">&amp;</span>str) -&gt; f64 {
