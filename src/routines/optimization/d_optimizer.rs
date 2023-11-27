@@ -1,7 +1,5 @@
 use argmin::{
-    core::{
-        CostFunction, Error, Executor,
-    },
+    core::{CostFunction, Error, Executor},
     solver::neldermead::NelderMead,
 };
 use ndarray::{Array1, Axis};

@@ -11,8 +11,8 @@ use crate::{
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
-    tui::ui::Comm, routines::expansion::adaptative_grid::adaptative_grid,
-
+    routines::expansion::adaptative_grid::adaptative_grid,
+    tui::ui::Comm,
 };
 
 use ndarray::{Array, Array1, Array2, Axis};
@@ -199,7 +199,7 @@ where
     pub fn run(&mut self) -> NPResult {
         while self.eps > THETA_E {
             // Enter a span for each cycle, provding context for further errors
-            let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle",  cycle = self.cycle);
+            let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
 
             // psi n_sub rows, nspp columns
@@ -280,7 +280,7 @@ where
 
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
-                tracing::error!(
+                tracing::debug!(
                     "Objective function decreased from {} to {}",
                     self.last_objf,
                     self.objf

@@ -1,17 +1,20 @@
-use crate::{prelude::{
-    algorithms::Algorithm,
-    condensation::prune::prune,
-    datafile::Scenario,
-    evaluation::sigma::{ErrorPoly, ErrorType},
-    ipm,
-    optimization::d_optimizer::SppOptimizer,
-    output::NPResult,
-    output::{CycleLog, NPCycle},
-    prob, qr,
-    settings::run::Data,
-    simulation::predict::Engine,
-    simulation::predict::{sim_obs, Predict},
-}, tui::ui::Comm};
+use crate::{
+    prelude::{
+        algorithms::Algorithm,
+        condensation::prune::prune,
+        datafile::Scenario,
+        evaluation::sigma::{ErrorPoly, ErrorType},
+        ipm,
+        optimization::d_optimizer::SppOptimizer,
+        output::NPResult,
+        output::{CycleLog, NPCycle},
+        prob, qr,
+        settings::run::Data,
+        simulation::predict::Engine,
+        simulation::predict::{sim_obs, Predict},
+    },
+    tui::ui::Comm,
+};
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
@@ -292,8 +295,8 @@ where
                 prune(&mut self.theta, cp, &self.ranges, THETA_D);
             }
 
-           // Stop if we have reached maximum number of cycles
-           if self.cycle >= self.settings.parsed.config.cycles {
+            // Stop if we have reached maximum number of cycles
+            if self.cycle >= self.settings.parsed.config.cycles {
                 tracing::warn!("Maximum number of cycles reached");
                 break;
             }
