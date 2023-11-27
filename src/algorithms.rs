@@ -6,12 +6,14 @@ use simulation::predict::{Engine, Predict};
 use tokio::sync::mpsc;
 
 mod npag;
+mod npod;
 mod postprob;
 
-pub enum Type {
-    NPAG,
-    POSTPROB,
-}
+// pub enum Type {
+//     NPAG,
+//     NPOD,
+//     POSTPROB,
+// }
 
 pub trait Algorithm {
     fn fit(&mut self) -> NPResult;
@@ -39,6 +41,15 @@ where
     //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
     match settings.parsed.config.engine.as_str() {
         "NPAG" => Box::new(npag::NPAG::new(
+            engine,
+            ranges,
+            theta,
+            scenarios,
+            settings.parsed.error.poly,
+            tx,
+            settings,
+        )),
+        "NPOD" => Box::new(npod::NPOD::new(
             engine,
             ranges,
             theta,
