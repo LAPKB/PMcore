@@ -55,15 +55,15 @@ impl NPResult {
         }
     }
 
-    pub fn write_outputs<S>(&self, write: bool, engine: &Engine<S>)
+    pub fn write_outputs<'a, S>(&self, write: bool, engine: &Engine<S>, idelta: f64, tad: f64)
     where
-        S: Predict + std::marker::Sync + 'static + Clone + std::marker::Send,
+        S: Predict<'static> + std::marker::Sync + 'static + Clone + std::marker::Send,
     {
         if write {
             self.write_theta();
             self.write_posterior();
             self.write_obs();
-            self.write_pred(&engine);
+            self.write_pred(&engine, idelta, tad);
             self.write_meta();
         }
     }
@@ -77,6 +77,7 @@ impl NPResult {
     /// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) {
+        tracing::info!("Writing final parameter distribution...");
         let result = (|| {
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
@@ -99,12 +100,13 @@ impl NPResult {
         })();
 
         if let Err(e) = result {
-            log::error!("Error while writing theta: {}", e);
+            tracing::error!("Error while writing theta: {}", e);
         }
     }
 
     /// Writes the posterior support points for each individual
     pub fn write_posterior(&self) {
+        tracing::info!("Writing posterior parameter probabilities...");
         let result = (|| {
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
@@ -143,12 +145,13 @@ impl NPResult {
         })();
 
         if let Err(e) = result {
-            log::error!("Error while writing posterior: {}", e);
+            tracing::error!("Error while writing posterior: {}", e);
         }
     }
 
     /// Write the observations, which is the reformatted input data
     pub fn write_obs(&self) {
+        tracing::info!("Writing (expanded) observations...");
         let result = (|| {
             let scenarios = self.scenarios.clone();
 
@@ -173,17 +176,25 @@ impl NPResult {
         })();
 
         if let Err(e) = result {
-            log::error!("Error while writing observations: {}", e);
+            tracing::error!("Error while writing observations: {}", e);
         }
     }
 
     /// Writes the predictions
-    pub fn write_pred<S>(&self, engine: &Engine<S>)
+    pub fn write_pred<'a, S>(&self, engine: &Engine<S>, idelta: f64, tad: f64)
     where
-        S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
+        S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
     {
+        tracing::info!("Writing individual predictions...");
         let result = (|| {
-            let scenarios = self.scenarios.clone();
+            let mut scenarios = self.scenarios.clone();
+            // Add an event interval to each scenario
+            if idelta > 0.0 {
+                scenarios.iter_mut().for_each(|scenario| {
+                    *scenario = scenario.add_event_interval(idelta, tad);
+                });
+            }
+
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
             let psi: Array2<f64> = self.psi.clone();
@@ -252,7 +263,7 @@ impl NPResult {
         })();
 
         if let Err(e) = result {
-            log::error!("Error while writing predictions: {}", e);
+            tracing::error!("Error while writing predictions: {}", e);
         }
     }
 }
@@ -285,7 +296,6 @@ pub struct NPCycle {
     pub objf: f64,
     pub gamlam: f64,
     pub theta: Array2<f64>,
-    pub stop_text: String,
     pub nspp: usize,
     pub delta_objf: f64,
 }
@@ -296,7 +306,6 @@ impl NPCycle {
             objf: 0.0,
             gamlam: 0.0,
             theta: Array2::default((0, 0)),
-            stop_text: "".to_string(),
             nspp: 0,
             delta_objf: 0.0,
         }

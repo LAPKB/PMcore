@@ -1,14 +1,16 @@
-use crate::prelude::{
-    algorithms::Algorithm,
-    datafile::Scenario,
-    evaluation::sigma::{ErrorPoly, ErrorType},
-    ipm,
-    output::NPCycle,
-    output::NPResult,
-    prob,
-    settings::run::Data,
-    simulation::predict::Engine,
-    simulation::predict::{sim_obs, Predict},
+use crate::{
+    prelude::{
+        algorithms::Algorithm,
+        datafile::Scenario,
+        evaluation::sigma::{ErrorPoly, ErrorType},
+        ipm,
+        output::NPResult,
+        prob,
+        settings::run::Data,
+        simulation::predict::Engine,
+        simulation::predict::{sim_obs, Predict},
+    },
+    tui::ui::Comm,
 };
 
 use ndarray::{Array1, Array2};
@@ -18,7 +20,7 @@ use tokio::sync::mpsc::UnboundedSender;
 /// Reweights the prior probabilities to the observed data and error model
 pub struct POSTPROB<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     engine: Engine<S>,
     psi: Array2<f64>,
@@ -32,13 +34,13 @@ where
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
     #[allow(dead_code)]
-    tx: UnboundedSender<NPCycle>,
+    tx: UnboundedSender<Comm>,
     settings: Data,
 }
 
 impl<S> Algorithm for POSTPROB<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     fn fit(&mut self) -> NPResult {
         self.run()
@@ -59,18 +61,18 @@ where
 
 impl<S> POSTPROB<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     pub fn new(
         sim_eng: Engine<S>,
         theta: Array2<f64>,
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender<NPCycle>,
+        tx: UnboundedSender<Comm>,
         settings: Data,
     ) -> Self
     where
-        S: Predict + std::marker::Sync,
+        S: Predict<'static> + std::marker::Sync,
     {
         Self {
             engine: sim_eng,

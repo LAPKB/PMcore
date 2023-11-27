@@ -92,7 +92,7 @@ impl Predict for Ode {
                                 let y = stepper.y_out();
                                 x = *y.last().unwrap();
                             } else if *next_time < event.time {
-                                log::error!("Panic: Next event's time is in the past!");
+                                tracing::error!("Panic: Next event's time is in the past!");
                                 panic!("Panic: Next event's time is in the past!");
                             }
                         }
@@ -103,7 +103,7 @@ impl Predict for Ode {
                             //     Rk4::new(system.clone(), event.time, x, lag_time, 0.1);
                             if let Some(next_time) = scenario.times.get(index + 1) {
                                 if *next_time < lag_time {
-                                    log::error!("Panic: lag time overpasses next observation, not implemented. Stopping.");
+                                    tracing::error!("Panic: lag time overpasses next observation, not implemented. Stopping.");
                                     panic!("Panic: lag time overpasses next observation, not implemented. Stopping.");
                                 }
                                 let mut stepper = Dopri5::new(
@@ -139,7 +139,7 @@ impl Predict for Ode {
                                 let y = stepper.y_out();
                                 x = *y.last().unwrap();
                             } else if *next_time > event.time {
-                                log::error!("Panic: Next event's time is in the past!");
+                                tracing::error!("Panic: Next event's time is in the past!");
                                 panic!("Panic: Next event's time is in the past!");
                             }
                         }
@@ -164,7 +164,7 @@ impl Predict for Ode {
                             let y = stepper.y_out();
                             x = *y.last().unwrap();
                         } else if *next_time < event.time {
-                            log::error!("Panic: Next event's time is in the past!");
+                            tracing::error!("Panic: Next event's time is in the past!");
                             panic!("Panic: Next event's time is in the past!");
                         }
                     }

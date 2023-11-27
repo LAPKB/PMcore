@@ -19,5 +19,4 @@ meta*.csv
 /.idea
 stop
 .vscode
-
 *.f90

@@ -49,7 +49,7 @@ pub struct Parsed {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Paths {
     pub data: String,
-    pub log_out: Option<String>,
+    pub log_out: String,
     pub prior_dist: Option<String>,
 }
 
@@ -63,6 +63,9 @@ pub struct Config {
     pub pmetrics_outputs: Option<bool>,
     pub exclude: Option<Array>,
     pub cache: Option<bool>,
+    pub idelta: Option<f64>,
+    pub tad: Option<f64>,
+    pub log_level: Option<String>,
 }
 
 pub fn read(filename: String) -> Data {
