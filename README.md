@@ -2,18 +2,29 @@
 [![Build](https://github.com/LAPKB/NPcore/actions/workflows/rust.yml/badge.svg)](https://github.com/LAPKB/NPcore/actions/workflows/rust.yml)
 [![Security Audit](https://github.com/LAPKB/NPcore/actions/workflows/security_audit.yml/badge.svg)](https://github.com/LAPKB/NPcore/actions/workflows/security_audit.yml)
 
-Rust Library with the building blocks needed to create new Non-Parametric algorithms and its integration with [Pmetrics]([https://link-url-here.org](https://github.com/LAPKB/Pmetrics)).
+Rust library with the building blocks to create and implement new non-parametric algorithms and their integration with [Pmetrics](https://github.com/LAPKB/Pmetrics).
 
 ## Implemented functionality
 
 * Solver for ODE-based population pharmacokinetic models
 * Supports the Pmetrics data format for seamless integration
-* Basic NPAG implementation for parameter estimation
 * Covariate support, carry-forward or linear interpolation
 * Option to cache results for improved speed
 * Powerful simulation engine 
 * Informative Terminal User Interface (TUI)
 
+## Available algoritms
+
+This project aims to implement several algorithms for non-parametric population pharmacokinetic modelling.
+
+- [x] Non Parametric Adaptive Grid (NPAG)
+    - [Yamada et al (2021)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7823953/)
+    - [Neely et al (2012)](https://pubmed.ncbi.nlm.nih.gov/22722776/)
+- [ ] Non Parametric Optimal Design (NPOD)
+  - [Otalvaro et al (2023)](https://pubmed.ncbi.nlm.nih.gov/36478350/)
+  - [Leary et al (2003)](https://www.page-meeting.org/default.asp?abstract=421)
+- [ ] Non Parametric Simulated Annealing (NPSA)
+  - [Chen et al (2023)](https://arxiv.org/abs/2301.12656)
 
 ## Examples
 

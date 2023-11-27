@@ -1,10 +1,11 @@
 use crate::algorithms::initialize_algorithm;
-use crate::prelude::output::NPCycle;
 use crate::prelude::{
     output::NPResult,
     predict::{Engine, Predict},
     *,
 };
+use crate::routines::datafile::Scenario;
+
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
 
@@ -18,7 +19,7 @@ use tokio::sync::mpsc::{self};
 
 pub fn simulate<S>(engine: Engine<S>, settings_path: String) -> Result<()>
 where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
+    S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let settings = settings::simulator::read(settings_path);
     let theta_file = File::open(settings.paths.theta).unwrap();
@@ -54,13 +55,20 @@ where
 }
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
 where
-    S: Predict + std::marker::Sync + std::marker::Send + 'static + Clone,
+    S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
-    logger::setup_log(&settings);
-    let (tx, rx) = mpsc::unbounded_channel::<NPCycle>();
-    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), tx);
+    let (tx, rx) = mpsc::unbounded_channel::<Comm>();
+    logger::setup_log(&settings, tx.clone());
+    tracing::info!("Starting NPcore");
+    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
+    if let Some(exclude) = &settings.parsed.config.exclude {
+        for val in exclude {
+            scenarios.remove(val.as_integer().unwrap() as usize);
+        }
+    }
+    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
     if settings.parsed.config.tui {
@@ -70,10 +78,47 @@ where
     }
 
     let result = algorithm.fit();
-    log::info!("Total time: {:.2?}", now.elapsed());
+    tracing::info!("Total time: {:.2?}", now.elapsed());
 
+    let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
+    let tad = settings.parsed.config.tad.unwrap_or(0.0);
     if let Some(write) = &settings.parsed.config.pmetrics_outputs {
-        result.write_outputs(*write, &engine);
+        result.write_outputs(*write, &engine, idelta, tad);
+    }
+    tracing::info!("Program complete");
+
+    Ok(result)
+}
+
+pub fn start_with_data<S>(
+    engine: Engine<S>,
+    settings_path: String,
+    scenarios: Vec<Scenario>,
+) -> Result<NPResult>
+where
+    S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
+{
+    let now = Instant::now();
+    let settings = settings::run::read(settings_path);
+    let (tx, rx) = mpsc::unbounded_channel::<Comm>();
+    logger::setup_log(&settings, tx.clone());
+
+    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
+    // Spawn new thread for TUI
+    let settings_tui = settings.clone();
+    if settings.parsed.config.tui {
+        let _ui_handle = spawn(move || {
+            start_ui(rx, settings_tui).expect("Failed to start TUI");
+        });
+    }
+
+    let result = algorithm.fit();
+    tracing::info!("Total time: {:.2?}", now.elapsed());
+
+    let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
+    let tad = settings.parsed.config.tad.unwrap_or(0.0);
+    if let Some(write) = &settings.parsed.config.pmetrics_outputs {
+        result.write_outputs(*write, &engine, idelta, tad);
     }
 
     Ok(result)

@@ -1,6 +1,21 @@
+use std::time::Duration;
+
 /// This file contains the different components of the TUI
 /// The purpose is to create common components with generic methods
+use ratatui::{
+    layout::{Alignment, Constraint},
+    style::{Color, Modifier, Style},
+    symbols,
+    text::{Line, Span},
+    widgets::{
+        Axis, Block, BorderType, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table,
+        Tabs, Wrap,
+    },
+};
 
+use super::App;
+
+use crate::prelude::settings::run::Data;
 
 pub fn draw_title<'a>() -> Paragraph<'a> {
     Paragraph::new("NPcore Execution")
@@ -22,7 +37,7 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
     let gamma_text = format!("{:.5}", app.state.gamlam);
     let spp_text = format!("{}", app.state.nspp);
     let time_text = format_time(elapsed_time);
-    let stop_text = app.state.stop_text.to_string();
+    let conv_text = "Placeholder".to_string();
 
     // Define the table data
     let data = vec![
@@ -32,7 +47,7 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         ("Gamma/Lambda", gamma_text),
         ("Support points", spp_text),
         ("Elapsed time", time_text),
-        ("Convergence", stop_text),
+        ("Convergence", conv_text),
         // Add more rows as needed
     ];
 
@@ -200,4 +215,111 @@ pub fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
                 .title(" Objective function ")
                 .borders(Borders::ALL),
         )
+}
+
+pub fn draw_logs<'a>(log_history: &'a Vec<String>, height: u16) -> Paragraph<'a> {
+    // Convert each String in log_history to a Line
+    let text: Vec<Line> = log_history.iter().map(|s| Line::from(s.as_str())).collect();
+
+    let to_text = text.len();
+    // Prevent underflow with saturating_sub
+    let from_text = to_text.saturating_sub(height as usize);
+
+    // Create a slice of the text to be displayed
+    let show_text = if from_text < to_text {
+        text[from_text..to_text].to_vec()
+    } else {
+        Vec::new()
+    };
+
+    Paragraph::new(show_text)
+        .block(Block::default().title(" Logs ").borders(Borders::ALL))
+        .style(Style::default().fg(Color::White))
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: true })
+}
+
+pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
+    let titles = app.tab_titles.clone();
+    let index = app.tab_index.clone();
+    let tabs = Tabs::new(titles.clone())
+        .block(Block::default().borders(Borders::ALL))
+        .style(Style::default().fg(Color::Cyan))
+        .highlight_style(Style::default().fg(Color::Yellow))
+        .divider(Span::raw("|"))
+        .select(index);
+
+    tabs
+}
+
+fn get_computed_settings(settings: &Data) -> Vec<Row> {
+    let computed = settings.computed.clone();
+    let mut rows = Vec::new();
+    let key_style = Style::default().fg(Color::LightCyan);
+    let help_style = Style::default().fg(Color::Gray);
+
+    // Iterate over the random ranges
+    for (name, &(start, end)) in computed.random.names.iter().zip(&computed.random.ranges) {
+        let row = Row::new(vec![
+            Cell::from(Span::styled(name.to_string(), key_style)),
+            Cell::from(Span::styled(
+                format!("{:.2} - {:.2}", start, end),
+                help_style,
+            )),
+        ]);
+        rows.push(row);
+    }
+
+    // Iterate over the constant values
+    for (name, &value) in computed
+        .constant
+        .names
+        .iter()
+        .zip(&computed.constant.values)
+    {
+        let row = Row::new(vec![
+            Cell::from(Span::styled(name.to_string(), key_style)),
+            Cell::from(Span::styled(format!("{:.2} (Constant)", value), help_style)),
+        ]);
+        rows.push(row);
+    }
+
+    // Iterate over the fixed values
+    for (name, &value) in computed.fixed.names.iter().zip(&computed.fixed.values) {
+        let row = Row::new(vec![
+            Cell::from(Span::styled(name.to_string(), key_style)),
+            Cell::from(Span::styled(format!("{:.2} (Fixed)", value), help_style)),
+        ]);
+        rows.push(row);
+    }
+
+    rows
+}
+
+pub fn draw_parameter_bounds(settings: &Data) -> Table {
+    let rows = get_computed_settings(&settings);
+    Table::new(rows)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Plain)
+                .title(" Parameters "),
+        )
+        .widths(&[Constraint::Percentage(20), Constraint::Percentage(80)]) // Set percentage widths for columns
+        .column_spacing(1)
+}
+
+fn format_time(elapsed_time: std::time::Duration) -> String {
+    let elapsed_seconds = elapsed_time.as_secs();
+    let (elapsed, unit) = if elapsed_seconds < 60 {
+        (elapsed_seconds, "s")
+    } else if elapsed_seconds < 3600 {
+        let elapsed_minutes = elapsed_seconds / 60;
+        (elapsed_minutes, "m")
+    } else {
+        let elapsed_hours = elapsed_seconds / 3600;
+        (elapsed_hours, "h")
+    };
+    let time_text = format!("{}{}", elapsed, unit);
+    time_text
 }

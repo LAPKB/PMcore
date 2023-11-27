@@ -4,6 +4,7 @@ use crate::{
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
         ipm,
+        optimization::expansion::adaptative_grid,
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
@@ -11,7 +12,8 @@ use crate::{
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
-    routines::expansion::adaptative_grid::adaptative_grid,
+    tui::ui::Comm,
+
 };
 
 use ndarray::{Array, Array1, Array2, Axis};
@@ -25,7 +27,7 @@ const THETA_D: f64 = 1e-4;
 
 pub struct NPAG<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     engine: Engine<S>,
     ranges: Vec<(f64, f64)>,
@@ -47,13 +49,13 @@ where
     cache: bool,
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
-    tx: UnboundedSender<NPCycle>,
+    tx: UnboundedSender<Comm>,
     settings: Data,
 }
 
 impl<S> Algorithm for NPAG<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     fn fit(&mut self) -> NPResult {
         self.run()
@@ -74,7 +76,7 @@ where
 
 impl<S> NPAG<S>
 where
-    S: Predict + std::marker::Sync + Clone,
+    S: Predict<'static> + std::marker::Sync + Clone,
 {
     /// Creates a new NPAG instance.
     ///
@@ -97,11 +99,11 @@ where
         theta: Array2<f64>,
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender<NPCycle>,
+        tx: UnboundedSender<Comm>,
         settings: Data,
     ) -> Self
     where
-        S: Predict + std::marker::Sync,
+        S: Predict<'static> + std::marker::Sync,
     {
         Self {
             engine: sim_eng,
@@ -197,7 +199,10 @@ where
 
     pub fn run(&mut self) -> NPResult {
         while self.eps > THETA_E {
-            // log::info!("Cycle: {}", cycle);
+            // Enter a span for each cycle, provding context for further errors
+            let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle",  cycle = self.cycle);
+            let _enter = cycle_span.enter();
+
             // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
             let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
@@ -242,12 +247,15 @@ where
                     keep.push(*perm.get(i).unwrap());
                 }
             }
-            log::info!(
-                "QR decomp, cycle {}, kept: {}, thrown {}",
-                self.cycle,
-                keep.len(),
-                self.psi.ncols() - keep.len()
-            );
+
+            // If a support point is dropped, log it
+            if self.psi.ncols() != keep.len() {
+                tracing::info!(
+                    "QRD dropped {} support point(s)",
+                    self.psi.ncols() - keep.len(),
+                );
+            }
+
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
@@ -261,21 +269,23 @@ where
 
             self.optim_gamma();
 
-            let mut state = NPCycle {
+            let state = NPCycle {
                 cycle: self.cycle,
                 objf: -2. * self.objf,
                 delta_objf: (self.last_objf - self.objf).abs(),
                 nspp: self.theta.shape()[0],
-                stop_text: "".to_string(),
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
             };
-            self.tx.send(state.clone()).unwrap();
+            self.tx.send(Comm::NPCycle(state.clone())).unwrap();
 
-            // If the objective function decreased, log an error.
-            // Increasing objf signals instability of model misspecification.
+            // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
-                log::error!("Objective function decreased");
+                tracing::error!(
+                    "Objective function decreased from {} to {}",
+                    self.last_objf,
+                    self.objf
+                );
             }
 
             self.w = self.lambda.clone();
@@ -287,10 +297,8 @@ where
                 if self.eps <= THETA_E {
                     self.f1 = pyl.mapv(|x| x.ln()).sum();
                     if (self.f1 - self.f0).abs() <= THETA_F {
-                        log::info!("Likelihood criteria convergence");
+                        tracing::info!("The run converged");
                         self.converged = true;
-                        state.stop_text = "The run converged!".to_string();
-                        self.tx.send(state).unwrap();
                         break;
                     } else {
                         self.f0 = self.f1;
@@ -301,17 +309,13 @@ where
 
             // Stop if we have reached maximum number of cycles
             if self.cycle >= self.settings.parsed.config.cycles {
-                log::info!("Maximum number of cycles reached");
-                state.stop_text = "No (max cycle)".to_string();
-                self.tx.send(state).unwrap();
+                tracing::warn!("Maximum number of cycles reached");
                 break;
             }
 
             // Stop if stopfile exists
             if std::path::Path::new("stop").exists() {
-                log::info!("Stopfile detected - breaking");
-                state.stop_text = "No (stopped)".to_string();
-                self.tx.send(state).unwrap();
+                tracing::warn!("Stopfile detected - breaking");
                 break;
             }
             self.cycle_log
@@ -322,6 +326,7 @@ where
             self.last_objf = self.objf;
         }
 
+        self.tx.send(Comm::Stop(true)).unwrap();
         self.to_npresult()
     }
 }
