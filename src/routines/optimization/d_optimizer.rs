@@ -1,6 +1,5 @@
 use argmin::{
     core::{
-        observers::{ObserverMode, SlogLogger},
         CostFunction, Error, Executor,
     },
     solver::neldermead::NelderMead,
@@ -17,7 +16,7 @@ use crate::prelude::{prob, sigma::Sigma};
 pub struct SppOptimizer<'a, S, P>
 where
     S: Sigma + Sync,
-    P: Predict + Sync + Clone,
+    P: Predict<'static> + Sync + Clone,
 {
     engine: &'a Engine<P>,
     scenarios: &'a Vec<Scenario>,
@@ -28,7 +27,7 @@ where
 impl<'a, S, P> CostFunction for SppOptimizer<'a, S, P>
 where
     S: Sigma + Sync,
-    P: Predict + Sync + Clone,
+    P: Predict<'static> + Sync + Clone,
 {
     type Param = Array1<f64>;
     type Output = f64;
@@ -37,10 +36,10 @@ where
         let ypred = sim_obs(&self.engine, &self.scenarios, &theta, true);
         let psi = prob::calculate_psi(&ypred, self.scenarios, self.sig);
         if psi.ncols() > 1 {
-            log::error!("Psi in SppOptimizer has more than one column");
+            tracing::error!("Psi in SppOptimizer has more than one column");
         }
         if psi.nrows() != self.pyl.len() {
-            log::error!(
+            tracing::error!(
                 "Psi in SppOptimizer has {} rows, but spp has {}",
                 psi.nrows(),
                 self.pyl.len()
@@ -58,7 +57,7 @@ where
 impl<'a, S, P> SppOptimizer<'a, S, P>
 where
     S: Sigma + Sync,
-    P: Predict + Sync + Clone,
+    P: Predict<'static> + Sync + Clone,
 {
     pub fn new(
         engine: &'a Engine<P>,

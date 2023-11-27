@@ -18,8 +18,8 @@ const CACHE_SIZE: usize = 1000000;
 pub struct Model {
     params: HashMap<String, f64>,
     _scenario: Scenario,
-    infusions: Vec<Infusion>,
-    cov: Option<HashMap<String, CovLine>>,
+    _infusions: Vec<Infusion>,
+    _cov: Option<HashMap<String, CovLine>>,
 }
 impl Model {
     pub fn get_param(&self, str: &str) -> f64 {

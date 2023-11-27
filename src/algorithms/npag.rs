@@ -4,7 +4,6 @@ use crate::{
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
         ipm,
-        optimization::expansion::adaptative_grid,
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
@@ -12,7 +11,7 @@ use crate::{
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
-    tui::ui::Comm,
+    tui::ui::Comm, routines::expansion::adaptative_grid::adaptative_grid,
 
 };
 
