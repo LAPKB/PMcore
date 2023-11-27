@@ -54,15 +54,15 @@ impl<'a> Predict<'a> for Ode {
     type State = State;
     fn initial_system(&self, params: &Vec<f64>, scenario: Scenario) -> (Self::Model, Scenario) {
         let params = HashMap::from([("ke".to_string(), params[0]), ("v".to_string(), params[1])]);
-        (Model {
-            params,
-            _scenario: scenario.clone(),//TODO remove
-            infusions: vec![],
-            cov: None,
-        },
-        scenario.reorder_with_lag(vec![(0.0, 1)])
-    )
-
+        (
+            Model {
+                params,
+                _scenario: scenario.clone(), //TODO remove
+                infusions: vec![],
+                cov: None,
+            },
+            scenario.reorder_with_lag(vec![(0.0, 1)]),
+        )
     }
     fn get_output(&self, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
         let v = system.get_param("v");
