@@ -454,7 +454,7 @@
             cycle: <span class="number">1</span>,
             gamma_delta: <span class="number">0.1</span>,
             gamma: settings.parsed.error.value,
-            error_type: <span class="kw">match </span>settings.parsed.error.class.as_str() {
+            error_type: <span class="kw">match </span>settings.parsed.error.class.to_lowercase().as_str() {
                 <span class="string">&quot;additive&quot; </span>=&gt; ErrorType::Add,
                 <span class="string">&quot;proportional&quot; </span>=&gt; ErrorType::Prop,
                 <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Error type not supported&quot;</span>),
@@ -584,7 +584,7 @@
 
             <span class="comment">// If a support point is dropped, log it
             </span><span class="kw">if </span><span class="self">self</span>.psi.ncols() != keep.len() {
-                <span class="macro">tracing::info!</span>(
+                <span class="macro">tracing::debug!</span>(
                     <span class="string">&quot;QRD dropped {} support point(s)&quot;</span>,
                     <span class="self">self</span>.psi.ncols() - keep.len(),
                 );
@@ -615,7 +615,7 @@
 
             <span class="comment">// Increasing objf signals instability or model misspecification.
             </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
-                <span class="macro">tracing::debug!</span>(
+                <span class="macro">tracing::info!</span>(
                     <span class="string">&quot;Objective function decreased from {} to {}&quot;</span>,
                     <span class="self">self</span>.last_objf,
                     <span class="self">self</span>.objf
