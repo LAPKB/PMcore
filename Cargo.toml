@@ -12,7 +12,7 @@ description = "Rust library with the building blocks needed to create new Non-Pa
 license = "GPL-3.0"
 documentation = "https://lapkb.github.io/NPcore/npcore/"
 repository = "https://github.com/LAPKB/NPcore"
-exclude = [".github/*", ".vscode/*", "debug.rs", "examples/faer_qr.rs", "examples/drusano/*", "examples/two_eq_lag/*", "examples/vori/*"]
+exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
 dashmap = "5.5.3"
@@ -34,15 +34,15 @@ tokio = { version = "1.32.0", features = ["sync", "rt"] }
 ndarray-csv = "0.5.2"
 rawpointer = "0.2.1"
 argmin = { version = "0.8.1", features = [] }
-itertools = "0.11.0"
-faer-core = { version = "0.14.0", features = [] }
+itertools = "0.12.0"
+faer-core = { version = "0.15.0", features = [] }
 # faer-lu = "0.9"
-faer-qr = "0.14.0"
+faer-qr = "0.15.0"
 # faer-cholesky = "0.9"
 # faer-svd = "0.9"
 argmin-math = { version = "0.3.0", features = ["ndarray_v0_15-nolinalg-serde"] }
 dyn-stack = "0.10.0"
-faer = { version = "0.14.0", features = ["nalgebra", "ndarray"] }
+faer = { version = "0.15.0", features = ["nalgebra", "ndarray"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
 chrono = "0.4"
