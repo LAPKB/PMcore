@@ -119,7 +119,7 @@ where
             cycle: 1,
             gamma_delta: 0.1,
             gamma: settings.parsed.error.value,
-            error_type: match settings.parsed.error.class.as_str() {
+            error_type: match settings.parsed.error.class.to_lowercase().as_str() {
                 "additive" => ErrorType::Add,
                 "proportional" => ErrorType::Prop,
                 _ => panic!("Error type not supported"),
@@ -249,7 +249,7 @@ where
 
             // If a support point is dropped, log it
             if self.psi.ncols() != keep.len() {
-                tracing::info!(
+                tracing::debug!(
                     "QRD dropped {} support point(s)",
                     self.psi.ncols() - keep.len(),
                 );
@@ -280,7 +280,7 @@ where
 
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
-                tracing::debug!(
+                tracing::info!(
                     "Objective function decreased from {} to {}",
                     self.last_objf,
                     self.objf
