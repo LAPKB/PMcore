@@ -143,6 +143,23 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{
     output::NPResult,
@@ -162,14 +179,27 @@
 <span class="kw">use </span>std::time::Instant;
 <span class="kw">use </span>tokio::sync::mpsc::{<span class="self">self</span>};
 
-<span class="kw">pub fn </span>simulate&lt;S&gt;(engine: Engine&lt;S&gt;, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
+<span class="doccomment">/// Simulate predictions from a model and prior distribution
+/// 
+/// This function is used to simulate predictions from a model and prior distribution.
+/// The output is a CSV file with the following columns:
+/// - `id`: subject ID, corresponding to the desired dose regimen
+/// - `point`: support point index (0-indexed)
+/// - `time`: prediction time
+/// - `pred`: simulated prediction
+/// 
+/// # Arguments
+/// The user can specify the desired settings in a TOML configuration file, see `routines::settings::simulator` for details.
+/// - `idelta`: the interval between predictions. Default is 0.0.
+/// - `tad`: the time after dose, which if greater than the last prediction time is the time for which it will predict . Default is 0.0.
+</span><span class="kw">pub fn </span>simulate&lt;S&gt;(engine: Engine&lt;S&gt;, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 <span class="kw">where
     </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
 {
     <span class="kw">let </span>settings = settings::simulator::read(settings_path);
     <span class="kw">let </span>theta_file = File::open(settings.paths.theta).unwrap();
     <span class="kw">let </span><span class="kw-2">mut </span>reader = ReaderBuilder::new()
-        .has_headers(<span class="bool-val">false</span>)
+        .has_headers(<span class="bool-val">true</span>)
         .from_reader(theta_file);
     <span class="kw">let </span>theta: Array2&lt;f64&gt; = reader.deserialize_array2_dynamic().unwrap();
 
@@ -177,20 +207,24 @@
     </span><span class="kw">let </span>idelta = settings.config.idelta.unwrap_or(<span class="number">0.0</span>);
     <span class="kw">let </span>tad = settings.config.tad.unwrap_or(<span class="number">0.0</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.paths.data).unwrap();
-    <span class="kw">for </span>scenario <span class="kw">in </span><span class="kw-2">&amp;mut </span>scenarios {
-        scenario.add_event_interval(idelta, tad);
-    }
+    scenarios.iter_mut().for_each(|scenario| {
+        <span class="kw-2">*</span>scenario = scenario.add_event_interval(idelta, tad);
+    });
 
-    <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>scenarios, <span class="kw-2">&amp;</span>theta, <span class="bool-val">false</span>);
+    <span class="comment">// Perform simulation
+    </span><span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>scenarios, <span class="kw-2">&amp;</span>theta, <span class="bool-val">false</span>);
 
-    <span class="kw">let </span>sim_file = File::create(<span class="string">&quot;simulation_output.csv&quot;</span>).unwrap();
+    <span class="comment">// Prepare writer
+    </span><span class="kw">let </span>sim_file = File::create(<span class="string">&quot;simulation_output.csv&quot;</span>).unwrap();
     <span class="kw">let </span><span class="kw-2">mut </span>sim_writer = WriterBuilder::new()
         .has_headers(<span class="bool-val">false</span>)
         .from_writer(sim_file);
     sim_writer
-        .write_record([<span class="string">&quot;id&quot;</span>, <span class="string">&quot;point&quot;</span>, <span class="string">&quot;time&quot;</span>, <span class="string">&quot;sim_obs&quot;</span>])
+        .write_record([<span class="string">&quot;id&quot;</span>, <span class="string">&quot;point&quot;</span>, <span class="string">&quot;time&quot;</span>, <span class="string">&quot;pred&quot;</span>])
         .unwrap();
-    <span class="kw">for </span>(id, scenario) <span class="kw">in </span>scenarios.iter().enumerate() {
+
+    <span class="comment">// Write output
+    </span><span class="kw">for </span>(id, scenario) <span class="kw">in </span>scenarios.iter().enumerate() {
         <span class="kw">let </span>time = scenario.obs_times.clone();
         <span class="kw">for </span>(point, _spp) <span class="kw">in </span>theta.rows().into_iter().enumerate() {
             <span class="kw">for </span>(i, time) <span class="kw">in </span>time.iter().enumerate() {
