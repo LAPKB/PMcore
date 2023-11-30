@@ -39,7 +39,7 @@ pub mod prelude {
     pub use crate::algorithms;
     pub use crate::entrypoints::simulate;
     pub use crate::entrypoints::start;
-    pub use crate::entrypoints::start_with_data;
+    pub use crate::entrypoints::start_internal;
     pub use crate::logger;
     pub use crate::prelude::evaluation::{prob, sigma, *};
     pub use crate::routines::condensation;
