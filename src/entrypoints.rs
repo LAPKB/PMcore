@@ -27,7 +27,14 @@ where
         .has_headers(false)
         .from_reader(theta_file);
     let theta: Array2<f64> = reader.deserialize_array2_dynamic().unwrap();
-    let scenarios = datafile::parse(&settings.paths.data).unwrap();
+
+    // Expand data
+    let idelta = settings.config.idelta.unwrap_or(0.0);
+    let tad = settings.config.tad.unwrap_or(0.0);
+    let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
+    for scenario in &mut scenarios {
+        scenario.add_event_interval(idelta, tad);
+    }
 
     let ypred = sim_obs(&engine, &scenarios, &theta, false);
 
