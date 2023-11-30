@@ -78,6 +78,10 @@ where
     Ok(())
 }
 
+/// Primary entrypoint for NPcore
+/// 
+/// This function is the primary entrypoint for NPcore, and is used to run the algorithm.
+/// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
 where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
@@ -127,7 +131,12 @@ where
     Ok(result)
 }
 
-pub fn start_with_data<S>(
+/// Alternative entrypoint, primarily meant for third-party libraries or APIs
+/// 
+/// This function is an alternative entrypoint to NPcore, mostly meant for use through third-party libraries.
+/// It is similar to `start`, but does not read the input datafile, and instead takes a vector of `Scenario` structs as input.
+/// The function returns an `NPResult` struct
+pub fn start_internal<S>(
     engine: Engine<S>,
     settings_path: String,
     scenarios: Vec<Scenario>,
