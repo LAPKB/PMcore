@@ -6,12 +6,19 @@ use toml;
 #[derive(Deserialize, Clone, Debug)]
 pub struct Data {
     pub paths: Paths,
+    pub config: Config,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Paths {
     pub data: String,
     pub theta: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Config {
+    pub idelta: Option<f64>,
+    pub tad: Option<f64>,
 }
 
 pub fn read(filename: String) -> Data {
@@ -35,6 +42,10 @@ pub fn read(filename: String) -> Data {
         paths: Paths {
             data: parse.paths.data,
             theta: parse.paths.theta,
+        },
+        config: Config {
+            idelta: parse.config.idelta,
+            tad: parse.config.tad,
         },
     }
 }
