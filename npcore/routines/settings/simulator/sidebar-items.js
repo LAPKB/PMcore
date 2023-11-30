@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["read"],"struct":["Data","Paths"]};
+window.SIDEBAR_ITEMS = {"fn":["read"],"struct":["Config","Data","Paths"]};
