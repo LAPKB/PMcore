@@ -60,6 +60,7 @@ where
     }
     Ok(())
 }
+
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
 where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
@@ -69,13 +70,22 @@ where
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     logger::setup_log(&settings, tx.clone());
     tracing::info!("Starting NPcore");
+
+    // Read input data and remove excluded scenarios (if any)
     let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
     if let Some(exclude) = &settings.parsed.config.exclude {
         for val in exclude {
             scenarios.remove(val.as_integer().unwrap() as usize);
         }
     }
-    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
+
+    // Provide information of the input data
+    tracing::info!(
+        "Datafile contains {} subjects with a total of {} observations",
+        scenarios.len(),
+        scenarios.iter().map(|s| s.obs_times.len()).sum::<usize>()
+    );
+
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
     if settings.parsed.config.tui {
@@ -84,12 +94,15 @@ where
         });
     }
 
+    // Initialize algorithm and run
+    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     let result = algorithm.fit();
     tracing::info!("Total time: {:.2?}", now.elapsed());
 
-    let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
-    let tad = settings.parsed.config.tad.unwrap_or(0.0);
+    // Write output files (if configured)
     if let Some(write) = &settings.parsed.config.pmetrics_outputs {
+        let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
+        let tad = settings.parsed.config.tad.unwrap_or(0.0);
         result.write_outputs(*write, &engine, idelta, tad);
     }
     tracing::info!("Program complete");
