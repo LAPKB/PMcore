@@ -2,10 +2,9 @@ use std::collections::HashMap;
 
 use eyre::Result;
 use npcore::prelude::{
-    datafile,
     datafile::{CovLine, Infusion, Scenario},
     predict::{Engine, Predict},
-    settings, start, start_with_data,
+    start,
 };
 use ode_solvers::*;
 
@@ -64,7 +63,7 @@ impl<'a> Predict<'a> for Ode {
             scenario.reorder_with_lag(vec![(0.0, 1)]),
         )
     }
-    fn get_output(&self, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
+    fn get_output(&self, _time: f64, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
         let v = system.get_param("v");
         match outeq {
             1 => x[0] / v,
@@ -108,26 +107,6 @@ fn main() -> Result<()> {
     let _result = start(
         Engine::new(Ode {}),
         "examples/bimodal_ke/config.toml".to_string(),
-    )?;
-
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn new_entry_test() -> Result<()> {
-    let settings_path = "examples/bimodal_ke/config.toml".to_string();
-    let settings = settings::run::read(settings_path);
-    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
-    if let Some(exclude) = &settings.parsed.config.exclude {
-        for val in exclude {
-            scenarios.remove(val.as_integer().unwrap() as usize);
-        }
-    }
-
-    let _result = start_with_data(
-        Engine::new(Ode {}),
-        "examples/bimodal_ke/config.toml".to_string(),
-        scenarios,
     )?;
 
     Ok(())

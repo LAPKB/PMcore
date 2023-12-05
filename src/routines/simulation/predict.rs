@@ -39,7 +39,7 @@ pub trait Predict<'a> {
     fn add_covs(&self, system: Self::Model, cov: Option<HashMap<String, CovLine>>) -> Self::Model;
     fn add_infusion(&self, system: Self::Model, infusion: Infusion) -> Self::Model;
     fn add_dose(&self, state: Self::State, dose: f64, compartment: usize) -> Self::State;
-    fn get_output(&self, state: &Self::State, system: &Self::Model, outeq: usize) -> f64;
+    fn get_output(&self, time: f64, state: &Self::State, system: &Self::Model, outeq: usize) -> f64;
     fn state_step(
         &self,
         state: Self::State,
@@ -92,7 +92,7 @@ where
                     }
                 } else if event.evid == 0 {
                     //obs
-                    yout.push(self.ode.get_output(&x, &system, event.outeq.unwrap()))
+                    yout.push(self.ode.get_output(event.time,&x, &system, event.outeq.unwrap()))
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
                     // TODO: use the last dx as the initial one for the next simulation.
