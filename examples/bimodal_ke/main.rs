@@ -73,33 +73,23 @@ impl<'a> Predict<'a> for Ode {
     fn initial_state(&self) -> State {
         State::default()
     }
-    fn add_infusion(&self, mut system: Self::Model, infusion: Infusion) -> Model {
+    fn add_infusion(&self, system: &mut Self::Model, infusion: Infusion) {
         system.infusions.push(infusion);
-        system
     }
-    fn add_covs(&self, mut system: Self::Model, cov: Option<HashMap<String, CovLine>>) -> Model {
+    fn add_covs(&self, system: &mut Self::Model, cov: Option<HashMap<String, CovLine>>) {
         system.cov = cov;
-        system
     }
-    fn add_dose(&self, mut state: Self::State, dose: f64, compartment: usize) -> Self::State {
+    fn add_dose(&self, state: &mut Self::State, dose: f64, compartment: usize) {
         state[compartment] += dose;
-        state
     }
-    fn state_step(
-        &self,
-        mut x: Self::State,
-        system: Self::Model,
-        time: f64,
-        next_time: f64,
-    ) -> State {
-        if time == next_time {
-            return x;
+    fn state_step(&self, x: &mut Self::State, system: &Self::Model, time: f64, next_time: f64) {
+        if time >= next_time {
+            panic!("time error")
         }
-        let mut stepper = Dopri5::new(system, time, next_time, 1e-3, x, RTOL, ATOL);
+        let mut stepper = Dopri5::new(system.clone(), time, next_time, 1e-3, *x, RTOL, ATOL);
         let _res = stepper.integrate();
         let y = stepper.y_out();
-        x = *y.last().unwrap();
-        x
+        *x = *y.last().unwrap();
     }
 }
 
