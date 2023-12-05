@@ -154,6 +154,6 @@ impl Predict<'_> for Ode {
 }
 
 fn main() -> Result<()> {
-    start(Engine::new(Ode {}), "config.toml".to_string())?;
+    start(Engine::new(Ode {}), "examples/vori/config.toml".to_string())?;
     Ok(())
 }
