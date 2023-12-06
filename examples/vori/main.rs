@@ -4,11 +4,14 @@
 use std::collections::HashMap;
 
 use eyre::Result;
-use npcore::prelude::{
-    datafile,
-    datafile::{CovLine, Infusion, Scenario},
-    predict::{Engine, Predict},
-    settings, start,
+use npcore::{
+    prelude::{
+        datafile,
+        datafile::{CovLine, Infusion, Scenario},
+        predict::{Engine, Predict},
+        settings, start,
+    },
+    routines::datafile::parse,
 };
 use ode_solvers::*;
 
@@ -74,15 +77,17 @@ impl Predict<'_> for Ode {
     type State = State;
     fn initial_system(&self, parameters: &Vec<f64>, scenario: Scenario) -> (Self::Model, Scenario) {
         let mut params = HashMap::new();
-        params.insert("ka".to_string(), parameters[0].clone());
-        params.insert("vmax0".to_string(), parameters[1].clone());
-        params.insert("km".to_string(), parameters[2].clone());
-        params.insert("vc0".to_string(), parameters[3].clone());
-        params.insert("fa1".to_string(), parameters[4].clone());
-        params.insert("kcp".to_string(), parameters[5].clone());
+        // dbg!(&parameters);
+        params.insert("age50".to_string(), parameters[0].clone());
+        params.insert("fa1".to_string(), parameters[1].clone());
+        params.insert("hill".to_string(), parameters[2].clone());
+        params.insert("ka".to_string(), parameters[3].clone());
+        params.insert("kcp".to_string(), parameters[4].clone());
+        params.insert("km".to_string(), parameters[5].clone());
         params.insert("kpc".to_string(), parameters[6].clone());
-        params.insert("hill".to_string(), parameters[7].clone());
-        params.insert("age50".to_string(), parameters[8].clone());
+        params.insert("vc0".to_string(), parameters[7].clone());
+        params.insert("vmax0".to_string(), parameters[8].clone());
+
         let system = Model {
             params,
             _scenario: scenario.clone(), //TODO remove
@@ -123,37 +128,37 @@ impl Predict<'_> for Ode {
     fn initial_state(&self) -> State {
         State::default()
     }
-    fn add_infusion(&self, mut system: Self::Model, infusion: Infusion) -> Model {
+    fn add_infusion(&self, system: &mut Self::Model, infusion: Infusion) {
         system.infusions.push(infusion);
-        system
     }
-    fn add_covs(&self, mut system: Self::Model, cov: Option<HashMap<String, CovLine>>) -> Model {
+    fn add_covs(&self, system: &mut Self::Model, cov: Option<HashMap<String, CovLine>>) {
         system.cov = cov;
-        system
     }
-    fn add_dose(&self, mut state: Self::State, dose: f64, compartment: usize) -> Self::State {
+    fn add_dose(&self, state: &mut Self::State, dose: f64, compartment: usize) {
         state[compartment] += dose;
-        state
     }
-    fn state_step(
-        &self,
-        mut x: Self::State,
-        system: Self::Model,
-        time: f64,
-        next_time: f64,
-    ) -> State {
+    fn state_step(&self, x: &mut Self::State, system: &Self::Model, time: f64, next_time: f64) {
         if time == next_time {
-            return x;
+            return;
+        } else if time >= next_time {
+            panic!("time error")
         }
-        let mut stepper = Dopri5::new(system, time, next_time, 1e-3, x, RTOL, ATOL);
+        let mut stepper = Dopri5::new(system.clone(), time, next_time, 1e-3, *x, RTOL, ATOL);
         let _res = stepper.integrate();
         let y = stepper.y_out();
-        x = *y.last().unwrap();
-        x
+        *x = *y.last().unwrap();
     }
 }
 
 fn main() -> Result<()> {
     start(Engine::new(Ode {}), "examples/vori/config.toml".to_string())?;
+    // let engine = Engine::new(Ode {});
+    // let scenarios = parse(&"examples/data/vori.csv".to_string()).ok().unwrap();
+    // let scenario = scenarios.get(1).unwrap();
+    // dbg!(&scenario.id);
+    // let params = vec![12.0, 0.5, 2.5, 7.5, 7.5, 30.0, 7.5, 2.5, 30.0];
+    // let y = engine.pred(scenario.clone(), params);
+    // println!("{:?}", y);
+    // println!("{:?}", scenario.obs);
     Ok(())
 }
