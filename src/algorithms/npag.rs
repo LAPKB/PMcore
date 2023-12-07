@@ -19,8 +19,8 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-const THETA_E: f64 = 1e-4; //convergence Criteria
-const THETA_G: f64 = 1e-4; //objf stop criteria
+const THETA_E: f64 = 1e-4; // Convergence criteria
+const THETA_G: f64 = 1e-4; // Objective function stop criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
@@ -266,8 +266,16 @@ where
                 }
             };
 
+            // Optimize gamma/lambda
             self.optim_gamma();
 
+            // Log relevant information
+            tracing::info!(
+                "Objective function: {:.4}",
+                self.objf
+            );
+
+            // Send cycle state to UI
             let state = NPCycle {
                 cycle: self.cycle,
                 objf: -2. * self.objf,
@@ -277,6 +285,10 @@ where
                 gamlam: self.gamma,
             };
             self.tx.send(Comm::NPCycle(state.clone())).unwrap();
+
+            // Write cycle state to file
+            self.cycle_log
+                .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
 
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
@@ -317,15 +329,17 @@ where
                 tracing::warn!("Stopfile detected - breaking");
                 break;
             }
-            self.cycle_log
-                .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
 
+            // On a new cycle, perform expansion of the grid
             self.adaptative_grid();
             self.cycle += 1;
             self.last_objf = self.objf;
         }
 
+        // Send stop signal to UI
         self.tx.send(Comm::Stop(true)).unwrap();
+
+        // Return NPResult
         self.to_npresult()
     }
 }
