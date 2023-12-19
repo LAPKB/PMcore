@@ -38,9 +38,12 @@ pub fn burke(
 ) -> Result<(OneDimArray, f64), Box<dyn error::Error>> {
     let psi = psi.mapv(|x| x.abs());
     let (row, col) = psi.dim();
-    // if row>col {
-    //     return Err("The matrix PSI has row>col".into());
-    // }
+    
+    let ipm_span = tracing::span!(tracing::Level::DEBUG, "IPM");
+    let _enter = ipm_span.enter();
+
+    tracing::debug!("dim(PSI) = {} x {}", &row, &col);
+
     if psi.min().unwrap() < &0.0 {
         return Err("PSI contains negative elements".into());
     }
@@ -67,8 +70,10 @@ pub fn burke(
     let mut gap = (w.mapv(|x: f64| x.ln()).sum() + sum_log_plam).abs() / (1. + sum_log_plam);
     let mut mu = lam.t().dot(&y) / col as f64;
 
+    let mut count = 0;
     while mu > eps || norm_r > eps || gap > eps {
-        // log::info!("IPM cyle");
+        count += 1;
+        tracing::debug!("IPM cycle {}", count);
         let smu = sig * mu;
         let inner = &lam / &y; //divide(&lam, &y);
         let w_plam = &plam / &w; //divide(&plam, &w);
@@ -119,6 +124,7 @@ pub fn burke(
     lam /= row as f64;
     let obj = psi.dot(&lam).mapv(|x| x.ln()).sum();
     lam = &lam / lam.sum();
+    tracing::debug!("IPM complete");
     Ok((lam, obj))
 }
 
