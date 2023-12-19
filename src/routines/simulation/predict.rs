@@ -200,6 +200,8 @@ where
         .into_par_iter()
         .enumerate()
         .for_each(|(i, mut row)| {
+            let subject_id = &scenarios.get(i).unwrap().id;
+            tracing::debug!("Simulating subject {}", subject_id);
             row.axis_iter_mut(Axis(0))
                 .into_par_iter()
                 .enumerate()
