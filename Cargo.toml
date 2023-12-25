@@ -28,7 +28,7 @@ ndarray-stats = "0.5.1"
 linfa-linalg = "0.1.0"
 rayon = "1.8.0"
 eyre = "0.6.8"
-ratatui = { version = "0.24.0", features = ["crossterm"] }
+ratatui = { version = "0.25.0", features = ["crossterm"] }
 crossterm = "0.27.0"
 tokio = { version = "1.32.0", features = ["sync", "rt"] }
 ndarray-csv = "0.5.2"
