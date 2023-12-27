@@ -270,9 +270,9 @@
 <span class="kw">use </span>std::error;
 <span class="kw">use </span>std::hash::{Hash, Hasher};
 
-<span class="kw">const </span>CACHE_SIZE: usize = <span class="number">1000000</span>;
+<span class="kw">const </span>CACHE_SIZE: usize = <span class="number">1000</span>; <span class="comment">// Number of support points to cache for each scenario
 
-<span class="attr">#[derive(Debug, Clone)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Model {
     params: HashMap&lt;String, f64&gt;,
     _scenario: Scenario,
