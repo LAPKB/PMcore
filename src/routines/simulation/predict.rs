@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::error;
 use std::hash::{Hash, Hasher};
 
-const CACHE_SIZE: usize = 1000000;
+const CACHE_SIZE: usize = 1000; // Number of support points to cache for each scenario
 
 #[derive(Debug, Clone)]
 pub struct Model {
