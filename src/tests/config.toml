@@ -1,5 +1,6 @@
 [paths]
 data = "data.csv"
+log_out = "test.log"
 
 [config]
 cycles = 1024
