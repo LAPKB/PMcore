@@ -63,8 +63,10 @@ impl<'a> Predict<'a> for Ode {
             scenario.reorder_with_lag(vec![(0.0, 1)]),
         )
     }
-    fn get_output(&self, _time: f64, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
+    fn get_output(&self, time: f64, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
         let v = system.get_param("v");
+        #[allow(unused_variables)]
+        let t = time;
         match outeq {
             1 => x[0] / v,
             _ => panic!("Invalid output equation"),
