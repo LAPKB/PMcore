@@ -47,6 +47,12 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
 chrono = "0.4"
 
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "benchmarks" 
+harness = false
 
 [profile.release]
 codegen-units = 1

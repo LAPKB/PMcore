@@ -3,11 +3,11 @@ use ndarray::{Array, Array2};
 use crate::routines::condensation::prune::prune;
 
 /// Adaptive grid algorithm for support point expansion
-/// 
+///
 /// For each support point, generate up to 2 new support points in each dimension
-/// 
+///
 /// New support points are symmetrically placed around the original support point, at a distance of eps * (range_max - range_min)
-/// 
+///
 /// If the new support point is too close to an existing support point, or it is outside the given range, it is discarded
 pub fn adaptative_grid(
     theta: &mut Array2<f64>,
