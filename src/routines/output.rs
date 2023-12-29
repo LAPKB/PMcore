@@ -290,6 +290,15 @@ impl CycleLog {
     }
 }
 
+/// Defines the result objects from a run
+/// An [NPResult] contains the necessary information to generate predictions and summary statistics
+/// It holds the following information:
+/// - `cycle`: The cycle number
+/// - `objf`: The objective function value
+/// - `gamlam`: The assay noise parameter, either gamma or lambda
+/// - `theta`: The support points and their associated probabilities
+/// - `nspp`: The number of support points
+/// - `delta_objf`: The change in objective function value from last cycle
 #[derive(Debug, Clone)]
 pub struct NPCycle {
     pub cycle: usize,
