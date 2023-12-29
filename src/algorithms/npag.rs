@@ -290,6 +290,9 @@ where
             self.w = self.lambda.clone();
             let pyl = self.psi.dot(&self.w);
 
+            self.cycle_log
+                .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
+
             // Stop if we have reached convergence criteria
             if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
                 self.eps /= 2.;
@@ -317,15 +320,13 @@ where
                 tracing::warn!("Stopfile detected - breaking");
                 break;
             }
-            self.cycle_log
-                .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
 
+            // If we have not reached convergence or otherwise stopped, expand grid and prepare for new cycle
             self.adaptative_grid();
             self.cycle += 1;
             self.last_objf = self.objf;
         }
 
-        self.tx.send(Comm::Stop(true)).unwrap();
         self.to_npresult()
     }
 }

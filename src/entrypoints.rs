@@ -89,6 +89,7 @@ where
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
+    let maintx = tx.clone();
     logger::setup_log(&settings, tx.clone());
     tracing::info!("Starting NPcore");
 
@@ -109,11 +110,16 @@ where
 
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
-    if settings.parsed.config.tui {
-        let _ui_handle = spawn(move || {
+    let handle = if settings.parsed.config.tui {
+        spawn(move || {
             start_ui(rx, settings_tui).expect("Failed to start TUI");
-        });
-    }
+        })
+    } else {
+        // Drop messages if TUI is not enabled to reduce memory usage
+        spawn(move || {
+            drop_messages(rx);
+        })
+    };
 
     // Initialize algorithm and run
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
@@ -126,7 +132,10 @@ where
         let tad = settings.parsed.config.tad.unwrap_or(0.0);
         result.write_outputs(*write, &engine, idelta, tad);
     }
+
     tracing::info!("Program complete");
+    maintx.send(Comm::StopUI).unwrap();
+    handle.join().unwrap();
 
     Ok(result)
 }
@@ -168,4 +177,16 @@ where
     }
 
     Ok(result)
+}
+
+fn drop_messages(mut rx: mpsc::UnboundedReceiver<Comm>) {
+    loop {
+        match rx.try_recv() {
+            Ok(comm) => match comm {
+                Comm::StopUI => break,
+                _ => {}
+            },
+            Err(_e) => {}
+        }
+    }
 }

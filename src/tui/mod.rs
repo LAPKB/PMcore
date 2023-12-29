@@ -52,9 +52,9 @@ impl App {
                 Action::Quit => AppReturn::Exit,
                 Action::Stop => {
                     // Write the "stop.txt" file
-                    tracing::info!("Stop signal received - writing stopfile");
-                    let filename = "stop";
-                    File::create(filename).unwrap();
+                    tracing::info!("Stop signal received, program will stop after current cycle");
+                    let stopfile = "stop";
+                    File::create(stopfile).unwrap();
                     AppReturn::Continue
                 }
                 Action::Next => {

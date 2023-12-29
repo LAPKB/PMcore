@@ -8,6 +8,7 @@ use ratatui::{
 };
 use std::{
     io::stdout,
+    process::exit,
     time::{Duration, Instant},
 };
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -21,7 +22,8 @@ use super::{
 pub enum Comm {
     NPCycle(NPCycle),
     Message(String),
-    Stop(bool),
+    Stop,
+    StopUI,
     LogMessage(String),
 }
 
@@ -56,10 +58,14 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
                     cycle_history.add_cycle(cycle);
                 }
                 Comm::Message(_msg) => {}
-                Comm::Stop(stop) => {
-                    if stop {
-                        //exit(-1); //TODO: Replace with graceful exit from TUI
-                    }
+                Comm::Stop => {
+                    terminal.show_cursor()?;
+                    crossterm::terminal::disable_raw_mode()?;
+                    println!();
+                    exit(0);
+                }
+                Comm::StopUI => {
+                    break;
                 }
                 Comm::LogMessage(msg) => log_history.push(msg),
             },
@@ -91,7 +97,12 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
         };
         // Check if we should exit
         if result == AppReturn::Exit {
-            break;
+            terminal.clear()?;
+            terminal.show_cursor()?;
+            crossterm::terminal::disable_raw_mode()?;
+            tracing::info!("Exit signal received");
+            print!("NPcore was stopped by user");
+            exit(0);
         }
     }
 
