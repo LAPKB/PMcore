@@ -19,7 +19,7 @@ type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 ///
 /// A `Result` containing a tuple with two elements:
 ///
-/// * `lam` - An Array1<f64> representing the solution of the optimization problem.
+/// * `lam` - An `Array1<f64>` representing the solution of the optimization problem.
 /// * `obj` - A f64 value representing the objective function value at the solution.
 ///
 /// # Errors
