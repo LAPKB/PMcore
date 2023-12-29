@@ -42,11 +42,11 @@
 <span class="kw">use </span><span class="kw">crate</span>::routines::condensation::prune::prune;
 
 <span class="doccomment">/// Adaptive grid algorithm for support point expansion
-/// 
+///
 /// For each support point, generate up to 2 new support points in each dimension
-/// 
+///
 /// New support points are symmetrically placed around the original support point, at a distance of eps * (range_max - range_min)
-/// 
+///
 /// If the new support point is too close to an existing support point, or it is outside the given range, it is discarded
 </span><span class="kw">pub fn </span>adaptative_grid(
     theta: <span class="kw-2">&amp;mut </span>Array2&lt;f64&gt;,

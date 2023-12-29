@@ -323,6 +323,10 @@
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
 
 <span class="doccomment">/// This file contains the different components of the TUI
@@ -388,7 +392,8 @@
         .collect();
 
     <span class="comment">// Create the table widget
-    </span>Table::default().rows(rows)
+    </span>Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -437,7 +442,8 @@
         .collect();
 
     <span class="comment">// Create the table widget
-    </span>Table::default().rows(rows)
+    </span>Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -470,7 +476,8 @@
         }
     }
 
-    Table::default().rows(rows)
+    Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -623,7 +630,8 @@
 
 <span class="kw">pub fn </span>draw_parameter_bounds(settings: <span class="kw-2">&amp;</span>Data) -&gt; Table {
     <span class="kw">let </span>rows = get_computed_settings(<span class="kw-2">&amp;</span>settings);
-    Table::default().rows(rows)
+    Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
