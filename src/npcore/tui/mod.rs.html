@@ -135,9 +135,9 @@
                 Action::Quit =&gt; AppReturn::Exit,
                 Action::Stop =&gt; {
                     <span class="comment">// Write the &quot;stop.txt&quot; file
-                    </span><span class="macro">tracing::info!</span>(<span class="string">&quot;Stop signal received - writing stopfile&quot;</span>);
-                    <span class="kw">let </span>filename = <span class="string">&quot;stop&quot;</span>;
-                    File::create(filename).unwrap();
+                    </span><span class="macro">tracing::info!</span>(<span class="string">&quot;Stop signal received, program will stop after current cycle&quot;</span>);
+                    <span class="kw">let </span>stopfile = <span class="string">&quot;stop&quot;</span>;
+                    File::create(stopfile).unwrap();
                     AppReturn::Continue
                 }
                 Action::Next =&gt; {

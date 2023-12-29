@@ -333,6 +333,7 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -625,6 +626,9 @@
             <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
             <span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
 
+            <span class="self">self</span>.cycle_log
+                .push_and_write(state, <span class="self">self</span>.settings.parsed.config.pmetrics_outputs.unwrap());
+
             <span class="comment">// Stop if we have reached convergence criteria
             </span><span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_G &amp;&amp; <span class="self">self</span>.eps &gt; THETA_E {
                 <span class="self">self</span>.eps /= <span class="number">2.</span>;
@@ -652,15 +656,13 @@
                 <span class="macro">tracing::warn!</span>(<span class="string">&quot;Stopfile detected - breaking&quot;</span>);
                 <span class="kw">break</span>;
             }
-            <span class="self">self</span>.cycle_log
-                .push_and_write(state, <span class="self">self</span>.settings.parsed.config.pmetrics_outputs.unwrap());
 
-            <span class="self">self</span>.adaptative_grid();
+            <span class="comment">// If we have not reached convergence or otherwise stopped, expand grid and prepare for new cycle
+            </span><span class="self">self</span>.adaptative_grid();
             <span class="self">self</span>.cycle += <span class="number">1</span>;
             <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
         }
 
-        <span class="self">self</span>.tx.send(Comm::Stop(<span class="bool-val">true</span>)).unwrap();
         <span class="self">self</span>.to_npresult()
     }
 }
