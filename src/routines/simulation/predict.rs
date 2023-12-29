@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::error;
 use std::hash::{Hash, Hasher};
 
-const CACHE_SIZE: usize = 1000; // Number of support points to cache for each scenario
+const CACHE_SIZE: usize = 1000000;
 
 #[derive(Debug, Clone)]
 pub struct Model {
@@ -36,17 +36,12 @@ pub trait Predict<'a> {
     type State;
     fn initial_system(&self, params: &Vec<f64>, scenario: Scenario) -> (Self::Model, Scenario);
     fn initial_state(&self) -> Self::State;
-    fn add_covs(&self, system: Self::Model, cov: Option<HashMap<String, CovLine>>) -> Self::Model;
-    fn add_infusion(&self, system: Self::Model, infusion: Infusion) -> Self::Model;
-    fn add_dose(&self, state: Self::State, dose: f64, compartment: usize) -> Self::State;
-    fn get_output(&self, state: &Self::State, system: &Self::Model, outeq: usize) -> f64;
-    fn state_step(
-        &self,
-        state: Self::State,
-        system: Self::Model,
-        time: f64,
-        next_time: f64,
-    ) -> Self::State;
+    fn add_covs(&self, system: &mut Self::Model, cov: Option<HashMap<String, CovLine>>);
+    fn add_infusion(&self, system: &mut Self::Model, infusion: Infusion);
+    fn add_dose(&self, state: &mut Self::State, dose: f64, compartment: usize);
+    fn get_output(&self, time: f64, state: &Self::State, system: &Self::Model, outeq: usize)
+        -> f64;
+    fn state_step(&self, state: &mut Self::State, system: &Self::Model, time: f64, next_time: f64);
 }
 
 #[derive(Clone, Debug)]
@@ -65,18 +60,18 @@ where
         Self { ode }
     }
     pub fn pred(&self, scenario: Scenario, params: Vec<f64>) -> Vec<f64> {
-        let (system, scenario) = self.ode.initial_system(&params, scenario.clone());
+        let (mut system, scenario) = self.ode.initial_system(&params, scenario.clone());
         let mut yout = vec![];
         let mut x = self.ode.initial_state();
         let mut index: usize = 0;
         for block in scenario.blocks {
-            let mut system = self.ode.add_covs(system.clone(), Some(block.covs));
+            self.ode.add_covs(&mut system, Some(block.covs));
             for event in &block.events {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {
                         //infusion
-                        system = self.ode.add_infusion(
-                            system.clone(),
+                        self.ode.add_infusion(
+                            &mut system,
                             Infusion {
                                 time: event.time,
                                 dur: event.dur.unwrap(),
@@ -86,19 +81,19 @@ where
                         );
                     } else {
                         //     //dose
-                        x = self
-                            .ode
-                            .add_dose(x, event.dose.unwrap(), event.input.unwrap() - 1);
+                        self.ode
+                            .add_dose(&mut x, event.dose.unwrap(), event.input.unwrap() - 1);
                     }
                 } else if event.evid == 0 {
                     //obs
-                    yout.push(self.ode.get_output(&x, &system, event.outeq.unwrap()))
+                    yout.push(
+                        self.ode
+                            .get_output(event.time, &x, &system, event.outeq.unwrap()),
+                    )
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
                     // TODO: use the last dx as the initial one for the next simulation.
-                    x = self
-                        .ode
-                        .state_step(x, system.clone(), event.time, *next_time);
+                    self.ode.state_step(&mut x, &system, event.time, *next_time);
                 }
                 index += 1;
             }
@@ -200,8 +195,6 @@ where
         .into_par_iter()
         .enumerate()
         .for_each(|(i, mut row)| {
-            let subject_id = &scenarios.get(i).unwrap().id;
-            tracing::debug!("Simulating subject {}", subject_id);
             row.axis_iter_mut(Axis(0))
                 .into_par_iter()
                 .enumerate()

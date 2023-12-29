@@ -63,7 +63,7 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         .collect();
 
     // Create the table widget
-    Table::default().rows(rows)
+    Table::new(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -112,7 +112,7 @@ pub fn draw_options<'a>(settings: &Data) -> Table<'a> {
         .collect();
 
     // Create the table widget
-    Table::default().rows(rows)
+    Table::new(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -145,7 +145,7 @@ pub fn draw_commands(app: &App) -> Table {
         }
     }
 
-    Table::default().rows(rows)
+    Table::new(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -298,7 +298,7 @@ fn get_computed_settings(settings: &Data) -> Vec<Row> {
 
 pub fn draw_parameter_bounds(settings: &Data) -> Table {
     let rows = get_computed_settings(&settings);
-    Table::default().rows(rows)
+    Table::new(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
