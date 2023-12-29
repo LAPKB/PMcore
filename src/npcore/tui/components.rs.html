@@ -388,7 +388,7 @@
         .collect();
 
     <span class="comment">// Create the table widget
-    </span>Table::new(rows)
+    </span>Table::default().rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -437,7 +437,7 @@
         .collect();
 
     <span class="comment">// Create the table widget
-    </span>Table::new(rows)
+    </span>Table::default().rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -470,7 +470,7 @@
         }
     }
 
-    Table::new(rows)
+    Table::default().rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -623,7 +623,7 @@
 
 <span class="kw">pub fn </span>draw_parameter_bounds(settings: <span class="kw-2">&amp;</span>Data) -&gt; Table {
     <span class="kw">let </span>rows = get_computed_settings(<span class="kw-2">&amp;</span>settings);
-    Table::new(rows)
+    Table::default().rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)

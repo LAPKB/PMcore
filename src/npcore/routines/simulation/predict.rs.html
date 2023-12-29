@@ -249,6 +249,7 @@
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::datafile::CovLine;
 <span class="kw">use </span><span class="kw">crate</span>::routines::datafile::Infusion;
 <span class="kw">use </span><span class="kw">crate</span>::routines::datafile::Scenario;
@@ -263,7 +264,8 @@
 <span class="kw">use </span>std::error;
 <span class="kw">use </span>std::hash::{Hash, Hasher};
 
-<span class="kw">const </span>CACHE_SIZE: usize = <span class="number">1000000</span>;
+<span class="doccomment">/// Number of support points to cache for each scenario
+</span><span class="kw">const </span>CACHE_SIZE: usize = <span class="number">1000</span>;
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Model {
