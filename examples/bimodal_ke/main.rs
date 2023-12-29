@@ -2,10 +2,9 @@ use std::collections::HashMap;
 
 use eyre::Result;
 use npcore::prelude::{
-    datafile,
     datafile::{CovLine, Infusion, Scenario},
     predict::{Engine, Predict},
-    settings, start, start_with_data,
+    start,
 };
 use ode_solvers::*;
 
@@ -64,7 +63,7 @@ impl<'a> Predict<'a> for Ode {
             scenario.reorder_with_lag(vec![(0.0, 1)]),
         )
     }
-    fn get_output(&self, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
+    fn get_output(&self, _time: f64, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
         let v = system.get_param("v");
         match outeq {
             1 => x[0] / v,
@@ -74,33 +73,23 @@ impl<'a> Predict<'a> for Ode {
     fn initial_state(&self) -> State {
         State::default()
     }
-    fn add_infusion(&self, mut system: Self::Model, infusion: Infusion) -> Model {
+    fn add_infusion(&self, system: &mut Self::Model, infusion: Infusion) {
         system.infusions.push(infusion);
-        system
     }
-    fn add_covs(&self, mut system: Self::Model, cov: Option<HashMap<String, CovLine>>) -> Model {
+    fn add_covs(&self, system: &mut Self::Model, cov: Option<HashMap<String, CovLine>>) {
         system.cov = cov;
-        system
     }
-    fn add_dose(&self, mut state: Self::State, dose: f64, compartment: usize) -> Self::State {
+    fn add_dose(&self, state: &mut Self::State, dose: f64, compartment: usize) {
         state[compartment] += dose;
-        state
     }
-    fn state_step(
-        &self,
-        mut x: Self::State,
-        system: Self::Model,
-        time: f64,
-        next_time: f64,
-    ) -> State {
-        if time == next_time {
-            return x;
+    fn state_step(&self, x: &mut Self::State, system: &Self::Model, time: f64, next_time: f64) {
+        if time >= next_time {
+            panic!("time error")
         }
-        let mut stepper = Dopri5::new(system, time, next_time, 1e-3, x, RTOL, ATOL);
+        let mut stepper = Dopri5::new(system.clone(), time, next_time, 1e-3, *x, RTOL, ATOL);
         let _res = stepper.integrate();
         let y = stepper.y_out();
-        x = *y.last().unwrap();
-        x
+        *x = *y.last().unwrap();
     }
 }
 
@@ -108,26 +97,6 @@ fn main() -> Result<()> {
     let _result = start(
         Engine::new(Ode {}),
         "examples/bimodal_ke/config.toml".to_string(),
-    )?;
-
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn new_entry_test() -> Result<()> {
-    let settings_path = "examples/bimodal_ke/config.toml".to_string();
-    let settings = settings::run::read(settings_path);
-    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
-    if let Some(exclude) = &settings.parsed.config.exclude {
-        for val in exclude {
-            scenarios.remove(val.as_integer().unwrap() as usize);
-        }
-    }
-
-    let _result = start_with_data(
-        Engine::new(Ode {}),
-        "examples/bimodal_ke/config.toml".to_string(),
-        scenarios,
     )?;
 
     Ok(())

@@ -18,14 +18,14 @@ use std::time::Instant;
 use tokio::sync::mpsc::{self};
 
 /// Simulate predictions from a model and prior distribution
-///
+/// 
 /// This function is used to simulate predictions from a model and prior distribution.
 /// The output is a CSV file with the following columns:
 /// - `id`: subject ID, corresponding to the desired dose regimen
 /// - `point`: support point index (0-indexed)
 /// - `time`: prediction time
 /// - `pred`: simulated prediction
-///
+/// 
 /// # Arguments
 /// The user can specify the desired settings in a TOML configuration file, see `routines::settings::simulator` for details.
 /// - `idelta`: the interval between predictions. Default is 0.0.
@@ -79,7 +79,7 @@ where
 }
 
 /// Primary entrypoint for NPcore
-///
+/// 
 /// This function is the primary entrypoint for NPcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
@@ -132,11 +132,11 @@ where
 }
 
 /// Alternative entrypoint, primarily meant for third-party libraries or APIs
-///
+/// 
 /// This function is an alternative entrypoint to NPcore, mostly meant for use through third-party libraries.
 /// It is similar to `start`, but does not read the input datafile, and instead takes a vector of `Scenario` structs as input.
 /// The function returns an `NPResult` struct
-pub fn start_with_data<S>(
+pub fn start_internal<S>(
     engine: Engine<S>,
     settings_path: String,
     scenarios: Vec<Scenario>,
