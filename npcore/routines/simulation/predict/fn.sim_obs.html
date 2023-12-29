@@ -14,10 +14,10 @@ represents the simulated observations for a specific scenario and support point.
 <p><code>sim_eng</code> - A reference to the simulation engine implementing the <code>Predict</code> trait.</p>
 </li>
 <li>
-<p><code>scenarios</code> - A reference to a Vec<Scenario> containing information about different scenarios.</p>
+<p><code>scenarios</code> - A reference to a <code>Vec&lt;Scenario&gt;</code> containing information about different scenarios.</p>
 </li>
 <li>
-<p><code>support_points</code> - A 2D Array (Array2<f64>) representing the support points. Each row
+<p><code>support_points</code> - A 2D Array <code>(Array2&lt;f64&gt;)</code> representing the support points. Each row
 corresponds to a different support point scenario.</p>
 </li>
 <li>
@@ -25,7 +25,7 @@ corresponds to a different support point scenario.</p>
 </li>
 </ul>
 <h2 id="returns"><a href="#returns">Returns</a></h2>
-<p>A 2D Array (Array2&lt;Array1<f64>&gt;) where each element is an Array1<f64> representing the
+<p>A 2D Array <code>(Array2&lt;Array1&lt;f64&gt;&gt;)</code> where each element is an <code>Array1&lt;f64&gt;</code> representing the
 simulated observations for a specific scenario and support point.</p>
 <h2 id="example"><a href="#example">Example</a></h2>
 <p>In this example, <code>observations</code> will contain the simulated observations for multiple scenarios

@@ -412,16 +412,16 @@
 ///
 /// * `sim_eng` - A reference to the simulation engine implementing the `Predict` trait.
 ///
-/// * `scenarios` - A reference to a Vec&lt;Scenario&gt; containing information about different scenarios.
+/// * `scenarios` - A reference to a `Vec&lt;Scenario&gt;` containing information about different scenarios.
 ///
-/// * `support_points` - A 2D Array (Array2&lt;f64&gt;) representing the support points. Each row
+/// * `support_points` - A 2D Array `(Array2&lt;f64&gt;)` representing the support points. Each row
 ///                     corresponds to a different support point scenario.
 ///
 /// * `cache` - A boolean flag indicating whether to cache predicted values during simulation.
 ///
 /// # Returns
 ///
-/// A 2D Array (Array2&lt;Array1&lt;f64&gt;&gt;) where each element is an Array1&lt;f64&gt; representing the
+/// A 2D Array `(Array2&lt;Array1&lt;f64&gt;&gt;)` where each element is an `Array1&lt;f64&gt;` representing the
 /// simulated observations for a specific scenario and support point.
 ///
 /// # Example

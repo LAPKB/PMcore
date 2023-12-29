@@ -562,6 +562,15 @@
 <a href="#562" id="562">562</a>
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>datafile::Scenario;
@@ -854,7 +863,16 @@
     }
 }
 
-<span class="attr">#[derive(Debug, Clone)]
+<span class="doccomment">/// Defines the result objects from a run
+/// An [NPResult] contains the necessary information to generate predictions and summary statistics
+/// It holds the following information:
+/// - `cycle`: The cycle number
+/// - `objf`: The objective function value
+/// - `gamlam`: The assay noise parameter, either gamma or lambda
+/// - `theta`: The support points and their associated probabilities
+/// - `nspp`: The number of support points
+/// - `delta_objf`: The change in objective function value from last cycle
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>NPCycle {
     <span class="kw">pub </span>cycle: usize,
     <span class="kw">pub </span>objf: f64,

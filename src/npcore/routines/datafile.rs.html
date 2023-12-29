@@ -386,6 +386,7 @@
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::cmp::Ordering;
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::error::Error;
@@ -393,7 +394,8 @@
 
 <span class="kw">type </span>Record = HashMap&lt;String, String&gt;;
 
-<span class="doccomment">/// A Scenario is a collection of blocks that represent a single subject in the Datafile
+<span class="doccomment">/// A Scenario is a collection of blocks that represent a single subject in the datafile
+/// Each block is a collection of events that represent a single dose, possibly followed by observations
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Scenario {
     <span class="kw">pub </span>id: String,
@@ -411,8 +413,8 @@
     }
 
     <span class="doccomment">/// Adds &quot;mock&quot; events to a Scenario in order to generate predictions at those times
-    /// The interval is mapped to the `idelta`-setting in the configuration time
-    /// Time after dose (tad) will ensure that predictions are made until the last dose + tad
+    /// The interval is mapped to the `idelta`-setting in the configuration file
+    /// Time after dose (`tad`) will ensure that predictions are made until the last dose + tad
     </span><span class="kw">pub fn </span>add_event_interval(<span class="kw-2">&amp;</span><span class="self">self</span>, interval: f64, tad: f64) -&gt; <span class="self">Self </span>{
         <span class="comment">// Clone the underlying Event data instead of the references
         </span><span class="kw">let </span>all_events = <span class="self">self
