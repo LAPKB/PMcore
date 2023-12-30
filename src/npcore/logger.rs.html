@@ -117,8 +117,6 @@
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::run::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
@@ -131,15 +129,15 @@
 <span class="kw">use </span>tracing_subscriber::EnvFilter;
 
 <span class="doccomment">/// Setup logging for the library
-/// 
+///
 /// This function sets up logging for the library. It uses the `tracing` crate, and the `tracing-subscriber` crate for formatting.
-/// 
+///
 /// The log level is defined in the configuration file, and defaults to `INFO`.
-/// 
+///
 /// If `log_out` is specifified in teh configuration file, a log file is created with the specified name.
-/// 
+///
 /// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
-/// 
+///
 /// If not, the log messages are written to stdout.
 </span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: UnboundedSender&lt;Comm&gt;) {
     <span class="comment">// Use the log level defined in configuration file, or default to info
@@ -183,10 +181,8 @@
     </span>};
 
     <span class="comment">// Define layer for TUI
-    </span><span class="kw">let </span>tui_writer_closure = <span class="kw">move </span>|| {
-        TuiWriter {
-            ui_tx: ui_tx.clone()
-        }
+    </span><span class="kw">let </span>tui_writer_closure = <span class="kw">move </span>|| TuiWriter {
+        ui_tx: ui_tx.clone(),
     };
 
     <span class="kw">let </span>tui_layer = <span class="kw">if </span>settings.parsed.config.tui {
