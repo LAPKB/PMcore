@@ -24,7 +24,7 @@ pub struct Computed {
 /// - `value`: the value of the error
 /// - `class`: the class of the error, can be either `additive` or `proportional`
 /// - `poly`: the polynomial coefficients of the error model
-/// 
+///
 /// For more information see `routines::evaluation::sigma`
 #[derive(Deserialize, Clone, Debug)]
 pub struct Error {
