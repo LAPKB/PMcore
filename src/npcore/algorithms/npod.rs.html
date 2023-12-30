@@ -334,7 +334,7 @@
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
-        settings::run::Data,
+        settings::run::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
@@ -370,7 +370,7 @@
     scenarios: Vec&lt;Scenario&gt;,
     c: (f64, f64, f64, f64),
     tx: UnboundedSender&lt;Comm&gt;,
-    settings: Data,
+    settings: Settings,
 }
 
 <span class="kw">impl</span>&lt;S&gt; Algorithm <span class="kw">for </span>NPOD&lt;S&gt;
@@ -420,7 +420,7 @@
         scenarios: Vec&lt;Scenario&gt;,
         c: (f64, f64, f64, f64),
         tx: UnboundedSender&lt;Comm&gt;,
-        settings: Data,
+        settings: Settings,
     ) -&gt; <span class="self">Self
     </span><span class="kw">where
         </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync,

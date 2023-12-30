@@ -108,7 +108,7 @@
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::run::Data;
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::run::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
@@ -119,7 +119,7 @@
 <span class="kw">use </span>tracing_subscriber::util::SubscriberInitExt;
 <span class="kw">use </span>tracing_subscriber::EnvFilter;
 
-<span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Data, ui_tx: UnboundedSender&lt;Comm&gt;) {
+<span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: UnboundedSender&lt;Comm&gt;) {
     <span class="comment">// Use the log level defined in configuration file, or default to info
     </span><span class="kw">let </span>log_level = settings
         .parsed

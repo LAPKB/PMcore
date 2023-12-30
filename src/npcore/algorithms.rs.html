@@ -72,7 +72,7 @@
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, settings::run::Data};
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, settings::run::Settings};
 
 <span class="kw">use </span>output::NPResult;
 <span class="kw">use </span>prelude::{datafile::Scenario, <span class="kw-2">*</span>};
@@ -96,7 +96,7 @@
 
 <span class="kw">pub fn </span>initialize_algorithm&lt;S&gt;(
     engine: Engine&lt;S&gt;,
-    settings: Data,
+    settings: Settings,
     scenarios: Vec&lt;Scenario&gt;,
     tx: mpsc::UnboundedSender&lt;Comm&gt;,
 ) -&gt; Box&lt;<span class="kw">dyn </span>Algorithm&gt;

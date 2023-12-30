@@ -147,7 +147,7 @@
 <span class="kw">use </span>toml::{<span class="self">self</span>, Table};
 
 <span class="attr">#[derive(Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>Data {
+</span><span class="kw">pub struct </span>Settings {
     <span class="kw">pub </span>computed: Computed,
     <span class="kw">pub </span>parsed: Parsed,
 }
@@ -210,7 +210,7 @@
     <span class="kw">pub </span>log_level: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="kw">pub fn </span>read(filename: String) -&gt; Data {
+<span class="kw">pub fn </span>read(filename: String) -&gt; Settings {
     <span class="kw">let </span>contents = <span class="kw">match </span>fs::read_to_string(<span class="kw-2">&amp;</span>filename) {
         <span class="prelude-val">Ok</span>(c) =&gt; c,
         <span class="prelude-val">Err</span>(e) =&gt; {
@@ -264,7 +264,7 @@
         }
     }
 
-    Data {
+    Settings {
         computed: Computed {
             random: Range {
                 names: pn,

@@ -55,7 +55,7 @@
 <span class="kw">use </span>toml;
 
 <span class="attr">#[derive(Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>Data {
+</span><span class="kw">pub struct </span>Settings {
     <span class="kw">pub </span>paths: Paths,
     <span class="kw">pub </span>config: Config,
 }
@@ -72,7 +72,7 @@
     <span class="kw">pub </span>tad: <span class="prelude-ty">Option</span>&lt;f64&gt;,
 }
 
-<span class="kw">pub fn </span>read(filename: String) -&gt; Data {
+<span class="kw">pub fn </span>read(filename: String) -&gt; Settings {
     <span class="kw">let </span>contents = <span class="kw">match </span>fs::read_to_string(<span class="kw-2">&amp;</span>filename) {
         <span class="prelude-val">Ok</span>(c) =&gt; c,
         <span class="prelude-val">Err</span>(e) =&gt; {
@@ -81,7 +81,7 @@
             exit(<span class="number">1</span>);
         }
     };
-    <span class="kw">let </span>parse: Data = <span class="kw">match </span>toml::from_str(<span class="kw-2">&amp;</span>contents) {
+    <span class="kw">let </span>parse: Settings = <span class="kw">match </span>toml::from_str(<span class="kw-2">&amp;</span>contents) {
         <span class="prelude-val">Ok</span>(d) =&gt; d,
         <span class="prelude-val">Err</span>(e) =&gt; {
             <span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, e);
@@ -89,7 +89,7 @@
             exit(<span class="number">1</span>);
         }
     };
-    Data {
+    Settings {
         paths: Paths {
             data: parse.paths.data,
             theta: parse.paths.theta,

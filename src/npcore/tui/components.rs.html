@@ -344,7 +344,7 @@
 
 <span class="kw">use </span><span class="kw">super</span>::App;
 
-<span class="kw">use </span><span class="kw">crate</span>::prelude::settings::run::Data;
+<span class="kw">use </span><span class="kw">crate</span>::prelude::settings::run::Settings;
 
 <span class="kw">pub fn </span>draw_title&lt;<span class="lifetime">&#39;a</span>&gt;() -&gt; Paragraph&lt;<span class="lifetime">&#39;a</span>&gt; {
     Paragraph::new(<span class="string">&quot;NPcore Execution&quot;</span>)
@@ -404,7 +404,7 @@
         </span>.column_spacing(<span class="number">1</span>)
 }
 
-<span class="kw">pub fn </span>draw_options&lt;<span class="lifetime">&#39;a</span>&gt;(settings: <span class="kw-2">&amp;</span>Data) -&gt; Table&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">pub fn </span>draw_options&lt;<span class="lifetime">&#39;a</span>&gt;(settings: <span class="kw-2">&amp;</span>Settings) -&gt; Table&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="comment">// Define the table data
 
     </span><span class="kw">let </span>cycles = settings.parsed.config.cycles.to_string();
@@ -584,7 +584,7 @@
     tabs
 }
 
-<span class="kw">fn </span>get_computed_settings(settings: <span class="kw-2">&amp;</span>Data) -&gt; Vec&lt;Row&gt; {
+<span class="kw">fn </span>get_computed_settings(settings: <span class="kw-2">&amp;</span>Settings) -&gt; Vec&lt;Row&gt; {
     <span class="kw">let </span>computed = settings.computed.clone();
     <span class="kw">let </span><span class="kw-2">mut </span>rows = Vec::new();
     <span class="kw">let </span>key_style = Style::default().fg(Color::LightCyan);
@@ -628,7 +628,7 @@
     rows
 }
 
-<span class="kw">pub fn </span>draw_parameter_bounds(settings: <span class="kw-2">&amp;</span>Data) -&gt; Table {
+<span class="kw">pub fn </span>draw_parameter_bounds(settings: <span class="kw-2">&amp;</span>Settings) -&gt; Table {
     <span class="kw">let </span>rows = get_computed_settings(<span class="kw-2">&amp;</span>settings);
     Table::default()
         .rows(rows)

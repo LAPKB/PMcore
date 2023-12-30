@@ -189,7 +189,7 @@
     <span class="kw-2">*</span>,
 };
 <span class="kw">use </span><span class="kw">crate</span>::routines::datafile::Scenario;
-<span class="kw">use </span><span class="kw">crate</span>::routines::settings::run::Data;
+<span class="kw">use </span><span class="kw">crate</span>::routines::settings::run::Settings;
 
 <span class="kw">use </span>csv::{ReaderBuilder, WriterBuilder};
 <span class="kw">use </span>eyre::Result;
@@ -334,7 +334,7 @@
 /// Returns an NPresult object
 </span><span class="kw">pub fn </span>start_internal&lt;S&gt;(
     engine: Engine&lt;S&gt;,
-    settings: Data,
+    settings: Settings,
     scenarios: Vec&lt;Scenario&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt;
 <span class="kw">where
