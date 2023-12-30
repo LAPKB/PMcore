@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 /// Benchmark the Sobol initialization routine using 1000 points in 10 dimensions
 fn benchmark_sobol(c: &mut Criterion) {
-    c.bench_function("adaptive_grid", |b| {
+    c.bench_function("sobol", |b| {
         b.iter(|| {
             let _ = npcore::routines::initialization::sobol::generate(
                 black_box(1000),
