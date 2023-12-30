@@ -5,6 +5,7 @@ use crate::prelude::{
     *,
 };
 use crate::routines::datafile::Scenario;
+use crate::routines::settings::run::Data;
 
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
@@ -142,40 +143,31 @@ where
 
 /// Alternative entrypoint, primarily meant for third-party libraries or APIs
 ///
-/// This function is an alternative entrypoint to NPcore, mostly meant for use through third-party libraries.
-/// It is similar to `start`, but does not read the input datafile, and instead takes a vector of `Scenario` structs as input.
-/// The function returns an `NPResult` struct
+/// This entrypoint takes an `Engine` (from the model), `Data` from the settings, and `scenarios` containing dose information and observations
+///
+/// It does not write any output files, and does not start a TUI.
+///
+/// Returns an NPresult object
 pub fn start_internal<S>(
     engine: Engine<S>,
-    settings_path: String,
+    settings: Data,
     scenarios: Vec<Scenario>,
 ) -> Result<NPResult>
 where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
-    let settings = settings::run::read(settings_path);
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     logger::setup_log(&settings, tx.clone());
 
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
-    // Spawn new thread for TUI
-    let settings_tui = settings.clone();
-    if settings.parsed.config.tui {
-        let _ui_handle = spawn(move || {
-            start_ui(rx, settings_tui).expect("Failed to start TUI");
-        });
-    }
+
+    let _ = spawn(move || {
+        drop_messages(rx);
+    });
 
     let result = algorithm.fit();
     tracing::info!("Total time: {:.2?}", now.elapsed());
-
-    let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
-    let tad = settings.parsed.config.tad.unwrap_or(0.0);
-    if let Some(write) = &settings.parsed.config.pmetrics_outputs {
-        result.write_outputs(*write, &engine, idelta, tad);
-    }
-
     Ok(result)
 }
 
