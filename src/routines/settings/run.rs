@@ -4,6 +4,9 @@ use std::process::exit;
 use toml::value::Array;
 use toml::{self, Table};
 
+/// Settings used for algorithm execution
+///
+/// The user can specify the desired settings in a TOML configuration file, see `routines::settings::run` for details.
 #[derive(Deserialize, Clone, Debug)]
 pub struct Settings {
     pub computed: Computed,
@@ -17,6 +20,12 @@ pub struct Computed {
     pub fixed: Single,
 }
 
+/// The `Error` struct is used to specify the error model
+/// - `value`: the value of the error
+/// - `class`: the class of the error, can be either `additive` or `proportional`
+/// - `poly`: the polynomial coefficients of the error model
+/// 
+/// For more information see `routines::evaluation::sigma`
 #[derive(Deserialize, Clone, Debug)]
 pub struct Error {
     pub value: f64,
@@ -68,6 +77,7 @@ pub struct Config {
     pub log_level: Option<String>,
 }
 
+/// Read and parse settings from a TOML configuration file
 pub fn read(filename: String) -> Settings {
     let contents = match fs::read_to_string(&filename) {
         Ok(c) => c,
