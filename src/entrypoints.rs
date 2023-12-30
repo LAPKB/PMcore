@@ -88,7 +88,14 @@ where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
-    let settings = settings::run::read(settings_path);
+    let mut settings = settings::run::read(settings_path);
+    
+    // Override settings with command line arguments
+    let args = settings::args::parse_args();
+    if let Some(tui) = args.tui {
+        settings.parsed.config.tui = tui;
+    }
+
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     let maintx = tx.clone();
     logger::setup_log(&settings, tx.clone());

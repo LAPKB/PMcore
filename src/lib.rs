@@ -17,6 +17,7 @@ pub mod routines {
     }
 
     pub mod settings {
+        pub mod args;
         pub mod run;
         pub mod simulator;
     }
