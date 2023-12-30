@@ -27,10 +27,10 @@ pub enum Comm {
     LogMessage(String),
 }
 
-use crate::prelude::{output::NPCycle, settings::run::Data};
+use crate::prelude::{output::NPCycle, settings::run::Settings};
 use crate::tui::components::*;
 
-pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
+pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<()> {
     let stdout = stdout();
     crossterm::terminal::enable_raw_mode()?;
     let backend = CrosstermBackend::new(stdout);
@@ -131,7 +131,7 @@ pub fn draw(
     app: &App,
     cycle_history: &CycleHistory,
     elapsed_time: Duration,
-    settings: &Data,
+    settings: &Settings,
     log_history: &Vec<String>,
 ) {
     let size = rect.size();

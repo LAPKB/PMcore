@@ -6,7 +6,7 @@ use crate::{
         ipm,
         output::NPResult,
         prob,
-        settings::run::Data,
+        settings::run::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
@@ -35,7 +35,7 @@ where
     c: (f64, f64, f64, f64),
     #[allow(dead_code)]
     tx: UnboundedSender<Comm>,
-    settings: Data,
+    settings: Settings,
 }
 
 impl<S> Algorithm for POSTPROB<S>
@@ -69,7 +69,7 @@ where
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
         tx: UnboundedSender<Comm>,
-        settings: Data,
+        settings: Settings,
     ) -> Self
     where
         S: Predict<'static> + std::marker::Sync,

@@ -5,7 +5,7 @@ use crate::prelude::{
     *,
 };
 use crate::routines::datafile::Scenario;
-use crate::routines::settings::run::Data;
+use crate::routines::settings::run::Settings;
 
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
@@ -150,7 +150,7 @@ where
 /// Returns an NPresult object
 pub fn start_internal<S>(
     engine: Engine<S>,
-    settings: Data,
+    settings: Settings,
     scenarios: Vec<Scenario>,
 ) -> Result<NPResult>
 where

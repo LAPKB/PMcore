@@ -2,11 +2,11 @@ use std::fs::File;
 
 use ndarray::Array2;
 
-use crate::prelude::settings::run::Data;
+use crate::prelude::settings::run::Settings;
 
 pub mod sobol;
 
-pub fn sample_space(settings: &Data, ranges: &Vec<(f64, f64)>) -> Array2<f64> {
+pub fn sample_space(settings: &Settings, ranges: &Vec<(f64, f64)>) -> Array2<f64> {
     match &settings.parsed.paths.prior_dist {
         Some(prior_path) => {
             let file = File::open(prior_path).unwrap();

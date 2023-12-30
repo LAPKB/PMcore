@@ -1,4 +1,4 @@
-use crate::prelude::{self, settings::run::Data};
+use crate::prelude::{self, settings::run::Settings};
 
 use output::NPResult;
 use prelude::{datafile::Scenario, *};
@@ -22,7 +22,7 @@ pub trait Algorithm {
 
 pub fn initialize_algorithm<S>(
     engine: Engine<S>,
-    settings: Data,
+    settings: Settings,
     scenarios: Vec<Scenario>,
     tx: mpsc::UnboundedSender<Comm>,
 ) -> Box<dyn Algorithm>

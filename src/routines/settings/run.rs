@@ -5,7 +5,7 @@ use toml::value::Array;
 use toml::{self, Table};
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct Data {
+pub struct Settings {
     pub computed: Computed,
     pub parsed: Parsed,
 }
@@ -68,7 +68,7 @@ pub struct Config {
     pub log_level: Option<String>,
 }
 
-pub fn read(filename: String) -> Data {
+pub fn read(filename: String) -> Settings {
     let contents = match fs::read_to_string(&filename) {
         Ok(c) => c,
         Err(e) => {
@@ -122,7 +122,7 @@ pub fn read(filename: String) -> Data {
         }
     }
 
-    Data {
+    Settings {
         computed: Computed {
             random: Range {
                 names: pn,
