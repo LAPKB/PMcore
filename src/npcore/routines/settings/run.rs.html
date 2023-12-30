@@ -140,13 +140,26 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde_derive::Deserialize;
 <span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::process::exit;
 <span class="kw">use </span>toml::value::Array;
 <span class="kw">use </span>toml::{<span class="self">self</span>, Table};
 
-<span class="attr">#[derive(Deserialize, Clone, Debug)]
+<span class="doccomment">/// Settings used for algorithm execution
+///
+/// The user can specify the desired settings in a TOML configuration file, see `routines::settings::run` for details.
+</span><span class="attr">#[derive(Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Settings {
     <span class="kw">pub </span>computed: Computed,
     <span class="kw">pub </span>parsed: Parsed,
@@ -159,7 +172,13 @@
     <span class="kw">pub </span>fixed: Single,
 }
 
-<span class="attr">#[derive(Deserialize, Clone, Debug)]
+<span class="doccomment">/// The `Error` struct is used to specify the error model
+/// - `value`: the value of the error
+/// - `class`: the class of the error, can be either `additive` or `proportional`
+/// - `poly`: the polynomial coefficients of the error model
+/// 
+/// For more information see `routines::evaluation::sigma`
+</span><span class="attr">#[derive(Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Error {
     <span class="kw">pub </span>value: f64,
     <span class="kw">pub </span>class: String,
@@ -210,7 +229,8 @@
     <span class="kw">pub </span>log_level: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="kw">pub fn </span>read(filename: String) -&gt; Settings {
+<span class="doccomment">/// Read and parse settings from a TOML configuration file
+</span><span class="kw">pub fn </span>read(filename: String) -&gt; Settings {
     <span class="kw">let </span>contents = <span class="kw">match </span>fs::read_to_string(<span class="kw-2">&amp;</span>filename) {
         <span class="prelude-val">Ok</span>(c) =&gt; c,
         <span class="prelude-val">Err</span>(e) =&gt; {
