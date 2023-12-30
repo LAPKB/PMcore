@@ -182,14 +182,6 @@
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{
     output::NPResult,
@@ -197,6 +189,7 @@
     <span class="kw-2">*</span>,
 };
 <span class="kw">use </span><span class="kw">crate</span>::routines::datafile::Scenario;
+<span class="kw">use </span><span class="kw">crate</span>::routines::settings::run::Data;
 
 <span class="kw">use </span>csv::{ReaderBuilder, WriterBuilder};
 <span class="kw">use </span>eyre::Result;
@@ -334,40 +327,31 @@
 
 <span class="doccomment">/// Alternative entrypoint, primarily meant for third-party libraries or APIs
 ///
-/// This function is an alternative entrypoint to NPcore, mostly meant for use through third-party libraries.
-/// It is similar to `start`, but does not read the input datafile, and instead takes a vector of `Scenario` structs as input.
-/// The function returns an `NPResult` struct
+/// This entrypoint takes an `Engine` (from the model), `Data` from the settings, and `scenarios` containing dose information and observations
+///
+/// It does not write any output files, and does not start a TUI.
+///
+/// Returns an NPresult object
 </span><span class="kw">pub fn </span>start_internal&lt;S&gt;(
     engine: Engine&lt;S&gt;,
-    settings_path: String,
+    settings: Data,
     scenarios: Vec&lt;Scenario&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt;
 <span class="kw">where
     </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
 {
     <span class="kw">let </span>now = Instant::now();
-    <span class="kw">let </span>settings = settings::run::read(settings_path);
     <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;Comm&gt;();
     logger::setup_log(<span class="kw-2">&amp;</span>settings, tx.clone());
 
     <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
-    <span class="comment">// Spawn new thread for TUI
-    </span><span class="kw">let </span>settings_tui = settings.clone();
-    <span class="kw">if </span>settings.parsed.config.tui {
-        <span class="kw">let </span>_ui_handle = spawn(<span class="kw">move </span>|| {
-            start_ui(rx, settings_tui).expect(<span class="string">&quot;Failed to start TUI&quot;</span>);
-        });
-    }
+
+    <span class="kw">let _ </span>= spawn(<span class="kw">move </span>|| {
+        drop_messages(rx);
+    });
 
     <span class="kw">let </span>result = algorithm.fit();
     <span class="macro">tracing::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
-
-    <span class="kw">let </span>idelta = settings.parsed.config.idelta.unwrap_or(<span class="number">0.0</span>);
-    <span class="kw">let </span>tad = settings.parsed.config.tad.unwrap_or(<span class="number">0.0</span>);
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(write) = <span class="kw-2">&amp;</span>settings.parsed.config.pmetrics_outputs {
-        result.write_outputs(<span class="kw-2">*</span>write, <span class="kw-2">&amp;</span>engine, idelta, tad);
-    }
-
     <span class="prelude-val">Ok</span>(result)
 }
 
