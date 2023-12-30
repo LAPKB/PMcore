@@ -4,7 +4,7 @@ use std::process::exit;
 use toml;
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct Data {
+pub struct Settings {
     pub paths: Paths,
     pub config: Config,
 }
@@ -21,7 +21,7 @@ pub struct Config {
     pub tad: Option<f64>,
 }
 
-pub fn read(filename: String) -> Data {
+pub fn read(filename: String) -> Settings {
     let contents = match fs::read_to_string(&filename) {
         Ok(c) => c,
         Err(e) => {
@@ -30,7 +30,7 @@ pub fn read(filename: String) -> Data {
             exit(1);
         }
     };
-    let parse: Data = match toml::from_str(&contents) {
+    let parse: Settings = match toml::from_str(&contents) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("{}", e);
@@ -38,7 +38,7 @@ pub fn read(filename: String) -> Data {
             exit(1);
         }
     };
-    Data {
+    Settings {
         paths: Paths {
             data: parse.paths.data,
             theta: parse.paths.theta,

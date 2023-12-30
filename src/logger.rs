@@ -1,4 +1,4 @@
-use crate::routines::settings::run::Data;
+use crate::routines::settings::run::Settings;
 use crate::tui::ui::Comm;
 use std::io::{self, Write};
 use tokio::sync::mpsc::UnboundedSender;
@@ -9,7 +9,7 @@ use tracing_subscriber::registry::Registry;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-pub fn setup_log(settings: &Data, ui_tx: UnboundedSender<Comm>) {
+pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
     // Use the log level defined in configuration file, or default to info
     let log_level = settings
         .parsed

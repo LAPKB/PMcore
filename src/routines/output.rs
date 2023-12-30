@@ -4,7 +4,7 @@ use datafile::Scenario;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use predict::{post_predictions, sim_obs, Engine, Predict};
-use settings::run::Data;
+use settings::run::Settings;
 use std::fs::File;
 
 /// Defines the result objects from an NPAG run
@@ -19,7 +19,7 @@ pub struct NPResult {
     pub cycles: usize,
     pub converged: bool,
     pub par_names: Vec<String>,
-    pub settings: Data,
+    pub settings: Settings,
 }
 
 impl NPResult {
@@ -32,7 +32,7 @@ impl NPResult {
         objf: f64,
         cycles: usize,
         converged: bool,
-        settings: Data,
+        settings: Settings,
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
 
