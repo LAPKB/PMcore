@@ -17,8 +17,7 @@ pub mod routines {
     }
 
     pub mod settings {
-        pub mod run;
-        pub mod simulator;
+        pub mod settings;
     }
     pub mod evaluation {
 
