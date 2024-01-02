@@ -5,7 +5,7 @@ use crate::prelude::{
     *,
 };
 use crate::routines::datafile::Scenario;
-use crate::routines::settings::run::Settings;
+use crate::routines::settings::settings::*;
 
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
@@ -35,7 +35,7 @@ pub fn simulate<S>(engine: Engine<S>, settings_path: String) -> Result<()>
 where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
-    let settings = settings::simulator::read(settings_path);
+    let settings = read_settings();
     let theta_file = File::open(settings.paths.theta).unwrap();
     let mut reader = ReaderBuilder::new()
         .has_headers(true)
@@ -88,14 +88,14 @@ where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
-    let settings = settings::run::read(settings_path);
+    let settings: std::prelude::v1::Result<Settings, config::ConfigError> = read_settings();
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     let maintx = tx.clone();
     logger::setup_log(&settings, tx.clone());
     tracing::info!("Starting NPcore");
 
     // Read input data and remove excluded scenarios (if any)
-    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
+    let mut scenarios = datafile::parse(&settings).unwrap();
     if let Some(exclude) = &settings.parsed.config.exclude {
         for val in exclude {
             scenarios.remove(val.as_integer().unwrap() as usize);

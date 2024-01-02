@@ -1,0 +1,25 @@
+[[run]]
+
+[run.paths]
+data = "data.csv"
+log = "log.txt"
+prior = "prior.csv"
+
+[run.config]
+cycles = 1000
+engine = "NPAG"
+seed = 347
+tui = true
+output = false
+cache = true
+idelta = 0.1
+log_level = "info"
+
+[run.random]
+Ke = [0.001, 3.0]
+V = [25.0, 250.0]
+
+[run.error]
+value = 0.1
+class = "additive"
+poly = [0.0, 0.0, 0.0, 0.0, 0.0]
