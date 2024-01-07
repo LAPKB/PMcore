@@ -1,5 +1,6 @@
 //! Defines the Terminal User Interface (TUI) for NPcore
 
+use crossterm::execute;
 use eyre::Result;
 use ratatui::{
     backend::CrosstermBackend,
@@ -31,7 +32,8 @@ use crate::prelude::{output::NPCycle, settings::run::Settings};
 use crate::tui::components::*;
 
 pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<()> {
-    let stdout = stdout();
+    let mut stdout = stdout();
+    execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
     crossterm::terminal::enable_raw_mode()?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -106,7 +108,13 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<(
         }
     }
 
-    // Draw one last image
+    // Exit alternate screen, and print one last frame
+
+    terminal.clear()?;
+    execute!(
+        terminal.backend_mut(),
+        crossterm::terminal::LeaveAlternateScreen
+    )?;
     terminal
         .draw(|rect| {
             draw(
