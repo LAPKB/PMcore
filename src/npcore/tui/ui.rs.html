@@ -226,9 +226,18 @@
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Defines the Terminal User Interface (TUI) for NPcore
 
-</span><span class="kw">use </span>eyre::Result;
+</span><span class="kw">use </span>crossterm::execute;
+<span class="kw">use </span>eyre::Result;
 <span class="kw">use </span>ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
@@ -259,7 +268,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::tui::components::<span class="kw-2">*</span>;
 
 <span class="kw">pub fn </span>start_ui(<span class="kw-2">mut </span>rx: UnboundedReceiver&lt;Comm&gt;, settings: Settings) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    <span class="kw">let </span>stdout = stdout();
+    <span class="kw">let </span><span class="kw-2">mut </span>stdout = stdout();
+    <span class="macro">execute!</span>(stdout, crossterm::terminal::EnterAlternateScreen)<span class="question-mark">?</span>;
     crossterm::terminal::enable_raw_mode()<span class="question-mark">?</span>;
     <span class="kw">let </span>backend = CrosstermBackend::new(stdout);
     <span class="kw">let </span><span class="kw-2">mut </span>terminal = Terminal::new(backend)<span class="question-mark">?</span>;
@@ -334,8 +344,14 @@
         }
     }
 
-    <span class="comment">// Draw one last image
-    </span>terminal
+    <span class="comment">// Exit alternate screen, and print one last frame
+
+    </span>terminal.clear()<span class="question-mark">?</span>;
+    <span class="macro">execute!</span>(
+        terminal.backend_mut(),
+        crossterm::terminal::LeaveAlternateScreen
+    )<span class="question-mark">?</span>;
+    terminal
         .draw(|rect| {
             draw(
                 rect,
