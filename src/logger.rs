@@ -1,4 +1,4 @@
-use crate::routines::settings::run::Settings;
+use crate::routines::settings::Settings;
 use crate::tui::ui::Comm;
 use std::io::{self, Write};
 use tokio::sync::mpsc::UnboundedSender;
@@ -22,14 +22,10 @@ use tracing_subscriber::EnvFilter;
 /// If not, the log messages are written to stdout.
 pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
     // Use the log level defined in configuration file, or default to info
-    let log_level = settings
-        .parsed
-        .config
-        .log_level
-        .as_ref()
-        .map(|level| level.as_str())
-        .unwrap_or("info")
-        .to_lowercase();
+    let log_level = settings.config.log_level.as_str();
+
+    // Use the log file defined in configuration file, or default to npcore.log
+    let log_path = settings.paths.log.as_ref().unwrap();
 
     let env_filter = EnvFilter::new(&log_level);
 
@@ -41,7 +37,7 @@ pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
         .create(true)
         .write(true)
         .truncate(true)
-        .open(&settings.parsed.paths.log_out)
+        .open(log_path)
         .expect("Failed to open log file - does the directory exist?");
 
     let file_layer = fmt::layer()
@@ -50,7 +46,7 @@ pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
         .with_timer(CompactTimestamp);
 
     // Define layer for stdout
-    let stdout_layer = if !settings.parsed.config.tui {
+    let stdout_layer = if !settings.config.tui {
         let layer = fmt::layer()
             .with_writer(std::io::stdout)
             .with_ansi(true)
@@ -66,7 +62,7 @@ pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
         ui_tx: ui_tx.clone(),
     };
 
-    let tui_layer = if settings.parsed.config.tui {
+    let tui_layer = if settings.config.tui {
         let layer = fmt::layer()
             .with_writer(tui_writer_closure)
             .with_ansi(false)

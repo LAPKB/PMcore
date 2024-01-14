@@ -15,7 +15,7 @@ use ratatui::{
 
 use super::App;
 
-use crate::prelude::settings::run::Settings;
+use crate::prelude::settings::Settings;
 
 pub fn draw_title<'a>() -> Paragraph<'a> {
     Paragraph::new("NPcore Execution")
@@ -78,17 +78,16 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
 pub fn draw_options<'a>(settings: &Settings) -> Table<'a> {
     // Define the table data
 
-    let cycles = settings.parsed.config.cycles.to_string();
-    let engine = settings.parsed.config.engine.to_string();
+    let cycles = settings.config.cycles.to_string();
+    let engine = settings.config.engine.to_string();
     let conv_crit = "Placeholder".to_string();
-    let indpts = settings.parsed.config.init_points.to_string();
-    let error = settings.parsed.error.class.to_string();
-    let cache = match settings.parsed.config.cache {
-        Some(true) => "Yes".to_string(),
-        Some(false) => "No".to_string(),
-        None => "Not set".to_string(),
+    let indpts = settings.config.init_points.to_string();
+    let error = settings.error.class.to_string();
+    let cache = match settings.config.cache {
+        true => "Enabled".to_string(),
+        false => "Disabled".to_string(),
     };
-    let seed = settings.parsed.config.seed.to_string();
+    let seed = settings.config.seed.to_string();
 
     let data = vec![
         ("Maximum cycles", cycles),
@@ -253,64 +252,6 @@ pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
         .select(index);
 
     tabs
-}
-
-fn get_computed_settings(settings: &Settings) -> Vec<Row> {
-    let computed = settings.computed.clone();
-    let mut rows = Vec::new();
-    let key_style = Style::default().fg(Color::LightCyan);
-    let help_style = Style::default().fg(Color::Gray);
-
-    // Iterate over the random ranges
-    for (name, &(start, end)) in computed.random.names.iter().zip(&computed.random.ranges) {
-        let row = Row::new(vec![
-            Cell::from(Span::styled(name.to_string(), key_style)),
-            Cell::from(Span::styled(
-                format!("{:.2} - {:.2}", start, end),
-                help_style,
-            )),
-        ]);
-        rows.push(row);
-    }
-
-    // Iterate over the constant values
-    for (name, &value) in computed
-        .constant
-        .names
-        .iter()
-        .zip(&computed.constant.values)
-    {
-        let row = Row::new(vec![
-            Cell::from(Span::styled(name.to_string(), key_style)),
-            Cell::from(Span::styled(format!("{:.2} (Constant)", value), help_style)),
-        ]);
-        rows.push(row);
-    }
-
-    // Iterate over the fixed values
-    for (name, &value) in computed.fixed.names.iter().zip(&computed.fixed.values) {
-        let row = Row::new(vec![
-            Cell::from(Span::styled(name.to_string(), key_style)),
-            Cell::from(Span::styled(format!("{:.2} (Fixed)", value), help_style)),
-        ]);
-        rows.push(row);
-    }
-
-    rows
-}
-
-pub fn draw_parameter_bounds(settings: &Settings) -> Table {
-    let rows = get_computed_settings(&settings);
-    Table::default()
-        .rows(rows)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Plain)
-                .title(" Parameters "),
-        )
-        .widths(&[Constraint::Percentage(20), Constraint::Percentage(80)]) // Set percentage widths for columns
-        .column_spacing(1)
 }
 
 fn format_time(elapsed_time: std::time::Duration) -> String {

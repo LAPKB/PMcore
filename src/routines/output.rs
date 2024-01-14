@@ -4,7 +4,7 @@ use datafile::Scenario;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use predict::{post_predictions, sim_obs, Engine, Predict};
-use settings::run::Settings;
+use settings::Settings;
 use std::fs::File;
 
 /// Defines the result objects from an NPAG run
@@ -36,12 +36,8 @@ impl NPResult {
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
 
-        let par_names = settings
-            .parsed
-            .random
-            .iter()
-            .map(|(name, _)| name.clone())
-            .collect();
+        let par_names = settings.random.names();
+
         Self {
             scenarios,
             theta,

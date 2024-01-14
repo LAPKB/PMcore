@@ -1,4 +1,4 @@
-use crate::prelude::{self, settings::settings::Settings};
+use crate::prelude::{self, settings::Settings};
 
 use output::NPResult;
 use prelude::{datafile::Scenario, *};
@@ -29,17 +29,17 @@ where
             Err(err) => panic!("Unable to remove previous stop file: {}", err),
         }
     }
-    let ranges = settings.run.random.ranges.clone();
+    let ranges = settings.random.ranges();
     let theta = initialization::sample_space(&settings, &ranges);
 
     //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
-    match settings.run.config.engine.as_str() {
+    match settings.config.engine.as_str() {
         "NPAG" => Box::new(npag::NPAG::new(
             engine,
             ranges,
             theta,
             scenarios,
-            settings.run.error.poly,
+            settings.error.poly,
             tx,
             settings,
         )),
@@ -48,7 +48,7 @@ where
             ranges,
             theta,
             scenarios,
-            settings.parsed.error.poly,
+            settings.error.poly,
             tx,
             settings,
         )),
@@ -56,7 +56,7 @@ where
             engine,
             theta,
             scenarios,
-            settings.parsed.error.poly,
+            settings.error.poly,
             tx,
             settings,
         )),
