@@ -2,12 +2,12 @@ use std::fs::File;
 
 use ndarray::Array2;
 
-use crate::prelude::settings::run::Settings;
+use crate::prelude::settings::Settings;
 
 pub mod sobol;
 
 pub fn sample_space(settings: &Settings, ranges: &Vec<(f64, f64)>) -> Array2<f64> {
-    match &settings.parsed.paths.prior_dist {
+    match &settings.paths.prior {
         Some(prior_path) => {
             let file = File::open(prior_path).unwrap();
             let mut reader = csv::ReaderBuilder::new()
@@ -28,12 +28,7 @@ pub fn sample_space(settings: &Settings, ranges: &Vec<(f64, f64)>) -> Array2<f64
             }
 
             // Check and reorder parameters to match names in settings.parsed.random
-            let random_names: Vec<String> = settings
-                .parsed
-                .random
-                .iter()
-                .map(|(name, _)| name.clone())
-                .collect();
+            let random_names: Vec<String> = settings.random.names();
 
             let mut reordered_indices: Vec<usize> = Vec::new();
             for random_name in &random_names {
@@ -76,10 +71,6 @@ pub fn sample_space(settings: &Settings, ranges: &Vec<(f64, f64)>) -> Array2<f64
             Array2::from_shape_vec((n_points, n_params), theta_values)
                 .expect("Failed to create theta Array2")
         }
-        None => sobol::generate(
-            settings.parsed.config.init_points,
-            ranges,
-            settings.parsed.config.seed,
-        ),
+        None => sobol::generate(settings.config.init_points, ranges, settings.config.seed),
     }
 }
