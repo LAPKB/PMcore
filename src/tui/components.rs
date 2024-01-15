@@ -15,7 +15,7 @@ use ratatui::{
 
 use super::App;
 
-use crate::prelude::settings::run::Data;
+use crate::prelude::settings::run::Settings;
 
 pub fn draw_title<'a>() -> Paragraph<'a> {
     Paragraph::new("NPcore Execution")
@@ -63,7 +63,8 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         .collect();
 
     // Create the table widget
-    Table::new(rows)
+    Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -74,7 +75,7 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         .column_spacing(1)
 }
 
-pub fn draw_options<'a>(settings: &Data) -> Table<'a> {
+pub fn draw_options<'a>(settings: &Settings) -> Table<'a> {
     // Define the table data
 
     let cycles = settings.parsed.config.cycles.to_string();
@@ -112,7 +113,8 @@ pub fn draw_options<'a>(settings: &Data) -> Table<'a> {
         .collect();
 
     // Create the table widget
-    Table::new(rows)
+    Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -145,7 +147,8 @@ pub fn draw_commands(app: &App) -> Table {
         }
     }
 
-    Table::new(rows)
+    Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -252,7 +255,7 @@ pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
     tabs
 }
 
-fn get_computed_settings(settings: &Data) -> Vec<Row> {
+fn get_computed_settings(settings: &Settings) -> Vec<Row> {
     let computed = settings.computed.clone();
     let mut rows = Vec::new();
     let key_style = Style::default().fg(Color::LightCyan);
@@ -296,9 +299,10 @@ fn get_computed_settings(settings: &Data) -> Vec<Row> {
     rows
 }
 
-pub fn draw_parameter_bounds(settings: &Data) -> Table {
+pub fn draw_parameter_bounds(settings: &Settings) -> Table {
     let rows = get_computed_settings(&settings);
-    Table::new(rows)
+    Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)

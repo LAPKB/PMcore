@@ -9,7 +9,7 @@ use crate::{
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
-        settings::run::Data,
+        settings::run::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
@@ -45,7 +45,7 @@ where
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
     tx: UnboundedSender<Comm>,
-    settings: Data,
+    settings: Settings,
 }
 
 impl<S> Algorithm for NPOD<S>
@@ -95,7 +95,7 @@ where
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
         tx: UnboundedSender<Comm>,
-        settings: Data,
+        settings: Settings,
     ) -> Self
     where
         S: Predict<'static> + std::marker::Sync,

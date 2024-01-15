@@ -1,4 +1,4 @@
-use crate::routines::settings::run::Data;
+use crate::routines::settings::run::Settings;
 use crate::tui::ui::Comm;
 use std::io::{self, Write};
 use tokio::sync::mpsc::UnboundedSender;
@@ -9,7 +9,18 @@ use tracing_subscriber::registry::Registry;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-pub fn setup_log(settings: &Data, ui_tx: UnboundedSender<Comm>) {
+/// Setup logging for the library
+///
+/// This function sets up logging for the library. It uses the `tracing` crate, and the `tracing-subscriber` crate for formatting.
+///
+/// The log level is defined in the configuration file, and defaults to `INFO`.
+///
+/// If `log_out` is specifified in teh configuration file, a log file is created with the specified name.
+///
+/// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
+///
+/// If not, the log messages are written to stdout.
+pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
     // Use the log level defined in configuration file, or default to info
     let log_level = settings
         .parsed
@@ -51,10 +62,8 @@ pub fn setup_log(settings: &Data, ui_tx: UnboundedSender<Comm>) {
     };
 
     // Define layer for TUI
-    let tui_writer_closure = move || {
-        TuiWriter {
-            ui_tx: ui_tx.clone(), // Ensure this clone is okay with your design (consider the lifetime of _ui_tx)
-        }
+    let tui_writer_closure = move || TuiWriter {
+        ui_tx: ui_tx.clone(),
     };
 
     let tui_layer = if settings.parsed.config.tui {

@@ -7,7 +7,7 @@ use crate::{
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
-        settings::run::Data,
+        settings::run::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
@@ -19,8 +19,8 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-const THETA_E: f64 = 1e-4; //convergence Criteria
-const THETA_G: f64 = 1e-4; //objf stop criteria
+const THETA_E: f64 = 1e-4; // Convergence criteria
+const THETA_G: f64 = 1e-4; // Objective function convergence criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
@@ -49,7 +49,7 @@ where
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
     tx: UnboundedSender<Comm>,
-    settings: Data,
+    settings: Settings,
 }
 
 impl<S> Algorithm for NPAG<S>
@@ -99,7 +99,7 @@ where
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
         tx: UnboundedSender<Comm>,
-        settings: Data,
+        settings: Settings,
     ) -> Self
     where
         S: Predict<'static> + std::marker::Sync,
@@ -290,6 +290,9 @@ where
             self.w = self.lambda.clone();
             let pyl = self.psi.dot(&self.w);
 
+            self.cycle_log
+                .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
+
             // Stop if we have reached convergence criteria
             if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
                 self.eps /= 2.;
@@ -317,15 +320,13 @@ where
                 tracing::warn!("Stopfile detected - breaking");
                 break;
             }
-            self.cycle_log
-                .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
 
+            // If we have not reached convergence or otherwise stopped, expand grid and prepare for new cycle
             self.adaptative_grid();
             self.cycle += 1;
             self.last_objf = self.objf;
         }
 
-        self.tx.send(Comm::Stop(true)).unwrap();
         self.to_npresult()
     }
 }

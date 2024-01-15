@@ -12,6 +12,12 @@ r.csv
 posterior.csv
 simulation_output.csv
 meta*.csv
+/examples/rosuva/*
+/examples/iohexol/*
+/examples/vori/*
+/examples/data/iohexol*
+/examples/data/rosuva*
+/examples/data/vori*
 /.idea
 stop
 .vscode

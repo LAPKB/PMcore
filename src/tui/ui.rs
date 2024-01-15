@@ -1,5 +1,6 @@
 //! Defines the Terminal User Interface (TUI) for NPcore
 
+use crossterm::execute;
 use eyre::Result;
 use ratatui::{
     backend::CrosstermBackend,
@@ -8,6 +9,7 @@ use ratatui::{
 };
 use std::{
     io::stdout,
+    process::exit,
     time::{Duration, Instant},
 };
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -21,15 +23,17 @@ use super::{
 pub enum Comm {
     NPCycle(NPCycle),
     Message(String),
-    Stop(bool),
+    Stop,
+    StopUI,
     LogMessage(String),
 }
 
-use crate::prelude::{output::NPCycle, settings::run::Data};
+use crate::prelude::{output::NPCycle, settings::run::Settings};
 use crate::tui::components::*;
 
-pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
-    let stdout = stdout();
+pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<()> {
+    let mut stdout = stdout();
+    execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
     crossterm::terminal::enable_raw_mode()?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -56,10 +60,14 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
                     cycle_history.add_cycle(cycle);
                 }
                 Comm::Message(_msg) => {}
-                Comm::Stop(stop) => {
-                    if stop {
-                        //exit(-1); //TODO: Replace with graceful exit from TUI
-                    }
+                Comm::Stop => {
+                    terminal.show_cursor()?;
+                    crossterm::terminal::disable_raw_mode()?;
+                    println!();
+                    exit(0);
+                }
+                Comm::StopUI => {
+                    break;
                 }
                 Comm::LogMessage(msg) => log_history.push(msg),
             },
@@ -91,11 +99,22 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Data) -> Result<()> {
         };
         // Check if we should exit
         if result == AppReturn::Exit {
-            break;
+            terminal.clear()?;
+            terminal.show_cursor()?;
+            crossterm::terminal::disable_raw_mode()?;
+            tracing::info!("Exit signal received");
+            print!("NPcore was stopped by user");
+            exit(0);
         }
     }
 
-    // Draw one last image
+    // Exit alternate screen, and print one last frame
+
+    terminal.clear()?;
+    execute!(
+        terminal.backend_mut(),
+        crossterm::terminal::LeaveAlternateScreen
+    )?;
     terminal
         .draw(|rect| {
             draw(
@@ -120,7 +139,7 @@ pub fn draw(
     app: &App,
     cycle_history: &CycleHistory,
     elapsed_time: Duration,
-    settings: &Data,
+    settings: &Settings,
     log_history: &Vec<String>,
 ) {
     let size = rect.size();

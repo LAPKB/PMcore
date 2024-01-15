@@ -12,7 +12,8 @@ use std::collections::HashMap;
 use std::error;
 use std::hash::{Hash, Hasher};
 
-const CACHE_SIZE: usize = 1000000;
+/// Number of support points to cache for each scenario
+const CACHE_SIZE: usize = 1000;
 
 #[derive(Debug, Clone)]
 pub struct Model {
@@ -159,16 +160,16 @@ pub fn get_ypred<S: Predict<'static> + Sync + Clone>(
 ///
 /// * `sim_eng` - A reference to the simulation engine implementing the `Predict` trait.
 ///
-/// * `scenarios` - A reference to a Vec<Scenario> containing information about different scenarios.
+/// * `scenarios` - A reference to a `Vec<Scenario>` containing information about different scenarios.
 ///
-/// * `support_points` - A 2D Array (Array2<f64>) representing the support points. Each row
+/// * `support_points` - A 2D Array `(Array2<f64>)` representing the support points. Each row
 ///                     corresponds to a different support point scenario.
 ///
 /// * `cache` - A boolean flag indicating whether to cache predicted values during simulation.
 ///
 /// # Returns
 ///
-/// A 2D Array (Array2<Array1<f64>>) where each element is an Array1<f64> representing the
+/// A 2D Array `(Array2<Array1<f64>>)` where each element is an `Array1<f64>` representing the
 /// simulated observations for a specific scenario and support point.
 ///
 /// # Example

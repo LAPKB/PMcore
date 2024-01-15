@@ -5,7 +5,8 @@ use std::process::exit;
 
 type Record = HashMap<String, String>;
 
-/// A Scenario is a collection of blocks that represent a single subject in the Datafile
+/// A Scenario is a collection of blocks that represent a single subject in the datafile
+/// Each block is a collection of events that represent a single dose, possibly followed by observations
 #[derive(Debug, Clone)]
 pub struct Scenario {
     pub id: String,
@@ -23,8 +24,8 @@ impl Scenario {
     }
 
     /// Adds "mock" events to a Scenario in order to generate predictions at those times
-    /// The interval is mapped to the `idelta`-setting in the configuration time
-    /// Time after dose (tad) will ensure that predictions are made until the last dose + tad
+    /// The interval is mapped to the `idelta`-setting in the configuration file
+    /// Time after dose (`tad`) will ensure that predictions are made until the last dose + tad
     pub fn add_event_interval(&self, interval: f64, tad: f64) -> Self {
         // Clone the underlying Event data instead of the references
         let all_events = self

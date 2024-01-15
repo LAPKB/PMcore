@@ -5,6 +5,7 @@ use crate::prelude::{
     *,
 };
 use crate::routines::datafile::Scenario;
+use crate::routines::settings::run::Settings;
 
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
@@ -18,14 +19,14 @@ use std::time::Instant;
 use tokio::sync::mpsc::{self};
 
 /// Simulate predictions from a model and prior distribution
-/// 
+///
 /// This function is used to simulate predictions from a model and prior distribution.
 /// The output is a CSV file with the following columns:
 /// - `id`: subject ID, corresponding to the desired dose regimen
 /// - `point`: support point index (0-indexed)
 /// - `time`: prediction time
 /// - `pred`: simulated prediction
-/// 
+///
 /// # Arguments
 /// The user can specify the desired settings in a TOML configuration file, see `routines::settings::simulator` for details.
 /// - `idelta`: the interval between predictions. Default is 0.0.
@@ -79,7 +80,7 @@ where
 }
 
 /// Primary entrypoint for NPcore
-/// 
+///
 /// This function is the primary entrypoint for NPcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
@@ -89,6 +90,7 @@ where
     let now = Instant::now();
     let settings = settings::run::read(settings_path);
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
+    let maintx = tx.clone();
     logger::setup_log(&settings, tx.clone());
     tracing::info!("Starting NPcore");
 
@@ -109,11 +111,16 @@ where
 
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
-    if settings.parsed.config.tui {
-        let _ui_handle = spawn(move || {
+    let handle = if settings.parsed.config.tui {
+        spawn(move || {
             start_ui(rx, settings_tui).expect("Failed to start TUI");
-        });
-    }
+        })
+    } else {
+        // Drop messages if TUI is not enabled to reduce memory usage
+        spawn(move || {
+            drop_messages(rx);
+        })
+    };
 
     // Initialize algorithm and run
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
@@ -126,46 +133,52 @@ where
         let tad = settings.parsed.config.tad.unwrap_or(0.0);
         result.write_outputs(*write, &engine, idelta, tad);
     }
+
     tracing::info!("Program complete");
+    maintx.send(Comm::StopUI).unwrap();
+    handle.join().unwrap();
 
     Ok(result)
 }
 
 /// Alternative entrypoint, primarily meant for third-party libraries or APIs
-/// 
-/// This function is an alternative entrypoint to NPcore, mostly meant for use through third-party libraries.
-/// It is similar to `start`, but does not read the input datafile, and instead takes a vector of `Scenario` structs as input.
-/// The function returns an `NPResult` struct
+///
+/// This entrypoint takes an `Engine` (from the model), `Data` from the settings, and `scenarios` containing dose information and observations
+///
+/// It does not write any output files, and does not start a TUI.
+///
+/// Returns an NPresult object
 pub fn start_internal<S>(
     engine: Engine<S>,
-    settings_path: String,
+    settings: Settings,
     scenarios: Vec<Scenario>,
 ) -> Result<NPResult>
 where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
-    let settings = settings::run::read(settings_path);
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     logger::setup_log(&settings, tx.clone());
 
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
-    // Spawn new thread for TUI
-    let settings_tui = settings.clone();
-    if settings.parsed.config.tui {
-        let _ui_handle = spawn(move || {
-            start_ui(rx, settings_tui).expect("Failed to start TUI");
-        });
-    }
+
+    let _ = spawn(move || {
+        drop_messages(rx);
+    });
 
     let result = algorithm.fit();
     tracing::info!("Total time: {:.2?}", now.elapsed());
-
-    let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
-    let tad = settings.parsed.config.tad.unwrap_or(0.0);
-    if let Some(write) = &settings.parsed.config.pmetrics_outputs {
-        result.write_outputs(*write, &engine, idelta, tad);
-    }
-
     Ok(result)
+}
+
+fn drop_messages(mut rx: mpsc::UnboundedReceiver<Comm>) {
+    loop {
+        match rx.try_recv() {
+            Ok(comm) => match comm {
+                Comm::StopUI => break,
+                _ => {}
+            },
+            Err(_e) => {}
+        }
+    }
 }

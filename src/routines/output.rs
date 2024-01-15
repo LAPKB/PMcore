@@ -4,7 +4,7 @@ use datafile::Scenario;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use predict::{post_predictions, sim_obs, Engine, Predict};
-use settings::run::Data;
+use settings::run::Settings;
 use std::fs::File;
 
 /// Defines the result objects from an NPAG run
@@ -19,7 +19,7 @@ pub struct NPResult {
     pub cycles: usize,
     pub converged: bool,
     pub par_names: Vec<String>,
-    pub settings: Data,
+    pub settings: Settings,
 }
 
 impl NPResult {
@@ -32,7 +32,7 @@ impl NPResult {
         objf: f64,
         cycles: usize,
         converged: bool,
-        settings: Data,
+        settings: Settings,
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
 
@@ -290,6 +290,15 @@ impl CycleLog {
     }
 }
 
+/// Defines the result objects from a run
+/// An [NPResult] contains the necessary information to generate predictions and summary statistics
+/// It holds the following information:
+/// - `cycle`: The cycle number
+/// - `objf`: The objective function value
+/// - `gamlam`: The assay noise parameter, either gamma or lambda
+/// - `theta`: The support points and their associated probabilities
+/// - `nspp`: The number of support points
+/// - `delta_objf`: The change in objective function value from last cycle
 #[derive(Debug, Clone)]
 pub struct NPCycle {
     pub cycle: usize,
