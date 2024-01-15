@@ -21,6 +21,7 @@ csv = "1.2.1"
 ndarray = { version = "0.15.6", features = ["rayon"] }
 serde = "1.0.188"
 serde_derive = "1.0.188"
+serde_json = "1.0.66"
 sobol_burley = "0.5.0"
 toml = { version = "0.8.1", features = ["preserve_order"] }
 ode_solvers = "0.3.7"

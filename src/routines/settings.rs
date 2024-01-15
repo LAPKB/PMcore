@@ -2,27 +2,28 @@
 
 use config::Config as eConfig;
 use serde::Deserialize;
+use serde_derive::Serialize;
 use std::collections::HashMap;
+use serde_json;
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Settings {
     pub paths: Paths,
     pub config: Config,
-    #[serde(flatten)]
     pub random: Random,
     pub fixed: Option<Fixed>,
     pub constant: Option<Constant>,
     pub error: Error,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Paths {
     pub data: String,
     pub log: Option<String>,
     pub prior: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Config {
     pub cycles: usize,
     pub engine: String,
@@ -45,7 +46,7 @@ pub struct Config {
     pub tad: f64,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Random {
     #[serde(flatten)]
     pub parameters: HashMap<String, (f64, f64)>,
@@ -65,19 +66,19 @@ impl Random {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Fixed {
     #[serde(flatten)]
     pub parameters: HashMap<String, f64>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Constant {
     #[serde(flatten)]
     pub parameters: HashMap<String, f64>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Error {
     pub value: f64,
     pub class: String,
@@ -93,7 +94,21 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
         .build()?;
 
     let settings: Settings = parsed.try_deserialize()?;
+
+    // Write settings to file
+    write_settings_to_file(&settings).expect("Could not write settings to file");
+
     Ok(settings) // Return the settings wrapped in Ok
+}
+
+pub fn write_settings_to_file(settings: &Settings) -> Result<(), std::io::Error> {
+    let serialized = serde_json::to_string_pretty(settings)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    
+    let file_path = "settings.json";
+    let mut file = std::fs::File::create(file_path)?;
+    std::io::Write::write_all(&mut file, serialized.as_bytes())?;
+    Ok(())
 }
 
 // *********************************

@@ -35,7 +35,7 @@ pub fn simulate<S>(engine: Engine<S>, settings_path: String) -> Result<()>
 where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
-    let settings = read_settings(settings_path).unwrap();
+    let settings: Settings = read_settings(settings_path).unwrap();
     let theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
     let mut reader = ReaderBuilder::new()
         .has_headers(true)
@@ -88,7 +88,13 @@ where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
-    let settings: Settings = read_settings(settings_path).unwrap();
+    let settings = match read_settings(settings_path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error reading settings: {:?}", e);
+            std::process::exit(1);
+        }
+    };
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     let maintx = tx.clone();
     logger::setup_log(&settings, tx.clone());
