@@ -22,3 +22,4 @@ meta*.csv
 stop
 .vscode
 *.f90
+settings.json

@@ -92,7 +92,7 @@ where
         Ok(s) => s,
         Err(e) => {
             eprintln!("Error reading settings: {:?}", e);
-            std::process::exit(1);
+            std::process::exit(-1);
         }
     };
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
