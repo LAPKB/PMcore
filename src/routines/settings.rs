@@ -103,18 +103,21 @@ impl Random {
     }
 }
 
+/// Parameters which are estimated, but fixed for the population 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Fixed {
     #[serde(flatten)]
     pub parameters: HashMap<String, f64>,
 }
 
+/// Parameters which are held constant
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Constant {
     #[serde(flatten)]
     pub parameters: HashMap<String, f64>,
 }
 
+/// Defines the error model and polynomial to be used
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Error {
     pub value: f64,
