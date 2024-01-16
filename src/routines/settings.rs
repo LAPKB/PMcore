@@ -137,6 +137,11 @@ impl Error {
     }
 }
 
+/// Parses the settings from a TOML configuration file
+/// 
+/// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
+/// 
+/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `NPCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `NPCORE_TUI=false`.
 pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
     let settings_path = path;
 
@@ -164,6 +169,9 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
     Ok(settings) // Return the settings wrapped in Ok
 }
 
+/// Writes a copy of the parsed settings to file
+/// 
+/// This function writes a copy of the parsed settings to file. The file is written to the current working directory, and is named `settings.json`.
 pub fn write_settings_to_file(settings: &Settings) -> Result<(), std::io::Error> {
     let serialized = serde_json::to_string_pretty(settings)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
