@@ -65,7 +65,7 @@ where
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
-            self.objf,
+            -2. * self.objf,
             self.cycle,
             self.converged,
             self.settings.clone(),
@@ -277,6 +277,8 @@ where
                 gamlam: self.gamma,
             };
             self.tx.send(Comm::NPCycle(state.clone())).unwrap();
+            self.cycle_log
+                .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
 
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
@@ -289,9 +291,6 @@ where
 
             self.w = self.lambda.clone();
             let pyl = self.psi.dot(&self.w);
-
-            self.cycle_log
-                .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
 
             // Stop if we have reached convergence criteria
             if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
