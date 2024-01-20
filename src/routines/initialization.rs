@@ -9,6 +9,7 @@ pub mod sobol;
 pub fn sample_space(settings: &Settings, ranges: &Vec<(f64, f64)>) -> Array2<f64> {
     match &settings.paths.prior {
         Some(prior_path) => {
+            tracing::info!("Reading prior from {}", prior_path);
             let file = File::open(prior_path).unwrap();
             let mut reader = csv::ReaderBuilder::new()
                 .has_headers(true)
