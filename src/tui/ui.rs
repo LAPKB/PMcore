@@ -32,7 +32,6 @@ use crate::prelude::{output::NPCycle, settings::Settings};
 use crate::tui::components::*;
 
 pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<()> {
-
     initialize_panic_handler();
     let mut stdout = stdout();
     execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
@@ -244,7 +243,7 @@ pub fn initialize_panic_handler() {
     std::panic::set_hook(Box::new(move |panic_info| {
         crossterm::execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen).unwrap();
         crossterm::terminal::disable_raw_mode().unwrap();
-        crossterm::terminal::Clear( crossterm::terminal::ClearType::All);
+        crossterm::terminal::Clear(crossterm::terminal::ClearType::All);
         original_hook(panic_info);
     }));
 }

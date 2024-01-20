@@ -75,17 +75,33 @@ impl Random {
         self.parameters.get(key)
     }
 
-    /// Returns a vector of the upper and lower bounds of the random parameters
-    pub fn ranges(&self) -> Vec<(f64, f64)> {
-        self.parameters
-            .values()
-            .map(|&(upper, lower)| (upper, lower))
+    /// Returns a vector of tuples containing the names and ranges of the random parameters
+    pub fn names_and_ranges(&self) -> Vec<(String, (f64, f64))> {
+        let mut pairs: Vec<(String, (f64, f64))> = self
+            .parameters
+            .iter()
+            .map(|(key, &(upper, lower))| (key.clone(), (upper, lower)))
+            .collect();
+
+        // Sorting alphabetically by name
+        pairs.sort_by(|a, b| a.0.cmp(&b.0));
+
+        pairs
+    }
+    /// Returns a vector of the names of the random parameters
+    pub fn names(&self) -> Vec<String> {
+        self.names_and_ranges()
+            .into_iter()
+            .map(|(name, _)| name)
             .collect()
     }
 
-    /// Returns a vector of the names of the random parameters
-    pub fn names(&self) -> Vec<String> {
-        self.parameters.keys().map(|key| key.to_string()).collect()
+    /// Returns a vector of the upper and lower bounds of the random parameters
+    pub fn ranges(&self) -> Vec<(f64, f64)> {
+        self.names_and_ranges()
+            .into_iter()
+            .map(|(_, range)| range)
+            .collect()
     }
 
     /// Validate the boundaries of the random parameters
