@@ -1,7 +1,7 @@
 [paths]
 data = "examples/data/bimodal_ke.csv"
 log = "log/bimodal_ke.log"
-#prior_dist = "theta_bimodal_ke.csv"
+#prior = "theta_bimodal_ke.csv"
 
 [config]
 cycles = 1024
