@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 /// Contains all settings NPcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Settings {
     pub paths: Paths,
     pub config: Config,
@@ -19,6 +20,7 @@ pub struct Settings {
 
 /// This struct contains the paths to the data, log and prior files.
 #[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Paths {
     /// Path to the data file, see `datafile::parse` for details.
     pub data: String,
@@ -30,6 +32,7 @@ pub struct Paths {
 
 /// General configuration settings
 #[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     pub cycles: usize,
     pub engine: String,
@@ -134,6 +137,7 @@ pub struct Constant {
 
 /// Defines the error model and polynomial to be used
 #[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Error {
     pub value: f64,
     pub class: String,
