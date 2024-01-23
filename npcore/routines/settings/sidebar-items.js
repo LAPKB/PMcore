@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["run","simulator"]};
+window.SIDEBAR_ITEMS = {"fn":["read_settings","write_settings_to_file"],"struct":["Config","Constant","Error","Fixed","Paths","Random","Settings"]};

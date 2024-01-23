@@ -113,11 +113,7 @@
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::run::Settings;
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
@@ -141,14 +137,10 @@
 /// If not, the log messages are written to stdout.
 </span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: UnboundedSender&lt;Comm&gt;) {
     <span class="comment">// Use the log level defined in configuration file, or default to info
-    </span><span class="kw">let </span>log_level = settings
-        .parsed
-        .config
-        .log_level
-        .as_ref()
-        .map(|level| level.as_str())
-        .unwrap_or(<span class="string">&quot;info&quot;</span>)
-        .to_lowercase();
+    </span><span class="kw">let </span>log_level = settings.config.log_level.as_str();
+
+    <span class="comment">// Use the log file defined in configuration file, or default to npcore.log
+    </span><span class="kw">let </span>log_path = settings.paths.log.as_ref().unwrap();
 
     <span class="kw">let </span>env_filter = EnvFilter::new(<span class="kw-2">&amp;</span>log_level);
 
@@ -160,7 +152,7 @@
         .create(<span class="bool-val">true</span>)
         .write(<span class="bool-val">true</span>)
         .truncate(<span class="bool-val">true</span>)
-        .open(<span class="kw-2">&amp;</span>settings.parsed.paths.log_out)
+        .open(log_path)
         .expect(<span class="string">&quot;Failed to open log file - does the directory exist?&quot;</span>);
 
     <span class="kw">let </span>file_layer = fmt::layer()
@@ -169,7 +161,7 @@
         .with_timer(CompactTimestamp);
 
     <span class="comment">// Define layer for stdout
-    </span><span class="kw">let </span>stdout_layer = <span class="kw">if </span>!settings.parsed.config.tui {
+    </span><span class="kw">let </span>stdout_layer = <span class="kw">if </span>!settings.config.tui {
         <span class="kw">let </span>layer = fmt::layer()
             .with_writer(std::io::stdout)
             .with_ansi(<span class="bool-val">true</span>)
@@ -185,7 +177,7 @@
         ui_tx: ui_tx.clone(),
     };
 
-    <span class="kw">let </span>tui_layer = <span class="kw">if </span>settings.parsed.config.tui {
+    <span class="kw">let </span>tui_layer = <span class="kw">if </span>settings.config.tui {
         <span class="kw">let </span>layer = fmt::layer()
             .with_writer(tui_writer_closure)
             .with_ansi(<span class="bool-val">false</span>)

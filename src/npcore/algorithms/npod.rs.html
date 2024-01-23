@@ -334,7 +334,7 @@
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
-        settings::run::Settings,
+        settings::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
@@ -436,15 +436,15 @@
             objf: f64::INFINITY,
             cycle: <span class="number">1</span>,
             gamma_delta: <span class="number">0.1</span>,
-            gamma: settings.parsed.error.value,
-            error_type: <span class="kw">match </span>settings.parsed.error.class.as_str() {
+            gamma: settings.error.value,
+            error_type: <span class="kw">match </span>settings.error.class.as_str() {
                 <span class="string">&quot;additive&quot; </span>=&gt; ErrorType::Add,
                 <span class="string">&quot;proportional&quot; </span>=&gt; ErrorType::Prop,
                 <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Error type not supported&quot;</span>),
             },
             converged: <span class="bool-val">false</span>,
-            cycle_log: CycleLog::new(<span class="kw-2">&amp;</span>settings.computed.random.names),
-            cache: settings.parsed.config.cache.unwrap_or(<span class="bool-val">false</span>),
+            cycle_log: CycleLog::new(<span class="kw-2">&amp;</span>settings.random.names()),
+            cache: settings.config.cache,
             tx,
             settings,
             scenarios,
@@ -621,7 +621,7 @@
             }
 
             <span class="comment">// Stop if we have reached maximum number of cycles
-            </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.parsed.config.cycles {
+            </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.config.cycles {
                 <span class="macro">tracing::warn!</span>(<span class="string">&quot;Maximum number of cycles reached&quot;</span>);
                 <span class="kw">break</span>;
             }
@@ -633,7 +633,7 @@
             }
             <span class="comment">//TODO: the cycle migh break before reaching this point
             </span><span class="self">self</span>.cycle_log
-                .push_and_write(state, <span class="self">self</span>.settings.parsed.config.pmetrics_outputs.unwrap());
+                .push_and_write(state, <span class="self">self</span>.settings.config.output);
 
             <span class="self">self</span>.cycle += <span class="number">1</span>;
 

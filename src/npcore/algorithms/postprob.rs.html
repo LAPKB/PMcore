@@ -120,7 +120,7 @@
         ipm,
         output::NPResult,
         prob,
-        settings::run::Settings,
+        settings::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
@@ -196,8 +196,8 @@
             objf: f64::INFINITY,
             cycle: <span class="number">0</span>,
             converged: <span class="bool-val">false</span>,
-            gamma: settings.parsed.error.value,
-            error_type: <span class="kw">match </span>settings.parsed.error.class.as_str() {
+            gamma: settings.error.value,
+            error_type: <span class="kw">match </span>settings.error.class.as_str() {
                 <span class="string">&quot;additive&quot; </span>=&gt; ErrorType::Add,
                 <span class="string">&quot;proportional&quot; </span>=&gt; ErrorType::Prop,
                 <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Error type not supported&quot;</span>),

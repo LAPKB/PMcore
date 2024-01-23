@@ -127,7 +127,6 @@
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::error;
 
 <span class="kw">use </span>linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
@@ -171,7 +170,7 @@
     <span class="comment">// if row&gt;col {
     //     return Err(&quot;The matrix PSI has row&gt;col&quot;.into());
     // }
-    </span><span class="kw">if </span>psi.min().unwrap() &lt; <span class="kw-2">&amp;</span><span class="number">0.0 </span>{
+    </span><span class="kw">if </span>psi.min()<span class="question-mark">? </span>&lt; <span class="kw-2">&amp;</span><span class="number">0.0 </span>{
         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;PSI contains negative elements&quot;</span>.into());
     }
     <span class="kw">let </span>ecol: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt; = Array::ones(col);
@@ -185,7 +184,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>lam = ecol.clone();
     <span class="kw">let </span><span class="kw-2">mut </span>w = <span class="number">1. </span>/ <span class="kw-2">&amp;</span>plam;
     <span class="kw">let </span><span class="kw-2">mut </span>ptw = psi.t().dot(<span class="kw-2">&amp;</span>w);
-    <span class="kw">let </span>shrink = <span class="number">2. </span>* <span class="kw-2">*</span>ptw.max().unwrap();
+    <span class="kw">let </span>shrink = <span class="number">2. </span>* <span class="kw-2">*</span>ptw.max()<span class="question-mark">?</span>;
     lam <span class="kw-2">*</span>= shrink;
     plam <span class="kw-2">*</span>= shrink;
     w /= shrink;
@@ -218,10 +217,10 @@
         <span class="kw">let </span>dw = dw_aux.column(<span class="number">0</span>);
         <span class="kw">let </span>dy = -psi.t().dot(<span class="kw-2">&amp;</span>dw);
         <span class="kw">let </span>dlam = smuyinv - <span class="kw-2">&amp;</span>lam - inner * <span class="kw-2">&amp;</span>dy;
-        <span class="kw">let </span><span class="kw-2">mut </span>alfpri = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dlam / <span class="kw-2">&amp;</span>lam).min().unwrap().min(-<span class="number">0.5</span>));
+        <span class="kw">let </span><span class="kw-2">mut </span>alfpri = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dlam / <span class="kw-2">&amp;</span>lam).min()<span class="question-mark">?</span>.min(-<span class="number">0.5</span>));
         alfpri = (<span class="number">0.99995 </span>* alfpri).min(<span class="number">1.0</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>alfdual = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dy / <span class="kw-2">&amp;</span>y).min().unwrap().min(-<span class="number">0.5</span>));
-        alfdual = alfdual.min(-<span class="number">1. </span>/ (<span class="kw-2">&amp;</span>dw / <span class="kw-2">&amp;</span>w).min().unwrap().min(-<span class="number">0.5</span>));
+        <span class="kw">let </span><span class="kw-2">mut </span>alfdual = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dy / <span class="kw-2">&amp;</span>y).min()<span class="question-mark">?</span>.min(-<span class="number">0.5</span>));
+        alfdual = alfdual.min(-<span class="number">1. </span>/ (<span class="kw-2">&amp;</span>dw / <span class="kw-2">&amp;</span>w).min()<span class="question-mark">?</span>.min(-<span class="number">0.5</span>));
         alfdual = (<span class="number">0.99995 </span>* alfdual).min(<span class="number">1.0</span>);
         lam = lam + alfpri * dlam;
         w = w + alfdual * <span class="kw-2">&amp;</span>dw;
@@ -241,9 +240,8 @@
                 (<span class="number">1. </span>- alfdual).powi(<span class="number">2</span>),
                 (norm_r - mu) / (norm_r + <span class="number">100. </span>* mu)
             ]]
-            .max()
-            .unwrap()
-            .min(<span class="number">0.3</span>);
+            .max()<span class="question-mark">?
+            </span>.min(<span class="number">0.3</span>);
         }
     }
     lam /= row <span class="kw">as </span>f64;

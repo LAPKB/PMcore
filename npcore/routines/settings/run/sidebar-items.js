@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["read"],"struct":["Computed","Config","Error","Parsed","Paths","Range","Settings","Single"]};

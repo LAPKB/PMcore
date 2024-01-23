@@ -234,6 +234,19 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Defines the Terminal User Interface (TUI) for NPcore
 
 </span><span class="kw">use </span>crossterm::execute;
@@ -264,10 +277,11 @@
     LogMessage(String),
 }
 
-<span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPCycle, settings::run::Settings};
+<span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPCycle, settings::Settings};
 <span class="kw">use </span><span class="kw">crate</span>::tui::components::<span class="kw-2">*</span>;
 
 <span class="kw">pub fn </span>start_ui(<span class="kw-2">mut </span>rx: UnboundedReceiver&lt;Comm&gt;, settings: Settings) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    initialize_panic_handler();
     <span class="kw">let </span><span class="kw-2">mut </span>stdout = stdout();
     <span class="macro">execute!</span>(stdout, crossterm::terminal::EnterAlternateScreen)<span class="question-mark">?</span>;
     crossterm::terminal::enable_raw_mode()<span class="question-mark">?</span>;
@@ -464,10 +478,22 @@
             rect.render_widget(plot, tab_layout[<span class="number">1</span>]);
         }
         <span class="number">2 </span>=&gt; {
-            <span class="kw">let </span>par_bounds = draw_parameter_bounds(<span class="kw-2">&amp;</span>settings);
-            rect.render_widget(par_bounds, tab_layout[<span class="number">1</span>]);
+            <span class="comment">// TODO: Return this to show the parameter boundaries
+            </span><span class="kw">let </span>plot = draw_plot(<span class="kw-2">&amp;mut </span>norm_data);
+            rect.render_widget(plot, tab_layout[<span class="number">1</span>]);
         }
         <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
     };
+}
+
+<span class="comment">// From https://ratatui.rs/how-to/develop-apps/panic-hooks/
+</span><span class="kw">pub fn </span>initialize_panic_handler() {
+    <span class="kw">let </span>original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(<span class="kw">move </span>|panic_info| {
+        <span class="macro">crossterm::execute!</span>(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen).unwrap();
+        crossterm::terminal::disable_raw_mode().unwrap();
+        crossterm::terminal::Clear(crossterm::terminal::ClearType::All);
+        original_hook(panic_info);
+    }));
 }
 </code></pre></div></section></main></body></html>

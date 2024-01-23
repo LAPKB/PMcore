@@ -333,6 +333,7 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -342,7 +343,7 @@
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
-        settings::run::Settings,
+        settings::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
@@ -453,15 +454,15 @@
             f1: f64::default(),
             cycle: <span class="number">1</span>,
             gamma_delta: <span class="number">0.1</span>,
-            gamma: settings.parsed.error.value,
-            error_type: <span class="kw">match </span>settings.parsed.error.class.to_lowercase().as_str() {
+            gamma: settings.error.value,
+            error_type: <span class="kw">match </span>settings.error.class.to_lowercase().as_str() {
                 <span class="string">&quot;additive&quot; </span>=&gt; ErrorType::Add,
                 <span class="string">&quot;proportional&quot; </span>=&gt; ErrorType::Prop,
                 <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Error type not supported&quot;</span>),
             },
             converged: <span class="bool-val">false</span>,
-            cycle_log: CycleLog::new(<span class="kw-2">&amp;</span>settings.computed.random.names),
-            cache: settings.parsed.config.cache.unwrap_or(<span class="bool-val">false</span>),
+            cycle_log: CycleLog::new(<span class="kw-2">&amp;</span>settings.random.names()),
+            cache: settings.config.cache,
             tx,
             settings,
             scenarios,
@@ -612,8 +613,6 @@
                 gamlam: <span class="self">self</span>.gamma,
             };
             <span class="self">self</span>.tx.send(Comm::NPCycle(state.clone())).unwrap();
-            <span class="self">self</span>.cycle_log
-                .push_and_write(state, <span class="self">self</span>.settings.parsed.config.pmetrics_outputs.unwrap());
 
             <span class="comment">// Increasing objf signals instability or model misspecification.
             </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
@@ -626,6 +625,9 @@
 
             <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
             <span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
+
+            <span class="self">self</span>.cycle_log
+                .push_and_write(state, <span class="self">self</span>.settings.config.output);
 
             <span class="comment">// Stop if we have reached convergence criteria
             </span><span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_G &amp;&amp; <span class="self">self</span>.eps &gt; THETA_E {
@@ -644,7 +646,7 @@
             }
 
             <span class="comment">// Stop if we have reached maximum number of cycles
-            </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.parsed.config.cycles {
+            </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.config.cycles {
                 <span class="macro">tracing::warn!</span>(<span class="string">&quot;Maximum number of cycles reached&quot;</span>);
                 <span class="kw">break</span>;
             }

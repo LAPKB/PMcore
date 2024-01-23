@@ -182,6 +182,12 @@
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{
     output::NPResult,
@@ -189,7 +195,7 @@
     <span class="kw-2">*</span>,
 };
 <span class="kw">use </span><span class="kw">crate</span>::routines::datafile::Scenario;
-<span class="kw">use </span><span class="kw">crate</span>::routines::settings::run::Settings;
+<span class="kw">use </span><span class="kw">crate</span>::routines::settings::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>csv::{ReaderBuilder, WriterBuilder};
 <span class="kw">use </span>eyre::Result;
@@ -219,16 +225,16 @@
 <span class="kw">where
     </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
 {
-    <span class="kw">let </span>settings = settings::simulator::read(settings_path);
-    <span class="kw">let </span>theta_file = File::open(settings.paths.theta).unwrap();
+    <span class="kw">let </span>settings: Settings = read_settings(settings_path).unwrap();
+    <span class="kw">let </span>theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
     <span class="kw">let </span><span class="kw-2">mut </span>reader = ReaderBuilder::new()
         .has_headers(<span class="bool-val">true</span>)
         .from_reader(theta_file);
     <span class="kw">let </span>theta: Array2&lt;f64&gt; = reader.deserialize_array2_dynamic().unwrap();
 
     <span class="comment">// Expand data
-    </span><span class="kw">let </span>idelta = settings.config.idelta.unwrap_or(<span class="number">0.0</span>);
-    <span class="kw">let </span>tad = settings.config.tad.unwrap_or(<span class="number">0.0</span>);
+    </span><span class="kw">let </span>idelta = settings.config.idelta;
+    <span class="kw">let </span>tad = settings.config.tad;
     <span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.paths.data).unwrap();
     scenarios.iter_mut().for_each(|scenario| {
         <span class="kw-2">*</span>scenario = scenario.add_event_interval(idelta, tad);
@@ -272,17 +278,23 @@
     </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
 {
     <span class="kw">let </span>now = Instant::now();
-    <span class="kw">let </span>settings = settings::run::read(settings_path);
+    <span class="kw">let </span>settings = <span class="kw">match </span>read_settings(settings_path) {
+        <span class="prelude-val">Ok</span>(s) =&gt; s,
+        <span class="prelude-val">Err</span>(e) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">&quot;Error reading settings: {:?}&quot;</span>, e);
+            std::process::exit(-<span class="number">1</span>);
+        }
+    };
     <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;Comm&gt;();
     <span class="kw">let </span>maintx = tx.clone();
     logger::setup_log(<span class="kw-2">&amp;</span>settings, tx.clone());
     <span class="macro">tracing::info!</span>(<span class="string">&quot;Starting NPcore&quot;</span>);
 
     <span class="comment">// Read input data and remove excluded scenarios (if any)
-    </span><span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.parsed.paths.data).unwrap();
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(exclude) = <span class="kw-2">&amp;</span>settings.parsed.config.exclude {
+    </span><span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.paths.data).unwrap();
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(exclude) = <span class="kw-2">&amp;</span>settings.config.exclude {
         <span class="kw">for </span>val <span class="kw">in </span>exclude {
-            scenarios.remove(val.as_integer().unwrap() <span class="kw">as </span>usize);
+            scenarios.remove(val.as_ptr() <span class="kw">as </span>usize);
         }
     }
 
@@ -295,7 +307,7 @@
 
     <span class="comment">// Spawn new thread for TUI
     </span><span class="kw">let </span>settings_tui = settings.clone();
-    <span class="kw">let </span>handle = <span class="kw">if </span>settings.parsed.config.tui {
+    <span class="kw">let </span>handle = <span class="kw">if </span>settings.config.tui {
         spawn(<span class="kw">move </span>|| {
             start_ui(rx, settings_tui).expect(<span class="string">&quot;Failed to start TUI&quot;</span>);
         })
@@ -312,10 +324,10 @@
     <span class="macro">tracing::info!</span>(<span class="string">&quot;Total time: {:.2?}&quot;</span>, now.elapsed());
 
     <span class="comment">// Write output files (if configured)
-    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(write) = <span class="kw-2">&amp;</span>settings.parsed.config.pmetrics_outputs {
-        <span class="kw">let </span>idelta = settings.parsed.config.idelta.unwrap_or(<span class="number">0.0</span>);
-        <span class="kw">let </span>tad = settings.parsed.config.tad.unwrap_or(<span class="number">0.0</span>);
-        result.write_outputs(<span class="kw-2">*</span>write, <span class="kw-2">&amp;</span>engine, idelta, tad);
+    </span><span class="kw">if </span>settings.config.output {
+        <span class="kw">let </span>idelta = settings.config.idelta;
+        <span class="kw">let </span>tad = settings.config.tad;
+        result.write_outputs(<span class="bool-val">true</span>, <span class="kw-2">&amp;</span>engine, idelta, tad);
     }
 
     <span class="macro">tracing::info!</span>(<span class="string">&quot;Program complete&quot;</span>);

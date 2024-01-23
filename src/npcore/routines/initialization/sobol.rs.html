@@ -43,7 +43,7 @@
 </span><span class="kw">pub fn </span>generate(
     n_points: usize,
     range_params: <span class="kw-2">&amp;</span>Vec&lt;(f64, f64)&gt;,
-    seed: u32,
+    seed: usize,
 ) -&gt; ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">2</span>]&gt;&gt; {
     <span class="kw">let </span>n_params = range_params.len();
     <span class="kw">let </span><span class="kw-2">mut </span>seq = Array::&lt;f64, <span class="kw">_</span>&gt;::zeros((n_points, n_params).f());
@@ -51,7 +51,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>row = seq.slice_mut(<span class="macro">s!</span>[i, ..]);
         <span class="kw">let </span><span class="kw-2">mut </span>point: Vec&lt;f64&gt; = Vec::new();
         <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..n_params {
-            point.push(sample(i.try_into().unwrap(), j.try_into().unwrap(), seed) <span class="kw">as </span>f64)
+            point.push(sample(i.try_into().unwrap(), j.try_into().unwrap(), seed <span class="kw">as </span>u32) <span class="kw">as </span>f64)
         }
         row.assign(<span class="kw-2">&amp;</span>Array::from(point));
     }

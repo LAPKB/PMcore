@@ -75,25 +75,18 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::File;
 
 <span class="kw">use </span>ndarray::Array2;
 
-<span class="kw">use </span><span class="kw">crate</span>::prelude::settings::run::Settings;
+<span class="kw">use </span><span class="kw">crate</span>::prelude::settings::Settings;
 
 <span class="kw">pub mod </span>sobol;
 
 <span class="kw">pub fn </span>sample_space(settings: <span class="kw-2">&amp;</span>Settings, ranges: <span class="kw-2">&amp;</span>Vec&lt;(f64, f64)&gt;) -&gt; Array2&lt;f64&gt; {
-    <span class="kw">match </span><span class="kw-2">&amp;</span>settings.parsed.paths.prior_dist {
+    <span class="kw">match </span><span class="kw-2">&amp;</span>settings.paths.prior {
         <span class="prelude-val">Some</span>(prior_path) =&gt; {
+            <span class="macro">tracing::info!</span>(<span class="string">&quot;Reading prior from {}&quot;</span>, prior_path);
             <span class="kw">let </span>file = File::open(prior_path).unwrap();
             <span class="kw">let </span><span class="kw-2">mut </span>reader = csv::ReaderBuilder::new()
                 .has_headers(<span class="bool-val">true</span>)
@@ -113,12 +106,7 @@
             }
 
             <span class="comment">// Check and reorder parameters to match names in settings.parsed.random
-            </span><span class="kw">let </span>random_names: Vec&lt;String&gt; = settings
-                .parsed
-                .random
-                .iter()
-                .map(|(name, <span class="kw">_</span>)| name.clone())
-                .collect();
+            </span><span class="kw">let </span>random_names: Vec&lt;String&gt; = settings.random.names();
 
             <span class="kw">let </span><span class="kw-2">mut </span>reordered_indices: Vec&lt;usize&gt; = Vec::new();
             <span class="kw">for </span>random_name <span class="kw">in </span><span class="kw-2">&amp;</span>random_names {
@@ -161,11 +149,7 @@
             Array2::from_shape_vec((n_points, n_params), theta_values)
                 .expect(<span class="string">&quot;Failed to create theta Array2&quot;</span>)
         }
-        <span class="prelude-val">None </span>=&gt; sobol::generate(
-            settings.parsed.config.init_points,
-            ranges,
-            settings.parsed.config.seed,
-        ),
+        <span class="prelude-val">None </span>=&gt; sobol::generate(settings.config.init_points, ranges, settings.config.seed),
     }
 }
 </code></pre></div></section></main></body></html>
