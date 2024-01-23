@@ -354,7 +354,7 @@ impl CycleWriter {
 
     pub fn write(&mut self, cycle: usize, objf: f64, gamma: f64, theta: &Array2<f64>) {
         self.writer.write_field(format!("{}", cycle)).unwrap();
-        self.writer.write_field(format!("{}", -2. * objf)).unwrap();
+        self.writer.write_field(format!("{}", objf)).unwrap();
         self.writer.write_field(format!("{}", gamma)).unwrap();
         self.writer
             .write_field(format!("{}", theta.nrows()))
