@@ -923,7 +923,7 @@
 
     <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cycle: usize, objf: f64, gamma: f64, theta: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;) {
         <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, cycle)).unwrap();
-        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, -<span class="number">2. </span>* objf)).unwrap();
+        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, objf)).unwrap();
         <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, gamma)).unwrap();
         <span class="self">self</span>.writer
             .write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, theta.nrows()))
