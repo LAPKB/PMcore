@@ -28,10 +28,11 @@ pub enum Comm {
     LogMessage(String),
 }
 
-use crate::prelude::{output::NPCycle, settings::run::Settings};
+use crate::prelude::{output::NPCycle, settings::Settings};
 use crate::tui::components::*;
 
 pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<()> {
+    initialize_panic_handler();
     let mut stdout = stdout();
     execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
     crossterm::terminal::enable_raw_mode()?;
@@ -228,9 +229,21 @@ pub fn draw(
             rect.render_widget(plot, tab_layout[1]);
         }
         2 => {
-            let par_bounds = draw_parameter_bounds(&settings);
-            rect.render_widget(par_bounds, tab_layout[1]);
+            // TODO: Return this to show the parameter boundaries
+            let plot = draw_plot(&mut norm_data);
+            rect.render_widget(plot, tab_layout[1]);
         }
         _ => unreachable!(),
     };
+}
+
+// From https://ratatui.rs/how-to/develop-apps/panic-hooks/
+pub fn initialize_panic_handler() {
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        crossterm::execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen).unwrap();
+        crossterm::terminal::disable_raw_mode().unwrap();
+        crossterm::terminal::Clear(crossterm::terminal::ClearType::All);
+        original_hook(panic_info);
+    }));
 }

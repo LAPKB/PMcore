@@ -6,7 +6,7 @@ use crate::{
         ipm,
         output::NPResult,
         prob,
-        settings::run::Settings,
+        settings::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
@@ -82,8 +82,8 @@ where
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
-            gamma: settings.parsed.error.value,
-            error_type: match settings.parsed.error.class.as_str() {
+            gamma: settings.error.value,
+            error_type: match settings.error.class.as_str() {
                 "additive" => ErrorType::Add,
                 "proportional" => ErrorType::Prop,
                 _ => panic!("Error type not supported"),

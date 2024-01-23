@@ -9,7 +9,7 @@ use crate::{
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
-        settings::run::Settings,
+        settings::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
@@ -111,15 +111,15 @@ where
             objf: f64::INFINITY,
             cycle: 1,
             gamma_delta: 0.1,
-            gamma: settings.parsed.error.value,
-            error_type: match settings.parsed.error.class.as_str() {
+            gamma: settings.error.value,
+            error_type: match settings.error.class.as_str() {
                 "additive" => ErrorType::Add,
                 "proportional" => ErrorType::Prop,
                 _ => panic!("Error type not supported"),
             },
             converged: false,
-            cycle_log: CycleLog::new(&settings.computed.random.names),
-            cache: settings.parsed.config.cache.unwrap_or(false),
+            cycle_log: CycleLog::new(&settings.random.names()),
+            cache: settings.config.cache,
             tx,
             settings,
             scenarios,
@@ -296,7 +296,7 @@ where
             }
 
             // Stop if we have reached maximum number of cycles
-            if self.cycle >= self.settings.parsed.config.cycles {
+            if self.cycle >= self.settings.config.cycles {
                 tracing::warn!("Maximum number of cycles reached");
                 break;
             }
@@ -308,7 +308,7 @@ where
             }
             //TODO: the cycle migh break before reaching this point
             self.cycle_log
-                .push_and_write(state, self.settings.parsed.config.pmetrics_outputs.unwrap());
+                .push_and_write(state, self.settings.config.output);
 
             self.cycle += 1;
 

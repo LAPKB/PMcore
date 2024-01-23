@@ -16,10 +16,7 @@ pub mod routines {
         pub mod adaptative_grid;
     }
 
-    pub mod settings {
-        pub mod run;
-        pub mod simulator;
-    }
+    pub mod settings;
     pub mod evaluation {
 
         pub mod ipm;

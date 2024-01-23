@@ -5,7 +5,7 @@ use crate::prelude::{
     *,
 };
 use crate::routines::datafile::Scenario;
-use crate::routines::settings::run::Settings;
+use crate::routines::settings::*;
 
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
@@ -35,16 +35,16 @@ pub fn simulate<S>(engine: Engine<S>, settings_path: String) -> Result<()>
 where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
-    let settings = settings::simulator::read(settings_path);
-    let theta_file = File::open(settings.paths.theta).unwrap();
+    let settings: Settings = read_settings(settings_path).unwrap();
+    let theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
     let mut reader = ReaderBuilder::new()
         .has_headers(true)
         .from_reader(theta_file);
     let theta: Array2<f64> = reader.deserialize_array2_dynamic().unwrap();
 
     // Expand data
-    let idelta = settings.config.idelta.unwrap_or(0.0);
-    let tad = settings.config.tad.unwrap_or(0.0);
+    let idelta = settings.config.idelta;
+    let tad = settings.config.tad;
     let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
     scenarios.iter_mut().for_each(|scenario| {
         *scenario = scenario.add_event_interval(idelta, tad);
@@ -88,17 +88,23 @@ where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
-    let settings = settings::run::read(settings_path);
+    let settings = match read_settings(settings_path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error reading settings: {:?}", e);
+            std::process::exit(-1);
+        }
+    };
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     let maintx = tx.clone();
     logger::setup_log(&settings, tx.clone());
     tracing::info!("Starting NPcore");
 
     // Read input data and remove excluded scenarios (if any)
-    let mut scenarios = datafile::parse(&settings.parsed.paths.data).unwrap();
-    if let Some(exclude) = &settings.parsed.config.exclude {
+    let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
+    if let Some(exclude) = &settings.config.exclude {
         for val in exclude {
-            scenarios.remove(val.as_integer().unwrap() as usize);
+            scenarios.remove(val.as_ptr() as usize);
         }
     }
 
@@ -111,7 +117,7 @@ where
 
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
-    let handle = if settings.parsed.config.tui {
+    let handle = if settings.config.tui {
         spawn(move || {
             start_ui(rx, settings_tui).expect("Failed to start TUI");
         })
@@ -128,10 +134,10 @@ where
     tracing::info!("Total time: {:.2?}", now.elapsed());
 
     // Write output files (if configured)
-    if let Some(write) = &settings.parsed.config.pmetrics_outputs {
-        let idelta = settings.parsed.config.idelta.unwrap_or(0.0);
-        let tad = settings.parsed.config.tad.unwrap_or(0.0);
-        result.write_outputs(*write, &engine, idelta, tad);
+    if settings.config.output {
+        let idelta = settings.config.idelta;
+        let tad = settings.config.tad;
+        result.write_outputs(true, &engine, idelta, tad);
     }
 
     tracing::info!("Program complete");
