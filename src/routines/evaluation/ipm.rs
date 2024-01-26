@@ -1,4 +1,4 @@
-use std::error;
+use std::{error, process::abort};
 
 use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
 use ndarray::{array, Array, Array2, ArrayBase, Dim, OwnedRepr};
@@ -36,6 +36,10 @@ type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 pub fn burke(
     psi: &ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>,
 ) -> Result<(OneDimArray, f64), Box<dyn error::Error>> {
+    trace_memory("start of burke");
+    let psi_clone = psi.clone();
+    trace_memory("after cloning psi");
+    abort();
     let psi = psi.mapv(|x| x.abs());
     let (row, col) = psi.dim();
     // if row>col {
@@ -127,4 +131,15 @@ pub fn burke(
 fn norm_inf(a: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>) -> f64 {
     let zeros: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::zeros(a.len());
     a.linf_dist(&zeros).unwrap()
+}
+use memory_stats::memory_stats;
+pub fn trace_memory(msg: &str) {
+    tracing::info!(msg);
+    if let Some(usage) = memory_stats() {
+        tracing::info!("Current physical memory usage: {}", usage.physical_mem);
+        tracing::info!("Current virtual memory usage: {}", usage.virtual_mem);
+    } else {
+        tracing::info!("Couldn't get the current memory usage :(");
+    }
+    tracing::info!("===================================================");
 }
