@@ -247,6 +247,7 @@
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Defines the Terminal User Interface (TUI) for NPcore
 
 </span><span class="kw">use </span>crossterm::execute;
@@ -360,11 +361,12 @@
 
     <span class="comment">// Exit alternate screen, and print one last frame
 
-    </span>terminal.clear()<span class="question-mark">?</span>;
-    <span class="macro">execute!</span>(
+    
+    </span><span class="macro">execute!</span>(
         terminal.backend_mut(),
         crossterm::terminal::LeaveAlternateScreen
     )<span class="question-mark">?</span>;
+    terminal.clear()<span class="question-mark">?</span>;
     terminal
         .draw(|rect| {
             draw(
