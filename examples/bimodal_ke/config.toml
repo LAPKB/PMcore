@@ -1,6 +1,6 @@
 [paths]
 data = "examples/data/bimodal_ke.csv"
-log = "log/bimodal_ke.log"
+log = "bimodal_ke.log"
 #prior = "theta_bimodal_ke.csv"
 
 [config]

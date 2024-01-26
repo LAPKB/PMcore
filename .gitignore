@@ -1,6 +1,6 @@
 /target
 /Cargo.lock
-/log
+*.log
 theta.csv
 cycles.csv
 pred.csv
