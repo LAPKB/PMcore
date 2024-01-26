@@ -111,7 +111,6 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<(
 
     // Exit alternate screen, and print one last frame
 
-    
     execute!(
         terminal.backend_mut(),
         crossterm::terminal::LeaveAlternateScreen
