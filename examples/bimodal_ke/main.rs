@@ -77,7 +77,7 @@ impl<'a> Predict<'a> for Ode {
         )
     }
 
-    // This function is used to get the output from the model, defined by the output equations (outeq)
+    // This function is used to get the output from the model, defined by the output equations (outeq) supplied by the user
     fn get_output(&self, time: f64, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
         // Get parameters from the model also used for calculating the output equations
         let v = system.get_param("v");

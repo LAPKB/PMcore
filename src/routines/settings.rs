@@ -182,8 +182,10 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
         .validate()
         .map_err(config::ConfigError::Message)?;
 
-    // Write a copy of the settings to file
-    write_settings_to_file(&settings).expect("Could not write settings to file");
+    // Write a copy of the settings to file if output is enabled
+    if settings.config.output {
+        write_settings_to_file(&settings).expect("Could not write settings to file");
+    }
 
     Ok(settings) // Return the settings wrapped in Ok
 }
