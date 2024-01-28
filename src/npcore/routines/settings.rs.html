@@ -231,6 +231,8 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
@@ -415,8 +417,10 @@
         .validate()
         .map_err(config::ConfigError::Message)<span class="question-mark">?</span>;
 
-    <span class="comment">// Write a copy of the settings to file
-    </span>write_settings_to_file(<span class="kw-2">&amp;</span>settings).expect(<span class="string">&quot;Could not write settings to file&quot;</span>);
+    <span class="comment">// Write a copy of the settings to file if output is enabled
+    </span><span class="kw">if </span>settings.config.output {
+        write_settings_to_file(<span class="kw-2">&amp;</span>settings).expect(<span class="string">&quot;Could not write settings to file&quot;</span>);
+    }
 
     <span class="prelude-val">Ok</span>(settings) <span class="comment">// Return the settings wrapped in Ok
 </span>}
