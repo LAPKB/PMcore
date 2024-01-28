@@ -1,0 +1,15 @@
+name: Time
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cargo-run:
+    runs-on: self-hosted  # Specifies that this job should run on your custom runner
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Run Cargo Command
+      run: |
+        /usr/bin/time -v cargo run --release --example bimodal_ke
