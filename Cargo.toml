@@ -22,6 +22,7 @@ ndarray = { version = "0.15.6", features = ["rayon"] }
 serde = { version = "1.0", features = ["std"] }
 serde_derive = "1.0.188"
 serde_json = "1.0.66"
+serde_with = "3.5"
 sobol_burley = "0.5.0"
 toml = { version = "0.8.1", features = ["preserve_order"] }
 ode_solvers = "0.3.7"

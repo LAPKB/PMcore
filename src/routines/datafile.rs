@@ -250,21 +250,43 @@ pub struct Block {
 
 /// An Event represent a single row in the Datafile
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "UPPERCASE")]
 pub struct Event {
     pub id: String,
     pub evid: isize,
     pub time: f64,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub dur: Option<f64>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub dose: Option<f64>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub addl: Option<isize>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ii: Option<usize>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub input: Option<usize>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub out: Option<f64>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub outeq: Option<usize>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub c0: Option<f32>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub c1: Option<f32>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub c2: Option<f32>,
+    #[serde(default = "default_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub c3: Option<f32>,
     #[serde(flatten)]
     pub covs: HashMap<String, Option<f64>>,
@@ -322,6 +344,7 @@ impl Event {
 pub fn parse(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
         .comment(Some(b'#'))
+        .has_headers(true)
         .from_path(path)?;
 
     let mut scenarios: Vec<Scenario> = Vec::new();
@@ -452,4 +475,8 @@ pub fn scenario_to_csv(scenarios: Vec<Scenario>, file_path: &str) -> Result<(), 
 
     wtr.flush()?;
     Ok(())
+}
+
+fn default_as_none<T>() -> Option<T> {
+    None
 }
