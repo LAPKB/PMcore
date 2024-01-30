@@ -1,6 +1,21 @@
+use std::time::Duration;
+
 /// This file contains the different components of the TUI
 /// The purpose is to create common components with generic methods
+use ratatui::{
+    layout::{Alignment, Constraint},
+    style::{Color, Modifier, Style},
+    symbols,
+    text::{Line, Span},
+    widgets::{
+        Axis, Block, BorderType, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table,
+        Tabs, Wrap,
+    },
+};
 
+use super::App;
+
+use crate::prelude::settings::Settings;
 
 pub fn draw_title<'a>() -> Paragraph<'a> {
     Paragraph::new("NPcore Execution")
@@ -22,7 +37,7 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
     let gamma_text = format!("{:.5}", app.state.gamlam);
     let spp_text = format!("{}", app.state.nspp);
     let time_text = format_time(elapsed_time);
-    let stop_text = app.state.stop_text.to_string();
+    let conv_text = "Placeholder".to_string();
 
     // Define the table data
     let data = vec![
@@ -32,7 +47,7 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         ("Gamma/Lambda", gamma_text),
         ("Support points", spp_text),
         ("Elapsed time", time_text),
-        ("Convergence", stop_text),
+        ("Convergence", conv_text),
         // Add more rows as needed
     ];
 
@@ -48,7 +63,8 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         .collect();
 
     // Create the table widget
-    Table::new(rows)
+    Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -59,20 +75,19 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
         .column_spacing(1)
 }
 
-pub fn draw_options<'a>(settings: &Data) -> Table<'a> {
+pub fn draw_options<'a>(settings: &Settings) -> Table<'a> {
     // Define the table data
 
-    let cycles = settings.parsed.config.cycles.to_string();
-    let engine = settings.parsed.config.engine.to_string();
+    let cycles = settings.config.cycles.to_string();
+    let engine = settings.config.engine.to_string();
     let conv_crit = "Placeholder".to_string();
-    let indpts = settings.parsed.config.init_points.to_string();
-    let error = settings.parsed.error.class.to_string();
-    let cache = match settings.parsed.config.cache {
-        Some(true) => "Yes".to_string(),
-        Some(false) => "No".to_string(),
-        None => "Not set".to_string(),
+    let indpts = settings.config.init_points.to_string();
+    let error = settings.error.class.to_string();
+    let cache = match settings.config.cache {
+        true => "Enabled".to_string(),
+        false => "Disabled".to_string(),
     };
-    let seed = settings.parsed.config.seed.to_string();
+    let seed = settings.config.seed.to_string();
 
     let data = vec![
         ("Maximum cycles", cycles),
@@ -97,7 +112,8 @@ pub fn draw_options<'a>(settings: &Data) -> Table<'a> {
         .collect();
 
     // Create the table widget
-    Table::new(rows)
+    Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -130,7 +146,8 @@ pub fn draw_commands(app: &App) -> Table {
         }
     }
 
-    Table::new(rows)
+    Table::default()
+        .rows(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -200,4 +217,54 @@ pub fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
                 .title(" Objective function ")
                 .borders(Borders::ALL),
         )
+}
+
+pub fn draw_logs<'a>(log_history: &'a Vec<String>, height: u16) -> Paragraph<'a> {
+    // Convert each String in log_history to a Line
+    let text: Vec<Line> = log_history.iter().map(|s| Line::from(s.as_str())).collect();
+
+    let to_text = text.len();
+    // Prevent underflow with saturating_sub
+    let from_text = to_text.saturating_sub(height as usize);
+
+    // Create a slice of the text to be displayed
+    let show_text = if from_text < to_text {
+        text[from_text..to_text].to_vec()
+    } else {
+        Vec::new()
+    };
+
+    Paragraph::new(show_text)
+        .block(Block::default().title(" Logs ").borders(Borders::ALL))
+        .style(Style::default().fg(Color::White))
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: true })
+}
+
+pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
+    let titles = app.tab_titles.clone();
+    let index = app.tab_index.clone();
+    let tabs = Tabs::new(titles.clone())
+        .block(Block::default().borders(Borders::ALL))
+        .style(Style::default().fg(Color::Cyan))
+        .highlight_style(Style::default().fg(Color::Yellow))
+        .divider(Span::raw("|"))
+        .select(index);
+
+    tabs
+}
+
+fn format_time(elapsed_time: std::time::Duration) -> String {
+    let elapsed_seconds = elapsed_time.as_secs();
+    let (elapsed, unit) = if elapsed_seconds < 60 {
+        (elapsed_seconds, "s")
+    } else if elapsed_seconds < 3600 {
+        let elapsed_minutes = elapsed_seconds / 60;
+        (elapsed_minutes, "m")
+    } else {
+        let elapsed_hours = elapsed_seconds / 3600;
+        (elapsed_hours, "h")
+    };
+    let time_text = format!("{}{}", elapsed, unit);
+    time_text
 }

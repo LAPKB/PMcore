@@ -9,20 +9,22 @@ use super::inputs::key::Key;
 pub enum Action {
     Quit,
     Stop,
+    Next,
 }
 
 impl Action {
     /// All available actions
     pub fn iterator() -> Iter<'static, Action> {
-        static ACTIONS: [Action; 2] = [Action::Quit, Action::Stop];
+        static ACTIONS: [Action; 3] = [Action::Quit, Action::Stop, Action::Next];
         ACTIONS.iter()
     }
 
     /// List of key associated to action
     pub fn keys(&self) -> &[Key] {
         match self {
-            Action::Quit => &[Key::Ctrl('c'), Key::Char('q')],
+            Action::Quit => &[Key::Char('q')],
             Action::Stop => &[Key::Ctrl('d')],
+            Action::Next => &[Key::Char('n')],
         }
     }
 }
@@ -31,6 +33,7 @@ impl Action {
 impl Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let str = match self {
+            Action::Next => "Next",
             Action::Quit => "Quit",
             Action::Stop => "Stop",
         };

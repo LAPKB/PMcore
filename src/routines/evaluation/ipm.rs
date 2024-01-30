@@ -19,7 +19,7 @@ type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 ///
 /// A `Result` containing a tuple with two elements:
 ///
-/// * `lam` - An Array1<f64> representing the solution of the optimization problem.
+/// * `lam` - An `Array1<f64>` representing the solution of the optimization problem.
 /// * `obj` - A f64 value representing the objective function value at the solution.
 ///
 /// # Errors
@@ -41,7 +41,7 @@ pub fn burke(
     // if row>col {
     //     return Err("The matrix PSI has row>col".into());
     // }
-    if psi.min().unwrap() < &0.0 {
+    if psi.min()? < &0.0 {
         return Err("PSI contains negative elements".into());
     }
     let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
@@ -55,7 +55,7 @@ pub fn burke(
     let mut lam = ecol.clone();
     let mut w = 1. / &plam;
     let mut ptw = psi.t().dot(&w);
-    let shrink = 2. * *ptw.max().unwrap();
+    let shrink = 2. * *ptw.max()?;
     lam *= shrink;
     plam *= shrink;
     w /= shrink;
@@ -88,10 +88,10 @@ pub fn burke(
         let dw = dw_aux.column(0);
         let dy = -psi.t().dot(&dw);
         let dlam = smuyinv - &lam - inner * &dy;
-        let mut alfpri = -1. / ((&dlam / &lam).min().unwrap().min(-0.5));
+        let mut alfpri = -1. / ((&dlam / &lam).min()?.min(-0.5));
         alfpri = (0.99995 * alfpri).min(1.0);
-        let mut alfdual = -1. / ((&dy / &y).min().unwrap().min(-0.5));
-        alfdual = alfdual.min(-1. / (&dw / &w).min().unwrap().min(-0.5));
+        let mut alfdual = -1. / ((&dy / &y).min()?.min(-0.5));
+        alfdual = alfdual.min(-1. / (&dw / &w).min()?.min(-0.5));
         alfdual = (0.99995 * alfdual).min(1.0);
         lam = lam + alfpri * dlam;
         w = w + alfdual * &dw;
@@ -111,8 +111,7 @@ pub fn burke(
                 (1. - alfdual).powi(2),
                 (norm_r - mu) / (norm_r + 100. * mu)
             ]]
-            .max()
-            .unwrap()
+            .max()?
             .min(0.3);
         }
     }

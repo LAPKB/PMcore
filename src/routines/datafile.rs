@@ -7,7 +7,8 @@ use crate::tui::inputs::events::Events;
 
 type Record = HashMap<String, String>;
 
-/// A Scenario is a collection of blocks that represent a single subject in the Datafile
+/// A Scenario is a collection of blocks that represent a single subject in the datafile
+/// Each block is a collection of events that represent a single dose, possibly followed by observations
 #[derive(Debug, Clone)]
 pub struct Scenario {
     pub id: String,
@@ -22,6 +23,86 @@ impl Scenario {
         let mut scenario = Self::parse_events(events)?;
         scenario.inyect_covariates_regressions();
         Ok(scenario)
+    }
+
+    /// Adds "mock" events to a Scenario in order to generate predictions at those times
+    /// The interval is mapped to the `idelta`-setting in the configuration file
+    /// Time after dose (`tad`) will ensure that predictions are made until the last dose + tad
+    pub fn add_event_interval(&self, interval: f64, tad: f64) -> Self {
+        // Clone the underlying Event data instead of the references
+        let all_events = self
+            .clone()
+            .blocks
+            .iter()
+            .flat_map(|block| block.events.iter().cloned())
+            .collect::<Vec<_>>();
+
+        // Determine the start and end times
+        let start_time = all_events.first().unwrap().time;
+        let mut end_time = all_events.last().unwrap().time;
+
+        // Pad end time to accomodate time after dose
+        if tad > 0.0 {
+            let last_dose_time = all_events
+                .iter()
+                .filter(|event| event.evid == 1)
+                .map(|event| event.time)
+                .fold(std::f64::NEG_INFINITY, f64::max);
+
+            if end_time < last_dose_time + tad {
+                end_time = last_dose_time + tad
+            }
+        }
+
+        // Determine the unique output equations in the events
+        // TODO: This should be read from the model / engine
+        let mut outeqs: Vec<_> = all_events.iter().filter_map(|event| event.outeq).collect();
+        outeqs.sort_unstable();
+        outeqs.dedup();
+
+        // Generate dummy events
+        let mut new_events = vec![];
+        let mut current_time = start_time + interval; // Start from the first interval after the start time
+        while current_time <= end_time {
+            current_time = (current_time / interval).round() * interval; // Round to the nearest interval
+            current_time = decimals(current_time, 4); // Round to 4 decimal places
+            for outeq in &outeqs {
+                new_events.push(Event {
+                    id: self.id.clone(),
+                    evid: 0,
+                    time: current_time,
+                    dur: None,
+                    dose: None,
+                    _addl: None,
+                    _ii: None,
+                    input: None,
+                    out: Some(-99.0),
+                    outeq: Some(*outeq),
+                    _c0: None,
+                    _c1: None,
+                    _c2: None,
+                    _c3: None,
+                    covs: HashMap::new(),
+                });
+            }
+            current_time += interval;
+        }
+
+        // Combine all_events with new_events
+        let mut combined_events = all_events;
+        combined_events.extend(new_events.iter().cloned());
+
+        // Sort the events by time
+        combined_events.sort_by(|a, b| a.cmp_by_id_then_time(b));
+        // Remove duplicate events based on time and outeq
+        // In essence, no need to have two predictions at the same time for the same outeq
+        let time_tolerance = 1e-4;
+        combined_events.sort_by(|a, b| a.cmp_by_id_then_time(b));
+        combined_events.dedup_by(|a, b| {
+            (a.time - b.time).abs() < time_tolerance && a.outeq == b.outeq && a.evid == b.evid
+        });
+
+        Scenario::new(combined_events).unwrap()
     }
 
     pub fn reorder_with_lag(&self, lag_inputs: Vec<(f64, usize)>) -> Self {
@@ -88,7 +169,7 @@ impl Scenario {
                 obs_times.push(event.time);
                 obs.push(event.out.unwrap());
             } else {
-                log::error!("Error: Unsupported evid");
+                tracing::error!("Error: Unsupported evid: {evid}", evid = event.evid);
                 exit(-1);
             }
             block.events.push(event);
@@ -305,12 +386,12 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
 
 fn check_dose(event: &Event) -> Result<(), Box<dyn Error>> {
     if event.dose.is_none() {
-        log::error!("Error: Dose event without dose");
+        tracing::error!("Error: Dose event without dose");
         //return Err("Error: Dose event without dose".into());
         exit(-1);
     }
     if event.input.is_none() {
-        log::error!("Error: Dose event without input");
+        tracing::error!("Error: Dose event without input");
         //return Err("Error: Dose event without input".into());
         exit(-1);
     }
@@ -318,17 +399,17 @@ fn check_dose(event: &Event) -> Result<(), Box<dyn Error>> {
 }
 fn check_infusion(event: &Event) -> Result<(), Box<dyn Error>> {
     if event.dose.is_none() {
-        log::error!("Error: Infusion event without dose");
+        tracing::error!("Error: Infusion event without dose");
         //return Err("Error: Infusion event without dose".into());
         exit(-1);
     }
     if event.dur.is_none() {
-        log::error!("Error: Infusion event without duration");
+        tracing::error!("Error: Infusion event without duration");
         //return Err("Error: Infusion event without duration".into());
         exit(-1);
     }
     if event.input.is_none() {
-        log::error!("Error: Infusion event without input");
+        tracing::error!("Error: Infusion event without input");
         //return Err("Error: Infusion event without input".into());
         exit(-1);
     }
@@ -336,14 +417,19 @@ fn check_infusion(event: &Event) -> Result<(), Box<dyn Error>> {
 }
 fn check_obs(event: &Event) -> Result<(), Box<dyn Error>> {
     if event.out.is_none() {
-        log::error!("Error: Obs event without out");
+        tracing::error!("Error: Obs event without out");
         //return Err("Error: Obs event without out".into());
         exit(-1);
     }
     if event.outeq.is_none() {
-        log::error!("Error: Obs event without outeq");
+        tracing::error!("Error: Obs event without outeq");
         //return Err("Error: Obs event without outeq".into());
         exit(-1);
     }
     Ok(())
+}
+
+fn decimals(value: f64, places: u32) -> f64 {
+    let multiplier = 10f64.powi(places as i32);
+    (value * multiplier).round() / multiplier
 }

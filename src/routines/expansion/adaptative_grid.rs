@@ -1,5 +1,14 @@
-use ndarray::{Array, Array1, Array2};
+use ndarray::{Array, Array2};
 
+use crate::routines::condensation::prune::prune;
+
+/// Adaptive grid algorithm for support point expansion
+///
+/// For each support point, generate up to 2 new support points in each dimension
+///
+/// New support points are symmetrically placed around the original support point, at a distance of eps * (range_max - range_min)
+///
+/// If the new support point is too close to an existing support point, or it is outside the given range, it is discarded
 pub fn adaptative_grid(
     theta: &mut Array2<f64>,
     eps: f64,
@@ -14,35 +23,17 @@ pub fn adaptative_grid(
                 let mut plus = Array::zeros(spp.len());
                 plus[j] = l;
                 plus = plus + spp;
-                evaluate_spp(theta, plus, ranges, min_dist);
+                prune(theta, plus, ranges, min_dist);
                 // (n_spp, _) = theta.dim();
             }
             if val - l > ranges[j].0 {
                 let mut minus = Array::zeros(spp.len());
                 minus[j] = -l;
                 minus = minus + spp;
-                evaluate_spp(theta, minus, ranges, min_dist);
+                prune(theta, minus, ranges, min_dist);
                 // (n_spp, _) = theta.dim();
             }
         }
     }
     theta.to_owned()
-}
-
-fn evaluate_spp(
-    theta: &mut Array2<f64>,
-    candidate: Array1<f64>,
-    limits: &[(f64, f64)],
-    min_dist: f64,
-) {
-    for spp in theta.rows() {
-        let mut dist: f64 = 0.;
-        for (i, val) in candidate.clone().into_iter().enumerate() {
-            dist += (val - spp.get(i).unwrap()).abs() / (limits[i].1 - limits[i].0);
-        }
-        if dist <= min_dist {
-            return;
-        }
-    }
-    theta.push_row(candidate.view()).unwrap();
 }

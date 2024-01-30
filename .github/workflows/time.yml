@@ -1,0 +1,20 @@
+name: Time
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cargo-run:
+    runs-on: self-hosted
+    env:
+      NPCORE_CONFIG_TUI: false  # Disable TUI
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Run
+      run: |
+        /usr/bin/time -v cargo run --release --example bimodal_ke 2>&1 | tee time-output.txt  # Redirect output to a file
+
+    - name: Results
+      run: cat time-output.txt  # Print the content of the file

@@ -1,20 +1,20 @@
 use crate::prelude::output::NPCycle;
 
 #[derive(Debug, Clone)]
-pub struct AppHistory {
+pub struct CycleHistory {
     pub cycles: Vec<NPCycle>,
 }
 
-impl AppHistory {
+impl CycleHistory {
     pub fn new() -> Self {
-        AppHistory { cycles: Vec::new() }
+        CycleHistory { cycles: Vec::new() }
     }
 
     pub fn add_cycle(&mut self, cycle: NPCycle) {
         self.cycles.push(cycle);
     }
 }
-impl Default for AppHistory {
+impl Default for CycleHistory {
     fn default() -> Self {
         Self::new()
     }

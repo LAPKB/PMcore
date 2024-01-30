@@ -1,23 +1,115 @@
-use crate::prelude::settings::run::Data;
-use log::LevelFilter;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Config, Root};
-use log4rs::encode::pattern::PatternEncoder;
-use std::fs;
+use crate::routines::settings::Settings;
+use crate::tui::ui::Comm;
+use std::io::{self, Write};
+use tokio::sync::mpsc::UnboundedSender;
+use tracing_subscriber::fmt::time::FormatTime;
+use tracing_subscriber::fmt::{self};
+use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
+use tracing_subscriber::registry::Registry;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
-pub fn setup_log(settings: &Data) {
-    if let Some(log_path) = &settings.parsed.paths.log_out {
-        if fs::remove_file(log_path).is_ok() {};
-        let logfile = FileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new("{l}: {m}\n")))
-            .build(log_path)
-            .unwrap();
+/// Setup logging for the library
+///
+/// This function sets up logging for the library. It uses the `tracing` crate, and the `tracing-subscriber` crate for formatting.
+///
+/// The log level is defined in the configuration file, and defaults to `INFO`.
+///
+/// If `log_out` is specifified in teh configuration file, a log file is created with the specified name.
+///
+/// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
+///
+/// If not, the log messages are written to stdout.
+pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
+    // Use the log level defined in configuration file, or default to info
+    let log_level = settings.config.log_level.as_str();
 
-        let config = Config::builder()
-            .appender(Appender::builder().build("logfile", Box::new(logfile)))
-            .build(Root::builder().appender("logfile").build(LevelFilter::Info))
-            .unwrap();
+    // Use the log file defined in configuration file, or default to npcore.log
+    let log_path = settings.paths.log.as_ref().unwrap();
 
-        log4rs::init_config(config).unwrap();
+    let env_filter = EnvFilter::new(&log_level);
+
+    // Define a registry with that level as an environment filter
+    let subscriber = Registry::default().with(env_filter);
+
+    // Define a layer for the log file
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(log_path)
+        .expect("Failed to open log file - does the directory exist?");
+
+    let file_layer = fmt::layer()
+        .with_writer(file)
+        .with_ansi(false)
+        .with_timer(CompactTimestamp);
+
+    // Define layer for stdout
+    let stdout_layer = if !settings.config.tui {
+        let layer = fmt::layer()
+            .with_writer(std::io::stdout)
+            .with_ansi(true)
+            .with_target(false)
+            .with_timer(CompactTimestamp);
+        Some(layer)
+    } else {
+        None
     };
+
+    // Define layer for TUI
+    let tui_writer_closure = move || TuiWriter {
+        ui_tx: ui_tx.clone(),
+    };
+
+    let tui_layer = if settings.config.tui {
+        let layer = fmt::layer()
+            .with_writer(tui_writer_closure)
+            .with_ansi(false)
+            .with_target(false)
+            .with_timer(CompactTimestamp);
+        Some(layer)
+    } else {
+        None
+    };
+
+    // Combine layers with subscriber
+    subscriber
+        .with(file_layer)
+        .with(stdout_layer)
+        .with(tui_layer)
+        .init();
+    tracing::debug!("Logging is configured with level: {}", log_level);
+}
+
+#[derive(Clone)]
+struct CompactTimestamp;
+
+impl FormatTime for CompactTimestamp {
+    fn format_time(
+        &self,
+        w: &mut tracing_subscriber::fmt::format::Writer<'_>,
+    ) -> Result<(), std::fmt::Error> {
+        write!(w, "{}", chrono::Local::now().format("%H:%M:%S"))
+    }
+}
+
+struct TuiWriter {
+    ui_tx: UnboundedSender<Comm>,
+}
+
+impl Write for TuiWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let msg = String::from_utf8_lossy(buf);
+        // Send the message through the channel
+        self.ui_tx
+            .send(Comm::LogMessage(msg.to_string()))
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "Failed to send log message"))?;
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        // Flushing is not required for this use case
+        Ok(())
+    }
 }

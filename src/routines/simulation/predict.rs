@@ -1,3 +1,5 @@
+use crate::routines::datafile::CovLine;
+use crate::routines::datafile::Infusion;
 use crate::routines::datafile::Scenario;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
@@ -6,36 +8,98 @@ use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
 use ndarray::Array1;
 use ndarray::{Array, Array2, Axis};
+use std::collections::HashMap;
 use std::error;
 use std::hash::{Hash, Hasher};
 
-const CACHE_SIZE: usize = 1000000;
+/// Number of support points to cache for each scenario
+const CACHE_SIZE: usize = 1000;
+
+#[derive(Debug, Clone)]
+pub struct Model {
+    params: HashMap<String, f64>,
+    _scenario: Scenario,
+    _infusions: Vec<Infusion>,
+    _cov: Option<HashMap<String, CovLine>>,
+}
+impl Model {
+    pub fn get_param(&self, str: &str) -> f64 {
+        *self.params.get(str).unwrap()
+    }
+}
 
 /// return the predicted values for the given scenario and parameters
 /// where the second element of the tuple is the predicted values
 /// one per observation time in scenario and in the same order
 /// it is not relevant the outeq of the specific event.
-pub trait Predict {
-    fn predict(&self, params: Vec<f64>, scenario: &Scenario) -> Vec<f64>;
+pub trait Predict<'a> {
+    type Model: 'a + Clone;
+    type State;
+    fn initial_system(&self, params: &Vec<f64>, scenario: Scenario) -> (Self::Model, Scenario);
+    fn initial_state(&self) -> Self::State;
+    fn add_covs(&self, system: &mut Self::Model, cov: Option<HashMap<String, CovLine>>);
+    fn add_infusion(&self, system: &mut Self::Model, infusion: Infusion);
+    fn add_dose(&self, state: &mut Self::State, dose: f64, compartment: usize);
+    fn get_output(&self, time: f64, state: &Self::State, system: &Self::Model, outeq: usize)
+        -> f64;
+    fn state_step(&self, state: &mut Self::State, system: &Self::Model, time: f64, next_time: f64);
 }
 
 #[derive(Clone, Debug)]
 pub struct Engine<S>
 where
-    S: Predict + Clone,
+    S: Predict<'static> + Clone,
 {
     ode: S,
 }
 
 impl<S> Engine<S>
 where
-    S: Predict + Clone,
+    S: Predict<'static> + Clone,
 {
     pub fn new(ode: S) -> Self {
         Self { ode }
     }
-    pub fn pred(&self, scenario: &Scenario, params: Vec<f64>) -> Vec<f64> {
-        self.ode.predict(params, scenario)
+    pub fn pred(&self, scenario: Scenario, params: Vec<f64>) -> Vec<f64> {
+        let (mut system, scenario) = self.ode.initial_system(&params, scenario.clone());
+        let mut yout = vec![];
+        let mut x = self.ode.initial_state();
+        let mut index: usize = 0;
+        for block in scenario.blocks {
+            self.ode.add_covs(&mut system, Some(block.covs));
+            for event in &block.events {
+                if event.evid == 1 {
+                    if event.dur.unwrap_or(0.0) > 0.0 {
+                        //infusion
+                        self.ode.add_infusion(
+                            &mut system,
+                            Infusion {
+                                time: event.time,
+                                dur: event.dur.unwrap(),
+                                amount: event.dose.unwrap(),
+                                compartment: event.input.unwrap() - 1,
+                            },
+                        );
+                    } else {
+                        //     //dose
+                        self.ode
+                            .add_dose(&mut x, event.dose.unwrap(), event.input.unwrap() - 1);
+                    }
+                } else if event.evid == 0 {
+                    //obs
+                    yout.push(
+                        self.ode
+                            .get_output(event.time, &x, &system, event.outeq.unwrap()),
+                    )
+                }
+                if let Some(next_time) = scenario.times.get(index + 1) {
+                    // TODO: use the last dx as the initial one for the next simulation.
+                    self.ode.state_step(&mut x, &system, event.time, *next_time);
+                }
+                index += 1;
+            }
+        }
+        yout
     }
 }
 
@@ -61,9 +125,9 @@ lazy_static! {
         DashMap::with_capacity(CACHE_SIZE); // Adjust cache size as needed
 }
 
-pub fn get_ypred<S: Predict + Sync + Clone>(
+pub fn get_ypred<S: Predict<'static> + Sync + Clone>(
     sim_eng: &Engine<S>,
-    scenario: &Scenario,
+    scenario: Scenario,
     support_point: Vec<f64>,
     i: usize,
     cache: bool,
@@ -96,16 +160,16 @@ pub fn get_ypred<S: Predict + Sync + Clone>(
 ///
 /// * `sim_eng` - A reference to the simulation engine implementing the `Predict` trait.
 ///
-/// * `scenarios` - A reference to a Vec<Scenario> containing information about different scenarios.
+/// * `scenarios` - A reference to a `Vec<Scenario>` containing information about different scenarios.
 ///
-/// * `support_points` - A 2D Array (Array2<f64>) representing the support points. Each row
+/// * `support_points` - A 2D Array `(Array2<f64>)` representing the support points. Each row
 ///                     corresponds to a different support point scenario.
 ///
 /// * `cache` - A boolean flag indicating whether to cache predicted values during simulation.
 ///
 /// # Returns
 ///
-/// A 2D Array (Array2<Array1<f64>>) where each element is an Array1<f64> representing the
+/// A 2D Array `(Array2<Array1<f64>>)` where each element is an `Array1<f64>` representing the
 /// simulated observations for a specific scenario and support point.
 ///
 /// # Example
@@ -124,7 +188,7 @@ pub fn sim_obs<S>(
     cache: bool,
 ) -> Array2<Array1<f64>>
 where
-    S: Predict + Sync + Clone,
+    S: Predict<'static> + Sync + Clone,
 {
     let mut pred: Array2<Array1<f64>> =
         Array2::default((scenarios.len(), support_points.nrows()).f());
@@ -137,8 +201,13 @@ where
                 .enumerate()
                 .for_each(|(j, mut element)| {
                     let scenario = scenarios.get(i).unwrap();
-                    let ypred =
-                        get_ypred(sim_eng, scenario, support_points.row(j).to_vec(), i, cache);
+                    let ypred = get_ypred(
+                        sim_eng,
+                        scenario.clone(),
+                        support_points.row(j).to_vec(),
+                        i,
+                        cache,
+                    );
                     element.fill(ypred);
                 });
         });
@@ -147,11 +216,11 @@ where
 
 pub fn simple_sim<S>(
     sim_eng: &Engine<S>,
-    scenario: &Scenario,
+    scenario: Scenario,
     support_point: &Array1<f64>,
 ) -> Vec<f64>
 where
-    S: Predict + Sync + Clone,
+    S: Predict<'static> + Sync + Clone,
 {
     sim_eng.pred(scenario, support_point.to_vec())
 }
@@ -162,7 +231,7 @@ pub fn post_predictions<S>(
     scenarios: &Vec<Scenario>,
 ) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>>
 where
-    S: Predict + Sync + Clone,
+    S: Predict<'static> + Sync + Clone,
 {
     if post.nrows() != scenarios.len() {
         return Err("Error calculating the posterior predictions, size mismatch.".into());
@@ -176,7 +245,7 @@ where
         .for_each(|(i, mut pred)| {
             let scenario = scenarios.get(i).unwrap();
             let support_point = post.row(i).to_owned();
-            pred.fill(simple_sim(sim_engine, scenario, &support_point))
+            pred.fill(simple_sim(sim_engine, scenario.clone(), &support_point))
         });
 
     Ok(predictions)

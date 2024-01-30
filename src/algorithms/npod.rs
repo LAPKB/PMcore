@@ -1,9 +1,11 @@
 use crate::{
     prelude::{
         algorithms::Algorithm,
+        condensation::prune::prune,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
         ipm,
+        optimization::d_optimizer::SppOptimizer,
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
@@ -11,20 +13,17 @@ use crate::{
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
     },
-    routines::expansion::adaptative_grid::adaptative_grid,
     tui::ui::Comm,
 };
-
+use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-const THETA_E: f64 = 1e-4; // Convergence criteria
-const THETA_G: f64 = 1e-4; // Objective function convergence criteria
-const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
+const THETA_F: f64 = 1e-2;
 
-pub struct NPAG<S>
+pub struct NPOD<S>
 where
     S: Predict<'static> + std::marker::Sync + Clone,
 {
@@ -34,11 +33,8 @@ where
     theta: Array2<f64>,
     lambda: Array1<f64>,
     w: Array1<f64>,
-    eps: f64,
     last_objf: f64,
     objf: f64,
-    f0: f64,
-    f1: f64,
     cycle: usize,
     gamma_delta: f64,
     gamma: f64,
@@ -52,7 +48,7 @@ where
     settings: Settings,
 }
 
-impl<S> Algorithm for NPAG<S>
+impl<S> Algorithm for NPOD<S>
 where
     S: Predict<'static> + std::marker::Sync + Clone,
 {
@@ -65,7 +61,7 @@ where
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
-            -2. * self.objf,
+            self.objf,
             self.cycle,
             self.converged,
             self.settings.clone(),
@@ -73,11 +69,11 @@ where
     }
 }
 
-impl<S> NPAG<S>
+impl<S> NPOD<S>
 where
     S: Predict<'static> + std::marker::Sync + Clone,
 {
-    /// Creates a new NPAG instance.
+    /// Creates a new NPOD instance.
     ///
     /// # Parameters
     ///
@@ -91,7 +87,7 @@ where
     ///
     /// # Returns
     ///
-    /// Returns a new `NPAG` instance.
+    /// Returns a new `NPOD` instance.
     pub fn new(
         sim_eng: Engine<S>,
         ranges: Vec<(f64, f64)>,
@@ -111,15 +107,12 @@ where
             theta,
             lambda: Array1::default(0),
             w: Array1::default(0),
-            eps: 0.2,
             last_objf: -1e30,
             objf: f64::INFINITY,
-            f0: -1e30,
-            f1: f64::default(),
             cycle: 1,
             gamma_delta: 0.1,
             gamma: settings.error.value,
-            error_type: match settings.error.class.to_lowercase().as_str() {
+            error_type: match settings.error.class.as_str() {
                 "additive" => ErrorType::Add,
                 "proportional" => ErrorType::Prop,
                 _ => panic!("Error type not supported"),
@@ -192,16 +185,10 @@ where
         }
     }
 
-    fn adaptative_grid(&mut self) {
-        adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
-    }
-
     pub fn run(&mut self) -> NPResult {
-        while self.eps > THETA_E {
-            // Enter a span for each cycle, provding context for further errors
-            let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
-            let _enter = cycle_span.enter();
-
+        while (self.last_objf - self.objf).abs() > THETA_F {
+            self.last_objf = self.objf;
+            // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
             let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
@@ -246,15 +233,12 @@ where
                     keep.push(*perm.get(i).unwrap());
                 }
             }
-
-            // If a support point is dropped, log it
-            if self.psi.ncols() != keep.len() {
-                tracing::debug!(
-                    "QRD dropped {} support point(s)",
-                    self.psi.ncols() - keep.len(),
-                );
-            }
-
+            tracing::info!(
+                "QR decomp, cycle {}, kept: {}, thrown {}",
+                self.cycle,
+                keep.len(),
+                self.psi.ncols() - keep.len()
+            );
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
@@ -278,35 +262,37 @@ where
             };
             self.tx.send(Comm::NPCycle(state.clone())).unwrap();
 
-            // Increasing objf signals instability or model misspecification.
+            // If the objective function decreased, log an error.
+            // Increasing objf signals instability of model misspecification.
             if self.last_objf > self.objf {
-                tracing::info!(
-                    "Objective function decreased from {} to {}",
-                    self.last_objf,
-                    self.objf
-                );
+                tracing::error!("Objective function decreased");
             }
 
             self.w = self.lambda.clone();
             let pyl = self.psi.dot(&self.w);
 
-            self.cycle_log
-                .push_and_write(state, self.settings.config.output);
-
-            // Stop if we have reached convergence criteria
-            if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
-                self.eps /= 2.;
-                if self.eps <= THETA_E {
-                    self.f1 = pyl.mapv(|x| x.ln()).sum();
-                    if (self.f1 - self.f0).abs() <= THETA_F {
-                        tracing::info!("The run converged");
-                        self.converged = true;
-                        break;
-                    } else {
-                        self.f0 = self.f1;
-                        self.eps = 0.2;
-                    }
-                }
+            // Add new point to theta based on the optimization of the D function
+            let sigma = ErrorPoly {
+                c: self.c,
+                gl: self.gamma,
+                e_type: &self.error_type,
+            };
+            // for spp in self.theta.clone().rows() {
+            //     let optimizer = SppOptimizer::new(&self.engine, &self.scenarios, &sigma, &pyl);
+            //     let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
+            //     prune(&mut self.theta, candidate_point, &self.ranges, THETA_D);
+            // }
+            let mut candididate_points: Vec<Array1<f64>> = Vec::default();
+            for spp in self.theta.clone().rows() {
+                candididate_points.push(spp.to_owned());
+            }
+            candididate_points.par_iter_mut().for_each(|spp| {
+                let optimizer = SppOptimizer::new(&self.engine, &self.scenarios, &sigma, &pyl);
+                let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
+                *spp = candidate_point;
+            });
+            for cp in candididate_points {
+                prune(&mut self.theta, cp, &self.ranges, THETA_D);
             }
 
             // Stop if we have reached maximum number of cycles
@@ -320,11 +306,14 @@ where
                 tracing::warn!("Stopfile detected - breaking");
                 break;
             }
+            //TODO: the cycle migh break before reaching this point
+            self.cycle_log
+                .push_and_write(state, self.settings.config.output);
 
-            // If we have not reached convergence or otherwise stopped, expand grid and prepare for new cycle
-            self.adaptative_grid();
             self.cycle += 1;
-            self.last_objf = self.objf;
+
+            // log::info!("cycle: {}, objf: {}", self.cycle, self.objf);
+            // dbg!((self.last_objf - self.objf).abs());
         }
 
         self.to_npresult()

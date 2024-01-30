@@ -34,45 +34,6 @@ fn scaled_sobol() {
 }
 
 #[test]
-fn read_mandatory_settings() {
-    let settings = settings::run::read("src/tests/config.toml".to_string());
-    assert_eq!(settings.parsed.paths.data, "data.csv");
-    assert_eq!(settings.parsed.config.cycles, 1024);
-    assert_eq!(settings.parsed.config.engine, "NPAG");
-}
-
-#[test]
-fn read_parameter_names() {
-    let settings = settings::run::read("src/tests/config.toml".to_string());
-    assert_eq!(settings.computed.random.names, vec!["ka", "ke", "v"]);
-}
-
-#[test]
-fn read_parameter_ranges() {
-    let settings = settings::run::read("src/tests/config.toml".to_string());
-
-    assert_eq!(
-        settings.computed.random.ranges,
-        vec![(0.1, 0.9), (0.001, 0.1), (30.0, 120.0)]
-    );
-}
-
-#[test]
-fn read_randfix() {
-    let settings = settings::run::read("src/tests/config.toml".to_string());
-    assert_eq!(settings.computed.fixed.names, vec!["KCP", "KPC"]);
-    assert_eq!(settings.computed.fixed.values, vec![5.1, 2.0]);
-}
-
-#[test]
-fn read_error() {
-    let settings = settings::run::read("src/tests/config.toml".to_string());
-    assert_eq!(settings.parsed.error.value, 0.5);
-    assert_eq!(settings.parsed.error.class, "additive");
-    assert_eq!(settings.parsed.error.poly, (0.0, 0.5, 0.0, 0.0))
-}
-
-#[test]
 fn read_test_datafile() {
     let scenarios = datafile::parse(&"src/tests/test.csv".to_string());
     if let Ok(scenarios) = scenarios {

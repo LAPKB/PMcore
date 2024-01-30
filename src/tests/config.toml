@@ -1,5 +1,6 @@
 [paths]
 data = "data.csv"
+log = "test.log"
 
 [config]
 cycles = 1024
@@ -7,7 +8,7 @@ engine = "NPAG"
 init_points = 500
 seed = 347
 tui = false
-pmetrics_outputs = true
+output = true
 
 [random]
 ka = [0.1, 0.9]
