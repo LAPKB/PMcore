@@ -148,31 +148,13 @@ impl NPResult {
     /// Write the observations, which is the reformatted input data
     pub fn write_obs(&self) {
         tracing::info!("Writing (expanded) observations...");
-        let result = (|| {
-            let scenarios = self.scenarios.clone();
 
-            let file = File::create("obs.csv")?;
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        let path = "obs.csv";
+        let scenarios = self.scenarios.clone();
 
-            // Create the headers
-            writer.write_record(["id", "time", "obs", "outeq"])?;
-
-            // Write contents
-            for scenario in scenarios {
-                for (observation, time) in scenario.obs.iter().zip(&scenario.obs_times) {
-                    writer.write_record(&[
-                        scenario.id.to_string(),
-                        time.to_string(),
-                        observation.to_string(),
-                        "1".to_string(),
-                    ])?;
-                }
-            }
-            writer.flush()
-        })();
-
-        if let Err(e) = result {
-            tracing::error!("Error while writing observations: {}", e);
+        match datafile::scenario_to_csv(scenarios, path) {
+            Ok(_) => (),
+            Err(e) => tracing::error!("Error while writing observations: {}", e),
         }
     }
 

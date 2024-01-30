@@ -1,9 +1,11 @@
+use csv;
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs::File;
+use std::path::Path;
 use std::process::exit;
-
-type Record = HashMap<String, String>;
 
 /// A Scenario is a collection of blocks that represent a single subject in the datafile
 /// Each block is a collection of events that represent a single dose, possibly followed by observations
@@ -18,7 +20,7 @@ pub struct Scenario {
 
 impl Scenario {
     pub fn new(events: Vec<Event>) -> Result<Self, Box<dyn Error>> {
-        let mut scenario = Self::parse_events(events)?;
+        let mut scenario = Self::events_to_scenario(events)?;
         scenario.inyect_covariates_regressions();
         Ok(scenario)
     }
@@ -71,15 +73,15 @@ impl Scenario {
                     time: current_time,
                     dur: None,
                     dose: None,
-                    _addl: None,
-                    _ii: None,
+                    addl: None,
+                    ii: None,
                     input: None,
                     out: Some(-99.0),
                     outeq: Some(*outeq),
-                    _c0: None,
-                    _c1: None,
-                    _c2: None,
-                    _c3: None,
+                    c0: None,
+                    c1: None,
+                    c2: None,
+                    c3: None,
                     covs: HashMap::new(),
                 });
             }
@@ -122,12 +124,12 @@ impl Scenario {
         }
         events.sort_by(|a, b| a.cmp_by_id_then_time(b));
 
-        let mut scenario = Self::parse_events(events).unwrap();
+        let mut scenario = Self::events_to_scenario(events).unwrap();
         scenario.inyect_covariates_regressions();
         scenario
     }
 
-    fn parse_events(events: Vec<Event>) -> Result<Self, Box<dyn Error>> {
+    fn events_to_scenario(events: Vec<Event>) -> Result<Self, Box<dyn Error>> {
         let id = events.first().unwrap().id.clone();
         let mut blocks: Vec<Block> = vec![];
         let mut block: Block = Block {
@@ -148,12 +150,6 @@ impl Scenario {
                 }
             }
             if event.evid == 1 {
-                if event.dur.unwrap_or(0.0) > 0.0 {
-                    check_infusion(&event)?;
-                } else {
-                    check_dose(&event)?;
-                }
-
                 if !block.events.is_empty() {
                     blocks.push(block);
                 }
@@ -163,7 +159,6 @@ impl Scenario {
                 };
                 // clone the covs from the dose event and put them in the block
             } else if event.evid == 0 {
-                check_obs(&event)?;
                 obs_times.push(event.time);
                 obs.push(event.out.unwrap());
             } else {
@@ -253,83 +248,98 @@ pub struct Block {
     pub covs: HashMap<String, CovLine>,
 }
 
-/// A Event represent a single row in the Datafile
-#[derive(Debug, Clone)]
+/// An Event represent a single row in the Datafile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub struct Event {
     pub id: String,
     pub evid: isize,
     pub time: f64,
     pub dur: Option<f64>,
     pub dose: Option<f64>,
-    pub _addl: Option<isize>,
-    pub _ii: Option<isize>,
+    pub addl: Option<isize>,
+    pub ii: Option<usize>,
     pub input: Option<usize>,
     pub out: Option<f64>,
     pub outeq: Option<usize>,
-    pub _c0: Option<f32>,
-    pub _c1: Option<f32>,
-    pub _c2: Option<f32>,
-    pub _c3: Option<f32>,
+    pub c0: Option<f32>,
+    pub c1: Option<f32>,
+    pub c2: Option<f32>,
+    pub c3: Option<f32>,
+    #[serde(flatten)]
     pub covs: HashMap<String, Option<f64>>,
 }
 
 impl Event {
+    /// Compare two events by id and time for sorting
     pub fn cmp_by_id_then_time(&self, other: &Self) -> Ordering {
         match self.id.cmp(&other.id) {
             Ordering::Equal => self.time.partial_cmp(&other.time).unwrap(),
             other => other,
         }
     }
-}
 
-pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
-    let mut rdr = csv::ReaderBuilder::new()
-        // .delimiter(b',')
-        // .escape(Some(b'\\'))
-        .comment(Some(b'#'))
-        .from_path(path)
-        .unwrap();
-    let mut events: Vec<Event> = vec![];
-
-    for result in rdr.deserialize() {
-        let mut record: Record = result?;
-        events.push(Event {
-            id: record.remove("ID").unwrap(),
-            evid: record.remove("EVID").unwrap().parse::<isize>().unwrap(),
-            time: record.remove("TIME").unwrap().parse::<f64>().unwrap(),
-            dur: record.remove("DUR").unwrap().parse::<f64>().ok(),
-            dose: record.remove("DOSE").unwrap().parse::<f64>().ok(),
-            _addl: record.remove("ADDL").unwrap().parse::<isize>().ok(), //TODO: To Be Implemented
-            _ii: record.remove("II").unwrap().parse::<isize>().ok(),     //TODO: To Be Implemented
-            input: record.remove("INPUT").unwrap().parse::<usize>().ok(),
-            out: record.remove("OUT").unwrap().parse::<f64>().ok(),
-            outeq: record.remove("OUTEQ").unwrap().parse::<usize>().ok(),
-            _c0: record.remove("C0").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
-            _c1: record.remove("C1").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
-            _c2: record.remove("C2").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
-            _c3: record.remove("C3").unwrap().parse::<f32>().ok(), //TODO: To Be Implemented
-            covs: record
-                .into_iter()
-                .map(|(key, value)| {
-                    let val = value.parse::<f64>().ok();
-                    (key, val)
-                })
-                .collect(),
-        });
+    /// Returns the (optional) error polynomial coefficients as a tuple
+    pub fn errorpoly(&self) -> Option<(f64, f64, f64, f64)> {
+        match (self.c0, self.c1, self.c2, self.c3) {
+            (Some(c0), Some(c1), Some(c2), Some(c3)) => {
+                Some((c0 as f64, c1 as f64, c2 as f64, c3 as f64))
+            }
+            _ => None,
+        }
     }
 
+    /// Validate the entries in an Event
+    pub fn validate(&self) -> Result<(), Box<dyn Error>> {
+        match self.evid {
+            0 => {
+                if self.out.is_none() {
+                    return Err("Obs event missing out value".into());
+                }
+                if self.outeq.is_none() {
+                    return Err("Obs event missing outeq value".into());
+                }
+            }
+            1 => {
+                if self.dose.is_none() {
+                    return Err("Dose event missing dose value".into());
+                }
+                if self.input.is_none() {
+                    return Err("Dose event missing input value".into());
+                }
+            }
+            _ => {
+                return Err("Unsupported evid".into());
+            }
+        }
+
+        // Add more validations as needed
+
+        Ok(())
+    }
+}
+
+pub fn parse(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
+    let mut rdr = csv::ReaderBuilder::new()
+        .comment(Some(b'#'))
+        .from_path(path)?;
+
+    let mut scenarios: Vec<Scenario> = Vec::new();
     let mut event_groups: HashMap<String, Vec<Event>> = HashMap::new();
-    events.into_iter().for_each(|event| {
+
+    for result in rdr.deserialize() {
+        let event: Event =
+            result.map_err(|e| format!("Failed to read a row in the datafile: {}", e))?;
+
         event_groups
             .entry(event.id.clone())
             .or_insert_with(Vec::new)
             .push(event);
-    });
-
-    let mut scenarios: Vec<Scenario> = vec![];
+    }
 
     for (_id, s_events) in event_groups {
-        let scenario = Scenario::new(s_events)?;
+        let scenario = Scenario::new(s_events)
+            .map_err(|e| format!("Failed to create a scenario from events: {}", e))?;
         scenarios.push(scenario);
     }
 
@@ -338,52 +348,108 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     Ok(scenarios)
 }
 
-fn check_dose(event: &Event) -> Result<(), Box<dyn Error>> {
-    if event.dose.is_none() {
-        tracing::error!("Error: Dose event without dose");
-        //return Err("Error: Dose event without dose".into());
-        exit(-1);
-    }
-    if event.input.is_none() {
-        tracing::error!("Error: Dose event without input");
-        //return Err("Error: Dose event without input".into());
-        exit(-1);
-    }
-    Ok(())
-}
-fn check_infusion(event: &Event) -> Result<(), Box<dyn Error>> {
-    if event.dose.is_none() {
-        tracing::error!("Error: Infusion event without dose");
-        //return Err("Error: Infusion event without dose".into());
-        exit(-1);
-    }
-    if event.dur.is_none() {
-        tracing::error!("Error: Infusion event without duration");
-        //return Err("Error: Infusion event without duration".into());
-        exit(-1);
-    }
-    if event.input.is_none() {
-        tracing::error!("Error: Infusion event without input");
-        //return Err("Error: Infusion event without input".into());
-        exit(-1);
-    }
-    Ok(())
-}
-fn check_obs(event: &Event) -> Result<(), Box<dyn Error>> {
-    if event.out.is_none() {
-        tracing::error!("Error: Obs event without out");
-        //return Err("Error: Obs event without out".into());
-        exit(-1);
-    }
-    if event.outeq.is_none() {
-        tracing::error!("Error: Obs event without outeq");
-        //return Err("Error: Obs event without outeq".into());
-        exit(-1);
-    }
-    Ok(())
-}
-
 fn decimals(value: f64, places: u32) -> f64 {
     let multiplier = 10f64.powi(places as i32);
     (value * multiplier).round() / multiplier
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+struct EventHelper {
+    pub id: String,
+    pub evid: isize,
+    pub time: f64,
+    pub dur: Option<f64>,
+    pub dose: Option<f64>,
+    pub addl: Option<isize>,
+    pub ii: Option<usize>,
+    pub input: Option<usize>,
+    pub out: Option<f64>,
+    pub outeq: Option<usize>,
+    pub c0: Option<f32>,
+    pub c1: Option<f32>,
+    pub c2: Option<f32>,
+    pub c3: Option<f32>,
+    pub covs: Vec<(String, Option<f64>)>,
+}
+
+impl From<Event> for EventHelper {
+    fn from(event: Event) -> Self {
+        EventHelper {
+            id: event.id,
+            evid: event.evid,
+            time: event.time,
+            dur: event.dur,
+            dose: event.dose,
+            addl: event.addl,
+            ii: event.ii,
+            input: event.input,
+            out: event.out,
+            outeq: event.outeq,
+            c0: event.c0,
+            c1: event.c1,
+            c2: event.c2,
+            c3: event.c3,
+            covs: event.covs.into_iter().collect(),
+        }
+    }
+}
+
+/// Serialize a vector of scenarios to a CSV file
+pub fn scenario_to_csv(scenarios: Vec<Scenario>, file_path: &str) -> Result<(), Box<dyn Error>> {
+    let path = Path::new(file_path);
+    let file = File::create(&path)?;
+    
+    let mut headers = vec![
+        "id".to_string(),
+        "evid".to_string(),
+        "time".to_string(),
+        "dur".to_string(),
+        "dose".to_string(),
+        "addl".to_string(),
+        "ii".to_string(),
+        "input".to_string(),
+        "out".to_string(),
+        "outeq".to_string(),
+        "c0".to_string(),
+        "c1".to_string(),
+        "c2".to_string(),
+        "c3".to_string(),
+    ];
+
+    let mut cov_headers: Vec<String> = Vec::new();
+    for scenario in &scenarios {
+        for block in &scenario.blocks {
+            for event in &block.events {
+                for (cov_name, _) in &event.covs {
+                    cov_headers.push(cov_name.clone());
+                }
+            }
+        }
+    }
+    cov_headers.dedup();
+
+    headers.extend(cov_headers);
+
+    let mut wtr = csv::WriterBuilder::new()
+        .delimiter(b',')
+        .has_headers(false)
+        .from_writer(file);
+
+    wtr.write_record(headers)?;
+
+    // Iterate through each scenario
+    for scenario in scenarios {
+        // Iterate through each block in the scenario
+        for block in scenario.blocks {
+            // Iterate through each event in the block and serialize it
+            for event in block.events {
+                let event_helper: EventHelper = event.into();
+                wtr.serialize(event_helper)?;
+            }
+        }
+    }
+
+    wtr.flush()?;
+    Ok(())
 }
