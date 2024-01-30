@@ -1,4 +1,5 @@
 use csv;
+use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -249,46 +250,24 @@ pub struct Block {
 }
 
 /// An Event represent a single row in the Datafile
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct Event {
     pub id: String,
     pub evid: isize,
     pub time: f64,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub dur: Option<f64>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub dose: Option<f64>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub addl: Option<isize>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub ii: Option<usize>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub input: Option<usize>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub out: Option<f64>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub outeq: Option<usize>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub c0: Option<f32>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub c1: Option<f32>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub c2: Option<f32>,
-    #[serde(default = "default_as_none")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub c3: Option<f32>,
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub covs: HashMap<String, Option<f64>>,
 }
 
@@ -341,6 +320,47 @@ impl Event {
     }
 }
 
+/// An Event represent a single row in the Datafile
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub struct EventWithoutCov {
+    pub id: String,
+    pub evid: isize,
+    pub time: f64,
+    pub dur: Option<f64>,
+    pub dose: Option<f64>,
+    pub addl: Option<isize>,
+    pub ii: Option<usize>,
+    pub input: Option<usize>,
+    pub out: Option<f64>,
+    pub outeq: Option<usize>,
+    pub c0: Option<f32>,
+    pub c1: Option<f32>,
+    pub c2: Option<f32>,
+    pub c3: Option<f32>,
+}
+
+impl From<Event> for EventWithoutCov {
+    fn from(event: Event) -> Self {
+        EventWithoutCov {
+            id: event.id,
+            evid: event.evid,
+            time: event.time,
+            dur: event.dur,
+            dose: event.dose,
+            addl: event.addl,
+            ii: event.ii,
+            input: event.input,
+            out: event.out,
+            outeq: event.outeq,
+            c0: event.c0,
+            c1: event.c1,
+            c2: event.c2,
+            c3: event.c3,
+        }
+    }
+}
+
 pub fn parse(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
     let mut rdr = csv::ReaderBuilder::new()
         .comment(Some(b'#'))
@@ -376,107 +396,24 @@ fn decimals(value: f64, places: u32) -> f64 {
     (value * multiplier).round() / multiplier
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-struct EventHelper {
-    pub id: String,
-    pub evid: isize,
-    pub time: f64,
-    pub dur: Option<f64>,
-    pub dose: Option<f64>,
-    pub addl: Option<isize>,
-    pub ii: Option<usize>,
-    pub input: Option<usize>,
-    pub out: Option<f64>,
-    pub outeq: Option<usize>,
-    pub c0: Option<f32>,
-    pub c1: Option<f32>,
-    pub c2: Option<f32>,
-    pub c3: Option<f32>,
-    pub covs: Vec<(String, Option<f64>)>,
-}
+pub fn scenario_to_csv(scenarios: Vec<Scenario>, path: &str) -> Result<(), Box<dyn Error>> {
 
-impl From<Event> for EventHelper {
-    fn from(event: Event) -> Self {
-        EventHelper {
-            id: event.id,
-            evid: event.evid,
-            time: event.time,
-            dur: event.dur,
-            dose: event.dose,
-            addl: event.addl,
-            ii: event.ii,
-            input: event.input,
-            out: event.out,
-            outeq: event.outeq,
-            c0: event.c0,
-            c1: event.c1,
-            c2: event.c2,
-            c3: event.c3,
-            covs: event.covs.into_iter().collect(),
-        }
-    }
-}
+    let file = File::create(path)?;
 
-/// Serialize a vector of scenarios to a CSV file
-pub fn scenario_to_csv(scenarios: Vec<Scenario>, file_path: &str) -> Result<(), Box<dyn Error>> {
-    let path = Path::new(file_path);
-    let file = File::create(&path)?;
-    
-    let mut headers = vec![
-        "id".to_string(),
-        "evid".to_string(),
-        "time".to_string(),
-        "dur".to_string(),
-        "dose".to_string(),
-        "addl".to_string(),
-        "ii".to_string(),
-        "input".to_string(),
-        "out".to_string(),
-        "outeq".to_string(),
-        "c0".to_string(),
-        "c1".to_string(),
-        "c2".to_string(),
-        "c3".to_string(),
-    ];
-
-    let mut cov_headers: Vec<String> = Vec::new();
-    for scenario in &scenarios {
-        for block in &scenario.blocks {
-            for event in &block.events {
-                for (cov_name, _) in &event.covs {
-                    cov_headers.push(cov_name.clone());
-                }
-            }
-        }
-    }
-    cov_headers.dedup();
-
-    headers.extend(cov_headers);
-
-    let mut wtr = csv::WriterBuilder::new()
-        .delimiter(b',')
-        .has_headers(false)
+    let mut writer = csv::WriterBuilder::new()
+        .has_headers(true)
         .from_writer(file);
 
-    wtr.write_record(headers)?;
-
-    // Iterate through each scenario
     for scenario in scenarios {
-        // Iterate through each block in the scenario
         for block in scenario.blocks {
-            // Iterate through each event in the block and serialize it
             for event in block.events {
-                let event_helper: EventHelper = event.into();
-                wtr.serialize(event_helper)?;
+                let ev = EventWithoutCov::from(event);
+                writer.serialize(ev)?;
             }
         }
     }
 
-    wtr.flush()?;
-    Ok(())
-}
+    writer.flush()?;
 
-fn default_as_none<T>() -> Option<T> {
-    None
-}
+    Ok(())
+} 
