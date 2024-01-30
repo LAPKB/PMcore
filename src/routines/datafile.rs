@@ -397,7 +397,6 @@ fn decimals(value: f64, places: u32) -> f64 {
 }
 
 pub fn scenario_to_csv(scenarios: Vec<Scenario>, path: &str) -> Result<(), Box<dyn Error>> {
-
     let file = File::create(path)?;
 
     let mut writer = csv::WriterBuilder::new()
@@ -416,4 +415,4 @@ pub fn scenario_to_csv(scenarios: Vec<Scenario>, path: &str) -> Result<(), Box<d
     writer.flush()?;
 
     Ok(())
-} 
+}
