@@ -1,5 +1,4 @@
 use csv;
-use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -396,7 +395,7 @@ fn decimals(value: f64, places: u32) -> f64 {
     (value * multiplier).round() / multiplier
 }
 
-pub fn scenario_to_csv(scenarios: Vec<Scenario>, path: &str) -> Result<(), Box<dyn Error>> {
+pub fn scenario_to_csv(scenarios: Vec<Scenario>, path: &Path) -> Result<(), Box<dyn Error>> {
     let file = File::create(path)?;
 
     let mut writer = csv::WriterBuilder::new()

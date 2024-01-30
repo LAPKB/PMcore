@@ -149,7 +149,7 @@ impl NPResult {
     pub fn write_obs(&self) {
         tracing::info!("Writing (expanded) observations...");
 
-        let path = "obs.csv";
+        let path = std::path::Path::new("obs.csv");
         let scenarios = self.scenarios.clone();
 
         match datafile::scenario_to_csv(scenarios, path) {
