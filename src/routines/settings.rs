@@ -53,6 +53,8 @@ pub struct Config {
     pub exclude: Option<Vec<String>>,
     #[serde(default = "default_tad")]
     pub tad: f64,
+    #[serde(default = "default_algebraic")]
+    algebraic: String,
 }
 
 /// Random parameters to be estimated
@@ -232,4 +234,8 @@ fn default_tad() -> f64 {
 
 fn default_10k() -> usize {
     10_000
+}
+
+fn default_algebraic() -> String {
+    "ODE".to_string()
 }
