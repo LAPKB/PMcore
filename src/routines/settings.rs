@@ -199,7 +199,7 @@ pub fn write_settings_to_file(settings: &Settings) -> Result<(), std::io::Error>
     let serialized = serde_json::to_string_pretty(settings)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
-    let file_path = "settings.json";
+    let file_path = std::path::Path::new("settings.json");
     let mut file = std::fs::File::create(file_path)?;
     std::io::Write::write_all(&mut file, serialized.as_bytes())?;
     Ok(())
