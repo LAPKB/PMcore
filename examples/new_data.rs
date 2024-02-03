@@ -1,20 +1,31 @@
 #![allow(dead_code)]
 // Redesign of data formats
 
-use std::collections::HashMap;
 use serde::Deserialize;
+use std::fmt;
+use std::{collections::HashMap, error::Error, path::Path};
 
 /// An Event represents a row in the datafile. It can be a [Bolus], [Infusion], or [Observation]
 #[derive(Debug)]
-enum Event {
+pub enum Event {
     Bolus(Bolus),
     Infusion(Infusion),
     Observation(Observation),
 }
 
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Event::Bolus(bolus) => write!(f, "Bolus at time {}: amount {} in compartment {}", bolus.time, bolus.amount, bolus.compartment),
+            Event::Infusion(infusion) => write!(f, "Infusion at time {}: amount {} in compartment {} with duration {}", infusion.time, infusion.amount, infusion.compartment, infusion.duration),
+            Event::Observation(observation) => write!(f, "Observation at time {}: value {} in outeq {}", observation.time, observation.value, observation.outeq),
+        }
+    }
+}
+
 /// An instantaenous input of drug
 #[derive(Debug)]
-struct Bolus {
+pub struct Bolus {
     time: f64,
     amount: f64,
     compartment: usize,
@@ -22,7 +33,7 @@ struct Bolus {
 
 /// A continuous dose of drug
 #[derive(Debug)]
-struct Infusion {
+pub struct Infusion {
     time: f64,
     amount: f64,
     compartment: usize,
@@ -45,7 +56,7 @@ impl CovLine {
 
 /// An observation of drug concentration or covariates
 #[derive(Debug)]
-struct Observation {
+pub struct Observation {
     time: f64,
     value: f64,
     outeq: usize,
@@ -55,18 +66,25 @@ struct Observation {
 
 /// A Block is a collection of events that are related to each other
 #[derive(Debug)]
-struct Block {
+pub struct Block {
     events: Vec<Event>,
+    index: usize,
     covs: HashMap<String, CovLine>,
 }
 
-impl Block {
-    // Sort events by time
+// Implement Display for Block
+impl fmt::Display for Block {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Block {}:", self.index)?;
+        for event in &self.events {
+            writeln!(f, "  {}", event)?;
+        }
+        Ok(())
+    }
 }
 
 // A row represents a single row in the datafile
-#[derive(Deserialize)]
-#[derive(Debug)]
+#[derive(Deserialize, Debug)]
 struct Row {
     pub id: String,
     pub evid: isize,
@@ -86,13 +104,116 @@ struct Row {
     pub covs: HashMap<String, Option<f64>>,
 }
 
-/// Data is a collection of blocks for one individual
+/// Scenario is a collection of blocks for one individual
 #[derive(Debug)]
-struct Data {
+pub struct Scenario {
     id: String,
     blocks: Vec<Block>,
 }
 
-fn main() {
+// Implement Display for Scenario
+impl fmt::Display for Scenario {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Scenario for ID: {}", self.id)?;
+        for block in &self.blocks {
+            writeln!(f, "{}", block)?;
+        }
+        Ok(())
+    }
+}
 
+pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
+    let mut rdr = csv::ReaderBuilder::new()
+        .comment(Some(b'#'))
+        .has_headers(true)
+        .from_path(path)?;
+
+    let mut scenarios: Vec<Scenario> = Vec::new();
+
+    // Read the datafile into a hashmap of rows by ID
+    let mut rows_map: HashMap<String, Vec<Row>> = HashMap::new();
+    for result in rdr.deserialize() {
+        let row: Row = result?;
+
+        rows_map
+            .entry(row.id.clone())
+            .or_insert_with(Vec::new)
+            .push(row);
+    }
+
+    // Convert grouped rows to scenarios
+    for (id, rows) in rows_map {
+        let mut blocks: Vec<Block> = Vec::new();
+        let mut current_block = Block {
+            events: Vec::new(),
+            index: 0,
+            covs: HashMap::new(),
+        };
+        let mut block_index = 0;
+
+        for row in rows {
+            match row.evid {
+                // Dose with or without reset
+                1 | 4 => {
+                    if row.evid == 4 {
+                        // Finish current block and start a new one
+                        if !current_block.events.is_empty() {
+                            blocks.push(current_block);
+                            block_index += 1;
+                        }
+                        current_block = Block {
+                            events: Vec::new(),
+                            index: block_index,
+                            covs: HashMap::new(),
+                        };
+                    }
+
+                    let event = if let Some(dur) = row.dur {
+                        Event::Infusion(Infusion {
+                            time: row.time,
+                            amount: row.dose.expect("Infusion amount (DOSE) is missing"),
+                            compartment: row.input.expect("Infusion compartment (INPUT) is missing"),
+                            duration: dur,
+                        })
+                    } else {
+                        Event::Bolus(Bolus {
+                            time: row.time,
+                            amount: row.dose.expect("Bolus amount (DOSE) is missing"),
+                            compartment: row.input.expect("Bolus compartment (INPUT) is missing"),
+                        })
+                    };
+                    current_block.events.push(event);
+                }
+                // Observation
+                0 => {
+                    let observation = Observation {
+                        time: row.time,
+                        value: row.out.expect("Observation OUT is missing"),
+                        outeq: row.outeq.expect("Observation OUTEQ is missing"),
+                        errpoly: None, // TODO: Read from datafile
+                        covs: HashMap::new(), // TODO: Populate with covariate data
+                    };
+                    current_block.events.push(Event::Observation(observation));
+                }
+                _ => {panic!("Unknown EVID: {} for ID {} at time {}", row.evid, id, row.time)}
+            }
+        }
+
+        // Don't forget to add the last block for the current ID
+        if !current_block.events.is_empty() {
+            blocks.push(current_block);
+        }
+
+        let scenario = Scenario { id, blocks };
+        scenarios.push(scenario);
+    }
+
+    Ok(scenarios)
+}
+
+fn main() {
+    let scenarios = read_datafile("examples/data/bimodal_ke_blocks.csv").unwrap();
+    for scenario in scenarios {
+        println!("{}", scenario);
+    }
 }
