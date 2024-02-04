@@ -1,4 +1,7 @@
+use std::{fs::File, path::Path};
+
 use crate::{
+    logger::trace_memory,
     prelude::{
         algorithms::Algorithm,
         datafile::Scenario,
@@ -15,7 +18,10 @@ use crate::{
     tui::ui::Comm,
 };
 
+use csv::{ReaderBuilder, WriterBuilder};
 use ndarray::{Array, Array1, Array2, Axis};
+use ndarray_csv::{Array2Reader, Array2Writer};
+extern crate ndarray_csv;
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -203,18 +209,38 @@ where
             let _enter = cycle_span.enter();
 
             // psi n_sub rows, nspp columns
-            let cache = if self.cycle == 1 { false } else { self.cache };
-            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
+            let cache = false;
+            trace_memory("before psi");
 
-            self.psi = prob::calculate_psi(
-                &ypred,
-                &self.scenarios,
-                &ErrorPoly {
-                    c: self.c,
-                    gl: self.gamma,
-                    e_type: &self.error_type,
-                },
-            );
+            if Path::new("psi_cache.csv").exists() {
+                let file = File::open("psi_cache.csv").unwrap();
+                let mut reader = ReaderBuilder::new().has_headers(false).from_reader(file);
+                self.psi = reader
+                    .deserialize_array2((self.scenarios.len(), self.theta.nrows()))
+                    .unwrap();
+                trace_memory("after loading psi from csv");
+            } else {
+                let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
+                trace_memory("after ypred");
+                self.psi = prob::calculate_psi(
+                    &ypred,
+                    &self.scenarios,
+                    &ErrorPoly {
+                        c: self.c,
+                        gl: self.gamma,
+                        e_type: &self.error_type,
+                    },
+                );
+                trace_memory("after calculate_psi");
+                drop(ypred);
+                trace_memory("after dropping ypred");
+                {
+                    let file = File::create("psi_cache.csv").unwrap();
+                    let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+                    writer.serialize_array2(&self.psi).unwrap();
+                }
+            }
+            trace_memory("before ipm");
             (self.lambda, _) = match ipm::burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
