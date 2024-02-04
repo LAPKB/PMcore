@@ -6,7 +6,10 @@ use npcore::{
         datafile::{CovLine, Infusion, Scenario},
         start,
     },
-    routines::simulation::engine::{Engine, Predict},
+    routines::simulation::{
+        algebraic::one_compartment::one_compartment,
+        engine::{Engine, Predict, SimulationType},
+    },
 };
 use ode_solvers::*;
 
@@ -117,6 +120,23 @@ impl<'a> Predict<'a> for Ode {
         let _res = stepper.integrate();
         let y = stepper.y_out();
         *x = *y.last().unwrap();
+    }
+    fn algebraic_step(&self, x: &mut Self::State, system: &Self::Model, time: f64, next_time: f64) {
+        if time >= next_time {
+            panic!("time error")
+        }
+
+        *x = one_compartment(
+            x,
+            &system.params,
+            &system.infusions,
+            &system.cov,
+            next_time,
+            time,
+        );
+    }
+    fn get_simulation_type(&self) -> SimulationType {
+        SimulationType::Algebraic
     }
 }
 

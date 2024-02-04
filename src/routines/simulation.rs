@@ -1,4 +1,6 @@
-// pub mod algebraic;
+pub mod algebraic {
+    pub mod one_compartment;
+}
 pub mod engine;
 
 use dashmap::mapref::entry::Entry;
@@ -51,14 +53,14 @@ use std::hash::{Hash, Hasher};
 /// Note: This function allows for optional caching of predicted values, which can improve
 /// performance when simulating observations for multiple scenarios.
 ///
-pub fn sim_obs<S>(
-    sim_eng: &Engine<S>,
+pub fn sim_obs<M>(
+    sim_eng: &Engine<M>,
     scenarios: &Vec<Scenario>,
     support_points: &Array2<f64>,
     cache: bool,
 ) -> Array2<Array1<f64>>
 where
-    S: Predict<'static> + Sync + Clone,
+    M: Predict<'static> + Sync + Clone,
 {
     let mut pred: Array2<Array1<f64>> =
         Array2::default((scenarios.len(), support_points.nrows()).f());
@@ -84,20 +86,20 @@ where
     pred
 }
 
-// fn simple_sim<S>(sim_eng: &Engine<S>, scenario: Scenario, support_point: &Array1<f64>) -> Vec<f64>
+// fn simple_sim<M>(sim_eng: &Engine<M>, scenario: Scenario, support_point: &Array1<f64>) -> Vec<f64>
 // where
-//     S: Predict<'static> + Sync + Clone,
+//     M: Predict<'static> + Sync + Clone,
 // {
 //     sim_eng.pred(scenario, support_point.to_vec())
 // }
 
-pub fn post_predictions<S>(
-    sim_engine: &Engine<S>,
+pub fn post_predictions<M>(
+    sim_engine: &Engine<M>,
     post: Array2<f64>,
     scenarios: &Vec<Scenario>,
 ) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>>
 where
-    S: Predict<'static> + Sync + Clone,
+    M: Predict<'static> + Sync + Clone,
 {
     if post.nrows() != scenarios.len() {
         return Err("Error calculating the posterior predictions, size mismatch.".into());
@@ -139,8 +141,8 @@ lazy_static! {
         DashMap::with_capacity(CACHE_SIZE); // Adjust cache size as needed
 }
 
-pub fn cache_ypred<S: Predict<'static> + Sync + Clone>(
-    sim_eng: &Engine<S>,
+pub fn cache_ypred<M: Predict<'static> + Sync + Clone>(
+    sim_eng: &Engine<M>,
     scenario: Scenario,
     support_point: Vec<f64>,
     i: usize,
