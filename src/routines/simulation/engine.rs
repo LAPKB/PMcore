@@ -51,7 +51,7 @@ where
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
                     // TODO: use the last dx as the initial one for the next simulation.
-                    self.ode.state_step(&mut x, &system, event.time, *next_time);
+                    self.ode.ode_step(&mut x, &system, event.time, *next_time);
                 }
                 index += 1;
             }
@@ -87,5 +87,12 @@ pub trait Predict<'a> {
     fn add_dose(&self, state: &mut Self::State, dose: f64, compartment: usize);
     fn get_output(&self, time: f64, state: &Self::State, system: &Self::Model, outeq: usize)
         -> f64;
-    fn state_step(&self, state: &mut Self::State, system: &Self::Model, time: f64, next_time: f64);
+    fn ode_step(
+        &self,
+        _state: &mut Self::State,
+        _system: &Self::Model,
+        _time: f64,
+        _next_time: f64,
+    ) {
+    }
 }
