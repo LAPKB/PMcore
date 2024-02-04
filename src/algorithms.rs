@@ -2,7 +2,7 @@ use crate::prelude::{self, settings::Settings};
 
 use output::NPResult;
 use prelude::{datafile::Scenario, *};
-use simulation::predict::{Engine, Predict};
+use simulation::engine::{Engine, Predict};
 use tokio::sync::mpsc;
 
 mod npag;

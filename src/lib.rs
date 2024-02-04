@@ -24,9 +24,7 @@ pub mod routines {
         pub mod qr;
         pub mod sigma;
     }
-    pub mod simulation {
-        pub mod predict;
-    }
+    pub mod simulation;
 }
 pub mod entrypoints;
 pub mod logger;

@@ -7,8 +7,8 @@ use crate::{
         output::NPResult,
         prob,
         settings::Settings,
-        simulation::predict::Engine,
-        simulation::predict::{sim_obs, Predict},
+        simulation::engine::{Engine, Predict},
+        simulation::sim_obs,
     },
     tui::ui::Comm,
 };

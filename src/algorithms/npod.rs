@@ -10,8 +10,8 @@ use crate::{
         output::{CycleLog, NPCycle},
         prob, qr,
         settings::Settings,
-        simulation::predict::Engine,
-        simulation::predict::{sim_obs, Predict},
+        simulation::engine::{Engine, Predict},
+        simulation::sim_obs,
     },
     tui::ui::Comm,
 };

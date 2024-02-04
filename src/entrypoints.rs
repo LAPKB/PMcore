@@ -1,7 +1,7 @@
 use crate::algorithms::initialize_algorithm;
 use crate::prelude::{
+    engine::{Engine, Predict},
     output::NPResult,
-    predict::{Engine, Predict},
     *,
 };
 use crate::routines::datafile::Scenario;
@@ -12,7 +12,6 @@ use eyre::Result;
 
 use ndarray::Array2;
 use ndarray_csv::Array2Reader;
-use predict::sim_obs;
 use std::fs::File;
 use std::thread::spawn;
 use std::time::Instant;

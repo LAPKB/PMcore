@@ -6,7 +6,8 @@ use ndarray::{Array1, Axis};
 
 use crate::routines::{
     datafile::Scenario,
-    simulation::predict::{sim_obs, Engine, Predict},
+    simulation::engine::{Engine, Predict},
+    simulation::sim_obs,
 };
 
 use crate::prelude::{prob, sigma::Sigma};

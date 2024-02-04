@@ -3,8 +3,8 @@ use csv::WriterBuilder;
 use datafile::Scenario;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
-use predict::{post_predictions, sim_obs, Engine, Predict};
 use settings::Settings;
+use simulation::{engine::Engine, engine::Predict, post_predictions, sim_obs};
 use std::fs::File;
 
 /// Defines the result objects from an NPAG run
