@@ -47,7 +47,7 @@ faer = { version = "0.15.0", features = ["nalgebra", "ndarray"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
 chrono = "0.4"
-config = "0.13"
+config = "0.14"
 
 [profile.release]
 codegen-units = 1
