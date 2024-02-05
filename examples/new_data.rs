@@ -85,7 +85,44 @@ pub struct Block {
     covs: HashMap<String, CovLine>,
 }
 
-impl Block {}
+impl Block {
+    /// Get times which will be stepped over in the simulation
+    ///
+    /// This function returns a Vec of times which are the start and end times of each event in the [Block]
+    /// plus the start time of each [Observation]
+    ///
+    /// Additionally, the function takes an optional argument `idelta` which is the time step for the simulation
+    /// If `idelta` is provided, it will additionally add times at `idelta` intervals between zero and the last time in the [Scenario]
+    pub fn get_times(&self, idelta: f64) -> Vec<f64> {
+        let mut times: Vec<f64> = Vec::new();
+        for event in &self.events {
+            match event {
+                Event::Bolus(bolus) => {
+                    times.push(bolus.time);
+                }
+                Event::Infusion(infusion) => {
+                    times.push(infusion.time);
+                    times.push(infusion.time + infusion.duration);
+                }
+                Event::Observation(observation) => {
+                    times.push(observation.time);
+                }
+            }
+        }
+
+        // Add times at `idelta` intervals from zero to the last time in the scenario
+        if let Some(last_time) = times.last() {
+            let intervals = (last_time / idelta).ceil() as usize;
+            for i in 1..intervals {
+                times.push(i as f64 * idelta);
+            }
+        }
+        // Sort and remove duplicates
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        times.dedup();
+        times
+    }
+}
 
 // Implement Display for Block
 impl fmt::Display for Block {
@@ -192,48 +229,10 @@ impl Scenario {
         self.sort();
     }
 
-    /// Add covariate regressions to all events in a [Scenario]
+    /// Calculate the covariate values at each time point in
     ///
     /// Covariates are a HashMap with the covariate name as key and a [CovLine] as value
     pub fn fill_covariates(&self) {}
-
-    /// Get times which will be stepped over in the simulation
-    ///
-    /// This function returns a Vec of times which are the start and end times of each event in the [Scenario]
-    /// plus the start time of each [Observation]
-    ///
-    /// Additionally, the function takes an optional argument `idelta` which is the time step for the simulation
-    /// If `idelta` is provided, it will additionally add times at `idelta` intervals between zero and the last time in the [Scenario]
-    pub fn get_times(&self, idelta: f64) -> Vec<f64> {
-        let mut times: Vec<f64> = Vec::new();
-        for block in &self.blocks {
-            for event in &block.events {
-                match event {
-                    Event::Bolus(bolus) => {
-                        times.push(bolus.time);
-                    }
-                    Event::Infusion(infusion) => {
-                        times.push(infusion.time);
-                        times.push(infusion.time + infusion.duration);
-                    }
-                    Event::Observation(observation) => {
-                        times.push(observation.time);
-                    }
-                }
-            }
-        }
-        // Add times at `idelta` intervals from zero to the last time in the scenario
-        if let Some(last_time) = times.last() {
-            let intervals = (last_time / idelta).ceil() as usize;
-            for i in 1..intervals {
-                times.push(i as f64 * idelta);
-            }
-        }
-        // Sort and remove duplicates
-        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        times.dedup();
-        times
-    }
 }
 
 // Implement Display for Scenario
