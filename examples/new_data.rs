@@ -84,6 +84,8 @@ pub struct Block {
     covs: HashMap<String, CovLine>,
 }
 
+impl Block {}
+
 // Implement Display for Block
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -134,6 +136,62 @@ pub struct Scenario {
     blocks: Vec<Block>,
 }
 
+impl Scenario {
+    /// Sort events by time, then by [Event] type so that [Bolus] and [Infusion] come before [Observation]
+    pub fn sort(&mut self) {
+        for block in &mut self.blocks {
+            block.events.sort_by(|a, b| {
+                // First, compare times using partial_cmp, then compare types if times are equal.
+                let time_a = match a {
+                    Event::Bolus(bolus) => bolus.time,
+                    Event::Infusion(infusion) => infusion.time,
+                    Event::Observation(observation) => observation.time,
+                };
+                let time_b = match b {
+                    Event::Bolus(bolus) => bolus.time,
+                    Event::Infusion(infusion) => infusion.time,
+                    Event::Observation(observation) => observation.time,
+                };
+
+                match time_a.partial_cmp(&time_b) {
+                    Some(std::cmp::Ordering::Equal) => {
+                        // If times are equal, sort by event type.
+                        let type_order_a = match a {
+                            Event::Bolus(_) => 1,
+                            Event::Infusion(_) => 2,
+                            Event::Observation(_) => 3,
+                        };
+                        let type_order_b = match b {
+                            Event::Bolus(_) => 1,
+                            Event::Infusion(_) => 2,
+                            Event::Observation(_) => 3,
+                        };
+                        type_order_a.cmp(&type_order_b)
+                    }
+                    other => other.unwrap_or(std::cmp::Ordering::Equal),
+                }
+            });
+        }
+    }
+
+    /// Add lagtime to all [Bolus] events in a [Scenario]
+    ///
+    /// Lagtime is a HashMap with the compartment number as key and the lagtime (f64) as value
+    pub fn add_lagtime(&mut self, lagtime: HashMap<usize, f64>) {
+        for block in &mut self.blocks {
+            for event in block.events.iter_mut() {
+                if let Event::Bolus(bolus) = event {
+                    if let Some(lag) = lagtime.get(&bolus.compartment) {
+                        bolus.time += lag;
+                    }
+                }
+            }
+        }
+        // Sort the events after adding lagtime
+        self.sort();
+    }
+}
+
 // Implement Display for Scenario
 impl fmt::Display for Scenario {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -164,16 +222,6 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
             .push(row);
     }
 
-    // Sort the rows by time and EVID (descending for EVID)
-    for (_, rows) in &mut rows_map {
-        rows.sort_by(|a, b| {
-            a.time
-                .partial_cmp(&b.time)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| b.evid.cmp(&a.evid))
-        });
-    }
-
     // Convert grouped rows to scenarios
     for (id, rows) in rows_map {
         let mut blocks: Vec<Block> = Vec::new();
@@ -201,21 +249,20 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                         };
                     }
 
-                    let event = if let Some(dur) = row.dur {
-                        Event::Infusion(Infusion {
+                    let event = match row.dur {
+                        Some(dur) if dur > 0.0 => Event::Infusion(Infusion {
                             time: row.time,
                             amount: row.dose.expect("Infusion amount (DOSE) is missing"),
                             compartment: row
                                 .input
                                 .expect("Infusion compartment (INPUT) is missing"),
                             duration: dur,
-                        })
-                    } else {
-                        Event::Bolus(Bolus {
+                        }),
+                        _ => Event::Bolus(Bolus {
                             time: row.time,
                             amount: row.dose.expect("Bolus amount (DOSE) is missing"),
                             compartment: row.input.expect("Bolus compartment (INPUT) is missing"),
-                        })
+                        }),
                     };
                     current_block.events.push(event);
                 }
@@ -253,7 +300,10 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
 
 fn main() {
     let scenarios = read_datafile("examples/data/bimodal_ke_blocks.csv").unwrap();
-    for scenario in scenarios {
+    for mut scenario in scenarios {
+        let mut lagtimes = HashMap::new();
+        lagtimes.insert(1, 1.0);
+        scenario.add_lagtime(lagtimes);
         println!("{}", scenario);
     }
 }
