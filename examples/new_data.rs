@@ -3,7 +3,7 @@
 
 use serde::Deserialize;
 use std::fmt;
-use std::{collections::HashMap, error::Error, path::Path};
+use std::{collections::HashMap, error::Error};
 
 /// An Event represents a row in the datafile. It can be a [Bolus], [Infusion], or [Observation]
 #[derive(Debug)]
@@ -16,9 +16,21 @@ pub enum Event {
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Event::Bolus(bolus) => write!(f, "Bolus at time {}: amount {} in compartment {}", bolus.time, bolus.amount, bolus.compartment),
-            Event::Infusion(infusion) => write!(f, "Infusion at time {}: amount {} in compartment {} with duration {}", infusion.time, infusion.amount, infusion.compartment, infusion.duration),
-            Event::Observation(observation) => write!(f, "Observation at time {}: value {} in outeq {}", observation.time, observation.value, observation.outeq),
+            Event::Bolus(bolus) => write!(
+                f,
+                "Bolus at time {}: amount {} in compartment {}",
+                bolus.time, bolus.amount, bolus.compartment
+            ),
+            Event::Infusion(infusion) => write!(
+                f,
+                "Infusion at time {}: amount {} in compartment {} with duration {}",
+                infusion.time, infusion.amount, infusion.compartment, infusion.duration
+            ),
+            Event::Observation(observation) => write!(
+                f,
+                "Observation at time {}: value {} in outeq {}",
+                observation.time, observation.value, observation.outeq
+            ),
         }
     }
 }
@@ -104,6 +116,17 @@ struct Row {
     pub covs: HashMap<String, Option<f64>>,
 }
 
+impl Row {
+    pub fn get_errorpoly(&self) -> Option<(f64, f64, f64, f64)> {
+        match (self.c0, self.c1, self.c2, self.c3) {
+            (Some(c0), Some(c1), Some(c2), Some(c3)) => {
+                Some((c0 as f64, c1 as f64, c2 as f64, c3 as f64))
+            }
+            _ => None,
+        }
+    }
+}
+
 /// Scenario is a collection of blocks for one individual
 #[derive(Debug)]
 pub struct Scenario {
@@ -141,6 +164,16 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
             .push(row);
     }
 
+    // Sort the rows by time and EVID (descending for EVID)
+    for (_, rows) in &mut rows_map {
+        rows.sort_by(|a, b| {
+            a.time
+                .partial_cmp(&b.time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| b.evid.cmp(&a.evid))
+        });
+    }
+
     // Convert grouped rows to scenarios
     for (id, rows) in rows_map {
         let mut blocks: Vec<Block> = Vec::new();
@@ -172,7 +205,9 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                         Event::Infusion(Infusion {
                             time: row.time,
                             amount: row.dose.expect("Infusion amount (DOSE) is missing"),
-                            compartment: row.input.expect("Infusion compartment (INPUT) is missing"),
+                            compartment: row
+                                .input
+                                .expect("Infusion compartment (INPUT) is missing"),
                             duration: dur,
                         })
                     } else {
@@ -190,12 +225,17 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                         time: row.time,
                         value: row.out.expect("Observation OUT is missing"),
                         outeq: row.outeq.expect("Observation OUTEQ is missing"),
-                        errpoly: None, // TODO: Read from datafile
+                        errpoly: row.get_errorpoly(),
                         covs: HashMap::new(), // TODO: Populate with covariate data
                     };
                     current_block.events.push(Event::Observation(observation));
                 }
-                _ => {panic!("Unknown EVID: {} for ID {} at time {}", row.evid, id, row.time)}
+                _ => {
+                    panic!(
+                        "Unknown EVID: {} for ID {} at time {}",
+                        row.evid, id, row.time
+                    )
+                }
             }
         }
 
