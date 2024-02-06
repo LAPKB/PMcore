@@ -1,12 +1,15 @@
 #![allow(dead_code)]
 // Redesign of data formats
 
-use serde::Deserialize;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use std::collections::HashSet;
 use std::fmt;
+use std::str::FromStr;
 use std::{collections::HashMap, error::Error};
 
 /// An Event represents a row in the datafile. It can be a [Bolus], [Infusion], or [Observation]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Event {
     Bolus(Bolus),
     Infusion(Infusion),
@@ -16,58 +19,94 @@ pub enum Event {
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Event::Bolus(bolus) => write!(
-                f,
-                "Bolus at time {}: amount {} in compartment {}",
-                bolus.time, bolus.amount, bolus.compartment
-            ),
-            Event::Infusion(infusion) => write!(
-                f,
-                "Infusion at time {}: amount {} in compartment {} with duration {}",
-                infusion.time, infusion.amount, infusion.compartment, infusion.duration
-            ),
-            Event::Observation(observation) => write!(
-                f,
-                "Observation at time {}: value {} in outeq {}, ignore: {}",
-                observation.time, observation.value, observation.outeq, observation.ignore
-            ),
+            Event::Bolus(bolus) => {
+                write!(
+                    f,
+                    "Bolus at time {}: amount {} in compartment {}",
+                    bolus.time, bolus.amount, bolus.compartment
+                )?;
+                // Display covariates
+                if !bolus.covs.is_empty() {
+                    write!(f, ", covariates: ")?;
+                    for (key, cov) in &bolus.covs {
+                        write!(f, "{}:{:?}", key, cov)?;
+                    }
+                }
+            }
+            Event::Infusion(infusion) => {
+                write!(
+                    f,
+                    "Infusion at time {}: amount {} in compartment {} with duration {}",
+                    infusion.time, infusion.amount, infusion.compartment, infusion.duration
+                )?;
+                // Display covariates
+                if !infusion.covs.is_empty() {
+                    write!(f, ", covariates: ")?;
+                    for (key, cov) in &infusion.covs {
+                        write!(f, "{}:{:?}", key, cov)?;
+                    }
+                }
+            }
+            Event::Observation(observation) => {
+                write!(
+                    f,
+                    "Observation at time {}: value {} in outeq {}, ignore: {}",
+                    observation.time, observation.value, observation.outeq, observation.ignore
+                )?;
+                // Display covariates
+                if !observation.covs.is_empty() {
+                    write!(f, ", covariates: ")?;
+                    for (key, cov) in &observation.covs {
+                        write!(f, "{}:{:?}", key, cov)?;
+                    }
+                }
+            }
         }
+        Ok(())
     }
 }
 
 /// An instantaenous input of drug
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Bolus {
     time: f64,
     amount: f64,
     compartment: usize,
+    covs: HashMap<String, CovLine>,
 }
 
 /// A continuous dose of drug
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Infusion {
     time: f64,
     amount: f64,
     compartment: usize,
     duration: f64,
+    covs: HashMap<String, CovLine>,
 }
 
 /// A CovLine holds the linear interpolation required for covariates
 /// If the covariate should be carried forward, the slope is set to 0
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CovLine {
     slope: f64,
     intercept: f64,
+    time: f64,
 }
 
 impl CovLine {
-    pub fn interp(&self, x: f64) -> f64 {
-        self.slope * x + self.intercept
+    /// Interpolate the covariate value at a given time from the last provided value
+    pub fn interp(&self, t: f64) -> f64 {
+        let delta_t = t - self.time;
+        if delta_t < 0.0 {
+            panic!("Interpolation time is before the last provided value")
+        }
+        self.slope * (t - self.time) + self.intercept
     }
 }
 
 /// An observation of drug concentration or covariates
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Observation {
     time: f64,
     value: f64,
@@ -82,7 +121,6 @@ pub struct Observation {
 pub struct Block {
     events: Vec<Event>,
     index: usize,
-    covs: HashMap<String, CovLine>,
 }
 
 impl Block {
@@ -122,6 +160,11 @@ impl Block {
         times.dedup();
         times
     }
+
+    /// Calculate the covariate lines for the block
+    pub fn calculate_covlines(&self) {
+        !todo!("Calculate covariate lines for the block")
+    }
 }
 
 // Implement Display for Block
@@ -141,18 +184,29 @@ struct Row {
     pub id: String,
     pub evid: isize,
     pub time: f64,
+    #[serde(deserialize_with = "deserialize_option_f64")]
     pub dur: Option<f64>,
+    #[serde(deserialize_with = "deserialize_option_f64")]
     pub dose: Option<f64>,
+    #[serde(deserialize_with = "deserialize_option_isize")]
     pub addl: Option<isize>,
+    #[serde(deserialize_with = "deserialize_option_isize")]
     pub ii: Option<isize>,
+    #[serde(deserialize_with = "deserialize_option_usize")]
     pub input: Option<usize>,
+    #[serde(deserialize_with = "deserialize_option_f64")]
     pub out: Option<f64>,
+    #[serde(deserialize_with = "deserialize_option_usize")]
     pub outeq: Option<usize>,
-    pub c0: Option<f32>,
-    pub c1: Option<f32>,
-    pub c2: Option<f32>,
-    pub c3: Option<f32>,
-    #[serde(flatten)]
+    #[serde(deserialize_with = "deserialize_option_f64")]
+    pub c0: Option<f64>,
+    #[serde(deserialize_with = "deserialize_option_f64")]
+    pub c1: Option<f64>,
+    #[serde(deserialize_with = "deserialize_option_f64")]
+    pub c2: Option<f64>,
+    #[serde(deserialize_with = "deserialize_option_f64")]
+    pub c3: Option<f64>,
+    #[serde(deserialize_with = "deserialize_covs", flatten)]
     pub covs: HashMap<String, Option<f64>>,
 }
 
@@ -164,6 +218,23 @@ impl Row {
             }
             _ => None,
         }
+    }
+
+    pub fn get_covs(&self) -> HashMap<String, CovLine> {
+        let mut covs = HashMap::new();
+        for (key, value) in &self.covs {
+            if let Some(v) = value {
+                covs.insert(
+                    key.clone(),
+                    CovLine {
+                        slope: 0.0,
+                        intercept: *v,
+                        time: self.time,
+                    },
+                );
+            }
+        }
+        covs
     }
 }
 
@@ -228,11 +299,6 @@ impl Scenario {
         // Sort the events after adding lagtime
         self.sort();
     }
-
-    /// Calculate the covariate values at each time point in
-    ///
-    /// Covariates are a HashMap with the covariate name as key and a [CovLine] as value
-    pub fn fill_covariates(&self) {}
 }
 
 // Implement Display for Scenario
@@ -271,7 +337,6 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
         let mut current_block = Block {
             events: Vec::new(),
             index: 0,
-            covs: HashMap::new(),
         };
         let mut block_index = 0;
 
@@ -288,7 +353,6 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                         current_block = Block {
                             events: Vec::new(),
                             index: block_index,
-                            covs: HashMap::new(),
                         };
                     }
 
@@ -300,11 +364,13 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                                 .input
                                 .expect("Infusion compartment (INPUT) is missing"),
                             duration: dur,
+                            covs: row.get_covs(),
                         }),
                         _ => Event::Bolus(Bolus {
                             time: row.time,
                             amount: row.dose.expect("Bolus amount (DOSE) is missing"),
                             compartment: row.input.expect("Bolus compartment (INPUT) is missing"),
+                            covs: row.get_covs(),
                         }),
                     };
                     current_block.events.push(event);
@@ -316,7 +382,7 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                         value: row.out.expect("Observation OUT is missing"),
                         outeq: row.outeq.expect("Observation OUTEQ is missing"),
                         errpoly: row.get_errorpoly(),
-                        covs: HashMap::new(), // TODO: Populate with covariate data
+                        covs: row.get_covs(),
                         ignore: if row.out == Some(-99.0) { true } else { false },
                     };
                     current_block.events.push(Event::Observation(observation));
@@ -342,12 +408,109 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
     Ok(scenarios)
 }
 
+fn deserialize_option_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    if s == "" {
+        Ok(None)
+    } else {
+        f64::from_str(&s)
+            .map(Some)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+fn deserialize_option_isize<'de, D>(deserializer: D) -> Result<Option<isize>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    if s == "" {
+        Ok(None)
+    } else {
+        isize::from_str(&s)
+            .map(Some)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+fn deserialize_option_usize<'de, D>(deserializer: D) -> Result<Option<usize>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    if s == "" {
+        Ok(None)
+    } else {
+        usize::from_str(&s)
+            .map(Some)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+fn deserialize_covs<'de, D>(deserializer: D) -> Result<HashMap<String, Option<f64>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct CovsVisitor;
+
+    impl<'de> Visitor<'de> for CovsVisitor {
+        type Value = HashMap<String, Option<f64>>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str(
+                "a map of string keys to optionally floating-point numbers or placeholders",
+            )
+        }
+
+        fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+        where
+            M: MapAccess<'de>,
+        {
+            let mut covs = HashMap::new();
+            while let Some((key, value)) = map.next_entry::<String, serde_json::Value>()? {
+                let opt_value = match value {
+                    serde_json::Value::String(s) => match s.as_str() {
+                        "" => None,
+                        _ => match s.parse::<f64>() {
+                            Ok(val) => Some(val),
+                            Err(_) => {
+                                return Err(de::Error::custom(
+                                    "expected a floating-point number or empty string",
+                                ))
+                            }
+                        },
+                    },
+                    serde_json::Value::Number(n) => Some(n.as_f64().unwrap()),
+                    _ => return Err(de::Error::custom("expected a string or number")),
+                };
+                covs.insert(key, opt_value);
+            }
+            Ok(covs)
+        }
+    }
+
+    deserializer.deserialize_map(CovsVisitor)
+}
+
 fn main() {
+    // Parse scenarios
     let scenarios = read_datafile("examples/data/bimodal_ke_blocks.csv").unwrap();
+
     for mut scenario in scenarios {
+        // Apply lagtime adjustments if necessary
         let mut lagtimes = HashMap::new();
-        lagtimes.insert(1, 1.0);
+        lagtimes.insert(1, 1.0); // Example adjustment
         scenario.add_lagtime(lagtimes);
+
+        // Calculate covariate lines for each block
+        for block in &mut scenario.blocks {
+            block.calculate_covlines();
+        }
+
+        // Now that covariate lines are calculated, print the scenario
         println!("{}", scenario);
     }
 }
