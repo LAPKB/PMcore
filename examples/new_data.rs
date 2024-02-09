@@ -124,6 +124,41 @@ pub struct Block {
 }
 
 impl Block {
+    /// Sort events by time, then by [Event] type so that [Bolus] and [Infusion] come before [Observation]
+    pub fn sort(&mut self) {
+        self.events.sort_by(|a, b| {
+            // First, compare times using partial_cmp, then compare types if times are equal.
+            let time_a = match a {
+                Event::Bolus(bolus) => bolus.time,
+                Event::Infusion(infusion) => infusion.time,
+                Event::Observation(observation) => observation.time,
+            };
+            let time_b = match b {
+                Event::Bolus(bolus) => bolus.time,
+                Event::Infusion(infusion) => infusion.time,
+                Event::Observation(observation) => observation.time,
+            };
+
+            match time_a.partial_cmp(&time_b) {
+                Some(std::cmp::Ordering::Equal) => {
+                    // If times are equal, sort by event type.
+                    let type_order_a = match a {
+                        Event::Bolus(_) => 1,
+                        Event::Infusion(_) => 2,
+                        Event::Observation(_) => 3,
+                    };
+                    let type_order_b = match b {
+                        Event::Bolus(_) => 1,
+                        Event::Infusion(_) => 2,
+                        Event::Observation(_) => 3,
+                    };
+                    type_order_a.cmp(&type_order_b)
+                }
+                other => other.unwrap_or(std::cmp::Ordering::Equal),
+            }
+        });
+    }
+
     /// Get times which will be stepped over in the simulation
     ///
     /// This function returns a Vec of times which are the start and end times of each event in the [Block]
@@ -246,47 +281,16 @@ pub struct Scenario {
 }
 
 impl Scenario {
-    /// Sort events by time, then by [Event] type so that [Bolus] and [Infusion] come before [Observation]
-    pub fn sort(&mut self) {
-        for block in &mut self.blocks {
-            block.events.sort_by(|a, b| {
-                // First, compare times using partial_cmp, then compare types if times are equal.
-                let time_a = match a {
-                    Event::Bolus(bolus) => bolus.time,
-                    Event::Infusion(infusion) => infusion.time,
-                    Event::Observation(observation) => observation.time,
-                };
-                let time_b = match b {
-                    Event::Bolus(bolus) => bolus.time,
-                    Event::Infusion(infusion) => infusion.time,
-                    Event::Observation(observation) => observation.time,
-                };
-
-                match time_a.partial_cmp(&time_b) {
-                    Some(std::cmp::Ordering::Equal) => {
-                        // If times are equal, sort by event type.
-                        let type_order_a = match a {
-                            Event::Bolus(_) => 1,
-                            Event::Infusion(_) => 2,
-                            Event::Observation(_) => 3,
-                        };
-                        let type_order_b = match b {
-                            Event::Bolus(_) => 1,
-                            Event::Infusion(_) => 2,
-                            Event::Observation(_) => 3,
-                        };
-                        type_order_a.cmp(&type_order_b)
-                    }
-                    other => other.unwrap_or(std::cmp::Ordering::Equal),
-                }
-            });
-        }
-    }
-
     /// Add lagtime to all [Bolus] events in a [Scenario]
     ///
     /// Lagtime is a HashMap with the compartment number as key and the lagtime (f64) as value
     pub fn add_lagtime(&mut self, lagtime: HashMap<usize, f64>) {
+        // If lagtime is empty, return early
+        if lagtime.is_empty() {
+            return;
+        }
+
+        // Iterate over all blocks and events to add lagtime
         for block in &mut self.blocks {
             for event in block.events.iter_mut() {
                 if let Event::Bolus(bolus) = event {
@@ -295,9 +299,9 @@ impl Scenario {
                     }
                 }
             }
+            // Sort the block after adding lagtime
+            block.sort();
         }
-        // Sort the events after adding lagtime
-        self.sort();
     }
 }
 
