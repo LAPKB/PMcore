@@ -413,7 +413,7 @@ where
     D: Deserializer<'de>,
 {
     let s: String = Deserialize::deserialize(deserializer)?;
-    if s == "" {
+    if s == "" || s == "." {
         Ok(None)
     } else {
         f64::from_str(&s)
@@ -427,7 +427,7 @@ where
     D: Deserializer<'de>,
 {
     let s: String = Deserialize::deserialize(deserializer)?;
-    if s == "" {
+    if s == "" || s == "." {
         Ok(None)
     } else {
         isize::from_str(&s)
@@ -441,7 +441,7 @@ where
     D: Deserializer<'de>,
 {
     let s: String = Deserialize::deserialize(deserializer)?;
-    if s == "" {
+    if s == "" || s == "." {
         Ok(None)
     } else {
         usize::from_str(&s)
@@ -474,6 +474,7 @@ where
                 let opt_value = match value {
                     serde_json::Value::String(s) => match s.as_str() {
                         "" => None,
+                        "." => None,
                         _ => match s.parse::<f64>() {
                             Ok(val) => Some(val),
                             Err(_) => {
