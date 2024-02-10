@@ -7,7 +7,7 @@ jobs:
   cargo-run:
     runs-on: self-hosted
     env:
-      NPCORE_CONFIG_TUI: false  # Disable TUI
+      PMCORE_CONFIG_TUI: false  # Disable TUI
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v2

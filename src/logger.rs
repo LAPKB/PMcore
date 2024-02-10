@@ -24,7 +24,7 @@ pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
     // Use the log level defined in configuration file, or default to info
     let log_level = settings.config.log_level.as_str();
 
-    // Use the log file defined in configuration file, or default to npcore.log
+    // Use the log file defined in configuration file, or default to pmcore.log
     let log_path = settings.paths.log.as_ref().unwrap();
 
     let env_filter = EnvFilter::new(&log_level);
