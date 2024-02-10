@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/algorithms/npod.rs`."><title>npod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="npcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/algorithms/npod.rs`."><title>npod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="npcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -350,7 +351,7 @@
 
 <span class="kw">pub struct </span>NPOD&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + Clone,
+    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
 {
     engine: Engine&lt;S&gt;,
     ranges: Vec&lt;(f64, f64)&gt;,
@@ -375,7 +376,7 @@
 
 <span class="kw">impl</span>&lt;S&gt; Algorithm <span class="kw">for </span>NPOD&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + Clone,
+    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
 {
     <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="self">self</span>.run()
@@ -396,7 +397,7 @@
 
 <span class="kw">impl</span>&lt;S&gt; NPOD&lt;S&gt;
 <span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + Clone,
+    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
 {
     <span class="doccomment">/// Creates a new NPOD instance.
     ///
@@ -423,7 +424,7 @@
         settings: Settings,
     ) -&gt; <span class="self">Self
     </span><span class="kw">where
-        </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync,
+        </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync,
     {
         <span class="self">Self </span>{
             engine: sim_eng,
@@ -438,9 +439,9 @@
             gamma_delta: <span class="number">0.1</span>,
             gamma: settings.error.value,
             error_type: <span class="kw">match </span>settings.error.class.as_str() {
-                <span class="string">&quot;additive&quot; </span>=&gt; ErrorType::Add,
-                <span class="string">&quot;proportional&quot; </span>=&gt; ErrorType::Prop,
-                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Error type not supported&quot;</span>),
+                <span class="string">"additive" </span>=&gt; ErrorType::Add,
+                <span class="string">"proportional" </span>=&gt; ErrorType::Prop,
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Error type not supported"</span>),
             },
             converged: <span class="bool-val">false</span>,
             cycle_log: CycleLog::new(<span class="kw-2">&amp;</span>settings.random.names()),
@@ -480,14 +481,14 @@
             <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="comment">//todo: write out report
-                </span><span class="macro">panic!</span>(<span class="string">&quot;Error in IPM: {:?}&quot;</span>, err);
+                </span><span class="macro">panic!</span>(<span class="string">"Error in IPM: {:?}"</span>, err);
             }
         };
         <span class="kw">let </span>(lambda_down, objf_down) = <span class="kw">match </span>ipm::burke(<span class="kw-2">&amp;</span>psi_down) {
             <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="comment">//todo: write out report
-                </span><span class="macro">panic!</span>(<span class="string">&quot;Error in IPM: {:?}&quot;</span>, err);
+                </span><span class="macro">panic!</span>(<span class="string">"Error in IPM: {:?}"</span>, err);
             }
         };
         <span class="kw">if </span>objf_up &gt; <span class="self">self</span>.objf {
@@ -513,7 +514,7 @@
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="kw">while </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &gt; THETA_F {
             <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
-            <span class="comment">// log::info!(&quot;Cycle: {}&quot;, cycle);
+            <span class="comment">// log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
             </span><span class="kw">let </span>cache = <span class="kw">if </span><span class="self">self</span>.cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ <span class="self">self</span>.cache };
             <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
@@ -531,7 +532,7 @@
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
                 <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="comment">//todo: write out report
-                    </span><span class="macro">panic!</span>(<span class="string">&quot;Error in IPM: {:?}&quot;</span>, err);
+                    </span><span class="macro">panic!</span>(<span class="string">"Error in IPM: {:?}"</span>, err);
                 }
             };
 
@@ -559,7 +560,7 @@
                 }
             }
             <span class="macro">tracing::info!</span>(
-                <span class="string">&quot;QR decomp, cycle {}, kept: {}, thrown {}&quot;</span>,
+                <span class="string">"QR decomp, cycle {}, kept: {}, thrown {}"</span>,
                 <span class="self">self</span>.cycle,
                 keep.len(),
                 <span class="self">self</span>.psi.ncols() - keep.len()
@@ -571,7 +572,7 @@
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
                 <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="comment">//todo: write out report
-                    </span><span class="macro">panic!</span>(<span class="string">&quot;Error in IPM: {:?}&quot;</span>, err);
+                    </span><span class="macro">panic!</span>(<span class="string">"Error in IPM: {:?}"</span>, err);
                 }
             };
 
@@ -590,7 +591,7 @@
             <span class="comment">// If the objective function decreased, log an error.
             // Increasing objf signals instability of model misspecification.
             </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
-                <span class="macro">tracing::error!</span>(<span class="string">&quot;Objective function decreased&quot;</span>);
+                <span class="macro">tracing::error!</span>(<span class="string">"Objective function decreased"</span>);
             }
 
             <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
@@ -622,13 +623,13 @@
 
             <span class="comment">// Stop if we have reached maximum number of cycles
             </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.config.cycles {
-                <span class="macro">tracing::warn!</span>(<span class="string">&quot;Maximum number of cycles reached&quot;</span>);
+                <span class="macro">tracing::warn!</span>(<span class="string">"Maximum number of cycles reached"</span>);
                 <span class="kw">break</span>;
             }
 
             <span class="comment">// Stop if stopfile exists
-            </span><span class="kw">if </span>std::path::Path::new(<span class="string">&quot;stop&quot;</span>).exists() {
-                <span class="macro">tracing::warn!</span>(<span class="string">&quot;Stopfile detected - breaking&quot;</span>);
+            </span><span class="kw">if </span>std::path::Path::new(<span class="string">"stop"</span>).exists() {
+                <span class="macro">tracing::warn!</span>(<span class="string">"Stopfile detected - breaking"</span>);
                 <span class="kw">break</span>;
             }
             <span class="comment">//TODO: the cycle migh break before reaching this point
@@ -637,7 +638,7 @@
 
             <span class="self">self</span>.cycle += <span class="number">1</span>;
 
-            <span class="comment">// log::info!(&quot;cycle: {}, objf: {}&quot;, self.cycle, self.objf);
+            <span class="comment">// log::info!("cycle: {}, objf: {}", self.cycle, self.objf);
             // dbg!((self.last_objf - self.objf).abs());
         </span>}
 

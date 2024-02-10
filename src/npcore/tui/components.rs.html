@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tui/components.rs`."><title>components.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="npcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tui/components.rs`."><title>components.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="npcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -287,8 +288,8 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::prelude::settings::Settings;
 
-<span class="kw">pub fn </span>draw_title&lt;<span class="lifetime">&#39;a</span>&gt;() -&gt; Paragraph&lt;<span class="lifetime">&#39;a</span>&gt; {
-    Paragraph::new(<span class="string">&quot;NPcore Execution&quot;</span>)
+<span class="kw">pub fn </span>draw_title&lt;<span class="lifetime">'a</span>&gt;() -&gt; Paragraph&lt;<span class="lifetime">'a</span>&gt; {
+    Paragraph::new(<span class="string">"NPcore Execution"</span>)
         .style(Style::default().fg(Color::LightCyan))
         .alignment(Alignment::Center)
         .block(
@@ -299,25 +300,25 @@
         )
 }
 
-<span class="kw">pub fn </span>draw_status&lt;<span class="lifetime">&#39;a</span>&gt;(app: <span class="kw-2">&amp;</span>App, elapsed_time: Duration) -&gt; Table&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">pub fn </span>draw_status&lt;<span class="lifetime">'a</span>&gt;(app: <span class="kw-2">&amp;</span>App, elapsed_time: Duration) -&gt; Table&lt;<span class="lifetime">'a</span>&gt; {
     <span class="comment">// Define (formatted) texts
-    </span><span class="kw">let </span>cycle_text = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, app.state.cycle);
-    <span class="kw">let </span>objf_text = <span class="macro">format!</span>(<span class="string">&quot;{:.5}&quot;</span>, app.state.objf);
-    <span class="kw">let </span>delta_objf_text = <span class="macro">format!</span>(<span class="string">&quot;{:.5}&quot;</span>, app.state.delta_objf);
-    <span class="kw">let </span>gamma_text = <span class="macro">format!</span>(<span class="string">&quot;{:.5}&quot;</span>, app.state.gamlam);
-    <span class="kw">let </span>spp_text = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, app.state.nspp);
+    </span><span class="kw">let </span>cycle_text = <span class="macro">format!</span>(<span class="string">"{}"</span>, app.state.cycle);
+    <span class="kw">let </span>objf_text = <span class="macro">format!</span>(<span class="string">"{:.5}"</span>, app.state.objf);
+    <span class="kw">let </span>delta_objf_text = <span class="macro">format!</span>(<span class="string">"{:.5}"</span>, app.state.delta_objf);
+    <span class="kw">let </span>gamma_text = <span class="macro">format!</span>(<span class="string">"{:.5}"</span>, app.state.gamlam);
+    <span class="kw">let </span>spp_text = <span class="macro">format!</span>(<span class="string">"{}"</span>, app.state.nspp);
     <span class="kw">let </span>time_text = format_time(elapsed_time);
-    <span class="kw">let </span>conv_text = <span class="string">&quot;Placeholder&quot;</span>.to_string();
+    <span class="kw">let </span>conv_text = <span class="string">"Placeholder"</span>.to_string();
 
     <span class="comment">// Define the table data
     </span><span class="kw">let </span>data = <span class="macro">vec!</span>[
-        (<span class="string">&quot;Current cycle&quot;</span>, cycle_text),
-        (<span class="string">&quot;Objective function&quot;</span>, objf_text),
-        (<span class="string">&quot;Δ Objective function&quot;</span>, delta_objf_text),
-        (<span class="string">&quot;Gamma/Lambda&quot;</span>, gamma_text),
-        (<span class="string">&quot;Support points&quot;</span>, spp_text),
-        (<span class="string">&quot;Elapsed time&quot;</span>, time_text),
-        (<span class="string">&quot;Convergence&quot;</span>, conv_text),
+        (<span class="string">"Current cycle"</span>, cycle_text),
+        (<span class="string">"Objective function"</span>, objf_text),
+        (<span class="string">"Δ Objective function"</span>, delta_objf_text),
+        (<span class="string">"Gamma/Lambda"</span>, gamma_text),
+        (<span class="string">"Support points"</span>, spp_text),
+        (<span class="string">"Elapsed time"</span>, time_text),
+        (<span class="string">"Convergence"</span>, conv_text),
         <span class="comment">// Add more rows as needed
     </span>];
 
@@ -326,7 +327,7 @@
         .iter()
         .map(|(key, value)| {
             <span class="kw">let </span>title_style = Style::default().add_modifier(Modifier::BOLD);
-            <span class="kw">let </span>title_cell = Cell::from(Span::styled(<span class="macro">format!</span>(<span class="string">&quot;{}:&quot;</span>, key), title_style));
+            <span class="kw">let </span>title_cell = Cell::from(Span::styled(<span class="macro">format!</span>(<span class="string">"{}:"</span>, key), title_style));
             <span class="kw">let </span>value_cell = Cell::from(value.to_string());
             Row::new(<span class="macro">vec!</span>[title_cell, value_cell])
         })
@@ -339,34 +340,34 @@
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Plain)
-                .title(<span class="string">&quot; Status &quot;</span>),
+                .title(<span class="string">" Status "</span>),
         )
         .widths(<span class="kw-2">&amp;</span>[Constraint::Percentage(<span class="number">50</span>), Constraint::Percentage(<span class="number">50</span>)]) <span class="comment">// Set percentage widths for columns
         </span>.column_spacing(<span class="number">1</span>)
 }
 
-<span class="kw">pub fn </span>draw_options&lt;<span class="lifetime">&#39;a</span>&gt;(settings: <span class="kw-2">&amp;</span>Settings) -&gt; Table&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">pub fn </span>draw_options&lt;<span class="lifetime">'a</span>&gt;(settings: <span class="kw-2">&amp;</span>Settings) -&gt; Table&lt;<span class="lifetime">'a</span>&gt; {
     <span class="comment">// Define the table data
 
     </span><span class="kw">let </span>cycles = settings.config.cycles.to_string();
     <span class="kw">let </span>engine = settings.config.engine.to_string();
-    <span class="kw">let </span>conv_crit = <span class="string">&quot;Placeholder&quot;</span>.to_string();
+    <span class="kw">let </span>conv_crit = <span class="string">"Placeholder"</span>.to_string();
     <span class="kw">let </span>indpts = settings.config.init_points.to_string();
     <span class="kw">let </span>error = settings.error.class.to_string();
     <span class="kw">let </span>cache = <span class="kw">match </span>settings.config.cache {
-        <span class="bool-val">true </span>=&gt; <span class="string">&quot;Enabled&quot;</span>.to_string(),
-        <span class="bool-val">false </span>=&gt; <span class="string">&quot;Disabled&quot;</span>.to_string(),
+        <span class="bool-val">true </span>=&gt; <span class="string">"Enabled"</span>.to_string(),
+        <span class="bool-val">false </span>=&gt; <span class="string">"Disabled"</span>.to_string(),
     };
     <span class="kw">let </span>seed = settings.config.seed.to_string();
 
     <span class="kw">let </span>data = <span class="macro">vec!</span>[
-        (<span class="string">&quot;Maximum cycles&quot;</span>, cycles),
-        (<span class="string">&quot;Engine&quot;</span>, engine),
-        (<span class="string">&quot;Convergence criteria&quot;</span>, conv_crit),
-        (<span class="string">&quot;Initial gridpoints&quot;</span>, indpts),
-        (<span class="string">&quot;Error model&quot;</span>, error),
-        (<span class="string">&quot;Cache&quot;</span>, cache),
-        (<span class="string">&quot;Random seed&quot;</span>, seed),
+        (<span class="string">"Maximum cycles"</span>, cycles),
+        (<span class="string">"Engine"</span>, engine),
+        (<span class="string">"Convergence criteria"</span>, conv_crit),
+        (<span class="string">"Initial gridpoints"</span>, indpts),
+        (<span class="string">"Error model"</span>, error),
+        (<span class="string">"Cache"</span>, cache),
+        (<span class="string">"Random seed"</span>, seed),
         <span class="comment">// Add more rows as needed
     </span>];
 
@@ -375,7 +376,7 @@
         .iter()
         .map(|(key, value)| {
             <span class="kw">let </span>title_style = Style::default().add_modifier(Modifier::BOLD);
-            <span class="kw">let </span>title_cell = Cell::from(Span::styled(<span class="macro">format!</span>(<span class="string">&quot;{}:&quot;</span>, key), title_style));
+            <span class="kw">let </span>title_cell = Cell::from(Span::styled(<span class="macro">format!</span>(<span class="string">"{}:"</span>, key), title_style));
             <span class="kw">let </span>value_cell = Cell::from(value.to_string());
             Row::new(<span class="macro">vec!</span>[title_cell, value_cell])
         })
@@ -388,7 +389,7 @@
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Plain)
-                .title(<span class="string">&quot; Options &quot;</span>),
+                .title(<span class="string">" Options "</span>),
         )
         .widths(<span class="kw-2">&amp;</span>[Constraint::Percentage(<span class="number">50</span>), Constraint::Percentage(<span class="number">50</span>)]) <span class="comment">// Set percentage widths for columns
         </span>.column_spacing(<span class="number">1</span>)
@@ -406,7 +407,7 @@
                 first = <span class="bool-val">false</span>;
                 action.to_string()
             } <span class="kw">else </span>{
-                String::from(<span class="string">&quot;&quot;</span>)
+                String::from(<span class="string">""</span>)
             };
             <span class="kw">let </span>row = Row::new(<span class="macro">vec!</span>[
                 Cell::from(Span::styled(key.to_string(), key_style)),
@@ -422,7 +423,7 @@
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Plain)
-                .title(<span class="string">&quot; Commands &quot;</span>),
+                .title(<span class="string">" Commands "</span>),
         )
         .widths(<span class="kw-2">&amp;</span>[Constraint::Percentage(<span class="number">50</span>), Constraint::Percentage(<span class="number">50</span>)]) <span class="comment">// Set percentage widths for columns
         </span>.column_spacing(<span class="number">1</span>)
@@ -456,13 +457,13 @@
     </span><span class="kw">let </span>y_labels: Vec&lt;Span&gt; = (<span class="number">0</span>..=<span class="number">3</span>)
         .map(|i| {
             <span class="kw">let </span>y = y_min + y_step * (i <span class="kw">as </span>f64);
-            Span::from(<span class="macro">format!</span>(<span class="string">&quot;{:.0}&quot;</span>, y))
+            Span::from(<span class="macro">format!</span>(<span class="string">"{:.0}"</span>, y))
         })
         .collect();
 
     <span class="comment">// Prepare the dataset
     </span><span class="kw">let </span>dataset = <span class="macro">vec!</span>[Dataset::default()
-        .name(<span class="string">&quot;-2LL&quot;</span>)
+        .name(<span class="string">"-2LL"</span>)
         .marker(symbols::Marker::Dot)
         .style(Style::default().fg(Color::Cyan))
         .graph_type(GraphType::Scatter)
@@ -472,24 +473,24 @@
     </span>Chart::new(dataset)
         .x_axis(
             Axis::default()
-                .title(<span class="string">&quot;Cycle&quot;</span>)
+                .title(<span class="string">"Cycle"</span>)
                 .bounds([x_min, x_max])
                 .labels(x_labels),
         )
         .y_axis(
             Axis::default()
-                .title(<span class="string">&quot;-2LL&quot;</span>)
+                .title(<span class="string">"-2LL"</span>)
                 .bounds([y_min, y_max])
                 .labels(y_labels),
         )
         .block(
             Block::default()
-                .title(<span class="string">&quot; Objective function &quot;</span>)
+                .title(<span class="string">" Objective function "</span>)
                 .borders(Borders::ALL),
         )
 }
 
-<span class="kw">pub fn </span>draw_logs&lt;<span class="lifetime">&#39;a</span>&gt;(log_history: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Vec&lt;String&gt;, height: u16) -&gt; Paragraph&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">pub fn </span>draw_logs&lt;<span class="lifetime">'a</span>&gt;(log_history: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;String&gt;, height: u16) -&gt; Paragraph&lt;<span class="lifetime">'a</span>&gt; {
     <span class="comment">// Convert each String in log_history to a Line
     </span><span class="kw">let </span>text: Vec&lt;Line&gt; = log_history.iter().map(|s| Line::from(s.as_str())).collect();
 
@@ -505,20 +506,20 @@
     };
 
     Paragraph::new(show_text)
-        .block(Block::default().title(<span class="string">&quot; Logs &quot;</span>).borders(Borders::ALL))
+        .block(Block::default().title(<span class="string">" Logs "</span>).borders(Borders::ALL))
         .style(Style::default().fg(Color::White))
         .alignment(Alignment::Left)
         .wrap(Wrap { trim: <span class="bool-val">true </span>})
 }
 
-<span class="kw">pub fn </span>draw_tabs&lt;<span class="lifetime">&#39;a</span>&gt;(app: <span class="kw-2">&amp;</span>App) -&gt; Tabs&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">pub fn </span>draw_tabs&lt;<span class="lifetime">'a</span>&gt;(app: <span class="kw-2">&amp;</span>App) -&gt; Tabs&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">let </span>titles = app.tab_titles.clone();
     <span class="kw">let </span>index = app.tab_index.clone();
     <span class="kw">let </span>tabs = Tabs::new(titles.clone())
         .block(Block::default().borders(Borders::ALL))
         .style(Style::default().fg(Color::Cyan))
         .highlight_style(Style::default().fg(Color::Yellow))
-        .divider(Span::raw(<span class="string">&quot;|&quot;</span>))
+        .divider(Span::raw(<span class="string">"|"</span>))
         .select(index);
 
     tabs
@@ -527,15 +528,15 @@
 <span class="kw">fn </span>format_time(elapsed_time: std::time::Duration) -&gt; String {
     <span class="kw">let </span>elapsed_seconds = elapsed_time.as_secs();
     <span class="kw">let </span>(elapsed, unit) = <span class="kw">if </span>elapsed_seconds &lt; <span class="number">60 </span>{
-        (elapsed_seconds, <span class="string">&quot;s&quot;</span>)
+        (elapsed_seconds, <span class="string">"s"</span>)
     } <span class="kw">else if </span>elapsed_seconds &lt; <span class="number">3600 </span>{
         <span class="kw">let </span>elapsed_minutes = elapsed_seconds / <span class="number">60</span>;
-        (elapsed_minutes, <span class="string">&quot;m&quot;</span>)
+        (elapsed_minutes, <span class="string">"m"</span>)
     } <span class="kw">else </span>{
         <span class="kw">let </span>elapsed_hours = elapsed_seconds / <span class="number">3600</span>;
-        (elapsed_hours, <span class="string">&quot;h&quot;</span>)
+        (elapsed_hours, <span class="string">"h"</span>)
     };
-    <span class="kw">let </span>time_text = <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, elapsed, unit);
+    <span class="kw">let </span>time_text = <span class="macro">format!</span>(<span class="string">"{}{}"</span>, elapsed, unit);
     time_text
 }
 </code></pre></div></section></main></body></html>

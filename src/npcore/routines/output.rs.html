@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/output.rs`."><title>output.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="npcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/output.rs`."><title>output.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="npcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -620,9 +621,9 @@
         }
     }
 
-    <span class="kw">pub fn </span>write_outputs&lt;<span class="lifetime">&#39;a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, write: bool, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;, idelta: f64, tad: f64)
+    <span class="kw">pub fn </span>write_outputs&lt;<span class="lifetime">'a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, write: bool, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;, idelta: f64, tad: f64)
     <span class="kw">where
-        </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + <span class="lifetime">&#39;static </span>+ Clone + std::marker::Send,
+        </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + <span class="lifetime">'static </span>+ Clone + std::marker::Send,
     {
         <span class="kw">if </span>write {
             <span class="self">self</span>.write_theta();
@@ -642,17 +643,17 @@
     <span class="doccomment">/// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     </span><span class="kw">pub fn </span>write_theta(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Writing final parameter distribution...&quot;</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"Writing final parameter distribution..."</span>);
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
             <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
 
-            <span class="kw">let </span>file = File::create(<span class="string">&quot;theta.csv&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>file = File::create(<span class="string">"theta.csv"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">true</span>).from_writer(file);
 
             <span class="comment">// Create the headers
             </span><span class="kw">let </span><span class="kw-2">mut </span>theta_header = <span class="self">self</span>.par_names.clone();
-            theta_header.push(<span class="string">&quot;prob&quot;</span>.to_string());
+            theta_header.push(<span class="string">"prob"</span>.to_string());
             writer.write_record(<span class="kw-2">&amp;</span>theta_header)<span class="question-mark">?</span>;
 
             <span class="comment">// Write contents
@@ -665,13 +666,13 @@
         })();
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">tracing::error!</span>(<span class="string">&quot;Error while writing theta: {}&quot;</span>, e);
+            <span class="macro">tracing::error!</span>(<span class="string">"Error while writing theta: {}"</span>, e);
         }
     }
 
     <span class="doccomment">/// Writes the posterior support points for each individual
     </span><span class="kw">pub fn </span>write_posterior(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Writing posterior parameter probabilities...&quot;</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"Writing posterior parameter probabilities..."</span>);
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
             <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
@@ -681,28 +682,28 @@
 
             <span class="kw">let </span>posterior = posterior(<span class="kw-2">&amp;</span>psi, <span class="kw-2">&amp;</span>w);
 
-            <span class="kw">let </span>file = File::create(<span class="string">&quot;posterior.csv&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>file = File::create(<span class="string">"posterior.csv"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">true</span>).from_writer(file);
 
             <span class="comment">// Create the headers
-            </span>writer.write_field(<span class="string">&quot;id&quot;</span>)<span class="question-mark">?</span>;
-            writer.write_field(<span class="string">&quot;point&quot;</span>)<span class="question-mark">?</span>;
+            </span>writer.write_field(<span class="string">"id"</span>)<span class="question-mark">?</span>;
+            writer.write_field(<span class="string">"point"</span>)<span class="question-mark">?</span>;
             <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..theta.ncols() {
                 <span class="kw">let </span>param_name = par_names.get(i).unwrap();
                 writer.write_field(param_name)<span class="question-mark">?</span>;
             }
-            writer.write_field(<span class="string">&quot;prob&quot;</span>)<span class="question-mark">?</span>;
+            writer.write_field(<span class="string">"prob"</span>)<span class="question-mark">?</span>;
             writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
 
             <span class="comment">// Write contents
             </span><span class="kw">for </span>(sub, row) <span class="kw">in </span>posterior.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
                 <span class="kw">for </span>(spp, elem) <span class="kw">in </span>row.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
                     writer.write_field(<span class="kw-2">&amp;</span>scenarios.get(sub).unwrap().id)<span class="question-mark">?</span>;
-                    writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, spp))<span class="question-mark">?</span>;
+                    writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, spp))<span class="question-mark">?</span>;
                     <span class="kw">for </span>param <span class="kw">in </span>theta.row(spp) {
-                        writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{param}&quot;</span>))<span class="question-mark">?</span>;
+                        writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{param}"</span>))<span class="question-mark">?</span>;
                     }
-                    writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{elem:.10}&quot;</span>))<span class="question-mark">?</span>;
+                    writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{elem:.10}"</span>))<span class="question-mark">?</span>;
                     writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
                 }
             }
@@ -710,21 +711,21 @@
         })();
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">tracing::error!</span>(<span class="string">&quot;Error while writing posterior: {}&quot;</span>, e);
+            <span class="macro">tracing::error!</span>(<span class="string">"Error while writing posterior: {}"</span>, e);
         }
     }
 
     <span class="doccomment">/// Write the observations, which is the reformatted input data
     </span><span class="kw">pub fn </span>write_obs(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Writing (expanded) observations...&quot;</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"Writing (expanded) observations..."</span>);
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>scenarios = <span class="self">self</span>.scenarios.clone();
 
-            <span class="kw">let </span>file = File::create(<span class="string">&quot;obs.csv&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>file = File::create(<span class="string">"obs.csv"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
 
             <span class="comment">// Create the headers
-            </span>writer.write_record([<span class="string">&quot;id&quot;</span>, <span class="string">&quot;time&quot;</span>, <span class="string">&quot;obs&quot;</span>, <span class="string">&quot;outeq&quot;</span>])<span class="question-mark">?</span>;
+            </span>writer.write_record([<span class="string">"id"</span>, <span class="string">"time"</span>, <span class="string">"obs"</span>, <span class="string">"outeq"</span>])<span class="question-mark">?</span>;
 
             <span class="comment">// Write contents
             </span><span class="kw">for </span>scenario <span class="kw">in </span>scenarios {
@@ -733,7 +734,7 @@
                         scenario.id.to_string(),
                         time.to_string(),
                         observation.to_string(),
-                        <span class="string">&quot;1&quot;</span>.to_string(),
+                        <span class="string">"1"</span>.to_string(),
                     ])<span class="question-mark">?</span>;
                 }
             }
@@ -741,16 +742,16 @@
         })();
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">tracing::error!</span>(<span class="string">&quot;Error while writing observations: {}&quot;</span>, e);
+            <span class="macro">tracing::error!</span>(<span class="string">"Error while writing observations: {}"</span>, e);
         }
     }
 
     <span class="doccomment">/// Writes the predictions
-    </span><span class="kw">pub fn </span>write_pred&lt;<span class="lifetime">&#39;a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;, idelta: f64, tad: f64)
+    </span><span class="kw">pub fn </span>write_pred&lt;<span class="lifetime">'a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;, idelta: f64, tad: f64)
     <span class="kw">where
-        </span>S: Predict&lt;<span class="lifetime">&#39;static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">&#39;static </span>+ Clone,
+        </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">'static </span>+ Clone,
     {
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Writing individual predictions...&quot;</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"Writing individual predictions..."</span>);
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span><span class="kw-2">mut </span>scenarios = <span class="self">self</span>.scenarios.clone();
             <span class="comment">// Add an event interval to each scenario
@@ -783,18 +784,18 @@
                 <span class="bool-val">false</span>,
             );
 
-            <span class="kw">let </span>file = File::create(<span class="string">&quot;pred.csv&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>file = File::create(<span class="string">"pred.csv"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
 
             <span class="comment">// Create the headers
             </span>writer.write_record([
-                <span class="string">&quot;id&quot;</span>,
-                <span class="string">&quot;time&quot;</span>,
-                <span class="string">&quot;outeq&quot;</span>,
-                <span class="string">&quot;popMean&quot;</span>,
-                <span class="string">&quot;popMedian&quot;</span>,
-                <span class="string">&quot;postMean&quot;</span>,
-                <span class="string">&quot;postMedian&quot;</span>,
+                <span class="string">"id"</span>,
+                <span class="string">"time"</span>,
+                <span class="string">"outeq"</span>,
+                <span class="string">"popMean"</span>,
+                <span class="string">"popMedian"</span>,
+                <span class="string">"postMean"</span>,
+                <span class="string">"postMedian"</span>,
             ])<span class="question-mark">?</span>;
 
             <span class="comment">// Write contents
@@ -815,7 +816,7 @@
                         .write_record(<span class="kw-2">&amp;</span>[
                             scenarios.get(id).unwrap().id.to_string(),
                             t.to_string(),
-                            <span class="string">&quot;1&quot;</span>.to_string(),
+                            <span class="string">"1"</span>.to_string(),
                             pop_mp_i.to_string(),
                             pop_mdp_i.to_string(),
                             post_mp_i.to_string(),
@@ -828,7 +829,7 @@
         })();
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">tracing::error!</span>(<span class="string">&quot;Error while writing predictions: {}&quot;</span>, e);
+            <span class="macro">tracing::error!</span>(<span class="string">"Error while writing predictions: {}"</span>, e);
         }
     }
 }
@@ -839,7 +840,7 @@
 }
 <span class="kw">impl </span>CycleLog {
     <span class="kw">pub fn </span>new(par_names: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>cycle_writer = CycleWriter::new(<span class="string">&quot;cycles.csv&quot;</span>, par_names.to_vec());
+        <span class="kw">let </span>cycle_writer = CycleWriter::new(<span class="string">"cycles.csv"</span>, par_names.to_vec());
         <span class="self">Self </span>{
             cycles: Vec::new(),
             cycle_writer,
@@ -903,17 +904,17 @@
         <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
 
         <span class="comment">// Write headers
-        </span>writer.write_field(<span class="string">&quot;cycle&quot;</span>).unwrap();
-        writer.write_field(<span class="string">&quot;neg2ll&quot;</span>).unwrap();
-        writer.write_field(<span class="string">&quot;gamlam&quot;</span>).unwrap();
-        writer.write_field(<span class="string">&quot;nspp&quot;</span>).unwrap();
+        </span>writer.write_field(<span class="string">"cycle"</span>).unwrap();
+        writer.write_field(<span class="string">"neg2ll"</span>).unwrap();
+        writer.write_field(<span class="string">"gamlam"</span>).unwrap();
+        writer.write_field(<span class="string">"nspp"</span>).unwrap();
 
         <span class="kw">for </span>param_name <span class="kw">in </span><span class="kw-2">&amp;</span>parameter_names {
-            writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}.mean&quot;</span>, param_name)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.mean"</span>, param_name)).unwrap();
             writer
-                .write_field(<span class="macro">format!</span>(<span class="string">&quot;{}.median&quot;</span>, param_name))
+                .write_field(<span class="macro">format!</span>(<span class="string">"{}.median"</span>, param_name))
                 .unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}.sd&quot;</span>, param_name)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.sd"</span>, param_name)).unwrap();
         }
 
         writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
@@ -922,28 +923,28 @@
     }
 
     <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cycle: usize, objf: f64, gamma: f64, theta: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;) {
-        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, cycle)).unwrap();
-        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, objf)).unwrap();
-        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, gamma)).unwrap();
+        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle)).unwrap();
+        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, objf)).unwrap();
+        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, gamma)).unwrap();
         <span class="self">self</span>.writer
-            .write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, theta.nrows()))
+            .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, theta.nrows()))
             .unwrap();
 
         <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
             <span class="self">self</span>.writer
-                .write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, param.mean().unwrap()))
+                .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.mean().unwrap()))
                 .unwrap();
         }
 
         <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
             <span class="self">self</span>.writer
-                .write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, median(param.to_owned().to_vec())))
+                .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, median(param.to_owned().to_vec())))
                 .unwrap();
         }
 
         <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
             <span class="self">self</span>.writer
-                .write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, param.std(<span class="number">1.</span>)))
+                .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.std(<span class="number">1.</span>)))
                 .unwrap();
         }
 
@@ -963,12 +964,12 @@
 
 <span class="kw">impl </span>MetaWriter {
     <span class="kw">pub fn </span>new() -&gt; MetaWriter {
-        <span class="kw">let </span>meta_file = File::create(<span class="string">&quot;meta_rust.csv&quot;</span>).unwrap();
+        <span class="kw">let </span>meta_file = File::create(<span class="string">"meta_rust.csv"</span>).unwrap();
         <span class="kw">let </span><span class="kw-2">mut </span>meta_writer = WriterBuilder::new()
             .has_headers(<span class="bool-val">false</span>)
             .from_writer(meta_file);
-        meta_writer.write_field(<span class="string">&quot;converged&quot;</span>).unwrap();
-        meta_writer.write_field(<span class="string">&quot;ncycles&quot;</span>).unwrap();
+        meta_writer.write_field(<span class="string">"converged"</span>).unwrap();
+        meta_writer.write_field(<span class="string">"ncycles"</span>).unwrap();
         meta_writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
         MetaWriter {
             writer: meta_writer,
@@ -977,7 +978,7 @@
 
     <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, converged: bool, cycle: usize) {
         <span class="self">self</span>.writer.write_field(converged.to_string()).unwrap();
-        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, cycle)).unwrap();
+        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle)).unwrap();
         <span class="self">self</span>.writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
         <span class="self">self</span>.flush();
     }
