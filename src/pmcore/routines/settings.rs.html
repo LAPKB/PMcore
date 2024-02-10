@@ -242,7 +242,7 @@
 <span class="kw">use </span>serde_json;
 <span class="kw">use </span>std::collections::HashMap;
 
-<span class="doccomment">/// Contains all settings NPcore
+<span class="doccomment">/// Contains all settings PMcore
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>Settings {
@@ -262,7 +262,7 @@
     </span><span class="kw">pub </span>data: String,
     <span class="doccomment">/// If provided, the log file will be written to this path.
     </span><span class="kw">pub </span>log: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="doccomment">/// If provided, NPcore will use this prior instead of a "uniform" prior, see `sobol::generate` for details.
+    <span class="doccomment">/// If provided, PMcore will use this prior instead of a "uniform" prior, see `sobol::generate` for details.
     </span><span class="kw">pub </span>prior: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
@@ -396,13 +396,13 @@
 ///
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
-/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `NPCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `NPCORE_TUI=false`.
+/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE_TUI=false`.
 </span><span class="kw">pub fn </span>read_settings(path: String) -&gt; <span class="prelude-ty">Result</span>&lt;Settings, config::ConfigError&gt; {
     <span class="kw">let </span>settings_path = path;
 
     <span class="kw">let </span>parsed = eConfig::builder()
         .add_source(config::File::with_name(<span class="kw-2">&amp;</span>settings_path).format(config::FileFormat::Toml))
-        .add_source(config::Environment::with_prefix(<span class="string">"NPCORE"</span>).separator(<span class="string">"_"</span>))
+        .add_source(config::Environment::with_prefix(<span class="string">"PMCORE"</span>).separator(<span class="string">"_"</span>))
         .build()<span class="question-mark">?</span>;
 
     <span class="comment">// Deserialize settings to the Settings struct

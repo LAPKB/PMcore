@@ -270,9 +270,9 @@
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Primary entrypoint for NPcore
+<span class="doccomment">/// Primary entrypoint for PMcore
 ///
-/// This function is the primary entrypoint for NPcore, and is used to run the algorithm.
+/// This function is the primary entrypoint for PMcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
 </span><span class="kw">pub fn </span>start&lt;S&gt;(engine: Engine&lt;S&gt;, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt;
 <span class="kw">where
@@ -289,7 +289,7 @@
     <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel::&lt;Comm&gt;();
     <span class="kw">let </span>maintx = tx.clone();
     logger::setup_log(<span class="kw-2">&amp;</span>settings, tx.clone());
-    <span class="macro">tracing::info!</span>(<span class="string">"Starting NPcore"</span>);
+    <span class="macro">tracing::info!</span>(<span class="string">"Starting PMcore"</span>);
 
     <span class="comment">// Read input data and remove excluded scenarios (if any)
     </span><span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.paths.data).unwrap();

@@ -140,7 +140,7 @@
     <span class="comment">// Use the log level defined in configuration file, or default to info
     </span><span class="kw">let </span>log_level = settings.config.log_level.as_str();
 
-    <span class="comment">// Use the log file defined in configuration file, or default to npcore.log
+    <span class="comment">// Use the log file defined in configuration file, or default to pmcore.log
     </span><span class="kw">let </span>log_path = settings.paths.log.as_ref().unwrap();
 
     <span class="kw">let </span>env_filter = EnvFilter::new(<span class="kw-2">&amp;</span>log_level);
