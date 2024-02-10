@@ -41,4 +41,4 @@ Look at the corresponding `examples/.../*.toml`-file to change the configuration
 
 ## Documentation
 
-For more information on how to use this crate, please review the [documentation](https://lapkb.github.io/NPcore/)
+For more information on how to use this crate, please review the [documentation](https://lapkb.github.io/PMcore/)

@@ -18,7 +18,7 @@ use super::App;
 use crate::prelude::settings::Settings;
 
 pub fn draw_title<'a>() -> Paragraph<'a> {
-    Paragraph::new("NPcore Execution")
+    Paragraph::new("PMcore Execution")
         .style(Style::default().fg(Color::LightCyan))
         .alignment(Alignment::Center)
         .block(
