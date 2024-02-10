@@ -21,5 +21,6 @@ pub fn one_compartment(
         }
     }
     let t = t - p_t;
+    // If I want to implement one_compartment with absorption, I might need two comparments aka vector2
     Vector1::new(x[0] * (-ke * t).exp() + (r / ke) * (1.0 - (-ke * t).exp()))
 }
