@@ -335,6 +335,10 @@
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -458,7 +462,11 @@
             gamma: settings.error.value,
             error_type: <span class="kw">match </span>settings.error.class.to_lowercase().as_str() {
                 <span class="string">"additive" </span>=&gt; ErrorType::Add,
+                <span class="string">"lambda" </span>=&gt; ErrorType::Add,
+                <span class="string">"l" </span>=&gt; ErrorType::Add,
                 <span class="string">"proportional" </span>=&gt; ErrorType::Prop,
+                <span class="string">"gamma" </span>=&gt; ErrorType::Prop,
+                <span class="string">"g" </span>=&gt; ErrorType::Prop,
                 <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Error type not supported"</span>),
             },
             converged: <span class="bool-val">false</span>,
