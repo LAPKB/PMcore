@@ -121,7 +121,11 @@ where
             gamma: settings.error.value,
             error_type: match settings.error.class.to_lowercase().as_str() {
                 "additive" => ErrorType::Add,
+                "lambda" => ErrorType::Add,
+                "l" => ErrorType::Add,
                 "proportional" => ErrorType::Prop,
+                "gamma" => ErrorType::Prop,
+                "g" => ErrorType::Prop,
                 _ => panic!("Error type not supported"),
             },
             converged: false,
