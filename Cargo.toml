@@ -1,5 +1,5 @@
 [package]
-name = "npcore"
+name = "pmcore"
 version = "0.1.3"
 edition = "2021"
 authors = [
@@ -10,8 +10,8 @@ authors = [
 ]
 description = "Rust library with the building blocks needed to create new Non-Parametric algorithms and its integration with Pmetrics."
 license = "GPL-3.0"
-documentation = "https://lapkb.github.io/NPcore/npcore/"
-repository = "https://github.com/LAPKB/NPcore"
+documentation = "https://lapkb.github.io/PMcore/pmcore/"
+repository = "https://github.com/LAPKB/PMcore"
 exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
