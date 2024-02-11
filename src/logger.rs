@@ -23,11 +23,10 @@ use tracing_subscriber::EnvFilter;
 pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
     // Use the log level defined in configuration file, or default to info
     let log_level = settings.config.log_level.as_str();
+    let env_filter = EnvFilter::new(&log_level);
 
     // Use the log file defined in configuration file, or default to pmcore.log
-    let log_path = settings.paths.log.as_ref().unwrap();
-
-    let env_filter = EnvFilter::new(&log_level);
+    let log_path = std::path::Path::new(settings.paths.log.as_ref().unwrap());
 
     // Define a registry with that level as an environment filter
     let subscriber = Registry::default().with(env_filter);
@@ -79,7 +78,7 @@ pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
         .with(stdout_layer)
         .with(tui_layer)
         .init();
-    tracing::debug!("Logging is configured with level: {}", log_level);
+    tracing::info!("Logging is configured with level {} to file {:?}", log_level, log_path);
 }
 
 #[derive(Clone)]
