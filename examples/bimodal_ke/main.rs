@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use eyre::Result;
+use ode_solvers::*;
 use pmcore::prelude::{
     datafile::{CovLine, Infusion, Scenario},
     predict::{Engine, Predict},
     start,
 };
-use ode_solvers::*;
 
 // Constants for the absolute and relative tolerance for the dynamic steps used for solving the ODEs
 const ATOL: f64 = 1e-4;

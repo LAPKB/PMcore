@@ -78,7 +78,11 @@ pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
         .with(stdout_layer)
         .with(tui_layer)
         .init();
-    tracing::info!("Logging is configured with level {} to file {:?}", log_level, log_path);
+    tracing::info!(
+        "Logging is configured with level {} to file {:?}",
+        log_level,
+        log_path
+    );
 }
 
 #[derive(Clone)]
