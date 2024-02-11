@@ -113,6 +113,10 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
@@ -193,7 +197,11 @@
         .with(stdout_layer)
         .with(tui_layer)
         .init();
-    <span class="macro">tracing::info!</span>(<span class="string">"Logging is configured with level {} to file {:?}"</span>, log_level, log_path);
+    <span class="macro">tracing::info!</span>(
+        <span class="string">"Logging is configured with level {} to file {:?}"</span>,
+        log_level,
+        log_path
+    );
 }
 
 <span class="attr">#[derive(Clone)]
