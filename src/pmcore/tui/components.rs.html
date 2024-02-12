@@ -269,6 +269,9 @@
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
 
 <span class="doccomment">/// This file contains the different components of the TUI
@@ -524,19 +527,22 @@
 
     tabs
 }
-
 <span class="kw">fn </span>format_time(elapsed_time: std::time::Duration) -&gt; String {
     <span class="kw">let </span>elapsed_seconds = elapsed_time.as_secs();
-    <span class="kw">let </span>(elapsed, unit) = <span class="kw">if </span>elapsed_seconds &lt; <span class="number">60 </span>{
-        (elapsed_seconds, <span class="string">"s"</span>)
-    } <span class="kw">else if </span>elapsed_seconds &lt; <span class="number">3600 </span>{
-        <span class="kw">let </span>elapsed_minutes = elapsed_seconds / <span class="number">60</span>;
-        (elapsed_minutes, <span class="string">"m"</span>)
-    } <span class="kw">else </span>{
-        <span class="kw">let </span>elapsed_hours = elapsed_seconds / <span class="number">3600</span>;
-        (elapsed_hours, <span class="string">"h"</span>)
-    };
-    <span class="kw">let </span>time_text = <span class="macro">format!</span>(<span class="string">"{}{}"</span>, elapsed, unit);
-    time_text
+    <span class="kw">let </span>hours = elapsed_seconds / <span class="number">3600</span>;
+    <span class="kw">let </span>minutes = (elapsed_seconds % <span class="number">3600</span>) / <span class="number">60</span>;
+    <span class="kw">let </span>seconds = elapsed_seconds % <span class="number">60</span>;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>time_text = String::new();
+
+    <span class="kw">if </span>hours &gt; <span class="number">0 </span>{
+        time_text.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}h "</span>, hours));
+    }
+    <span class="kw">if </span>minutes &gt; <span class="number">0 </span>|| hours &gt; <span class="number">0 </span>{
+        time_text.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}m "</span>, minutes));
+    }
+    time_text.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}s"</span>, seconds));
+
+    time_text.trim_end().to_string()
 }
 </code></pre></div></section></main></body></html>
