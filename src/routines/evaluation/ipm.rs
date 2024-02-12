@@ -74,6 +74,7 @@ pub fn burke(
     trace_memory("after creating w");
     dbg!(w.dim());
     let mut ptw = psi.t().dot(&w);
+    dbg!(&ptw);
     trace_memory("after creating ptw");
     dbg!(ptw.dim());
     let shrink = 2. * *ptw.max().unwrap();
@@ -81,9 +82,16 @@ pub fn burke(
     plam *= shrink;
     w /= shrink;
     ptw /= shrink;
+    dbg!(&w);
+    dbg!(&plam);
+    dbg!(&erow);
     let mut y = &ecol - &ptw;
     let mut r = &erow - &w * &plam;
+    dbg!(&r);
     let mut norm_r = norm_inf(r);
+    dbg!(&y);
+    // dbg!(&r);
+    dbg!(&norm_r);
     let sum_log_plam = plam.mapv(|x: f64| x.ln()).sum();
     let mut gap = (w.mapv(|x: f64| x.ln()).sum() + sum_log_plam).abs() / (1. + sum_log_plam);
     let mut mu = lam.t().dot(&y) / col as f64;
@@ -149,7 +157,7 @@ pub fn burke(
     let obj = psi.dot(&lam).mapv(|x| x.ln()).sum();
     lam = &lam / lam.sum();
     trace_memory("end of ipm");
-    abort();
+    // abort();
     Ok((lam, obj))
 }
 
