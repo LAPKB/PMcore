@@ -253,18 +253,21 @@ pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
 
     tabs
 }
-
 fn format_time(elapsed_time: std::time::Duration) -> String {
     let elapsed_seconds = elapsed_time.as_secs();
-    let (elapsed, unit) = if elapsed_seconds < 60 {
-        (elapsed_seconds, "s")
-    } else if elapsed_seconds < 3600 {
-        let elapsed_minutes = elapsed_seconds / 60;
-        (elapsed_minutes, "m")
-    } else {
-        let elapsed_hours = elapsed_seconds / 3600;
-        (elapsed_hours, "h")
-    };
-    let time_text = format!("{}{}", elapsed, unit);
-    time_text
+    let hours = elapsed_seconds / 3600;
+    let minutes = (elapsed_seconds % 3600) / 60;
+    let seconds = elapsed_seconds % 60;
+
+    let mut time_text = String::new();
+
+    if hours > 0 {
+        time_text.push_str(&format!("{}h ", hours));
+    }
+    if minutes > 0 || hours > 0 {
+        time_text.push_str(&format!("{}m ", minutes));
+    }
+    time_text.push_str(&format!("{}s", seconds));
+
+    time_text.trim_end().to_string()
 }
