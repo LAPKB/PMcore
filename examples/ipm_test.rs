@@ -10,4 +10,5 @@ fn main() {
     let res = ipm::burke(&matrix);
     dbg!(res.unwrap());
     let res = ipm_faer::burke(&matrix);
+    dbg!(res.unwrap());
 }

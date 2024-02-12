@@ -40,7 +40,7 @@ pub fn burke(
 ) -> Result<(OneDimArray, f64), Box<dyn error::Error>> {
     tracing::info!("Profiling {} subjects and {} spp", psi.nrows(), psi.ncols());
     trace_memory("start of burke");
-    dbg!(psi.dim());
+    // dbg!(psi.dim());
     let psi_clone = psi.clone();
     trace_memory("after cloning psi");
     let psi = psi.mapv(|x| x.abs());
@@ -54,10 +54,10 @@ pub fn burke(
     }
     let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
     trace_memory("after creating ecol");
-    dbg!(ecol.dim());
+    // dbg!(ecol.dim());
     let mut plam = psi.dot(&ecol);
     trace_memory("after creating plam");
-    dbg!(plam.dim());
+    // dbg!(plam.dim());
 
     // if plam.min().unwrap() <= &1e-15 {
     //     return Err("The vector psi*e has a non-positive entry".into());
@@ -66,76 +66,83 @@ pub fn burke(
     let mut sig = 0.;
     let erow: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(row);
     trace_memory("after creating erow");
-    dbg!(erow.dim());
+    // dbg!(erow.dim());
     let mut lam = ecol.clone();
     trace_memory("after creating lam");
-    dbg!(lam.dim());
+    // dbg!(lam.dim());
     let mut w = 1. / &plam;
     trace_memory("after creating w");
-    dbg!(w.dim());
+    // dbg!(w.dim());
     let mut ptw = psi.t().dot(&w);
-    dbg!(&ptw);
+    // dbg!(&ptw);
     trace_memory("after creating ptw");
-    dbg!(ptw.dim());
+    // dbg!(ptw.dim());
     let shrink = 2. * *ptw.max().unwrap();
     lam *= shrink;
     plam *= shrink;
     w /= shrink;
     ptw /= shrink;
-    dbg!(&w);
-    dbg!(&plam);
-    dbg!(&erow);
+    // dbg!(&w);
+    // dbg!(&plam);
+    // dbg!(&erow);
     let mut y = &ecol - &ptw;
     let mut r = &erow - &w * &plam;
-    dbg!(&r);
-    let mut norm_r = norm_inf(r);
-    dbg!(&y);
     // dbg!(&r);
-    dbg!(&norm_r);
-    dbg!(&plam);
+    let mut norm_r = norm_inf(r);
+    // dbg!(&y);
+    // dbg!(&r);
+    // dbg!(&norm_r);
+    // dbg!(&plam);
     let sum_log_plam = plam.mapv(|x: f64| x.ln()).sum();
-    dbg!(sum_log_plam);
+    // dbg!(sum_log_plam);
     let mut gap = (w.mapv(|x: f64| x.ln()).sum() + sum_log_plam).abs() / (1. + sum_log_plam);
-    dbg!(gap);
+    // dbg!(gap);
     let mut mu = lam.t().dot(&y) / col as f64;
-    dbg!(mu);
+    // dbg!(mu);
     trace_memory("before the loop");
     while mu > eps || norm_r > eps || gap > eps {
         // log::info!("IPM cyle");
         let smu = sig * mu;
         let inner = &lam / &y; //divide(&lam, &y);
-        dbg!(&inner);
+                               // dbg!(&inner);
         trace_memory("after creating inner");
-        dbg!(inner.dim());
+        // dbg!(inner.dim());
         let w_plam = &plam / &w; //divide(&plam, &w);
         trace_memory("after creating w_plam");
-        dbg!(&w_plam);
-        dbg!(w_plam.dim());
-        dbg!(psi.dim());
-        dbg!(&Array2::from_diag(&inner).dim());
+        // dbg!(&w_plam);
+        // dbg!(w_plam.dim());
+        // dbg!(psi.dim());
+        // dbg!(&Array2::from_diag(&inner).dim());
         let h = psi.dot(&Array2::from_diag(&inner)).dot(&psi.t()) + Array2::from_diag(&w_plam);
-        dbg!(&h);
+        // dbg!(&h);
         trace_memory("after creating h");
-        dbg!(h.dim());
+        // dbg!(h.dim());
         let uph = h.cholesky()?;
         trace_memory("after creating uph");
-        dbg!(uph.dim());
+        // dbg!(uph.dim());
         let uph = uph.t();
         let smuyinv = smu * (&ecol / &y);
         let rhsdw = &erow / &w - (psi.dot(&smuyinv));
         let a = rhsdw.clone().into_shape((rhsdw.len(), 1))?;
+        // dbg!(&rhsdw);
         //todo: cleanup this aux variable
-        // //dbg!(uph.t().is_triangular(linfa_linalg::triangular::UPLO::Upper));
+        //dbg!(uph.t().is_triangular(linfa_linalg::triangular::UPLO::Upper));
         // uph.solve_into(rhsdw);
         let x = uph
             .t()
             .solve_triangular(&a, linfa_linalg::triangular::UPLO::Lower)?;
+        // dbg!(&x);
         let dw_aux = uph.solve_triangular(&x, linfa_linalg::triangular::UPLO::Upper)?;
+
         let dw = dw_aux.column(0);
         let dy = -psi.t().dot(&dw);
+
         let dlam = smuyinv - &lam - inner * &dy;
+        // dbg!(&dlam);
         let mut alfpri = -1. / ((&dlam / &lam).min().unwrap().min(-0.5));
+        // dbg!(alfpri);
         alfpri = (0.99995 * alfpri).min(1.0);
+
         let mut alfdual = -1. / ((&dy / &y).min().unwrap().min(-0.5));
         alfdual = alfdual.min(-1. / (&dw / &w).min().unwrap().min(-0.5));
         alfdual = (0.99995 * alfdual).min(1.0);
@@ -146,7 +153,9 @@ pub fn burke(
         plam = psi.dot(&lam);
         r = &erow - &w * &plam;
         ptw = ptw - alfdual * dy;
+
         norm_r = norm_inf(r);
+
         let sum_log_plam = plam.mapv(|x: f64| x.ln()).sum();
         gap = (w.mapv(|x: f64| x.ln()).sum() + sum_log_plam).abs() / (1. + sum_log_plam);
         if mu < eps && norm_r > eps {
