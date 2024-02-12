@@ -52,3 +52,18 @@ config = "0.14"
 [profile.release]
 codegen-units = 1
 opt-level = 3
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "initialization"
+harness = false
+
+[[bench]]
+name = "expansion"
+harness = false
+
+[[bench]]
+name = "evaluation"
+harness = false
