@@ -373,7 +373,7 @@
         algorithms::Algorithm,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        ipm::burke,
+        ipm_faer::burke,
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
@@ -580,7 +580,7 @@
             <span class="kw">let </span>_enter = cycle_span.enter();
 
             <span class="comment">// psi n_sub rows, nspp columns
-            </span><span class="kw">let </span>cache = <span class="bool-val">false</span>;
+            </span><span class="kw">let </span>cache = <span class="kw">if </span><span class="self">self</span>.cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ <span class="self">self</span>.cache };
             <span class="comment">// trace_memory("before psi");
 
             // if Path::new("psi_cache.csv").exists() {
