@@ -1,9 +1,12 @@
+use std::fs::File;
+
 use crate::{
+    // logger::trace_memory,
     prelude::{
         algorithms::Algorithm,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        ipm,
+        ipm_faer::burke,
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
@@ -15,7 +18,10 @@ use crate::{
     tui::ui::Comm,
 };
 
+use csv::WriterBuilder;
 use ndarray::{Array, Array1, Array2, Axis};
+use ndarray_csv::Array2Writer;
+extern crate ndarray_csv;
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -162,14 +168,14 @@ where
                 e_type: &self.error_type,
             },
         );
-        let (lambda_up, objf_up) = match ipm::burke(&psi_up) {
+        let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 //todo: write out report
                 panic!("Error in IPM: {:?}", err);
             }
         };
-        let (lambda_down, objf_down) = match ipm::burke(&psi_down) {
+        let (lambda_down, objf_down) = match burke(&psi_down) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 //todo: write out report
@@ -208,8 +214,18 @@ where
 
             // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
-            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
+            // trace_memory("before psi");
 
+            // if Path::new("psi_cache.csv").exists() {
+            //     let file = File::open("psi_cache.csv").unwrap();
+            //     let mut reader = ReaderBuilder::new().has_headers(false).from_reader(file);
+            //     self.psi = reader
+            //         .deserialize_array2((self.scenarios.len(), self.theta.nrows()))
+            //         .unwrap();
+            // trace_memory("after loading psi from csv");
+            // } else {
+            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
+            // trace_memory("after ypred");
             self.psi = prob::calculate_psi(
                 &ypred,
                 &self.scenarios,
@@ -219,7 +235,17 @@ where
                     e_type: &self.error_type,
                 },
             );
-            (self.lambda, _) = match ipm::burke(&self.psi) {
+            // trace_memory("after calculate_psi");
+            drop(ypred);
+            // trace_memory("after dropping ypred");
+            {
+                let file = File::create("psi_cache.csv").unwrap();
+                let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+                writer.serialize_array2(&self.psi).unwrap();
+            }
+            // }
+            // trace_memory("before ipm");
+            (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
                     //todo: write out report
@@ -262,7 +288,7 @@ where
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
-            (self.lambda, self.objf) = match ipm::burke(&self.psi) {
+            (self.lambda, self.objf) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
                     //todo: write out report

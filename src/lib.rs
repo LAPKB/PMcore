@@ -31,6 +31,7 @@ pub mod routines {
 
         /// Interior point method for solving the optimization problem
         pub mod ipm;
+        pub mod ipm_faer;
         pub mod prob;
         pub mod qr;
         pub mod sigma;
