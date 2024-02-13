@@ -1,4 +1,4 @@
-//! Defines the Terminal User Interface (TUI) for NPcore
+//! Defines the Terminal User Interface (TUI) for PMcore
 
 use crossterm::execute;
 use eyre::Result;
@@ -104,7 +104,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<(
             terminal.show_cursor()?;
             crossterm::terminal::disable_raw_mode()?;
             tracing::info!("Exit signal received");
-            print!("NPcore was stopped by user");
+            print!("PMcore was stopped by user");
             exit(0);
         }
     }

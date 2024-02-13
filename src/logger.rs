@@ -23,11 +23,10 @@ use tracing_subscriber::EnvFilter;
 pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
     // Use the log level defined in configuration file, or default to info
     let log_level = settings.config.log_level.as_str();
-
-    // Use the log file defined in configuration file, or default to npcore.log
-    let log_path = settings.paths.log.as_ref().unwrap();
-
     let env_filter = EnvFilter::new(&log_level);
+
+    // Use the log file defined in configuration file, or default to pmcore.log
+    let log_path = std::path::Path::new(settings.paths.log.as_ref().unwrap());
 
     // Define a registry with that level as an environment filter
     let subscriber = Registry::default().with(env_filter);
@@ -79,7 +78,11 @@ pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
         .with(stdout_layer)
         .with(tui_layer)
         .init();
-    tracing::debug!("Logging is configured with level: {}", log_level);
+    tracing::info!(
+        "Logging is configured with level {} to file {:?}",
+        log_level,
+        log_path
+    );
 }
 
 #[derive(Clone)]
@@ -112,4 +115,23 @@ impl Write for TuiWriter {
         // Flushing is not required for this use case
         Ok(())
     }
+}
+
+use memory_stats::memory_stats;
+pub fn trace_memory(msg: &str) {
+    tracing::info!(msg);
+    if let Some(usage) = memory_stats() {
+        // PAGESIZE is 4KB
+        tracing::info!(
+            "Current physical memory usage: {} MB",
+            usage.physical_mem / (4096 * 1024)
+        );
+        tracing::info!(
+            "Current virtual memory usage: {} MB",
+            usage.virtual_mem / (4096 * 1024)
+        );
+    } else {
+        tracing::info!("Couldn't get the current memory usage :(");
+    }
+    tracing::info!("===================================================");
 }

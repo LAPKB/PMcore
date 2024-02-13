@@ -6,7 +6,7 @@ use serde_derive::Serialize;
 use serde_json;
 use std::collections::HashMap;
 
-/// Contains all settings NPcore
+/// Contains all settings PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
@@ -26,7 +26,7 @@ pub struct Paths {
     pub data: String,
     /// If provided, the log file will be written to this path.
     pub log: Option<String>,
-    /// If provided, NPcore will use this prior instead of a "uniform" prior, see `sobol::generate` for details.
+    /// If provided, PMcore will use this prior instead of a "uniform" prior, see `sobol::generate` for details.
     pub prior: Option<String>,
 }
 
@@ -160,13 +160,13 @@ impl Error {
 ///
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
-/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `NPCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `NPCORE_TUI=false`.
+/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE_TUI=false`.
 pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
     let settings_path = path;
 
     let parsed = eConfig::builder()
         .add_source(config::File::with_name(&settings_path).format(config::FileFormat::Toml))
-        .add_source(config::Environment::with_prefix("NPCORE").separator("_"))
+        .add_source(config::Environment::with_prefix("PMCORE").separator("_"))
         .build()?;
 
     // Deserialize settings to the Settings struct
