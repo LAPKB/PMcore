@@ -185,10 +185,14 @@
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::error;
 
 <span class="kw">use </span>linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
-<span class="kw">use </span>ndarray::{array, Array, Array2, ArrayBase, Dim, OwnedRepr};
+<span class="kw">use </span>ndarray::{array, Array, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 
 <span class="comment">// use crate::logger::trace_memory;
@@ -300,7 +304,11 @@
                                  // dbg!(w_plam.dim());
                                  // dbg!(psi.dim());
                                  // dbg!(&amp;Array2::from_diag(&amp;inner).dim());
-        </span><span class="kw">let </span>h = psi.dot(<span class="kw-2">&amp;</span>Array2::from_diag(<span class="kw-2">&amp;</span>inner)).dot(<span class="kw-2">&amp;</span>psi.t()) + Array2::from_diag(<span class="kw-2">&amp;</span>w_plam);
+        </span><span class="kw">let </span><span class="kw-2">mut </span>psi_inner: Array2&lt;f64&gt; = psi.clone();
+        <span class="kw">for </span>(<span class="kw-2">mut </span>col, inner_val) <span class="kw">in </span>psi_inner.axis_iter_mut(Axis(<span class="number">1</span>)).zip(<span class="kw-2">&amp;</span>inner) {
+            col <span class="kw-2">*</span>= <span class="kw-2">*</span>inner_val;
+        }
+        <span class="kw">let </span>h = psi_inner.dot(<span class="kw-2">&amp;</span>psi.t()) + Array2::from_diag(<span class="kw-2">&amp;</span>w_plam);
         <span class="comment">// dbg!(&amp;h);
         // trace_memory("after creating h");
         // dbg!(h.dim());
