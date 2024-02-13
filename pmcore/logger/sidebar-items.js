@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["setup_log"]};
+window.SIDEBAR_ITEMS = {"fn":["setup_log","trace_memory"]};

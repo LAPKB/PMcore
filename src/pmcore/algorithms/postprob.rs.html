@@ -113,13 +113,15 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        ipm,
-        output::NPResult,
+        <span class="comment">// ipm,
+        </span>output::NPResult,
         prob,
         settings::Settings,
         simulation::predict::Engine,
@@ -130,6 +132,8 @@
 
 <span class="kw">use </span>ndarray::{Array1, Array2};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
+
+<span class="kw">use </span><span class="kw">super</span>::evaluation::ipm_faer;
 
 <span class="doccomment">/// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
@@ -221,7 +225,7 @@
                 e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
             },
         );
-        <span class="kw">let </span>(w, objf) = ipm::burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi).expect(<span class="string">"Error in IPM"</span>);
+        <span class="kw">let </span>(w, objf) = ipm_faer::burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi).expect(<span class="string">"Error in IPM"</span>);
         <span class="self">self</span>.w = w;
         <span class="self">self</span>.objf = objf;
         <span class="self">self</span>.to_npresult()
