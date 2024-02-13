@@ -6,9 +6,9 @@ log = "bimodal_ke.log"
 [config]
 cycles = 1024
 engine = "NPAG"
-init_points = 100000
+init_points = 2129
 seed = 347
-tui = false
+tui = true
 output = true
 cache = true
 idelta = 0.1
