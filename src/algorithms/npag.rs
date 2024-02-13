@@ -6,11 +6,10 @@ use crate::{
         algorithms::Algorithm,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        // ipm,
+        ipm::burke,
         output::NPResult,
         output::{CycleLog, NPCycle},
-        prob,
-        qr,
+        prob, qr,
         settings::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
@@ -25,8 +24,6 @@ use ndarray_csv::Array2Writer;
 extern crate ndarray_csv;
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
-
-use super::evaluation::ipm_faer;
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
@@ -171,14 +168,14 @@ where
                 e_type: &self.error_type,
             },
         );
-        let (lambda_up, objf_up) = match ipm_faer::burke(&psi_up) {
+        let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 //todo: write out report
                 panic!("Error in IPM: {:?}", err);
             }
         };
-        let (lambda_down, objf_down) = match ipm_faer::burke(&psi_down) {
+        let (lambda_down, objf_down) = match burke(&psi_down) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 //todo: write out report
@@ -248,7 +245,7 @@ where
             }
             // }
             // trace_memory("before ipm");
-            (self.lambda, _) = match ipm_faer::burke(&self.psi) {
+            (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
                     //todo: write out report
@@ -291,7 +288,7 @@ where
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
-            (self.lambda, self.objf) = match ipm_faer::burke(&self.psi) {
+            (self.lambda, self.objf) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
                     //todo: write out report

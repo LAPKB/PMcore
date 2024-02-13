@@ -1,4 +1,4 @@
-use npcore::routines::evaluation::{ipm, ipm_faer};
+use pmcore::routines::evaluation::{ipm, ipm_faer};
 
 fn main() {
     let matrix = ndarray::array![

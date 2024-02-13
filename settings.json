@@ -1,7 +1,7 @@
 {
   "paths": {
     "data": "examples/data/bimodal_ke.csv",
-    "log": "log/bimodal_ke.log",
+    "log": "bimodal_ke.log",
     "prior": null
   },
   "config": {
@@ -18,11 +18,11 @@
     "tad": 0.0
   },
   "random": {
-    "V": [
+    "v": [
       25.0,
       250.0
     ],
-    "Ke": [
+    "ke": [
       0.001,
       3.0
     ]
