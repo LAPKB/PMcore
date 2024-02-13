@@ -1,10 +1,10 @@
-use std::{error, process::abort};
+use std::error;
 
 use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
 use ndarray::{array, Array, Array2, ArrayBase, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 
-use crate::logger::trace_memory;
+// use crate::logger::trace_memory;
 type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
 /// Apply the Burke's Interior Point Method (IPM) to solve a specific optimization problem.
@@ -39,12 +39,12 @@ pub fn burke(
     psi: &ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>,
 ) -> Result<(OneDimArray, f64), Box<dyn error::Error>> {
     tracing::info!("Profiling {} subjects and {} spp", psi.nrows(), psi.ncols());
-    trace_memory("start of burke");
+    // trace_memory("start of burke");
     // dbg!(psi.dim());
-    let psi_clone = psi.clone();
-    trace_memory("after cloning psi");
+    // let psi_clone = psi.clone();
+    // trace_memory("after cloning psi");
     let psi = psi.mapv(|x| x.abs());
-    trace_memory("new psi");
+    // trace_memory("new psi");
     let (row, col) = psi.dim();
     // if row>col {
     //     return Err("The matrix PSI has row>col".into());
@@ -53,10 +53,10 @@ pub fn burke(
         return Err("PSI contains negative elements".into());
     }
     let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-    trace_memory("after creating ecol");
+    // trace_memory("after creating ecol");
     // dbg!(ecol.dim());
     let mut plam = psi.dot(&ecol);
-    trace_memory("after creating plam");
+    // trace_memory("after creating plam");
     // dbg!(plam.dim());
 
     // if plam.min().unwrap() <= &1e-15 {
@@ -65,17 +65,17 @@ pub fn burke(
     let eps = 1e-8;
     let mut sig = 0.;
     let erow: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(row);
-    trace_memory("after creating erow");
+    // trace_memory("after creating erow");
     // dbg!(erow.dim());
     let mut lam = ecol.clone();
-    trace_memory("after creating lam");
+    // trace_memory("after creating lam");
     // dbg!(lam.dim());
     let mut w = 1. / &plam;
-    trace_memory("after creating w");
+    // trace_memory("after creating w");
     // dbg!(w.dim());
     let mut ptw = psi.t().dot(&w);
     // dbg!(&ptw);
-    trace_memory("after creating ptw");
+    // trace_memory("after creating ptw");
     // dbg!(ptw.dim());
     let shrink = 2. * *ptw.max().unwrap();
     lam *= shrink;
@@ -99,26 +99,26 @@ pub fn burke(
     // dbg!(gap);
     let mut mu = lam.t().dot(&y) / col as f64;
     // dbg!(mu);
-    trace_memory("before the loop");
+    // trace_memory("before the loop");
     while mu > eps || norm_r > eps || gap > eps {
         // log::info!("IPM cyle");
         let smu = sig * mu;
         let inner = &lam / &y; //divide(&lam, &y);
                                // dbg!(&inner);
-        trace_memory("after creating inner");
-        // dbg!(inner.dim());
+                               // trace_memory("after creating inner");
+                               // dbg!(inner.dim());
         let w_plam = &plam / &w; //divide(&plam, &w);
-        trace_memory("after creating w_plam");
-        // dbg!(&w_plam);
-        // dbg!(w_plam.dim());
-        // dbg!(psi.dim());
-        // dbg!(&Array2::from_diag(&inner).dim());
+                                 // trace_memory("after creating w_plam");
+                                 // dbg!(&w_plam);
+                                 // dbg!(w_plam.dim());
+                                 // dbg!(psi.dim());
+                                 // dbg!(&Array2::from_diag(&inner).dim());
         let h = psi.dot(&Array2::from_diag(&inner)).dot(&psi.t()) + Array2::from_diag(&w_plam);
         // dbg!(&h);
-        trace_memory("after creating h");
+        // trace_memory("after creating h");
         // dbg!(h.dim());
         let uph = h.cholesky()?;
-        trace_memory("after creating uph");
+        // trace_memory("after creating uph");
         // dbg!(uph.dim());
         let uph = uph.t();
         let smuyinv = smu * (&ecol / &y);
@@ -174,7 +174,7 @@ pub fn burke(
     lam /= row as f64;
     let obj = psi.dot(&lam).mapv(|x| x.ln()).sum();
     lam = &lam / lam.sum();
-    trace_memory("end of ipm");
+    // trace_memory("end of ipm");
     // abort();
     Ok((lam, obj))
 }
