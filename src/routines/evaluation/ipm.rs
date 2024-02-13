@@ -1,7 +1,7 @@
 use std::error;
 
 use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
-use ndarray::{array, Array, Array2, ArrayBase, Dim, OwnedRepr};
+use ndarray::{array, Array, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 
 // use crate::logger::trace_memory;
@@ -113,7 +113,11 @@ pub fn burke(
                                  // dbg!(w_plam.dim());
                                  // dbg!(psi.dim());
                                  // dbg!(&Array2::from_diag(&inner).dim());
-        let h = psi.dot(&Array2::from_diag(&inner)).dot(&psi.t()) + Array2::from_diag(&w_plam);
+        let mut psi_inner: Array2<f64> = psi.clone();
+        for (mut col, inner_val) in psi_inner.axis_iter_mut(Axis(1)).zip(&inner) {
+            col *= *inner_val;
+        }
+        let h = psi_inner.dot(&psi.t()) + Array2::from_diag(&w_plam);
         // dbg!(&h);
         // trace_memory("after creating h");
         // dbg!(h.dim());

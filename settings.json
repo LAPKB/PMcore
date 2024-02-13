@@ -8,8 +8,8 @@
     "cycles": 1024,
     "engine": "NPAG",
     "seed": 347,
-    "init_points": 2129,
-    "tui": true,
+    "init_points": 100000,
+    "tui": false,
     "output": true,
     "cache": true,
     "idelta": 0.1,
@@ -18,13 +18,13 @@
     "tad": 0.0
   },
   "random": {
-    "v": [
-      25.0,
-      250.0
-    ],
     "ke": [
       0.001,
       3.0
+    ],
+    "v": [
+      25.0,
+      250.0
     ]
   },
   "fixed": null,
