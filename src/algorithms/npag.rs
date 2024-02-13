@@ -6,7 +6,7 @@ use crate::{
         algorithms::Algorithm,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        ipm::burke,
+        ipm_faer::burke,
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
@@ -213,7 +213,7 @@ where
             let _enter = cycle_span.enter();
 
             // psi n_sub rows, nspp columns
-            let cache = false;
+            let cache = if self.cycle == 1 { false } else { self.cache };
             // trace_memory("before psi");
 
             // if Path::new("psi_cache.csv").exists() {
