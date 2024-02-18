@@ -6,15 +6,21 @@ use serde_derive::Serialize;
 use serde_json;
 use std::collections::HashMap;
 
-/// Contains all settings PMcore
+/// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
+    /// Paths to the data, log and prior files
     pub paths: Paths,
+    /// General configuration settings
     pub config: Config,
+    /// Random parameters to be estimated
     pub random: Random,
+    /// Parameters which are estimated, but fixed for the population
     pub fixed: Option<Fixed>,
+    /// Parameters which are held constant
     pub constant: Option<Constant>,
+    /// Defines the error model and polynomial to be used
     pub error: Error,
 }
 
@@ -34,7 +40,9 @@ pub struct Paths {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    /// Maximum number of cycles
     pub cycles: usize,
+    /// Denotes the algorithm to use, `NPAG` is the only supported algorithm for now.
     pub engine: String,
     #[serde(default = "default_seed")]
     pub seed: usize,
