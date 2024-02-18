@@ -234,6 +234,14 @@
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
@@ -242,16 +250,22 @@
 <span class="kw">use </span>serde_json;
 <span class="kw">use </span>std::collections::HashMap;
 
-<span class="doccomment">/// Contains all settings PMcore
+<span class="doccomment">/// Contains all settings for PMcore
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>Settings {
-    <span class="kw">pub </span>paths: Paths,
-    <span class="kw">pub </span>config: Config,
-    <span class="kw">pub </span>random: Random,
-    <span class="kw">pub </span>fixed: <span class="prelude-ty">Option</span>&lt;Fixed&gt;,
-    <span class="kw">pub </span>constant: <span class="prelude-ty">Option</span>&lt;Constant&gt;,
-    <span class="kw">pub </span>error: Error,
+    <span class="doccomment">/// Paths to the data, log and prior files
+    </span><span class="kw">pub </span>paths: Paths,
+    <span class="doccomment">/// General configuration settings
+    </span><span class="kw">pub </span>config: Config,
+    <span class="doccomment">/// Random parameters to be estimated
+    </span><span class="kw">pub </span>random: Random,
+    <span class="doccomment">/// Parameters which are estimated, but fixed for the population
+    </span><span class="kw">pub </span>fixed: <span class="prelude-ty">Option</span>&lt;Fixed&gt;,
+    <span class="doccomment">/// Parameters which are held constant
+    </span><span class="kw">pub </span>constant: <span class="prelude-ty">Option</span>&lt;Constant&gt;,
+    <span class="doccomment">/// Defines the error model and polynomial to be used
+    </span><span class="kw">pub </span>error: Error,
 }
 
 <span class="doccomment">/// This struct contains the paths to the data, log and prior files.
@@ -270,8 +284,10 @@
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>Config {
-    <span class="kw">pub </span>cycles: usize,
-    <span class="kw">pub </span>engine: String,
+    <span class="doccomment">/// Maximum number of cycles
+    </span><span class="kw">pub </span>cycles: usize,
+    <span class="doccomment">/// Denotes the algorithm to use, `NPAG` is the only supported algorithm for now.
+    </span><span class="kw">pub </span>engine: String,
     <span class="attr">#[serde(default = <span class="string">"default_seed"</span>)]
     </span><span class="kw">pub </span>seed: usize,
     <span class="attr">#[serde(default = <span class="string">"default_10k"</span>)]
