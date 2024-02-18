@@ -1,4 +1,4 @@
-use faer::{Faer, IntoFaer, IntoNdarray};
+use faer::{FaerMat, IntoFaer, IntoNdarray};
 use ndarray::parallel::prelude::*;
 use ndarray::{Array2, Axis};
 

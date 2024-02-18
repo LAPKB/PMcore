@@ -1,5 +1,5 @@
 use csv::ReaderBuilder;
-use faer::{Faer, Mat};
+use faer::{FaerMat, Mat};
 use ndarray::Array2;
 use ndarray_csv::Array2Reader;
 use std::fs::File;

@@ -1,4 +1,4 @@
-use faer::{solvers::Solver, Faer, IntoFaer, IntoNdarray};
+use faer::{sparse::solvers::SpSolver, FaerMat, IntoFaer, IntoNdarray};
 use faer_core::{inner::DenseOwn, mat, scale, unzipped, zipped, Mat, Matrix};
 use std::error;
 
