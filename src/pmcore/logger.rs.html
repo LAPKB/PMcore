@@ -131,11 +131,6 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
@@ -183,16 +178,11 @@
         .with_timer(CompactTimestamp);
 
     <span class="comment">// Define layer for stdout
-    </span><span class="kw">let </span>stdout_layer = <span class="kw">if </span>!settings.config.tui {
-        <span class="kw">let </span>layer = fmt::layer()
-            .with_writer(std::io::stdout)
-            .with_ansi(<span class="bool-val">true</span>)
-            .with_target(<span class="bool-val">false</span>)
-            .with_timer(CompactTimestamp);
-        <span class="prelude-val">Some</span>(layer)
-    } <span class="kw">else </span>{
-        <span class="prelude-val">None
-    </span>};
+    </span><span class="kw">let </span>stdout_layer = fmt::layer()
+        .with_writer(std::io::stdout)
+        .with_ansi(<span class="bool-val">true</span>)
+        .with_target(<span class="bool-val">false</span>)
+        .with_timer(CompactTimestamp);
 
     <span class="comment">// Define layer for TUI
     </span><span class="kw">let </span>tui_writer_closure = <span class="kw">move </span>|| TuiWriter {

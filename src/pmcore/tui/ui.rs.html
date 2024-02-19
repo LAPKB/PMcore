@@ -232,22 +232,6 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Defines the Terminal User Interface (TUI) for PMcore
 
 </span><span class="kw">use </span>crossterm::execute;
@@ -359,28 +343,12 @@
         }
     }
 
-    <span class="comment">// Exit alternate screen, and print one last frame
-
+    <span class="comment">// Exit alternate screen and disable raw mode
     </span><span class="macro">execute!</span>(
         terminal.backend_mut(),
         crossterm::terminal::LeaveAlternateScreen
     )<span class="question-mark">?</span>;
-    terminal.clear()<span class="question-mark">?</span>;
-    terminal
-        .draw(|rect| {
-            draw(
-                rect,
-                <span class="kw-2">&amp;</span>app,
-                <span class="kw-2">&amp;</span>cycle_history,
-                elapsed_time,
-                <span class="kw-2">&amp;</span>settings,
-                <span class="kw-2">&amp;</span>log_history,
-            )
-        })
-        .unwrap();
-    terminal.show_cursor()<span class="question-mark">?</span>;
     crossterm::terminal::disable_raw_mode()<span class="question-mark">?</span>;
-    <span class="macro">println!</span>();
 
     <span class="prelude-val">Ok</span>(())
 }
