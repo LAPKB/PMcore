@@ -45,16 +45,11 @@ pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
         .with_timer(CompactTimestamp);
 
     // Define layer for stdout
-    let stdout_layer = if !settings.config.tui {
-        let layer = fmt::layer()
-            .with_writer(std::io::stdout)
-            .with_ansi(true)
-            .with_target(false)
-            .with_timer(CompactTimestamp);
-        Some(layer)
-    } else {
-        None
-    };
+    let stdout_layer = fmt::layer()
+        .with_writer(std::io::stdout)
+        .with_ansi(true)
+        .with_target(false)
+        .with_timer(CompactTimestamp);
 
     // Define layer for TUI
     let tui_writer_closure = move || TuiWriter {
