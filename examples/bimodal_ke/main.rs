@@ -30,7 +30,8 @@ impl Model {
     }
 }
 
-impl ode_solvers::System<State> for Model {
+impl ode_solvers::System<Time, State> for Model {
+    /// The system function, defining the ordinary differential equations (ODEs) to be solved
     fn system(&self, t: Time, y: &State, dy: &mut State) {
         // Get the parameters from the model
         let ke = self.get_param("ke");
@@ -47,6 +48,11 @@ impl ode_solvers::System<State> for Model {
 
         ////// ODE //////
         dy[0] = -ke * y[0] + rateiv[0];
+    }
+
+    /// Stop function called at every successful integration step. The integration is stopped when this function returns true.
+    fn solout(&mut self, _x: Time, _y: &State, _dy: &State) -> bool {
+        false
     }
 }
 
