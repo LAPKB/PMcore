@@ -1,12 +1,4 @@
-use std::collections::HashMap;
-
-use eyre::Result;
-use npcore::prelude::{
-    datafile::{CovLine, Infusion, Scenario},
-    predict::{Engine, Predict},
-    start,
-};
-use ode_solvers::*;
+use pmcore::prelude::*;
 
 // Constants for the absolute and relative tolerance for the dynamic steps used for solving the ODEs
 const ATOL: f64 = 1e-4;
@@ -38,7 +30,8 @@ impl Model {
     }
 }
 
-impl ode_solvers::System<State> for Model {
+impl ode_solvers::System<Time, State> for Model {
+    /// The system function, defining the ordinary differential equations (ODEs) to be solved
     fn system(&self, t: Time, y: &State, dy: &mut State) {
         // Get the parameters from the model
         let ke = self.get_param("ke");

@@ -79,9 +79,9 @@ where
     Ok(())
 }
 
-/// Primary entrypoint for NPcore
+/// Primary entrypoint for PMcore
 ///
-/// This function is the primary entrypoint for NPcore, and is used to run the algorithm.
+/// This function is the primary entrypoint for PMcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
 pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
 where
@@ -98,7 +98,7 @@ where
     let (tx, rx) = mpsc::unbounded_channel::<Comm>();
     let maintx = tx.clone();
     logger::setup_log(&settings, tx.clone());
-    tracing::info!("Starting NPcore");
+    tracing::info!("Starting PMcore");
 
     // Read input data and remove excluded scenarios (if any)
     let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
@@ -131,7 +131,6 @@ where
     // Initialize algorithm and run
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     let result = algorithm.fit();
-    tracing::info!("Total time: {:.2?}", now.elapsed());
 
     // Write output files (if configured)
     if settings.config.output {
@@ -140,9 +139,9 @@ where
         result.write_outputs(true, &engine, idelta, tad);
     }
 
-    tracing::info!("Program complete");
     maintx.send(Comm::StopUI).unwrap();
     handle.join().unwrap();
+    tracing::info!("Program complete after {:.2?}", now.elapsed());
 
     Ok(result)
 }

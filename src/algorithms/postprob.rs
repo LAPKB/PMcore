@@ -3,7 +3,7 @@ use crate::{
         algorithms::Algorithm,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        ipm,
+        ipm_faer::burke,
         output::NPResult,
         prob,
         settings::Settings,
@@ -106,7 +106,7 @@ where
                 e_type: &self.error_type,
             },
         );
-        let (w, objf) = ipm::burke(&self.psi).expect("Error in IPM");
+        let (w, objf) = burke(&self.psi).expect("Error in IPM");
         self.w = w;
         self.objf = objf;
         self.to_npresult()

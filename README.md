@@ -1,7 +1,8 @@
-# NPcore
-[![Build](https://github.com/LAPKB/NPcore/actions/workflows/rust.yml/badge.svg)](https://github.com/LAPKB/NPcore/actions/workflows/rust.yml)
-[![Security Audit](https://github.com/LAPKB/NPcore/actions/workflows/security_audit.yml/badge.svg)](https://github.com/LAPKB/NPcore/actions/workflows/security_audit.yml)
-![crates.io](https://img.shields.io/crates/v/npcore.svg)
+# PMcore
+[![Build](https://github.com/LAPKB/PMcore/actions/workflows/rust.yml/badge.svg)](https://github.com/LAPKB/PMcore/actions/workflows/rust.yml)
+[![Documentation](https://github.com/LAPKB/PMcore/actions/workflows/docs.yml/badge.svg)](https://github.com/LAPKB/PMcore/actions/workflows/docs.yml)
+[![Security Audit](https://github.com/LAPKB/PMcore/actions/workflows/security_audit.yml/badge.svg)](https://github.com/LAPKB/PMcore/actions/workflows/security_audit.yml)
+![crates.io](https://img.shields.io/crates/v/pmcore.svg)
 
 Rust library with the building blocks to create and implement new non-parametric algorithms for population pharmacokinetic modelling and their integration with [Pmetrics](https://github.com/LAPKB/Pmetrics).
 
@@ -41,4 +42,4 @@ Look at the corresponding `examples/.../*.toml`-file to change the configuration
 
 ## Documentation
 
-For more information on how to use this crate, please review the [documentation](https://lapkb.github.io/NPcore/)
+For more information on how to use this crate, please review the [documentation](https://lapkb.github.io/PMcore/)

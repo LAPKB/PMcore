@@ -3,7 +3,7 @@ use crate::{
         algorithms::Algorithm,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        ipm,
+        ipm_faer::burke,
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
@@ -121,7 +121,11 @@ where
             gamma: settings.error.value,
             error_type: match settings.error.class.to_lowercase().as_str() {
                 "additive" => ErrorType::Add,
+                "lambda" => ErrorType::Add,
+                "l" => ErrorType::Add,
                 "proportional" => ErrorType::Prop,
+                "gamma" => ErrorType::Prop,
+                "g" => ErrorType::Prop,
                 _ => panic!("Error type not supported"),
             },
             converged: false,
@@ -158,14 +162,14 @@ where
                 e_type: &self.error_type,
             },
         );
-        let (lambda_up, objf_up) = match ipm::burke(&psi_up) {
+        let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 //todo: write out report
                 panic!("Error in IPM: {:?}", err);
             }
         };
-        let (lambda_down, objf_down) = match ipm::burke(&psi_down) {
+        let (lambda_down, objf_down) = match burke(&psi_down) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 //todo: write out report
@@ -202,8 +206,8 @@ where
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
 
-            // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
+
             let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
 
             self.psi = prob::calculate_psi(
@@ -215,7 +219,8 @@ where
                     e_type: &self.error_type,
                 },
             );
-            (self.lambda, _) = match ipm::burke(&self.psi) {
+
+            (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
                     //todo: write out report
@@ -247,7 +252,7 @@ where
                 }
             }
 
-            // If a support point is dropped, log it
+            // If a support point is dropped, log it as a debug message
             if self.psi.ncols() != keep.len() {
                 tracing::debug!(
                     "QRD dropped {} support point(s)",
@@ -258,7 +263,7 @@ where
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
-            (self.lambda, self.objf) = match ipm::burke(&self.psi) {
+            (self.lambda, self.objf) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
                     //todo: write out report
@@ -280,7 +285,7 @@ where
 
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
-                tracing::info!(
+                tracing::warn!(
                     "Objective function decreased from {} to {}",
                     self.last_objf,
                     self.objf
