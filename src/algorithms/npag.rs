@@ -3,7 +3,7 @@ use crate::{
         algorithms::Algorithm,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        ipm::burke,
+        ipm_faer::burke,
         output::NPResult,
         output::{CycleLog, NPCycle},
         prob, qr,
