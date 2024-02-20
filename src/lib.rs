@@ -95,8 +95,16 @@ pub mod logger;
 /// Terminal-based user interface components.
 pub mod tui;
 
+// Re-export commonly used items
+pub use eyre::Result;
+pub use ode_solvers::*;
+pub use std::collections::HashMap;
+
 /// A collection of commonly used items to simplify imports.
 pub mod prelude {
+    pub use super::HashMap;
+    pub use super::Result;
+    pub use super::*;
     pub use crate::algorithms;
     pub use crate::entrypoints::simulate;
     pub use crate::entrypoints::start;
@@ -104,9 +112,11 @@ pub mod prelude {
     pub use crate::logger;
     pub use crate::prelude::evaluation::{prob, sigma, *};
     pub use crate::routines::condensation;
+    pub use crate::routines::datafile::*;
     pub use crate::routines::expansion::*;
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization;
+    pub use crate::routines::simulation::predict::*;
     pub use crate::routines::simulation::*;
     pub use crate::routines::*;
     pub use crate::tui::ui::*;
