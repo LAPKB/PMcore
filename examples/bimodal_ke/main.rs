@@ -49,11 +49,6 @@ impl ode_solvers::System<Time, State> for Model {
         ////// ODE //////
         dy[0] = -ke * y[0] + rateiv[0];
     }
-
-    /// Stop function called at every successful integration step. The integration is stopped when this function returns true.
-    fn solout(&mut self, _x: Time, _y: &State, _dy: &State) -> bool {
-        false
-    }
 }
 
 #[derive(Debug, Clone)]
