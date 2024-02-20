@@ -188,7 +188,6 @@
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{
     output::NPResult,
@@ -322,7 +321,6 @@
     <span class="comment">// Initialize algorithm and run
     </span><span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     <span class="kw">let </span>result = algorithm.fit();
-    <span class="macro">tracing::info!</span>(<span class="string">"Total time: {:.2?}"</span>, now.elapsed());
 
     <span class="comment">// Write output files (if configured)
     </span><span class="kw">if </span>settings.config.output {
@@ -331,9 +329,9 @@
         result.write_outputs(<span class="bool-val">true</span>, <span class="kw-2">&amp;</span>engine, idelta, tad);
     }
 
-    <span class="macro">tracing::info!</span>(<span class="string">"Program complete"</span>);
     maintx.send(Comm::StopUI).unwrap();
     handle.join().unwrap();
+    <span class="macro">tracing::info!</span>(<span class="string">"Program complete after {:.2?}"</span>, now.elapsed());
 
     <span class="prelude-val">Ok</span>(result)
 }

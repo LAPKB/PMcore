@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["IntegrationError","OutputType"],"struct":["Stats"],"trait":["System"]};
+window.SIDEBAR_ITEMS = {"enum":["IntegrationError","OutputType"],"struct":["SolverResult","Stats"],"trait":["FloatNumber","System"]};
