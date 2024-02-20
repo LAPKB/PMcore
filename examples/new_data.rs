@@ -1,10 +1,12 @@
 #![allow(dead_code)]
 // Redesign of data formats
 
+use csv::Writer;
 use serde::de::{self, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer};
-use std::collections::HashSet;
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt;
+use std::fs::File;
+use std::path::Path;
 use std::str::FromStr;
 use std::{collections::HashMap, error::Error};
 
@@ -101,7 +103,7 @@ impl CovLine {
         if delta_t < 0.0 {
             panic!("Interpolation time is before the last provided value")
         }
-        self.slope * (t - self.time) + self.intercept
+        self.slope * (delta_t) + self.intercept
     }
 }
 
@@ -196,9 +198,29 @@ impl Block {
         times
     }
 
-    /// Calculate the covariate lines for the block
-    pub fn calculate_covlines(&self) {
-        !todo!("Calculate covariate lines for the block")
+    /// Carry forward all covariate values
+    pub fn cf_covs(&mut self) {
+        let mut last_covs: HashMap<String, CovLine> = HashMap::new();
+
+        for event in &mut self.events {
+            let event_covs = match event {
+                Event::Bolus(bolus) => &mut bolus.covs,
+                Event::Infusion(infusion) => &mut infusion.covs,
+                Event::Observation(observation) => &mut observation.covs,
+            };
+
+            // Update covariates with last known values
+            for (key, last_cov) in &last_covs {
+                event_covs
+                    .entry(key.clone())
+                    .or_insert_with(|| last_cov.clone());
+            }
+
+            // Update last_covs with current event's covariates
+            for (key, cov) in event_covs.iter() {
+                last_covs.insert(key.clone(), cov.clone());
+            }
+        }
     }
 }
 
@@ -214,7 +236,7 @@ impl fmt::Display for Block {
 }
 
 // A row represents a single row in the datafile
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize, Default)]
 struct Row {
     pub id: String,
     pub evid: isize,
@@ -500,22 +522,72 @@ where
     deserializer.deserialize_map(CovsVisitor)
 }
 
+pub fn write_datafile(scenarios: &[Scenario], file_path: &str) -> Result<(), Box<dyn Error>> {
+    let file = File::create(Path::new(file_path))?;
+    let mut wtr = Writer::from_writer(file);
+
+    for scenario in scenarios {
+        for block in &scenario.blocks {
+            for event in &block.events {
+                // Convert each event to a Row and write it to the CSV
+                // This will require a custom conversion based on the event type
+                let row = match event {
+                    Event::Bolus(bolus) => Row {
+                        id: scenario.id.clone(),
+                        evid: 1, // Example evid for Bolus
+                        time: bolus.time,
+                        dose: Some(bolus.amount),
+                        input: Some(bolus.compartment),
+                        // Fill in other fields as necessary
+                        ..Default::default() // Use Default trait to fill in other fields with default values
+                                             // TODO: Support covariates (maps) in the Row struct
+                    },
+                    Event::Infusion(infusion) => Row {
+                        id: scenario.id.clone(),
+                        evid: 2, // Example evid for Infusion
+                        time: infusion.time,
+                        dose: Some(infusion.amount),
+                        dur: Some(infusion.duration),
+                        input: Some(infusion.compartment),
+                        // Fill in other fields as necessary
+                        ..Default::default() // TODO: Support covariates (maps) in the Row struct
+                    },
+                    Event::Observation(observation) => Row {
+                        id: scenario.id.clone(),
+                        evid: 0, // Example evid for Observation
+                        time: observation.time,
+                        out: Some(observation.value),
+                        outeq: Some(observation.outeq),
+                        // Fill in other fields as necessary
+                        ..Default::default() // TODO: Support covariates (maps) in the Row struct
+                    },
+                    // Add cases for other Event types as necessary
+                };
+                wtr.serialize(row)?;
+            }
+        }
+    }
+
+    wtr.flush()?;
+    Ok(())
+}
+
 fn main() {
     // Parse scenarios
     let scenarios = read_datafile("examples/data/bimodal_ke_blocks.csv").unwrap();
-
+    //write_datafile(&scenarios, "test.csv").unwrap();
     for mut scenario in scenarios {
         // Apply lagtime adjustments if necessary
         let mut lagtimes = HashMap::new();
         lagtimes.insert(1, 1.0); // Example adjustment
         scenario.add_lagtime(lagtimes);
 
-        // Calculate covariate lines for each block
+        // Covariates
         for block in &mut scenario.blocks {
-            block.calculate_covlines();
+            block.cf_covs();
         }
 
         // Now that covariate lines are calculated, print the scenario
-        println!("{}", scenario);
+        println!("{}", &scenario);
     }
 }
