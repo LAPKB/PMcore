@@ -3,7 +3,7 @@ use crate::{
         algorithms::Algorithm,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        // ipm,
+        ipm_faer::burke,
         output::NPResult,
         prob,
         settings::Settings,
@@ -15,8 +15,6 @@ use crate::{
 
 use ndarray::{Array1, Array2};
 use tokio::sync::mpsc::UnboundedSender;
-
-use super::evaluation::ipm_faer;
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
@@ -108,7 +106,7 @@ where
                 e_type: &self.error_type,
             },
         );
-        let (w, objf) = ipm_faer::burke(&self.psi).expect("Error in IPM");
+        let (w, objf) = burke(&self.psi).expect("Error in IPM");
         self.w = w;
         self.objf = objf;
         self.to_npresult()

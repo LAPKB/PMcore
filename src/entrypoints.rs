@@ -131,7 +131,6 @@ where
     // Initialize algorithm and run
     let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
     let result = algorithm.fit();
-    tracing::info!("Total time: {:.2?}", now.elapsed());
 
     // Write output files (if configured)
     if settings.config.output {
@@ -140,9 +139,9 @@ where
         result.write_outputs(true, &engine, idelta, tad);
     }
 
-    tracing::info!("Program complete");
     maintx.send(Comm::StopUI).unwrap();
     handle.join().unwrap();
+    tracing::info!("Program complete after {:.2?}", now.elapsed());
 
     Ok(result)
 }

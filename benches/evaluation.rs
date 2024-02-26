@@ -12,13 +12,7 @@ fn benchmark_normal_likelihood(c: &mut Criterion) {
         let sigma = Array1::from_elem(size, 1.0);
 
         c.bench_function(&format!("normal_likelihood_{size}"), |b| {
-            b.iter(|| {
-                normal_likelihood(
-                    black_box(&ypred),
-                    black_box(&yobs),
-                    black_box(&sigma)
-                )
-            });
+            b.iter(|| normal_likelihood(black_box(&ypred), black_box(&yobs), black_box(&sigma)));
         });
     }
 }

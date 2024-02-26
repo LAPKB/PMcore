@@ -1,7 +1,4 @@
-use std::fs::File;
-
 use crate::{
-    // logger::trace_memory,
     prelude::{
         algorithms::Algorithm,
         datafile::Scenario,
@@ -18,10 +15,7 @@ use crate::{
     tui::ui::Comm,
 };
 
-use csv::WriterBuilder;
 use ndarray::{Array, Array1, Array2, Axis};
-use ndarray_csv::Array2Writer;
-extern crate ndarray_csv;
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -212,20 +206,10 @@ where
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
 
-            // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
-            // trace_memory("before psi");
 
-            // if Path::new("psi_cache.csv").exists() {
-            //     let file = File::open("psi_cache.csv").unwrap();
-            //     let mut reader = ReaderBuilder::new().has_headers(false).from_reader(file);
-            //     self.psi = reader
-            //         .deserialize_array2((self.scenarios.len(), self.theta.nrows()))
-            //         .unwrap();
-            // trace_memory("after loading psi from csv");
-            // } else {
             let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
-            // trace_memory("after ypred");
+
             self.psi = prob::calculate_psi(
                 &ypred,
                 &self.scenarios,
@@ -235,16 +219,7 @@ where
                     e_type: &self.error_type,
                 },
             );
-            // trace_memory("after calculate_psi");
-            drop(ypred);
-            // trace_memory("after dropping ypred");
-            {
-                let file = File::create("psi_cache.csv").unwrap();
-                let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-                writer.serialize_array2(&self.psi).unwrap();
-            }
-            // }
-            // trace_memory("before ipm");
+
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
@@ -277,7 +252,7 @@ where
                 }
             }
 
-            // If a support point is dropped, log it
+            // If a support point is dropped, log it as a debug message
             if self.psi.ncols() != keep.len() {
                 tracing::debug!(
                     "QRD dropped {} support point(s)",
@@ -310,7 +285,7 @@ where
 
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
-                tracing::info!(
+                tracing::warn!(
                     "Objective function decreased from {} to {}",
                     self.last_objf,
                     self.objf

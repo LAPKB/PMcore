@@ -109,30 +109,12 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<(
         }
     }
 
-    // Exit alternate screen, and print one last frame
-
+    // Exit alternate screen and disable raw mode
     execute!(
         terminal.backend_mut(),
         crossterm::terminal::LeaveAlternateScreen
     )?;
-    terminal.clear()?;
-    terminal
-        .draw(|rect| {
-            draw(
-                rect,
-                &app,
-                &cycle_history,
-                elapsed_time,
-                &settings,
-                &log_history,
-            )
-        })
-        .unwrap();
-    terminal.show_cursor()?;
     crossterm::terminal::disable_raw_mode()?;
-    terminal
-        .draw(|rect| draw(rect, &app, &app_history, elapsed_time, &settings))
-        .unwrap();
     Ok(())
 }
 
