@@ -73,8 +73,8 @@ impl Scenario {
                     time: current_time,
                     dur: None,
                     dose: None,
-                    _addl: None,
-                    _ii: None,
+                    addl: None,
+                    ii: None,
                     input: None,
                     out: Some(-99.0),
                     outeq: Some(*outeq),
@@ -330,7 +330,7 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
             && event.ii.unwrap() > 0.0
         {
             let mut ev = event.clone();
-            log::info!("Expanding ADDL event for subject {:?}", ev.id);
+            tracing::debug!("Expanding ADDL event for subject {:?}", ev.id);
             let interval = ev.ii.unwrap();
             let repetitions = ev.addl.unwrap().abs();
             let direction = ev.addl.unwrap().signum();
