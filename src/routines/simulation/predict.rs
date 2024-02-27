@@ -11,6 +11,13 @@ use ndarray::{Array, Array2, Axis};
 use std::collections::HashMap;
 use std::error;
 use std::hash::{Hash, Hasher};
+use std::io::Write;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::thread::sleep;
+use std::time::Duration;
 
 /// Number of support points to cache for each scenario
 const CACHE_SIZE: usize = 1000;
@@ -192,6 +199,21 @@ where
 {
     let mut pred: Array2<Array1<f64>> =
         Array2::default((scenarios.len(), support_points.nrows()).f());
+
+    // Provide progress updates
+    let total = scenarios.len(); //* support_points.len() / 2;
+    let progress = Arc::new(AtomicUsize::new(0));
+    let progress_clone = Arc::clone(&progress);
+    let total_inv = 1.0 / total as f64;
+    let progress_thread = thread::spawn(move || {
+        while progress_clone.load(Ordering::SeqCst) < total {
+            let current_progress = progress_clone.load(Ordering::SeqCst) as f64;
+            let percentage = current_progress * total_inv * 100.0; // Multiply by the pre-calculated reciprocal
+            tracing::debug!("Progress: {:.2}%", percentage);
+            thread::sleep(Duration::from_millis(10000));
+        }
+    });
+
     pred.axis_iter_mut(Axis(0))
         .into_par_iter()
         .enumerate()
@@ -210,7 +232,9 @@ where
                     );
                     element.fill(ypred);
                 });
+            let _ = progress.fetch_add(1, std::sync::atomic::Ordering::SeqCst); // Increment progress
         });
+    progress_thread.join().unwrap(); // Wait for the progress thread to finish
     pred
 }
 
