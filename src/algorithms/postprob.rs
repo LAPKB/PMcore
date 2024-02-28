@@ -96,7 +96,7 @@ where
     }
 
     pub fn run(&mut self) -> NPResult {
-        let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, false);
+        let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, false, None);
         self.psi = prob::calculate_psi(
             &ypred,
             &self.scenarios,

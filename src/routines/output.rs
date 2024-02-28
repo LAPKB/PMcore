@@ -206,12 +206,14 @@ impl NPResult {
                 &scenarios,
                 &pop_mean.into_shape((1, ndim)).unwrap(),
                 false,
+                None,
             );
             let pop_median_pred = sim_obs(
                 engine,
                 &scenarios,
                 &pop_median.into_shape((1, ndim)).unwrap(),
                 false,
+                None,
             );
 
             let file = File::create("pred.csv")?;

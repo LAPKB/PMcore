@@ -132,7 +132,7 @@ where
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
-        let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, self.cache);
+        let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, self.cache, None);
         let psi_up = prob::calculate_psi(
             &ypred,
             &self.scenarios,
@@ -191,7 +191,7 @@ where
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
-            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
+            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache, None);
 
             self.psi = prob::calculate_psi(
                 &ypred,

@@ -11,13 +11,12 @@ use ndarray::{Array, Array2, Axis};
 use std::collections::HashMap;
 use std::error;
 use std::hash::{Hash, Hasher};
-use std::io::Write;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
-use std::thread::sleep;
 use std::time::Duration;
+use tracing::Span;
 
 /// Number of support points to cache for each scenario
 const CACHE_SIZE: usize = 1000;
@@ -193,6 +192,7 @@ pub fn sim_obs<S>(
     scenarios: &Vec<Scenario>,
     support_points: &Array2<f64>,
     cache: bool,
+    span: Option<Span>,
 ) -> Array2<Array1<f64>>
 where
     S: Predict<'static> + Sync + Clone,
@@ -206,12 +206,18 @@ where
     let progress_clone = Arc::clone(&progress);
     let total_inv = 1.0 / total as f64;
     let progress_thread = thread::spawn(move || {
-        while progress_clone.load(Ordering::SeqCst) < total {
-            let current_progress = progress_clone.load(Ordering::SeqCst) as f64;
-            let percentage = current_progress * total_inv * 100.0; // Multiply by the pre-calculated reciprocal
-            tracing::debug!("Progress: {:.2}%", percentage);
-            thread::sleep(Duration::from_millis(10000));
-        }
+        let _ = match span {
+            Some(span) => {
+                let _guard = span.enter();
+                while progress_clone.load(Ordering::SeqCst) < total {
+                    let current_progress = progress_clone.load(Ordering::SeqCst) as f64;
+                    let percentage = current_progress * total_inv * 100.0;
+                    tracing::info!("Progress: {:.2}%", percentage);
+                    thread::sleep(Duration::from_millis(1000));
+                }
+            }
+            None => (),
+        };
     });
 
     pred.axis_iter_mut(Axis(0))
@@ -232,7 +238,8 @@ where
                     );
                     element.fill(ypred);
                 });
-            let _ = progress.fetch_add(1, std::sync::atomic::Ordering::SeqCst); // Increment progress
+            // Increment progress
+            progress.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
     progress_thread.join().unwrap(); // Wait for the progress thread to finish
     pred

@@ -51,7 +51,7 @@ where
     });
 
     // Perform simulation
-    let ypred = sim_obs(&engine, &scenarios, &theta, false);
+    let ypred = sim_obs(&engine, &scenarios, &theta, false, None);
 
     // Prepare writer
     let sim_file = File::create("simulation_output.csv").unwrap();
