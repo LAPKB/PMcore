@@ -206,14 +206,19 @@ where
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
 
+            // Dont use cache on the first cycle, and report progress
             let cache = if self.cycle == 1 { false } else { self.cache };
+            let progress_span = match self.cycle {
+                1 => Some(cycle_span.clone()),
+                _ => None,
+            };
 
             let ypred = sim_obs(
                 &self.engine,
                 &self.scenarios,
                 &self.theta,
                 cache,
-                Some(cycle_span.clone()),
+                progress_span,
             );
 
             self.psi = prob::calculate_psi(

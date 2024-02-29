@@ -204,16 +204,18 @@ where
     let total = scenarios.len(); //* support_points.len() / 2;
     let progress = Arc::new(AtomicUsize::new(0));
     let progress_clone = Arc::clone(&progress);
-    let total_inv = 1.0 / total as f64;
     let progress_thread = thread::spawn(move || {
         let _ = match span {
             Some(span) => {
                 let _guard = span.enter();
                 while progress_clone.load(Ordering::SeqCst) < total {
                     let current_progress = progress_clone.load(Ordering::SeqCst) as f64;
-                    let percentage = current_progress * total_inv * 100.0;
-                    tracing::info!("Progress: {:.2}%", percentage);
-                    thread::sleep(Duration::from_millis(1000));
+                    tracing::info!(
+                        "Finished simulating {} out of {} subjects",
+                        current_progress,
+                        total
+                    );
+                    thread::sleep(Duration::from_secs(1));
                 }
             }
             None => (),
@@ -238,7 +240,6 @@ where
                     );
                     element.fill(ypred);
                 });
-            // Increment progress
             progress.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
     progress_thread.join().unwrap(); // Wait for the progress thread to finish
