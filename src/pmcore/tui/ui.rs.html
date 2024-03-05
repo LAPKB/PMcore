@@ -288,7 +288,7 @@
 
     <span class="comment">// Main UI loop
     </span><span class="kw">loop </span>{
-        <span class="kw">let _ </span>= <span class="kw">match </span>rx.try_recv() {
+        <span class="kw">match </span>rx.try_recv() {
             <span class="prelude-val">Ok</span>(comm) =&gt; <span class="kw">match </span>comm {
                 Comm::NPCycle(cycle) =&gt; {
                     app.state = cycle.clone();
@@ -413,7 +413,7 @@
         .constraints([Constraint::Percentage(<span class="number">10</span>), Constraint::Percentage(<span class="number">90</span>)].as_ref())
         .split(bottom_chunk);
 
-    <span class="kw">let </span>tabs = draw_tabs(<span class="kw-2">&amp;</span>app);
+    <span class="kw">let </span>tabs = draw_tabs(app);
     rect.render_widget(tabs, tab_layout[<span class="number">0</span>]);
 
     <span class="comment">// Plot

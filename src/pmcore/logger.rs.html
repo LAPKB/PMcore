@@ -156,7 +156,7 @@
 </span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: UnboundedSender&lt;Comm&gt;) {
     <span class="comment">// Use the log level defined in configuration file, or default to info
     </span><span class="kw">let </span>log_level = settings.config.log_level.as_str();
-    <span class="kw">let </span>env_filter = EnvFilter::new(<span class="kw-2">&amp;</span>log_level);
+    <span class="kw">let </span>env_filter = EnvFilter::new(log_level);
 
     <span class="comment">// Use the log file defined in configuration file, or default to pmcore.log
     </span><span class="kw">let </span>log_path = std::path::Path::new(settings.paths.log.as_ref().unwrap());

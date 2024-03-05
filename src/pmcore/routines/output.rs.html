@@ -568,6 +568,12 @@
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>datafile::Scenario;
@@ -629,7 +635,7 @@
             <span class="self">self</span>.write_theta();
             <span class="self">self</span>.write_posterior();
             <span class="self">self</span>.write_obs();
-            <span class="self">self</span>.write_pred(<span class="kw-2">&amp;</span>engine, idelta, tad);
+            <span class="self">self</span>.write_pred(engine, idelta, tad);
             <span class="self">self</span>.write_meta();
         }
     }
@@ -960,6 +966,12 @@
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>MetaWriter {
     writer: csv::Writer&lt;File&gt;,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>MetaWriter {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new()
+    }
 }
 
 <span class="kw">impl </span>MetaWriter {

@@ -142,7 +142,7 @@
                     AppReturn::Continue
                 }
                 Action::Next =&gt; {
-                    <span class="self">self</span>.tab_index = <span class="self">self</span>.tab_index + <span class="number">1</span>;
+                    <span class="self">self</span>.tab_index += <span class="number">1</span>;
                     <span class="kw">if </span><span class="self">self</span>.tab_index &gt;= <span class="self">self</span>.tab_titles.len() {
                         <span class="self">self</span>.tab_index = <span class="number">0</span>;
                     }

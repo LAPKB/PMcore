@@ -243,13 +243,13 @@
                 .min(-<span class="number">0.5</span>)),
         );
         alfdual = (<span class="number">0.99995 </span>* alfdual).min(<span class="number">1.0</span>);
-        lam = lam + scale(alfpri) * dlam;
-        w = w + scale(alfdual) * <span class="kw-2">&amp;</span>dw;
-        y = y + scale(alfdual) * <span class="kw-2">&amp;</span>dy;
+        lam += scale(alfpri) * dlam;
+        w += scale(alfdual) * <span class="kw-2">&amp;</span>dw;
+        y += scale(alfdual) * <span class="kw-2">&amp;</span>dy;
         mu = (lam.transpose() * <span class="kw-2">&amp;</span>y).get(<span class="number">0</span>, <span class="number">0</span>) / col <span class="kw">as </span>f64;
         plam = <span class="kw-2">&amp;</span>psi * <span class="kw-2">&amp;</span>lam;
         r = <span class="kw-2">&amp;</span>erow - <span class="macro">zipped!</span>(w.as_ref(), plam.as_ref()).map(|<span class="macro">unzipped!</span>(w_i, plam_i)| <span class="kw-2">*</span>w_i * <span class="kw-2">*</span>plam_i);
-        ptw = ptw - scale(alfdual) * dy;
+        ptw -= scale(alfdual) * dy;
         norm_r = r.norm_max();
         <span class="kw">let </span><span class="kw-2">mut </span>sum_log_plam = <span class="number">0.0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>sum_log_w = <span class="number">0.0</span>;

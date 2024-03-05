@@ -345,7 +345,7 @@
                 .border_type(BorderType::Plain)
                 .title(<span class="string">" Status "</span>),
         )
-        .widths(<span class="kw-2">&amp;</span>[Constraint::Percentage(<span class="number">50</span>), Constraint::Percentage(<span class="number">50</span>)]) <span class="comment">// Set percentage widths for columns
+        .widths([Constraint::Percentage(<span class="number">50</span>), Constraint::Percentage(<span class="number">50</span>)]) <span class="comment">// Set percentage widths for columns
         </span>.column_spacing(<span class="number">1</span>)
 }
 
@@ -394,7 +394,7 @@
                 .border_type(BorderType::Plain)
                 .title(<span class="string">" Options "</span>),
         )
-        .widths(<span class="kw-2">&amp;</span>[Constraint::Percentage(<span class="number">50</span>), Constraint::Percentage(<span class="number">50</span>)]) <span class="comment">// Set percentage widths for columns
+        .widths([Constraint::Percentage(<span class="number">50</span>), Constraint::Percentage(<span class="number">50</span>)]) <span class="comment">// Set percentage widths for columns
         </span>.column_spacing(<span class="number">1</span>)
 }
 
@@ -428,7 +428,7 @@
                 .border_type(BorderType::Plain)
                 .title(<span class="string">" Commands "</span>),
         )
-        .widths(<span class="kw-2">&amp;</span>[Constraint::Percentage(<span class="number">50</span>), Constraint::Percentage(<span class="number">50</span>)]) <span class="comment">// Set percentage widths for columns
+        .widths([Constraint::Percentage(<span class="number">50</span>), Constraint::Percentage(<span class="number">50</span>)]) <span class="comment">// Set percentage widths for columns
         </span>.column_spacing(<span class="number">1</span>)
 }
 
@@ -493,7 +493,7 @@
         )
 }
 
-<span class="kw">pub fn </span>draw_logs&lt;<span class="lifetime">'a</span>&gt;(log_history: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;String&gt;, height: u16) -&gt; Paragraph&lt;<span class="lifetime">'a</span>&gt; {
+<span class="kw">pub fn </span>draw_logs(log_history: <span class="kw-2">&amp;</span>Vec&lt;String&gt;, height: u16) -&gt; Paragraph&lt;<span class="lifetime">'_</span>&gt; {
     <span class="comment">// Convert each String in log_history to a Line
     </span><span class="kw">let </span>text: Vec&lt;Line&gt; = log_history.iter().map(|s| Line::from(s.as_str())).collect();
 
@@ -517,7 +517,7 @@
 
 <span class="kw">pub fn </span>draw_tabs&lt;<span class="lifetime">'a</span>&gt;(app: <span class="kw-2">&amp;</span>App) -&gt; Tabs&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">let </span>titles = app.tab_titles.clone();
-    <span class="kw">let </span>index = app.tab_index.clone();
+    <span class="kw">let </span>index = app.tab_index;
     <span class="kw">let </span>tabs = Tabs::new(titles.clone())
         .block(Block::default().borders(Borders::ALL))
         .style(Style::default().fg(Color::Cyan))
