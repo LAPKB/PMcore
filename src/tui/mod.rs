@@ -58,7 +58,7 @@ impl App {
                     AppReturn::Continue
                 }
                 Action::Next => {
-                    self.tab_index = self.tab_index + 1;
+                    self.tab_index += 1;
                     if self.tab_index >= self.tab_titles.len() {
                         self.tab_index = 0;
                     }

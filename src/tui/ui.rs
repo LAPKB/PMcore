@@ -54,7 +54,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<(
 
     // Main UI loop
     loop {
-        let _ = match rx.try_recv() {
+        match rx.try_recv() {
             Ok(comm) => match comm {
                 Comm::NPCycle(cycle) => {
                     app.state = cycle.clone();
@@ -179,7 +179,7 @@ pub fn draw(
         .constraints([Constraint::Percentage(10), Constraint::Percentage(90)].as_ref())
         .split(bottom_chunk);
 
-    let tabs = draw_tabs(&app);
+    let tabs = draw_tabs(app);
     rect.render_widget(tabs, tab_layout[0]);
 
     // Plot

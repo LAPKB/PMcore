@@ -322,7 +322,7 @@ pub fn parse(path: &String) -> Result<Vec<Scenario>, Box<dyn Error>> {
     events.into_iter().for_each(|event| {
         event_groups
             .entry(event.id.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(event);
     });
 

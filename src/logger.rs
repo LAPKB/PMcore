@@ -23,7 +23,7 @@ use tracing_subscriber::EnvFilter;
 pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
     // Use the log level defined in configuration file, or default to info
     let log_level = settings.config.log_level.as_str();
-    let env_filter = EnvFilter::new(&log_level);
+    let env_filter = EnvFilter::new(log_level);
 
     // Use the log file defined in configuration file, or default to pmcore.log
     let log_path = std::path::Path::new(settings.paths.log.as_ref().unwrap());
