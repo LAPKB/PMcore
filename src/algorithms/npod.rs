@@ -8,8 +8,7 @@ use crate::{
         optimization::d_optimizer::SppOptimizer,
         output::NPResult,
         output::{CycleLog, NPCycle},
-        prob,
-        qr,
+        prob, qr,
         settings::Settings,
         simulation::predict::Engine,
         simulation::predict::{sim_obs, Predict},
@@ -20,7 +19,6 @@ use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
-
 
 const THETA_D: f64 = 1e-4;
 const THETA_F: f64 = 1e-2;
@@ -46,7 +44,7 @@ where
     cache: bool,
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
-    tx: UnboundedSender<Comm>,
+    tx: Option<UnboundedSender<Comm>>,
     settings: Settings,
 }
 
@@ -96,7 +94,7 @@ where
         theta: Array2<f64>,
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender<Comm>,
+        tx: Option<UnboundedSender<Comm>>,
         settings: Settings,
     ) -> Self
     where
@@ -262,7 +260,11 @@ where
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
             };
-            self.tx.send(Comm::NPCycle(state.clone())).unwrap();
+
+            match &self.tx {
+                Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
+                None => (),
+            }
 
             // If the objective function decreased, log an error.
             // Increasing objf signals instability of model misspecification.
