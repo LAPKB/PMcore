@@ -20,7 +20,7 @@ use tracing_subscriber::EnvFilter;
 /// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
 ///
 /// If not, the log messages are written to stdout.
-pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
+pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) {
     // Use the log level defined in configuration file, or default to info
     let log_level = settings.config.log_level.as_str();
     let env_filter = EnvFilter::new(log_level);
@@ -51,18 +51,23 @@ pub fn setup_log(settings: &Settings, ui_tx: UnboundedSender<Comm>) {
         .with_target(false)
         .with_timer(CompactTimestamp);
 
-    // Define layer for TUI
-    let tui_writer_closure = move || TuiWriter {
-        ui_tx: ui_tx.clone(),
-    };
-
+    // Check if ui_tx is Some and clone it for use in the closure
     let tui_layer = if settings.config.tui {
-        let layer = fmt::layer()
-            .with_writer(tui_writer_closure)
-            .with_ansi(false)
-            .with_target(false)
-            .with_timer(CompactTimestamp);
-        Some(layer)
+        if let Some(ui_tx) = ui_tx.clone() {
+            // Clone the sender outside the closure
+            let tui_writer_closure = move || TuiWriter {
+                // Use move to capture the cloned sender
+                ui_tx: ui_tx.clone(), // Clone the sender for each closure invocation
+            };
+            let layer = fmt::layer()
+                .with_writer(tui_writer_closure)
+                .with_ansi(false)
+                .with_target(false)
+                .with_timer(CompactTimestamp);
+            Some(layer)
+        } else {
+            None
+        }
     } else {
         None
     };
