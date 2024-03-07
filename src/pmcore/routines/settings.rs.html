@@ -242,6 +242,18 @@
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
@@ -285,25 +297,33 @@
 #[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>Config {
     <span class="doccomment">/// Maximum number of cycles
+    </span><span class="attr">#[serde(default = <span class="string">"default_cycles"</span>)]
     </span><span class="kw">pub </span>cycles: usize,
     <span class="doccomment">/// Denotes the algorithm to use, `NPAG` is the only supported algorithm for now.
     </span><span class="kw">pub </span>engine: String,
     <span class="attr">#[serde(default = <span class="string">"default_seed"</span>)]
+    </span><span class="doccomment">/// Default seed for the initialization
     </span><span class="kw">pub </span>seed: usize,
-    <span class="attr">#[serde(default = <span class="string">"default_10k"</span>)]
+    <span class="doccomment">/// Default number of points in the initial grid
+    </span><span class="attr">#[serde(default = <span class="string">"default_10k"</span>)]
     </span><span class="kw">pub </span>init_points: usize,
     <span class="attr">#[serde(default = <span class="string">"default_false"</span>)]
     </span><span class="kw">pub </span>tui: bool,
     <span class="attr">#[serde(default = <span class="string">"default_true"</span>)]
     </span><span class="kw">pub </span>output: bool,
-    <span class="attr">#[serde(default = <span class="string">"default_true"</span>)]
+    <span class="doccomment">/// If true (default), cache predicted values
+    </span><span class="attr">#[serde(default = <span class="string">"default_true"</span>)]
     </span><span class="kw">pub </span>cache: bool,
-    <span class="attr">#[serde(default = <span class="string">"default_idelta"</span>)]
+    <span class="doccomment">/// The interval (in hours) at which to generate output predictions
+    </span><span class="attr">#[serde(default = <span class="string">"default_idelta"</span>)]
     </span><span class="kw">pub </span>idelta: f64,
-    <span class="attr">#[serde(default = <span class="string">"default_log_level"</span>)]
+    <span class="doccomment">/// Maximum log level for the logger
+    </span><span class="attr">#[serde(default = <span class="string">"default_log_level"</span>)]
     </span><span class="kw">pub </span>log_level: String,
-    <span class="kw">pub </span>exclude: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
-    <span class="attr">#[serde(default = <span class="string">"default_tad"</span>)]
+    <span class="doccomment">/// Vector if IDs to exclude
+    </span><span class="kw">pub </span>exclude: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
+    <span class="doccomment">/// Generate predictions at [Config::idelta] intervals to this many hours after the last dose
+    </span><span class="attr">#[serde(default = <span class="string">"default_tad"</span>)]
     </span><span class="kw">pub </span>tad: f64,
 }
 
@@ -485,4 +505,7 @@
 <span class="kw">fn </span>default_10k() -&gt; usize {
     <span class="number">10_000
 </span>}
-</code></pre></div></section></main></body></html>
+
+<span class="kw">fn </span>default_cycles() -&gt; usize {
+    <span class="number">100
+</span>}</code></pre></div></section></main></body></html>
