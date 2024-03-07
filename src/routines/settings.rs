@@ -41,24 +41,32 @@ pub struct Paths {
 #[serde(deny_unknown_fields)]
 pub struct Config {
     /// Maximum number of cycles
+    #[serde(default = "default_cycles")]
     pub cycles: usize,
     /// Denotes the algorithm to use, `NPAG` is the only supported algorithm for now.
     pub engine: String,
     #[serde(default = "default_seed")]
+    /// Default seed for the initialization
     pub seed: usize,
+    /// Default number of points in the initial grid
     #[serde(default = "default_10k")]
     pub init_points: usize,
     #[serde(default = "default_false")]
     pub tui: bool,
     #[serde(default = "default_true")]
     pub output: bool,
+    /// If true (default), cache predicted values
     #[serde(default = "default_true")]
     pub cache: bool,
+    /// The interval (in hours) at which to generate output predictions
     #[serde(default = "default_idelta")]
     pub idelta: f64,
+    /// Maximum log level for the logger
     #[serde(default = "default_log_level")]
     pub log_level: String,
+    /// Vector if IDs to exclude
     pub exclude: Option<Vec<String>>,
+    /// Generate predictions at [Config::idelta] intervals to this many hours after the last dose
     #[serde(default = "default_tad")]
     pub tad: f64,
 }
@@ -240,4 +248,8 @@ fn default_tad() -> f64 {
 
 fn default_10k() -> usize {
     10_000
+}
+
+fn default_cycles() -> usize {
+    100
 }
