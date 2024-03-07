@@ -131,6 +131,11 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
@@ -153,7 +158,7 @@
 /// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
 ///
 /// If not, the log messages are written to stdout.
-</span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: UnboundedSender&lt;Comm&gt;) {
+</span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;) {
     <span class="comment">// Use the log level defined in configuration file, or default to info
     </span><span class="kw">let </span>log_level = settings.config.log_level.as_str();
     <span class="kw">let </span>env_filter = EnvFilter::new(log_level);
@@ -184,18 +189,23 @@
         .with_target(<span class="bool-val">false</span>)
         .with_timer(CompactTimestamp);
 
-    <span class="comment">// Define layer for TUI
-    </span><span class="kw">let </span>tui_writer_closure = <span class="kw">move </span>|| TuiWriter {
-        ui_tx: ui_tx.clone(),
-    };
-
-    <span class="kw">let </span>tui_layer = <span class="kw">if </span>settings.config.tui {
-        <span class="kw">let </span>layer = fmt::layer()
-            .with_writer(tui_writer_closure)
-            .with_ansi(<span class="bool-val">false</span>)
-            .with_target(<span class="bool-val">false</span>)
-            .with_timer(CompactTimestamp);
-        <span class="prelude-val">Some</span>(layer)
+    <span class="comment">// Check if ui_tx is Some and clone it for use in the closure
+    </span><span class="kw">let </span>tui_layer = <span class="kw">if </span>settings.config.tui {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ui_tx) = ui_tx.clone() {
+            <span class="comment">// Clone the sender outside the closure
+            </span><span class="kw">let </span>tui_writer_closure = <span class="kw">move </span>|| TuiWriter {
+                <span class="comment">// Use move to capture the cloned sender
+                </span>ui_tx: ui_tx.clone(), <span class="comment">// Clone the sender for each closure invocation
+            </span>};
+            <span class="kw">let </span>layer = fmt::layer()
+                .with_writer(tui_writer_closure)
+                .with_ansi(<span class="bool-val">false</span>)
+                .with_target(<span class="bool-val">false</span>)
+                .with_timer(CompactTimestamp);
+            <span class="prelude-val">Some</span>(layer)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>}
     } <span class="kw">else </span>{
         <span class="prelude-val">None
     </span>};

@@ -87,7 +87,7 @@
     engine: Engine&lt;S&gt;,
     settings: Settings,
     scenarios: Vec&lt;Scenario&gt;,
-    tx: mpsc::UnboundedSender&lt;Comm&gt;,
+    tx: <span class="prelude-ty">Option</span>&lt;mpsc::UnboundedSender&lt;Comm&gt;&gt;,
 ) -&gt; Box&lt;<span class="kw">dyn </span>Algorithm&gt;
 <span class="kw">where
     </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone + <span class="lifetime">'static</span>,

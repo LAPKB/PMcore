@@ -340,6 +340,9 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -390,7 +393,7 @@
     cache: bool,
     scenarios: Vec&lt;Scenario&gt;,
     c: (f64, f64, f64, f64),
-    tx: UnboundedSender&lt;Comm&gt;,
+    tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
     settings: Settings,
 }
 
@@ -440,7 +443,7 @@
         theta: Array2&lt;f64&gt;,
         scenarios: Vec&lt;Scenario&gt;,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender&lt;Comm&gt;,
+        tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
         settings: Settings,
     ) -&gt; <span class="self">Self
     </span><span class="kw">where
@@ -623,7 +626,10 @@
                 theta: <span class="self">self</span>.theta.clone(),
                 gamlam: <span class="self">self</span>.gamma,
             };
-            <span class="self">self</span>.tx.send(Comm::NPCycle(state.clone())).unwrap();
+            <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.tx {
+                <span class="prelude-val">Some</span>(tx) =&gt; tx.send(Comm::NPCycle(state.clone())).unwrap(),
+                <span class="prelude-val">None </span>=&gt; (),
+            }
 
             <span class="comment">// Increasing objf signals instability or model misspecification.
             </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {

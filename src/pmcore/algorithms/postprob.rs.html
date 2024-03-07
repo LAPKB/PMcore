@@ -149,7 +149,7 @@
     scenarios: Vec&lt;Scenario&gt;,
     c: (f64, f64, f64, f64),
     <span class="attr">#[allow(dead_code)]
-    </span>tx: UnboundedSender&lt;Comm&gt;,
+    </span>tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
     settings: Settings,
 }
 
@@ -183,7 +183,7 @@
         theta: Array2&lt;f64&gt;,
         scenarios: Vec&lt;Scenario&gt;,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender&lt;Comm&gt;,
+        tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
         settings: Settings,
     ) -&gt; <span class="self">Self
     </span><span class="kw">where
