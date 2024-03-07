@@ -71,7 +71,7 @@ pub fn draw_status<'a>(app: &App, elapsed_time: Duration) -> Table<'a> {
                 .border_type(BorderType::Plain)
                 .title(" Status "),
         )
-        .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]) // Set percentage widths for columns
+        .widths([Constraint::Percentage(50), Constraint::Percentage(50)]) // Set percentage widths for columns
         .column_spacing(1)
 }
 
@@ -120,7 +120,7 @@ pub fn draw_options<'a>(settings: &Settings) -> Table<'a> {
                 .border_type(BorderType::Plain)
                 .title(" Options "),
         )
-        .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]) // Set percentage widths for columns
+        .widths([Constraint::Percentage(50), Constraint::Percentage(50)]) // Set percentage widths for columns
         .column_spacing(1)
 }
 
@@ -154,7 +154,7 @@ pub fn draw_commands(app: &App) -> Table {
                 .border_type(BorderType::Plain)
                 .title(" Commands "),
         )
-        .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)]) // Set percentage widths for columns
+        .widths([Constraint::Percentage(50), Constraint::Percentage(50)]) // Set percentage widths for columns
         .column_spacing(1)
 }
 
@@ -219,7 +219,7 @@ pub fn draw_plot(norm_data: &mut [(f64, f64)]) -> Chart {
         )
 }
 
-pub fn draw_logs<'a>(log_history: &'a Vec<String>, height: u16) -> Paragraph<'a> {
+pub fn draw_logs(log_history: &Vec<String>, height: u16) -> Paragraph<'_> {
     // Convert each String in log_history to a Line
     let text: Vec<Line> = log_history.iter().map(|s| Line::from(s.as_str())).collect();
 
@@ -243,7 +243,7 @@ pub fn draw_logs<'a>(log_history: &'a Vec<String>, height: u16) -> Paragraph<'a>
 
 pub fn draw_tabs<'a>(app: &App) -> Tabs<'a> {
     let titles = app.tab_titles.clone();
-    let index = app.tab_index.clone();
+    let index = app.tab_index;
     let tabs = Tabs::new(titles.clone())
         .block(Block::default().borders(Borders::ALL))
         .style(Style::default().fg(Color::Cyan))

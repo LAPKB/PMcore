@@ -59,7 +59,7 @@ impl NPResult {
             self.write_theta();
             self.write_posterior();
             self.write_obs();
-            self.write_pred(&engine, idelta, tad);
+            self.write_pred(engine, idelta, tad);
             self.write_meta();
         }
     }
@@ -390,6 +390,12 @@ impl CycleWriter {
 #[derive(Debug)]
 pub struct MetaWriter {
     writer: csv::Writer<File>,
+}
+
+impl Default for MetaWriter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MetaWriter {

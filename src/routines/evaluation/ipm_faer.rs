@@ -90,13 +90,13 @@ pub fn burke(
                 .min(-0.5)),
         );
         alfdual = (0.99995 * alfdual).min(1.0);
-        lam = lam + scale(alfpri) * dlam;
-        w = w + scale(alfdual) * &dw;
-        y = y + scale(alfdual) * &dy;
+        lam += scale(alfpri) * dlam;
+        w += scale(alfdual) * &dw;
+        y += scale(alfdual) * &dy;
         mu = (lam.transpose() * &y).get(0, 0) / col as f64;
         plam = &psi * &lam;
         r = &erow - zipped!(w.as_ref(), plam.as_ref()).map(|unzipped!(w_i, plam_i)| *w_i * *plam_i);
-        ptw = ptw - scale(alfdual) * dy;
+        ptw -= scale(alfdual) * dy;
         norm_r = r.norm_max();
         let mut sum_log_plam = 0.0;
         let mut sum_log_w = 0.0;

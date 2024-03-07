@@ -31,7 +31,7 @@ where
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = spp.to_owned().insert_axis(Axis(0));
-        let ypred = sim_obs(&self.engine, &self.scenarios, &theta, true);
+        let ypred = sim_obs(self.engine, self.scenarios, &theta, true);
         let psi = prob::calculate_psi(&ypred, self.scenarios, self.sig);
         if psi.ncols() > 1 {
             tracing::error!("Psi in SppOptimizer has more than one column");
