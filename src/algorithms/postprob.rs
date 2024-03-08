@@ -34,7 +34,7 @@ where
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
     #[allow(dead_code)]
-    tx: UnboundedSender<Comm>,
+    tx: Option<UnboundedSender<Comm>>,
     settings: Settings,
 }
 
@@ -68,7 +68,7 @@ where
         theta: Array2<f64>,
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender<Comm>,
+        tx: Option<UnboundedSender<Comm>>,
         settings: Settings,
     ) -> Self
     where

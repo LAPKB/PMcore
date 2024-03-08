@@ -95,8 +95,16 @@ where
             std::process::exit(-1);
         }
     };
-    let (tx, rx) = mpsc::unbounded_channel::<Comm>();
-    let maintx = tx.clone();
+
+    // Configure MPSC channels for TUI
+    let (tx, rx) = match settings.config.tui {
+        true => {
+            let (to, from) = mpsc::unbounded_channel::<Comm>();
+            (Some(to), Some(from))
+        }
+        false => (None, None),
+    };
+
     logger::setup_log(&settings, tx.clone());
     tracing::info!("Starting PMcore");
 
@@ -119,17 +127,16 @@ where
     let settings_tui = settings.clone();
     let handle = if settings.config.tui {
         spawn(move || {
-            start_ui(rx, settings_tui).expect("Failed to start TUI");
+            start_ui(rx.unwrap(), settings_tui).expect("Failed to start TUI");
         })
     } else {
         // Drop messages if TUI is not enabled to reduce memory usage
-        spawn(move || {
-            drop_messages(rx);
-        })
+        spawn(move || {})
     };
 
     // Initialize algorithm and run
-    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
+    let mut algorithm =
+        initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx.clone());
     let result = algorithm.fit();
 
     // Write output files (if configured)
@@ -139,7 +146,9 @@ where
         result.write_outputs(true, &engine, idelta, tad);
     }
 
-    maintx.send(Comm::StopUI).unwrap();
+    if let Some(tx) = tx {
+        tx.send(Comm::StopUI).unwrap();
+    }
     handle.join().unwrap();
     tracing::info!("Program complete after {:.2?}", now.elapsed());
 
@@ -162,28 +171,11 @@ where
     S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
 {
     let now = Instant::now();
-    let (tx, rx) = mpsc::unbounded_channel::<Comm>();
-    logger::setup_log(&settings, tx.clone());
+    logger::setup_log(&settings, None);
 
-    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx);
-
-    let _ = spawn(move || {
-        drop_messages(rx);
-    });
+    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, None);
 
     let result = algorithm.fit();
     tracing::info!("Total time: {:.2?}", now.elapsed());
     Ok(result)
-}
-
-fn drop_messages(mut rx: mpsc::UnboundedReceiver<Comm>) {
-    loop {
-        match rx.try_recv() {
-            Ok(comm) => match comm {
-                Comm::StopUI => break,
-                _ => {}
-            },
-            Err(_e) => {}
-        }
-    }
 }

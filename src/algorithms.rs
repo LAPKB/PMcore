@@ -18,7 +18,7 @@ pub fn initialize_algorithm<S>(
     engine: Engine<S>,
     settings: Settings,
     scenarios: Vec<Scenario>,
-    tx: mpsc::UnboundedSender<Comm>,
+    tx: Option<mpsc::UnboundedSender<Comm>>,
 ) -> Box<dyn Algorithm>
 where
     S: Predict<'static> + std::marker::Sync + Clone + 'static,

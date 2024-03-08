@@ -48,7 +48,7 @@ where
     cache: bool,
     scenarios: Vec<Scenario>,
     c: (f64, f64, f64, f64),
-    tx: UnboundedSender<Comm>,
+    tx: Option<UnboundedSender<Comm>>,
     settings: Settings,
 }
 
@@ -98,7 +98,7 @@ where
         theta: Array2<f64>,
         scenarios: Vec<Scenario>,
         c: (f64, f64, f64, f64),
-        tx: UnboundedSender<Comm>,
+        tx: Option<UnboundedSender<Comm>>,
         settings: Settings,
     ) -> Self
     where
@@ -281,7 +281,10 @@ where
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
             };
-            self.tx.send(Comm::NPCycle(state.clone())).unwrap();
+            match &self.tx {
+                Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
+                None => (),
+            }
 
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
