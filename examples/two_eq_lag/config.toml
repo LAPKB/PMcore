@@ -1,15 +1,15 @@
 [paths]
 data = "examples/data/two_eq_lag.csv"
-log_out = "two_eq_lag.log"
+log = "two_eq_lag.log"
 #prior_dist = "theta_two_eq_lag.csv"
 
 [config]
 cycles = 1000
 engine = "NPOD"
-init_points = 1000
-seed = 22
+init_points = 2129
+seed = 347
 tui = true
-pmetrics_outputs = true
+output = true
 cache = true
 
 [random]
