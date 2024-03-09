@@ -429,7 +429,7 @@
         </span><span class="kw">let </span>start_time = all_events.first().unwrap().time;
         <span class="kw">let </span><span class="kw-2">mut </span>end_time = all_events.last().unwrap().time;
 
-        <span class="comment">// Pad end time to accomodate time after dose
+        <span class="comment">// Pad end time to accommodate time after dose
         </span><span class="kw">if </span>tad &gt; <span class="number">0.0 </span>{
             <span class="kw">let </span>last_dose_time = all_events
                 .iter()
