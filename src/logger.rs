@@ -15,7 +15,7 @@ use tracing_subscriber::EnvFilter;
 ///
 /// The log level is defined in the configuration file, and defaults to `INFO`.
 ///
-/// If `log_out` is specifified in teh configuration file, a log file is created with the specified name.
+/// If `log_out` is specifified in the configuration file, a log file is created with the specified name.
 ///
 /// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
 ///

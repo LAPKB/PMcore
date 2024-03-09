@@ -310,7 +310,7 @@ where
                 tracing::warn!("Stopfile detected - breaking");
                 break;
             }
-            //TODO: the cycle migh break before reaching this point
+            //TODO: the cycle might break before reaching this point
             self.cycle_log
                 .push_and_write(state, self.settings.config.output);
 

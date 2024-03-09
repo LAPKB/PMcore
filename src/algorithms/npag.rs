@@ -202,7 +202,7 @@ where
 
     pub fn run(&mut self) -> NPResult {
         while self.eps > THETA_E {
-            // Enter a span for each cycle, provding context for further errors
+            // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
 

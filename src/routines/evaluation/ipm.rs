@@ -101,7 +101,7 @@ pub fn burke(
     // dbg!(mu);
     // trace_memory("before the loop");
     while mu > eps || norm_r > eps || gap > eps {
-        // log::info!("IPM cyle");
+        // log::info!("IPM cycle");
         let smu = sig * mu;
         let inner = &lam / &y; //divide(&lam, &y);
                                // dbg!(&inner);
