@@ -80,11 +80,10 @@ impl<'a> Predict<'a> for Ode {
     fn get_output(&self, time: f64, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
         // Get parameters from the model also used for calculating the output equations
         let v = system.get_param("v");
-        let tot_v = v * 1000.0; // Convert volume from L to mL
         #[allow(unused_variables)]
         let t = time;
         match outeq {
-            1 => x[0] / tot_v, // Concentration of the central compartment defined by the amount of drug, x[0], divided by the volume of the central compartment, v
+            1 => x[1] * 1000.0 / v, // Concentration of the central compartment defined by the amount of drug, x[0], divided by the volume of the central compartment, v
             _ => panic!("Invalid output equation"),
         }
     }
