@@ -136,6 +136,12 @@
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
@@ -183,11 +189,17 @@
         .with_timer(CompactTimestamp);
 
     <span class="comment">// Define layer for stdout
-    </span><span class="kw">let </span>stdout_layer = fmt::layer()
-        .with_writer(std::io::stdout)
-        .with_ansi(<span class="bool-val">true</span>)
-        .with_target(<span class="bool-val">false</span>)
-        .with_timer(CompactTimestamp);
+    </span><span class="kw">let </span>stdout_layer = <span class="kw">match </span>settings.config.tui {
+        <span class="bool-val">false </span>=&gt; {
+            <span class="kw">let </span>layer = fmt::layer()
+            .with_writer(std::io::stdout)
+            .with_ansi(<span class="bool-val">true</span>)
+            .with_target(<span class="bool-val">false</span>)
+            .with_timer(CompactTimestamp);
+            <span class="prelude-val">Some</span>(layer)
+        },
+        <span class="bool-val">true </span>=&gt; <span class="prelude-val">None</span>,
+    };
 
     <span class="comment">// Check if ui_tx is Some and clone it for use in the closure
     </span><span class="kw">let </span>tui_layer = <span class="kw">if </span>settings.config.tui {
