@@ -1,25 +1,23 @@
 [paths]
 data = "examples/data/two_eq_lag.csv"
 log = "two_eq_lag.log"
-#prior_dist = "theta_two_eq_lag.csv"
 
 [config]
-cycles = 1000
-engine = "NPOD"
-init_points = 2129
-seed = 347
-tui = true
-output = true
+cycles=100
+engine="NPAG"
+init_points=2129
+seed=347
+tui=false
+output=true
 cache = true
-
 [random]
-ka = [0.1, 0.9]
-ke = [0.001, 0.1]
-lag = [0.0, 4.0]
-v = [30.0, 120.0]
-
-
+Ka = [0.1,0.9]
+Ke = [0.001,0.1]
+Tlag1 = [0.0,4.0]
+V = [30.0,120.0]
+[fixed]
+[constant]
 [error]
-value = 0.0
-class = "additive"
-poly = [0.1, 0.25, -0.001, 0.0]
+value = 5
+class = "proportional"
+poly = [0.02,0.05,-2e-04,0.0]
