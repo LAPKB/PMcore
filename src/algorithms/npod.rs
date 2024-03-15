@@ -4,7 +4,7 @@ use crate::{
         condensation::prune::prune,
         datafile::Scenario,
         evaluation::sigma::{ErrorPoly, ErrorType},
-        ipm_faer::burke,
+        ipm::burke,
         optimization::d_optimizer::SppOptimizer,
         output::NPResult,
         output::{CycleLog, NPCycle},
