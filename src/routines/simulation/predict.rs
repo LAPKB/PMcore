@@ -66,7 +66,7 @@ where
         let mut x = self.ode.initial_state();
         let mut index: usize = 0;
         for block in scenario.blocks {
-            self.ode.add_covs(&mut system, Some(block.covs));
+            self.ode.add_covs(&mut system, Some(block.covs)); //TODO: this should not be Some
             for event in &block.events {
                 if event.evid == 1 {
                     if event.dur.unwrap_or(0.0) > 0.0 {

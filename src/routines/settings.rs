@@ -239,7 +239,7 @@ fn default_seed() -> usize {
 }
 
 fn default_idelta() -> f64 {
-    0.12
+    0.0 //0.12
 }
 
 fn default_tad() -> f64 {
