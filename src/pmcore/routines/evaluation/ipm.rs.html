@@ -145,50 +145,6 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::error;
 
 <span class="kw">use </span>linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
@@ -229,114 +185,71 @@
 </span><span class="kw">pub fn </span>burke(
     psi: <span class="kw-2">&amp;</span>ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">2</span>]&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(OneDimArray, f64), Box&lt;<span class="kw">dyn </span>error::Error&gt;&gt; {
-    <span class="macro">tracing::info!</span>(<span class="string">"Profiling {} subjects and {} spp"</span>, psi.nrows(), psi.ncols());
-    <span class="comment">// trace_memory("start of burke");
-    // dbg!(psi.dim());
-    // let psi_clone = psi.clone();
-    // trace_memory("after cloning psi");
-    </span><span class="kw">let </span>psi = psi.mapv(|x| x.abs());
-    <span class="comment">// trace_memory("new psi");
-    </span><span class="kw">let </span>(row, col) = psi.dim();
-    <span class="comment">// if row&gt;col {
-    //     return Err("The matrix PSI has row&gt;col".into());
-    // }
-    </span><span class="kw">if </span>psi.min()<span class="question-mark">? </span>&lt; <span class="kw-2">&amp;</span><span class="number">0.0 </span>{
+    <span class="kw">let </span>psi = psi.mapv(|x| x.abs());
+    <span class="kw">let </span>(row, col) = psi.dim();
+    <span class="kw">if </span>psi.min()<span class="question-mark">? </span>&lt; <span class="kw-2">&amp;</span><span class="number">0.0 </span>{
         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"PSI contains negative elements"</span>.into());
     }
     <span class="kw">let </span>ecol: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt; = Array::ones(col);
-    <span class="comment">// trace_memory("after creating ecol");
-    // dbg!(ecol.dim());
-    </span><span class="kw">let </span><span class="kw-2">mut </span>plam = psi.dot(<span class="kw-2">&amp;</span>ecol);
-    <span class="comment">// trace_memory("after creating plam");
-    // dbg!(plam.dim());
-
-    // if plam.min().unwrap() &lt;= &amp;1e-15 {
-    //     return Err("The vector psi*e has a non-positive entry".into());
-    // }
-    </span><span class="kw">let </span>eps = <span class="number">1e-8</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>plam = psi.dot(<span class="kw-2">&amp;</span>ecol);
+    <span class="kw">let </span>eps = <span class="number">1e-8</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>sig = <span class="number">0.</span>;
     <span class="kw">let </span>erow: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt; = Array::ones(row);
-    <span class="comment">// trace_memory("after creating erow");
-    // dbg!(erow.dim());
-    </span><span class="kw">let </span><span class="kw-2">mut </span>lam = ecol.clone();
-    <span class="comment">// trace_memory("after creating lam");
-    // dbg!(lam.dim());
-    </span><span class="kw">let </span><span class="kw-2">mut </span>w = <span class="number">1. </span>/ <span class="kw-2">&amp;</span>plam;
-    <span class="comment">// trace_memory("after creating w");
-    // dbg!(w.dim());
-    </span><span class="kw">let </span><span class="kw-2">mut </span>ptw = psi.t().dot(<span class="kw-2">&amp;</span>w);
-    <span class="comment">// dbg!(&amp;ptw);
-    // trace_memory("after creating ptw");
-    // dbg!(ptw.dim());
-    </span><span class="kw">let </span>shrink = <span class="number">2. </span>* <span class="kw-2">*</span>ptw.max().unwrap();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>lam = ecol.clone();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>w = <span class="number">1. </span>/ <span class="kw-2">&amp;</span>plam;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>ptw = psi.t().dot(<span class="kw-2">&amp;</span>w);
+
+    <span class="kw">let </span>shrink = <span class="number">2. </span>* <span class="kw-2">*</span>ptw.max().unwrap();
     lam <span class="kw-2">*</span>= shrink;
     plam <span class="kw-2">*</span>= shrink;
     w /= shrink;
     ptw /= shrink;
-    <span class="comment">// dbg!(&amp;w);
-    // dbg!(&amp;plam);
-    // dbg!(&amp;erow);
-    </span><span class="kw">let </span><span class="kw-2">mut </span>y = <span class="kw-2">&amp;</span>ecol - <span class="kw-2">&amp;</span>ptw;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>y = <span class="kw-2">&amp;</span>ecol - <span class="kw-2">&amp;</span>ptw;
     <span class="kw">let </span><span class="kw-2">mut </span>r = <span class="kw-2">&amp;</span>erow - <span class="kw-2">&amp;</span>w * <span class="kw-2">&amp;</span>plam;
-    <span class="comment">// dbg!(&amp;r);
-    </span><span class="kw">let </span><span class="kw-2">mut </span>norm_r = norm_inf(r);
-    <span class="comment">// dbg!(&amp;y);
-    // dbg!(&amp;r);
-    // dbg!(&amp;norm_r);
-    // dbg!(&amp;plam);
-    </span><span class="kw">let </span>sum_log_plam = plam.mapv(|x: f64| x.ln()).sum();
-    <span class="comment">// dbg!(sum_log_plam);
-    </span><span class="kw">let </span><span class="kw-2">mut </span>gap = (w.mapv(|x: f64| x.ln()).sum() + sum_log_plam).abs() / (<span class="number">1. </span>+ sum_log_plam);
-    <span class="comment">// dbg!(gap);
-    </span><span class="kw">let </span><span class="kw-2">mut </span>mu = lam.t().dot(<span class="kw-2">&amp;</span>y) / col <span class="kw">as </span>f64;
-    <span class="comment">// dbg!(mu);
-    // trace_memory("before the loop");
-    </span><span class="kw">while </span>mu &gt; eps || norm_r &gt; eps || gap &gt; eps {
+
+    <span class="kw">let </span><span class="kw-2">mut </span>norm_r = norm_inf(r);
+
+    <span class="kw">let </span>sum_log_plam = plam.mapv(|x: f64| x.ln()).sum();
+    <span class="kw">let </span><span class="kw-2">mut </span>gap = (w.mapv(|x: f64| x.ln()).sum() + sum_log_plam).abs() / (<span class="number">1. </span>+ sum_log_plam);
+    <span class="kw">let </span><span class="kw-2">mut </span>mu = lam.t().dot(<span class="kw-2">&amp;</span>y) / col <span class="kw">as </span>f64;
+    <span class="kw">while </span>mu &gt; eps || norm_r &gt; eps || gap &gt; eps {
         <span class="comment">// log::info!("IPM cycle");
         </span><span class="kw">let </span>smu = sig * mu;
-        <span class="kw">let </span>inner = <span class="kw-2">&amp;</span>lam / <span class="kw-2">&amp;</span>y; <span class="comment">//divide(&amp;lam, &amp;y);
-                               // dbg!(&amp;inner);
-                               // trace_memory("after creating inner");
-                               // dbg!(inner.dim());
-        </span><span class="kw">let </span>w_plam = <span class="kw-2">&amp;</span>plam / <span class="kw-2">&amp;</span>w; <span class="comment">//divide(&amp;plam, &amp;w);
-                                 // trace_memory("after creating w_plam");
-                                 // dbg!(&amp;w_plam);
-                                 // dbg!(w_plam.dim());
-                                 // dbg!(psi.dim());
-                                 // dbg!(&amp;Array2::from_diag(&amp;inner).dim());
-        </span><span class="kw">let </span><span class="kw-2">mut </span>psi_inner: Array2&lt;f64&gt; = psi.clone();
+        <span class="kw">let </span>inner = <span class="kw-2">&amp;</span>lam / <span class="kw-2">&amp;</span>y;
+
+        <span class="kw">let </span>w_plam = <span class="kw-2">&amp;</span>plam / <span class="kw-2">&amp;</span>w;
+
+        <span class="kw">let </span><span class="kw-2">mut </span>psi_inner: Array2&lt;f64&gt; = psi.clone();
         <span class="kw">for </span>(<span class="kw-2">mut </span>col, inner_val) <span class="kw">in </span>psi_inner.axis_iter_mut(Axis(<span class="number">1</span>)).zip(<span class="kw-2">&amp;</span>inner) {
             col <span class="kw-2">*</span>= <span class="kw-2">*</span>inner_val;
         }
         <span class="kw">let </span>h = psi_inner.dot(<span class="kw-2">&amp;</span>psi.t()) + Array2::from_diag(<span class="kw-2">&amp;</span>w_plam);
-        <span class="comment">// dbg!(&amp;h);
-        // trace_memory("after creating h");
-        // dbg!(h.dim());
-        </span><span class="kw">let </span>uph = h.cholesky()<span class="question-mark">?</span>;
-        <span class="comment">// trace_memory("after creating uph");
-        // dbg!(uph.dim());
-        </span><span class="kw">let </span>uph = uph.t();
+
+        <span class="kw">let </span>uph = h.cholesky()<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>uph = uph.t();
         <span class="kw">let </span>smuyinv = smu * (<span class="kw-2">&amp;</span>ecol / <span class="kw-2">&amp;</span>y);
         <span class="kw">let </span>rhsdw = <span class="kw-2">&amp;</span>erow / <span class="kw-2">&amp;</span>w - (psi.dot(<span class="kw-2">&amp;</span>smuyinv));
         <span class="kw">let </span>a = rhsdw.clone().into_shape((rhsdw.len(), <span class="number">1</span>))<span class="question-mark">?</span>;
-        <span class="comment">// dbg!(&amp;rhsdw);
-        //todo: cleanup this aux variable
-        //dbg!(uph.t().is_triangular(linfa_linalg::triangular::UPLO::Upper));
-        // uph.solve_into(rhsdw);
-        </span><span class="kw">let </span>x = uph
+
+        <span class="kw">let </span>x = uph
             .t()
             .solve_triangular(<span class="kw-2">&amp;</span>a, linfa_linalg::triangular::UPLO::Lower)<span class="question-mark">?</span>;
-        <span class="comment">// dbg!(&amp;x);
-        </span><span class="kw">let </span>dw_aux = uph.solve_triangular(<span class="kw-2">&amp;</span>x, linfa_linalg::triangular::UPLO::Upper)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>dw_aux = uph.solve_triangular(<span class="kw-2">&amp;</span>x, linfa_linalg::triangular::UPLO::Upper)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>dw = dw_aux.column(<span class="number">0</span>);
         <span class="kw">let </span>dy = -psi.t().dot(<span class="kw-2">&amp;</span>dw);
 
         <span class="kw">let </span>dlam = smuyinv - <span class="kw-2">&amp;</span>lam - inner * <span class="kw-2">&amp;</span>dy;
-        <span class="comment">// dbg!(&amp;dlam);
-        </span><span class="kw">let </span><span class="kw-2">mut </span>alfpri = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dlam / <span class="kw-2">&amp;</span>lam).min().unwrap().min(-<span class="number">0.5</span>));
-        <span class="comment">// dbg!(alfpri);
-        </span>alfpri = (<span class="number">0.99995 </span>* alfpri).min(<span class="number">1.0</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>alfpri = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dlam / <span class="kw-2">&amp;</span>lam).min().unwrap().min(-<span class="number">0.5</span>));
+
+        alfpri = (<span class="number">0.99995 </span>* alfpri).min(<span class="number">1.0</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>alfdual = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dy / <span class="kw-2">&amp;</span>y).min().unwrap().min(-<span class="number">0.5</span>));
         alfdual = alfdual.min(-<span class="number">1. </span>/ (<span class="kw-2">&amp;</span>dw / <span class="kw-2">&amp;</span>w).min().unwrap().min(-<span class="number">0.5</span>));
@@ -368,9 +281,8 @@
     lam /= row <span class="kw">as </span>f64;
     <span class="kw">let </span>obj = psi.dot(<span class="kw-2">&amp;</span>lam).mapv(|x| x.ln()).sum();
     lam = <span class="kw-2">&amp;</span>lam / lam.sum();
-    <span class="comment">// trace_memory("end of ipm");
-    // abort();
-    </span><span class="prelude-val">Ok</span>((lam, obj))
+
+    <span class="prelude-val">Ok</span>((lam, obj))
 }
 
 <span class="doccomment">/// Computes the infinity norm (or maximum norm) of a 1-dimensional array

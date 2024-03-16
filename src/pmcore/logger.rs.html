@@ -192,12 +192,12 @@
     </span><span class="kw">let </span>stdout_layer = <span class="kw">match </span>settings.config.tui {
         <span class="bool-val">false </span>=&gt; {
             <span class="kw">let </span>layer = fmt::layer()
-            .with_writer(std::io::stdout)
-            .with_ansi(<span class="bool-val">true</span>)
-            .with_target(<span class="bool-val">false</span>)
-            .with_timer(CompactTimestamp);
+                .with_writer(std::io::stdout)
+                .with_ansi(<span class="bool-val">true</span>)
+                .with_target(<span class="bool-val">false</span>)
+                .with_timer(CompactTimestamp);
             <span class="prelude-val">Some</span>(layer)
-        },
+        }
         <span class="bool-val">true </span>=&gt; <span class="prelude-val">None</span>,
     };
 
