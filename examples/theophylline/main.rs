@@ -26,7 +26,10 @@ struct Model {
 // This is a helper function to get the parameter value by name
 impl Model {
     pub fn get_param(&self, str: &str) -> f64 {
-        *self.params.get(str).expect(format!("Parameter {} not found", str).as_str())
+        *self
+            .params
+            .get(str)
+            .expect(format!("Parameter {} not found", str).as_str())
     }
 }
 

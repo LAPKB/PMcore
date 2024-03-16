@@ -48,12 +48,12 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) {
     let stdout_layer = match settings.config.tui {
         false => {
             let layer = fmt::layer()
-            .with_writer(std::io::stdout)
-            .with_ansi(true)
-            .with_target(false)
-            .with_timer(CompactTimestamp);
+                .with_writer(std::io::stdout)
+                .with_ansi(true)
+                .with_target(false)
+                .with_timer(CompactTimestamp);
             Some(layer)
-        },
+        }
         true => None,
     };
 
