@@ -319,8 +319,8 @@
         <span class="kw">let </span><span class="kw-2">mut </span>x = <span class="self">self</span>.ode.initial_state();
         <span class="kw">let </span><span class="kw-2">mut </span>index: usize = <span class="number">0</span>;
         <span class="kw">for </span>block <span class="kw">in </span>scenario.blocks {
-            <span class="self">self</span>.ode.add_covs(<span class="kw-2">&amp;mut </span>system, <span class="prelude-val">Some</span>(block.covs));
-            <span class="kw">for </span>event <span class="kw">in </span><span class="kw-2">&amp;</span>block.events {
+            <span class="self">self</span>.ode.add_covs(<span class="kw-2">&amp;mut </span>system, <span class="prelude-val">Some</span>(block.covs)); <span class="comment">//TODO: this should not be Some
+            </span><span class="kw">for </span>event <span class="kw">in </span><span class="kw-2">&amp;</span>block.events {
                 <span class="kw">if </span>event.evid == <span class="number">1 </span>{
                     <span class="kw">if </span>event.dur.unwrap_or(<span class="number">0.0</span>) &gt; <span class="number">0.0 </span>{
                         <span class="comment">//infusion
