@@ -115,7 +115,6 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<(
         crossterm::terminal::LeaveAlternateScreen
     )?;
     crossterm::terminal::disable_raw_mode()?;
-
     Ok(())
 }
 
