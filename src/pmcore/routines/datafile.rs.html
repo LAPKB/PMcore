@@ -388,6 +388,10 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::cmp::Ordering;
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::error::Error;
@@ -404,6 +408,7 @@
     <span class="kw">pub </span>obs: Vec&lt;f64&gt;,
     <span class="kw">pub </span>obs_times: Vec&lt;f64&gt;,
     <span class="kw">pub </span>times: Vec&lt;f64&gt;,
+    <span class="kw">pub </span>outeqs: Vec&lt;usize&gt;,
 }
 
 <span class="kw">impl </span>Scenario {
@@ -527,6 +532,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>obs: Vec&lt;f64&gt; = <span class="macro">vec!</span>[];
         <span class="kw">let </span><span class="kw-2">mut </span>times: Vec&lt;f64&gt; = <span class="macro">vec!</span>[];
         <span class="kw">let </span><span class="kw-2">mut </span>obs_times: Vec&lt;f64&gt; = <span class="macro">vec!</span>[];
+        <span class="kw">let </span><span class="kw-2">mut </span>outeqs: Vec&lt;usize&gt; = <span class="macro">vec!</span>[];
 
         <span class="kw">for </span><span class="kw-2">mut </span>event <span class="kw">in </span>events {
             times.push(event.time);
@@ -555,6 +561,7 @@
             </span>} <span class="kw">else if </span>event.evid == <span class="number">0 </span>{
                 check_obs(<span class="kw-2">&amp;</span>event)<span class="question-mark">?</span>;
                 obs_times.push(event.time);
+                outeqs.push(event.outeq.unwrap());
                 obs.push(event.out.unwrap());
             } <span class="kw">else </span>{
                 <span class="macro">tracing::error!</span>(<span class="string">"Error: Unsupported evid: {evid}"</span>, evid = event.evid);
@@ -571,6 +578,7 @@
             obs,
             obs_times,
             times,
+            outeqs,
         })
     }
 

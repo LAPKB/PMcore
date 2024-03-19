@@ -574,6 +574,15 @@
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>datafile::Scenario;
@@ -735,12 +744,14 @@
 
             <span class="comment">// Write contents
             </span><span class="kw">for </span>scenario <span class="kw">in </span>scenarios {
-                <span class="kw">for </span>(observation, time) <span class="kw">in </span>scenario.obs.iter().zip(<span class="kw-2">&amp;</span>scenario.obs_times) {
+                <span class="kw">for </span>(i, (observation, time)) <span class="kw">in
+                    </span>scenario.obs.iter().zip(<span class="kw-2">&amp;</span>scenario.obs_times).enumerate()
+                {
                     writer.write_record(<span class="kw-2">&amp;</span>[
                         scenario.id.to_string(),
                         time.to_string(),
                         observation.to_string(),
-                        <span class="string">"1"</span>.to_string(),
+                        scenario.outeqs.get(i).unwrap().to_string(),
                     ])<span class="question-mark">?</span>;
                 }
             }
@@ -811,18 +822,25 @@
                 <span class="kw">let </span>pop_medp = pop_median_pred.get((id, <span class="number">0</span>)).unwrap().to_owned();
                 <span class="kw">let </span>post_mp = post_mean_pred.get(id).unwrap().to_owned();
                 <span class="kw">let </span>post_mdp = post_median_pred.get(id).unwrap().to_owned();
-                <span class="kw">for </span>((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t) <span class="kw">in </span>pop_mp
+                <span class="kw">for </span>(i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) <span class="kw">in </span>pop_mp
                     .into_iter()
                     .zip(pop_medp)
                     .zip(post_mp)
                     .zip(post_mdp)
                     .zip(time)
+                    .enumerate()
                 {
                     writer
                         .write_record(<span class="kw-2">&amp;</span>[
                             scenarios.get(id).unwrap().id.to_string(),
                             t.to_string(),
-                            <span class="string">"1"</span>.to_string(),
+                            scenarios
+                                .get(id)
+                                .unwrap()
+                                .outeqs
+                                .get(i)
+                                .unwrap()
+                                .to_string(),
                             pop_mp_i.to_string(),
                             pop_mdp_i.to_string(),
                             post_mp_i.to_string(),
