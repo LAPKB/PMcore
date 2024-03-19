@@ -159,12 +159,14 @@ impl NPResult {
 
             // Write contents
             for scenario in scenarios {
-                for (observation, time) in scenario.obs.iter().zip(&scenario.obs_times) {
+                for (i, (observation, time)) in
+                    scenario.obs.iter().zip(&scenario.obs_times).enumerate()
+                {
                     writer.write_record(&[
                         scenario.id.to_string(),
                         time.to_string(),
                         observation.to_string(),
-                        "1".to_string(),
+                        scenario.outeqs.get(i).unwrap().to_string(),
                     ])?;
                 }
             }
@@ -235,18 +237,25 @@ impl NPResult {
                 let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
                 let post_mp = post_mean_pred.get(id).unwrap().to_owned();
                 let post_mdp = post_median_pred.get(id).unwrap().to_owned();
-                for ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t) in pop_mp
+                for (i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
                     .into_iter()
                     .zip(pop_medp)
                     .zip(post_mp)
                     .zip(post_mdp)
                     .zip(time)
+                    .enumerate()
                 {
                     writer
                         .write_record(&[
                             scenarios.get(id).unwrap().id.to_string(),
                             t.to_string(),
-                            "1".to_string(),
+                            scenarios
+                                .get(id)
+                                .unwrap()
+                                .outeqs
+                                .get(i)
+                                .unwrap()
+                                .to_string(),
                             pop_mp_i.to_string(),
                             pop_mdp_i.to_string(),
                             post_mp_i.to_string(),

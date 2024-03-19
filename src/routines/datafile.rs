@@ -14,6 +14,7 @@ pub struct Scenario {
     pub obs: Vec<f64>,
     pub obs_times: Vec<f64>,
     pub times: Vec<f64>,
+    pub outeqs: Vec<usize>,
 }
 
 impl Scenario {
@@ -137,6 +138,7 @@ impl Scenario {
         let mut obs: Vec<f64> = vec![];
         let mut times: Vec<f64> = vec![];
         let mut obs_times: Vec<f64> = vec![];
+        let mut outeqs: Vec<usize> = vec![];
 
         for mut event in events {
             times.push(event.time);
@@ -165,6 +167,7 @@ impl Scenario {
             } else if event.evid == 0 {
                 check_obs(&event)?;
                 obs_times.push(event.time);
+                outeqs.push(event.outeq.unwrap());
                 obs.push(event.out.unwrap());
             } else {
                 tracing::error!("Error: Unsupported evid: {evid}", evid = event.evid);
@@ -181,6 +184,7 @@ impl Scenario {
             obs,
             obs_times,
             times,
+            outeqs,
         })
     }
 
