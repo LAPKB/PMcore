@@ -1,0 +1,26 @@
+[paths]
+data="examples/data/meta.csv"
+log="meta.log"
+#prior_list="Optional"
+[config]
+cycles=100
+engine="NPAG"
+init_points=2129
+seed=347
+tui=false
+output=true
+cache = true
+[random]
+CLs = [0.0,2.0]
+fm = [0.0,1.0]
+K20 = [0.0,5.0]
+relV = [0.0,1.0]
+theta1 = [-3.0,1.0]
+theta2 = [-3.0,1.0]
+Vs = [0.0,5.0]
+[fixed]
+[constant]
+[error]
+value = 5
+class = "proportional"
+poly = [1.0,0.1,0.0,0.0]

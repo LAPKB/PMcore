@@ -235,12 +235,13 @@ impl NPResult {
                 let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
                 let post_mp = post_mean_pred.get(id).unwrap().to_owned();
                 let post_mdp = post_median_pred.get(id).unwrap().to_owned();
-                for ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t) in pop_mp
+                for (i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
                     .into_iter()
                     .zip(pop_medp)
                     .zip(post_mp)
                     .zip(post_mdp)
                     .zip(time)
+                    .enumerate()
                 {
                     writer
                         .write_record(&[

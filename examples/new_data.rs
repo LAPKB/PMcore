@@ -18,6 +18,44 @@ pub enum Event {
     Observation(Observation),
 }
 
+impl Event {
+    fn time(&self) -> f64 {
+        match self {
+            Event::Bolus(bolus) => bolus.time,
+            Event::Infusion(infusion) => infusion.time,
+            Event::Observation(observation) => observation.time,
+        }
+    }
+    fn order(&self) -> usize {
+        match self {
+            Event::Bolus(_) => 1,
+            Event::Infusion(_) => 2,
+            Event::Observation(_) => 3,
+        }
+    }
+    fn get_mut_covs(&mut self) -> &mut HashMap<String, CovLine> {
+        match self {
+            Event::Bolus(bolus) => &mut bolus.covs,
+            Event::Infusion(infusion) => &mut infusion.covs,
+            Event::Observation(observation) => &mut observation.covs,
+        }
+    }
+    // fn get_covs(&self) -> &HashMap<String, CovLine> {
+    //     match self {
+    //         Event::Bolus(bolus) => &bolus.covs,
+    //         Event::Infusion(infusion) => &infusion.covs,
+    //         Event::Observation(observation) => &observation.covs,
+    //     }
+    // }
+    // fn set_covs(&mut self, covs: &HashMap<String, CovLine>) {
+    //     match self {
+    //         Event::Bolus(bolus) => bolus.covs = covs.clone(),
+    //         Event::Infusion(infusion) => infusion.covs = covs.clone(),
+    //         Event::Observation(observation) => observation.covs = covs.clone(),
+    //     }
+    // }
+}
+
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -87,6 +125,17 @@ pub struct Infusion {
     covs: HashMap<String, CovLine>,
 }
 
+/// An observation of drug concentration or covariates
+#[derive(Debug, Clone)]
+pub struct Observation {
+    time: f64,
+    value: f64,
+    outeq: usize,
+    errpoly: Option<(f64, f64, f64, f64)>,
+    covs: HashMap<String, CovLine>,
+    ignore: bool,
+}
+
 /// A CovLine holds the linear interpolation required for covariates
 /// If the covariate should be carried forward, the slope is set to 0
 #[derive(Debug, Clone)]
@@ -107,17 +156,6 @@ impl CovLine {
     }
 }
 
-/// An observation of drug concentration or covariates
-#[derive(Debug, Clone)]
-pub struct Observation {
-    time: f64,
-    value: f64,
-    outeq: usize,
-    errpoly: Option<(f64, f64, f64, f64)>,
-    covs: HashMap<String, CovLine>,
-    ignore: bool,
-}
-
 /// A Block is a collection of events that are related to each other
 #[derive(Debug)]
 pub struct Block {
@@ -127,33 +165,14 @@ pub struct Block {
 
 impl Block {
     /// Sort events by time, then by [Event] type so that [Bolus] and [Infusion] come before [Observation]
-    pub fn sort(&mut self) {
+    fn sort(&mut self) {
         self.events.sort_by(|a, b| {
             // First, compare times using partial_cmp, then compare types if times are equal.
-            let time_a = match a {
-                Event::Bolus(bolus) => bolus.time,
-                Event::Infusion(infusion) => infusion.time,
-                Event::Observation(observation) => observation.time,
-            };
-            let time_b = match b {
-                Event::Bolus(bolus) => bolus.time,
-                Event::Infusion(infusion) => infusion.time,
-                Event::Observation(observation) => observation.time,
-            };
-
-            match time_a.partial_cmp(&time_b) {
+            match a.time().partial_cmp(&b.time()) {
                 Some(std::cmp::Ordering::Equal) => {
                     // If times are equal, sort by event type.
-                    let type_order_a = match a {
-                        Event::Bolus(_) => 1,
-                        Event::Infusion(_) => 2,
-                        Event::Observation(_) => 3,
-                    };
-                    let type_order_b = match b {
-                        Event::Bolus(_) => 1,
-                        Event::Infusion(_) => 2,
-                        Event::Observation(_) => 3,
-                    };
+                    let type_order_a = a.order();
+                    let type_order_b = b.order();
                     type_order_a.cmp(&type_order_b)
                 }
                 other => other.unwrap_or(std::cmp::Ordering::Equal),
@@ -161,14 +180,31 @@ impl Block {
         });
     }
 
-    /// Get times which will be stepped over in the simulation
+    /// Get the [Observation] events
+    ///
+    /// This function returns a Vec of all [Observation] in the block
+    /// This function is to be used to compare with the simulated observations to obtain the likelihood.
+    fn get_observations(&self) -> Vec<&Observation> {
+        let mut observations = Vec::new();
+        for event in &self.events {
+            if let Event::Observation(observation) = event {
+                if !observation.ignore {
+                    observations.push(observation);
+                }
+            }
+        }
+        observations
+    }
+
+    /// Get times which will be stepped over the extended simulation
     ///
     /// This function returns a Vec of times which are the start and end times of each event in the [Block]
     /// plus the start time of each [Observation]
     ///
     /// Additionally, the function takes an optional argument `idelta` which is the time step for the simulation
     /// If `idelta` is provided, it will additionally add times at `idelta` intervals between zero and the last time in the [Scenario]
-    pub fn get_times(&self, idelta: f64) -> Vec<f64> {
+    pub fn get_all_times(&self, idelta: f64) -> Vec<f64> {
+        //TODO: I'm not modifying this function but I think this function should only return obs_times + idelta_times.
         let mut times: Vec<f64> = Vec::new();
         for event in &self.events {
             match event {
@@ -198,16 +234,41 @@ impl Block {
         times
     }
 
+    // fn fill_covariates(&mut self) {
+    //     // find the first event with non-empty covariates
+    //     let mut start_index = 0;
+    //     let mut covs: HashMap<String, CovLine> = HashMap::new();
+    //     for (i, event) in self.events.iter().enumerate() {
+    //         let event_covs = event.get_covs();
+    //         if !event_covs.is_empty() {
+    //             start_index = i;
+    //             covs = event_covs.clone();
+    //             break;
+    //         }
+    //     }
+    //     // for all the events between 0 and start_index, carry backward covariates
+    //     for i in 0..start_index {
+    //         self.events[i].set_covs(&covs);
+    //     }
+
+    //     // for all the events after start_index, interpolate covariates
+    //     let mut next_covs: HashMap<String, CovLine> = HashMap::new();
+    //     for i in start_index..self.events.len() {
+    //         let event_covs = self.events[i].get_covs();
+    //         if !event_covs.is_empty() {
+    //             next_covs = event_covs.clone();
+    //             break;
+    //         }
+    //     }
+
+    // }
+
     /// Carry forward all covariate values
-    pub fn cf_covs(&mut self) {
+    fn cf_covs(&mut self) {
         let mut last_covs: HashMap<String, CovLine> = HashMap::new();
 
         for event in &mut self.events {
-            let event_covs = match event {
-                Event::Bolus(bolus) => &mut bolus.covs,
-                Event::Infusion(infusion) => &mut infusion.covs,
-                Event::Observation(observation) => &mut observation.covs,
-            };
+            let event_covs = event.get_mut_covs();
 
             // Update covariates with last known values
             for (key, last_cov) in &last_covs {
@@ -233,6 +294,10 @@ impl fmt::Display for Block {
         }
         Ok(())
     }
+}
+
+pub fn get_observations_times(obs: &Vec<&Observation>) -> Vec<f64> {
+    obs.iter().map(|o| o.time).collect()
 }
 
 // A row represents a single row in the datafile
