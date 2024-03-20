@@ -266,6 +266,11 @@ where
                 None => (),
             }
 
+            if (self.last_objf - self.objf).abs() <= THETA_F {
+                tracing::info!("Run converged");
+                break;
+            }
+
             // If the objective function decreased, log an error.
             // Increasing objf signals instability of model misspecification.
             if self.last_objf > self.objf {
