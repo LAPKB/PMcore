@@ -233,12 +233,13 @@ where
                     keep.push(*perm.get(i).unwrap());
                 }
             }
-            tracing::info!(
-                "QR decomp, cycle {}, kept: {}, thrown {}",
-                self.cycle,
-                keep.len(),
-                self.psi.ncols() - keep.len()
-            );
+            // If a support point is dropped, log it as a debug message
+            if self.psi.ncols() != keep.len() {
+                tracing::debug!(
+                    "QRD dropped {} support point(s)",
+                    self.psi.ncols() - keep.len(),
+                );
+            }
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
@@ -266,19 +267,22 @@ where
                 None => (),
             }
 
+            // Increasing objf signals instability or model misspecification.
+            if self.last_objf > self.objf {
+                tracing::warn!(
+                    "Objective function decreased from {} to {}",
+                    self.last_objf,
+                    self.objf
+                );
+            }
+
+            self.w = self.lambda.clone();
+
             if (self.last_objf - self.objf).abs() <= THETA_F {
                 tracing::info!("The run converged with the following criteria: Log-Likelihood");
                 self.converged = true;
                 break;
             }
-
-            // If the objective function decreased, log an error.
-            // Increasing objf signals instability of model misspecification.
-            if self.last_objf > self.objf {
-                tracing::error!("Objective function decreased");
-            }
-
-            self.w = self.lambda.clone();
             let pyl = self.psi.dot(&self.w);
 
             // Add new point to theta based on the optimization of the D function
