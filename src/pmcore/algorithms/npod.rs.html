@@ -333,6 +333,7 @@
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -521,7 +522,7 @@
     }
 
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
-        <span class="kw">while </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &gt; THETA_F {
+        <span class="kw">loop </span>{
             <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
             <span class="comment">// log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
@@ -602,7 +603,8 @@
             }
 
             <span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_F {
-                <span class="macro">tracing::info!</span>(<span class="string">"Run converged"</span>);
+                <span class="macro">tracing::info!</span>(<span class="string">"The run converged with the following criteria: Log-Likelihood"</span>);
+                <span class="self">self</span>.converged = <span class="bool-val">true</span>;
                 <span class="kw">break</span>;
             }
 
