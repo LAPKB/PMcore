@@ -282,7 +282,7 @@ where
                 gamlam: self.gamma,
             };
             tracing::info!(
-                "Cycle: {}, -2*Log-Likelihood: {}",
+                "Cycle: {}, -2*Log-Likelihood: {:.4}",
                 self.cycle,
                 -2.0 * self.objf
             );
