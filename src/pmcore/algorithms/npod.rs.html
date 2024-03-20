@@ -334,6 +334,10 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -569,12 +573,13 @@
                     keep.push(<span class="kw-2">*</span>perm.get(i).unwrap());
                 }
             }
-            <span class="macro">tracing::info!</span>(
-                <span class="string">"QR decomp, cycle {}, kept: {}, thrown {}"</span>,
-                <span class="self">self</span>.cycle,
-                keep.len(),
-                <span class="self">self</span>.psi.ncols() - keep.len()
-            );
+            <span class="comment">// If a support point is dropped, log it as a debug message
+            </span><span class="kw">if </span><span class="self">self</span>.psi.ncols() != keep.len() {
+                <span class="macro">tracing::debug!</span>(
+                    <span class="string">"QRD dropped {} support point(s)"</span>,
+                    <span class="self">self</span>.psi.ncols() - keep.len(),
+                );
+            }
             <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
             <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
 
@@ -602,19 +607,22 @@
                 <span class="prelude-val">None </span>=&gt; (),
             }
 
+            <span class="comment">// Increasing objf signals instability or model misspecification.
+            </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
+                <span class="macro">tracing::warn!</span>(
+                    <span class="string">"Objective function decreased from {} to {}"</span>,
+                    <span class="self">self</span>.last_objf,
+                    <span class="self">self</span>.objf
+                );
+            }
+
+            <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
+
             <span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_F {
                 <span class="macro">tracing::info!</span>(<span class="string">"The run converged with the following criteria: Log-Likelihood"</span>);
                 <span class="self">self</span>.converged = <span class="bool-val">true</span>;
                 <span class="kw">break</span>;
             }
-
-            <span class="comment">// If the objective function decreased, log an error.
-            // Increasing objf signals instability of model misspecification.
-            </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
-                <span class="macro">tracing::error!</span>(<span class="string">"Objective function decreased"</span>);
-            }
-
-            <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
             <span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
 
             <span class="comment">// Add new point to theta based on the optimization of the D function
