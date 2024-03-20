@@ -201,7 +201,7 @@ where
     }
 
     pub fn run(&mut self) -> NPResult {
-        while self.eps > THETA_E {
+        loop {
             // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
@@ -307,7 +307,9 @@ where
                 if self.eps <= THETA_E {
                     self.f1 = pyl.mapv(|x| x.ln()).sum();
                     if (self.f1 - self.f0).abs() <= THETA_F {
-                        tracing::info!("The run converged");
+                        tracing::info!(
+                            "The run converged with the following criteria: Log-Likelihood"
+                        );
                         self.converged = true;
                         break;
                     } else {
@@ -315,6 +317,11 @@ where
                         self.eps = 0.2;
                     }
                 }
+            }
+            if self.eps <= THETA_E {
+                tracing::info!("The run converged with the following criteria: Eps");
+                self.converged = true;
+                break;
             }
 
             // Stop if we have reached maximum number of cycles

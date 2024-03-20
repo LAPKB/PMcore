@@ -186,7 +186,7 @@ where
     }
 
     pub fn run(&mut self) -> NPResult {
-        while (self.last_objf - self.objf).abs() > THETA_F {
+        loop {
             self.last_objf = self.objf;
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
@@ -267,7 +267,8 @@ where
             }
 
             if (self.last_objf - self.objf).abs() <= THETA_F {
-                tracing::info!("Run converged");
+                tracing::info!("The run converged with the following criteria: Log-Likelihood");
+                self.converged = true;
                 break;
             }
 
