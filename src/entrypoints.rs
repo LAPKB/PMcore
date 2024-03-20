@@ -123,6 +123,8 @@ where
         scenarios.iter().map(|s| s.obs_times.len()).sum::<usize>()
     );
 
+    tracing::info!("Starting {}", settings.config.engine);
+
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
     let handle = if settings.config.tui {

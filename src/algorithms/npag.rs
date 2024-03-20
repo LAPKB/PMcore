@@ -113,7 +113,7 @@ where
             w: Array1::default(0),
             eps: 0.2,
             last_objf: -1e30,
-            objf: f64::INFINITY,
+            objf: f64::NEG_INFINITY,
             f0: -1e30,
             f1: f64::default(),
             cycle: 1,
@@ -281,6 +281,12 @@ where
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
             };
+            tracing::info!(
+                "Cycle: {}, -2*Log-Likelihood: {}",
+                self.cycle,
+                -2.0 * self.objf
+            );
+
             match &self.tx {
                 Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
                 None => (),
