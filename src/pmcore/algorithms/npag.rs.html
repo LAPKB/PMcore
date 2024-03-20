@@ -352,10 +352,6 @@
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -639,11 +635,7 @@
                 theta: <span class="self">self</span>.theta.clone(),
                 gamlam: <span class="self">self</span>.gamma,
             };
-            <span class="macro">tracing::info!</span>(
-                <span class="string">"Cycle: {}, -2*Log-Likelihood: {:.4}"</span>,
-                <span class="self">self</span>.cycle,
-                -<span class="number">2.0 </span>* <span class="self">self</span>.objf
-            );
+            <span class="macro">tracing::info!</span>(<span class="string">"Cycle: {}, -2LL: {:.4}"</span>, <span class="self">self</span>.cycle, -<span class="number">2.0 </span>* <span class="self">self</span>.objf);
 
             <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.tx {
                 <span class="prelude-val">Some</span>(tx) =&gt; tx.send(Comm::NPCycle(state.clone())).unwrap(),
