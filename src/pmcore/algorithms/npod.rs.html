@@ -328,6 +328,11 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -594,6 +599,11 @@
             <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.tx {
                 <span class="prelude-val">Some</span>(tx) =&gt; tx.send(Comm::NPCycle(state.clone())).unwrap(),
                 <span class="prelude-val">None </span>=&gt; (),
+            }
+
+            <span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_F {
+                <span class="macro">tracing::info!</span>(<span class="string">"Run converged"</span>);
+                <span class="kw">break</span>;
             }
 
             <span class="comment">// If the objective function decreased, log an error.
