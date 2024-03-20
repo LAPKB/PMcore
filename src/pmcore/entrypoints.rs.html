@@ -180,6 +180,8 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{
     output::NPResult,
@@ -304,6 +306,8 @@
         scenarios.len(),
         scenarios.iter().map(|s| s.obs_times.len()).sum::&lt;usize&gt;()
     );
+
+    <span class="macro">tracing::info!</span>(<span class="string">"Starting {}"</span>, settings.config.engine);
 
     <span class="comment">// Spawn new thread for TUI
     </span><span class="kw">let </span>settings_tui = settings.clone();

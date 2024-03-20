@@ -350,6 +350,12 @@
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -465,7 +471,7 @@
             w: Array1::default(<span class="number">0</span>),
             eps: <span class="number">0.2</span>,
             last_objf: -<span class="number">1e30</span>,
-            objf: f64::INFINITY,
+            objf: f64::NEG_INFINITY,
             f0: -<span class="number">1e30</span>,
             f1: f64::default(),
             cycle: <span class="number">1</span>,
@@ -633,6 +639,12 @@
                 theta: <span class="self">self</span>.theta.clone(),
                 gamlam: <span class="self">self</span>.gamma,
             };
+            <span class="macro">tracing::info!</span>(
+                <span class="string">"Cycle: {}, -2*Log-Likelihood: {:.4}"</span>,
+                <span class="self">self</span>.cycle,
+                -<span class="number">2.0 </span>* <span class="self">self</span>.objf
+            );
+
             <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.tx {
                 <span class="prelude-val">Some</span>(tx) =&gt; tx.send(Comm::NPCycle(state.clone())).unwrap(),
                 <span class="prelude-val">None </span>=&gt; (),
