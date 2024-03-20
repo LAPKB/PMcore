@@ -262,11 +262,7 @@ where
                 gamlam: self.gamma,
             };
 
-            tracing::info!(
-                "Cycle: {}, -2*Log-Likelihood: {:.4}",
-                self.cycle,
-                -2.0 * self.objf
-            );
+            tracing::info!("Cycle: {}, -2LL: {:.4}", self.cycle, -2.0 * self.objf);
 
             match &self.tx {
                 Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
