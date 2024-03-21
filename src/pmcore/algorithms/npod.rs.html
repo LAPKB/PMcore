@@ -346,6 +346,7 @@
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -613,7 +614,10 @@
                 gamlam: <span class="self">self</span>.gamma,
             };
 
-            <span class="macro">tracing::info!</span>(<span class="string">"Objective function = {:.4}"</span>, -<span class="number">2.0 </span>* <span class="self">self</span>.objf);
+            <span class="comment">// Log relevant cycle information
+            </span><span class="macro">tracing::info!</span>(<span class="string">"Objective function = {:.4}"</span>, -<span class="number">2.0 </span>* <span class="self">self</span>.objf);
+            <span class="macro">tracing::debug!</span>(<span class="string">"Support points: {}"</span>, <span class="self">self</span>.theta.shape()[<span class="number">0</span>]);
+            <span class="macro">tracing::debug!</span>(<span class="string">"Gamma = {:.4}"</span>, <span class="self">self</span>.gamma);
 
             <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.tx {
                 <span class="prelude-val">Some</span>(tx) =&gt; tx.send(Comm::NPCycle(state.clone())).unwrap(),
@@ -632,9 +636,7 @@
             <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
 
             <span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_F {
-                <span class="macro">tracing::info!</span>(
-                    <span class="string">"Objective function convergence reached"
-                </span>);
+                <span class="macro">tracing::info!</span>(<span class="string">"Objective function convergence reached"</span>);
                 <span class="self">self</span>.converged = <span class="bool-val">true</span>;
                 <span class="kw">break</span>;
             }
