@@ -341,6 +341,11 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -530,10 +535,13 @@
 
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="kw">loop </span>{
+            <span class="comment">// Enter a span for each cycle, providing context for further errors
+            </span><span class="kw">let </span>cycle_span = <span class="macro">tracing::span!</span>(tracing::Level::INFO, <span class="string">"Cycle"</span>, cycle = <span class="self">self</span>.cycle);
+            <span class="kw">let </span>_enter = cycle_span.enter();
+
             <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
-            <span class="comment">// log::info!("Cycle: {}", cycle);
-            // psi n_sub rows, nspp columns
-            </span><span class="kw">let </span>cache = <span class="kw">if </span><span class="self">self</span>.cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ <span class="self">self</span>.cache };
+
+            <span class="kw">let </span>cache = <span class="kw">if </span><span class="self">self</span>.cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ <span class="self">self</span>.cache };
             <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
 
             <span class="self">self</span>.psi = prob::calculate_psi(
@@ -605,7 +613,7 @@
                 gamlam: <span class="self">self</span>.gamma,
             };
 
-            <span class="macro">tracing::info!</span>(<span class="string">"Cycle: {}, -2LL: {:.4}"</span>, <span class="self">self</span>.cycle, -<span class="number">2.0 </span>* <span class="self">self</span>.objf);
+            <span class="macro">tracing::info!</span>(<span class="string">"Objective function = {:.4}"</span>, -<span class="number">2.0 </span>* <span class="self">self</span>.objf);
 
             <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.tx {
                 <span class="prelude-val">Some</span>(tx) =&gt; tx.send(Comm::NPCycle(state.clone())).unwrap(),
@@ -615,7 +623,7 @@
             <span class="comment">// Increasing objf signals instability or model misspecification.
             </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
                 <span class="macro">tracing::warn!</span>(
-                    <span class="string">"Objective function decreased from {} to {}"</span>,
+                    <span class="string">"Objective function decreased from {} to {}. This may indicate instability or model misspecification."</span>,
                     <span class="self">self</span>.last_objf,
                     <span class="self">self</span>.objf
                 );
@@ -624,7 +632,9 @@
             <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
 
             <span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_F {
-                <span class="macro">tracing::info!</span>(<span class="string">"The run converged with the following criteria: Log-Likelihood"</span>);
+                <span class="macro">tracing::info!</span>(
+                    <span class="string">"Objective function convergence reached"
+                </span>);
                 <span class="self">self</span>.converged = <span class="bool-val">true</span>;
                 <span class="kw">break</span>;
             }
