@@ -290,6 +290,17 @@ where
                 self.converged = true;
                 break;
             }
+            // Stop if we have reached maximum number of cycles
+            if self.cycle >= self.settings.config.cycles {
+                tracing::warn!("Maximum number of cycles reached");
+                break;
+            }
+
+            // Stop if stopfile exists
+            if std::path::Path::new("stop").exists() {
+                tracing::warn!("Stopfile detected - breaking");
+                break;
+            }
             let pyl = self.psi.dot(&self.w);
 
             // Add new point to theta based on the optimization of the D function
@@ -316,17 +327,6 @@ where
                 prune(&mut self.theta, cp, &self.ranges, THETA_D);
             }
 
-            // Stop if we have reached maximum number of cycles
-            if self.cycle >= self.settings.config.cycles {
-                tracing::warn!("Maximum number of cycles reached");
-                break;
-            }
-
-            // Stop if stopfile exists
-            if std::path::Path::new("stop").exists() {
-                tracing::warn!("Stopfile detected - breaking");
-                break;
-            }
             //TODO: the cycle might break before reaching this point
             self.cycle_log
                 .push_and_write(state, self.settings.config.output);
