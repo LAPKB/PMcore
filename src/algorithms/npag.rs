@@ -281,7 +281,12 @@ where
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
             };
-            tracing::info!("Cycle: {}, -2LL: {:.4}", self.cycle, -2.0 * self.objf);
+
+            // Log relevant cycle information
+            tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
+            tracing::debug!("Support points: {}", self.theta.shape()[0]);
+            tracing::debug!("Gamma = {:.4}", self.gamma);
+            tracing::debug!("EPS = {:.4}", self.eps);
 
             match &self.tx {
                 Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),

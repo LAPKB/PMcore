@@ -265,7 +265,10 @@ where
                 gamlam: self.gamma,
             };
 
+            // Log relevant cycle information
             tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
+            tracing::debug!("Support points: {}", self.theta.shape()[0]);
+            tracing::debug!("Gamma = {:.4}", self.gamma);
 
             match &self.tx {
                 Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
@@ -284,9 +287,7 @@ where
             self.w = self.lambda.clone();
 
             if (self.last_objf - self.objf).abs() <= THETA_F {
-                tracing::info!(
-                    "Objective function convergence reached"
-                );
+                tracing::info!("Objective function convergence reached");
                 self.converged = true;
                 break;
             }
