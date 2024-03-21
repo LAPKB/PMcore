@@ -187,9 +187,12 @@ where
 
     pub fn run(&mut self) -> NPResult {
         loop {
+            // Enter a span for each cycle, providing context for further errors
+            let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
+            let _enter = cycle_span.enter();
+
             self.last_objf = self.objf;
-            // log::info!("Cycle: {}", cycle);
-            // psi n_sub rows, nspp columns
+
             let cache = if self.cycle == 1 { false } else { self.cache };
             let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
 
@@ -262,7 +265,7 @@ where
                 gamlam: self.gamma,
             };
 
-            tracing::info!("Cycle: {}, -2LL: {:.4}", self.cycle, -2.0 * self.objf);
+            tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
 
             match &self.tx {
                 Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
@@ -272,7 +275,7 @@ where
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
                 tracing::warn!(
-                    "Objective function decreased from {} to {}",
+                    "Objective function decreased from {} to {}. This may indicate instability or model misspecification.",
                     self.last_objf,
                     self.objf
                 );
@@ -281,7 +284,9 @@ where
             self.w = self.lambda.clone();
 
             if (self.last_objf - self.objf).abs() <= THETA_F {
-                tracing::info!("The run converged with the following criteria: Log-Likelihood");
+                tracing::info!(
+                    "Objective function convergence reached"
+                );
                 self.converged = true;
                 break;
             }
