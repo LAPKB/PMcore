@@ -1,19 +1,13 @@
 use crate::routines::datafile::CovLine;
 use crate::routines::datafile::Infusion;
 use crate::routines::datafile::Scenario;
-use dashmap::mapref::entry::Entry;
-use dashmap::DashMap;
-use lazy_static::lazy_static;
 use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
 use ndarray::Array1;
 use ndarray::{Array, Array2, Axis};
 use std::collections::HashMap;
 use std::error;
-use std::hash::{Hash, Hasher};
-
-/// Number of support points to cache for each scenario
-const CACHE_SIZE: usize = 1000;
+use cached::proc_macro::cached;
 
 #[derive(Debug, Clone)]
 pub struct Model {
@@ -103,51 +97,13 @@ where
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-struct CacheKey {
-    i: usize,
-    support_point: Vec<f64>,
-}
-
-impl Eq for CacheKey {}
-
-impl Hash for CacheKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.i.hash(state);
-        for value in &self.support_point {
-            value.to_bits().hash(state);
-        }
-    }
-}
-
-lazy_static! {
-    static ref YPRED_CACHE: DashMap<CacheKey, Array1<f64>> =
-        DashMap::with_capacity(CACHE_SIZE); // Adjust cache size as needed
-}
-
+#[cached]
 pub fn get_ypred<S: Predict<'static> + Sync + Clone>(
     sim_eng: &Engine<S>,
     scenario: Scenario,
     support_point: Vec<f64>,
-    i: usize,
-    cache: bool,
 ) -> Array1<f64> {
-    let key = CacheKey {
-        i,
-        support_point: support_point.clone(),
-    };
-    if cache {
-        match YPRED_CACHE.entry(key) {
-            Entry::Occupied(entry) => entry.get().clone(), // Clone the cached value
-            Entry::Vacant(entry) => {
-                let new_value = Array::from(sim_eng.pred(scenario, support_point));
-                entry.insert(new_value.clone());
-                new_value
-            }
-        }
-    } else {
-        Array::from(sim_eng.pred(scenario, support_point))
-    }
+    Array::from(sim_eng.pred(scenario, support_point))
 }
 
 /// Simulate observations for multiple scenarios and support points.
@@ -205,8 +161,7 @@ where
                         sim_eng,
                         scenario.clone(),
                         support_points.row(j).to_vec(),
-                        i,
-                        cache,
+
                     );
                     element.fill(ypred);
                 });
