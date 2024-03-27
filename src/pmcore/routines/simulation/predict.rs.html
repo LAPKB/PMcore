@@ -437,7 +437,7 @@
 ///
 </span><span class="kw">pub fn </span>sim_obs&lt;S&gt;(
     sim_eng: <span class="kw-2">&amp;</span>Engine&lt;S&gt;,
-    scenarios: <span class="kw-2">&amp;</span>Vec&lt;Scenario&gt;,
+    scenarios: <span class="kw-2">&amp;</span>[Scenario],
     support_points: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;,
     cache: bool,
 ) -&gt; Array2&lt;Array1&lt;f64&gt;&gt;
@@ -482,7 +482,7 @@
 <span class="kw">pub fn </span>post_predictions&lt;S&gt;(
     sim_engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;,
     post: Array2&lt;f64&gt;,
-    scenarios: <span class="kw-2">&amp;</span>Vec&lt;Scenario&gt;,
+    scenarios: <span class="kw-2">&amp;</span>[Scenario],
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Array1&lt;Vec&lt;f64&gt;&gt;, Box&lt;<span class="kw">dyn </span>error::Error&gt;&gt;
 <span class="kw">where
     </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + Sync + Clone,
