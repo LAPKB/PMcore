@@ -5,7 +5,7 @@ log = "bimodal_ke.log"
 
 [config]
 cycles = 1024
-engine = "NPOD"
+engine = "NPAG"
 init_points = 2129
 seed = 22
 tui = false
@@ -13,7 +13,6 @@ output = true
 cache = true
 idelta = 0.1
 log_level = "info"
-
 
 [random]
 Ke = [0.001, 3.0]

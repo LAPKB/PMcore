@@ -183,7 +183,7 @@ pub fn get_ypred<S: Predict<'static> + Sync + Clone>(
 ///
 pub fn sim_obs<S>(
     sim_eng: &Engine<S>,
-    scenarios: &Vec<Scenario>,
+    scenarios: &[Scenario],
     support_points: &Array2<f64>,
     cache: bool,
 ) -> Array2<Array1<f64>>
@@ -228,7 +228,7 @@ where
 pub fn post_predictions<S>(
     sim_engine: &Engine<S>,
     post: Array2<f64>,
-    scenarios: &Vec<Scenario>,
+    scenarios: &[Scenario],
 ) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>>
 where
     S: Predict<'static> + Sync + Clone,
