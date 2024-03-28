@@ -347,6 +347,13 @@
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -569,6 +576,13 @@
                 }
             }
 
+            <span class="kw">let </span>removed = <span class="self">self</span>.theta.shape()[<span class="number">0</span>] - keep.len();
+            <span class="kw">if </span>removed &gt; <span class="number">0 </span>{
+                <span class="macro">tracing::debug!</span>(
+                    <span class="string">"Removed {} support point(s) with weight &lt; 1/1000 of max"</span>,
+                    removed
+                );
+            }
             <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
             <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
 
