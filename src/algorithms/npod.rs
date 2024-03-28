@@ -220,6 +220,13 @@ where
                 }
             }
 
+            let removed = self.theta.shape()[0] - keep.len();
+            if removed > 0 {
+                tracing::debug!(
+                    "Removed {} support point(s) with weight < 1/1000 of max",
+                    removed
+                );
+            }
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
