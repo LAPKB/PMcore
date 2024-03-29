@@ -34,6 +34,9 @@ pub struct Paths {
     pub log: Option<String>,
     /// If provided, PMcore will use this prior instead of a "uniform" prior, see `sobol::generate` for details.
     pub prior: Option<String>,
+    /// If provided, and [Config::output] is true, PMcore will write the output to this **relative** path. Defaults to `outputs/`
+    #[serde(default = "default_output_folder")]
+    pub output_folder: Option<String>,
 }
 
 /// General configuration settings
@@ -53,6 +56,7 @@ pub struct Config {
     pub init_points: usize,
     #[serde(default = "default_false")]
     pub tui: bool,
+    /// If true (default), write outputs to files. Output path is set with [Paths::output_folder]
     #[serde(default = "default_true")]
     pub output: bool,
     /// If true (default), cache predicted values
@@ -200,7 +204,9 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
 
     // Write a copy of the settings to file if output is enabled
     if settings.config.output {
-        write_settings_to_file(&settings).expect("Could not write settings to file");
+        if let Err(error) = write_settings_to_file(&settings) {
+            eprintln!("Could not write settings to file: {}", error);
+        }
     }
 
     Ok(settings) // Return the settings wrapped in Ok
@@ -252,4 +258,8 @@ fn default_10k() -> usize {
 
 fn default_cycles() -> usize {
     100
+}
+
+fn default_output_folder() -> Option<String> {
+    Some("outputs/".to_string())
 }

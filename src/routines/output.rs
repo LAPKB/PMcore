@@ -78,7 +78,7 @@ impl NPResult {
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
 
-            let file = File::create("theta.csv")?;
+            let file = create_output_file(&self.settings, "theta.csv")?;
             let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
             // Create the headers
@@ -112,7 +112,8 @@ impl NPResult {
 
             let posterior = posterior(&psi, &w);
 
-            let file = File::create("posterior.csv")?;
+            // Create the output folder if it doesn't exist
+            let file = create_output_file(&self.settings, "posterior.csv")?;
             let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
             // Create the headers
@@ -151,7 +152,7 @@ impl NPResult {
         let result = (|| {
             let scenarios = self.scenarios.clone();
 
-            let file = File::create("obs.csv")?;
+            let file = create_output_file(&self.settings, "obs.csv")?;
             let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
             // Create the headers
@@ -216,7 +217,7 @@ impl NPResult {
                 false,
             );
 
-            let file = File::create("pred.csv")?;
+            let file = create_output_file(&self.settings, "pred.csv")?;
             let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
             // Create the headers
@@ -581,4 +582,24 @@ pub fn posterior_mean_median(
     }
 
     (mean, median)
+}
+
+pub fn create_output_file(settings: &Settings, file_name: &str) -> std::io::Result<File> {
+    let output_folder = settings
+        .paths
+        .output_folder
+        .as_ref()
+        .ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Output folder not specified in settings",
+        ))?;
+
+    let path = std::path::Path::new(output_folder);
+
+    // Attempt to create the output directory (does nothing if already exists)
+    std::fs::create_dir_all(path)?;
+
+    // Create and open the file, returning the File handle
+    let file_path = path.join(file_name);
+    File::create(file_path)
 }
