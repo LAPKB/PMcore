@@ -60,14 +60,7 @@ impl NPResult {
             self.write_posterior();
             self.write_obs();
             self.write_pred(engine, idelta, tad);
-            self.write_meta();
         }
-    }
-
-    // Writes meta_rust.csv
-    pub fn write_meta(&self) {
-        let mut meta_writer = MetaWriter::new();
-        meta_writer.write(self.converged, self.cycles);
     }
 
     /// Writes theta, which containts the population support points and their associated probabilities
@@ -279,8 +272,8 @@ pub struct CycleLog {
     cycle_writer: CycleWriter,
 }
 impl CycleLog {
-    pub fn new(par_names: &[String]) -> Self {
-        let cycle_writer = CycleWriter::new("cycles.csv", par_names.to_vec());
+    pub fn new(settings: &Settings) -> Self {
+        let cycle_writer = CycleWriter::new(settings);
         Self {
             cycles: Vec::new(),
             cycle_writer,
@@ -288,8 +281,13 @@ impl CycleLog {
     }
     pub fn push_and_write(&mut self, npcycle: NPCycle, write_ouput: bool) {
         if write_ouput {
-            self.cycle_writer
-                .write(npcycle.cycle, npcycle.objf, npcycle.gamlam, &npcycle.theta);
+            self.cycle_writer.write(
+                npcycle.cycle,
+                npcycle.converged,
+                npcycle.objf,
+                npcycle.gamlam,
+                &npcycle.theta,
+            );
             self.cycle_writer.flush();
         }
         self.cycles.push(npcycle);
@@ -297,7 +295,7 @@ impl CycleLog {
 }
 
 /// Defines the result objects from a run
-/// An [NPResult] contains the necessary information to generate predictions and summary statistics
+/// An [NPCycle] contains summary of a cycle
 /// It holds the following information:
 /// - `cycle`: The cycle number
 /// - `objf`: The objective function value
@@ -305,6 +303,7 @@ impl CycleLog {
 /// - `theta`: The support points and their associated probabilities
 /// - `nspp`: The number of support points
 /// - `delta_objf`: The change in objective function value from last cycle
+/// - `converged`: Whether the algorithm has reached convergence
 #[derive(Debug, Clone)]
 pub struct NPCycle {
     pub cycle: usize,
@@ -313,6 +312,7 @@ pub struct NPCycle {
     pub theta: Array2<f64>,
     pub nspp: usize,
     pub delta_objf: f64,
+    pub converged: bool,
 }
 impl NPCycle {
     pub fn new() -> Self {
@@ -323,6 +323,7 @@ impl NPCycle {
             theta: Array2::default((0, 0)),
             nspp: 0,
             delta_objf: 0.0,
+            converged: false,
         }
     }
 }
@@ -339,16 +340,18 @@ pub struct CycleWriter {
 }
 
 impl CycleWriter {
-    pub fn new(file_path: &str, parameter_names: Vec<String>) -> CycleWriter {
-        let file = File::create(file_path).unwrap();
+    pub fn new(settings: &Settings) -> CycleWriter {
+        let file = create_output_file(settings, "cycles.csv").unwrap();
         let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
         // Write headers
         writer.write_field("cycle").unwrap();
+        writer.write_field("converged").unwrap();
         writer.write_field("neg2ll").unwrap();
         writer.write_field("gamlam").unwrap();
         writer.write_field("nspp").unwrap();
 
+        let parameter_names = settings.random.names();
         for param_name in &parameter_names {
             writer.write_field(format!("{}.mean", param_name)).unwrap();
             writer
@@ -362,8 +365,16 @@ impl CycleWriter {
         CycleWriter { writer }
     }
 
-    pub fn write(&mut self, cycle: usize, objf: f64, gamma: f64, theta: &Array2<f64>) {
+    pub fn write(
+        &mut self,
+        cycle: usize,
+        converged: bool,
+        objf: f64,
+        gamma: f64,
+        theta: &Array2<f64>,
+    ) {
         self.writer.write_field(format!("{}", cycle)).unwrap();
+        self.writer.write_field(format!("{}", converged)).unwrap();
         self.writer.write_field(format!("{}", objf)).unwrap();
         self.writer.write_field(format!("{}", gamma)).unwrap();
         self.writer
@@ -392,44 +403,6 @@ impl CycleWriter {
     }
 
     pub fn flush(&mut self) {
-        self.writer.flush().unwrap();
-    }
-}
-
-// Meta
-#[derive(Debug)]
-pub struct MetaWriter {
-    writer: csv::Writer<File>,
-}
-
-impl Default for MetaWriter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl MetaWriter {
-    pub fn new() -> MetaWriter {
-        let meta_file = File::create("meta_rust.csv").unwrap();
-        let mut meta_writer = WriterBuilder::new()
-            .has_headers(false)
-            .from_writer(meta_file);
-        meta_writer.write_field("converged").unwrap();
-        meta_writer.write_field("ncycles").unwrap();
-        meta_writer.write_record(None::<&[u8]>).unwrap();
-        MetaWriter {
-            writer: meta_writer,
-        }
-    }
-
-    pub fn write(&mut self, converged: bool, cycle: usize) {
-        self.writer.write_field(converged.to_string()).unwrap();
-        self.writer.write_field(format!("{}", cycle)).unwrap();
-        self.writer.write_record(None::<&[u8]>).unwrap();
-        self.flush();
-    }
-
-    fn flush(&mut self) {
         self.writer.flush().unwrap();
     }
 }
