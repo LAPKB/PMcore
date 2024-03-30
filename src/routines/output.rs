@@ -336,31 +336,36 @@ impl Default for NPCycle {
 // Cycles
 #[derive(Debug)]
 pub struct CycleWriter {
-    writer: csv::Writer<File>,
+    writer: Option<csv::Writer<File>>,
 }
 
 impl CycleWriter {
     pub fn new(settings: &Settings) -> CycleWriter {
-        let file = create_output_file(settings, "cycles.csv").unwrap();
-        let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        let writer = if settings.config.output {
+            let file = create_output_file(settings, "cycles.csv").unwrap();
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
-        // Write headers
-        writer.write_field("cycle").unwrap();
-        writer.write_field("converged").unwrap();
-        writer.write_field("neg2ll").unwrap();
-        writer.write_field("gamlam").unwrap();
-        writer.write_field("nspp").unwrap();
+            // Write headers
+            writer.write_field("cycle").unwrap();
+            writer.write_field("converged").unwrap();
+            writer.write_field("neg2ll").unwrap();
+            writer.write_field("gamlam").unwrap();
+            writer.write_field("nspp").unwrap();
 
-        let parameter_names = settings.random.names();
-        for param_name in &parameter_names {
-            writer.write_field(format!("{}.mean", param_name)).unwrap();
-            writer
-                .write_field(format!("{}.median", param_name))
-                .unwrap();
-            writer.write_field(format!("{}.sd", param_name)).unwrap();
-        }
+            let parameter_names = settings.random.names();
+            for param_name in &parameter_names {
+                writer.write_field(format!("{}.mean", param_name)).unwrap();
+                writer
+                    .write_field(format!("{}.median", param_name))
+                    .unwrap();
+                writer.write_field(format!("{}.sd", param_name)).unwrap();
+            }
 
-        writer.write_record(None::<&[u8]>).unwrap();
+            writer.write_record(None::<&[u8]>).unwrap();
+            Some(writer)
+        } else {
+            None
+        };
 
         CycleWriter { writer }
     }
@@ -373,37 +378,37 @@ impl CycleWriter {
         gamma: f64,
         theta: &Array2<f64>,
     ) {
-        self.writer.write_field(format!("{}", cycle)).unwrap();
-        self.writer.write_field(format!("{}", converged)).unwrap();
-        self.writer.write_field(format!("{}", objf)).unwrap();
-        self.writer.write_field(format!("{}", gamma)).unwrap();
-        self.writer
-            .write_field(format!("{}", theta.nrows()))
-            .unwrap();
+        if let Some(writer) = &mut self.writer {
+            writer.write_field(format!("{}", cycle)).unwrap();
+            writer.write_field(format!("{}", converged)).unwrap();
+            writer.write_field(format!("{}", objf)).unwrap();
+            writer.write_field(format!("{}", gamma)).unwrap();
+            writer.write_field(format!("{}", theta.nrows())).unwrap();
 
-        for param in theta.axis_iter(Axis(1)) {
-            self.writer
-                .write_field(format!("{}", param.mean().unwrap()))
-                .unwrap();
+            for param in theta.axis_iter(Axis(1)) {
+                writer
+                    .write_field(format!("{}", param.mean().unwrap()))
+                    .unwrap();
+            }
+
+            for param in theta.axis_iter(Axis(1)) {
+                writer
+                    .write_field(format!("{}", median(param.to_owned().to_vec())))
+                    .unwrap();
+            }
+
+            for param in theta.axis_iter(Axis(1)) {
+                writer.write_field(format!("{}", param.std(1.))).unwrap();
+            }
+
+            writer.write_record(None::<&[u8]>).unwrap();
         }
-
-        for param in theta.axis_iter(Axis(1)) {
-            self.writer
-                .write_field(format!("{}", median(param.to_owned().to_vec())))
-                .unwrap();
-        }
-
-        for param in theta.axis_iter(Axis(1)) {
-            self.writer
-                .write_field(format!("{}", param.std(1.)))
-                .unwrap();
-        }
-
-        self.writer.write_record(None::<&[u8]>).unwrap();
     }
 
     pub fn flush(&mut self) {
-        self.writer.flush().unwrap();
+        if let Some(writer) = &mut self.writer {
+            writer.flush().unwrap(); // Handle errors appropriately
+        }
     }
 }
 

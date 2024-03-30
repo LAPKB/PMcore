@@ -282,9 +282,10 @@ where
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
                 tracing::warn!(
-                    "Objective function decreased from {} to {}",
-                    self.last_objf,
-                    self.objf
+                    "Objective function decreased from {:.4} to {:.4} (delta = {})",
+                    -2.0 * self.last_objf,
+                    -2.0 * self.objf,
+                    -2.0 * self.last_objf - -2.0 * self.objf
                 );
             }
 
@@ -327,6 +328,7 @@ where
                 stop = true;
             }
 
+            // Create state object
             let state = NPCycle {
                 cycle: self.cycle,
                 objf: -2. * self.objf,
@@ -337,14 +339,17 @@ where
                 converged: self.converged,
             };
 
+            // Update TUI with current state
             match &self.tx {
                 Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
                 None => (),
             }
 
+            // Write cycle log
             self.cycle_log
                 .push_and_write(state, self.settings.config.output);
 
+            // Break if stop criteria are met
             if stop {
                 break;
             }

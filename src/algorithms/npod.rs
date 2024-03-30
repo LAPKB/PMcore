@@ -266,9 +266,10 @@ where
             // Increasing objf signals instability or model misspecification.
             if self.last_objf > self.objf {
                 tracing::warn!(
-                    "Objective function decreased from {} to {}. This may indicate instability or model misspecification.",
-                    self.last_objf,
-                    self.objf
+                    "Objective function decreased from {:.4} to {:.4} (delta = {})",
+                    -2.0 * self.last_objf,
+                    -2.0 * self.objf,
+                    -2.0 * self.last_objf - -2.0 * self.objf
                 );
             }
 
