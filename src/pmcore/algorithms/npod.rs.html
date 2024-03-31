@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/algorithms/npod.rs`."><title>npod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/algorithms/npod.rs`."><title>npod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pmcore/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -354,6 +354,9 @@
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -474,7 +477,7 @@
                 <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Error type not supported"</span>),
             },
             converged: <span class="bool-val">false</span>,
-            cycle_log: CycleLog::new(<span class="kw-2">&amp;</span>settings.random.names()),
+            cycle_log: CycleLog::new(<span class="kw-2">&amp;</span>settings),
             cache: settings.config.cache,
             tx,
             settings,
@@ -619,13 +622,47 @@
 
             <span class="self">self</span>.optim_gamma();
 
-            <span class="kw">let </span>state = NPCycle {
+            <span class="comment">// Increasing objf signals instability or model misspecification.
+            </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
+                <span class="macro">tracing::warn!</span>(
+                    <span class="string">"Objective function decreased from {:.4} to {:.4} (delta = {})"</span>,
+                    -<span class="number">2.0 </span>* <span class="self">self</span>.last_objf,
+                    -<span class="number">2.0 </span>* <span class="self">self</span>.objf,
+                    -<span class="number">2.0 </span>* <span class="self">self</span>.last_objf - -<span class="number">2.0 </span>* <span class="self">self</span>.objf
+                );
+            }
+
+            <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
+
+            <span class="comment">// Perform checks for convergence or termination
+            </span><span class="kw">let </span><span class="kw-2">mut </span>stop = <span class="bool-val">false</span>;
+            <span class="comment">// Stop if objective function convergence is reached
+            </span><span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_F {
+                <span class="macro">tracing::info!</span>(<span class="string">"Objective function convergence reached"</span>);
+                <span class="self">self</span>.converged = <span class="bool-val">true</span>;
+                stop = <span class="bool-val">true</span>;
+            }
+            <span class="comment">// Stop if we have reached maximum number of cycles
+            </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.config.cycles {
+                <span class="macro">tracing::warn!</span>(<span class="string">"Maximum number of cycles reached"</span>);
+                stop = <span class="bool-val">true</span>;
+            }
+
+            <span class="comment">// Stop if stopfile exists
+            </span><span class="kw">if </span>std::path::Path::new(<span class="string">"stop"</span>).exists() {
+                <span class="macro">tracing::warn!</span>(<span class="string">"Stopfile detected - breaking"</span>);
+                stop = <span class="bool-val">true</span>;
+            }
+
+            <span class="comment">// Create a new NPCycle state and log it
+            </span><span class="kw">let </span>state = NPCycle {
                 cycle: <span class="self">self</span>.cycle,
                 objf: -<span class="number">2. </span>* <span class="self">self</span>.objf,
                 delta_objf: (<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs(),
                 nspp: <span class="self">self</span>.theta.shape()[<span class="number">0</span>],
                 theta: <span class="self">self</span>.theta.clone(),
                 gamlam: <span class="self">self</span>.gamma,
+                converged: <span class="self">self</span>.converged,
             };
 
             <span class="comment">// Log relevant cycle information
@@ -638,47 +675,22 @@
                 <span class="prelude-val">None </span>=&gt; (),
             }
 
-            <span class="comment">// Increasing objf signals instability or model misspecification.
-            </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
-                <span class="macro">tracing::warn!</span>(
-                    <span class="string">"Objective function decreased from {} to {}. This may indicate instability or model misspecification."</span>,
-                    <span class="self">self</span>.last_objf,
-                    <span class="self">self</span>.objf
-                );
-            }
+            <span class="self">self</span>.cycle_log
+                .push_and_write(state, <span class="self">self</span>.settings.config.output);
 
-            <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
-
-            <span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_F {
-                <span class="macro">tracing::info!</span>(<span class="string">"Objective function convergence reached"</span>);
-                <span class="self">self</span>.converged = <span class="bool-val">true</span>;
-                <span class="kw">break</span>;
-            }
-            <span class="comment">// Stop if we have reached maximum number of cycles
-            </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.config.cycles {
-                <span class="macro">tracing::warn!</span>(<span class="string">"Maximum number of cycles reached"</span>);
+            <span class="kw">if </span>stop {
                 <span class="kw">break</span>;
             }
 
-            <span class="comment">// Stop if stopfile exists
-            </span><span class="kw">if </span>std::path::Path::new(<span class="string">"stop"</span>).exists() {
-                <span class="macro">tracing::warn!</span>(<span class="string">"Stopfile detected - breaking"</span>);
-                <span class="kw">break</span>;
-            }
-            <span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
-
-            <span class="comment">// Add new point to theta based on the optimization of the D function
-            </span><span class="kw">let </span>sigma = ErrorPoly {
+            <span class="comment">// If no stop signal, add new point to theta based on the optimization of the D function
+            </span><span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
+            <span class="kw">let </span>sigma = ErrorPoly {
                 c: <span class="self">self</span>.c,
                 gl: <span class="self">self</span>.gamma,
                 e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
             };
-            <span class="comment">// for spp in self.theta.clone().rows() {
-            //     let optimizer = SppOptimizer::new(&amp;self.engine, &amp;self.scenarios, &amp;sigma, &amp;pyl);
-            //     let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
-            //     prune(&amp;mut self.theta, candidate_point, &amp;self.ranges, THETA_D);
-            // }
-            </span><span class="kw">let </span><span class="kw-2">mut </span>candididate_points: Vec&lt;Array1&lt;f64&gt;&gt; = Vec::default();
+
+            <span class="kw">let </span><span class="kw-2">mut </span>candididate_points: Vec&lt;Array1&lt;f64&gt;&gt; = Vec::default();
             <span class="kw">for </span>spp <span class="kw">in </span><span class="self">self</span>.theta.clone().rows() {
                 candididate_points.push(spp.to_owned());
             }
@@ -691,15 +703,9 @@
                 prune(<span class="kw-2">&amp;mut </span><span class="self">self</span>.theta, cp, <span class="kw-2">&amp;</span><span class="self">self</span>.ranges, THETA_D);
             }
 
-            <span class="comment">//TODO: the cycle might break before reaching this point
-            </span><span class="self">self</span>.cycle_log
-                .push_and_write(state, <span class="self">self</span>.settings.config.output);
-
-            <span class="self">self</span>.cycle += <span class="number">1</span>;
-
-            <span class="comment">// log::info!("cycle: {}, objf: {}", self.cycle, self.objf);
-            // dbg!((self.last_objf - self.objf).abs());
-        </span>}
+            <span class="comment">// Increment the cycle count and prepare for the next cycle
+            </span><span class="self">self</span>.cycle += <span class="number">1</span>;
+        }
 
         <span class="self">self</span>.to_npresult()
     }

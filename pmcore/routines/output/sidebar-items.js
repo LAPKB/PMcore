@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["median","population_mean_median","posterior","posterior_mean_median"],"struct":["CycleLog","CycleWriter","MetaWriter","NPCycle","NPResult"]};
+window.SIDEBAR_ITEMS = {"fn":["create_output_file","median","population_mean_median","posterior","posterior_mean_median"],"struct":["CycleLog","CycleWriter","NPCycle","NPResult"]};

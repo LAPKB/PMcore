@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/output.rs`."><title>output.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/output.rs`."><title>output.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pmcore/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -583,7 +583,6 @@
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>datafile::Scenario;
@@ -646,14 +645,7 @@
             <span class="self">self</span>.write_posterior();
             <span class="self">self</span>.write_obs();
             <span class="self">self</span>.write_pred(engine, idelta, tad);
-            <span class="self">self</span>.write_meta();
         }
-    }
-
-    <span class="comment">// Writes meta_rust.csv
-    </span><span class="kw">pub fn </span>write_meta(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">let </span><span class="kw-2">mut </span>meta_writer = MetaWriter::new();
-        meta_writer.write(<span class="self">self</span>.converged, <span class="self">self</span>.cycles);
     }
 
     <span class="doccomment">/// Writes theta, which containts the population support points and their associated probabilities
@@ -664,7 +656,7 @@
             <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
             <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
 
-            <span class="kw">let </span>file = File::create(<span class="string">"theta.csv"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"theta.csv"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">true</span>).from_writer(file);
 
             <span class="comment">// Create the headers
@@ -698,7 +690,8 @@
 
             <span class="kw">let </span>posterior = posterior(<span class="kw-2">&amp;</span>psi, <span class="kw-2">&amp;</span>w);
 
-            <span class="kw">let </span>file = File::create(<span class="string">"posterior.csv"</span>)<span class="question-mark">?</span>;
+            <span class="comment">// Create the output folder if it doesn't exist
+            </span><span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"posterior.csv"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">true</span>).from_writer(file);
 
             <span class="comment">// Create the headers
@@ -737,7 +730,7 @@
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>scenarios = <span class="self">self</span>.scenarios.clone();
 
-            <span class="kw">let </span>file = File::create(<span class="string">"obs.csv"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"obs.csv"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
 
             <span class="comment">// Create the headers
@@ -802,7 +795,7 @@
                 <span class="bool-val">false</span>,
             );
 
-            <span class="kw">let </span>file = File::create(<span class="string">"pred.csv"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"pred.csv"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
 
             <span class="comment">// Create the headers
@@ -864,8 +857,8 @@
     cycle_writer: CycleWriter,
 }
 <span class="kw">impl </span>CycleLog {
-    <span class="kw">pub fn </span>new(par_names: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>cycle_writer = CycleWriter::new(<span class="string">"cycles.csv"</span>, par_names.to_vec());
+    <span class="kw">pub fn </span>new(settings: <span class="kw-2">&amp;</span>Settings) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>cycle_writer = CycleWriter::new(settings);
         <span class="self">Self </span>{
             cycles: Vec::new(),
             cycle_writer,
@@ -873,8 +866,13 @@
     }
     <span class="kw">pub fn </span>push_and_write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, npcycle: NPCycle, write_ouput: bool) {
         <span class="kw">if </span>write_ouput {
-            <span class="self">self</span>.cycle_writer
-                .write(npcycle.cycle, npcycle.objf, npcycle.gamlam, <span class="kw-2">&amp;</span>npcycle.theta);
+            <span class="self">self</span>.cycle_writer.write(
+                npcycle.cycle,
+                npcycle.converged,
+                npcycle.objf,
+                npcycle.gamlam,
+                <span class="kw-2">&amp;</span>npcycle.theta,
+            );
             <span class="self">self</span>.cycle_writer.flush();
         }
         <span class="self">self</span>.cycles.push(npcycle);
@@ -882,7 +880,7 @@
 }
 
 <span class="doccomment">/// Defines the result objects from a run
-/// An [NPResult] contains the necessary information to generate predictions and summary statistics
+/// An [NPCycle] contains summary of a cycle
 /// It holds the following information:
 /// - `cycle`: The cycle number
 /// - `objf`: The objective function value
@@ -890,6 +888,7 @@
 /// - `theta`: The support points and their associated probabilities
 /// - `nspp`: The number of support points
 /// - `delta_objf`: The change in objective function value from last cycle
+/// - `converged`: Whether the algorithm has reached convergence
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>NPCycle {
     <span class="kw">pub </span>cycle: usize,
@@ -898,6 +897,7 @@
     <span class="kw">pub </span>theta: Array2&lt;f64&gt;,
     <span class="kw">pub </span>nspp: usize,
     <span class="kw">pub </span>delta_objf: f64,
+    <span class="kw">pub </span>converged: bool,
 }
 <span class="kw">impl </span>NPCycle {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
@@ -908,6 +908,7 @@
             theta: Array2::default((<span class="number">0</span>, <span class="number">0</span>)),
             nspp: <span class="number">0</span>,
             delta_objf: <span class="number">0.0</span>,
+            converged: <span class="bool-val">false</span>,
         }
     }
 }
@@ -920,102 +921,79 @@
 <span class="comment">// Cycles
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>CycleWriter {
-    writer: csv::Writer&lt;File&gt;,
+    writer: <span class="prelude-ty">Option</span>&lt;csv::Writer&lt;File&gt;&gt;,
 }
 
 <span class="kw">impl </span>CycleWriter {
-    <span class="kw">pub fn </span>new(file_path: <span class="kw-2">&amp;</span>str, parameter_names: Vec&lt;String&gt;) -&gt; CycleWriter {
-        <span class="kw">let </span>file = File::create(file_path).unwrap();
-        <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
+    <span class="kw">pub fn </span>new(settings: <span class="kw-2">&amp;</span>Settings) -&gt; CycleWriter {
+        <span class="kw">let </span>writer = <span class="kw">if </span>settings.config.output {
+            <span class="kw">let </span>file = create_output_file(settings, <span class="string">"cycles.csv"</span>).unwrap();
+            <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
 
-        <span class="comment">// Write headers
-        </span>writer.write_field(<span class="string">"cycle"</span>).unwrap();
-        writer.write_field(<span class="string">"neg2ll"</span>).unwrap();
-        writer.write_field(<span class="string">"gamlam"</span>).unwrap();
-        writer.write_field(<span class="string">"nspp"</span>).unwrap();
+            <span class="comment">// Write headers
+            </span>writer.write_field(<span class="string">"cycle"</span>).unwrap();
+            writer.write_field(<span class="string">"converged"</span>).unwrap();
+            writer.write_field(<span class="string">"neg2ll"</span>).unwrap();
+            writer.write_field(<span class="string">"gamlam"</span>).unwrap();
+            writer.write_field(<span class="string">"nspp"</span>).unwrap();
 
-        <span class="kw">for </span>param_name <span class="kw">in </span><span class="kw-2">&amp;</span>parameter_names {
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.mean"</span>, param_name)).unwrap();
-            writer
-                .write_field(<span class="macro">format!</span>(<span class="string">"{}.median"</span>, param_name))
-                .unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.sd"</span>, param_name)).unwrap();
-        }
+            <span class="kw">let </span>parameter_names = settings.random.names();
+            <span class="kw">for </span>param_name <span class="kw">in </span><span class="kw-2">&amp;</span>parameter_names {
+                writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.mean"</span>, param_name)).unwrap();
+                writer
+                    .write_field(<span class="macro">format!</span>(<span class="string">"{}.median"</span>, param_name))
+                    .unwrap();
+                writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.sd"</span>, param_name)).unwrap();
+            }
 
-        writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
+            writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
+            <span class="prelude-val">Some</span>(writer)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
 
         CycleWriter { writer }
     }
 
-    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cycle: usize, objf: f64, gamma: f64, theta: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;) {
-        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle)).unwrap();
-        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, objf)).unwrap();
-        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, gamma)).unwrap();
-        <span class="self">self</span>.writer
-            .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, theta.nrows()))
-            .unwrap();
+    <span class="kw">pub fn </span>write(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cycle: usize,
+        converged: bool,
+        objf: f64,
+        gamma: f64,
+        theta: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;,
+    ) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(writer) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.writer {
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, converged)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, objf)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, gamma)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, theta.nrows())).unwrap();
 
-        <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
-            <span class="self">self</span>.writer
-                .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.mean().unwrap()))
-                .unwrap();
+            <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
+                writer
+                    .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.mean().unwrap()))
+                    .unwrap();
+            }
+
+            <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
+                writer
+                    .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, median(param.to_owned().to_vec())))
+                    .unwrap();
+            }
+
+            <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
+                writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.std(<span class="number">1.</span>))).unwrap();
+            }
+
+            writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
         }
-
-        <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
-            <span class="self">self</span>.writer
-                .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, median(param.to_owned().to_vec())))
-                .unwrap();
-        }
-
-        <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
-            <span class="self">self</span>.writer
-                .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.std(<span class="number">1.</span>)))
-                .unwrap();
-        }
-
-        <span class="self">self</span>.writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
     }
 
     <span class="kw">pub fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="self">self</span>.writer.flush().unwrap();
-    }
-}
-
-<span class="comment">// Meta
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>MetaWriter {
-    writer: csv::Writer&lt;File&gt;,
-}
-
-<span class="kw">impl </span>Default <span class="kw">for </span>MetaWriter {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::new()
-    }
-}
-
-<span class="kw">impl </span>MetaWriter {
-    <span class="kw">pub fn </span>new() -&gt; MetaWriter {
-        <span class="kw">let </span>meta_file = File::create(<span class="string">"meta_rust.csv"</span>).unwrap();
-        <span class="kw">let </span><span class="kw-2">mut </span>meta_writer = WriterBuilder::new()
-            .has_headers(<span class="bool-val">false</span>)
-            .from_writer(meta_file);
-        meta_writer.write_field(<span class="string">"converged"</span>).unwrap();
-        meta_writer.write_field(<span class="string">"ncycles"</span>).unwrap();
-        meta_writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
-        MetaWriter {
-            writer: meta_writer,
-        }
-    }
-
-    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, converged: bool, cycle: usize) {
-        <span class="self">self</span>.writer.write_field(converged.to_string()).unwrap();
-        <span class="self">self</span>.writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle)).unwrap();
-        <span class="self">self</span>.writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
-        <span class="self">self</span>.flush();
-    }
-
-    <span class="kw">fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="self">self</span>.writer.flush().unwrap();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(writer) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.writer {
+            writer.flush().unwrap(); <span class="comment">// Handle errors appropriately
+        </span>}
     }
 }
 
@@ -1167,5 +1145,25 @@
     }
 
     (mean, median)
+}
+
+<span class="kw">pub fn </span>create_output_file(settings: <span class="kw-2">&amp;</span>Settings, file_name: <span class="kw-2">&amp;</span>str) -&gt; std::io::Result&lt;File&gt; {
+    <span class="kw">let </span>output_folder = settings
+        .paths
+        .output_folder
+        .as_ref()
+        .ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            <span class="string">"Output folder not specified in settings"</span>,
+        ))<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>path = std::path::Path::new(output_folder);
+
+    <span class="comment">// Attempt to create the output directory (does nothing if already exists)
+    </span>std::fs::create_dir_all(path)<span class="question-mark">?</span>;
+
+    <span class="comment">// Create and open the file, returning the File handle
+    </span><span class="kw">let </span>file_path = path.join(file_name);
+    File::create(file_path)
 }
 </code></pre></div></section></main></body></html>
