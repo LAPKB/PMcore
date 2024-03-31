@@ -118,7 +118,7 @@ where
                 _ => panic!("Error type not supported"),
             },
             converged: false,
-            cycle_log: CycleLog::new(&settings.random.names()),
+            cycle_log: CycleLog::new(&settings),
             cache: settings.config.cache,
             tx,
             settings,
@@ -263,6 +263,39 @@ where
 
             self.optim_gamma();
 
+            // Increasing objf signals instability or model misspecification.
+            if self.last_objf > self.objf {
+                tracing::warn!(
+                    "Objective function decreased from {:.4} to {:.4} (delta = {})",
+                    -2.0 * self.last_objf,
+                    -2.0 * self.objf,
+                    -2.0 * self.last_objf - -2.0 * self.objf
+                );
+            }
+
+            self.w = self.lambda.clone();
+
+            // Perform checks for convergence or termination
+            let mut stop = false;
+            // Stop if objective function convergence is reached
+            if (self.last_objf - self.objf).abs() <= THETA_F {
+                tracing::info!("Objective function convergence reached");
+                self.converged = true;
+                stop = true;
+            }
+            // Stop if we have reached maximum number of cycles
+            if self.cycle >= self.settings.config.cycles {
+                tracing::warn!("Maximum number of cycles reached");
+                stop = true;
+            }
+
+            // Stop if stopfile exists
+            if std::path::Path::new("stop").exists() {
+                tracing::warn!("Stopfile detected - breaking");
+                stop = true;
+            }
+
+            // Create a new NPCycle state and log it
             let state = NPCycle {
                 cycle: self.cycle,
                 objf: -2. * self.objf,
@@ -270,6 +303,7 @@ where
                 nspp: self.theta.shape()[0],
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
+                converged: self.converged,
             };
 
             // Log relevant cycle information
@@ -282,46 +316,21 @@ where
                 None => (),
             }
 
-            // Increasing objf signals instability or model misspecification.
-            if self.last_objf > self.objf {
-                tracing::warn!(
-                    "Objective function decreased from {} to {}. This may indicate instability or model misspecification.",
-                    self.last_objf,
-                    self.objf
-                );
-            }
+            self.cycle_log
+                .push_and_write(state, self.settings.config.output);
 
-            self.w = self.lambda.clone();
-
-            if (self.last_objf - self.objf).abs() <= THETA_F {
-                tracing::info!("Objective function convergence reached");
-                self.converged = true;
-                break;
-            }
-            // Stop if we have reached maximum number of cycles
-            if self.cycle >= self.settings.config.cycles {
-                tracing::warn!("Maximum number of cycles reached");
+            if stop {
                 break;
             }
 
-            // Stop if stopfile exists
-            if std::path::Path::new("stop").exists() {
-                tracing::warn!("Stopfile detected - breaking");
-                break;
-            }
+            // If no stop signal, add new point to theta based on the optimization of the D function
             let pyl = self.psi.dot(&self.w);
-
-            // Add new point to theta based on the optimization of the D function
             let sigma = ErrorPoly {
                 c: self.c,
                 gl: self.gamma,
                 e_type: &self.error_type,
             };
-            // for spp in self.theta.clone().rows() {
-            //     let optimizer = SppOptimizer::new(&self.engine, &self.scenarios, &sigma, &pyl);
-            //     let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
-            //     prune(&mut self.theta, candidate_point, &self.ranges, THETA_D);
-            // }
+
             let mut candididate_points: Vec<Array1<f64>> = Vec::default();
             for spp in self.theta.clone().rows() {
                 candididate_points.push(spp.to_owned());
@@ -335,14 +344,8 @@ where
                 prune(&mut self.theta, cp, &self.ranges, THETA_D);
             }
 
-            //TODO: the cycle might break before reaching this point
-            self.cycle_log
-                .push_and_write(state, self.settings.config.output);
-
+            // Increment the cycle count and prepare for the next cycle
             self.cycle += 1;
-
-            // log::info!("cycle: {}, objf: {}", self.cycle, self.objf);
-            // dbg!((self.last_objf - self.objf).abs());
         }
 
         self.to_npresult()
