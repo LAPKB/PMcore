@@ -186,7 +186,7 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
 
     let parsed = eConfig::builder()
         .add_source(config::File::with_name(&settings_path).format(config::FileFormat::Toml))
-        .add_source(config::Environment::with_prefix("PMCORE").separator("_"))
+        .add_source(config::Environment::with_prefix("PMCORE").separator("__"))
         .build()?;
 
     // Deserialize settings to the Settings struct
