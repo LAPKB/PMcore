@@ -452,7 +452,7 @@
 
     <span class="kw">let </span>parsed = eConfig::builder()
         .add_source(config::File::with_name(<span class="kw-2">&amp;</span>settings_path).format(config::FileFormat::Toml))
-        .add_source(config::Environment::with_prefix(<span class="string">"PMCORE"</span>).separator(<span class="string">"_"</span>))
+        .add_source(config::Environment::with_prefix(<span class="string">"PMCORE"</span>).separator(<span class="string">"__"</span>))
         .build()<span class="question-mark">?</span>;
 
     <span class="comment">// Deserialize settings to the Settings struct
