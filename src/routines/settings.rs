@@ -172,7 +172,18 @@ impl Error {
                 self.value
             ));
         }
+
+        _ = self.error_type();
+
         Ok(())
+    }
+
+    pub fn error_type(&self) -> crate::routines::evaluation::sigma::ErrorType {
+        match self.class.to_lowercase().as_str() {
+            "additive" | "l" | "lambda"  => crate::routines::evaluation::sigma::ErrorType::Add,
+            "proportional" | "g" | "gamma"  => crate::routines::evaluation::sigma::ErrorType::Prop,
+            _ => panic!("Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)", self.class),
+        }
     }
 }
 
@@ -180,7 +191,7 @@ impl Error {
 ///
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
-/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE_TUI=false`.
+/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE__`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE__CONFIG__TUI=false` Note that a double underscore, `__`, is used as the separator, as some settings may contain a single underscore, such as `PMCORE__CONFIG__LOG_LEVEL`.
 pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
     let settings_path = path;
 

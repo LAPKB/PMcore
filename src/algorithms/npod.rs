@@ -112,11 +112,7 @@ where
             cycle: 1,
             gamma_delta: 0.1,
             gamma: settings.error.value,
-            error_type: match settings.error.class.as_str() {
-                "additive" => ErrorType::Add,
-                "proportional" => ErrorType::Prop,
-                _ => panic!("Error type not supported"),
-            },
+            error_type: settings.error.error_type(),
             converged: false,
             cycle_log: CycleLog::new(&settings),
             cache: settings.config.cache,
