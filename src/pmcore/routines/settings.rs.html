@@ -264,6 +264,17 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
@@ -438,7 +449,18 @@
                 <span class="self">self</span>.value
             ));
         }
+
+        <span class="kw">_ </span>= <span class="self">self</span>.error_type();
+
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">pub fn </span>error_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::routines::evaluation::sigma::ErrorType {
+        <span class="kw">match </span><span class="self">self</span>.class.to_lowercase().as_str() {
+            <span class="string">"additive" </span>| <span class="string">"l" </span>| <span class="string">"lambda"  </span>=&gt; <span class="kw">crate</span>::routines::evaluation::sigma::ErrorType::Add,
+            <span class="string">"proportional" </span>| <span class="string">"g" </span>| <span class="string">"gamma"  </span>=&gt; <span class="kw">crate</span>::routines::evaluation::sigma::ErrorType::Prop,
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)"</span>, <span class="self">self</span>.class),
+        }
     }
 }
 
@@ -446,7 +468,7 @@
 ///
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
-/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE_TUI=false`.
+/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE__`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE__CONFIG__TUI=false` Note that a double underscore, `__`, is used as the separator, as some settings may contain a single underscore, such as `PMCORE__CONFIG__LOG_LEVEL`.
 </span><span class="kw">pub fn </span>read_settings(path: String) -&gt; <span class="prelude-ty">Result</span>&lt;Settings, config::ConfigError&gt; {
     <span class="kw">let </span>settings_path = path;
 
