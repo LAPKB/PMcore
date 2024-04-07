@@ -601,29 +601,49 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                 }
             }
 
+            // Create segments for each covariate
             for (key, mut occurrences) in observed_covariates {
-                occurrences.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // Ensure occurrences are sorted by time
+                occurrences.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                let is_fixed = key.ends_with("!");
+
+                // If it's a fixed covariate, modify the name to remove "!"
+                let name = if is_fixed {
+                    key.trim_end_matches('!').to_string()
+                } else {
+                    key.clone()
+                };
+
                 for (i, (time, value)) in occurrences.iter().enumerate() {
-                    // Determine if there's a next occurrence
-                    if let Some((next_time, next_value)) = occurrences.get(i + 1) {
-                        // Linear Interpolation
-                        let slope = (next_value.unwrap() - value.unwrap()) / (next_time - time);
+                    let next_occurrence = occurrences.get(i + 1);
+
+                    // Determine the 'to' time for CarryForward. For the last occurrence or fixed covariates, it defaults to INFINITY.
+                    let to_time = if let Some((next_time, _)) = next_occurrence {
+                        *next_time
+                    } else {
+                        f64::INFINITY
+                    };
+
+                    if !is_fixed && next_occurrence.is_some() {
+                        // Linear interpolation for non-fixed covariates with a next occurrence
+                        let (next_time, next_value) = next_occurrence.unwrap();
+                        let slope = (next_value.unwrap() - value.unwrap()) / (next_time - *time);
+
                         covariates.add_segment(
-                            key.clone(),
+                            name.clone(),
                             SegmentType::LinearInterpolation {
                                 from: *time,
                                 to: *next_time,
                                 slope,
-                                intercept: value.unwrap(),
+                                intercept: value.unwrap() - (*time * slope),
                             },
                         );
                     } else {
-                        // Carry Forward
+                        // CarryForward for fixed covariates or non-fixed without a next occurrence
                         covariates.add_segment(
-                            key.clone(),
+                            name.clone(),
                             SegmentType::CarryForward {
                                 from: *time,
-                                to: f64::INFINITY,
+                                to: to_time, // This now correctly sets 'to' to the next time, if available
                                 value: value.unwrap(),
                             },
                         );
