@@ -26,21 +26,21 @@ impl fmt::Display for Event {
             Event::Bolus(bolus) => {
                 write!(
                     f,
-                    "Bolus at time {}: amount {} in compartment {}",
+                    "Bolus at time {:.}: amount {:.3} in compartment {}",
                     bolus.time, bolus.amount, bolus.compartment
                 )?;
             }
             Event::Infusion(infusion) => {
                 write!(
                     f,
-                    "Infusion at time {}: amount {} in compartment {} with duration {}",
+                    "Infusion at time {:.}: amount {:.3} in compartment {} with duration {}",
                     infusion.time, infusion.amount, infusion.compartment, infusion.duration
                 )?;
             }
             Event::Observation(observation) => {
                 write!(
                     f,
-                    "Observation at time {}: value {} in outeq {}, ignore: {}",
+                    "\tObservation at time {:.2}: value {:.3} in outeq {}, ignore: {}",
                     observation.time, observation.value, observation.outeq, observation.ignore
                 )?;
             }
@@ -83,6 +83,8 @@ pub trait CovariateSegment {
     fn interpolate(&self, time: f64) -> f64;
     /// Check if the time `x` is within the interval of the covariate segment
     fn in_interval(&self, time: f64) -> bool;
+    /// Description
+    fn description(&self) -> String; // Add this method
 }
 
 /// Linear interpolation of covaraites
@@ -101,6 +103,23 @@ impl CovariateSegment for LinearInterpolation {
 
     fn in_interval(&self, time: f64) -> bool {
         time >= self.from && time <= self.to
+    }
+
+    fn description(&self) -> String {
+        format!(
+            "Linear Interpolation from {:.1} to {:.1}, slope: {:.3}, intercept: {:.3}",
+            self.from, self.to, self.slope, self.intercept
+        )
+    }
+}
+
+impl fmt::Display for LinearInterpolation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Linear Interpolation from {:.1} to {:.1}, slope: {:.3}, intercept: {:.3}",
+            self.from, self.to, self.slope, self.intercept
+        )
     }
 }
 
@@ -133,6 +152,23 @@ impl CovariateSegment for CarryForward {
 
     fn in_interval(&self, x: f64) -> bool {
         x >= self.from && x <= self.to
+    }
+
+    fn description(&self) -> String {
+        format!(
+            "Carry Forward from {:.1} to {:.1}, value: {:.3}",
+            self.from, self.to, self.value
+        )
+    }
+}
+
+impl fmt::Display for CarryForward {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Carry Forward from {:.1} to {:.1}, value: {:.3}",
+            self.from, self.to, self.value
+        )
     }
 }
 
@@ -203,6 +239,20 @@ impl std::fmt::Debug for Covariates {
 impl std::fmt::Debug for dyn CovariateSegment + Send + Sync + 'static {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CovariateSegment").finish()
+    }
+}
+
+impl fmt::Display for Covariates {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "\n")?;
+        for (name, segments) in &self.segments {
+            writeln!(f, "\tCovariate: {}", name)?;
+            for segment in segments {
+                // Use the description method
+                writeln!(f, "  {}", segment.description())?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -316,6 +366,14 @@ impl fmt::Display for Block {
         writeln!(f, "Block {}:", self.index)?;
         for event in &self.events {
             writeln!(f, "  {}", event)?;
+        }
+        writeln!(f, "\n")?;
+        for (name, segments) in &self.covariates.segments {
+            writeln!(f, "Covariate: {}", name)?;
+            for segment in segments {
+                // Use the description method instead of Debug
+                writeln!(f, "    {}", segment.description())?;
+            }
         }
         Ok(())
     }
@@ -467,16 +525,57 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
 
     // For all rows for each ID
     for (id, rows) in rows_map {
+        // Block collector
         let mut blocks: Vec<Block> = Vec::new();
 
+        let mut result = Vec::new();
+        let mut start = 0;
+
+        for (index, row) in rows.iter().enumerate() {
+            // Check if the current value meets the condition to be the start of a new slice
+            if row.evid == 4 {
+                // If we are not at the start of the vector, push the current slice
+                if start != index {
+                    result.push(&rows[start..index]);
+                }
+                start = index;
+            }
+        }
+        // Push the last
+        if start < rows.len() {
+            result.push(&rows[start..]);
+        }
+
+        let block_rows = result.iter().map(|block| block.to_vec());
+
         // Split rows into vectors of rows, creating the blocks
-        let block_rows: Vec<Vec<Row>> = rows
-            .split(|row| row.evid == 4)
-            .map(|block| block.to_vec())
+        let split_indices: Vec<usize> = rows
+            .iter()
+            .enumerate()
+            .filter_map(|(i, row)| if row.evid == 4 { Some(i) } else { None })
             .collect();
 
+        let mut block_rows_vec = Vec::new();
+        let mut start = 0;
+
+        for &split_index in &split_indices {
+            let end = split_index;
+            if start < rows.len() {
+                block_rows_vec.push(&rows[start..end]);
+            }
+            start = end;
+        }
+
+        if start < rows.len() {
+            block_rows_vec.push(&rows[start..]);
+        }
+
+        let block_rows: Vec<Vec<Row>> = block_rows_vec.iter().map(|block| block.to_vec()).collect();
+
         for (block_index, rows) in block_rows.clone().iter().enumerate() {
+            // Collector for all events
             let mut events: Vec<Event> = Vec::new();
+            // Collector for covariates
             let mut covariates = Covariates::new();
 
             // Parse events
@@ -487,58 +586,55 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
 
             // Parse covariates
             let mut cloned_rows = rows.clone();
-            let mut row_iter = cloned_rows.iter_mut().peekable();
-            
-            while let Some(current) = row_iter.next() {
-                if current.covs.is_empty() {
-                    continue;
-                }
+            cloned_rows.retain(|row| !row.covs.is_empty());
 
-                let mut segments: HashMap<String, SegmentType> = HashMap::new();
-                for (key, value) in current.covs.iter() {
-                    let next = row_iter.peek();
-                    let next_key = next.map(|x| x.covs.keys().next().unwrap());
-                    let next_value = next.map(|x| x.covs.values().next().unwrap());
-
-                    match next_key {
-                        Some(next_key) if next_key == key => {
-                            let next_value = next_value.unwrap();
-                            if next_value.is_none() {
-                                continue;
-                            }
-                            let next_value = next_value.unwrap();
-                            segments.insert(
-                                key.clone(),
-                                SegmentType::LinearInterpolation {
-                                    from: current.time,
-                                    to: next.unwrap().time,
-                                    slope: (next_value - value.unwrap()) / (next.unwrap().time - current.time),
-                                    intercept: value.unwrap(),
-                                },
-                            );
-                        }
-                        _ => {
-                            segments.insert(
-                                key.clone(),
-                                SegmentType::CarryForward {
-                                    from: current.time,
-                                    to: f64::MAX,
-                                    value: value.unwrap(),
-                                },
-                            );
-                        }
+            // Collect all covariates by name
+            let mut observed_covariates: HashMap<String, Vec<(f64, Option<f64>)>> = HashMap::new();
+            for row in &cloned_rows {
+                for (key, value) in &row.covs {
+                    if let Some(val) = value {
+                        observed_covariates
+                            .entry(key.clone())
+                            .or_insert_with(Vec::new)
+                            .push((row.time, Some(*val)));
                     }
-                }
-
-                for (key, segment) in segments {
-                    covariates.add_segment(key, segment);
                 }
             }
 
+            for (key, mut occurrences) in observed_covariates {
+                occurrences.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap()); // Ensure occurrences are sorted by time
+                for (i, (time, value)) in occurrences.iter().enumerate() {
+                    // Determine if there's a next occurrence
+                    if let Some((next_time, next_value)) = occurrences.get(i + 1) {
+                        // Linear Interpolation
+                        let slope = (next_value.unwrap() - value.unwrap()) / (next_time - time);
+                        covariates.add_segment(
+                            key.clone(),
+                            SegmentType::LinearInterpolation {
+                                from: *time,
+                                to: *next_time,
+                                slope,
+                                intercept: value.unwrap(),
+                            },
+                        );
+                    } else {
+                        // Carry Forward
+                        covariates.add_segment(
+                            key.clone(),
+                            SegmentType::CarryForward {
+                                from: *time,
+                                to: f64::INFINITY,
+                                value: value.unwrap(),
+                            },
+                        );
+                    }
+                }
+            }
+
+            // Create the block
             let block = Block::new(events, covariates, block_index);
             blocks.push(block);
         }
-
 
         let scenario = Scenario { id, blocks };
         scenarios.push(scenario);
@@ -711,7 +807,7 @@ mod tests {
             "creat".to_string(),
             SegmentType::CarryForward {
                 from: 10.0,
-                to: f64::MAX,
+                to: f64::INFINITY,
                 value: 100.0,
             },
         );
@@ -745,7 +841,7 @@ mod tests {
             "creat".to_string(),
             SegmentType::CarryForward {
                 from: 10.0,
-                to: f64::MAX,
+                to: f64::INFINITY,
                 value: 100.0,
             },
         );
