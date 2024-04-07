@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_variables)]
 // Redesign of data formats
 
 use csv::Writer;
@@ -227,6 +228,15 @@ pub struct Block {
 }
 
 impl Block {
+    // Constructor
+    pub fn new(events: Vec<Event>, covariates: Covariates, index: usize) -> Self {
+        Block {
+            events,
+            covariates,
+            index,
+        }
+    }
+
     /// Sort events by time, then by [Event] type so that [Bolus] and [Infusion] come before [Observation]
     pub fn sort(&mut self) {
         self.events.sort_by(|a, b| {
@@ -312,7 +322,7 @@ impl fmt::Display for Block {
 }
 
 // A row represents a single row in the datafile
-#[derive(Deserialize, Debug, Serialize, Default)]
+#[derive(Deserialize, Debug, Serialize, Default, Clone)]
 struct Row {
     pub id: String,
     pub evid: isize,
@@ -352,9 +362,39 @@ impl Row {
             _ => None,
         }
     }
+}
 
-    pub fn get_covs(&self) -> HashMap<String, Covariates> {
-        unimplemented!("Implement conversion from covs to Covariates");
+impl Into<Event> for Row {
+    fn into(self) -> Event {
+        match self.evid {
+            0 => Event::Observation(Observation {
+                time: self.time,
+                value: self.out.expect("Observation OUT is missing"),
+                outeq: self.outeq.expect("Observation OUTEQ is missing"),
+                errpoly: self.get_errorpoly(),
+                ignore: if self.out == Some(-99.0) { true } else { false },
+            }),
+            1 | 4 => {
+                if Some(self.dur) > Some(Some(0.0)) {
+                    Event::Infusion(Infusion {
+                        time: self.time,
+                        amount: self.dose.expect("Infusion amount (DOSE) is missing"),
+                        compartment: self.input.expect("Infusion compartment (INPUT) is missing"),
+                        duration: self.dur.expect("Infusion duration (DUR) is missing"),
+                    })
+                } else {
+                    Event::Bolus(Bolus {
+                        time: self.time,
+                        amount: self.dose.expect("Bolus amount (DOSE) is missing"),
+                        compartment: self.input.expect("Bolus compartment (INPUT) is missing"),
+                    })
+                }
+            }
+            _ => panic!(
+                "Unknown EVID: {} for ID {} at time {}",
+                self.evid, self.id, self.time
+            ),
+        }
     }
 }
 
@@ -366,6 +406,11 @@ pub struct Scenario {
 }
 
 impl Scenario {
+    // Constructor
+    pub fn new(id: String, blocks: Vec<Block>) -> Self {
+        Scenario { id, blocks }
+    }
+
     /// Add lagtime to all [Bolus] events in a [Scenario]
     ///
     /// Lagtime is a HashMap with the compartment number as key and the lagtime (f64) as value
@@ -402,7 +447,7 @@ impl fmt::Display for Scenario {
 }
 
 pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
-    let mut rdr = csv::ReaderBuilder::new()
+    let mut reader = csv::ReaderBuilder::new()
         .comment(Some(b'#'))
         .has_headers(true)
         .from_path(path)?;
@@ -411,7 +456,7 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
 
     // Read the datafile into a hashmap of rows by ID
     let mut rows_map: HashMap<String, Vec<Row>> = HashMap::new();
-    for result in rdr.deserialize() {
+    for result in reader.deserialize() {
         let row: Row = result?;
 
         rows_map
@@ -420,74 +465,80 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
             .push(row);
     }
 
-    // Convert grouped rows to scenarios
+    // For all rows for each ID
     for (id, rows) in rows_map {
         let mut blocks: Vec<Block> = Vec::new();
-        let mut current_block = Block {
-            events: Vec::new(),
-            covariates: Covariates::new(),
-            index: 0,
-        };
-        let mut block_index = 0;
 
-        for row in rows {
-            match row.evid {
-                // Dose with or without reset
-                1 | 4 => {
-                    if row.evid == 4 {
-                        // Finish current block and start a new one
-                        if !current_block.events.is_empty() {
-                            blocks.push(current_block);
-                            block_index += 1;
+        // Split rows into vectors of rows, creating the blocks
+        let block_rows: Vec<Vec<Row>> = rows
+            .split(|row| row.evid == 4)
+            .map(|block| block.to_vec())
+            .collect();
+
+        for (block_index, rows) in block_rows.clone().iter().enumerate() {
+            let mut events: Vec<Event> = Vec::new();
+            let mut covariates = Covariates::new();
+
+            // Parse events
+            for row in rows.clone() {
+                let event: Event = Into::<Event>::into(row);
+                events.push(event);
+            }
+
+            // Parse covariates
+            let mut cloned_rows = rows.clone();
+            let mut row_iter = cloned_rows.iter_mut().peekable();
+            
+            while let Some(current) = row_iter.next() {
+                if current.covs.is_empty() {
+                    continue;
+                }
+
+                let mut segments: HashMap<String, SegmentType> = HashMap::new();
+                for (key, value) in current.covs.iter() {
+                    let next = row_iter.peek();
+                    let next_key = next.map(|x| x.covs.keys().next().unwrap());
+                    let next_value = next.map(|x| x.covs.values().next().unwrap());
+
+                    match next_key {
+                        Some(next_key) if next_key == key => {
+                            let next_value = next_value.unwrap();
+                            if next_value.is_none() {
+                                continue;
+                            }
+                            let next_value = next_value.unwrap();
+                            segments.insert(
+                                key.clone(),
+                                SegmentType::LinearInterpolation {
+                                    from: current.time,
+                                    to: next.unwrap().time,
+                                    slope: (next_value - value.unwrap()) / (next.unwrap().time - current.time),
+                                    intercept: value.unwrap(),
+                                },
+                            );
                         }
-                        current_block = Block {
-                            events: Vec::new(),
-                            covariates: Covariates::new(),
-                            index: block_index,
-                        };
+                        _ => {
+                            segments.insert(
+                                key.clone(),
+                                SegmentType::CarryForward {
+                                    from: current.time,
+                                    to: f64::MAX,
+                                    value: value.unwrap(),
+                                },
+                            );
+                        }
                     }
+                }
 
-                    let event = match row.dur {
-                        Some(dur) if dur > 0.0 => Event::Infusion(Infusion {
-                            time: row.time,
-                            amount: row.dose.expect("Infusion amount (DOSE) is missing"),
-                            compartment: row
-                                .input
-                                .expect("Infusion compartment (INPUT) is missing"),
-                            duration: dur,
-                        }),
-                        _ => Event::Bolus(Bolus {
-                            time: row.time,
-                            amount: row.dose.expect("Bolus amount (DOSE) is missing"),
-                            compartment: row.input.expect("Bolus compartment (INPUT) is missing"),
-                        }),
-                    };
-                    current_block.events.push(event);
-                }
-                // Observation
-                0 => {
-                    let observation = Observation {
-                        time: row.time,
-                        value: row.out.expect("Observation OUT is missing"),
-                        outeq: row.outeq.expect("Observation OUTEQ is missing"),
-                        errpoly: row.get_errorpoly(),
-                        ignore: if row.out == Some(-99.0) { true } else { false },
-                    };
-                    current_block.events.push(Event::Observation(observation));
-                }
-                _ => {
-                    panic!(
-                        "Unknown EVID: {} for ID {} at time {}",
-                        row.evid, id, row.time
-                    )
+                for (key, segment) in segments {
+                    covariates.add_segment(key, segment);
                 }
             }
+
+            let block = Block::new(events, covariates, block_index);
+            blocks.push(block);
         }
 
-        // Don't forget to add the last block for the current ID
-        if !current_block.events.is_empty() {
-            blocks.push(current_block);
-        }
 
         let scenario = Scenario { id, blocks };
         scenarios.push(scenario);
@@ -631,14 +682,7 @@ pub fn write_datafile(scenarios: &[Scenario], file_path: &str) -> Result<(), Box
 fn main() {
     // Parse scenarios
     let scenarios = read_datafile("examples/data/bimodal_ke_blocks.csv").unwrap();
-    //write_datafile(&scenarios, "test.csv").unwrap();
-    for mut scenario in scenarios {
-        // Apply lagtime adjustments if necessary
-        let mut lagtimes = HashMap::new();
-        lagtimes.insert(1, 1.0); // Example adjustment
-        scenario.add_lagtime(lagtimes);
-
-        // Now that covariate lines are calculated, print the scenario
+    for scenario in scenarios {
         println!("{}", &scenario);
     }
 }
