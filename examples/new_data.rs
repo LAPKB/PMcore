@@ -222,6 +222,7 @@ impl<'a> CovariateSegments<'a> {
 #[derive(Debug)]
 pub struct Block {
     events: Vec<Event>,
+    covariates: Covariates,
     index: usize,
 }
 
@@ -424,6 +425,7 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
         let mut blocks: Vec<Block> = Vec::new();
         let mut current_block = Block {
             events: Vec::new(),
+            covariates: Covariates::new(),
             index: 0,
         };
         let mut block_index = 0;
@@ -440,6 +442,7 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                         }
                         current_block = Block {
                             events: Vec::new(),
+                            covariates: Covariates::new(),
                             index: block_index,
                         };
                     }
@@ -493,46 +496,40 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
     Ok(scenarios)
 }
 
+/// Deserialize Option<T> from a string
+fn deserialize_option<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromStr,
+    T::Err: std::fmt::Display,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    if s == "" || s == "." {
+        Ok(None)
+    } else {
+        T::from_str(&s).map(Some).map_err(serde::de::Error::custom)
+    }
+}
+
 fn deserialize_option_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s: String = Deserialize::deserialize(deserializer)?;
-    if s == "" || s == "." {
-        Ok(None)
-    } else {
-        f64::from_str(&s)
-            .map(Some)
-            .map_err(serde::de::Error::custom)
-    }
-}
-
-fn deserialize_option_isize<'de, D>(deserializer: D) -> Result<Option<isize>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: String = Deserialize::deserialize(deserializer)?;
-    if s == "" || s == "." {
-        Ok(None)
-    } else {
-        isize::from_str(&s)
-            .map(Some)
-            .map_err(serde::de::Error::custom)
-    }
+    deserialize_option::<f64, D>(deserializer)
 }
 
 fn deserialize_option_usize<'de, D>(deserializer: D) -> Result<Option<usize>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s: String = Deserialize::deserialize(deserializer)?;
-    if s == "" || s == "." {
-        Ok(None)
-    } else {
-        usize::from_str(&s)
-            .map(Some)
-            .map_err(serde::de::Error::custom)
-    }
+    deserialize_option::<usize, D>(deserializer)
+}
+
+fn deserialize_option_isize<'de, D>(deserializer: D) -> Result<Option<isize>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_option::<isize, D>(deserializer)
 }
 
 fn deserialize_covs<'de, D>(deserializer: D) -> Result<HashMap<String, Option<f64>>, D::Error>
