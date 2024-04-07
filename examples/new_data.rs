@@ -8,6 +8,7 @@ use std::fmt;
 use std::fs::File;
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::{collections::HashMap, error::Error};
 
 /// An Event represents a row in the datafile. It can be a [Bolus], [Infusion], or [Observation]
@@ -27,13 +28,6 @@ impl fmt::Display for Event {
                     "Bolus at time {}: amount {} in compartment {}",
                     bolus.time, bolus.amount, bolus.compartment
                 )?;
-                // Display covariates
-                if !bolus.covs.is_empty() {
-                    write!(f, ", covariates: ")?;
-                    for (key, cov) in &bolus.covs {
-                        write!(f, "{}:{:?}", key, cov)?;
-                    }
-                }
             }
             Event::Infusion(infusion) => {
                 write!(
@@ -41,13 +35,6 @@ impl fmt::Display for Event {
                     "Infusion at time {}: amount {} in compartment {} with duration {}",
                     infusion.time, infusion.amount, infusion.compartment, infusion.duration
                 )?;
-                // Display covariates
-                if !infusion.covs.is_empty() {
-                    write!(f, ", covariates: ")?;
-                    for (key, cov) in &infusion.covs {
-                        write!(f, "{}:{:?}", key, cov)?;
-                    }
-                }
             }
             Event::Observation(observation) => {
                 write!(
@@ -55,13 +42,6 @@ impl fmt::Display for Event {
                     "Observation at time {}: value {} in outeq {}, ignore: {}",
                     observation.time, observation.value, observation.outeq, observation.ignore
                 )?;
-                // Display covariates
-                if !observation.covs.is_empty() {
-                    write!(f, ", covariates: ")?;
-                    for (key, cov) in &observation.covs {
-                        write!(f, "{}:{:?}", key, cov)?;
-                    }
-                }
             }
         }
         Ok(())
@@ -74,7 +54,6 @@ pub struct Bolus {
     time: f64,
     amount: f64,
     compartment: usize,
-    covs: HashMap<String, CovLine>,
 }
 
 /// A continuous dose of drug
@@ -84,27 +63,6 @@ pub struct Infusion {
     amount: f64,
     compartment: usize,
     duration: f64,
-    covs: HashMap<String, CovLine>,
-}
-
-/// A CovLine holds the linear interpolation required for covariates
-/// If the covariate should be carried forward, the slope is set to 0
-#[derive(Debug, Clone)]
-pub struct CovLine {
-    slope: f64,
-    intercept: f64,
-    time: f64,
-}
-
-impl CovLine {
-    /// Interpolate the covariate value at a given time from the last provided value
-    pub fn interp(&self, t: f64) -> f64 {
-        let delta_t = t - self.time;
-        if delta_t < 0.0 {
-            panic!("Interpolation time is before the last provided value")
-        }
-        self.slope * (delta_t) + self.intercept
-    }
 }
 
 /// An observation of drug concentration or covariates
@@ -114,8 +72,150 @@ pub struct Observation {
     value: f64,
     outeq: usize,
     errpoly: Option<(f64, f64, f64, f64)>,
-    covs: HashMap<String, CovLine>,
     ignore: bool,
+}
+
+/// Covariates are modelled as piecewise function, and each must implement the CovariateSegment trait
+/// This allows for interpolation of covariate values at any time
+pub trait CovariateSegment {
+    /// Interpolate the covariate value at time `x`
+    fn interpolate(&self, time: f64) -> f64;
+    /// Check if the time `x` is within the interval of the covariate segment
+    fn in_interval(&self, time: f64) -> bool;
+}
+
+/// Linear interpolation of covaraites
+#[derive(Debug, Clone)]
+struct LinearInterpolation {
+    from: f64,
+    to: f64,
+    slope: f64,
+    intercept: f64,
+}
+
+impl CovariateSegment for LinearInterpolation {
+    fn interpolate(&self, time: f64) -> f64 {
+        self.slope * time + self.intercept
+    }
+
+    fn in_interval(&self, time: f64) -> bool {
+        time >= self.from && time <= self.to
+    }
+}
+
+pub enum SegmentType {
+    CarryForward {
+        from: f64,
+        to: f64,
+        value: f64,
+    },
+    LinearInterpolation {
+        from: f64,
+        to: f64,
+        slope: f64,
+        intercept: f64,
+    },
+}
+
+/// Covariate forward carry
+#[derive(Debug, Clone)]
+struct CarryForward {
+    from: f64,
+    to: f64,
+    value: f64,
+}
+
+impl CovariateSegment for CarryForward {
+    fn interpolate(&self, _x: f64) -> f64 {
+        self.value
+    }
+
+    fn in_interval(&self, x: f64) -> bool {
+        x >= self.from && x <= self.to
+    }
+}
+
+/// [Covariates] are a collection of [CovariateSegment]s, each with a unique name
+/// Covariates are used to model time-varying parameters in a model
+#[derive(Clone)]
+pub struct Covariates {
+    // Mapping from covariate name to its segments
+    segments: HashMap<String, Vec<Arc<dyn CovariateSegment + Send + Sync>>>,
+}
+
+impl Covariates {
+    pub fn new() -> Self {
+        Covariates {
+            segments: HashMap::new(),
+        }
+    }
+
+    // Adds a segment to a specific covariate
+    pub fn add_segment(&mut self, name: String, segment_type: SegmentType) {
+        let segment: Arc<dyn CovariateSegment + Send + Sync> = match segment_type {
+            SegmentType::LinearInterpolation {
+                from,
+                to,
+                slope,
+                intercept,
+            } => Arc::new(LinearInterpolation {
+                from,
+                to,
+                slope,
+                intercept,
+            }),
+            SegmentType::CarryForward { from, to, value } => {
+                Arc::new(CarryForward { from, to, value })
+            }
+        };
+        self.segments
+            .entry(name)
+            .or_insert_with(Vec::new)
+            .push(segment);
+    }
+
+    // Interpolates the value of a specific covariate at time x
+    pub fn interpolate(&self, name: &str, x: f64) -> Option<f64> {
+        self.segments
+            .get(name)?
+            .iter()
+            .find(|segment| segment.in_interval(x))
+            .map(|segment| segment.interpolate(x))
+    }
+
+    // Get all segments for a specific covariate, from which the user can interpolate
+    pub fn get<'a>(&'a self, name: &str) -> Option<CovariateSegments<'a>> {
+        self.segments
+            .get(name)
+            .map(|segments| CovariateSegments { segments })
+    }
+}
+
+impl std::fmt::Debug for Covariates {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Covariates")
+            .field("segments", &self.segments)
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for dyn CovariateSegment + Send + Sync + 'static {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CovariateSegment").finish()
+    }
+}
+
+pub struct CovariateSegments<'a> {
+    segments: &'a Vec<Arc<dyn CovariateSegment + Send + Sync>>,
+}
+
+impl<'a> CovariateSegments<'a> {
+    pub fn interpolate(&self, x: f64) -> Option<f64> {
+        self.segments
+            .iter()
+            .find(|segment| segment.in_interval(x))
+            .map(|segment| segment.interpolate(x))
+    }
 }
 
 /// A Block is a collection of events that are related to each other
@@ -197,31 +297,6 @@ impl Block {
         times.dedup();
         times
     }
-
-    /// Carry forward all covariate values
-    pub fn cf_covs(&mut self) {
-        let mut last_covs: HashMap<String, CovLine> = HashMap::new();
-
-        for event in &mut self.events {
-            let event_covs = match event {
-                Event::Bolus(bolus) => &mut bolus.covs,
-                Event::Infusion(infusion) => &mut infusion.covs,
-                Event::Observation(observation) => &mut observation.covs,
-            };
-
-            // Update covariates with last known values
-            for (key, last_cov) in &last_covs {
-                event_covs
-                    .entry(key.clone())
-                    .or_insert_with(|| last_cov.clone());
-            }
-
-            // Update last_covs with current event's covariates
-            for (key, cov) in event_covs.iter() {
-                last_covs.insert(key.clone(), cov.clone());
-            }
-        }
-    }
 }
 
 // Implement Display for Block
@@ -277,21 +352,8 @@ impl Row {
         }
     }
 
-    pub fn get_covs(&self) -> HashMap<String, CovLine> {
-        let mut covs = HashMap::new();
-        for (key, value) in &self.covs {
-            if let Some(v) = value {
-                covs.insert(
-                    key.clone(),
-                    CovLine {
-                        slope: 0.0,
-                        intercept: *v,
-                        time: self.time,
-                    },
-                );
-            }
-        }
-        covs
+    pub fn get_covs(&self) -> HashMap<String, Covariates> {
+        unimplemented!("Implement conversion from covs to Covariates");
     }
 }
 
@@ -390,13 +452,11 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                                 .input
                                 .expect("Infusion compartment (INPUT) is missing"),
                             duration: dur,
-                            covs: row.get_covs(),
                         }),
                         _ => Event::Bolus(Bolus {
                             time: row.time,
                             amount: row.dose.expect("Bolus amount (DOSE) is missing"),
                             compartment: row.input.expect("Bolus compartment (INPUT) is missing"),
-                            covs: row.get_covs(),
                         }),
                     };
                     current_block.events.push(event);
@@ -408,7 +468,6 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                         value: row.out.expect("Observation OUT is missing"),
                         outeq: row.outeq.expect("Observation OUTEQ is missing"),
                         errpoly: row.get_errorpoly(),
-                        covs: row.get_covs(),
                         ignore: if row.out == Some(-99.0) { true } else { false },
                     };
                     current_block.events.push(Event::Observation(observation));
@@ -582,12 +641,76 @@ fn main() {
         lagtimes.insert(1, 1.0); // Example adjustment
         scenario.add_lagtime(lagtimes);
 
-        // Covariates
-        for block in &mut scenario.blocks {
-            block.cf_covs();
-        }
-
         // Now that covariate lines are calculated, print the scenario
         println!("{}", &scenario);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+
+    #[test]
+    fn test_covariates_interpolation() {
+        let mut covariates = Covariates::new();
+
+        // Adding a LinearInterpolation segment
+        covariates.add_segment(
+            "creat".to_string(),
+            SegmentType::LinearInterpolation {
+                from: 0.0,
+                to: 10.0,
+                slope: 0.5,
+                intercept: 50.0,
+            },
+        );
+
+        // Adding a CarryForward segment
+        covariates.add_segment(
+            "creat".to_string(),
+            SegmentType::CarryForward {
+                from: 10.0,
+                to: f64::MAX,
+                value: 100.0,
+            },
+        );
+
+        let times: Vec<f64> = vec![0.0, 2.0, 10.0, 12.0, 24.0];
+        let mut interpolated: Vec<f64> = vec![];
+        for time in times {
+            let weight = covariates.interpolate("creat", time).unwrap();
+            interpolated.push(weight);
+        }
+        assert_eq!(interpolated, vec![50.0, 51.0, 55.0, 100.0, 100.0])
+    }
+
+    #[test]
+    fn test_segments() {
+        let mut covariates = Covariates::new();
+
+        // Adding a LinearInterpolation segment
+        covariates.add_segment(
+            "creat".to_string(),
+            SegmentType::LinearInterpolation {
+                from: 0.0,
+                to: 10.0,
+                slope: 0.5,
+                intercept: 50.0,
+            },
+        );
+
+        // Adding a CarryForward segment
+        covariates.add_segment(
+            "creat".to_string(),
+            SegmentType::CarryForward {
+                from: 10.0,
+                to: f64::MAX,
+                value: 100.0,
+            },
+        );
+
+        let weight = covariates.get("creat").unwrap();
+        let interpolated = weight.interpolate(5.0).unwrap();
+        assert_eq!(interpolated, 52.5);
     }
 }
