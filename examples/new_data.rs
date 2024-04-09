@@ -9,7 +9,6 @@ use std::fmt;
 use std::fs::File;
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::{collections::HashMap, error::Error};
 
 /// An Event represents a row in the datafile. It can be a [Bolus], [Infusion], or [Observation]
@@ -76,99 +75,80 @@ pub struct Observation {
     ignore: bool,
 }
 
-/// Covariates are modelled as piecewise function, and each must implement the CovariateSegment trait
-/// This allows for interpolation of covariate values at any time
-pub trait CovariateSegment {
-    /// Interpolate the covariate value at time `x`
-    fn interpolate(&self, time: f64) -> f64;
-    /// Check if the time `x` is within the interval of the covariate segment
+/// Any [CovariateSegment] has to implement the [CovariateInterpolator] trait
+
+pub trait CovariateInterpolator {
+    fn interpolate(&self, time: f64) -> Option<f64>;
     fn in_interval(&self, time: f64) -> bool;
-    /// Description
-    fn description(&self) -> String; // Add this method
+    fn description(&self) -> String;
 }
 
-/// Linear interpolation of covaraites
+/// A [CovariateSegment] represents an interpolatable segment of a covariate
 #[derive(Debug, Clone)]
-struct LinearInterpolation {
-    from: f64,
-    to: f64,
-    slope: f64,
-    intercept: f64,
-}
-
-impl CovariateSegment for LinearInterpolation {
-    fn interpolate(&self, time: f64) -> f64 {
-        self.slope * time + self.intercept
-    }
-
-    fn in_interval(&self, time: f64) -> bool {
-        time >= self.from && time <= self.to
-    }
-
-    fn description(&self) -> String {
-        format!(
-            "Linear Interpolation from {:.1} to {:.1}, slope: {:.3}, intercept: {:.3}",
-            self.from, self.to, self.slope, self.intercept
-        )
-    }
-}
-
-impl fmt::Display for LinearInterpolation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Linear Interpolation from {:.1} to {:.1}, slope: {:.3}, intercept: {:.3}",
-            self.from, self.to, self.slope, self.intercept
-        )
-    }
-}
-
-pub enum SegmentType {
-    CarryForward {
-        from: f64,
-        to: f64,
-        value: f64,
-    },
+pub enum CovariateSegment {
+    /// Linear interpolation between two points
     LinearInterpolation {
         from: f64,
         to: f64,
         slope: f64,
         intercept: f64,
     },
+    /// Carry forward of a value between two points
+    CarryForward { from: f64, to: f64, value: f64 },
 }
 
-/// Covariate forward carry
-#[derive(Debug, Clone)]
-struct CarryForward {
-    from: f64,
-    to: f64,
-    value: f64,
-}
-
-impl CovariateSegment for CarryForward {
-    fn interpolate(&self, _x: f64) -> f64 {
-        self.value
+impl CovariateInterpolator for CovariateSegment {
+    fn interpolate(&self, time: f64) -> Option<f64> {
+        match self {
+            CovariateSegment::LinearInterpolation {
+                from,
+                to,
+                slope,
+                intercept,
+            } => {
+                if time >= *from && time <= *to {
+                    Some(slope * time + intercept)
+                } else {
+                    None
+                }
+            }
+            CovariateSegment::CarryForward { from, to, value } => {
+                if time >= *from && time <= *to {
+                    Some(*value)
+                } else {
+                    None
+                }
+            }
+        }
     }
 
-    fn in_interval(&self, x: f64) -> bool {
-        x >= self.from && x <= self.to
+    fn in_interval(&self, time: f64) -> bool {
+        match self {
+            CovariateSegment::LinearInterpolation { from, to, .. } => time >= *from && time <= *to,
+            CovariateSegment::CarryForward { from, to, .. } => time >= *from && time <= *to,
+        }
     }
 
     fn description(&self) -> String {
-        format!(
-            "Carry Forward from {:.1} to {:.1}, value: {:.3}",
-            self.from, self.to, self.value
-        )
-    }
-}
-
-impl fmt::Display for CarryForward {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Carry Forward from {:.1} to {:.1}, value: {:.3}",
-            self.from, self.to, self.value
-        )
+        match self {
+            CovariateSegment::LinearInterpolation {
+                from,
+                to,
+                slope,
+                intercept,
+            } => {
+                format!(
+                    "Linear interpolation from {:.2} to {:.2} with slope {:.2} and intercept {:.2}",
+                    from, to, slope, intercept
+                )
+            }
+            CovariateSegment::CarryForward { from, to, value } => {
+                format!(
+                    "Forward carry from {:.2} to {:.2} of value {:.2}",
+                    from, to, value
+                )
+            }
+        }
     }
 }
 
@@ -177,7 +157,7 @@ impl fmt::Display for CarryForward {
 #[derive(Clone)]
 pub struct Covariates {
     // Mapping from covariate name to its segments
-    segments: HashMap<String, Vec<Arc<dyn CovariateSegment + Send + Sync>>>,
+    segments: HashMap<String, Vec<CovariateSegment>>,
 }
 
 impl Covariates {
@@ -188,21 +168,21 @@ impl Covariates {
     }
 
     // Adds a segment to a specific covariate
-    pub fn add_segment(&mut self, name: String, segment_type: SegmentType) {
-        let segment: Arc<dyn CovariateSegment + Send + Sync> = match segment_type {
-            SegmentType::LinearInterpolation {
+    pub fn add_segment(&mut self, name: String, segment_type: CovariateSegment) {
+        let segment: CovariateSegment = match segment_type {
+            CovariateSegment::LinearInterpolation {
                 from,
                 to,
                 slope,
                 intercept,
-            } => Arc::new(LinearInterpolation {
+            } => CovariateSegment::LinearInterpolation {
                 from,
                 to,
                 slope,
                 intercept,
-            }),
-            SegmentType::CarryForward { from, to, value } => {
-                Arc::new(CarryForward { from, to, value })
+            },
+            CovariateSegment::CarryForward { from, to, value } => {
+                CovariateSegment::CarryForward { from, to, value }
             }
         };
         self.segments
@@ -218,13 +198,7 @@ impl Covariates {
             .iter()
             .find(|segment| segment.in_interval(x))
             .map(|segment| segment.interpolate(x))
-    }
-
-    // Get all segments for a specific covariate, from which the user can interpolate
-    pub fn get<'a>(&'a self, name: &str) -> Option<CovariateSegments<'a>> {
-        self.segments
-            .get(name)
-            .map(|segments| CovariateSegments { segments })
+            .flatten()
     }
 }
 
@@ -233,12 +207,6 @@ impl std::fmt::Debug for Covariates {
         f.debug_struct("Covariates")
             .field("segments", &self.segments)
             .finish()
-    }
-}
-
-impl std::fmt::Debug for dyn CovariateSegment + Send + Sync + 'static {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CovariateSegment").finish()
     }
 }
 
@@ -253,19 +221,6 @@ impl fmt::Display for Covariates {
             }
         }
         Ok(())
-    }
-}
-
-pub struct CovariateSegments<'a> {
-    segments: &'a Vec<Arc<dyn CovariateSegment + Send + Sync>>,
-}
-
-impl<'a> CovariateSegments<'a> {
-    pub fn interpolate(&self, x: f64) -> Option<f64> {
-        self.segments
-            .iter()
-            .find(|segment| segment.in_interval(x))
-            .map(|segment| segment.interpolate(x))
     }
 }
 
@@ -630,7 +585,7 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
 
                         covariates.add_segment(
                             name.clone(),
-                            SegmentType::LinearInterpolation {
+                            CovariateSegment::LinearInterpolation {
                                 from: *time,
                                 to: *next_time,
                                 slope,
@@ -641,7 +596,7 @@ pub fn read_datafile(path: &str) -> Result<Vec<Scenario>, Box<dyn Error>> {
                         // CarryForward for fixed covariates or non-fixed without a next occurrence
                         covariates.add_segment(
                             name.clone(),
-                            SegmentType::CarryForward {
+                            CovariateSegment::CarryForward {
                                 from: *time,
                                 to: to_time, // This now correctly sets 'to' to the next time, if available
                                 value: value.unwrap(),
@@ -814,7 +769,7 @@ mod tests {
         // Adding a LinearInterpolation segment
         covariates.add_segment(
             "creat".to_string(),
-            SegmentType::LinearInterpolation {
+            CovariateSegment::LinearInterpolation {
                 from: 0.0,
                 to: 10.0,
                 slope: 0.5,
@@ -825,7 +780,7 @@ mod tests {
         // Adding a CarryForward segment
         covariates.add_segment(
             "creat".to_string(),
-            SegmentType::CarryForward {
+            CovariateSegment::CarryForward {
                 from: 10.0,
                 to: f64::INFINITY,
                 value: 100.0,
