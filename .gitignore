@@ -23,4 +23,5 @@ stop
 .vscode
 *.f90
 settings.json
-settings.json
+.DS_Store
+/outputs/*
