@@ -87,7 +87,7 @@ pub fn read_pmetrics(path: &Path) -> Result<impl DataTrait, Box<dyn Error>> {
             // Create segments for each covariate
             for (key, mut occurrences) in observed_covariates {
                 occurrences.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-                let is_fixed = key.ends_with("!");
+                let is_fixed = key.ends_with('!');
 
                 // If it's a fixed covariate, modify the name to remove "!"
                 let name = if is_fixed {
@@ -113,22 +113,22 @@ pub fn read_pmetrics(path: &Path) -> Result<impl DataTrait, Box<dyn Error>> {
 
                         covariates.add_segment(
                             name.clone(),
-                            CovariateSegment::LinearInterpolation {
+                            CovariateSegment::LinearInterpolation(LinearInterpolation {
                                 from: *time,
                                 to: *next_time,
                                 slope,
                                 intercept: value.unwrap() - (*time * slope),
-                            },
+                            }),
                         );
                     } else {
                         // CarryForward for fixed covariates or non-fixed without a next occurrence
                         covariates.add_segment(
                             name.clone(),
-                            CovariateSegment::CarryForward {
+                            CovariateSegment::CarryForward(CarryForward {
                                 from: *time,
-                                to: to_time, // This now correctly sets 'to' to the next time, if available
+                                to: to_time,
                                 value: value.unwrap(),
-                            },
+                            }),
                         );
                     }
                 }
@@ -325,13 +325,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn test_read_pmetrics() {
-        let path = PathBuf::from("examples/data/bimodal_ke_blocks.csv");
+        let path = std::path::Path::new("examples/data/bimodal_ke_blocks.csv");
         let data = read_pmetrics(&path).unwrap();
 
         assert_eq!(data.nsubjects(), 1);
+        assert_eq!(data.nobs(), 30);
     }
 }

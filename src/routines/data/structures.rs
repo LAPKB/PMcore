@@ -1,9 +1,11 @@
+use serde::Deserialize;
+
 // Redesign of data formats
 use crate::routines::data::traits::*;
 use std::collections::HashMap;
 
 /// An Event can be a Bolus, Infusion, or Observation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub enum Event {
     Bolus(Bolus),
     Infusion(Infusion),
@@ -11,7 +13,7 @@ pub enum Event {
 }
 
 /// An instantaenous input of drug
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Bolus {
     pub time: f64,
     pub amount: f64,
@@ -19,7 +21,7 @@ pub struct Bolus {
 }
 
 /// A continuous dose of drug
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Infusion {
     pub time: f64,
     pub amount: f64,
@@ -28,7 +30,7 @@ pub struct Infusion {
 }
 
 /// An observation of drug concentration or covariates
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Observation {
     pub time: f64,
     pub value: f64,
@@ -37,12 +39,12 @@ pub struct Observation {
     pub ignore: bool,
 }
 
-/// An [Occasion] is a collection of events that are related to each other
-#[derive(Debug)]
+/// An [Occasion] is a collection of events, for a given [Subject], that are from a specific occasion
+#[derive(Debug, Deserialize)]
 pub struct Occasion {
-    events: Vec<Event>,
-    covariates: Covariates,
-    index: usize,
+    pub events: Vec<Event>,
+    pub covariates: Covariates,
+    pub index: usize,
 }
 
 impl Occasion {
@@ -127,10 +129,13 @@ impl OccasionTrait for Occasion {
         self.add_lagtime(lagtime);
         self.events.iter().collect()
     }
+    fn get_covariates(&self) -> Option<&impl CovariatesTrait> {
+        Some(&self.covariates)
+    }
 }
 
 /// [Subject] is a collection of blocks for one individual
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct Subject {
     pub id: String,
     pub occasions: Vec<Occasion>,
@@ -152,6 +157,11 @@ impl SubjectTrait for Subject {
     }
 }
 
+/// [Data] is a collection of [Subject]s, which are collections of [Occasion]s, which are collections of [Event]s
+///
+/// This is the main data structure used to store the data, and is used to pass data to the model
+/// [Data] implements the [DataTrait], which provides methods to access the data
+#[derive(Debug)]
 pub struct Data {
     subjects: Vec<Subject>,
 }
@@ -167,83 +177,139 @@ impl DataTrait for Data {
         self.subjects.iter().collect()
     }
 
+    /// Returns the number of subjects in the data
     fn nsubjects(&self) -> usize {
         self.subjects.len()
     }
+
+    fn nobs(&self) -> usize {
+        // Count the number of the event type Observation in the data
+        self.subjects
+            .iter()
+            .map(|subject| {
+                subject
+                    .occasions
+                    .iter()
+                    .map(|occasion| {
+                        occasion
+                            .events
+                            .iter()
+                            .filter(|event| matches!(event, Event::Observation(_)))
+                            .count()
+                    })
+                    .sum::<usize>()
+            })
+            .sum()
+    }
 }
 
-/// A [CovariateSegment] represents an interpolatable segment of a covariate
-#[derive(Debug, Clone)]
+/// Structures which implement the [CovariateInterpolator] trait
+#[derive(Clone, Debug, Deserialize)]
 pub enum CovariateSegment {
-    /// Linear interpolation between two points
-    LinearInterpolation {
-        from: f64,
-        to: f64,
-        slope: f64,
-        intercept: f64,
-    },
-    /// Carry forward of a value between two points
-    CarryForward { from: f64, to: f64, value: f64 },
+    LinearInterpolation(LinearInterpolation),
+    CarryForward(CarryForward),
 }
 
 impl CovariateInterpolator for CovariateSegment {
     fn interpolate(&self, time: f64) -> Option<f64> {
         match self {
-            CovariateSegment::LinearInterpolation {
-                from,
-                to,
-                slope,
-                intercept,
-            } => {
-                if time >= *from && time <= *to {
-                    Some(slope * time + intercept)
-                } else {
-                    None
-                }
-            }
-            CovariateSegment::CarryForward { from, to, value } => {
-                if time >= *from && time <= *to {
-                    Some(*value)
-                } else {
-                    None
-                }
-            }
+            CovariateSegment::LinearInterpolation(segment) => segment.interpolate(time),
+            CovariateSegment::CarryForward(segment) => segment.interpolate(time),
         }
     }
 
     fn in_interval(&self, time: f64) -> bool {
         match self {
-            CovariateSegment::LinearInterpolation { from, to, .. } => time >= *from && time <= *to,
-            CovariateSegment::CarryForward { from, to, .. } => time >= *from && time <= *to,
+            CovariateSegment::LinearInterpolation(segment) => segment.in_interval(time),
+            CovariateSegment::CarryForward(segment) => segment.in_interval(time),
         }
     }
 
     fn description(&self) -> String {
         match self {
-            CovariateSegment::LinearInterpolation {
-                from,
-                to,
-                slope,
-                intercept,
-            } => {
-                format!(
-                    "Linear interpolation from {:.2} to {:.2} with slope {:.2} and intercept {:.2}",
-                    from, to, slope, intercept
-                )
-            }
-            CovariateSegment::CarryForward { from, to, value } => {
-                format!(
-                    "Forward carry from {:.2} to {:.2} of value {:.2}",
-                    from, to, value
-                )
-            }
+            CovariateSegment::LinearInterpolation(segment) => segment.description(),
+            CovariateSegment::CarryForward(segment) => segment.description(),
         }
     }
 }
 
-/// [Covariates] are a collection of [CovariateSegment]s, each with a unique name
+/// Linear interpolation between two points
+#[derive(Clone, Debug, Deserialize)]
+pub struct LinearInterpolation {
+    pub from: f64,
+    pub to: f64,
+    pub slope: f64,
+    pub intercept: f64,
+}
+
+impl LinearInterpolation {
+    pub fn new(from: f64, to: f64, slope: f64, intercept: f64) -> Self {
+        LinearInterpolation {
+            from,
+            to,
+            slope,
+            intercept,
+        }
+    }
+}
+
+impl CovariateInterpolator for LinearInterpolation {
+    fn interpolate(&self, time: f64) -> Option<f64> {
+        if time < self.from || time > self.to {
+            return None;
+        }
+        Some(self.slope * time + self.intercept)
+    }
+
+    fn in_interval(&self, time: f64) -> bool {
+        time >= self.from && time <= self.to
+    }
+
+    fn description(&self) -> String {
+        format!(
+            "Linear interpolation from {} to {} with slope {} and intercept {}",
+            self.from, self.to, self.slope, self.intercept
+        )
+    }
+}
+
+/// Carry forward of a value between two points
+#[derive(Clone, Debug, Deserialize)]
+pub struct CarryForward {
+    pub from: f64,
+    pub to: f64,
+    pub value: f64,
+}
+
+impl CarryForward {
+    pub fn new(from: f64, to: f64, value: f64) -> Self {
+        CarryForward { from, to, value }
+    }
+}
+
+impl CovariateInterpolator for CarryForward {
+    fn interpolate(&self, time: f64) -> Option<f64> {
+        if time < self.from || time > self.to {
+            return None;
+        }
+        Some(self.value)
+    }
+
+    fn in_interval(&self, time: f64) -> bool {
+        time >= self.from && time <= self.to
+    }
+
+    fn description(&self) -> String {
+        format!(
+            "Carry forward from {} to {} with value {}",
+            self.from, self.to, self.value
+        )
+    }
+}
+
+/// [Covariates] is a collection of vectors of [CovariateInterpolator]s
 /// Covariates are used to model time-varying parameters in a model
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Covariates {
     // Mapping from covariate name to its segments
     segments: HashMap<String, Vec<CovariateSegment>>,
@@ -257,23 +323,7 @@ impl Covariates {
     }
 
     // Adds a segment to a specific covariate
-    pub fn add_segment(&mut self, name: String, segment_type: CovariateSegment) {
-        let segment: CovariateSegment = match segment_type {
-            CovariateSegment::LinearInterpolation {
-                from,
-                to,
-                slope,
-                intercept,
-            } => CovariateSegment::LinearInterpolation {
-                from,
-                to,
-                slope,
-                intercept,
-            },
-            CovariateSegment::CarryForward { from, to, value } => {
-                CovariateSegment::CarryForward { from, to, value }
-            }
-        };
+    pub fn add_segment(&mut self, name: String, segment: CovariateSegment) {
         self.segments
             .entry(name)
             .or_insert_with(Vec::new)
@@ -288,5 +338,77 @@ impl Covariates {
             .find(|segment| segment.in_interval(x))
             .map(|segment| segment.interpolate(x))
             .flatten()
+    }
+}
+
+impl CovariatesTrait for Covariates {
+    fn get_covariate(&self, name: &str) -> Option<&impl CovariateInterpolator> {
+        self.segments.get(name).map(|segments| {
+            segments
+                .iter()
+                .find(|segment| segment.in_interval(0.0))
+                .unwrap_or_else(|| &segments[0])
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_covariate_linear_interpolation() {
+        let segment = CovariateSegment::LinearInterpolation(LinearInterpolation {
+            from: 0.0,
+            to: 10.0,
+            slope: 1.0,
+            intercept: 0.0,
+        });
+
+        assert_eq!(segment.interpolate(0.0), Some(0.0));
+        assert_eq!(segment.interpolate(5.0), Some(5.0));
+        assert_eq!(segment.interpolate(10.0), Some(10.0));
+        assert_eq!(segment.interpolate(15.0), None);
+    }
+
+    #[test]
+    fn test_covariate_carry_forward() {
+        let segment = CovariateSegment::CarryForward(CarryForward {
+            from: 0.0,
+            to: 10.0,
+            value: 5.0,
+        });
+
+        assert_eq!(segment.interpolate(0.0), Some(5.0));
+        assert_eq!(segment.interpolate(5.0), Some(5.0));
+        assert_eq!(segment.interpolate(10.0), Some(5.0));
+        assert_eq!(segment.interpolate(15.0), None);
+    }
+
+    #[test]
+    fn test_covariates() {
+        let mut covariates = Covariates::new();
+        covariates.add_segment(
+            "covariate1".to_string(),
+            CovariateSegment::LinearInterpolation(LinearInterpolation {
+                from: 0.0,
+                to: 10.0,
+                slope: 1.0,
+                intercept: 0.0,
+            }),
+        );
+        covariates.add_segment(
+            "covariate1".to_string(),
+            CovariateSegment::CarryForward(CarryForward {
+                from: 10.0,
+                to: 20.0,
+                value: 5.0,
+            }),
+        );
+
+        assert_eq!(covariates.interpolate("covariate1", 0.0), Some(0.0));
+        assert_eq!(covariates.interpolate("covariate1", 5.0), Some(5.0));
+        assert_eq!(covariates.interpolate("covariate1", 10.0), Some(10.0));
+        assert_eq!(covariates.interpolate("covariate1", 15.0), Some(5.0));
     }
 }

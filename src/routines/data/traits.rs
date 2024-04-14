@@ -3,7 +3,10 @@ use std::collections::HashMap;
 
 pub trait DataTrait {
     fn get_subjects(&self) -> Vec<&impl SubjectTrait>;
+    /// Returns the number of subjects in the dataset
     fn nsubjects(&self) -> usize;
+    /// Returns the number of observations in the dataset
+    fn nobs(&self) -> usize;
 }
 
 /// [Subject] is a trait that represents a single individual in a dataset
@@ -19,13 +22,7 @@ pub trait OccasionTrait {
         lagtime: Option<HashMap<usize, f64>>,
         bioavailability: Option<HashMap<usize, f64>>,
     ) -> Vec<&Event>;
-    //fn get_covariates(&self) -> Option<&impl CovariatesTrait>;
-}
-
-pub trait EventTrait {
-    fn get_time(&self) -> f64;
-    fn get_dose(&self) -> f64;
-    fn get_observation(&self) -> f64;
+    fn get_covariates(&self) -> Option<&impl CovariatesTrait>;
 }
 
 pub trait CovariatesTrait {
