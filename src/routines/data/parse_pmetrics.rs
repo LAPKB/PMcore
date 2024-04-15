@@ -1,16 +1,15 @@
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::{error::Error, fmt};
+use crate::routines::data::structures::*;
+#[allow(unused_imports)]
+use crate::routines::data::traits::*;
 
 use serde::de::{MapAccess, Visitor};
 use serde::{de, Deserialize, Deserializer, Serialize};
-
-use crate::routines::data::structures::*;
-use crate::routines::data::traits::*;
-
+use std::collections::HashMap;
 use std::path::Path;
+use std::str::FromStr;
+use std::{error::Error, fmt};
 
-pub fn read_pmetrics(path: &Path) -> Result<impl DataTrait, Box<dyn Error>> {
+pub fn read_pmetrics(path: &Path) -> Result<Data, Box<dyn Error>> {
     let mut reader = csv::ReaderBuilder::new()
         .comment(Some(b'#'))
         .has_headers(true)
