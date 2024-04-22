@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 mod parse_pmetrics;
 
 pub trait DataTrait {
@@ -26,7 +26,7 @@ pub trait OccasionTrait {
     fn get_covariates(&self) -> Option<&impl CovariatesTrait>;
 }
 
-pub trait CovariatesTrait<C: CovariateInterpolator = CovariateSegment>{
+pub trait CovariatesTrait<C: CovariateInterpolator = CovariateSegment> {
     fn get_covariate(&self, name: &str) -> Option<&C>;
 }
 
@@ -45,6 +45,36 @@ pub enum Event {
     Bolus(Bolus),
     Infusion(Infusion),
     Observation(Observation),
+}
+
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Event::Bolus(bolus) => write!(
+                f,
+                "Bolus at time {:.2} with amount {:.2} in compartment {}",
+                bolus.time, bolus.amount, bolus.compartment
+            ),
+            Event::Infusion(infusion) => write!(
+                f,
+                "Infusion starting at {:.2} with amount {:.2} over {:.2} hours in compartment {}",
+                infusion.time, infusion.amount, infusion.duration, infusion.compartment
+            ),
+            Event::Observation(observation) => {
+                let errpoly_desc = match observation.errorpoly {
+                    Some((c0, c1, c2, c3)) => {
+                        format!("with error poly =  ({}, {}, {}, {})", c0, c1, c2, c3)
+                    }
+                    None => "".to_string(),
+                };
+                write!(
+                    f,
+                    "Observation at time {:.2}: {} (outeq {}) {}",
+                    observation.time, observation.value, observation.outeq, errpoly_desc
+                )
+            }
+        }
+    }
 }
 
 /// An instantaenous input of drug
@@ -155,6 +185,27 @@ impl Occasion {
     }
 }
 
+impl fmt::Display for Occasion {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Occasion {}:", self.index)?;
+        for event in &self.events {
+            writeln!(f, "  {}", event)?;
+        }
+
+        if !self.covariates.segments.is_empty() {
+            writeln!(f, "  Covariates:")?;
+            for (name, segments) in &self.covariates.segments {
+                writeln!(f, "    {}: ", name)?;
+                for segment in segments {
+                    writeln!(f, "      {}", segment)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl OccasionTrait for Occasion {
     // TODO: This clones the occasion, which is not ideal
     fn get_events(
@@ -186,6 +237,16 @@ impl Subject {
     }
 }
 
+impl fmt::Display for Subject {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Subject ID: {}", self.id)?;
+        for occasion in &self.occasions {
+            writeln!(f, "{}", occasion)?;
+        }
+        Ok(())
+    }
+}
+
 impl SubjectTrait for Subject {
     fn get_occasions(&self) -> Vec<&Occasion> {
         self.occasions.iter().collect()
@@ -207,6 +268,16 @@ pub struct Data {
 impl Data {
     pub fn new(subjects: Vec<Subject>) -> Self {
         Data { subjects }
+    }
+}
+
+impl fmt::Display for Data {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Data Overview: {} subjects", self.subjects.len())?;
+        for subject in &self.subjects {
+            writeln!(f, "{}", subject)?;
+        }
+        Ok(())
     }
 }
 
@@ -275,13 +346,25 @@ impl CovariateInterpolator for CovariateSegment {
     fn description(&self) -> String {
         match self.method {
             InterpolationMethod::Linear { slope, intercept } => format!(
-                "Linear interpolation with slope {} and intercept {}",
+                "Linear interpolation with slope {:.2} and intercept {:.2}",
                 slope, intercept
             ),
             InterpolationMethod::CarryForward { value } => {
-                format!("Value carried forward: {}", value)
+                format!("Value carried forward: {:.2}", value)
             }
         }
+    }
+}
+
+impl fmt::Display for CovariateSegment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "From {} to {}: {}",
+            self.from,
+            self.to,
+            self.description()
+        )
     }
 }
 
@@ -386,5 +469,107 @@ mod tests {
         assert_eq!(covariates.interpolate("covariate1", 5.0), Some(5.0));
         assert_eq!(covariates.interpolate("covariate1", 10.0), Some(10.0));
         assert_eq!(covariates.interpolate("covariate1", 15.0), Some(5.0));
+    }
+
+    
+    #[test]
+    fn test_data() {
+        let data = Data::new(vec![
+            Subject::new(
+                "subject1".to_string(),
+                vec![Occasion::new(
+                    vec![
+                        Event::Bolus(Bolus {
+                            time: 0.0,
+                            amount: 10.0,
+                            compartment: 1,
+                        }),
+                        Event::Observation(Observation {
+                            time: 5.0,
+                            value: 5.0,
+                            outeq: 1,
+                            errorpoly: None,
+                            ignore: false,
+                        }),
+                    ],
+                    Covariates::new(),
+                    0,
+                )],
+            ),
+            Subject::new(
+                "subject2".to_string(),
+                vec![Occasion::new(
+                    vec![
+                        Event::Bolus(Bolus {
+                            time: 0.0,
+                            amount: 10.0,
+                            compartment: 1,
+                        }),
+                        Event::Observation(Observation {
+                            time: 5.0,
+                            value: 5.0,
+                            outeq: 1,
+                            errorpoly: None,
+                            ignore: false,
+                        }),
+                    ],
+                    Covariates::new(),
+                    0,
+                )],
+            ),
+        ]);
+
+        assert_eq!(data.nsubjects(), 2);
+        assert_eq!(data.nobs(), 2);
+    }
+
+    #[test]
+    fn display_data() {
+        let data = Data::new(vec![
+            Subject::new(
+                "subject1".to_string(),
+                vec![Occasion::new(
+                    vec![
+                        Event::Bolus(Bolus {
+                            time: 0.0,
+                            amount: 10.0,
+                            compartment: 1,
+                        }),
+                        Event::Observation(Observation {
+                            time: 5.0,
+                            value: 5.0,
+                            outeq: 1,
+                            errorpoly: None,
+                            ignore: false,
+                        }),
+                    ],
+                    Covariates::new(),
+                    0,
+                )],
+            ),
+            Subject::new(
+                "subject2".to_string(),
+                vec![Occasion::new(
+                    vec![
+                        Event::Bolus(Bolus {
+                            time: 0.0,
+                            amount: 10.0,
+                            compartment: 1,
+                        }),
+                        Event::Observation(Observation {
+                            time: 5.0,
+                            value: 5.0,
+                            outeq: 1,
+                            errorpoly: None,
+                            ignore: false,
+                        }),
+                    ],
+                    Covariates::new(),
+                    0,
+                )],
+            ),
+        ]);
+
+        println!("{}", data);
     }
 }

@@ -7,7 +7,7 @@ use std::str::FromStr;
 use std::{error::Error, fmt};
 
 /// Read a Pmetrics datafile and convert it to a [Data] object
-/// 
+///
 /// For specific details, see the [Row] struct.
 #[allow(dead_code)]
 pub fn read_pmetrics(path: &Path) -> Result<Data, Box<dyn Error>> {
@@ -338,6 +338,6 @@ mod tests {
         assert_eq!(data.nsubjects(), 1);
         assert_eq!(data.nobs(), 30);
 
-        dbg!(data);
+        println!("{}", data);
     }
 }
