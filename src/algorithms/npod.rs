@@ -335,6 +335,11 @@ where
                 let optimizer = SppOptimizer::new(&self.engine, &self.scenarios, &sigma, &pyl);
                 let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
                 *spp = candidate_point;
+                // add spp to theta
+                // recalculate psi
+                // re-run ipm to re-calculate w
+                // re-calculate pyl
+                // re-define a new optimization
             });
             for cp in candididate_points {
                 prune(&mut self.theta, cp, &self.ranges, THETA_D);
