@@ -1,7 +1,4 @@
-use crate::routines::data::structures::*;
-#[allow(unused_imports)]
-use crate::routines::data::traits::*;
-
+use crate::routines::data::*;
 use serde::de::{MapAccess, Visitor};
 use serde::{de, Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
@@ -9,6 +6,10 @@ use std::path::Path;
 use std::str::FromStr;
 use std::{error::Error, fmt};
 
+/// Read a Pmetrics datafile and convert it to a [Data] object
+/// 
+/// For specific details, see the [Row] struct.
+#[allow(dead_code)]
 pub fn read_pmetrics(path: &Path) -> Result<Data, Box<dyn Error>> {
     let mut reader = csv::ReaderBuilder::new()
         .comment(Some(b'#'))
@@ -112,22 +113,26 @@ pub fn read_pmetrics(path: &Path) -> Result<Data, Box<dyn Error>> {
 
                         covariates.add_segment(
                             name.clone(),
-                            CovariateSegment::LinearInterpolation(LinearInterpolation {
+                            CovariateSegment {
                                 from: *time,
                                 to: *next_time,
-                                slope,
-                                intercept: value.unwrap() - (*time * slope),
-                            }),
+                                method: InterpolationMethod::Linear {
+                                    slope: slope,
+                                    intercept: (value.unwrap() - (*time * slope)),
+                                },
+                            },
                         );
                     } else {
                         // CarryForward for fixed covariates or non-fixed without a next occurrence
                         covariates.add_segment(
                             name.clone(),
-                            CovariateSegment::CarryForward(CarryForward {
+                            CovariateSegment {
                                 from: *time,
                                 to: to_time,
-                                value: value.unwrap(),
-                            }),
+                                method: InterpolationMethod::CarryForward {
+                                    value: value.unwrap(),
+                                },
+                            },
                         );
                     }
                 }
@@ -332,5 +337,7 @@ mod tests {
 
         assert_eq!(data.nsubjects(), 1);
         assert_eq!(data.nobs(), 30);
+
+        dbg!(data);
     }
 }
