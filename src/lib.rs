@@ -52,14 +52,10 @@ pub mod algorithms;
 
 /// Routines for the crate
 pub mod routines {
+    /// New data format
+    pub mod data;
     /// Handles datafile operations
     pub mod datafile;
-    /// New data format
-    pub mod data {
-        pub mod parse_pmetrics;
-        pub mod structures;
-        pub mod traits;
-    }
     /// Routines for initializing the grid
     pub mod initialization;
     pub mod optimization {
