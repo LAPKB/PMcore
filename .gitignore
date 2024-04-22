@@ -25,3 +25,4 @@ stop
 settings.json
 .DS_Store
 /outputs/*
+/benches/*.json

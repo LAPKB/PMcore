@@ -47,16 +47,12 @@ codegen-units = 1
 opt-level = 3
 
 [dev-dependencies]
-criterion = "0.5.1"
-
-[[bench]]
-name = "initialization"
-harness = false
-
-[[bench]]
-name = "expansion"
-harness = false
+diol = {version = "0.8"}
 
 [[bench]]
 name = "evaluation"
+harness = false
+
+[[bench]]
+name = "initialization"
 harness = false
