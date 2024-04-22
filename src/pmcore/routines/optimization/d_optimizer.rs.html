@@ -156,7 +156,7 @@
         <span class="kw">let </span>nsub = psi.nrows() <span class="kw">as </span>f64;
         <span class="kw">let </span><span class="kw-2">mut </span>sum = -nsub;
         <span class="kw">for </span>(p_i, pyl_i) <span class="kw">in </span>psi.iter().zip(<span class="self">self</span>.pyl.iter()) {
-            sum += nsub + p_i / pyl_i;
+            sum += p_i / pyl_i;
         }
         <span class="prelude-val">Ok</span>(-sum)
     }
