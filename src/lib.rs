@@ -52,6 +52,8 @@ pub mod algorithms;
 
 /// Routines for the crate
 pub mod routines {
+    /// New data format
+    pub mod data;
     /// Handles datafile operations
     pub mod datafile;
     /// Routines for initializing the grid
