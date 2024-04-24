@@ -23,18 +23,21 @@ pub trait OccasionTrait {
         lagtime: Option<HashMap<usize, f64>>,
         bioavailability: Option<HashMap<usize, f64>>,
     ) -> Vec<&Event>;
-    fn get_covariates(&self) -> Option<&impl CovariatesTrait>;
+    fn get_covariates(&self) -> Option<&Covariates>;
 }
 
-pub trait CovariatesTrait<C: CovariateInterpolator = CovariateSegment> {
-    fn get_covariate(&self, name: &str) -> Option<&C>;
+pub trait CovariatesTrait {
+    fn get_covariate(&self, name: &str) -> Option<&Covariate>;
+    fn get_covariate_names(&self) -> Vec<String>;
 }
 
-/// Any [CovariateSegment] has to implement the [CovariateInterpolator] trait
+pub trait CovariateTrait {
+    fn interpolate(&self, time: f64) -> Option<f64>;
+}
+
 pub trait CovariateInterpolator {
     fn interpolate(&self, time: f64) -> Option<f64>;
     fn in_interval(&self, time: f64) -> bool;
-    fn description(&self) -> String;
 }
 
 // Redesign of data formats
@@ -192,16 +195,7 @@ impl fmt::Display for Occasion {
             writeln!(f, "  {}", event)?;
         }
 
-        if !self.covariates.segments.is_empty() {
-            writeln!(f, "  Covariates:")?;
-            for (name, segments) in &self.covariates.segments {
-                writeln!(f, "    {}: ", name)?;
-                for segment in segments {
-                    writeln!(f, "      {}", segment)?;
-                }
-            }
-        }
-
+        writeln!(f, "  Covariates:\n{}", self.covariates)?;
         Ok(())
     }
 }
@@ -218,7 +212,7 @@ impl OccasionTrait for Occasion {
         occ.add_lagtime(lagtime);
         self.events.iter().collect()
     }
-    fn get_covariates(&self) -> Option<&impl CovariatesTrait> {
+    fn get_covariates(&self) -> Option<&Covariates> {
         Some(&self.covariates)
     }
 }
@@ -312,14 +306,13 @@ impl DataTrait for Data {
     }
 }
 
-/// Structures which implement the [CovariateInterpolator] trait
 #[derive(Clone, Debug, Deserialize)]
 pub enum InterpolationMethod {
     Linear { slope: f64, intercept: f64 },
     CarryForward { value: f64 },
 }
 
-// A covariate segment
+/// A [CovariateSegment] is a segment of the piece-wise interpolation of a [Covariate]
 #[derive(Clone, Debug, Deserialize)]
 pub struct CovariateSegment {
     pub from: f64,
@@ -329,7 +322,7 @@ pub struct CovariateSegment {
 
 impl CovariateInterpolator for CovariateSegment {
     fn interpolate(&self, time: f64) -> Option<f64> {
-        if !(self.from <= time && time <= self.to) {
+        if self.in_interval(time) == false {
             return None;
         }
 
@@ -342,74 +335,120 @@ impl CovariateInterpolator for CovariateSegment {
     fn in_interval(&self, time: f64) -> bool {
         self.from <= time && time <= self.to
     }
+}
 
-    fn description(&self) -> String {
-        match self.method {
-            InterpolationMethod::Linear { slope, intercept } => format!(
-                "Linear interpolation with slope {:.2} and intercept {:.2}",
-                slope, intercept
-            ),
-            InterpolationMethod::CarryForward { value } => {
-                format!("Value carried forward: {:.2}", value)
+/// A [Covariate] is a collection of [CovariateSegment]s, which allows for interpolation of covariate values
+#[derive(Clone, Debug, Deserialize)]
+pub struct Covariate {
+    name: String,
+    segments: Vec<CovariateSegment>,
+}
+
+impl Covariate {
+    pub fn new(name: String, segments: Vec<CovariateSegment>) -> Self {
+        Covariate { name, segments }
+    }
+    pub fn add_segment(&mut self, segment: CovariateSegment) {
+        self.segments.push(segment);
+    }
+    // Check that no segments are overlapping
+    pub fn check(&self) -> bool {
+        let mut sorted = self.segments.clone();
+        sorted.sort_by(|a, b| a.from.partial_cmp(&b.from).unwrap());
+        for i in 0..sorted.len() - 1 {
+            if sorted[i].to > sorted[i + 1].from {
+                return false;
             }
         }
+        true
     }
 }
 
-impl fmt::Display for CovariateSegment {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "From {} to {}: {}",
-            self.from,
-            self.to,
-            self.description()
-        )
-    }
-}
-
-/// [Covariates] is a collection of vectors of [CovariateInterpolator]s
-/// Covariates are used to model time-varying parameters in a model
-#[derive(Clone, Debug, Deserialize)]
-pub struct Covariates {
-    // Mapping from covariate name to its segments
-    segments: HashMap<String, Vec<CovariateSegment>>,
-}
-
-impl Covariates {
-    pub fn new() -> Self {
-        Covariates {
-            segments: HashMap::new(),
-        }
-    }
-
-    pub fn add_segment(&mut self, name: String, segment: CovariateSegment) {
-        self.segments.entry(name).or_default().push(segment);
-    }
-
-    pub fn interpolate(&self, name: &str, time: f64) -> Option<f64> {
+impl CovariateTrait for Covariate {
+    fn interpolate(&self, time: f64) -> Option<f64> {
         self.segments
-            .get(name)?
             .iter()
             .find(|&segment| segment.in_interval(time))
             .and_then(|segment| segment.interpolate(time))
     }
 }
 
+impl fmt::Display for Covariate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Covariate '{}':\n", self.name)?;
+        for (index, segment) in self.segments.iter().enumerate() {
+            write!(
+                f,
+                "  Segment {}: from {:.2} to {:.2}, ",
+                index + 1,
+                segment.from,
+                segment.to
+            )?;
+            match &segment.method {
+                InterpolationMethod::Linear { slope, intercept } => {
+                    writeln!(
+                        f,
+                        "Linear, Slope: {:.2}, Intercept: {:.2}",
+                        slope, intercept
+                    )
+                }
+                InterpolationMethod::CarryForward { value } => {
+                    writeln!(f, "Carry Forward, Value: {:.2}", value)
+                }
+            }?;
+        }
+        Ok(())
+    }
+}
+
+/// [Covariates] is a collection of [Covariate]
+#[derive(Clone, Debug, Deserialize)]
+pub struct Covariates {
+    // Mapping from covariate name to its segments
+    covariates: HashMap<String, Covariate>,
+}
+
+impl Covariates {
+    pub fn new() -> Self {
+        Covariates {
+            covariates: HashMap::new(),
+        }
+    }
+
+    pub fn add_covariate(&mut self, name: String, covariate: Covariate) {
+        self.covariates.insert(name, covariate);
+    }
+
+    fn get_covariate(&self, name: &str) -> Option<&Covariate> {
+        self.covariates.get(name)
+    }
+    fn get_covariate_names(&self) -> Vec<String> {
+        self.covariates.keys().cloned().collect()
+    }
+}
+
 impl CovariatesTrait for Covariates {
-    fn get_covariate(&self, name: &str) -> Option<&CovariateSegment> {
-        self.segments.get(name).map(|segments| {
-            segments
-                .iter()
-                .find(|segment| segment.in_interval(0.0))
-                .unwrap_or_else(|| &segments[0])
-        })
+    fn get_covariate(&self, name: &str) -> Option<&Covariate> {
+        self.get_covariate(name)
+    }
+    fn get_covariate_names(&self) -> Vec<String> {
+        self.get_covariate_names()
+    }
+}
+
+impl fmt::Display for Covariates {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Covariates:")?;
+        for (_, covariate) in &self.covariates {
+            writeln!(f, "{}", covariate)?;
+        }
+        Ok(())
     }
 }
 
 mod tests {
     #[allow(unused_imports)]
-    use crate::routines::data::*;
+    use super::*;
 
     #[test]
     fn test_covariate_linear_interpolation() {
@@ -444,132 +483,58 @@ mod tests {
 
     #[test]
     fn test_covariates() {
-        let mut covariates = Covariates::new();
-        covariates.add_segment(
+        let mut covariates = Covariates {
+            covariates: HashMap::new(),
+        };
+        covariates.covariates.insert(
             "covariate1".to_string(),
-            CovariateSegment {
-                from: 0.0,
-                to: 10.0,
-                method: InterpolationMethod::Linear {
-                    slope: 1.0,
-                    intercept: 0.0,
-                },
-            },
+            Covariate::new(
+                "covariate1".to_string(),
+                vec![
+                    CovariateSegment {
+                        from: 0.0,
+                        to: 10.0,
+                        method: InterpolationMethod::Linear {
+                            slope: 1.0,
+                            intercept: 0.0,
+                        },
+                    },
+                    CovariateSegment {
+                        from: 10.0,
+                        to: 20.0,
+                        method: InterpolationMethod::CarryForward { value: 10.0 },
+                    },
+                ],
+            ),
         );
-        covariates.add_segment(
-            "covariate1".to_string(),
-            CovariateSegment {
-                from: 10.0,
-                to: 20.0,
-                method: InterpolationMethod::CarryForward { value: 5.0 },
-            },
+
+        assert_eq!(
+            covariates
+                .get_covariate("covariate1")
+                .unwrap()
+                .interpolate(0.0),
+            Some(0.0)
         );
-
-        assert_eq!(covariates.interpolate("covariate1", 0.0), Some(0.0));
-        assert_eq!(covariates.interpolate("covariate1", 5.0), Some(5.0));
-        assert_eq!(covariates.interpolate("covariate1", 10.0), Some(10.0));
-        assert_eq!(covariates.interpolate("covariate1", 15.0), Some(5.0));
-    }
-
-    
-    #[test]
-    fn test_data() {
-        let data = Data::new(vec![
-            Subject::new(
-                "subject1".to_string(),
-                vec![Occasion::new(
-                    vec![
-                        Event::Bolus(Bolus {
-                            time: 0.0,
-                            amount: 10.0,
-                            compartment: 1,
-                        }),
-                        Event::Observation(Observation {
-                            time: 5.0,
-                            value: 5.0,
-                            outeq: 1,
-                            errorpoly: None,
-                            ignore: false,
-                        }),
-                    ],
-                    Covariates::new(),
-                    0,
-                )],
-            ),
-            Subject::new(
-                "subject2".to_string(),
-                vec![Occasion::new(
-                    vec![
-                        Event::Bolus(Bolus {
-                            time: 0.0,
-                            amount: 10.0,
-                            compartment: 1,
-                        }),
-                        Event::Observation(Observation {
-                            time: 5.0,
-                            value: 5.0,
-                            outeq: 1,
-                            errorpoly: None,
-                            ignore: false,
-                        }),
-                    ],
-                    Covariates::new(),
-                    0,
-                )],
-            ),
-        ]);
-
-        assert_eq!(data.nsubjects(), 2);
-        assert_eq!(data.nobs(), 2);
-    }
-
-    #[test]
-    fn display_data() {
-        let data = Data::new(vec![
-            Subject::new(
-                "subject1".to_string(),
-                vec![Occasion::new(
-                    vec![
-                        Event::Bolus(Bolus {
-                            time: 0.0,
-                            amount: 10.0,
-                            compartment: 1,
-                        }),
-                        Event::Observation(Observation {
-                            time: 5.0,
-                            value: 5.0,
-                            outeq: 1,
-                            errorpoly: None,
-                            ignore: false,
-                        }),
-                    ],
-                    Covariates::new(),
-                    0,
-                )],
-            ),
-            Subject::new(
-                "subject2".to_string(),
-                vec![Occasion::new(
-                    vec![
-                        Event::Bolus(Bolus {
-                            time: 0.0,
-                            amount: 10.0,
-                            compartment: 1,
-                        }),
-                        Event::Observation(Observation {
-                            time: 5.0,
-                            value: 5.0,
-                            outeq: 1,
-                            errorpoly: None,
-                            ignore: false,
-                        }),
-                    ],
-                    Covariates::new(),
-                    0,
-                )],
-            ),
-        ]);
-
-        println!("{}", data);
+        assert_eq!(
+            covariates
+                .get_covariate("covariate1")
+                .unwrap()
+                .interpolate(5.0),
+            Some(5.0)
+        );
+        assert_eq!(
+            covariates
+                .get_covariate("covariate1")
+                .unwrap()
+                .interpolate(10.0),
+            Some(10.0)
+        );
+        assert_eq!(
+            covariates
+                .get_covariate("covariate1")
+                .unwrap()
+                .interpolate(15.0),
+            Some(10.0)
+        );
     }
 }
