@@ -1,0 +1,9 @@
+use pmcore::routines::data::*;
+
+fn main() {
+    let path = std::path::Path::new("examples/data/bimodal_ke.csv");
+    //let path = std::path::Path::new("examples/data/bimodal_ke_blocks.csv");
+    let data = parse_pmetrics::read_pmetrics(path).unwrap();
+
+    println!("{}", data);
+}
