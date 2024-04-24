@@ -16,6 +16,10 @@ pub fn read_pmetrics(path: &Path) -> Result<Data, Box<dyn Error>> {
         .has_headers(true)
         .from_path(path)?;
 
+    // Convert headers to lowercase
+    let headers = reader.headers()?.iter().map(|h| h.to_lowercase()).collect::<Vec<_>>();
+    reader.set_headers(csv::StringRecord::from(headers));
+
     // This is the object we are building, which can be converted to [Data]
     let mut subjects: Vec<Subject> = Vec::new();
 
@@ -158,6 +162,7 @@ pub fn read_pmetrics(path: &Path) -> Result<Data, Box<dyn Error>> {
 
 /// A [Row] represents a row in the Pmetrics data format
 #[derive(Deserialize, Debug, Serialize, Default, Clone)]
+#[serde(rename_all = "lowercase")]
 pub struct Row {
     /// Subject ID
     pub id: String,
