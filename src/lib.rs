@@ -50,6 +50,8 @@
 /// Provides the various algorithms used within the framework
 pub mod algorithms;
 
+pub mod simulator;
+
 /// Routines for the crate
 pub mod routines {
     /// New data format
