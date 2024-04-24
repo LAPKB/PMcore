@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use std::{collections::HashMap, fmt};
-mod parse_pmetrics;
+pub mod parse_pmetrics;
 
 pub trait DataTrait {
     fn get_subjects(&self) -> Vec<&Subject>;
