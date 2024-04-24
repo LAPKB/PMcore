@@ -96,48 +96,52 @@ pub fn read_pmetrics(path: &Path) -> Result<Data, Box<dyn Error>> {
                     key.clone()
                 };
 
-                for (i, (time, value)) in occurrences.iter().enumerate() {
+                let mut covariate = Covariate::new(name.clone(), vec![]);
+
+                let mut last_value = None;
+                for i in 0..occurrences.len() {
+                    let (time, value) = occurrences[i];
                     let next_occurrence = occurrences.get(i + 1);
+                    let to_time =
+                        next_occurrence.map_or(f64::INFINITY, |&(next_time, _)| next_time);
 
-                    // Determine the 'to' time for CarryForward. For the last occurrence or fixed covariates, it defaults to INFINITY.
-                    let to_time = if let Some((next_time, _)) = next_occurrence {
-                        *next_time
-                    } else {
-                        f64::INFINITY
-                    };
-
-                    if !is_fixed && next_occurrence.is_some() {
-                        // Linear interpolation for non-fixed covariates with a next occurrence
-                        let (next_time, next_value) = next_occurrence.unwrap();
-                        let slope = (next_value.unwrap() - value.unwrap()) / (next_time - *time);
-
-                        covariates.add_segment(
-                            name.clone(),
-                            CovariateSegment {
-                                from: *time,
+                    if is_fixed {
+                        // Use CarryForward for fixed covariates
+                        covariate.add_segment(CovariateSegment {
+                            from: time,
+                            to: to_time,
+                            method: InterpolationMethod::CarryForward {
+                                value: value.unwrap(),
+                            },
+                        });
+                    } else if let Some(next) = next_occurrence {
+                        // Linear interpolation for non-fixed covariates
+                        let (next_time, next_value) = next;
+                        if let Some(current_value) = value {
+                            let slope = (next_value.unwrap() - current_value) / (next_time - time);
+                            covariate.add_segment(CovariateSegment {
+                                from: time,
                                 to: *next_time,
                                 method: InterpolationMethod::Linear {
                                     slope: slope,
-                                    intercept: (value.unwrap() - (*time * slope)),
+                                    intercept: current_value - slope * time,
                                 },
+                            });
+                            last_value = Some((next_time, next_value));
+                        }
+                    } else if let Some((last_time, last_value)) = last_value {
+                        // Extend the last linear segment to infinity if no more segments are available
+                        covariate.add_segment(CovariateSegment {
+                            from: *last_time,
+                            to: f64::INFINITY,
+                            method: InterpolationMethod::CarryForward {
+                                value: last_value.unwrap(),
                             },
-                        );
-                    } else {
-                        // CarryForward for fixed covariates or non-fixed without a next occurrence
-                        covariates.add_segment(
-                            name.clone(),
-                            CovariateSegment {
-                                from: *time,
-                                to: to_time,
-                                method: InterpolationMethod::CarryForward {
-                                    value: value.unwrap(),
-                                },
-                            },
-                        );
+                        });
                     }
                 }
+                covariates.add_covariate(name, covariate)
             }
-
             // Create the block
             let occasion = Occasion::new(events, covariates, block_index);
             occasions.push(occasion);
