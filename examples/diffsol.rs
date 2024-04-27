@@ -213,14 +213,14 @@ impl BuildPmOde for OdeBuilder {
 }
 
 macro_rules! fetch_params {
-    (($($name:ident),*)) => {
-        let ($(ref $name),*) = ($(p[$crate::destructure_array::index!()]),*);
+    ($p:expr, $($name:ident),*) => {
+        let p = $p;
+        let mut idx = 0;
+        $(
+            let $name = p.get(idx);
+            idx += 1;
+        )*
     };
-}
-
-macro_rules! index {
-    () => { 0 };
-    ( $($other:tt)* ) => { 1 + $crate::destructure_array::index!($($other)*) };
 }
 fn main() {
     let data = read_pmetrics(Path::new("examples/data/bimodal_ke_blocks.csv")).unwrap();
@@ -242,7 +242,7 @@ fn main() {
         .build_pm_ode::<M, _, _, _>(
             |x: &V, p: &V, t: T, dx: &mut V, cov: &Covariates| {
                 let creat = cov.get_covariate("creat").unwrap().interpolate(t).unwrap();
-                fetch_params!((ka, ke));
+                fetch_params!(p, ka, ke);
                 dx[0] = -ka * x[0];
                 dx[1] = ka * x[0] - ke * x[1];
             },
