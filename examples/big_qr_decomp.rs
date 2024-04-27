@@ -1,5 +1,5 @@
 use csv::ReaderBuilder;
-use faer::{FaerMat, Mat};
+use faer::Mat;
 use ndarray::Array2;
 use ndarray_csv::Array2Reader;
 use std::fs::File;
@@ -34,7 +34,7 @@ fn main() {
     let x: Mat<f64> = x;
     let qr = x.col_piv_qr();
     let r_mat = qr.compute_r();
-    let (forward, inverse) = qr.col_permutation().into_arrays();
+    let (forward, inverse) = qr.col_permutation().arrays();
     let mut r: Array2<f64> = Array2::zeros((r_mat.nrows(), r_mat.ncols()));
     for i in 0..r.nrows() {
         for j in 0..r.ncols() {
