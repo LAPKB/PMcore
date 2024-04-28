@@ -10,41 +10,40 @@ use diffsol::{
 };
 use pmcore::routines::data::{
     parse_pmetrics::read_pmetrics, CovariateTrait, Covariates, CovariatesTrait, DataTrait,
+    Infusion, OccasionTrait,
 };
 use std::{cell::RefCell, path::Path, rc::Rc};
 
-pub struct OdePmSolverEquationsMassI<M, F, G, I>
+pub struct OdePmSolverEquationsMassI<M, F, I>
 where
     M: Matrix,
-    F: Fn(&M::V, &M::V, M::T, &mut M::V, &Covariates),
-    G: Fn(&M::V, &M::V, M::T, &M::V, &mut M::V),
+    F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
     I: Fn(&M::V, M::T) -> M::V,
 {
     rhs: F,
-    rhs_jac: G,
     init: I,
     p: Rc<M::V>,
     nstates: usize,
     coloring: Option<JacobianColoring>,
     statistics: RefCell<OdeEquationsStatistics>,
     covariates: Covariates,
+    infusions: Vec<Infusion>,
 }
 
-impl<M, F, G, I> OdePmSolverEquationsMassI<M, F, G, I>
+impl<M, F, I> OdePmSolverEquationsMassI<M, F, I>
 where
     M: Matrix,
-    F: Fn(&M::V, &M::V, M::T, &mut M::V, &Covariates),
-    G: Fn(&M::V, &M::V, M::T, &M::V, &mut M::V),
+    F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
     I: Fn(&M::V, M::T) -> M::V,
 {
     pub fn new_pm_ode(
         rhs: F,
-        rhs_jac: G,
         init: I,
         p: M::V,
         t0: M::T,
         use_coloring: bool,
         covariates: Covariates,
+        infusions: Vec<Infusion>,
     ) -> Self {
         let y0 = init(&p, M::T::zero());
         let nstates = y0.len();
@@ -53,13 +52,14 @@ where
         let statistics = RefCell::default();
         let mut ret = Self {
             rhs,
-            rhs_jac,
+            // rhs_jac,
             init,
             p: p.clone(),
             nstates,
             coloring: None,
             statistics,
             covariates,
+            infusions,
         };
         let coloring = if use_coloring {
             let rhs_inplace = |x: &M::V, _p: &M::V, t: M::T, y_rhs: &mut M::V| {
@@ -80,11 +80,10 @@ where
 }
 
 // impl Op
-impl<M, F, G, I> Op for OdePmSolverEquationsMassI<M, F, G, I>
+impl<M, F, I> Op for OdePmSolverEquationsMassI<M, F, I>
 where
     M: Matrix,
-    F: Fn(&M::V, &M::V, M::T, &mut M::V, &Covariates),
-    G: Fn(&M::V, &M::V, M::T, &M::V, &mut M::V),
+    F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
     I: Fn(&M::V, M::T) -> M::V,
 {
     type M = M;
@@ -102,22 +101,40 @@ where
     }
 }
 
-impl<M, F, G, I> OdeEquations for OdePmSolverEquationsMassI<M, F, G, I>
+impl<M, F, I> OdeEquations for OdePmSolverEquationsMassI<M, F, I>
 where
     M: Matrix,
-    F: Fn(&M::V, &M::V, M::T, &mut M::V, &Covariates),
-    G: Fn(&M::V, &M::V, M::T, &M::V, &mut M::V),
+    F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
     I: Fn(&M::V, M::T) -> M::V,
 {
     fn rhs_inplace(&self, t: Self::T, y: &Self::V, rhs_y: &mut Self::V) {
         let p = self.p.as_ref();
-        (self.rhs)(y, p, t, rhs_y, &self.covariates);
+        let mut rateiv = Self::V::zeros(self.nstates);
+        //TODO: This should be pre-calculated
+        for infusion in &self.infusions {
+            if t >= Self::T::from(infusion.time)
+                && t <= Self::T::from(infusion.duration + infusion.time)
+            {
+                rateiv[infusion.compartment] = Self::T::from(infusion.amount / infusion.duration);
+            }
+        }
+        (self.rhs)(y, p, t, rhs_y, rateiv, &self.covariates);
         self.statistics.borrow_mut().number_of_rhs_evals += 1;
     }
 
     fn rhs_jac_inplace(&self, t: Self::T, x: &Self::V, v: &Self::V, y: &mut Self::V) {
         let p = self.p.as_ref();
-        (self.rhs_jac)(x, p, t, v, y);
+        let mut rateiv = Self::V::zeros(self.nstates);
+        //TODO: This should be pre-calculated
+        for infusion in &self.infusions {
+            if t >= Self::T::from(infusion.time)
+                && t <= Self::T::from(infusion.duration + infusion.time)
+            {
+                rateiv[infusion.compartment] = Self::T::from(infusion.amount / infusion.duration);
+            }
+        }
+        (self.rhs)(v, p, t, y, rateiv, &self.covariates);
+        // (self.rhs_jac)(x, p, t, v, y);
         self.statistics.borrow_mut().number_of_jac_mul_evals += 1;
     }
 
@@ -163,43 +180,41 @@ where
 }
 
 trait BuildPmOde {
-    fn build_pm_ode<M, F, G, I>(
+    fn build_pm_ode<M, F, I>(
         self,
         rhs: F,
-        rhs_jac: G,
         init: I,
         cov: Covariates,
-    ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, G, I>>>
+        infusions: Vec<Infusion>,
+    ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, I>>>
     where
         M: Matrix,
-        F: Fn(&M::V, &M::V, M::T, &mut M::V, &Covariates),
-        G: Fn(&M::V, &M::V, M::T, &M::V, &mut M::V),
+        F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
         I: Fn(&M::V, M::T) -> M::V;
 }
 
 impl BuildPmOde for OdeBuilder {
-    fn build_pm_ode<M, F, G, I>(
+    fn build_pm_ode<M, F, I>(
         self,
         rhs: F,
-        rhs_jac: G,
         init: I,
         cov: Covariates,
-    ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, G, I>>>
+        infusions: Vec<Infusion>,
+    ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, I>>>
     where
         M: Matrix,
-        F: Fn(&M::V, &M::V, M::T, &mut M::V, &Covariates),
-        G: Fn(&M::V, &M::V, M::T, &M::V, &mut M::V),
+        F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
         I: Fn(&M::V, M::T) -> M::V,
     {
         let p = Self::build_p(self.p);
         let eqn = OdePmSolverEquationsMassI::new_pm_ode(
             rhs,
-            rhs_jac,
             init,
             p,
             M::T::from(self.t0),
             self.use_coloring,
             cov,
+            infusions,
         );
         let atol = Self::build_atol(self.atol, eqn.nstates())?;
         Ok(OdeSolverProblem::new(
@@ -222,12 +237,21 @@ macro_rules! fetch_params {
         )*
     };
 }
+
+macro_rules! fetch_cov {
+    ($cov:expr, $t:expr, $($name:ident),*) => {
+        $(
+            let $name = $cov.get_covariate(stringify!($name)).unwrap().interpolate($t).unwrap();
+        )*
+    };
+}
 fn main() {
     let data = read_pmetrics(Path::new("examples/data/bimodal_ke_blocks.csv")).unwrap();
     let subjects = data.get_subjects();
     let first_subject = subjects.first().unwrap();
     let occasion = first_subject.occasions.first().unwrap();
     let covariates = occasion.covariates.clone();
+    let infusions = occasion.get_infusions();
     println!("{}", data);
 
     type T = f64;
@@ -236,22 +260,19 @@ fn main() {
     // type V = nalgebra::DVector<T>;
     // type M = nalgebra::DMatrix<T>;
     let problem = OdeBuilder::new()
-        .p([0.04, 1.0e4, 3.0e7])
+        .p([0.9, 1.0e4, 70.0])
         .rtol(1e-4)
         .atol([1.0e-8, 1.0e-6])
-        .build_pm_ode::<M, _, _, _>(
-            |x: &V, p: &V, t: T, dx: &mut V, cov: &Covariates| {
-                let creat = cov.get_covariate("creat").unwrap().interpolate(t).unwrap();
-                fetch_params!(p, ka, ke);
+        .build_pm_ode::<M, _, _>(
+            |x: &V, p: &V, t: T, dx: &mut V, rateiv: V, cov: &Covariates| {
+                fetch_cov!(cov, t, creat);
+                fetch_params!(p, ka, ke, _v);
                 dx[0] = -ka * x[0];
                 dx[1] = ka * x[0] - ke * x[1];
             },
-            |_x: &V, p: &V, _t: T, v: &V, dx: &mut V| {
-                dx[0] = -p[0] * v[0];
-                dx[1] = p[0] * v[0] - p[1] * v[1];
-            },
             |_p: &V, _t: T| V::from_vec(vec![1.0, 0.0]),
             covariates,
+            infusions,
         )
         .unwrap();
 

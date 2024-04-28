@@ -24,6 +24,7 @@ pub trait OccasionTrait {
         bioavailability: Option<HashMap<usize, f64>>,
     ) -> Vec<&Event>;
     fn get_covariates(&self) -> Option<&Covariates>;
+    fn get_infusions(&self) -> Vec<Infusion>;
 }
 
 pub trait CovariatesTrait {
@@ -214,6 +215,18 @@ impl OccasionTrait for Occasion {
     }
     fn get_covariates(&self) -> Option<&Covariates> {
         Some(&self.covariates)
+    }
+    fn get_infusions(&self) -> Vec<Infusion> {
+        self.events
+            .iter()
+            .filter_map(|event| {
+                if let Event::Infusion(infusion) = event {
+                    Some(infusion.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
