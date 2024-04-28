@@ -1,7 +1,7 @@
 pub mod likelihood;
 use crate::{
-    routines::data::{Covariates, Infusion, OccasionTrait, Subject, SubjectTrait},
-    simulator::pm_ode::BuildPmOde,
+    routines::data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
+    simulator::{likelihood::ToObsPred, pm_ode::BuildPmOde},
 };
 
 use diffsol::{ode_solver::method::OdeSolverMethod, vector::Vector, Bdf, OdeBuilder};
@@ -27,12 +27,13 @@ impl Equation {
     pub fn new_ode(diffeq: DiffEq, init: Init, out: Out) -> Self {
         Equation::ODE(diffeq, init, out)
     }
-    fn simulate_subject(&self, subject: &impl SubjectTrait, support_point: &[f64]) -> Vec<ObsPred> {
+    pub fn simulate_subject(
+        &self,
+        subject: &impl SubjectTrait,
+        support_point: &Vec<f64>,
+    ) -> Vec<ObsPred> {
         match self {
-            Equation::ODE(eqn, init, out) => {
-                // simulate_ode(eqn, init, out, subject, support_point),
-                unimplemented!("Not Implemented");
-            }
+            Equation::ODE(eqn, init, out) => simulate_ode(eqn, init, out, subject, support_point),
             Equation::SDE(eqn, _, init, out) => {
                 unimplemented!("Not Implemented");
             }
@@ -53,6 +54,7 @@ fn simulate_ode(
 ) -> Vec<ObsPred> {
     let mut x = get_first_state(init, support_point);
     let mut infusions = vec![];
+    let mut yout = vec![];
     for occasion in subject.get_occasions() {
         let covariates = occasion.get_covariates().unwrap();
         let mut index = 0;
@@ -66,13 +68,13 @@ fn simulate_ode(
                     infusions.push(infusion.clone());
                 }
                 Event::Observation(observation) => {
-                    let y = (out)(
+                    let pred = (out)(
                         &x,
                         &V::from_vec(support_point.clone()),
                         observation.time,
                         covariates,
                     )[observation.outeq];
-                    //todo: push it to vec
+                    yout.push(observation.to_obs_pred(pred));
                 }
             }
             if let Some(next_event) = occasion.events.get(index + 1) {
@@ -86,11 +88,13 @@ fn simulate_ode(
                     next_event.get_time(),
                 );
             }
+            index += 1;
         }
     }
-    vec![]
+    yout
 }
 
+#[inline]
 fn simulate_ode_event(
     diffeq: &DiffEq,
     x: V,

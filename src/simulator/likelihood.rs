@@ -10,11 +10,11 @@ pub struct ObsPred {
 }
 
 pub trait ToObsPred {
-    fn to_obs_pred(self, pred: f64) -> ObsPred;
+    fn to_obs_pred(&self, pred: f64) -> ObsPred;
 }
 
 impl ToObsPred for Observation {
-    fn to_obs_pred(self, pred: f64) -> ObsPred {
+    fn to_obs_pred(&self, pred: f64) -> ObsPred {
         ObsPred {
             time: self.time,
             observation: self.value,
