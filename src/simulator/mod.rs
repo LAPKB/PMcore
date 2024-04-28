@@ -34,10 +34,10 @@ impl Equation {
     ) -> Vec<ObsPred> {
         match self {
             Equation::ODE(eqn, init, out) => simulate_ode(eqn, init, out, subject, support_point),
-            Equation::SDE(eqn, _, init, out) => {
+            Equation::SDE(_eqn, _, _init, _out) => {
                 unimplemented!("Not Implemented");
             }
-            Equation::Analytical(eqn) => {
+            Equation::Analytical(_eqn) => {
                 unimplemented!("Not Implemented");
             }
         }
@@ -52,11 +52,13 @@ fn simulate_ode(
     subject: &impl SubjectTrait,
     support_point: &Vec<f64>,
 ) -> Vec<ObsPred> {
-    let mut x = get_first_state(init, support_point);
-    let mut infusions = vec![];
     let mut yout = vec![];
     for occasion in subject.get_occasions() {
+        // What should we use as the initial state for the next occasion?
+        let mut x = get_first_state(init, support_point);
+        let mut infusions = vec![];
         // occasion.add_lagtime(None);
+        // occasion.add_bioavailability(None);
         let covariates = occasion.get_covariates().unwrap();
         let mut index = 0;
         for event in &occasion.events {
@@ -102,7 +104,7 @@ fn simulate_ode_event(
     support_point: &[f64],
     cov: &Covariates,
     infusions: &Vec<Infusion>,
-    ti: f64,
+    _ti: f64,
     tf: f64,
 ) -> V {
     let problem = OdeBuilder::new()
