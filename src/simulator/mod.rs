@@ -56,6 +56,7 @@ fn simulate_ode(
     let mut infusions = vec![];
     let mut yout = vec![];
     for occasion in subject.get_occasions() {
+        // occasion.add_lagtime(None);
         let covariates = occasion.get_covariates().unwrap();
         let mut index = 0;
         for event in &occasion.events {
