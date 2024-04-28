@@ -7,7 +7,7 @@ use crate::{
 use diffsol::{ode_solver::method::OdeSolverMethod, vector::Vector, Bdf, OdeBuilder};
 
 use likelihood::ObsPred;
-mod pm_ode;
+pub mod pm_ode;
 type T = f64;
 type V = faer::Col<T>;
 type M = faer::Mat<T>;
@@ -76,7 +76,8 @@ fn simulate_ode(
                         &V::from_vec(support_point.clone()),
                         observation.time,
                         covariates,
-                    )[observation.outeq];
+                    )[observation.outeq - 1];
+
                     yout.push(observation.to_obs_pred(pred));
                 }
             }

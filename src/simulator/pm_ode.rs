@@ -1,18 +1,14 @@
-use crate::routines::data::{
-    parse_pmetrics::read_pmetrics, CovariateTrait, Covariates, CovariatesTrait, DataTrait,
-    Infusion, OccasionTrait,
-};
+use crate::routines::data::{Covariates, Infusion};
 use diffsol::{
     jacobian::{find_non_zero_entries, JacobianColoring},
     matrix::Matrix,
     ode_solver::equations::OdeEquationsStatistics,
-    ode_solver::method::OdeSolverMethod,
     ode_solver::problem::OdeSolverProblem,
     op::{closure::Closure, Op},
     vector::{Vector, VectorIndex},
-    Bdf, OdeBuilder, OdeEquations, Result, Zero,
+    OdeBuilder, OdeEquations, Result, Zero,
 };
-use std::{cell::RefCell, path::Path, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 pub struct OdePmSolverEquationsMassI<M, F, I>
 where
@@ -227,6 +223,7 @@ impl BuildPmOde for OdeBuilder {
     }
 }
 
+#[macro_export]
 macro_rules! fetch_params {
     ($p:expr, $($name:ident),*) => {
         let p = $p;
@@ -237,7 +234,7 @@ macro_rules! fetch_params {
         )*
     };
 }
-
+#[macro_export]
 macro_rules! fetch_cov {
     ($cov:expr, $t:expr, $($name:ident),*) => {
         $(

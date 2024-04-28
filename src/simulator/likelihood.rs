@@ -1,6 +1,7 @@
 use crate::routines::data::Observation;
 
 /// ObsPred holds an observation and its prediction
+#[derive(Debug)]
 pub struct ObsPred {
     pub time: f64,
     pub observation: f64,
