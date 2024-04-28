@@ -51,6 +51,16 @@ pub enum Event {
     Observation(Observation),
 }
 
+impl Event {
+    pub fn get_time(&self) -> f64 {
+        match self {
+            Event::Bolus(bolus) => bolus.time,
+            Event::Infusion(infusion) => infusion.time,
+            Event::Observation(observation) => observation.time,
+        }
+    }
+}
+
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

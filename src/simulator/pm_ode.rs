@@ -1,3 +1,7 @@
+use crate::routines::data::{
+    parse_pmetrics::read_pmetrics, CovariateTrait, Covariates, CovariatesTrait, DataTrait,
+    Infusion, OccasionTrait,
+};
 use diffsol::{
     jacobian::{find_non_zero_entries, JacobianColoring},
     matrix::Matrix,
@@ -7,10 +11,6 @@ use diffsol::{
     op::{closure::Closure, Op},
     vector::{Vector, VectorIndex},
     Bdf, OdeBuilder, OdeEquations, Result, Zero,
-};
-use pmcore::routines::data::{
-    parse_pmetrics::read_pmetrics, CovariateTrait, Covariates, CovariatesTrait, DataTrait,
-    Infusion, OccasionTrait,
 };
 use std::{cell::RefCell, path::Path, rc::Rc};
 
@@ -179,7 +179,7 @@ where
     }
 }
 
-trait BuildPmOde {
+pub trait BuildPmOde {
     fn build_pm_ode<M, F, I>(
         self,
         rhs: F,
@@ -245,45 +245,3 @@ macro_rules! fetch_cov {
         )*
     };
 }
-fn main() {
-    let data = read_pmetrics(Path::new("examples/data/bimodal_ke_blocks.csv")).unwrap();
-    let subjects = data.get_subjects();
-    let first_subject = subjects.first().unwrap();
-    let occasion = first_subject.occasions.first().unwrap();
-    let covariates = occasion.covariates.clone();
-    let infusions = occasion.get_infusions();
-    println!("{}", data);
-
-    type T = f64;
-    type V = faer::Col<T>;
-    type M = faer::Mat<T>;
-    let pk_model = |x: &V, p: &V, t: T, dx: &mut V, rateiv: V, cov: &Covariates| {
-        fetch_cov!(cov, t, creat);
-        fetch_params!(p, ka, ke, _v);
-        dx[0] = -ka * x[0];
-        dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
-    };
-
-    // type V = nalgebra::DVector<T>;
-    // type M = nalgebra::DMatrix<T>;
-    let problem = OdeBuilder::new()
-        .p([0.9, 1.0e4, 70.0])
-        .rtol(1e-4)
-        .atol([1.0e-8, 1.0e-6])
-        .build_pm_ode::<M, _, _>(
-            pk_model,
-            |_p: &V, _t: T| V::from_vec(vec![1.0, 0.0]),
-            covariates,
-            infusions,
-        )
-        .unwrap();
-
-    let mut solver = Bdf::default();
-
-    let t = 0.4;
-    let y = solver.solve(&problem, t).unwrap();
-    dbg!(&y);
-}
-
-// we have a function is going to return a minimal closure
-// this function
