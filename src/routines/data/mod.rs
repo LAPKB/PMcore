@@ -42,6 +42,12 @@ pub trait CovariateInterpolator {
     fn in_interval(&self, time: f64) -> bool;
 }
 
+pub trait InfusionsTrait {
+    fn new() -> Infusions;
+    fn add_infusion(&mut self, infusion: Infusion);
+    fn get_rateiv(&self, time: f64, compartment: usize) -> f64;
+}
+
 // Redesign of data formats
 
 /// An Event can be a Bolus, Infusion, or Observation
@@ -236,7 +242,7 @@ impl OccasionTrait for Occasion {
                 .collect()
         } else {
             occ.events.clone()
-        } 
+        }
     }
     fn get_covariates(&self) -> Option<&Covariates> {
         Some(&self.covariates)
@@ -252,6 +258,45 @@ impl OccasionTrait for Occasion {
                 }
             })
             .collect()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Infusions {
+    infusions: Vec<Infusion>,
+}
+
+impl Infusions {
+    pub fn new() -> Self {
+        Infusions { infusions: vec![] }
+    }
+
+    pub fn add_infusion(&mut self, infusion: Infusion) {
+        self.infusions.push(infusion);
+    }
+
+    pub fn get_rateiv(&self, time: f64, compartment: usize) -> f64 {
+        self.infusions
+            .iter()
+            .filter(|infusion| {
+                infusion.compartment == compartment
+                    && infusion.time <= time
+                    && infusion.time + infusion.duration >= time
+            })
+            .map(|infusion| infusion.amount / infusion.duration)
+            .sum()
+    }
+}
+
+impl InfusionsTrait for Infusions {
+    fn get_rateiv(&self, time: f64, compartment: usize) -> f64 {
+        self.get_rateiv(time, compartment)
+    }
+    fn new() -> Infusions {
+        Infusions::new()
+    }
+    fn add_infusion(&mut self, infusion: Infusion) {
+        self.add_infusion(infusion)
     }
 }
 

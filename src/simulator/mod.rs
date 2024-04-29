@@ -1,6 +1,6 @@
 pub mod likelihood;
 use crate::{
-    routines::data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
+    routines::data::{Covariates, Infusion, Infusions, OccasionTrait, SubjectTrait},
     simulator::{likelihood::ToObsPred, pm_ode::BuildPmOde},
 };
 
@@ -56,7 +56,7 @@ fn simulate_ode(
     for occasion in subject.get_occasions() {
         // What should we use as the initial state for the next occasion?
         let mut x = get_first_state(init, support_point);
-        let mut infusions = vec![];
+        let mut infusions: Infusions = Infusions::new();
         let covariates = occasion.get_covariates().unwrap();
         let mut index = 0;
         let events = occasion.get_events(None, None, true);
@@ -66,8 +66,7 @@ fn simulate_ode(
                     x[bolus.compartment] += bolus.amount;
                 }
                 Event::Infusion(infusion) => {
-                    //TODO: remove not valid infusions
-                    infusions.push(infusion.clone());
+                    infusions.add_infusion(infusion.clone());
                 }
                 Event::Observation(observation) => {
                     let pred = (out)(
@@ -103,7 +102,7 @@ fn simulate_ode_event(
     x: V,
     support_point: &[f64],
     cov: &Covariates,
-    infusions: &Vec<Infusion>,
+    infusions: &Infusions,
     _ti: f64,
     tf: f64,
 ) -> V {
