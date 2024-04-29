@@ -1,4 +1,4 @@
-use crate::routines::data::{Covariates, Infusion, Infusions};
+use crate::routines::data::{Covariates, Infusions};
 use diffsol::{
     jacobian::{find_non_zero_entries, JacobianColoring},
     matrix::Matrix,
@@ -113,7 +113,7 @@ where
         self.statistics.borrow_mut().number_of_rhs_evals += 1;
     }
 
-    fn rhs_jac_inplace(&self, t: Self::T, x: &Self::V, v: &Self::V, y: &mut Self::V) {
+    fn rhs_jac_inplace(&self, t: Self::T, _x: &Self::V, v: &Self::V, y: &mut Self::V) {
         let p = self.p.as_ref();
         let mut rateiv = Self::V::zeros(self.nstates);
         //TODO: This should be pre-calculated

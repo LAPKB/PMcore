@@ -261,7 +261,7 @@ impl OccasionTrait for Occasion {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Infusions {
     infusions: Vec<Infusion>,
 }

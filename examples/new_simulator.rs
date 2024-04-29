@@ -12,7 +12,7 @@ fn main() {
 
     let ode = Equation::new_ode(
         |x: &V, p: &V, _t: T, dx: &mut V, rateiv: V, _cov: &Covariates| {
-            // fetch_cov!(cov, t, creat);
+            //fetch_cov!(cov, t, creat);
             fetch_params!(p, ka, ke, _v);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
