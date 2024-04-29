@@ -22,7 +22,8 @@ pub trait OccasionTrait {
         &self,
         lagtime: Option<HashMap<usize, f64>>,
         bioavailability: Option<HashMap<usize, f64>>,
-    ) -> Vec<&Event>;
+        ignore: bool,
+    ) -> Vec<Event>;
     fn get_covariates(&self) -> Option<&Covariates>;
     fn get_infusions(&self) -> Vec<Infusion>;
 }
@@ -217,11 +218,25 @@ impl OccasionTrait for Occasion {
         &self,
         lagtime: Option<HashMap<usize, f64>>,
         bioavailability: Option<HashMap<usize, f64>>,
-    ) -> Vec<&Event> {
+        ignore: bool,
+    ) -> Vec<Event> {
         let mut occ = self.clone();
         occ.add_bioavailability(bioavailability);
         occ.add_lagtime(lagtime);
-        self.events.iter().collect()
+
+        // Filter out events that are marked as ignore
+        if ignore {
+            occ.events
+                .iter()
+                .filter(|event| match event {
+                    Event::Observation(observation) => !observation.ignore,
+                    _ => true,
+                })
+                .cloned()
+                .collect()
+        } else {
+            occ.events.clone()
+        } 
     }
     fn get_covariates(&self) -> Option<&Covariates> {
         Some(&self.covariates)

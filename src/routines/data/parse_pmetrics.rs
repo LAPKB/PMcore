@@ -17,7 +17,11 @@ pub fn read_pmetrics(path: &Path) -> Result<Data, Box<dyn Error>> {
         .from_path(path)?;
 
     // Convert headers to lowercase
-    let headers = reader.headers()?.iter().map(|h| h.to_lowercase()).collect::<Vec<_>>();
+    let headers = reader
+        .headers()?
+        .iter()
+        .map(|h| h.to_lowercase())
+        .collect::<Vec<_>>();
     reader.set_headers(csv::StringRecord::from(headers));
 
     // This is the object we are building, which can be converted to [Data]

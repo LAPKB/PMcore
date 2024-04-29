@@ -57,11 +57,10 @@ fn simulate_ode(
         // What should we use as the initial state for the next occasion?
         let mut x = get_first_state(init, support_point);
         let mut infusions = vec![];
-        // occasion.add_lagtime(None);
-        // occasion.add_bioavailability(None);
         let covariates = occasion.get_covariates().unwrap();
         let mut index = 0;
-        for event in &occasion.events {
+        let events = occasion.get_events(None, None, true);
+        for event in &events {
             match event {
                 Event::Bolus(bolus) => {
                     x[bolus.compartment] += bolus.amount;
