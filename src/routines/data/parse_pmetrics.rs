@@ -159,6 +159,8 @@ pub fn read_pmetrics(path: &Path) -> Result<Data, Box<dyn Error>> {
         subjects.push(subject);
     }
 
+    // Sort subjects alphabetically by ID to get consistent ordering
+    subjects.sort_by(|a, b| a.id.cmp(&b.id));
     let data = Data::new(subjects);
 
     Ok(data)
