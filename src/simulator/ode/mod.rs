@@ -14,56 +14,6 @@ use diffsol::{ode_solver::method::OdeSolverMethod, vector::Vector, Bdf, OdeBuild
 
 const RTOL: f64 = 1e-4;
 const ATOL: f64 = 1e-4;
-#[inline]
-pub fn simulate_ode(
-    diffeq: &DiffEq,
-    init: &Init,
-    out: &Out,
-    subject: &impl SubjectTrait,
-    support_point: &Vec<f64>,
-) -> Vec<ObsPred> {
-    let mut yout = vec![];
-    for occasion in subject.get_occasions() {
-        // What should we use as the initial state for the next occasion?
-        let mut x = get_first_state(init, support_point);
-        let covariates = occasion.get_covariates().unwrap();
-        let mut infusions: Vec<Infusion> = vec![];
-        let mut index = 0;
-        for event in &occasion.get_events(None, None, true) {
-            match event {
-                Event::Bolus(bolus) => {
-                    x[bolus.input] += bolus.amount;
-                }
-                Event::Infusion(infusion) => {
-                    infusions.push(infusion.clone());
-                }
-                Event::Observation(observation) => {
-                    let pred = (out)(
-                        &x,
-                        &V::from_vec(support_point.clone()),
-                        observation.time,
-                        covariates,
-                    )[observation.outeq - 1];
-
-                    yout.push(observation.to_obs_pred(pred));
-                }
-            }
-            if let Some(next_event) = occasion.events.get(index + 1) {
-                x = simulate_ode_event(
-                    diffeq,
-                    x,
-                    support_point,
-                    covariates,
-                    &infusions,
-                    event.get_time(),
-                    next_event.get_time(),
-                );
-            }
-            index += 1;
-        }
-    }
-    yout
-}
 
 #[inline]
 pub fn simulate_ode_event(
