@@ -1,6 +1,6 @@
 use diffsol::vector::Vector;
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, Covariates, DataTrait};
-use pmcore::simulator::analytical::{self, one_comparment};
+use pmcore::simulator::analytical::one_comparment;
 use pmcore::{prelude::*, simulator::Equation};
 use std::path::Path;
 type T = f64;
@@ -18,19 +18,19 @@ fn main() {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p: &V, _t: T| V::from_vec(vec![0.1, 0.2]),
+        |_p: &V, _t: T, cov: &Covariates| V::from_vec(vec![0.1, 0.2]),
         |x: &V, p: &V, _t: T, _cov: &Covariates| {
             fetch_params!(p, _ka, _ke, v);
             V::from_vec(vec![x[1] / v])
         },
     );
 
-    let sim = ode.simulate_subject(first_subject, &vec![0.9, 0.1, 50.0]);
-    dbg!(sim);
+    // let sim = ode.simulate_subject(first_subject, &vec![0.9, 0.1, 50.0]);
+    // dbg!(sim);
 
     let analytical = Equation::new_analytical(
         one_comparment,
-        |_p: &V, _t: T| V::from_vec(vec![0.1, 0.2]),
+        |_p: &V, _t: T, _cov: &Covariates| V::from_vec(vec![0.1, 0.2]),
         |x: &V, p: &V, _t: T, _cov: &Covariates| {
             fetch_params!(p, _ke, v);
             V::from_vec(vec![x[0] / v])

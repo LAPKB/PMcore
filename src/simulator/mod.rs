@@ -13,7 +13,7 @@ pub type V = faer::Col<T>;
 pub type M = faer::Mat<T>;
 
 pub type DiffEq = fn(&V, &V, T, &mut V, V, &Covariates);
-pub type Init = fn(&V, T) -> V;
+pub type Init = fn(&V, T, &Covariates) -> V;
 pub type Out = fn(&V, &V, T, &Covariates) -> V;
 pub type AnalyticalEq = fn(&V, &V, T, V, &Covariates) -> V;
 
@@ -41,8 +41,8 @@ impl Equation {
         let mut yout = vec![];
         for occasion in subject.get_occasions() {
             // What should we use as the initial state for the next occasion?
-            let mut x = get_first_state(init, support_point);
             let covariates = occasion.get_covariates().unwrap();
+            let mut x = get_first_state(init, support_point, &covariates);
             let mut infusions: Vec<Infusion> = vec![];
             let mut index = 0;
             for event in &occasion.get_events(None, None, true) {
@@ -130,6 +130,6 @@ impl Equation {
 }
 
 #[inline]
-pub fn get_first_state(init: &Init, support_point: &Vec<f64>) -> V {
-    (init)(&faer::Col::from_vec(support_point.clone()), 0.0) //TODO: Time hardcoded
+pub fn get_first_state(init: &Init, support_point: &Vec<f64>, cov: &Covariates) -> V {
+    (init)(&faer::Col::from_vec(support_point.clone()), 0.0, cov) //TODO: Time hardcoded
 }
