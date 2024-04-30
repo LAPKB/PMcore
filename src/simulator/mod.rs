@@ -16,16 +16,17 @@ pub type DiffEq = fn(&V, &V, T, &mut V, V, &Covariates);
 pub type Init = fn(&V, T, &Covariates) -> V;
 pub type Out = fn(&V, &V, T, &Covariates) -> V;
 pub type AnalyticalEq = fn(&V, &V, T, V, &Covariates) -> V;
+pub type SecEq = fn(&mut V, &Covariates);
 
 pub enum Equation {
-    ODE(DiffEq, Init, Out),
+    ODE(DiffEq, Init, Out, SecEq),
     SDE(DiffEq, DiffEq, Init, Out),
     Analytical(AnalyticalEq, Init, Out),
 }
 
 impl Equation {
-    pub fn new_ode(diffeq: DiffEq, init: Init, out: Out) -> Self {
-        Equation::ODE(diffeq, init, out)
+    pub fn new_ode(diffeq: DiffEq, secEq: SecEq, init: Init, out: Out) -> Self {
+        Equation::ODE(diffeq, init, out, secEq)
     }
     pub fn new_analytical(eq: AnalyticalEq, init: Init, out: Out) -> Self {
         Equation::Analytical(eq, init, out)
@@ -90,8 +91,9 @@ impl Equation {
         end_time: T,
     ) -> V {
         match self {
-            Equation::ODE(eqn, init, out) => ode::simulate_ode_event(
+            Equation::ODE(eqn, init, out, secEq) => ode::simulate_ode_event(
                 eqn,
+                secEq,
                 x,
                 support_point,
                 covariates,
@@ -115,14 +117,14 @@ impl Equation {
     }
     fn get_init(&self) -> &Init {
         match self {
-            Equation::ODE(_, init, _) => init,
+            Equation::ODE(_, init, _, _) => init,
             Equation::SDE(_, _, init, _) => init,
             Equation::Analytical(_, init, _) => init,
         }
     }
     fn get_out(&self) -> &Out {
         match self {
-            Equation::ODE(_, _, out) => out,
+            Equation::ODE(_, _, out, _) => out,
             Equation::SDE(_, _, _, out) => out,
             Equation::Analytical(_, _, out) => out,
         }

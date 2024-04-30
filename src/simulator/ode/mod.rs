@@ -1,7 +1,7 @@
 pub mod diffsol_traits;
 use crate::{
     routines::data::{Covariates, Infusion},
-    simulator::{ode::diffsol_traits::BuildPmOde, DiffEq, M, T, V},
+    simulator::{ode::diffsol_traits::BuildPmOde, DiffEq, SecEq, M, T, V},
 };
 
 use diffsol::{ode_solver::method::OdeSolverMethod, Bdf, OdeBuilder};
@@ -12,6 +12,7 @@ const ATOL: f64 = 1e-4;
 #[inline]
 pub fn simulate_ode_event(
     diffeq: &DiffEq,
+    secEq: &SecEq,
     x: V,
     support_point: &[f64],
     cov: &Covariates,
@@ -24,8 +25,9 @@ pub fn simulate_ode_event(
         .rtol(RTOL)
         .atol([ATOL])
         .p(support_point.to_owned())
-        .build_pm_ode::<M, _, _>(
+        .build_pm_ode::<M, _, _, _>(
             diffeq.clone(),
+            secEq.clone(),
             move |_p: &V, _t: T| x.clone(),
             cov.clone(),
             infusions.clone(),

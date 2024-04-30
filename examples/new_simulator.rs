@@ -1,5 +1,5 @@
-use diffsol::vector::Vector;
-use faer::{col, Col};
+use faer::col;
+use ndarray::AssignElem;
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
 use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::{prelude::*, simulator::Equation};
@@ -16,6 +16,10 @@ fn main() {
             fetch_params!(p, ke, ka, _v);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
+        },
+        |p, _cov| {
+            let ke = p.get_mut(0);
+            *ke = 2.0;
         },
         |_p, _t, _cov| col![0.0, 0.0],
         |x, p, _t, _cov| {

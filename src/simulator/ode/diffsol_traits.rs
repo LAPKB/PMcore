@@ -10,13 +10,15 @@ use diffsol::{
 };
 use std::{cell::RefCell, rc::Rc};
 
-pub struct OdePmSolverEquationsMassI<M, F, I>
+pub struct OdePmSolverEquationsMassI<M, F, S, I>
 where
     M: Matrix,
     F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
+    S: Fn(&mut M::V, &Covariates),
     I: Fn(&M::V, M::T) -> M::V,
 {
     rhs: F,
+    sec_eq: S,
     init: I,
     p: Rc<M::V>,
     nstates: usize,
@@ -26,14 +28,16 @@ where
     infusions: Vec<Infusion>,
 }
 
-impl<M, F, I> OdePmSolverEquationsMassI<M, F, I>
+impl<M, F, S, I> OdePmSolverEquationsMassI<M, F, S, I>
 where
     M: Matrix,
     F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
+    S: Fn(&mut M::V, &Covariates),
     I: Fn(&M::V, M::T) -> M::V,
 {
     pub fn new_pm_ode(
         rhs: F,
+        sec_eq: S,
         init: I,
         p: M::V,
         t0: M::T,
@@ -48,7 +52,7 @@ where
         let statistics = RefCell::default();
         let mut ret = Self {
             rhs,
-            // rhs_jac,
+            sec_eq,
             init,
             p: p.clone(),
             nstates,
@@ -76,10 +80,11 @@ where
 }
 
 // impl Op
-impl<M, F, I> Op for OdePmSolverEquationsMassI<M, F, I>
+impl<M, F, S, I> Op for OdePmSolverEquationsMassI<M, F, S, I>
 where
     M: Matrix,
     F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
+    S: Fn(&mut M::V, &Covariates),
     I: Fn(&M::V, M::T) -> M::V,
 {
     type M = M;
@@ -97,14 +102,15 @@ where
     }
 }
 
-impl<M, F, I> OdeEquations for OdePmSolverEquationsMassI<M, F, I>
+impl<M, F, S, I> OdeEquations for OdePmSolverEquationsMassI<M, F, S, I>
 where
     M: Matrix,
     F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
+    S: Fn(&mut M::V, &Covariates),
     I: Fn(&M::V, M::T) -> M::V,
 {
     fn rhs_inplace(&self, t: Self::T, y: &Self::V, rhs_y: &mut Self::V) {
-        let p = self.p.as_ref();
+        let mut p = self.p.as_ref().clone();
         let mut rateiv = Self::V::zeros(self.nstates);
         //TODO: This should be pre-calculated
         for infusion in &self.infusions {
@@ -114,12 +120,14 @@ where
                 rateiv[infusion.input] = Self::T::from(infusion.amount / infusion.duration);
             }
         }
-        (self.rhs)(y, p, t, rhs_y, rateiv, &self.covariates);
+        (self.sec_eq)(&mut p, &self.covariates);
+        (self.rhs)(y, &p, t, rhs_y, rateiv, &self.covariates);
         self.statistics.borrow_mut().number_of_rhs_evals += 1;
     }
 
     fn rhs_jac_inplace(&self, t: Self::T, _x: &Self::V, v: &Self::V, y: &mut Self::V) {
-        let p = self.p.as_ref();
+        //TODO: Instead of this code, we should call rhs_inplace
+        let mut p = self.p.as_ref().clone();
         let mut rateiv = Self::V::zeros(self.nstates);
         //TODO: This should be pre-calculated
         for infusion in &self.infusions {
@@ -129,7 +137,8 @@ where
                 rateiv[infusion.input] = Self::T::from(infusion.amount / infusion.duration);
             }
         }
-        (self.rhs)(v, p, t, y, rateiv, &self.covariates);
+        (self.sec_eq)(&mut p, &self.covariates);
+        (self.rhs)(v, &p, t, y, rateiv, &self.covariates);
         // (self.rhs_jac)(x, p, t, v, y);
         self.statistics.borrow_mut().number_of_jac_mul_evals += 1;
     }
@@ -176,35 +185,40 @@ where
 }
 
 pub trait BuildPmOde {
-    fn build_pm_ode<M, F, I>(
+    fn build_pm_ode<M, F, S, I>(
         self,
         rhs: F,
+        sec_eq: S,
         init: I,
         cov: Covariates,
         infusions: Vec<Infusion>,
-    ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, I>>>
+    ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, S, I>>>
     where
         M: Matrix,
         F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
+        S: Fn(&mut M::V, &Covariates),
         I: Fn(&M::V, M::T) -> M::V;
 }
 
 impl BuildPmOde for OdeBuilder {
-    fn build_pm_ode<M, F, I>(
+    fn build_pm_ode<M, F, S, I>(
         self,
         rhs: F,
+        sec_eq: S,
         init: I,
         cov: Covariates,
         infusions: Vec<Infusion>,
-    ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, I>>>
+    ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, S, I>>>
     where
         M: Matrix,
         F: Fn(&M::V, &M::V, M::T, &mut M::V, M::V, &Covariates),
+        S: Fn(&mut M::V, &Covariates),
         I: Fn(&M::V, M::T) -> M::V,
     {
         let p = Self::build_p(self.p);
         let eqn = OdePmSolverEquationsMassI::new_pm_ode(
             rhs,
+            sec_eq,
             init,
             p,
             M::T::from(self.t0),
