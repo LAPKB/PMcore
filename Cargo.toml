@@ -51,16 +51,8 @@ codegen-units = 1
 opt-level = 3
 
 [dev-dependencies]
-criterion = "0.5.1"
+divan = "0.1.14"
 
 [[bench]]
-name = "initialization"
 harness = false
-
-[[bench]]
-name = "expansion"
-harness = false
-
-[[bench]]
-name = "evaluation"
-harness = false
+name = "compare"
