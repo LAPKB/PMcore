@@ -142,7 +142,7 @@ impl<'a> Predict<'a> for Ode {
             _ => panic!("Invalid output equation"),
         }
     }
-    // This function is used to initialize the comparments
+    // This function is used to initialize the compartments
     //TODO: Handle non-zero initial conditions
     fn initial_state(&self) -> State {
         State::default()
