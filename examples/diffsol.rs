@@ -115,7 +115,7 @@ where
             if t >= Self::T::from(infusion.time)
                 && t <= Self::T::from(infusion.duration + infusion.time)
             {
-                rateiv[infusion.compartment] = Self::T::from(infusion.amount / infusion.duration);
+                rateiv[infusion.input] = Self::T::from(infusion.amount / infusion.duration);
             }
         }
         (self.rhs)(y, p, t, rhs_y, rateiv, &self.covariates);
@@ -130,7 +130,7 @@ where
             if t >= Self::T::from(infusion.time)
                 && t <= Self::T::from(infusion.duration + infusion.time)
             {
-                rateiv[infusion.compartment] = Self::T::from(infusion.amount / infusion.duration);
+                rateiv[infusion.input] = Self::T::from(infusion.amount / infusion.duration);
             }
         }
         (self.rhs)(v, p, t, y, rateiv, &self.covariates);
@@ -251,7 +251,7 @@ fn main() {
     let first_subject = subjects.first().unwrap();
     let occasion = first_subject.occasions.first().unwrap();
     let covariates = occasion.covariates.clone();
-    let infusions = occasion.get_infusions();
+    let infusions = occasion.get_infusions_vec();
     println!("{}", data);
 
     type T = f64;

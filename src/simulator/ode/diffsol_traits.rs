@@ -1,4 +1,4 @@
-use crate::routines::data::{Covariates, Infusions};
+use crate::routines::data::{Covariates, Infusion};
 use diffsol::{
     jacobian::{find_non_zero_entries, JacobianColoring},
     matrix::Matrix,
@@ -23,7 +23,7 @@ where
     coloring: Option<JacobianColoring>,
     statistics: RefCell<OdeEquationsStatistics>,
     covariates: Covariates,
-    infusions: Infusions,
+    infusions: Vec<Infusion>,
 }
 
 impl<M, F, I> OdePmSolverEquationsMassI<M, F, I>
@@ -39,7 +39,7 @@ where
         t0: M::T,
         use_coloring: bool,
         covariates: Covariates,
-        infusions: Infusions,
+        infusions: Vec<Infusion>,
     ) -> Self {
         let y0 = init(&p, M::T::zero());
         let nstates = y0.len();
@@ -106,8 +106,13 @@ where
     fn rhs_inplace(&self, t: Self::T, y: &Self::V, rhs_y: &mut Self::V) {
         let p = self.p.as_ref();
         let mut rateiv = Self::V::zeros(self.nstates);
-        for compartment in 0..self.nstates {
-            rateiv[compartment] = self.infusions.get_rateiv(t.into(), compartment).into();
+        //TODO: This should be pre-calculated
+        for infusion in &self.infusions {
+            if t >= Self::T::from(infusion.time)
+                && t <= Self::T::from(infusion.duration + infusion.time)
+            {
+                rateiv[infusion.input] = Self::T::from(infusion.amount / infusion.duration);
+            }
         }
         (self.rhs)(y, p, t, rhs_y, rateiv, &self.covariates);
         self.statistics.borrow_mut().number_of_rhs_evals += 1;
@@ -117,8 +122,12 @@ where
         let p = self.p.as_ref();
         let mut rateiv = Self::V::zeros(self.nstates);
         //TODO: This should be pre-calculated
-        for compartment in 0..self.nstates {
-            rateiv[compartment] = self.infusions.get_rateiv(t.into(), compartment).into();
+        for infusion in &self.infusions {
+            if t >= Self::T::from(infusion.time)
+                && t <= Self::T::from(infusion.duration + infusion.time)
+            {
+                rateiv[infusion.input] = Self::T::from(infusion.amount / infusion.duration);
+            }
         }
         (self.rhs)(v, p, t, y, rateiv, &self.covariates);
         // (self.rhs_jac)(x, p, t, v, y);
@@ -172,7 +181,7 @@ pub trait BuildPmOde {
         rhs: F,
         init: I,
         cov: Covariates,
-        infusions: Infusions,
+        infusions: Vec<Infusion>,
     ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, I>>>
     where
         M: Matrix,
@@ -186,7 +195,7 @@ impl BuildPmOde for OdeBuilder {
         rhs: F,
         init: I,
         cov: Covariates,
-        infusions: Infusions,
+        infusions: Vec<Infusion>,
     ) -> Result<OdeSolverProblem<OdePmSolverEquationsMassI<M, F, I>>>
     where
         M: Matrix,

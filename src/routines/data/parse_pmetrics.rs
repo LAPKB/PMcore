@@ -238,14 +238,14 @@ impl From<Row> for Event {
                     Event::Infusion(Infusion {
                         time: row.time,
                         amount: row.dose.expect("Infusion amount (DOSE) is missing"),
-                        compartment: row.input.expect("Infusion compartment (INPUT) is missing"),
+                        input: row.input.expect("Infusion compartment (INPUT) is missing"),
                         duration: row.dur.expect("Infusion duration (DUR) is missing"),
                     })
                 } else {
                     Event::Bolus(Bolus {
                         time: row.time,
                         amount: row.dose.expect("Bolus amount (DOSE) is missing"),
-                        compartment: row.input.expect("Bolus compartment (INPUT) is missing"),
+                        input: row.input.expect("Bolus compartment (INPUT) is missing"),
                     })
                 }
             }

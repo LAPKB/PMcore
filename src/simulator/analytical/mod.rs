@@ -2,6 +2,6 @@ use analytical::likelihood::ToObsPred;
 
 use crate::{
     prelude::data::Event,
-    routines::data::{Covariates, Infusions, OccasionTrait, SubjectTrait},
+    routines::data::{Covariates, OccasionTrait, SubjectTrait},
     simulator::*,
 };

@@ -3,7 +3,7 @@ pub mod likelihood;
 pub mod ode;
 use crate::{
     prelude::data::Event,
-    routines::data::{Covariates, Infusions, OccasionTrait, SubjectTrait},
+    routines::data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
     simulator::likelihood::{ObsPred, ToObsPred},
 };
 
@@ -41,16 +41,16 @@ impl Equation {
         for occasion in subject.get_occasions() {
             // What should we use as the initial state for the next occasion?
             let mut x = get_first_state(init, support_point);
-            let mut infusions: Infusions = Infusions::new();
             let covariates = occasion.get_covariates().unwrap();
+            let mut infusions: Vec<Infusion> = vec![];
             let mut index = 0;
             for event in &occasion.get_events(None, None, true) {
                 match event {
                     Event::Bolus(bolus) => {
-                        x[bolus.compartment] += bolus.amount;
+                        x[bolus.input] += bolus.amount;
                     }
                     Event::Infusion(infusion) => {
-                        infusions.add_infusion(infusion.clone());
+                        infusions.push(infusion.clone());
                     }
                     Event::Observation(observation) => {
                         let pred = (out)(
@@ -92,7 +92,7 @@ impl Equation {
         x: V,
         support_point: &Vec<f64>,
         covariates: &Covariates,
-        infusions: &Infusions,
+        infusions: &Vec<Infusion>,
         start_time: T,
         end_time: T,
     ) -> V {

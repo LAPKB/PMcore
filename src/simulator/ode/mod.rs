@@ -1,7 +1,7 @@
 pub mod diffsol_traits;
 use crate::{
     prelude::data::Event,
-    routines::data::{Covariates, Infusions, OccasionTrait, SubjectTrait},
+    routines::data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
     simulator::{
         get_first_state,
         likelihood::{ObsPred, ToObsPred},
@@ -26,16 +26,16 @@ pub fn simulate_ode(
     for occasion in subject.get_occasions() {
         // What should we use as the initial state for the next occasion?
         let mut x = get_first_state(init, support_point);
-        let mut infusions: Infusions = Infusions::new();
         let covariates = occasion.get_covariates().unwrap();
+        let mut infusions: Vec<Infusion> = vec![];
         let mut index = 0;
         for event in &occasion.get_events(None, None, true) {
             match event {
                 Event::Bolus(bolus) => {
-                    x[bolus.compartment] += bolus.amount;
+                    x[bolus.input] += bolus.amount;
                 }
                 Event::Infusion(infusion) => {
-                    infusions.add_infusion(infusion.clone());
+                    infusions.push(infusion.clone());
                 }
                 Event::Observation(observation) => {
                     let pred = (out)(
@@ -71,7 +71,7 @@ pub fn simulate_ode_event(
     x: V,
     support_point: &[f64],
     cov: &Covariates,
-    infusions: &Infusions,
+    infusions: &Vec<Infusion>,
     ti: f64,
     tf: f64,
 ) -> V {

@@ -25,7 +25,8 @@ pub trait OccasionTrait {
         ignore: bool,
     ) -> Vec<Event>;
     fn get_covariates(&self) -> Option<&Covariates>;
-    fn get_infusions(&self) -> Vec<Infusion>;
+    //fn get_infusions(&self) -> Infusions;
+    fn get_infusions_vec(&self) -> Vec<Infusion>;
 }
 
 pub trait CovariatesTrait {
@@ -42,11 +43,11 @@ pub trait CovariateInterpolator {
     fn in_interval(&self, time: f64) -> bool;
 }
 
-pub trait InfusionsTrait {
+/* pub trait InfusionsTrait {
     fn new() -> Infusions;
     fn add_infusion(&mut self, infusion: Infusion);
-    fn get_rateiv(&self, time: f64, compartment: usize) -> f64;
-}
+    fn get_rateiv(&self, time: f64, input: usize) -> f64;
+} */
 
 // Redesign of data formats
 
@@ -74,12 +75,12 @@ impl fmt::Display for Event {
             Event::Bolus(bolus) => write!(
                 f,
                 "Bolus at time {:.2} with amount {:.2} in compartment {}",
-                bolus.time, bolus.amount, bolus.compartment
+                bolus.time, bolus.amount, bolus.input
             ),
             Event::Infusion(infusion) => write!(
                 f,
                 "Infusion starting at {:.2} with amount {:.2} over {:.2} hours in compartment {}",
-                infusion.time, infusion.amount, infusion.duration, infusion.compartment
+                infusion.time, infusion.amount, infusion.duration, infusion.input
             ),
             Event::Observation(observation) => {
                 let errpoly_desc = match observation.errorpoly {
@@ -103,7 +104,7 @@ impl fmt::Display for Event {
 pub struct Bolus {
     pub time: f64,
     pub amount: f64,
-    pub compartment: usize,
+    pub input: usize,
 }
 
 /// A continuous dose of drug
@@ -111,7 +112,7 @@ pub struct Bolus {
 pub struct Infusion {
     pub time: f64,
     pub amount: f64,
-    pub compartment: usize,
+    pub input: usize,
     pub duration: f64,
 }
 
@@ -147,7 +148,7 @@ impl Occasion {
         if let Some(lag) = lagtime {
             for event in self.events.iter_mut() {
                 if let Event::Bolus(bolus) = event {
-                    if let Some(l) = lag.get(&bolus.compartment) {
+                    if let Some(l) = lag.get(&bolus.input) {
                         bolus.time += l;
                     }
                 }
@@ -161,7 +162,7 @@ impl Occasion {
         if let Some(fmap) = bioavailability {
             for event in self.events.iter_mut() {
                 if let Event::Bolus(bolus) = event {
-                    if let Some(f) = fmap.get(&bolus.compartment) {
+                    if let Some(f) = fmap.get(&bolus.input) {
                         bolus.time *= f;
                     }
                 }
@@ -247,48 +248,107 @@ impl OccasionTrait for Occasion {
     fn get_covariates(&self) -> Option<&Covariates> {
         Some(&self.covariates)
     }
-    fn get_infusions(&self) -> Vec<Infusion> {
+    /* fn get_infusions(&self) -> Infusions {
+        let inf_vec: Vec<Infusion> = self.get_infusions_vec().iter().map(|x| x.clone()).collect();
+        Infusions::from_infusions(inf_vec)
+    } */
+    fn get_infusions_vec(&self) -> Vec<Infusion> {
         self.events
             .iter()
-            .filter_map(|event| {
-                if let Event::Infusion(infusion) = event {
-                    Some(infusion.clone())
-                } else {
-                    None
-                }
+            .filter_map(|event| match event {
+                Event::Infusion(infusion) => Some(infusion.clone()),
+                _ => None,
             })
             .collect()
     }
 }
 
-#[derive(Debug, Clone)]
+/* #[derive(Debug, Clone, Deserialize)]
+struct InfusionSegment {
+    from: f64,
+    to: f64,
+    rateiv: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Infusions {
-    infusions: Vec<Infusion>,
+    pub segments: HashMap<usize, Vec<InfusionSegment>>,
 }
 
 impl Infusions {
-    pub fn new() -> Self {
-        Infusions { infusions: vec![] }
+    pub fn from_infusions(infusions: Vec<Infusion>) -> Self {
+        let mut events: HashMap<usize, Vec<(f64, f64)>> = HashMap::new();
+
+        // Convert each infusion into start and end events and sort them by input
+        for infusion in infusions {
+            let rate = infusion.amount / infusion.duration;
+            events
+                .entry(infusion.input)
+                .or_insert_with(Vec::new)
+                .push((infusion.time, rate)); // Start of infusion
+            events
+                .entry(infusion.input)
+                .or_insert_with(Vec::new)
+                .push((infusion.time + infusion.duration, -rate)); // End of infusion
+        }
+
+        let mut segments: HashMap<usize, Vec<InfusionSegment>> = HashMap::new();
+
+        // Process each input separately
+        for (input, mut input_events) in events {
+            input_events.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+            let mut current_rate = 0.0;
+            let mut last_time = input_events.first().map(|x| x.0).unwrap_or(0.0);
+            let mut input_segments: Vec<InfusionSegment> = Vec::new();
+
+            for (time, rate_change) in input_events {
+                if time != last_time {
+                    if current_rate != 0.0 {
+                        input_segments.push(InfusionSegment {
+                            from: last_time,
+                            to: time,
+                            rateiv: current_rate,
+                        });
+                    }
+                    last_time = time;
+                }
+                current_rate += rate_change;
+            }
+
+            // Ensure final segment to zero rate
+            if current_rate != 0.0 || input_segments.is_empty() {
+                input_segments.push(InfusionSegment {
+                    from: last_time,
+                    to: f64::INFINITY,
+                    rateiv: 0.0,
+                });
+            }
+
+            segments.insert(input, input_segments);
+        }
+
+        Infusions { segments }
     }
 
-    pub fn add_infusion(&mut self, infusion: Infusion) {
-        self.infusions.push(infusion);
+    pub fn get_rate_at_time(&self, input: usize, time: f64) -> f64 {
+        self.segments.get(&input).map_or(0.0, |segments| {
+            segments
+                .iter()
+                .find(|segment| time >= segment.from && time < segment.to)
+                .map_or(0.0, |segment| segment.rateiv)
+        })
     }
 
-    pub fn get_rateiv(&self, time: f64, compartment: usize) -> f64 {
-        self.infusions
-            .iter()
-            .filter(|infusion| {
-                infusion.compartment == compartment
-                    && infusion.time <= time
-                    && infusion.time + infusion.duration >= time
-            })
-            .map(|infusion| infusion.amount / infusion.duration)
-            .sum()
+    pub fn get_rate_at_time_vec(&self, time: f64) -> Vec<f64> {
+        let max_input = self.segments.keys().max().copied().unwrap_or(0);
+        (0..=max_input)
+            .map(|input| self.get_rate_at_time(input, time))
+            .collect()
     }
-}
+} */
 
-impl InfusionsTrait for Infusions {
+/* impl InfusionsTrait for Infusions {
     fn get_rateiv(&self, time: f64, compartment: usize) -> f64 {
         self.get_rateiv(time, compartment)
     }
@@ -298,7 +358,7 @@ impl InfusionsTrait for Infusions {
     fn add_infusion(&mut self, infusion: Infusion) {
         self.add_infusion(infusion)
     }
-}
+} */
 
 /// [Subject] is a collection of blocks for one individual
 #[derive(Debug, Deserialize, Clone)]
@@ -620,4 +680,40 @@ mod tests {
             Some(10.0)
         );
     }
+
+    /* #[test]
+    fn test_infusions() {
+        let infusions = vec![
+            Infusion {
+                time: 0.0,
+                amount: 100.0,
+                input: 1,
+                duration: 1.0,
+            },
+            Infusion {
+                time: 2.0,
+                amount: 50.0,
+                input: 1,
+                duration: 1.0,
+            },
+            Infusion {
+                time: 3.0,
+                amount: 50.0,
+                input: 2,
+                duration: 1.0,
+            },
+        ];
+
+        let infusions = Infusions::from_infusions(infusions);
+
+        assert_eq!(infusions.get_rate_at_time(1, 0.0), 100.0);
+        assert_eq!(infusions.get_rate_at_time(1, 0.5), 100.0);
+        assert_eq!(infusions.get_rate_at_time(1, 1.0), 0.0);
+        assert_eq!(infusions.get_rate_at_time(1, 1.5), 50.0);
+        assert_eq!(infusions.get_rate_at_time(1, 2.0), 50.0);
+        assert_eq!(infusions.get_rate_at_time(1, 2.5), 50.0);
+        assert_eq!(infusions.get_rate_at_time(1, 3.0), 0.0);
+        assert_eq!(infusions.get_rate_at_time(1, 3.5), 0.0);
+        assert_eq!(infusions.get_rate_at_time(2, 3.0), 50.0);
+    } */
 }
