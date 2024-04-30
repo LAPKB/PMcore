@@ -1,12 +1,13 @@
 use diffsol::vector::Vector;
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, Covariates, DataTrait};
+use pmcore::simulator::analytical::{self, one_comparment};
 use pmcore::{prelude::*, simulator::Equation};
 use std::path::Path;
 type T = f64;
 type V = faer::Col<T>;
 
 fn main() {
-    let data = read_pmetrics(Path::new("examples/data/bimodal_ke_blocks.csv")).unwrap();
+    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
     let subjects = data.get_subjects();
     let first_subject = *subjects.first().unwrap();
 
@@ -25,5 +26,17 @@ fn main() {
     );
 
     let sim = ode.simulate_subject(first_subject, &vec![0.9, 0.1, 50.0]);
+    dbg!(sim);
+
+    let analytical = Equation::new_analytical(
+        one_comparment,
+        |_p: &V, _t: T| V::from_vec(vec![0.1, 0.2]),
+        |x: &V, p: &V, _t: T, _cov: &Covariates| {
+            fetch_params!(p, _ke, v);
+            V::from_vec(vec![x[0] / v])
+        },
+    );
+
+    let sim = analytical.simulate_subject(first_subject, &vec![0.9, 50.0]);
     dbg!(sim);
 }

@@ -229,7 +229,7 @@ impl From<Row> for Event {
             0 => Event::Observation(Observation {
                 time: row.time,
                 value: row.out.expect("Observation OUT is missing"),
-                outeq: row.outeq.expect("Observation OUTEQ is missing"),
+                outeq: row.outeq.expect("Observation OUTEQ is missing") - 1,
                 errorpoly: row.get_errorpoly(),
                 ignore: row.out == Some(-99.0),
             }),
@@ -238,14 +238,14 @@ impl From<Row> for Event {
                     Event::Infusion(Infusion {
                         time: row.time,
                         amount: row.dose.expect("Infusion amount (DOSE) is missing"),
-                        input: row.input.expect("Infusion compartment (INPUT) is missing"),
+                        input: row.input.expect("Infusion compartment (INPUT) is missing") - 1,
                         duration: row.dur.expect("Infusion duration (DUR) is missing"),
                     })
                 } else {
                     Event::Bolus(Bolus {
                         time: row.time,
                         amount: row.dose.expect("Bolus amount (DOSE) is missing"),
-                        input: row.input.expect("Bolus compartment (INPUT) is missing"),
+                        input: row.input.expect("Bolus compartment (INPUT) is missing") - 1,
                     })
                 }
             }

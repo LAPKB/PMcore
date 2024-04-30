@@ -15,7 +15,7 @@ pub type M = faer::Mat<T>;
 pub type DiffEq = fn(&V, &V, T, &mut V, V, &Covariates);
 pub type Init = fn(&V, T) -> V;
 pub type Out = fn(&V, &V, T, &Covariates) -> V;
-pub type AnalyticalEq = fn(&V, &V, T, T, V, &Covariates) -> V;
+pub type AnalyticalEq = fn(&V, &V, T, V, &Covariates) -> V;
 
 pub enum Equation {
     ODE(DiffEq, Init, Out),
@@ -59,11 +59,12 @@ impl Equation {
                             &V::from_vec(support_point.clone()),
                             observation.time,
                             covariates,
-                        )[observation.outeq - 1];
+                        )[observation.outeq];
 
                         yout.push(observation.to_obs_pred(pred));
                     }
                 }
+
                 if let Some(next_event) = occasion.events.get(index + 1) {
                     x = self.simulate_event(
                         x,

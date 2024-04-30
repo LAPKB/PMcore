@@ -3,7 +3,7 @@ use crate::{
     simulator::*,
 };
 
-// let eq = |x: &V, p: &V, ti: T, tf: T, rateiv: V, _cov: &Covariates|
+// let eq = |x: &V, p: &V, t:T, rateiv: V, _cov: &Covariates|
 
 #[inline]
 pub fn simulate_analytical_event(
@@ -25,9 +25,25 @@ pub fn simulate_analytical_event(
     (eq)(
         &x,
         &faer::Col::from_vec(support_point.to_vec()),
-        ti,
-        tf,
+        tf - ti,
         rateiv,
         cov,
     )
+}
+
+///
+/// Analytical for one comparment
+/// Assumptions:
+///   - p is a vector of length 1 with the value of the elimination constant
+///   - rateiv is a vector of length 1 with the value of the infusion rate (only one drug)
+///   - covariates are not used
+///
+
+pub fn one_comparment(x: &V, p: &V, t: T, rateiv: V, _cov: &Covariates) -> V {
+    let mut xout = x.clone();
+    let ke = p[0];
+
+    xout[0] = x[0] * (-ke * t).exp() + rateiv[0] / ke * (1.0 - (-ke * t).exp());
+    // dbg!(t, &rateiv, x, &xout);
+    xout
 }
