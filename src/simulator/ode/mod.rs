@@ -1,16 +1,10 @@
 pub mod diffsol_traits;
 use crate::{
-    prelude::data::Event,
-    routines::data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
-    simulator::{
-        get_first_state,
-        likelihood::{ObsPred, ToObsPred},
-        ode::diffsol_traits::BuildPmOde,
-        DiffEq, Init, Out, M, T, V,
-    },
+    routines::data::{Covariates, Infusion},
+    simulator::{ode::diffsol_traits::BuildPmOde, DiffEq, M, T, V},
 };
 
-use diffsol::{ode_solver::method::OdeSolverMethod, vector::Vector, Bdf, OdeBuilder};
+use diffsol::{ode_solver::method::OdeSolverMethod, Bdf, OdeBuilder};
 
 const RTOL: f64 = 1e-4;
 const ATOL: f64 = 1e-4;

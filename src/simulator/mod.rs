@@ -6,6 +6,7 @@ use crate::{
     routines::data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
     simulator::likelihood::{ObsPred, ToObsPred},
 };
+use diffsol::vector::Vector;
 
 pub type T = f64;
 pub type V = faer::Col<T>;
@@ -14,7 +15,7 @@ pub type M = faer::Mat<T>;
 pub type DiffEq = fn(&V, &V, T, &mut V, V, &Covariates);
 pub type Init = fn(&V, T) -> V;
 pub type Out = fn(&V, &V, T, &Covariates) -> V;
-pub type AnalyticalEq = fn(&V, &V, T, &mut V, V, &Covariates) -> V;
+pub type AnalyticalEq = fn(&V, &V, T, T, V, &Covariates) -> V;
 
 pub enum Equation {
     ODE(DiffEq, Init, Out),
@@ -77,15 +78,6 @@ impl Equation {
             }
         }
         yout
-        // match self {
-        //     Equation::ODE(eqn, init, out) => simulate_ode(eqn, init, out, subject, support_point),
-        //     Equation::SDE(_eqn, _, _init, _out) => {
-        //         unimplemented!("Not Implemented");
-        //     }
-        //     Equation::Analytical(_eqn, _init, _out) => {
-        //         unimplemented!("Not Implemented");
-        //     }
-        // }
     }
     fn simulate_event(
         &self,
@@ -109,9 +101,15 @@ impl Equation {
             Equation::SDE(_, _, _, _) => {
                 unimplemented!("Not Implemented");
             }
-            Equation::Analytical(_, _, _) => {
-                unimplemented!("Not Implemented");
-            }
+            Equation::Analytical(eq, _, _) => analytical::simulate_analytical_event(
+                &eq,
+                x,
+                support_point,
+                covariates,
+                infusions,
+                start_time,
+                end_time,
+            ),
         }
     }
     fn get_init(&self) -> &Init {
@@ -132,15 +130,5 @@ impl Equation {
 
 #[inline]
 pub fn get_first_state(init: &Init, support_point: &Vec<f64>) -> V {
-    (init)(&V::from_vec(support_point.clone()), 0.0) //TODO: Time hardcoded
-}
-
-trait FromVec {
-    fn from_vec(v: Vec<f64>) -> Self;
-}
-
-impl FromVec for V {
-    fn from_vec(vec: Vec<T>) -> Self {
-        V::from_fn(vec.len(), |i| vec[i])
-    }
+    (init)(&faer::Col::from_vec(support_point.clone()), 0.0) //TODO: Time hardcoded
 }
