@@ -38,6 +38,7 @@ pub fn simulate_analytical_event(
 /// Assumptions:
 ///   - p is a vector of length 1 with the value of the elimination constant
 ///   - rateiv is a vector of length 1 with the value of the infusion rate (only one drug)
+///   - x is a vector of length 1
 ///   - covariates are not used
 ///
 
@@ -49,6 +50,15 @@ pub fn one_compartment(x: &V, p: &V, t: T, rateiv: V, _cov: &Covariates) -> V {
     // dbg!(t, &rateiv, x, &xout);
     xout
 }
+
+///
+/// Analytical for one compartment with absorption
+/// Assumptions:
+///   - p is a vector of length 2 with ke and ka in that order
+///   - rateiv is a vector of length 1 with the value of the infusion rate (only one drug)
+///   - x is a vector of length 2
+///   - covariates are not used
+///
 
 pub fn one_compartment_with_absorption(x: &V, p: &V, t: T, rateiv: V, _cov: &Covariates) -> V {
     let mut xout = x.clone();
@@ -64,6 +74,14 @@ pub fn one_compartment_with_absorption(x: &V, p: &V, t: T, rateiv: V, _cov: &Cov
     xout
 }
 
+///
+/// Analytical for two compartment
+/// Assumptions:
+///   - p is a vector of length 3 with ke, kcp and kpc in that order
+///   - rateiv is a vector of length 1 with the value of the infusion rate (only one drug)
+///   - x is a vector of length 2
+///   - covariates are not used
+///
 pub fn two_compartments(x: &V, p: &V, t: T, rateiv: V, _cov: &Covariates) -> V {
     let ke = p[0];
     let kcp = p[1];
