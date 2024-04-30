@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::{
     routines::data::{Covariates, OccasionTrait, SubjectTrait},
     simulator::*,
@@ -60,4 +62,37 @@ pub fn one_compartment_with_absorption(x: &V, p: &V, t: T, rateiv: V, _cov: &Cov
         + ((ka * x[0]) / (ka - ke)) * ((-ke * t).exp() - (-ka * t).exp());
 
     xout
+}
+
+pub fn two_compartments(x: &V, p: &V, t: T, rateiv: V, _cov: &Covariates) -> V {
+    let ke = p[0];
+    let kcp = p[1];
+    let kpc = p[2];
+
+    let sqrt = (ke + kcp + kpc).powi(2) - 4.0 * ke * kpc;
+    if sqrt < 0.0 {
+        panic!("Imaginary solutions, program stopped!");
+    }
+    let sqrt = sqrt.sqrt();
+    let l1 = (ke + kcp + kpc + sqrt) / 2.0;
+    let l2 = (ke + kcp + kpc - sqrt) / 2.0;
+    let non_zero = faer::scale(1. / (l1 - l2))
+        * faer::mat![
+            [
+                (l1 - kpc) * (-l1 * t).exp() + (kpc - l2) * (-l2 * t).exp(),
+                -kpc * (-l1 * t).exp() + kpc * (-l2 * t).exp(),
+            ],
+            [
+                kcp * (-l1 * t).exp() + kcp * (-l2 * t).exp(),
+                (l1 - ke - kcp) * (-l1 * t).exp() + (-ke + kcp - l2) * (-l2 * t).exp()
+            ]
+        ]
+        * x;
+    let infusion = faer::scale(rateiv[0] / (l1 - l2))
+        * faer::col![
+            ((l1 - kpc) / l1) * (1. - (-l1 * t).exp()) + ((kpc - l2) / l2) * (1. - (-l2 * t).exp()),
+            (-kpc / l1) * (1. - (-l1 * t).exp()) + (kpc / l2) * (1. - (-l2 * t).exp()),
+        ];
+
+    non_zero + infusion
 }
