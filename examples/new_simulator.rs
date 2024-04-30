@@ -1,10 +1,9 @@
 use diffsol::vector::Vector;
-use faer::Col;
+use faer::{col, Col};
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
 use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::{prelude::*, simulator::Equation};
 use std::path::Path;
-
 fn main() {
     let data = read_pmetrics(Path::new("examples/data/one_bimodal_ke.csv")).unwrap();
     let subjects = data.get_subjects();
@@ -18,10 +17,10 @@ fn main() {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p, _t, _cov| Col::from_vec(vec![0.0, 0.0]),
+        |_p, _t, _cov| col![0.0, 0.0],
         |x, p, _t, _cov| {
             fetch_params!(p, _ke, _ka, v);
-            Col::from_vec(vec![x[1] / v])
+            col![x[1] / v]
         },
     );
 
@@ -29,10 +28,10 @@ fn main() {
 
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
-        |_p, _t, _cov| Col::from_vec(vec![0.0, 0.0]),
+        |_p, _t, _cov| col![0.0, 0.0],
         |x, p, _t, _cov| {
             fetch_params!(p, _ke, _ka, v);
-            Col::from_vec(vec![x[1] / v])
+            col![x[1] / v]
         },
     );
 
