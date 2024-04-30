@@ -39,8 +39,8 @@ fn main() {
 
     let sim_analytical = analytical.simulate_subject(first_subject, &spp);
     sim_ode.iter().zip(&sim_analytical).for_each(|(ode, anal)| {
-        println!("ode : {:?}", ode);
-        println!("anal: {:?}", anal);
+        println!("ode : {}", ode);
+        println!("anal: {}", anal);
         println!("=======================");
     })
 }
