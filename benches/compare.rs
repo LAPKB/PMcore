@@ -8,7 +8,7 @@ use diol::prelude::*;
 fn main() -> std::io::Result<()> {
     let mut bench = Bench::new(BenchConfig::from_args()?);
     bench.register_many(
-        list![old_ode, ode_solvers, ode, analytical],
+        list![analytical, old_ode, ode_solvers, ode,],
         [4, 8, 16, 128, 1024],
     );
     bench.run()?;
