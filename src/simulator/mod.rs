@@ -4,7 +4,10 @@ pub mod ode;
 pub mod ode_solvers;
 use crate::{
     prelude::data::Event,
-    routines::data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
+    routines::{
+        data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
+        datafile::Scenario,
+    },
     simulator::likelihood::{ObsPred, ToObsPred},
 };
 
@@ -37,6 +40,65 @@ impl Equation {
 
     pub fn new_ode_solvers(diffeq: DiffEq, init: Init, out: Out) -> Self {
         Equation::OdeSolvers(diffeq, init, out)
+    }
+
+    pub fn simulate_scenario(&self, scenario: &Scenario, support_point: &Vec<f64>) -> Vec<ObsPred> {
+        let init = self.get_init();
+        let out = self.get_out();
+        let covariates = Covariates::new();
+        let mut yout = vec![];
+        let mut x = (init)(&V::from_vec(support_point.clone()), 0.0, &covariates);
+        let mut index = 0;
+        let mut infusions = vec![];
+
+        for block in &scenario.blocks {
+            //todo: add covs
+            for event in &block.events {
+                if event.evid == 1 {
+                    if event.dur.unwrap_or(0.0) > 0.0 {
+                        //infusion
+                        infusions.push(Infusion {
+                            time: event.time,
+                            duration: event.dur.unwrap(),
+                            amount: event.dose.unwrap(),
+                            input: event.input.unwrap() - 1,
+                        })
+                    } else {
+                        //dose
+                        x[event.input.unwrap() - 1] += event.dose.unwrap();
+                    }
+                } else if event.evid == 0 {
+                    //obs
+                    let pred = *(out)(
+                        &x,
+                        &V::from_vec(support_point.clone()),
+                        event.time,
+                        &covariates,
+                    )
+                    .get(event.outeq.unwrap() - 1)
+                    .unwrap();
+                    yout.push(ObsPred {
+                        time: event.time,
+                        observation: event.out.unwrap(),
+                        prediction: pred,
+                        outeq: event.outeq.unwrap(),
+                        errorpoly: None,
+                    });
+                }
+                if let Some(next_time) = scenario.times.get(index + 1) {
+                    x = self.simulate_event(
+                        x,
+                        support_point,
+                        &covariates,
+                        &infusions,
+                        event.time,
+                        *next_time,
+                    );
+                }
+                index += 1;
+            }
+        }
+        yout
     }
 
     pub fn simulate_subject(
