@@ -3,10 +3,104 @@ use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::{prelude::*, simulator::Equation};
 use std::path::Path;
 type V = nalgebra::DVector<f64>;
-fn main() {
-    // Run registered benchmarks.
-    divan::main();
+
+use diol::prelude::*;
+fn main() -> std::io::Result<()> {
+    let mut bench = Bench::new(BenchConfig::from_args()?);
+    bench.register_many(
+        list![old_ode, ode_solvers, ode, analytical],
+        [4, 8, 16, 128, 1024],
+    );
+    bench.run()?;
+    Ok(())
 }
+
+pub fn old_ode(bencher: Bencher, len: usize) {
+    let engine = Engine::new(Ode {});
+    let data = parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
+    let subject = data.first().unwrap();
+    bencher.bench(|| {
+        for _ in 0..len {
+            let _ = engine.pred(subject.clone(), vec![0.1, 0.9, 50.0]);
+        }
+    });
+}
+pub fn ode_solvers(bencher: Bencher, len: usize) {
+    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
+    let subjects = data.get_subjects();
+    let first_subject = *subjects.first().unwrap();
+
+    let ode = Equation::new_ode_solvers(
+        |x, p, _t, dx, rateiv, _cov| {
+            //fetch_cov!(cov, t, creat);
+            // fetch_params!(p, ke, ka, _v);
+            let ke = p[0];
+            let ka = p[1];
+            dx[0] = -ka * x[0];
+            dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
+        },
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |x, p, _t, _cov| {
+            // fetch_params!(p, _ke, _ka, v);
+            let v = p[2];
+            V::from_vec(vec![x[0] / v, x[1] / v])
+        },
+    );
+    bencher.bench(|| {
+        for _ in 0..len {
+            let _ = ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
+        }
+    });
+}
+pub fn ode(bencher: Bencher, len: usize) {
+    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
+    let subjects = data.get_subjects();
+    let first_subject = *subjects.first().unwrap();
+
+    let ode = Equation::new_ode(
+        |x, p, _t, dx, rateiv, _cov| {
+            //fetch_cov!(cov, t, creat);
+            // fetch_params!(p, ke, ka, _v);
+            let ke = p[0];
+            let ka = p[1];
+            dx[0] = -ka * x[0];
+            dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
+        },
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |x, p, _t, _cov| {
+            // fetch_params!(p, _ke, _ka, v);
+            let v = p[2];
+            V::from_vec(vec![x[0] / v, x[1] / v])
+        },
+    );
+    bencher.bench(|| {
+        for _ in 0..len {
+            let _ = ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
+        }
+    });
+}
+pub fn analytical(bencher: Bencher, len: usize) {
+    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
+    let subjects = data.get_subjects();
+    let first_subject = *subjects.first().unwrap();
+
+    let analytical = Equation::new_analytical(
+        one_compartment_with_absorption,
+        |_p, _cov| {},
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |x, p, _t, _cov| {
+            // fetch_params!(p, _ke, _ka, v);
+            let v = p[2];
+            V::from_vec(vec![x[0] / v, x[1] / v])
+        },
+    );
+    bencher.bench(|| {
+        for _ in 0..len {
+            let _ = analytical.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
+        }
+    });
+}
+
 const ATOL: f64 = 1e-4;
 const RTOL: f64 = 1e-4;
 #[derive(Debug, Clone)]
@@ -111,93 +205,5 @@ impl<'a> Predict<'a> for Ode {
         let _res = stepper.integrate();
         let y = stepper.y_out();
         *x = *y.last().unwrap();
-    }
-}
-const N_EXEC: usize = 10;
-
-#[divan::bench()]
-pub fn old_ode() {
-    let engine = Engine::new(Ode {});
-    let data = parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
-    let subject = data.first().unwrap();
-    for _ in 0..N_EXEC {
-        let _ = engine.pred(subject.clone(), vec![0.1, 0.9, 50.0]);
-    }
-}
-
-#[divan::bench()]
-pub fn ode_solvers() {
-    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
-    let subjects = data.get_subjects();
-    let first_subject = *subjects.first().unwrap();
-
-    let ode = Equation::new_ode_solvers(
-        |x, p, _t, dx, rateiv, _cov| {
-            //fetch_cov!(cov, t, creat);
-            // fetch_params!(p, ke, ka, _v);
-            let ke = p[0];
-            let ka = p[1];
-            dx[0] = -ka * x[0];
-            dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
-        },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
-            V::from_vec(vec![x[0] / v, x[1] / v])
-        },
-    );
-
-    for _ in 0..N_EXEC {
-        let _ = ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
-    }
-}
-
-#[divan::bench()]
-pub fn ode() {
-    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
-    let subjects = data.get_subjects();
-    let first_subject = *subjects.first().unwrap();
-
-    let ode = Equation::new_ode(
-        |x, p, _t, dx, rateiv, _cov| {
-            //fetch_cov!(cov, t, creat);
-            // fetch_params!(p, ke, ka, _v);
-            let ke = p[0];
-            let ka = p[1];
-            dx[0] = -ka * x[0];
-            dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
-        },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
-            V::from_vec(vec![x[0] / v, x[1] / v])
-        },
-    );
-
-    for _ in 0..N_EXEC {
-        let _ = ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
-    }
-}
-
-#[divan::bench()]
-pub fn analytical() {
-    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
-    let subjects = data.get_subjects();
-    let first_subject = *subjects.first().unwrap();
-
-    let analytical = Equation::new_analytical(
-        one_compartment_with_absorption,
-        |_p, _cov| {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
-            V::from_vec(vec![x[0] / v, x[1] / v])
-        },
-    );
-    for _ in 0..N_EXEC {
-        let _ = analytical.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
     }
 }

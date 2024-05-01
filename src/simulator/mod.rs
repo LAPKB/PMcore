@@ -88,6 +88,7 @@ impl Equation {
         }
         yout
     }
+    #[inline]
     fn simulate_event(
         &self,
         x: V,
