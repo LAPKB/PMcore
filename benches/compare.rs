@@ -1,4 +1,3 @@
-use faer::col;
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
 use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::{prelude::*, simulator::Equation};
@@ -119,7 +118,7 @@ const N_EXEC: usize = 10;
 #[divan::bench()]
 pub fn old_ode() {
     let engine = Engine::new(Ode {});
-    let data = parse(&"examples/data/two_eq_lag.csv".to_string()).unwrap();
+    let data = parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
     let subject = data.first().unwrap();
     for _ in 0..N_EXEC {
         let _ = engine.pred(subject.clone(), vec![0.1, 0.9, 50.0]);
@@ -127,8 +126,36 @@ pub fn old_ode() {
 }
 
 #[divan::bench()]
+pub fn ode_solvers() {
+    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
+    let subjects = data.get_subjects();
+    let first_subject = *subjects.first().unwrap();
+
+    let ode = Equation::new_ode_solvers(
+        |x, p, _t, dx, rateiv, _cov| {
+            //fetch_cov!(cov, t, creat);
+            // fetch_params!(p, ke, ka, _v);
+            let ke = p[0];
+            let ka = p[1];
+            dx[0] = -ka * x[0];
+            dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
+        },
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |x, p, _t, _cov| {
+            // fetch_params!(p, _ke, _ka, v);
+            let v = p[2];
+            V::from_vec(vec![x[0] / v, x[1] / v])
+        },
+    );
+
+    for _ in 0..N_EXEC {
+        let _ = ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
+    }
+}
+
+#[divan::bench()]
 pub fn ode() {
-    let data = read_pmetrics(Path::new("examples/data/two_eq_lag.csv")).unwrap();
+    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
     let subjects = data.get_subjects();
     let first_subject = *subjects.first().unwrap();
 
@@ -138,7 +165,6 @@ pub fn ode() {
             // fetch_params!(p, ke, ka, _v);
             let ke = p[0];
             let ka = p[1];
-            let v = p[2];
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
@@ -157,7 +183,7 @@ pub fn ode() {
 
 #[divan::bench()]
 pub fn analytical() {
-    let data = read_pmetrics(Path::new("examples/data/two_eq_lag.csv")).unwrap();
+    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
     let subjects = data.get_subjects();
     let first_subject = *subjects.first().unwrap();
 

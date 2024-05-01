@@ -1,12 +1,12 @@
 pub mod analytical;
 pub mod likelihood;
 pub mod ode;
+pub mod ode_solvers;
 use crate::{
     prelude::data::Event,
     routines::data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
     simulator::likelihood::{ObsPred, ToObsPred},
 };
-use diffsol::vector::Vector;
 
 pub type T = f64;
 // pub type V = faer::Col<T>;
@@ -21,6 +21,7 @@ pub type AnalyticalEq = fn(&V, &V, T, V, &Covariates) -> V;
 pub type SecEq = fn(&mut V, &Covariates);
 
 pub enum Equation {
+    OdeSolvers(DiffEq, Init, Out),
     ODE(DiffEq, Init, Out),
     SDE(DiffEq, DiffEq, Init, Out),
     Analytical(AnalyticalEq, SecEq, Init, Out),
@@ -32,6 +33,10 @@ impl Equation {
     }
     pub fn new_analytical(eq: AnalyticalEq, seq_eq: SecEq, init: Init, out: Out) -> Self {
         Equation::Analytical(eq, seq_eq, init, out)
+    }
+
+    pub fn new_ode_solvers(diffeq: DiffEq, init: Init, out: Out) -> Self {
+        Equation::OdeSolvers(diffeq, init, out)
     }
 
     pub fn simulate_subject(
@@ -102,6 +107,15 @@ impl Equation {
                 start_time,
                 end_time,
             ),
+            Equation::OdeSolvers(eqn, _init, _out) => ode_solvers::simulate_ode_event(
+                eqn,
+                x,
+                support_point,
+                covariates,
+                infusions,
+                start_time,
+                end_time,
+            ),
             Equation::SDE(_, _, _, _) => {
                 unimplemented!("Not Implemented");
             }
@@ -120,6 +134,7 @@ impl Equation {
     fn get_init(&self) -> &Init {
         match self {
             Equation::ODE(_, init, _) => init,
+            Equation::OdeSolvers(_, init, _) => init,
             Equation::SDE(_, _, init, _) => init,
             Equation::Analytical(_, _, init, _) => init,
         }
@@ -127,6 +142,7 @@ impl Equation {
     fn get_out(&self) -> &Out {
         match self {
             Equation::ODE(_, _, out) => out,
+            Equation::OdeSolvers(_, _, out) => out,
             Equation::SDE(_, _, _, out) => out,
             Equation::Analytical(_, _, _, out) => out,
         }
