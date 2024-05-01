@@ -21,7 +21,7 @@ pub fn old_ode(bencher: Bencher, len: usize) {
     let subject = data.first().unwrap();
     bencher.bench(|| {
         for _ in 0..len {
-            let _ = engine.pred(subject.clone(), vec![0.1, 0.9, 50.0]);
+            black_box(engine.pred(subject.clone(), vec![0.1, 0.9, 50.0]));
         }
     });
 }
@@ -48,7 +48,7 @@ pub fn ode_solvers(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            let _ = ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
+            black_box(ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]));
         }
     });
 }
@@ -75,7 +75,7 @@ pub fn ode(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            let _ = ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
+            black_box(ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]));
         }
     });
 }
@@ -96,7 +96,7 @@ pub fn analytical(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            let _ = analytical.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]);
+            black_box(analytical.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]));
         }
     });
 }

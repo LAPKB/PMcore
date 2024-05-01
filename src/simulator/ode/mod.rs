@@ -9,7 +9,7 @@ use diffsol::{ode_solver::method::OdeSolverMethod, Bdf, OdeBuilder};
 const RTOL: f64 = 1e-4;
 const ATOL: f64 = 1e-4;
 
-#[inline]
+#[inline(always)]
 pub fn simulate_ode_event(
     diffeq: &DiffEq,
     x: V,

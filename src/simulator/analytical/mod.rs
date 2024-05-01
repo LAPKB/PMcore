@@ -2,7 +2,7 @@ use crate::{routines::data::Covariates, simulator::*};
 
 // let eq = |x: &V, p: &V, t:T, rateiv: V, _cov: &Covariates|
 
-#[inline]
+#[inline(always)]
 pub fn simulate_analytical_event(
     eq: &AnalyticalEq,
     seq_eq: &SecEq,

@@ -88,7 +88,7 @@ impl Equation {
         }
         yout
     }
-    #[inline]
+    #[inline(always)]
     fn simulate_event(
         &self,
         x: V,
@@ -150,7 +150,7 @@ impl Equation {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn get_first_state(init: &Init, support_point: &Vec<f64>, cov: &Covariates) -> V {
     (init)(&V::from_vec(support_point.clone()), 0.0, cov) //TODO: Time hardcoded
 }

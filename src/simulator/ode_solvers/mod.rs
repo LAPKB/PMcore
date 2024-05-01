@@ -33,7 +33,7 @@ impl ode_solvers::System<Time, State> for Model {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn simulate_ode_event(
     diffeq: &DiffEq,
     x: V,
