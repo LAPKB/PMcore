@@ -11,6 +11,8 @@ use diffsol::vector::Vector;
 pub type T = f64;
 pub type V = faer::Col<T>;
 pub type M = faer::Mat<T>;
+// pub type V = nalgebra::DVector<T>;
+// pub type M = nalgebra::DMatrix<T>;
 
 pub type DiffEq = fn(&V, &V, T, &mut V, V, &Covariates);
 pub type Init = fn(&V, T, &Covariates) -> V;

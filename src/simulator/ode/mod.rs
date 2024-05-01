@@ -31,6 +31,7 @@ pub fn simulate_ode_event(
             infusions.clone(),
         )
         .unwrap();
+
     let mut solver = Bdf::default();
     solver.solve(&problem, tf).unwrap()
 }
