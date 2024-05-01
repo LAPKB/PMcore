@@ -19,17 +19,17 @@ pub type AnalyticalEq = fn(&V, &V, T, V, &Covariates) -> V;
 pub type SecEq = fn(&mut V, &Covariates);
 
 pub enum Equation {
-    ODE(DiffEq, Init, Out, SecEq),
+    ODE(DiffEq, Init, Out),
     SDE(DiffEq, DiffEq, Init, Out),
-    Analytical(AnalyticalEq, Init, Out),
+    Analytical(AnalyticalEq, SecEq, Init, Out),
 }
 
 impl Equation {
-    pub fn new_ode(diffeq: DiffEq, secEq: SecEq, init: Init, out: Out) -> Self {
-        Equation::ODE(diffeq, init, out, secEq)
+    pub fn new_ode(diffeq: DiffEq, init: Init, out: Out) -> Self {
+        Equation::ODE(diffeq, init, out)
     }
-    pub fn new_analytical(eq: AnalyticalEq, init: Init, out: Out) -> Self {
-        Equation::Analytical(eq, init, out)
+    pub fn new_analytical(eq: AnalyticalEq, seq_eq: SecEq, init: Init, out: Out) -> Self {
+        Equation::Analytical(eq, seq_eq, init, out)
     }
 
     pub fn simulate_subject(
@@ -91,9 +91,8 @@ impl Equation {
         end_time: T,
     ) -> V {
         match self {
-            Equation::ODE(eqn, init, out, secEq) => ode::simulate_ode_event(
+            Equation::ODE(eqn, _init, _out) => ode::simulate_ode_event(
                 eqn,
-                secEq,
                 x,
                 support_point,
                 covariates,
@@ -104,8 +103,9 @@ impl Equation {
             Equation::SDE(_, _, _, _) => {
                 unimplemented!("Not Implemented");
             }
-            Equation::Analytical(eq, _, _) => analytical::simulate_analytical_event(
+            Equation::Analytical(eq, seq_eq, _, _) => analytical::simulate_analytical_event(
                 &eq,
+                &seq_eq,
                 x,
                 support_point,
                 covariates,
@@ -117,16 +117,16 @@ impl Equation {
     }
     fn get_init(&self) -> &Init {
         match self {
-            Equation::ODE(_, init, _, _) => init,
+            Equation::ODE(_, init, _) => init,
             Equation::SDE(_, _, init, _) => init,
-            Equation::Analytical(_, init, _) => init,
+            Equation::Analytical(_, _, init, _) => init,
         }
     }
     fn get_out(&self) -> &Out {
         match self {
-            Equation::ODE(_, _, out, _) => out,
+            Equation::ODE(_, _, out) => out,
             Equation::SDE(_, _, _, out) => out,
-            Equation::Analytical(_, _, out) => out,
+            Equation::Analytical(_, _, _, out) => out,
         }
     }
 }

@@ -1,22 +1,21 @@
 use core::panic;
 
-use crate::{
-    routines::data::{Covariates, OccasionTrait, SubjectTrait},
-    simulator::*,
-};
+use crate::{routines::data::Covariates, simulator::*};
 
 // let eq = |x: &V, p: &V, t:T, rateiv: V, _cov: &Covariates|
 
 #[inline]
 pub fn simulate_analytical_event(
     eq: &AnalyticalEq,
+    seq_eq: &SecEq,
     x: V,
-    support_point: &[f64],
+    support_point: &Vec<f64>,
     cov: &Covariates,
     infusions: &Vec<Infusion>,
     ti: f64,
     tf: f64,
 ) -> V {
+    let mut support_point = faer::Col::from_vec(support_point.clone());
     let mut rateiv = V::zeros(x.len());
     //TODO: This should be pre-calculated
     for infusion in infusions {
@@ -24,13 +23,8 @@ pub fn simulate_analytical_event(
             rateiv[infusion.input] = infusion.amount / infusion.duration;
         }
     }
-    (eq)(
-        &x,
-        &faer::Col::from_vec(support_point.to_vec()),
-        tf - ti,
-        rateiv,
-        cov,
-    )
+    (seq_eq)(&mut support_point, cov);
+    (eq)(&x, &support_point, tf - ti, rateiv, cov)
 }
 
 ///

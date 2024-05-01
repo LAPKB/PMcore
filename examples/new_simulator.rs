@@ -1,5 +1,4 @@
 use faer::col;
-use ndarray::AssignElem;
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
 use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::{prelude::*, simulator::Equation};
@@ -17,10 +16,6 @@ fn main() {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |p, _cov| {
-            let ke = p.get_mut(0);
-            *ke = 2.0;
-        },
         |_p, _t, _cov| col![0.0, 0.0],
         |x, p, _t, _cov| {
             fetch_params!(p, _ke, _ka, v);
@@ -32,6 +27,7 @@ fn main() {
 
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
+        |_p, _cov| {},
         |_p, _t, _cov| col![0.0, 0.0],
         |x, p, _t, _cov| {
             fetch_params!(p, _ke, _ka, v);
