@@ -235,7 +235,7 @@ impl NPResult {
                 let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
                 let post_mp = post_mean_pred.get(id).unwrap().to_owned();
                 let post_mdp = post_median_pred.get(id).unwrap().to_owned();
-                for (i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
+                for (_i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
                     .into_iter()
                     .zip(pop_medp)
                     .zip(post_mp)

@@ -127,29 +127,41 @@ pub mod prelude {
     pub use crate::tui::ui::*;
     #[macro_export]
     macro_rules! fetch_params {
-    ($p:expr, $($name:ident),*) => {
-        let p = $p;
-        let mut idx = 0;
-        $(
-            let $name = p[idx];
-            idx += 1;
-        )*
-    };
-}
+        ($p:expr, $($name:ident),*) => {
+            let p = $p;
+            let mut idx = 0;
+            $(
+                let $name = p[idx];
+                idx += 1;
+            )*
+        };
+    }
     #[macro_export]
     macro_rules! fetch_cov {
-    ($cov:expr, $t:expr, $($name:ident),*) => {
-        $(
-            let $name = $cov.get_covariate(stringify!($name)).unwrap().interpolate($t).unwrap();
-        )*
-    };
-}
+        ($cov:expr, $t:expr, $($name:ident),*) => {
+            $(
+                let $name = $cov.get_covariate(stringify!($name)).unwrap().interpolate($t).unwrap();
+            )*
+        };
+    }
     #[macro_export]
     macro_rules! lag {
-        ($($k:expr => $v:expr),* $(,)?) => {{
-            use std::iter::{Iterator, IntoIterator};
-            Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]))
-        }};
+        ($($k:expr => $v:expr),* $(,)?) => {
+            {
+                use std::iter::{Iterator, IntoIterator};
+                Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]))
+            }
+        };
+    }
+
+    #[macro_export]
+    macro_rules! fa {
+        ($($k:expr => $v:expr),* $(,)?) => {
+            {
+                use std::iter::{Iterator, IntoIterator};
+                Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]))
+            }
+        };
     }
 }
 

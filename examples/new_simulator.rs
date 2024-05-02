@@ -20,15 +20,15 @@ fn main() {
         0.022712449789047243, //ke
         0.48245882034301757,  //ka
         71.28352475166321,    //v
-        0.5903420448303222,   //tlag
-                              // 0.0,
+        // 0.5903420448303222,   //tlag
+        0.0,
     ];
 
     let first_scenario = &first_scenario.reorder_with_lag(vec![(spp[3], 0)]);
 
     let diffsol = Equation::new_ode(
-        |x, p, t, dx, rateiv, cov| {
-            fetch_cov!(cov, t, WT);
+        |x, p, _t, dx, rateiv, _cov| {
+            // fetch_cov!(cov, t, wt);
             fetch_params!(p, ke, ka, _v, _tlag);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
@@ -37,6 +37,7 @@ fn main() {
             fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
+        |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
             fetch_params!(p, _ke, _ka, v, _tlag);
@@ -51,6 +52,7 @@ fn main() {
             fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
+        |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
             fetch_params!(p, _ke, _ka, v, _tlag);
@@ -69,6 +71,7 @@ fn main() {
             fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>{tlag}}
         },
+        |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
             fetch_params!(p, _ke, _ka, v, _tlag);

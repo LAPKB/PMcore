@@ -27,24 +27,32 @@ pub type Out = fn(&V, &V, T, &Covariates) -> V;
 pub type AnalyticalEq = fn(&V, &V, T, V, &Covariates) -> V;
 pub type SecEq = fn(&mut V, &Covariates);
 pub type Lag = fn(&V) -> HashMap<usize, T>;
+pub type Fa = fn(&V) -> HashMap<usize, T>;
 
 pub enum Equation {
-    OdeSolvers(DiffEq, Lag, Init, Out),
-    ODE(DiffEq, Lag, Init, Out),
-    SDE(DiffEq, DiffEq, Lag, Init, Out),
-    Analytical(AnalyticalEq, SecEq, Lag, Init, Out),
+    OdeSolvers(DiffEq, Lag, Fa, Init, Out),
+    ODE(DiffEq, Lag, Fa, Init, Out),
+    SDE(DiffEq, DiffEq, Lag, Fa, Init, Out),
+    Analytical(AnalyticalEq, SecEq, Lag, Fa, Init, Out),
 }
 
 impl Equation {
-    pub fn new_ode(diffeq: DiffEq, lag: Lag, init: Init, out: Out) -> Self {
-        Equation::ODE(diffeq, lag, init, out)
+    pub fn new_ode(diffeq: DiffEq, lag: Lag, fa: Fa, init: Init, out: Out) -> Self {
+        Equation::ODE(diffeq, lag, fa, init, out)
     }
-    pub fn new_analytical(eq: AnalyticalEq, seq_eq: SecEq, lag: Lag, init: Init, out: Out) -> Self {
-        Equation::Analytical(eq, seq_eq, lag, init, out)
+    pub fn new_analytical(
+        eq: AnalyticalEq,
+        seq_eq: SecEq,
+        lag: Lag,
+        fa: Fa,
+        init: Init,
+        out: Out,
+    ) -> Self {
+        Equation::Analytical(eq, seq_eq, lag, fa, init, out)
     }
 
-    pub fn new_ode_solvers(diffeq: DiffEq, lag: Lag, init: Init, out: Out) -> Self {
-        Equation::OdeSolvers(diffeq, lag, init, out)
+    pub fn new_ode_solvers(diffeq: DiffEq, lag: Lag, fa: Fa, init: Init, out: Out) -> Self {
+        Equation::OdeSolvers(diffeq, lag, fa, init, out)
     }
 
     pub fn simulate_scenario(&self, scenario: &Scenario, support_point: &Vec<f64>) -> Vec<ObsPred> {
@@ -56,6 +64,7 @@ impl Equation {
             .into_iter()
             .map(|(id, score)| (score, id))
             .collect();
+        let fa_hashmap = self.get_fa(support_point);
         let scenario = &scenario.reorder_with_lag(lag);
         let mut yout = vec![];
         let mut x = (init)(&V::from_vec(support_point.clone()), 0.0, &covariates);
@@ -76,7 +85,9 @@ impl Equation {
                         })
                     } else {
                         //dose
-                        x[event.input.unwrap() - 1] += event.dose.unwrap();
+                        let comparment = event.input.unwrap() - 1;
+                        x[comparment] +=
+                            event.dose.unwrap() * fa_hashmap.get(&comparment).unwrap_or(&1.0);
                     }
                 } else if event.evid == 0 {
                     //obs
@@ -120,7 +131,7 @@ impl Equation {
         let init = self.get_init();
         let out = self.get_out();
         let lag = self.get_lag(support_point);
-
+        let fa = self.get_fa(support_point);
         let mut yout = vec![];
         for occasion in subject.get_occasions() {
             // What should we use as the initial state for the next occasion?
@@ -128,7 +139,7 @@ impl Equation {
             let mut x = get_first_state(init, support_point, &covariates);
             let mut infusions: Vec<Infusion> = vec![];
             let mut index = 0;
-            for event in &occasion.get_events(Some(&lag), None, true) {
+            for event in &occasion.get_events(Some(&lag), Some(&fa), true) {
                 match event {
                     Event::Bolus(bolus) => {
                         x[bolus.input] += bolus.amount;
@@ -174,7 +185,7 @@ impl Equation {
         end_time: T,
     ) -> V {
         match self {
-            Equation::ODE(eqn, _, _init, _out) => {
+            Equation::ODE(eqn, _, _, _, _) => {
                 // unimplemented!("Not implemented");
                 ode::simulate_ode_event(
                     eqn,
@@ -186,7 +197,7 @@ impl Equation {
                     end_time,
                 )
             }
-            Equation::OdeSolvers(eqn, _, _init, _out) => ode_solvers::simulate_ode_event(
+            Equation::OdeSolvers(eqn, _, _, _, _) => ode_solvers::simulate_ode_event(
                 eqn,
                 x,
                 support_point,
@@ -195,10 +206,10 @@ impl Equation {
                 start_time,
                 end_time,
             ),
-            Equation::SDE(_, _, _, _, _) => {
+            Equation::SDE(_, _, _, _, _, _) => {
                 unimplemented!("Not Implemented");
             }
-            Equation::Analytical(eq, seq_eq, _, _, _) => analytical::simulate_analytical_event(
+            Equation::Analytical(eq, seq_eq, _, _, _, _) => analytical::simulate_analytical_event(
                 &eq,
                 &seq_eq,
                 x,
@@ -213,28 +224,37 @@ impl Equation {
     #[inline(always)]
     fn get_init(&self) -> &Init {
         match self {
-            Equation::ODE(_, _, init, _) => init,
-            Equation::OdeSolvers(_, _, init, _) => init,
-            Equation::SDE(_, _, _, init, _) => init,
-            Equation::Analytical(_, _, _, init, _) => init,
+            Equation::ODE(_, _, _, init, _) => init,
+            Equation::OdeSolvers(_, _, _, init, _) => init,
+            Equation::SDE(_, _, _, _, init, _) => init,
+            Equation::Analytical(_, _, _, _, init, _) => init,
         }
     }
     #[inline(always)]
     fn get_out(&self) -> &Out {
         match self {
-            Equation::ODE(_, _, _, out) => out,
-            Equation::OdeSolvers(_, _, _, out) => out,
-            Equation::SDE(_, _, _, _, out) => out,
-            Equation::Analytical(_, _, _, _, out) => out,
+            Equation::ODE(_, _, _, _, out) => out,
+            Equation::OdeSolvers(_, _, _, _, out) => out,
+            Equation::SDE(_, _, _, _, _, out) => out,
+            Equation::Analytical(_, _, _, _, _, out) => out,
         }
     }
     #[inline(always)]
     fn get_lag(&self, spp: &Vec<f64>) -> HashMap<usize, f64> {
         match self {
-            Equation::ODE(_, lag, _, _) => (lag)(&V::from_vec(spp.clone())),
-            Equation::OdeSolvers(_, lag, _, _) => (lag)(&V::from_vec(spp.clone())),
-            Equation::SDE(_, _, _, _, _) => unimplemented!("Not Implemented"),
-            Equation::Analytical(_, _, lag, _, _) => (lag)(&V::from_vec(spp.clone())),
+            Equation::ODE(_, lag, _, _, _) => (lag)(&V::from_vec(spp.clone())),
+            Equation::OdeSolvers(_, lag, _, _, _) => (lag)(&V::from_vec(spp.clone())),
+            Equation::SDE(_, _, _, _, _, _) => unimplemented!("Not Implemented"),
+            Equation::Analytical(_, _, lag, _, _, _) => (lag)(&V::from_vec(spp.clone())),
+        }
+    }
+    #[inline(always)]
+    fn get_fa(&self, spp: &Vec<f64>) -> HashMap<usize, f64> {
+        match self {
+            Equation::ODE(_, _, fa, _, _) => (fa)(&V::from_vec(spp.clone())),
+            Equation::OdeSolvers(_, _, fa, _, _) => (fa)(&V::from_vec(spp.clone())),
+            Equation::SDE(_, _, _, _, _, _) => unimplemented!("Not Implemented"),
+            Equation::Analytical(_, _, _, fa, _, _) => (fa)(&V::from_vec(spp.clone())),
         }
     }
 }

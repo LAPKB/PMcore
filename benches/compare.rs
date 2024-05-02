@@ -11,8 +11,8 @@ const SPP: [f64; 4] = [
     0.022712449789047243, //ke
     0.48245882034301757,  //ka
     71.28352475166321,    //v
-    0.5903420448303222,   //tlag
-                          // 0.0,
+    // 0.5903420448303222,   //tlag
+    0.0,
 ];
 
 use diol::prelude::*;
@@ -69,13 +69,13 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
         one_compartment_with_absorption,
         |_p, _cov| {},
         |p| {
-            let tlag = p[3];
+            fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
+        |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
+            fetch_params!(p, _ke, _ka, v, _tlag);
             V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
@@ -94,13 +94,13 @@ pub fn analytical_os(bencher: Bencher, len: usize) {
         one_compartment_with_absorption,
         |_p, _cov| {},
         |p| {
-            let tlag = p[3];
+            fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
+        |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
+            fetch_params!(p, _ke, _ka, v, _tlag);
             V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
@@ -117,21 +117,18 @@ pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
 
     let ode = Equation::new_ode_solvers(
         |x, p, _t, dx, rateiv, _cov| {
-            //fetch_cov!(cov, t, creat);
-            // fetch_params!(p, ke, ka, _v);
-            let ke = p[0];
-            let ka = p[1];
+            fetch_params!(p, ke, ka, _v, _tlag);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
         |p| {
-            let tlag = p[3];
+            fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
+        |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
+            fetch_params!(p, _ke, _ka, v, _tlag);
             V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
@@ -148,21 +145,18 @@ pub fn ode_solvers_os(bencher: Bencher, len: usize) {
 
     let ode = Equation::new_ode_solvers(
         |x, p, _t, dx, rateiv, _cov| {
-            //fetch_cov!(cov, t, creat);
-            // fetch_params!(p, ke, ka, _v);
-            let ke = p[0];
-            let ka = p[1];
+            fetch_params!(p, ke, ka, _v, _tlag);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
         |p| {
-            let tlag = p[3];
+            fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
+        |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
+            fetch_params!(p, _ke, _ka, v, _tlag);
             V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
@@ -179,21 +173,18 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
 
     let ode = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
-            //fetch_cov!(cov, t, creat);
-            // fetch_params!(p, ke, ka, _v);
-            let ke = p[0];
-            let ka = p[1];
+            fetch_params!(p, ke, ka, _v, _tlag);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
         |p| {
-            let tlag = p[3];
+            fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
+        |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
+            fetch_params!(p, _ke, _ka, v, _tlag);
             V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
@@ -210,21 +201,18 @@ pub fn diffsol_os(bencher: Bencher, len: usize) {
 
     let ode = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
-            //fetch_cov!(cov, t, creat);
-            // fetch_params!(p, ke, ka, _v);
-            let ke = p[0];
-            let ka = p[1];
+            fetch_params!(p, ke, ka, _v, _tlag);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
         |p| {
-            let tlag = p[3];
+            fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
+        |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
+            fetch_params!(p, _ke, _ka, v, _tlag);
             V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
