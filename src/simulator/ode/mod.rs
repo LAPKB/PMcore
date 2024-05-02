@@ -6,8 +6,6 @@ use crate::{
 
 use diffsol::{ode_solver::method::OdeSolverMethod, Bdf, OdeBuilder};
 
-use super::Lag;
-
 const RTOL: f64 = 1e-4;
 const ATOL: f64 = 1e-4;
 

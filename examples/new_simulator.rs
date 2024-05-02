@@ -3,8 +3,8 @@ use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
 use pmcore::routines::datafile::parse;
 use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::simulator::Equation;
+use pmcore::simulator::V;
 use std::path::Path;
-type V = pmcore::simulator::V;
 
 const DATA_PATH: &str = "examples/data/two_eq_lag.csv";
 
@@ -27,22 +27,19 @@ fn main() {
     let first_scenario = &first_scenario.reorder_with_lag(vec![(spp[3], 0)]);
 
     let diffsol = Equation::new_ode(
-        |x, p, _t, dx, rateiv, _cov| {
-            //fetch_cov!(cov, t, creat);
-            // fetch_params!(p, ke, ka, _v);
-            let ke = p[0];
-            let ka = p[1];
+        |x, p, t, dx, rateiv, cov| {
+            fetch_cov!(cov, t, WT);
+            fetch_params!(p, ke, ka, _v, _tlag);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
         |p| {
-            let tlag = p[3];
+            fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
+            fetch_params!(p, _ke, _ka, v, _tlag);
             V::from_vec(vec![x[1] / v])
         },
     );
@@ -51,13 +48,12 @@ fn main() {
         one_compartment_with_absorption,
         |_p, _cov| {},
         |p| {
-            let tlag = p[3];
+            fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}
         },
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
+            fetch_params!(p, _ke, _ka, v, _tlag);
             V::from_vec(vec![x[1] / v])
         },
     );
@@ -65,20 +61,17 @@ fn main() {
     let ode_solvers = Equation::new_ode_solvers(
         |x, p, _t, dx, rateiv, _cov| {
             //fetch_cov!(cov, t, creat);
-            // fetch_params!(p, ke, ka, _v);
-            let ke = p[0];
-            let ka = p[1];
+            fetch_params!(p, ke, ka, _v, _tlag);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
         |p| {
-            let tlag = p[3];
-            lag! {0=>tlag}
+            fetch_params!(p, _ke, _ka, _v, tlag);
+            lag! {0=>{tlag}}
         },
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
-            // fetch_params!(p, _ke, _ka, v);
-            let v = p[2];
+            fetch_params!(p, _ke, _ka, v, _tlag);
             V::from_vec(vec![x[1] / v])
         },
     );

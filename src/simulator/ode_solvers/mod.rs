@@ -2,10 +2,8 @@ use ode_solvers::Dopri5;
 
 use crate::{
     routines::data::{Covariates, Infusion},
-    simulator::{DiffEq, FromVec, V},
+    simulator::{DiffEq, V},
 };
-
-use super::Lag;
 
 const RTOL: f64 = 1e-4;
 const ATOL: f64 = 1e-4;

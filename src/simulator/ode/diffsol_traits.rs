@@ -223,23 +223,3 @@ impl BuildPmOde for OdeBuilder {
         ))
     }
 }
-
-#[macro_export]
-macro_rules! fetch_params {
-    ($p:expr, $($name:ident),*) => {
-        let p = $p;
-        let mut idx = 0;
-        $(
-            let $name = p.get(idx);
-            idx += 1;
-        )*
-    };
-}
-#[macro_export]
-macro_rules! fetch_cov {
-    ($cov:expr, $t:expr, $($name:ident),*) => {
-        $(
-            let $name = $cov.get_covariate(stringify!($name)).unwrap().interpolate($t).unwrap();
-        )*
-    };
-}

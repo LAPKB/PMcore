@@ -562,7 +562,7 @@ impl Covariates {
         self.covariates.insert(name, covariate);
     }
 
-    fn get_covariate(&self, name: &str) -> Option<&Covariate> {
+    pub fn get_covariate(&self, name: &str) -> Option<&Covariate> {
         self.covariates.get(name)
     }
     fn get_covariate_names(&self) -> Vec<String> {

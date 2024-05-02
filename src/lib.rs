@@ -116,6 +116,7 @@ pub mod prelude {
     pub use crate::logger;
     pub use crate::prelude::evaluation::{prob, sigma, *};
     pub use crate::routines::condensation;
+    pub use crate::routines::data::CovariateTrait;
     pub use crate::routines::datafile::*;
     pub use crate::routines::expansion::*;
     pub use crate::routines::initialization::*;
@@ -125,16 +126,29 @@ pub mod prelude {
     pub use crate::routines::*;
     pub use crate::tui::ui::*;
     #[macro_export]
+    macro_rules! fetch_params {
+    ($p:expr, $($name:ident),*) => {
+        let p = $p;
+        let mut idx = 0;
+        $(
+            let $name = p[idx];
+            idx += 1;
+        )*
+    };
+}
+    #[macro_export]
+    macro_rules! fetch_cov {
+    ($cov:expr, $t:expr, $($name:ident),*) => {
+        $(
+            let $name = $cov.get_covariate(stringify!($name)).unwrap().interpolate($t).unwrap();
+        )*
+    };
+}
+    #[macro_export]
     macro_rules! lag {
-        // map-like
         ($($k:expr => $v:expr),* $(,)?) => {{
             use std::iter::{Iterator, IntoIterator};
             Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]))
-        }};
-        // set-like
-        ($($v:expr),* $(,)?) => {{
-            use std::iter::{Iterator, IntoIterator};
-            Iterator::collect(IntoIterator::into_iter([$($v,)*]))
         }};
     }
 }
