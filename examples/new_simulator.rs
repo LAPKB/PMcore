@@ -36,7 +36,8 @@ fn main() {
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
         |p| {
-            lag! { 0 => p[3] }
+            let tlag = p[3];
+            lag! {0=>tlag}
         },
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
@@ -49,7 +50,10 @@ fn main() {
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
         |_p, _cov| {},
-        |p| lag! { 0 => p[3] },
+        |p| {
+            let tlag = p[3];
+            lag! {0=>tlag}
+        },
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
@@ -67,7 +71,10 @@ fn main() {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |p| lag! { 0 => p[3] },
+        |p| {
+            let tlag = p[3];
+            lag! {0=>tlag}
+        },
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
