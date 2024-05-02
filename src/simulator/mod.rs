@@ -10,11 +10,13 @@ use crate::{
     },
     simulator::likelihood::{ObsPred, ToObsPred},
 };
+// use diffsol::vector::Vector;
 
 pub type T = f64;
 // pub type V = faer::Col<T>;
 // pub type M = faer::Mat<T>;
 pub type V = nalgebra::DVector<T>;
+// pub type V = nalgebra::SVector<T, 3>;
 pub type M = nalgebra::DMatrix<T>;
 
 pub type DiffEq = fn(&V, &V, T, &mut V, V, &Covariates);
@@ -69,19 +71,19 @@ impl Equation {
                     }
                 } else if event.evid == 0 {
                     //obs
-                    let pred = *(out)(
+                    let pred = (out)(
                         &x,
                         &V::from_vec(support_point.clone()),
                         event.time,
                         &covariates,
-                    )
-                    .get(event.outeq.unwrap() - 1)
-                    .unwrap();
+                    )[event.outeq.unwrap() - 1];
+                    // .get(event.outeq.unwrap() - 1)
+                    // .unwrap();
                     yout.push(ObsPred {
                         time: event.time,
                         observation: event.out.unwrap(),
                         prediction: pred,
-                        outeq: event.outeq.unwrap(),
+                        outeq: event.outeq.unwrap() - 1,
                         errorpoly: None,
                     });
                 }
@@ -161,15 +163,18 @@ impl Equation {
         end_time: T,
     ) -> V {
         match self {
-            Equation::ODE(eqn, _init, _out) => ode::simulate_ode_event(
-                eqn,
-                x,
-                support_point,
-                covariates,
-                infusions,
-                start_time,
-                end_time,
-            ),
+            Equation::ODE(eqn, _init, _out) => {
+                // unimplemented!("Not implemented");
+                ode::simulate_ode_event(
+                    eqn,
+                    x,
+                    support_point,
+                    covariates,
+                    infusions,
+                    start_time,
+                    end_time,
+                )
+            }
             Equation::OdeSolvers(eqn, _init, _out) => ode_solvers::simulate_ode_event(
                 eqn,
                 x,
@@ -209,6 +214,16 @@ impl Equation {
             Equation::SDE(_, _, _, out) => out,
             Equation::Analytical(_, _, _, out) => out,
         }
+    }
+}
+
+trait FromVec {
+    fn from_vec(vec: Vec<f64>) -> Self;
+}
+
+impl FromVec for faer::Col<f64> {
+    fn from_vec(vec: Vec<f64>) -> Self {
+        faer::Col::from_fn(vec.len(), |i| vec[i])
     }
 }
 

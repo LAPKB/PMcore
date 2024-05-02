@@ -1,9 +1,13 @@
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
-use pmcore::simulator::analytical::one_compartment_with_absorption;
+use pmcore::simulator::{analytical::one_compartment_with_absorption, V};
 use pmcore::{prelude::*, simulator::Equation};
 use std::path::Path;
-type V = nalgebra::DVector<f64>;
-// type V = nalgebra::SVector<f64, 2>;
+
+// type V = nalgebra::DVector<f64>;
+// type V = nalgebra::SVector<f64, 3>;
+
+const PATH: &str = "examples/data/two_eq_lag.csv";
+const SPP: [f64; 3] = [0.022712449789047243, 0.48245882034301757, 71.28352475166321];
 
 use diol::prelude::*;
 /// baseline uses the old simulator + the old sde solver No dynamic dispatching
@@ -16,14 +20,14 @@ fn main() -> std::io::Result<()> {
     bench.register_many(
         list![
             baseline,
-            analytical_ns,
+            // analytical_ns,
             analytical_os,
-            ode_solvers_ns,
+            // ode_solvers_ns,
             ode_solvers_os,
-            ode_ns,
-            ode_os,
+            // diffsol_ns,
+            diffsol_os,
         ],
-        [4, 8, 16, 128, 1024],
+        [4, 8, 16, 128],
     );
     bench.run()?;
     Ok(())
@@ -40,57 +44,60 @@ pub fn baseline(bencher: Bencher, len: usize) {
         //     dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         // },
     });
-    let data = parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
-    let subject = data.first().unwrap();
+    let data = parse(&PATH.to_string()).unwrap();
+    let scenario = data.first().unwrap();
+    let scenario = &scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
+
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(engine.pred(subject.clone(), vec![0.1, 0.9, 50.0]));
+            black_box(engine.pred(scenario.clone(), SPP.to_vec()));
         }
     });
 }
 pub fn analytical_ns(bencher: Bencher, len: usize) {
-    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
+    let data = read_pmetrics(Path::new(PATH)).unwrap();
     let subjects = data.get_subjects();
     let first_subject = *subjects.first().unwrap();
 
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
         |_p, _cov| {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
-            V::from_vec(vec![x[0] / v, x[1] / v])
+            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(analytical.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]));
+            black_box(analytical.simulate_subject(first_subject, &SPP.to_vec()));
         }
     });
 }
 pub fn analytical_os(bencher: Bencher, len: usize) {
-    let data = parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
-    let subject = data.first().unwrap();
+    let data = parse(&PATH.to_string()).unwrap();
+    let scenario = data.first().unwrap();
+    let scenario = &scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
 
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
         |_p, _cov| {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
-            V::from_vec(vec![x[0] / v, x[1] / v])
+            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(analytical.simulate_scenario(subject, &vec![0.1, 0.9, 50.0]));
+            black_box(analytical.simulate_scenario(scenario, &SPP.to_vec()));
         }
     });
 }
 pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
-    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
+    let data = read_pmetrics(Path::new(PATH)).unwrap();
     let subjects = data.get_subjects();
     let first_subject = *subjects.first().unwrap();
 
@@ -103,22 +110,23 @@ pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
-            V::from_vec(vec![x[0] / v, x[1] / v])
+            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]));
+            black_box(ode.simulate_subject(first_subject, &SPP.to_vec()));
         }
     });
 }
 pub fn ode_solvers_os(bencher: Bencher, len: usize) {
-    let data = parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
-    let subject = data.first().unwrap();
+    let data = parse(&PATH.to_string()).unwrap();
+    let scenario = data.first().unwrap();
+    let scenario = &scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
 
     let ode = Equation::new_ode_solvers(
         |x, p, _t, dx, rateiv, _cov| {
@@ -129,21 +137,21 @@ pub fn ode_solvers_os(bencher: Bencher, len: usize) {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
-            V::from_vec(vec![x[0] / v, x[1] / v])
+            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(ode.simulate_scenario(subject, &vec![0.1, 0.9, 50.0]));
+            black_box(ode.simulate_scenario(scenario, &SPP.to_vec()));
         }
     });
 }
-pub fn ode_ns(bencher: Bencher, len: usize) {
-    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
+pub fn diffsol_ns(bencher: Bencher, len: usize) {
+    let data = read_pmetrics(Path::new(PATH)).unwrap();
     let subjects = data.get_subjects();
     let first_subject = *subjects.first().unwrap();
 
@@ -156,22 +164,23 @@ pub fn ode_ns(bencher: Bencher, len: usize) {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
-            V::from_vec(vec![x[0] / v, x[1] / v])
+            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(ode.simulate_subject(first_subject, &vec![0.1, 0.9, 50.0]));
+            black_box(ode.simulate_subject(first_subject, &SPP.to_vec()));
         }
     });
 }
-pub fn ode_os(bencher: Bencher, len: usize) {
-    let data = parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
-    let subject = data.first().unwrap();
+pub fn diffsol_os(bencher: Bencher, len: usize) {
+    let data = parse(&PATH.to_string()).unwrap();
+    let scenario = data.first().unwrap();
+    let scenario = &scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
 
     let ode = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
@@ -182,16 +191,16 @@ pub fn ode_os(bencher: Bencher, len: usize) {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
-            V::from_vec(vec![x[0] / v, x[1] / v])
+            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
         },
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(ode.simulate_scenario(subject, &vec![0.1, 0.9, 50.0]));
+            black_box(ode.simulate_scenario(scenario, &SPP.to_vec()));
         }
     });
 }

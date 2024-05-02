@@ -1,15 +1,25 @@
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
+use pmcore::routines::datafile::parse;
 use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::simulator::Equation;
 use std::path::Path;
-type V = nalgebra::DVector<f64>;
+type V = pmcore::simulator::V;
+
+const DATA_PATH: &str = "examples/data/two_eq_lag.csv";
+
 fn main() {
-    let data = read_pmetrics(Path::new("examples/data/bimodal_ke.csv")).unwrap();
+    let data = read_pmetrics(Path::new(DATA_PATH)).unwrap();
     let subjects = data.get_subjects();
     let first_subject = *subjects.first().unwrap();
-    let spp = vec![3.1, 1.2, 70.0];
 
-    let ode = Equation::new_ode(
+    let data = parse(&DATA_PATH.to_string()).unwrap();
+    let first_scenario = data.first().unwrap();
+
+    let spp = vec![0.022712449789047243, 0.48245882034301757, 71.28352475166321];
+
+    // let first_scenario = &first_scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
+
+    let diffsol = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
             //fetch_cov!(cov, t, creat);
             // fetch_params!(p, ke, ka, _v);
@@ -54,18 +64,29 @@ fn main() {
         },
     );
 
-    let sim_ode = ode.simulate_subject(first_subject, &spp);
-    let sim_ode_solvers = ode_solvers.simulate_subject(first_subject, &spp);
-    let sim_analytical = analytical.simulate_subject(first_subject, &spp);
+    let sim_diffsol_new = diffsol.simulate_subject(first_subject, &spp);
+    let sim_diffsol_old = diffsol.simulate_scenario(first_scenario, &spp);
+    let sim_ode_solvers_new = ode_solvers.simulate_subject(first_subject, &spp);
+    let sim_ode_solvers_old = ode_solvers.simulate_scenario(first_scenario, &spp);
+    let sim_analytical_new = analytical.simulate_subject(first_subject, &spp);
+    let sim_analytical_old = analytical.simulate_scenario(first_scenario, &spp);
 
-    sim_ode
+    sim_diffsol_new
         .iter()
-        .zip(&sim_analytical)
-        .zip(&sim_ode_solvers)
-        .for_each(|((ode, anal), ode_solvers)| {
-            println!("ode : {}", ode);
-            println!("od_s: {}", ode_solvers);
-            println!("anal: {}", anal);
+        .zip(&sim_diffsol_old)
+        .zip(&sim_analytical_new)
+        .zip(&sim_analytical_old)
+        .zip(&sim_ode_solvers_new)
+        .zip(&sim_ode_solvers_old)
+        .for_each(|(((((dsn, dso), an), ao), osn), oso)| {
+            println!("Old Simulator: ");
+            println!("  diffsol : {:?}", dso);
+            println!("  ods_sol : {:?}", oso);
+            println!("  analytic: {:?}", ao);
+            println!("New Simulator: ");
+            println!("  diffsol : {:?}", dsn);
+            println!("  ods_sol : {:?}", osn);
+            println!("  analytic: {:?}", an);
             println!("=======================");
         })
 }

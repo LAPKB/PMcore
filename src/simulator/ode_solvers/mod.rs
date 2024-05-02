@@ -2,7 +2,7 @@ use ode_solvers::Dopri5;
 
 use crate::{
     routines::data::{Covariates, Infusion},
-    simulator::{DiffEq, V},
+    simulator::{DiffEq, FromVec, V},
 };
 
 const RTOL: f64 = 1e-4;
@@ -22,7 +22,7 @@ impl Model {}
 impl ode_solvers::System<Time, State> for Model {
     fn system(&self, t: Time, y: &State, dy: &mut State) {
         let support_point = V::from_vec(self.support_point.clone());
-        let mut rateiv = V::zeros(y.len());
+        let mut rateiv = V::from_vec(vec![0.0, 0.0, 0.0]);
         //TODO: This should be pre-calculated
         for infusion in &self.infusions {
             if t >= infusion.time && t <= infusion.duration + infusion.time {
@@ -43,6 +43,11 @@ pub fn simulate_ode_event(
     ti: f64,
     tf: f64,
 ) -> V {
+    if ti > tf {
+        panic!("time error")
+    } else if ti == tf {
+        return x;
+    }
     let model = Model {
         diffeq: diffeq.clone(),
         support_point: support_point.to_vec(),

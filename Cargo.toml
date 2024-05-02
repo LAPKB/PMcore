@@ -45,6 +45,7 @@ serde_with = "3.6.0"
 nalgebra = "0.32.5"
 faer = "0.18.2"
 faer-ext = {version = "0.1.0", features = ["nalgebra", "ndarray"]}
+dyn-stack = "0.10.0"
 
 
 [profile.release]

@@ -14,7 +14,7 @@ pub fn simulate_analytical_event(
     tf: f64,
 ) -> V {
     let mut support_point = V::from_vec(support_point.clone());
-    let mut rateiv = V::zeros(x.len());
+    let mut rateiv = V::from_vec(vec![0.0, 0.0, 0.0]);
     //TODO: This should be pre-calculated
     for infusion in infusions {
         if tf >= infusion.time && tf <= infusion.duration + infusion.time {
