@@ -3,6 +3,7 @@ use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::{prelude::*, simulator::Equation};
 use std::path::Path;
 type V = nalgebra::DVector<f64>;
+// type V = nalgebra::SVector<f64, 2>;
 
 use diol::prelude::*;
 /// baseline uses the old simulator + the old sde solver No dynamic dispatching
@@ -29,7 +30,16 @@ fn main() -> std::io::Result<()> {
 }
 
 pub fn baseline(bencher: Bencher, len: usize) {
-    let engine = Engine::new(Ode {});
+    let engine = Engine::new(Ode {
+        // diffeq: |x, p, _t, dx, rateiv, _cov| {
+        //     //fetch_cov!(cov, t, creat);
+        //     // fetch_params!(p, ke, ka, _v);
+        //     let ke = p[0];
+        //     let ka = p[1];
+        //     dx[0] = -ka * x[0];
+        //     dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
+        // },
+    });
     let data = parse(&"examples/data/bimodal_ke.csv".to_string()).unwrap();
     let subject = data.first().unwrap();
     bencher.bench(|| {
@@ -190,29 +200,20 @@ const ATOL: f64 = 1e-4;
 const RTOL: f64 = 1e-4;
 #[derive(Debug, Clone)]
 struct Model {
-    params: HashMap<String, f64>,
+    params: Vec<f64>,
     _scenario: Scenario,
     infusions: Vec<Infusion>,
     cov: Option<HashMap<String, CovLine>>,
+    // diffeq: DiffEq,
 }
-impl Model {
-    pub fn get_param(&self, str: &str) -> f64 {
-        *self.params.get(str).unwrap()
-    }
-}
-type State = Vector2<f64>;
 
-// Time uses f64 precision
-type Time = f64;
 impl ode_solvers::System<Time, State> for Model {
     /// The system function, defining the ordinary differential equations (ODEs) to be solved
     fn system(&self, t: Time, x: &State, dx: &mut State) {
         // Get the parameters from the model
-        let ke = self.get_param("ke");
-        let ka = self.get_param("ka");
 
         // Get the infusions that are active at time `t`
-        let mut rateiv = [0.0];
+        let mut rateiv = vec![0.0];
         for infusion in &self.infusions {
             if t >= infusion.time && t <= (infusion.dur + infusion.time) {
                 rateiv[infusion.compartment] += infusion.amount / infusion.dur;
@@ -222,29 +223,43 @@ impl ode_solvers::System<Time, State> for Model {
         // This example is a one-compartmental model with first-order elimination, and intravenous infusions
 
         ////// ODE //////
+        // (self.diffeq)(
+        //     x,
+        //     &V::from_vec(self.params.clone()),
+        //     t,
+        //     dx,
+        //     V::from_vec(rateiv),
+        //     &Covariates::new(),
+        // )
+        let ke = self.params[0];
+        let ka = self.params[1];
         dx[0] = -ka * x[0];
         dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
     }
 }
 
 #[derive(Debug, Clone)]
-struct Ode {}
-
+struct Ode {
+    // diffeq: DiffEq,
+}
+type State = SVector<f64, 2>;
+// type State = DVector<f64>;
+type Time = f64;
 impl<'a> Predict<'a> for Ode {
     type Model = Model;
     type State = State;
+    fn initial_state(&self) -> State {
+        SVector::default()
+        // DVector::zeros(2)
+    }
     fn initial_system(&self, params: &Vec<f64>, scenario: Scenario) -> (Self::Model, Scenario) {
-        let params = HashMap::from([
-            ("ke".to_string(), params[0]),
-            ("ka".to_string(), params[1]),
-            ("v".to_string(), params[2]),
-        ]);
         (
             Model {
-                params,
+                params: params.clone(),
                 _scenario: scenario.clone(), //TODO remove
                 infusions: vec![],
                 cov: None,
+                // diffeq: self.diffeq,
             },
             scenario.reorder_with_lag(vec![(0.0, 1)]),
         )
@@ -253,7 +268,7 @@ impl<'a> Predict<'a> for Ode {
     // This function is used to get the output from the model, defined by the output equations (outeq) supplied by the user
     fn get_output(&self, time: f64, x: &Self::State, system: &Self::Model, outeq: usize) -> f64 {
         // Get parameters from the model also used for calculating the output equations
-        let v = system.get_param("v");
+        let v = system.params[2];
         #[allow(unused_variables)]
         let t = time;
         match outeq {
@@ -263,10 +278,6 @@ impl<'a> Predict<'a> for Ode {
         }
     }
 
-    // Set the initial state of the compartments
-    fn initial_state(&self) -> State {
-        State::default()
-    }
     // Add any possible infusions
     fn add_infusion(&self, system: &mut Self::Model, infusion: Infusion) {
         system.infusions.push(infusion);
@@ -286,9 +297,10 @@ impl<'a> Predict<'a> for Ode {
             // panic!("time error")
             return;
         }
-        let mut stepper = Dopri5::new(system.clone(), time, next_time, 1e-3, *x, RTOL, ATOL);
+        let mut stepper = Dopri5::new(system.clone(), time, next_time, 1e-3, x.clone(), RTOL, ATOL);
         let _res = stepper.integrate();
         let y = stepper.y_out();
-        *x = *y.last().unwrap();
+        let a = y.last().unwrap();
+        *x = a.clone();
     }
 }
