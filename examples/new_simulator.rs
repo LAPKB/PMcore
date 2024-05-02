@@ -1,3 +1,4 @@
+use pmcore::prelude::*;
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
 use pmcore::routines::datafile::parse;
 use pmcore::simulator::analytical::one_compartment_with_absorption;
@@ -15,9 +16,15 @@ fn main() {
     let data = parse(&DATA_PATH.to_string()).unwrap();
     let first_scenario = data.first().unwrap();
 
-    let spp = vec![0.022712449789047243, 0.48245882034301757, 71.28352475166321];
+    let spp = vec![
+        0.022712449789047243, //ke
+        0.48245882034301757,  //ka
+        71.28352475166321,    //v
+        // 0.5903420448303222,   //tlag
+        0.0,
+    ];
 
-    let first_scenario = &first_scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
+    let first_scenario = &first_scenario.reorder_with_lag(vec![(spp[3], 0)]);
 
     let diffsol = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
@@ -27,6 +34,9 @@ fn main() {
             let ka = p[1];
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
+        },
+        |p| {
+            lag! { 0 => p[3] }
         },
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
@@ -39,6 +49,7 @@ fn main() {
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
         |_p, _cov| {},
+        |p| lag! { 0 => p[3] },
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
@@ -56,6 +67,7 @@ fn main() {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
+        |p| lag! { 0 => p[3] },
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);

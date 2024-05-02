@@ -2,6 +2,8 @@ pub mod analytical;
 pub mod likelihood;
 pub mod ode;
 pub mod ode_solvers;
+use std::collections::HashMap;
+
 use crate::{
     prelude::data::Event,
     routines::{
@@ -24,30 +26,37 @@ pub type Init = fn(&V, T, &Covariates) -> V;
 pub type Out = fn(&V, &V, T, &Covariates) -> V;
 pub type AnalyticalEq = fn(&V, &V, T, V, &Covariates) -> V;
 pub type SecEq = fn(&mut V, &Covariates);
+pub type Lag = fn(&V) -> HashMap<usize, T>;
 
 pub enum Equation {
-    OdeSolvers(DiffEq, Init, Out),
-    ODE(DiffEq, Init, Out),
-    SDE(DiffEq, DiffEq, Init, Out),
-    Analytical(AnalyticalEq, SecEq, Init, Out),
+    OdeSolvers(DiffEq, Lag, Init, Out),
+    ODE(DiffEq, Lag, Init, Out),
+    SDE(DiffEq, DiffEq, Lag, Init, Out),
+    Analytical(AnalyticalEq, SecEq, Lag, Init, Out),
 }
 
 impl Equation {
-    pub fn new_ode(diffeq: DiffEq, init: Init, out: Out) -> Self {
-        Equation::ODE(diffeq, init, out)
+    pub fn new_ode(diffeq: DiffEq, lag: Lag, init: Init, out: Out) -> Self {
+        Equation::ODE(diffeq, lag, init, out)
     }
-    pub fn new_analytical(eq: AnalyticalEq, seq_eq: SecEq, init: Init, out: Out) -> Self {
-        Equation::Analytical(eq, seq_eq, init, out)
+    pub fn new_analytical(eq: AnalyticalEq, seq_eq: SecEq, lag: Lag, init: Init, out: Out) -> Self {
+        Equation::Analytical(eq, seq_eq, lag, init, out)
     }
 
-    pub fn new_ode_solvers(diffeq: DiffEq, init: Init, out: Out) -> Self {
-        Equation::OdeSolvers(diffeq, init, out)
+    pub fn new_ode_solvers(diffeq: DiffEq, lag: Lag, init: Init, out: Out) -> Self {
+        Equation::OdeSolvers(diffeq, lag, init, out)
     }
 
     pub fn simulate_scenario(&self, scenario: &Scenario, support_point: &Vec<f64>) -> Vec<ObsPred> {
         let init = self.get_init();
         let out = self.get_out();
         let covariates = Covariates::new();
+        let lag_hashmap = self.get_lag(support_point);
+        let lag = lag_hashmap
+            .into_iter()
+            .map(|(id, score)| (score, id))
+            .collect();
+        let scenario = &scenario.reorder_with_lag(lag);
         let mut yout = vec![];
         let mut x = (init)(&V::from_vec(support_point.clone()), 0.0, &covariates);
         let mut index = 0;
@@ -110,6 +119,8 @@ impl Equation {
     ) -> Vec<ObsPred> {
         let init = self.get_init();
         let out = self.get_out();
+        let lag = self.get_lag(support_point);
+
         let mut yout = vec![];
         for occasion in subject.get_occasions() {
             // What should we use as the initial state for the next occasion?
@@ -117,7 +128,7 @@ impl Equation {
             let mut x = get_first_state(init, support_point, &covariates);
             let mut infusions: Vec<Infusion> = vec![];
             let mut index = 0;
-            for event in &occasion.get_events(None, None, true) {
+            for event in &occasion.get_events(Some(&lag), None, true) {
                 match event {
                     Event::Bolus(bolus) => {
                         x[bolus.input] += bolus.amount;
@@ -163,7 +174,7 @@ impl Equation {
         end_time: T,
     ) -> V {
         match self {
-            Equation::ODE(eqn, _init, _out) => {
+            Equation::ODE(eqn, _, _init, _out) => {
                 // unimplemented!("Not implemented");
                 ode::simulate_ode_event(
                     eqn,
@@ -175,7 +186,7 @@ impl Equation {
                     end_time,
                 )
             }
-            Equation::OdeSolvers(eqn, _init, _out) => ode_solvers::simulate_ode_event(
+            Equation::OdeSolvers(eqn, _, _init, _out) => ode_solvers::simulate_ode_event(
                 eqn,
                 x,
                 support_point,
@@ -184,10 +195,10 @@ impl Equation {
                 start_time,
                 end_time,
             ),
-            Equation::SDE(_, _, _, _) => {
+            Equation::SDE(_, _, _, _, _) => {
                 unimplemented!("Not Implemented");
             }
-            Equation::Analytical(eq, seq_eq, _, _) => analytical::simulate_analytical_event(
+            Equation::Analytical(eq, seq_eq, _, _, _) => analytical::simulate_analytical_event(
                 &eq,
                 &seq_eq,
                 x,
@@ -199,20 +210,31 @@ impl Equation {
             ),
         }
     }
+    #[inline(always)]
     fn get_init(&self) -> &Init {
         match self {
-            Equation::ODE(_, init, _) => init,
-            Equation::OdeSolvers(_, init, _) => init,
-            Equation::SDE(_, _, init, _) => init,
-            Equation::Analytical(_, _, init, _) => init,
+            Equation::ODE(_, _, init, _) => init,
+            Equation::OdeSolvers(_, _, init, _) => init,
+            Equation::SDE(_, _, _, init, _) => init,
+            Equation::Analytical(_, _, _, init, _) => init,
         }
     }
+    #[inline(always)]
     fn get_out(&self) -> &Out {
         match self {
-            Equation::ODE(_, _, out) => out,
-            Equation::OdeSolvers(_, _, out) => out,
-            Equation::SDE(_, _, _, out) => out,
-            Equation::Analytical(_, _, _, out) => out,
+            Equation::ODE(_, _, _, out) => out,
+            Equation::OdeSolvers(_, _, _, out) => out,
+            Equation::SDE(_, _, _, _, out) => out,
+            Equation::Analytical(_, _, _, _, out) => out,
+        }
+    }
+    #[inline(always)]
+    fn get_lag(&self, spp: &Vec<f64>) -> HashMap<usize, f64> {
+        match self {
+            Equation::ODE(_, lag, _, _) => (lag)(&V::from_vec(spp.clone())),
+            Equation::OdeSolvers(_, lag, _, _) => (lag)(&V::from_vec(spp.clone())),
+            Equation::SDE(_, _, _, _, _) => unimplemented!("Not Implemented"),
+            Equation::Analytical(_, _, lag, _, _) => (lag)(&V::from_vec(spp.clone())),
         }
     }
 }

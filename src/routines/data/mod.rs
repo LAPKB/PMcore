@@ -20,8 +20,8 @@ pub trait SubjectTrait {
 pub trait OccasionTrait {
     fn get_events(
         &self,
-        lagtime: Option<HashMap<usize, f64>>,
-        bioavailability: Option<HashMap<usize, f64>>,
+        lagtime: Option<&HashMap<usize, f64>>,
+        bioavailability: Option<&HashMap<usize, f64>>,
         ignore: bool,
     ) -> Vec<Event>;
     fn get_covariates(&self) -> Option<&Covariates>;
@@ -144,7 +144,7 @@ impl Occasion {
         }
     }
 
-    pub fn add_lagtime(&mut self, lagtime: Option<HashMap<usize, f64>>) {
+    pub fn add_lagtime(&mut self, lagtime: Option<&HashMap<usize, f64>>) {
         if let Some(lag) = lagtime {
             for event in self.events.iter_mut() {
                 if let Event::Bolus(bolus) = event {
@@ -157,7 +157,7 @@ impl Occasion {
         self.sort();
     }
 
-    pub fn add_bioavailability(&mut self, bioavailability: Option<HashMap<usize, f64>>) {
+    pub fn add_bioavailability(&mut self, bioavailability: Option<&HashMap<usize, f64>>) {
         // If lagtime is empty, return early
         if let Some(fmap) = bioavailability {
             for event in self.events.iter_mut() {
@@ -223,8 +223,8 @@ impl OccasionTrait for Occasion {
     // TODO: This clones the occasion, which is not ideal
     fn get_events(
         &self,
-        lagtime: Option<HashMap<usize, f64>>,
-        bioavailability: Option<HashMap<usize, f64>>,
+        lagtime: Option<&HashMap<usize, f64>>,
+        bioavailability: Option<&HashMap<usize, f64>>,
         ignore: bool,
     ) -> Vec<Event> {
         let mut occ = self.clone();

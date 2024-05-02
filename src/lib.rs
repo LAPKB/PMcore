@@ -124,6 +124,19 @@ pub mod prelude {
     pub use crate::routines::simulation::*;
     pub use crate::routines::*;
     pub use crate::tui::ui::*;
+    #[macro_export]
+    macro_rules! lag {
+        // map-like
+        ($($k:expr => $v:expr),* $(,)?) => {{
+            use std::iter::{Iterator, IntoIterator};
+            Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]))
+        }};
+        // set-like
+        ($($v:expr),* $(,)?) => {{
+            use std::iter::{Iterator, IntoIterator};
+            Iterator::collect(IntoIterator::into_iter([$($v,)*]))
+        }};
+    }
 }
 
 //Tests

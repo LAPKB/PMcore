@@ -7,7 +7,13 @@ use std::path::Path;
 // type V = nalgebra::SVector<f64, 3>;
 
 const PATH: &str = "examples/data/two_eq_lag.csv";
-const SPP: [f64; 3] = [0.022712449789047243, 0.48245882034301757, 71.28352475166321];
+const SPP: [f64; 4] = [
+    0.022712449789047243, //ke
+    0.48245882034301757,  //ka
+    71.28352475166321,    //v
+    0.5903420448303222,   //tlag
+                          // 0.0,
+];
 
 use diol::prelude::*;
 /// baseline uses the old simulator + the old sde solver No dynamic dispatching
@@ -20,11 +26,11 @@ fn main() -> std::io::Result<()> {
     bench.register_many(
         list![
             baseline,
-            // analytical_ns,
+            analytical_ns,
             analytical_os,
-            // ode_solvers_ns,
+            ode_solvers_ns,
             ode_solvers_os,
-            // diffsol_ns,
+            diffsol_ns,
             diffsol_os,
         ],
         [4, 8, 16, 128],
@@ -46,7 +52,7 @@ pub fn baseline(bencher: Bencher, len: usize) {
     });
     let data = parse(&PATH.to_string()).unwrap();
     let scenario = data.first().unwrap();
-    let scenario = &scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
+    let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
 
     bencher.bench(|| {
         for _ in 0..len {
@@ -62,7 +68,11 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
         |_p, _cov| {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
+        |p| {
+            let tlag = p[3];
+            lag! {0=>tlag}
+        },
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
@@ -78,12 +88,16 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
 pub fn analytical_os(bencher: Bencher, len: usize) {
     let data = parse(&PATH.to_string()).unwrap();
     let scenario = data.first().unwrap();
-    let scenario = &scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
+    let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
 
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
         |_p, _cov| {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
+        |p| {
+            let tlag = p[3];
+            lag! {0=>tlag}
+        },
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
@@ -110,7 +124,11 @@ pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
+        |p| {
+            let tlag = p[3];
+            lag! {0=>tlag}
+        },
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
@@ -126,7 +144,7 @@ pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
 pub fn ode_solvers_os(bencher: Bencher, len: usize) {
     let data = parse(&PATH.to_string()).unwrap();
     let scenario = data.first().unwrap();
-    let scenario = &scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
+    let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
 
     let ode = Equation::new_ode_solvers(
         |x, p, _t, dx, rateiv, _cov| {
@@ -137,7 +155,11 @@ pub fn ode_solvers_os(bencher: Bencher, len: usize) {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
+        |p| {
+            let tlag = p[3];
+            lag! {0=>tlag}
+        },
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
@@ -164,7 +186,11 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
+        |p| {
+            let tlag = p[3];
+            lag! {0=>tlag}
+        },
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];
@@ -180,7 +206,7 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
 pub fn diffsol_os(bencher: Bencher, len: usize) {
     let data = parse(&PATH.to_string()).unwrap();
     let scenario = data.first().unwrap();
-    let scenario = &scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
+    let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
 
     let ode = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
@@ -191,7 +217,11 @@ pub fn diffsol_os(bencher: Bencher, len: usize) {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
         },
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0]),
+        |p| {
+            let tlag = p[3];
+            lag! {0=>tlag}
+        },
+        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
         |x, p, _t, _cov| {
             // fetch_params!(p, _ke, _ka, v);
             let v = p[2];

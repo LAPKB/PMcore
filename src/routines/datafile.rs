@@ -110,9 +110,9 @@ impl Scenario {
         let mut events = Vec::new();
         for block in &self.blocks {
             for mut event in block.events.clone() {
-                if event.evid == 1 {
+                if event.evid == 1 && event.dur.unwrap_or(0.0) == 0.0 {
                     for lag_term in &lag_inputs {
-                        if event.input.unwrap() == lag_term.1 {
+                        if event.input.unwrap() - 1 == lag_term.1 {
                             event.time += lag_term.0;
                         }
                     }

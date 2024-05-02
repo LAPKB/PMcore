@@ -6,6 +6,7 @@ use crate::{routines::data::Covariates, simulator::*};
 pub fn simulate_analytical_event(
     eq: &AnalyticalEq,
     seq_eq: &SecEq,
+
     x: V,
     support_point: &Vec<f64>,
     cov: &Covariates,

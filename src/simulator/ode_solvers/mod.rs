@@ -5,6 +5,8 @@ use crate::{
     simulator::{DiffEq, FromVec, V},
 };
 
+use super::Lag;
+
 const RTOL: f64 = 1e-4;
 const ATOL: f64 = 1e-4;
 
