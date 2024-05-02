@@ -17,7 +17,7 @@ fn main() {
 
     let spp = vec![0.022712449789047243, 0.48245882034301757, 71.28352475166321];
 
-    // let first_scenario = &first_scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
+    let first_scenario = &first_scenario.reorder_with_lag(vec![(0.5903420448303222, 1)]);
 
     let diffsol = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
@@ -80,13 +80,13 @@ fn main() {
         .zip(&sim_ode_solvers_old)
         .for_each(|(((((dsn, dso), an), ao), osn), oso)| {
             println!("Old Simulator: ");
-            println!("  diffsol : {:?}", dso);
-            println!("  ods_sol : {:?}", oso);
-            println!("  analytic: {:?}", ao);
+            println!("  diffsol : {}", dso);
+            println!("  ods_sol : {}", oso);
+            println!("  analytic: {}", ao);
             println!("New Simulator: ");
-            println!("  diffsol : {:?}", dsn);
-            println!("  ods_sol : {:?}", osn);
-            println!("  analytic: {:?}", an);
+            println!("  diffsol : {}", dsn);
+            println!("  ods_sol : {}", osn);
+            println!("  analytic: {}", an);
             println!("=======================");
         })
 }

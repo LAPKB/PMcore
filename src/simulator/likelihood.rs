@@ -31,7 +31,7 @@ impl std::fmt::Display for ObsPred {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Time: {:.2}\tObs: {:.3}\tPred: {:.3}\tOuteq: {:.2}",
+            "Time: {:.2}\tObs: {:.14}\tPred: {:.14}\tOuteq: {:.2}",
             self.time, self.observation, self.prediction, self.outeq
         )
     }
