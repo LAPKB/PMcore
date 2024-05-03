@@ -2,8 +2,7 @@ use crate::routines::data::Subject;
 use crate::routines::datafile::CovLine;
 use crate::routines::datafile::Infusion;
 use crate::routines::datafile::Scenario;
-use crate::routines::evaluation::sigma::ErrorPoly;
-use crate::simulator::likelihood::IndObsPred;
+use crate::simulator::output::ObsPred;
 use crate::simulator::Equation;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
@@ -15,14 +14,6 @@ use ndarray::{Array, Array2, Axis};
 use std::collections::HashMap;
 use std::error;
 use std::hash::{Hash, Hasher};
-
-pub struct ObsPred(Array2<Array1<IndObsPred>>);
-
-impl ObsPred {
-    pub fn likelihood(&self, error_poly: &ErrorPoly) -> Array2<f64> {
-        unimplemented!();
-    }
-}
 
 /// Number of support points to cache for each scenario
 const CACHE_SIZE: usize = 1000;

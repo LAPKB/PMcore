@@ -17,7 +17,7 @@ use tokio::sync::mpsc::{self};
 
 use self::data::parse_pmetrics::read_pmetrics;
 use self::data::{DataTrait, Subject};
-use self::simulator::likelihood::IndObsPred;
+use self::simulator::output::{ObsPred, OccasionOutput, SubjectOutput};
 use self::simulator::Equation;
 
 /// Simulate predictions from a model and prior distribution

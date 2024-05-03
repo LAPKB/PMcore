@@ -717,3 +717,64 @@ mod tests {
         assert_eq!(infusions.get_rate_at_time(2, 3.0), 50.0);
     } */
 }
+
+/// Contains information on the observation error
+pub trait ObsErrorTrait {
+    fn sigma(&self, obs: f64, pred: f64, gamlam: f64) -> f64;
+}
+
+/// ErrorPoly contains the information on uncertainties in observations
+///
+/// The elements of the error polynomial corresponds to the terms in SD = C0 + C1 x obs + C2 x obs^2 + C3 xobs^3
+///
+/// See [ErrorType] for more information
+pub struct ObsError {
+    pub polynomial: (f64, f64, f64, f64),
+    pub model: ErrorModel,
+}
+
+impl ObsError {
+    pub fn new(polynomial: (f64, f64, f64, f64), gamlam: f64, model: ErrorModel) -> Self {
+        Self { polynomial, model }
+    }
+
+    pub fn sigma(&self, obs: f64, gamlam: f64) -> f64 {
+        let alpha = self.c.0
+            + self.c.1 * obs
+            + self.c.2 * obs.mapv(|x| x.powi(2))
+            + self.c.3 * obs.mapv(|x| x.powi(3));
+
+        let sigma: f64 = match self.e_type {
+            ErrorModel::Add => (self.gl.powi(2) + alpha.powi(2)).mapv(f64::sqrt),
+            ErrorModel::Prop => self.gl * alpha,
+        };
+
+        if sigma.is_nan() || sigma.is_infinite() {
+            tracing::error!("Calculated standard deviation is not a number, or infinite when gamma/lambda is : {:?}", gamlam);
+            let sigma = 1e-6;
+        }
+    }
+
+    pub fn update_errorpoly(&mut self, errorpoly: &(f64, f64, f64, f64)) {
+        self.polynomial = *errorpoly;
+    }
+}
+
+impl ObsErrorTrait for ObsError {
+    fn sigma(&self, obs: f64, pred: f64, gamlam: f64) -> f64 {
+        self.sigma(obs, gamlam)
+    }
+}
+
+/// ErrorType defines the current error model
+///
+/// # Multiplicative / Proportional
+/// error = SD * γ (gamma)
+///
+/// # Additive
+/// error = (SD<sup>2</sup> + lambda<sup>2</sup>)<sup>0.5</sup>
+#[derive(Debug, Clone)]
+pub enum ErrorModel {
+    Additive,
+    Proportional,
+}

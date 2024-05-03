@@ -1,7 +1,7 @@
 pub mod analytical;
-pub mod likelihood;
 pub mod ode;
 pub mod ode_solvers;
+pub mod output;
 use std::collections::HashMap;
 
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
         data::{Covariates, Infusion, OccasionTrait, Subject, SubjectTrait},
         datafile::Scenario,
     },
-    simulator::likelihood::{IndObsPred, ToIndObsPred},
+    simulator::output::{ObsPred, OccasionOutput, SubjectOutput, ToObsPred},
 };
 // use diffsol::vector::Vector;
 
@@ -60,7 +60,7 @@ impl Equation {
         &self,
         scenario: &Scenario,
         support_point: &Vec<f64>,
-    ) -> Vec<IndObsPred> {
+    ) -> SubjectOutput {
         let init = self.get_init();
         let out = self.get_out();
         let covariates = Covariates::new();
@@ -104,12 +104,12 @@ impl Equation {
                     )[event.outeq.unwrap() - 1];
                     // .get(event.outeq.unwrap() - 1)
                     // .unwrap();
-                    yout.push(IndObsPred {
+                    yout.push(ObsPred {
                         time: event.time,
                         observation: event.out.unwrap(),
                         prediction: pred,
                         outeq: event.outeq.unwrap() - 1,
-                        errorpoly: None,
+                        obserror: None,
                     });
                 }
                 if let Some(next_time) = scenario.times.get(index + 1) {
@@ -128,7 +128,7 @@ impl Equation {
         yout
     }
 
-    pub fn simulate_subject(&self, subject: &Subject, support_point: &Vec<f64>) -> Vec<IndObsPred> {
+    pub fn simulate_subject(&self, subject: &Subject, support_point: &Vec<f64>) -> SubjectOutput {
         let init = self.get_init();
         let out = self.get_out();
         let lag = self.get_lag(support_point);

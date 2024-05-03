@@ -2,7 +2,7 @@ use crate::{
     prelude::{
         algorithms::Algorithm,
         datafile::Scenario,
-        evaluation::sigma::{ErrorPoly, ErrorType},
+        data::{ErrorModel, ObsError},
         ipm::burke,
         output::{CycleLog, NPCycle, NPResult},
         prob, qr,
@@ -40,7 +40,7 @@ pub struct NPAG {
     cycle: usize,
     gamma_delta: f64,
     gamma: f64,
-    error_type: ErrorType,
+    error_type: ErrorModel,
     converged: bool,
     cycle_log: CycleLog,
     cache: bool,
@@ -109,12 +109,12 @@ impl NPAG {
             gamma_delta: 0.1,
             gamma: settings.error.value,
             error_type: match settings.error.class.to_lowercase().as_str() {
-                "additive" => ErrorType::Add,
-                "lambda" => ErrorType::Add,
-                "l" => ErrorType::Add,
-                "proportional" => ErrorType::Prop,
-                "gamma" => ErrorType::Prop,
-                "g" => ErrorType::Prop,
+                "additive" => ErrorModel::Add,
+                "lambda" => ErrorModel::Add,
+                "l" => ErrorModel::Add,
+                "proportional" => ErrorModel::Prop,
+                "gamma" => ErrorModel::Prop,
+                "g" => ErrorModel::Prop,
                 _ => panic!("Error type not supported"),
             },
             converged: false,
@@ -134,16 +134,8 @@ impl NPAG {
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
         let obs_pred = get_obspred(&self.equation, &self.subjects, &self.theta, self.cache);
 
-        let psi_up = obs_pred.likelihood(&ErrorPoly {
-            c: self.c,
-            gl: gamma_up,
-            e_type: &self.error_type,
-        });
-        let psi_down = obs_pred.likelihood(&ErrorPoly {
-            c: self.c,
-            gl: gamma_down,
-            e_type: &self.error_type,
-        });
+        let psi_up = obs_pred.likelihood();
+        let psi_down = obs_pred.likelihood();
 
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
@@ -193,11 +185,7 @@ impl NPAG {
 
             let obs_pred = get_obspred(&self.equation, &self.subjects, &self.theta, cache);
 
-            self.psi = obs_pred.likelihood(&ErrorPoly {
-                c: self.c,
-                gl: self.gamma,
-                e_type: &self.error_type,
-            });
+            self.psi = obs_pred.likelihood();
 
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),

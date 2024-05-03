@@ -85,7 +85,6 @@ pub mod routines {
         pub mod ipm_faer;
         pub mod prob;
         pub mod qr;
-        pub mod sigma;
     }
     pub mod simulation {
         pub mod predict;
@@ -114,7 +113,7 @@ pub mod prelude {
     pub use crate::entrypoints::start;
     pub use crate::entrypoints::start_internal;
     pub use crate::logger;
-    pub use crate::prelude::evaluation::{prob, sigma, *};
+    pub use crate::prelude::evaluation::{prob, *};
     pub use crate::routines::condensation;
     pub use crate::routines::data::CovariateTrait;
     pub use crate::routines::datafile::*;
