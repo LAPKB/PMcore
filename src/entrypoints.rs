@@ -1,22 +1,24 @@
 use crate::algorithms::initialize_algorithm;
-use crate::prelude::{
-    output::NPResult,
-    predict::{Engine, Predict},
-    *,
-};
+use crate::prelude::{output::NPResult, *};
 use crate::routines::datafile::Scenario;
 use crate::routines::settings::*;
 
 use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
 
-use ndarray::Array2;
+use faer::utils::vec;
+use ndarray::{Array1, Array2};
 use ndarray_csv::Array2Reader;
-use predict::sim_obs;
 use std::fs::File;
+use std::path::Path;
 use std::thread::spawn;
 use std::time::Instant;
 use tokio::sync::mpsc::{self};
+
+use self::data::parse_pmetrics::read_pmetrics;
+use self::data::{DataTrait, Subject};
+use self::simulator::likelihood::IndObsPred;
+use self::simulator::Equation;
 
 /// Simulate predictions from a model and prior distribution
 ///
@@ -31,10 +33,7 @@ use tokio::sync::mpsc::{self};
 /// The user can specify the desired settings in a TOML configuration file, see `routines::settings::simulator` for details.
 /// - `idelta`: the interval between predictions. Default is 0.0.
 /// - `tad`: the time after dose, which if greater than the last prediction time is the time for which it will predict . Default is 0.0.
-pub fn simulate<S>(engine: Engine<S>, settings_path: String) -> Result<()>
-where
-    S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
-{
+pub fn simulate(equation: Equation, settings_path: String) -> Result<()> {
     let settings: Settings = read_settings(settings_path).unwrap();
     let theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
     let mut reader = ReaderBuilder::new()
@@ -45,13 +44,11 @@ where
     // Expand data
     let idelta = settings.config.idelta;
     let tad = settings.config.tad;
-    let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
-    scenarios.iter_mut().for_each(|scenario| {
-        *scenario = scenario.add_event_interval(idelta, tad);
-    });
+    let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
+    let subjects = data.get_subjects();
 
     // Perform simulation
-    let ypred = sim_obs(&engine, &scenarios, &theta, false);
+    let obspred = get_obspred(&equation, &subjects, &theta, false);
 
     // Prepare writer
     let sim_file = File::create("simulation_output.csv").unwrap();
@@ -63,16 +60,24 @@ where
         .unwrap();
 
     // Write output
-    for (id, scenario) in scenarios.iter().enumerate() {
-        let time = scenario.obs_times.clone();
+    for (id, subject) in subjects.iter().enumerate() {
+        //TODO: We are missing a get_obs_times function
+        // let time = subject.obs_times.clone();
+        let time: Vec<f64> = vec![];
         for (point, _spp) in theta.rows().into_iter().enumerate() {
             for (i, time) in time.iter().enumerate() {
-                sim_writer.write_record(&[
-                    id.to_string(),
-                    point.to_string(),
-                    time.to_string(),
-                    ypred.get((id, point)).unwrap().get(i).unwrap().to_string(),
-                ])?;
+                unimplemented!()
+                // sim_writer.write_record(&[
+                //     id.to_string(),
+                //     point.to_string(),
+                //     time.to_string(),
+                //     obspred
+                //         .get((id, point))
+                //         .unwrap()
+                //         .get(i)
+                //         .unwrap()
+                //         .to_string(),
+                // ])?;
             }
         }
     }
@@ -83,10 +88,7 @@ where
 ///
 /// This function is the primary entrypoint for PMcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
-pub fn start<S>(engine: Engine<S>, settings_path: String) -> Result<NPResult>
-where
-    S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
-{
+pub fn start(equation: Equation, settings_path: String) -> Result<NPResult> {
     let now = Instant::now();
     let settings = match read_settings(settings_path) {
         Ok(s) => s,
@@ -108,19 +110,17 @@ where
     logger::setup_log(&settings, tx.clone());
     tracing::info!("Starting PMcore");
 
-    // Read input data and remove excluded scenarios (if any)
-    let mut scenarios = datafile::parse(&settings.paths.data).unwrap();
-    if let Some(exclude) = &settings.config.exclude {
-        for val in exclude {
-            scenarios.remove(val.as_ptr() as usize);
-        }
-    }
-
+    // Read input data
+    let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
+    let subjects = data.get_subjects();
     // Provide information of the input data
     tracing::info!(
-        "Datafile contains {} subjects with a total of {} observations",
-        scenarios.len(),
-        scenarios.iter().map(|s| s.obs_times.len()).sum::<usize>()
+        // "Datafile contains {} subjects with a total of {} observations",
+        "Datafile contains {} subjects with a total of {} occasions",
+        subjects.len(),
+        //TODO: again we are missing a get_obs_times function
+        // subjects.iter().map(|s| s.obs_times.len()).sum::<usize>()
+        subjects.iter().map(|s| s.occasions.len()).sum::<usize>()
     );
 
     // Spawn new thread for TUI
@@ -136,14 +136,14 @@ where
 
     // Initialize algorithm and run
     let mut algorithm =
-        initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx.clone());
+        initialize_algorithm(equation.clone(), settings.clone(), subjects, tx.clone());
     let result = algorithm.fit();
 
     // Write output files (if configured)
     if settings.config.output {
         let idelta = settings.config.idelta;
         let tad = settings.config.tad;
-        result.write_outputs(true, &engine, idelta, tad);
+        result.write_outputs(true, &equation, idelta, tad);
     }
 
     if let Some(tx) = tx {
@@ -162,18 +162,15 @@ where
 /// It does not write any output files, and does not start a TUI.
 ///
 /// Returns an NPresult object
-pub fn start_internal<S>(
-    engine: Engine<S>,
+pub fn start_internal(
+    equation: Equation,
     settings: Settings,
-    scenarios: Vec<Scenario>,
-) -> Result<NPResult>
-where
-    S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
-{
+    subjects: Vec<Subject>,
+) -> Result<NPResult> {
     let now = Instant::now();
     logger::setup_log(&settings, None);
 
-    let mut algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, None);
+    let mut algorithm = initialize_algorithm(equation, settings.clone(), subjects, None);
 
     let result = algorithm.fit();
     tracing::info!("Total time: {:.2?}", now.elapsed());

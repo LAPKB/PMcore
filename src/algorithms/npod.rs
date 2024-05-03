@@ -6,13 +6,11 @@ use crate::{
         evaluation::sigma::{ErrorPoly, ErrorType},
         ipm::burke,
         optimization::d_optimizer::SppOptimizer,
-        output::NPResult,
-        output::{CycleLog, NPCycle},
+        output::{CycleLog, NPCycle, NPResult},
         prob, qr,
         settings::Settings,
-        simulation::predict::Engine,
-        simulation::predict::{sim_obs, Predict},
     },
+    simulator::Equation,
     tui::ui::Comm,
 };
 use ndarray::parallel::prelude::*;
@@ -20,14 +18,13 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
+use super::{data::Subject, get_obspred};
+
 const THETA_D: f64 = 1e-4;
 const THETA_F: f64 = 1e-2;
 
-pub struct NPOD<S>
-where
-    S: Predict<'static> + std::marker::Sync + Clone,
-{
-    engine: Engine<S>,
+pub struct NPOD {
+    equation: Equation,
     ranges: Vec<(f64, f64)>,
     psi: Array2<f64>,
     theta: Array2<f64>,
@@ -42,22 +39,19 @@ where
     converged: bool,
     cycle_log: CycleLog,
     cache: bool,
-    scenarios: Vec<Scenario>,
+    subjects: Vec<Subject>,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
     settings: Settings,
 }
 
-impl<S> Algorithm for NPOD<S>
-where
-    S: Predict<'static> + std::marker::Sync + Clone,
-{
+impl Algorithm for NPOD {
     fn fit(&mut self) -> NPResult {
         self.run()
     }
     fn to_npresult(&self) -> NPResult {
         NPResult::new(
-            self.scenarios.clone(),
+            self.subjects.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
@@ -69,10 +63,7 @@ where
     }
 }
 
-impl<S> NPOD<S>
-where
-    S: Predict<'static> + std::marker::Sync + Clone,
-{
+impl NPOD {
     /// Creates a new NPOD instance.
     ///
     /// # Parameters
@@ -89,19 +80,16 @@ where
     ///
     /// Returns a new `NPOD` instance.
     pub fn new(
-        sim_eng: Engine<S>,
+        equation: Equation,
         ranges: Vec<(f64, f64)>,
         theta: Array2<f64>,
-        scenarios: Vec<Scenario>,
+        subjects: Vec<Subject>,
         c: (f64, f64, f64, f64),
         tx: Option<UnboundedSender<Comm>>,
         settings: Settings,
-    ) -> Self
-    where
-        S: Predict<'static> + std::marker::Sync,
-    {
+    ) -> Self {
         Self {
-            engine: sim_eng,
+            equation,
             ranges,
             psi: Array2::default((0, 0)),
             theta,
@@ -122,7 +110,7 @@ where
             cache: settings.config.cache,
             tx,
             settings,
-            scenarios,
+            subjects,
             c,
         }
     }
@@ -132,25 +120,18 @@ where
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
-        let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, self.cache);
-        let psi_up = prob::calculate_psi(
-            &ypred,
-            &self.scenarios,
-            &ErrorPoly {
-                c: self.c,
-                gl: gamma_up,
-                e_type: &self.error_type,
-            },
-        );
-        let psi_down = prob::calculate_psi(
-            &ypred,
-            &self.scenarios,
-            &ErrorPoly {
-                c: self.c,
-                gl: gamma_down,
-                e_type: &self.error_type,
-            },
-        );
+        let obs_pred = get_obspred(&self.equation, &self.subjects, &self.theta, self.cache);
+
+        let psi_up = obs_pred.likelihood(&ErrorPoly {
+            c: self.c,
+            gl: gamma_up,
+            e_type: &self.error_type,
+        });
+        let psi_down = obs_pred.likelihood(&ErrorPoly {
+            c: self.c,
+            gl: gamma_down,
+            e_type: &self.error_type,
+        });
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
@@ -191,17 +172,13 @@ where
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
-            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
+            let obs_pred = get_obspred(&self.equation, &self.subjects, &self.theta, cache);
 
-            self.psi = prob::calculate_psi(
-                &ypred,
-                &self.scenarios,
-                &ErrorPoly {
-                    c: self.c,
-                    gl: self.gamma,
-                    e_type: &self.error_type,
-                },
-            );
+            self.psi = obs_pred.likelihood(&ErrorPoly {
+                c: self.c,
+                gl: self.gamma,
+                e_type: &self.error_type,
+            });
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
@@ -291,7 +268,8 @@ where
                 candididate_points.push(spp.to_owned());
             }
             candididate_points.par_iter_mut().for_each(|spp| {
-                let optimizer = SppOptimizer::new(&self.engine, &self.scenarios, &sigma, &pyl);
+                let optimizer =
+                    SppOptimizer::new(self.equation.clone(), &self.subjects, &sigma, &pyl);
                 let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
                 *spp = candidate_point;
             });

@@ -156,23 +156,24 @@ impl<'a> Predict<'a> for Ode {
 }
 
 fn main() -> Result<()> {
-    const DATA_PATH: &str = "examples/data/two_eq_lag.csv";
-    let data = parse(&DATA_PATH.to_string()).unwrap();
-    let first_scenario = data.first().unwrap();
-    let engine = Engine::new(Ode {});
-    let params = vec![
-        0.48245882034301757,
-        0.022712449789047243,
-        0.5903420448303222,
-        71.28352475166321,
-    ];
-    dbg!(engine.pred(first_scenario.clone(), params));
+    unimplemented!();
+    // const DATA_PATH: &str = "examples/data/two_eq_lag.csv";
+    // let data = parse(&DATA_PATH.to_string()).unwrap();
+    // let first_scenario = data.first().unwrap();
+    // let engine = Engine::new(Ode {});
+    // let params = vec![
+    //     0.48245882034301757,
+    //     0.022712449789047243,
+    //     0.5903420448303222,
+    //     71.28352475166321,
+    // ];
+    // dbg!(engine.pred(first_scenario.clone(), params));
 
-    // Main entrypoint, see `entrypoints.rs` for more details
-    // let _result = start(
-    //     Engine::new(Ode {}),
-    //     "examples/two_eq_lag/config.toml".to_string(),
-    // )?;
+    // // Main entrypoint, see `entrypoints.rs` for more details
+    // // let _result = start(
+    // //     Engine::new(Ode {}),
+    // //     "examples/two_eq_lag/config.toml".to_string(),
+    // // )?;
 
-    Ok(())
+    // Ok(())
 }

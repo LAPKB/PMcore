@@ -11,7 +11,7 @@ const DATA_PATH: &str = "examples/data/two_eq_lag.csv";
 fn main() {
     let data = read_pmetrics(Path::new(DATA_PATH)).unwrap();
     let subjects = data.get_subjects();
-    let first_subject = *subjects.first().unwrap();
+    let first_subject = subjects.first().unwrap();
 
     let data = parse(&DATA_PATH.to_string()).unwrap();
     let first_scenario = data.first().unwrap();
@@ -23,8 +23,6 @@ fn main() {
         // 0.5903420448303222,   //tlag
         0.0,
     ];
-
-    let first_scenario = &first_scenario.reorder_with_lag(vec![(spp[3], 0)]);
 
     let diffsol = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
@@ -69,7 +67,7 @@ fn main() {
         },
         |p| {
             fetch_params!(p, _ke, _ka, _v, tlag);
-            lag! {0=>{tlag}}
+            lag! {0=>tlag}
         },
         |_p| fa! {},
         |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
@@ -79,11 +77,11 @@ fn main() {
         },
     );
 
-    let sim_diffsol_new = diffsol.simulate_subject(first_subject, &spp);
+    let sim_diffsol_new = diffsol.simulate_subject(&first_subject, &spp);
     let sim_diffsol_old = diffsol.simulate_scenario(first_scenario, &spp);
-    let sim_ode_solvers_new = ode_solvers.simulate_subject(first_subject, &spp);
+    let sim_ode_solvers_new = ode_solvers.simulate_subject(&first_subject, &spp);
     let sim_ode_solvers_old = ode_solvers.simulate_scenario(first_scenario, &spp);
-    let sim_analytical_new = analytical.simulate_subject(first_subject, &spp);
+    let sim_analytical_new = analytical.simulate_subject(&first_subject, &spp);
     let sim_analytical_old = analytical.simulate_scenario(first_scenario, &spp);
 
     sim_diffsol_new
@@ -96,11 +94,11 @@ fn main() {
         .for_each(|(((((dsn, dso), an), ao), osn), oso)| {
             println!("Old Simulator: ");
             println!("  diffsol : {}", dso);
-            println!("  ods_sol : {}", oso);
+            println!("  oso_sol : {}", oso);
             println!("  analytic: {}", ao);
             println!("New Simulator: ");
             println!("  diffsol : {}", dsn);
-            println!("  ods_sol : {}", osn);
+            println!("  osn_sol : {}", osn);
             println!("  analytic: {}", an);
             println!("=======================");
         })

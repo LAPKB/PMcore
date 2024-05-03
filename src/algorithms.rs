@@ -1,9 +1,10 @@
 use crate::prelude::{self, settings::Settings};
 
 use output::NPResult;
-use prelude::{datafile::Scenario, *};
-use simulation::predict::{Engine, Predict};
+use prelude::*;
 use tokio::sync::mpsc;
+
+use self::{data::Subject, simulator::Equation};
 
 mod npag;
 mod npod;
@@ -14,15 +15,12 @@ pub trait Algorithm {
     fn to_npresult(&self) -> NPResult;
 }
 
-pub fn initialize_algorithm<S>(
-    engine: Engine<S>,
+pub fn initialize_algorithm(
+    equation: Equation,
     settings: Settings,
-    scenarios: Vec<Scenario>,
+    subjects: Vec<Subject>,
     tx: Option<mpsc::UnboundedSender<Comm>>,
-) -> Box<dyn Algorithm>
-where
-    S: Predict<'static> + std::marker::Sync + Clone + 'static,
-{
+) -> Box<dyn Algorithm> {
     if std::path::Path::new("stop").exists() {
         match std::fs::remove_file("stop") {
             Ok(_) => tracing::info!("Removed previous stop file"),
@@ -35,27 +33,27 @@ where
     //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
     match settings.config.engine.as_str() {
         "NPAG" => Box::new(npag::NPAG::new(
-            engine,
+            equation,
             ranges,
             theta,
-            scenarios,
+            subjects,
             settings.error.poly,
             tx,
             settings,
         )),
         "NPOD" => Box::new(npod::NPOD::new(
-            engine,
+            equation,
             ranges,
             theta,
-            scenarios,
+            subjects,
             settings.error.poly,
             tx,
             settings,
         )),
         "POSTPROB" => Box::new(postprob::POSTPROB::new(
-            engine,
+            equation,
             theta,
-            scenarios,
+            subjects,
             settings.error.poly,
             tx,
             settings,

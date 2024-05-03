@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt};
 pub mod parse_pmetrics;
 
 pub trait DataTrait {
-    fn get_subjects(&self) -> Vec<&Subject>;
+    fn get_subjects(&self) -> Vec<Subject>;
     /// Returns the number of subjects in the dataset
     fn nsubjects(&self) -> usize;
     /// Returns the number of observations in the dataset
@@ -419,8 +419,8 @@ impl fmt::Display for Data {
 }
 
 impl DataTrait for Data {
-    fn get_subjects(&self) -> Vec<&Subject> {
-        self.subjects.iter().collect()
+    fn get_subjects(&self) -> Vec<Subject> {
+        self.subjects.clone()
     }
 
     /// Returns the number of subjects in the data

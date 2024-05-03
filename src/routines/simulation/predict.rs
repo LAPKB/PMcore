@@ -1,6 +1,10 @@
+use crate::routines::data::Subject;
 use crate::routines::datafile::CovLine;
 use crate::routines::datafile::Infusion;
 use crate::routines::datafile::Scenario;
+use crate::routines::evaluation::sigma::ErrorPoly;
+use crate::simulator::likelihood::IndObsPred;
+use crate::simulator::Equation;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
@@ -11,6 +15,14 @@ use ndarray::{Array, Array2, Axis};
 use std::collections::HashMap;
 use std::error;
 use std::hash::{Hash, Hasher};
+
+pub struct ObsPred(Array2<Array1<IndObsPred>>);
+
+impl ObsPred {
+    pub fn likelihood(&self, error_poly: &ErrorPoly) -> Array2<f64> {
+        unimplemented!();
+    }
+}
 
 /// Number of support points to cache for each scenario
 const CACHE_SIZE: usize = 1000;
@@ -125,7 +137,7 @@ lazy_static! {
         DashMap::with_capacity(CACHE_SIZE); // Adjust cache size as needed
 }
 
-pub fn get_ypred<S: Predict<'static> + Sync + Clone>(
+fn get_ypred<S: Predict<'static> + Sync + Clone>(
     sim_eng: &Engine<S>,
     scenario: Scenario,
     support_point: Vec<f64>,
@@ -181,17 +193,13 @@ pub fn get_ypred<S: Predict<'static> + Sync + Clone>(
 /// Note: This function allows for optional caching of predicted values, which can improve
 /// performance when simulating observations for multiple scenarios.
 ///
-pub fn sim_obs<S>(
-    sim_eng: &Engine<S>,
-    scenarios: &Vec<Scenario>,
+pub fn get_obspred(
+    equation: &Equation,
+    subjects: &Vec<Subject>,
     support_points: &Array2<f64>,
     cache: bool,
-) -> Array2<Array1<f64>>
-where
-    S: Predict<'static> + Sync + Clone,
-{
-    let mut pred: Array2<Array1<f64>> =
-        Array2::default((scenarios.len(), support_points.nrows()).f());
+) -> ObsPred {
+    let mut pred = Array2::default((subjects.len(), support_points.nrows()).f());
     pred.axis_iter_mut(Axis(0))
         .into_par_iter()
         .enumerate()
@@ -200,32 +208,23 @@ where
                 .into_par_iter()
                 .enumerate()
                 .for_each(|(j, mut element)| {
-                    let scenario = scenarios.get(i).unwrap();
-                    let ypred = get_ypred(
-                        sim_eng,
-                        scenario.clone(),
-                        support_points.row(j).to_vec(),
-                        i,
-                        cache,
-                    );
-                    element.fill(ypred);
+                    let subject = subjects.get(i).unwrap();
+                    let ypred =
+                        equation.simulate_subject(subject, support_points.row(j).to_vec().as_ref());
+                    element.fill(Array1::from_vec(ypred));
                 });
         });
-    pred
+    ObsPred(pred)
 }
 
-pub fn simple_sim<S>(
-    sim_eng: &Engine<S>,
-    scenario: Scenario,
-    support_point: &Array1<f64>,
-) -> Vec<f64>
+fn simple_sim<S>(sim_eng: &Engine<S>, scenario: Scenario, support_point: &Array1<f64>) -> Vec<f64>
 where
     S: Predict<'static> + Sync + Clone,
 {
     sim_eng.pred(scenario, support_point.to_vec())
 }
 
-pub fn post_predictions<S>(
+fn post_predictions<S>(
     sim_engine: &Engine<S>,
     post: Array2<f64>,
     scenarios: &Vec<Scenario>,

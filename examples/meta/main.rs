@@ -176,6 +176,7 @@ impl<'a> Predict<'a> for Ode {
 }
 
 fn main() -> Result<()> {
-    start(Engine::new(Ode {}), "examples/meta/config.toml".to_string())?;
-    Ok(())
+    unimplemented!();
+    // start(Engine::new(Ode {}), "examples/meta/config.toml".to_string())?;
+    // Ok(())
 }

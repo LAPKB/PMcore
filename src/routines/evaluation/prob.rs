@@ -9,11 +9,7 @@ const FRAC_1_SQRT_2PI: f64 =
     std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / 2.0;
 
 /// Calculate the Ψ (psi) matrix, which contains the likelihood of each support point (column) for each subject (row)
-pub fn calculate_psi<S>(
-    ypred: &Array2<Array1<f64>>,
-    scenarios: &Vec<Scenario>,
-    sig: &S,
-) -> Array2<f64>
+fn calculate_psi<S>(ypred: &Array2<Array1<f64>>, scenarios: &Vec<Scenario>, sig: &S) -> Array2<f64>
 where
     S: Sigma + Sync,
 {

@@ -7,10 +7,10 @@ use std::collections::HashMap;
 use crate::{
     prelude::data::Event,
     routines::{
-        data::{Covariates, Infusion, OccasionTrait, SubjectTrait},
+        data::{Covariates, Infusion, OccasionTrait, Subject, SubjectTrait},
         datafile::Scenario,
     },
-    simulator::likelihood::{ObsPred, ToObsPred},
+    simulator::likelihood::{IndObsPred, ToIndObsPred},
 };
 // use diffsol::vector::Vector;
 
@@ -29,6 +29,7 @@ pub type SecEq = fn(&mut V, &Covariates);
 pub type Lag = fn(&V) -> HashMap<usize, T>;
 pub type Fa = fn(&V) -> HashMap<usize, T>;
 
+#[derive(Debug, Clone)]
 pub enum Equation {
     OdeSolvers(DiffEq, Lag, Fa, Init, Out),
     ODE(DiffEq, Lag, Fa, Init, Out),
@@ -55,7 +56,11 @@ impl Equation {
         Equation::OdeSolvers(diffeq, lag, fa, init, out)
     }
 
-    pub fn simulate_scenario(&self, scenario: &Scenario, support_point: &Vec<f64>) -> Vec<ObsPred> {
+    pub fn simulate_scenario(
+        &self,
+        scenario: &Scenario,
+        support_point: &Vec<f64>,
+    ) -> Vec<IndObsPred> {
         let init = self.get_init();
         let out = self.get_out();
         let covariates = Covariates::new();
@@ -99,7 +104,7 @@ impl Equation {
                     )[event.outeq.unwrap() - 1];
                     // .get(event.outeq.unwrap() - 1)
                     // .unwrap();
-                    yout.push(ObsPred {
+                    yout.push(IndObsPred {
                         time: event.time,
                         observation: event.out.unwrap(),
                         prediction: pred,
@@ -123,11 +128,7 @@ impl Equation {
         yout
     }
 
-    pub fn simulate_subject(
-        &self,
-        subject: &impl SubjectTrait,
-        support_point: &Vec<f64>,
-    ) -> Vec<ObsPred> {
+    pub fn simulate_subject(&self, subject: &Subject, support_point: &Vec<f64>) -> Vec<IndObsPred> {
         let init = self.get_init();
         let out = self.get_out();
         let lag = self.get_lag(support_point);
@@ -139,7 +140,8 @@ impl Equation {
             let mut x = get_first_state(init, support_point, &covariates);
             let mut infusions: Vec<Infusion> = vec![];
             let mut index = 0;
-            for event in &occasion.get_events(Some(&lag), Some(&fa), true) {
+            let events = occasion.get_events(Some(&lag), Some(&fa), true);
+            for event in &events {
                 match event {
                     Event::Bolus(bolus) => {
                         x[bolus.input] += bolus.amount;
@@ -159,7 +161,7 @@ impl Equation {
                     }
                 }
 
-                if let Some(next_event) = occasion.events.get(index + 1) {
+                if let Some(next_event) = events.get(index + 1) {
                     x = self.simulate_event(
                         x,
                         support_point,

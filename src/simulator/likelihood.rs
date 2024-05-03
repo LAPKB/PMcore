@@ -1,8 +1,8 @@
 use crate::routines::data::Observation;
 
-/// ObsPred holds an observation and its prediction
-#[derive(Debug)]
-pub struct ObsPred {
+/// IndObsPred holds an observation and its prediction
+#[derive(Debug, Clone)]
+pub struct IndObsPred {
     pub time: f64,
     pub observation: f64,
     pub prediction: f64,
@@ -10,13 +10,13 @@ pub struct ObsPred {
     pub errorpoly: Option<(f64, f64, f64, f64)>,
 }
 
-pub trait ToObsPred {
-    fn to_obs_pred(&self, pred: f64) -> ObsPred;
+pub trait ToIndObsPred {
+    fn to_obs_pred(&self, pred: f64) -> IndObsPred;
 }
 
-impl ToObsPred for Observation {
-    fn to_obs_pred(&self, pred: f64) -> ObsPred {
-        ObsPred {
+impl ToIndObsPred for Observation {
+    fn to_obs_pred(&self, pred: f64) -> IndObsPred {
+        IndObsPred {
             time: self.time,
             observation: self.value,
             prediction: pred,
@@ -26,8 +26,20 @@ impl ToObsPred for Observation {
     }
 }
 
-// Implement display for Obspred
-impl std::fmt::Display for ObsPred {
+impl Default for IndObsPred {
+    fn default() -> Self {
+        Self {
+            time: 0.0,
+            observation: 0.0,
+            prediction: 0.0,
+            outeq: 0,
+            errorpoly: None,
+        }
+    }
+}
+
+// Implement display for IndObsPred
+impl std::fmt::Display for IndObsPred {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,

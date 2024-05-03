@@ -112,11 +112,12 @@ impl<'a> Predict<'a> for Ode {
 }
 
 fn main() -> Result<()> {
-    // Main entrypoint, see `entrypoints.rs` for more details
-    let _result = start(
-        Engine::new(Ode {}),
-        "examples/bimodal_ke/config.toml".to_string(),
-    )?;
+    unimplemented!();
+    // // Main entrypoint, see `entrypoints.rs` for more details
+    // let _result = start(
+    //     Engine::new(Ode {}),
+    //     "examples/bimodal_ke/config.toml".to_string(),
+    // )?;
 
-    Ok(())
+    // Ok(())
 }

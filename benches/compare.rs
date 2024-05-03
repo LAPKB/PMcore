@@ -40,16 +40,7 @@ fn main() -> std::io::Result<()> {
 }
 
 pub fn baseline(bencher: Bencher, len: usize) {
-    let engine = Engine::new(Ode {
-        // diffeq: |x, p, _t, dx, rateiv, _cov| {
-        //     //fetch_cov!(cov, t, creat);
-        //     // fetch_params!(p, ke, ka, _v);
-        //     let ke = p[0];
-        //     let ka = p[1];
-        //     dx[0] = -ka * x[0];
-        //     dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
-        // },
-    });
+    let engine = Engine::new(Ode {});
     let data = parse(&PATH.to_string()).unwrap();
     let scenario = data.first().unwrap();
     let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
@@ -63,7 +54,7 @@ pub fn baseline(bencher: Bencher, len: usize) {
 pub fn analytical_ns(bencher: Bencher, len: usize) {
     let data = read_pmetrics(Path::new(PATH)).unwrap();
     let subjects = data.get_subjects();
-    let first_subject = *subjects.first().unwrap();
+    let first_subject = subjects.first().unwrap();
 
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
@@ -81,7 +72,7 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(analytical.simulate_subject(first_subject, &SPP.to_vec()));
+            black_box(analytical.simulate_subject(&first_subject, &SPP.to_vec()));
         }
     });
 }
@@ -113,7 +104,7 @@ pub fn analytical_os(bencher: Bencher, len: usize) {
 pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
     let data = read_pmetrics(Path::new(PATH)).unwrap();
     let subjects = data.get_subjects();
-    let first_subject = *subjects.first().unwrap();
+    let first_subject = subjects.first().unwrap();
 
     let ode = Equation::new_ode_solvers(
         |x, p, _t, dx, rateiv, _cov| {
@@ -134,7 +125,7 @@ pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(ode.simulate_subject(first_subject, &SPP.to_vec()));
+            black_box(ode.simulate_subject(&first_subject, &SPP.to_vec()));
         }
     });
 }
@@ -169,7 +160,7 @@ pub fn ode_solvers_os(bencher: Bencher, len: usize) {
 pub fn diffsol_ns(bencher: Bencher, len: usize) {
     let data = read_pmetrics(Path::new(PATH)).unwrap();
     let subjects = data.get_subjects();
-    let first_subject = *subjects.first().unwrap();
+    let first_subject = subjects.first().unwrap();
 
     let ode = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
@@ -190,7 +181,7 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(ode.simulate_subject(first_subject, &SPP.to_vec()));
+            black_box(ode.simulate_subject(&first_subject, &SPP.to_vec()));
         }
     });
 }
