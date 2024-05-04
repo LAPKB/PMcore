@@ -12,27 +12,21 @@ pub struct SubjectPredictions {
     predictions: Vec<Prediction>,
     flat_predictions: Array1<f64>,
     flat_observations: Array1<f64>,
-    flat_sigma: Option<Array1<f64>>,
 }
 impl SubjectPredictions {
     pub fn get_predictions(&self) -> &Vec<Prediction> {
         &self.predictions
     }
-    pub fn add_error_model(&mut self, error_model: &ErrorModel) {
-        self.flat_sigma = Some(
-            self.predictions
-                .iter()
-                .map(|p| error_model.estimate_sigma(p))
-                .collect(),
-        );
-    }
 
-    fn subject_likelihood(&self) -> f64 {
-        if let Some(error_model) = &self.flat_sigma {
-            normal_likelihood(&self.flat_predictions, &self.flat_observations, error_model)
-        } else {
-            panic!("Error model not set")
-        }
+    fn subject_likelihood(&self, error_model: &ErrorModel) -> f64 {
+        //TODO: This sigma should not be calculated here, we should precalculate it and inject it into the struct
+        let sigma: Array1<f64> = self
+            .predictions
+            .iter()
+            .map(|p| error_model.estimate_sigma(p))
+            .collect();
+
+        normal_likelihood(&self.flat_predictions, &self.flat_observations, &sigma)
     }
 }
 pub fn normal_likelihood(
@@ -53,7 +47,6 @@ impl From<Vec<Prediction>> for SubjectPredictions {
             flat_predictions: predictions.iter().map(|p| p.prediction).collect(),
             flat_observations: predictions.iter().map(|p| p.observation).collect(),
             predictions: predictions,
-            flat_sigma: None,
         }
     }
 }
@@ -80,7 +73,7 @@ impl PopulationPredictions {
                             self.subject_predictions
                                 .get((i, j))
                                 .unwrap()
-                                .subject_likelihood(),
+                                .subject_likelihood(ep),
                         );
                     })
             });
