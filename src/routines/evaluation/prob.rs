@@ -3,16 +3,18 @@ use datafile::Scenario;
 use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
 use ndarray::{Array, Array2};
-use sigma::Sigma;
+
+use self::sigma::ErrorModel;
 
 const FRAC_1_SQRT_2PI: f64 =
     std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / 2.0;
 
 /// Calculate the Ψ (psi) matrix, which contains the likelihood of each support point (column) for each subject (row)
-fn calculate_psi<S>(ypred: &Array2<Array1<f64>>, scenarios: &Vec<Scenario>, sig: &S) -> Array2<f64>
-where
-    S: Sigma + Sync,
-{
+fn calculate_psi(
+    ypred: &Array2<Array1<f64>>,
+    scenarios: &Vec<Scenario>,
+    sig: &ErrorModel,
+) -> Array2<f64> {
     let mut prob = Array2::<f64>::zeros((scenarios.len(), ypred.ncols()).f());
     // let mut prob2 = Array2::from_elem((3, 4), (0usize, 0usize, 0.0f64));
     prob.axis_iter_mut(Axis(0))

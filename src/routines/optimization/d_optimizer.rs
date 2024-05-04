@@ -8,18 +8,16 @@ use crate::{
     routines::{
         data::Subject,
         datafile::Scenario,
-        evaluation::sigma::ErrorPoly,
+        evaluation::sigma::ErrorModel,
         simulation::predict::{get_population_predictions, Predict},
     },
     simulator::Equation,
 };
 
-use crate::prelude::{prob, sigma::Sigma};
-
 pub struct SppOptimizer<'a> {
     equation: Equation,
     subjects: &'a Vec<Subject>,
-    sig: &'a ErrorPoly<'a>,
+    sig: &'a ErrorModel<'a>,
     pyl: &'a Array1<f64>,
 }
 
@@ -55,7 +53,7 @@ impl<'a> SppOptimizer<'a> {
     pub fn new(
         equation: Equation,
         subjects: &'a Vec<Subject>,
-        sig: &'a ErrorPoly,
+        sig: &'a ErrorModel,
         pyl: &'a Array1<f64>,
     ) -> Self {
         Self {

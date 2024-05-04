@@ -3,7 +3,7 @@ use crate::{
         algorithms::Algorithm,
         condensation::prune::prune,
         datafile::Scenario,
-        evaluation::sigma::{ErrorPoly, ErrorType},
+        evaluation::sigma::{ErrorModel, ErrorType},
         ipm::burke,
         optimization::d_optimizer::SppOptimizer,
         output::{CycleLog, NPCycle, NPResult},
@@ -123,12 +123,12 @@ impl NPOD {
         let obs_pred =
             get_population_predictions(&self.equation, &self.subjects, &self.theta, self.cache);
 
-        let psi_up = obs_pred.get_psi(&ErrorPoly {
+        let psi_up = obs_pred.get_psi(&ErrorModel {
             c: self.c,
             gl: gamma_up,
             e_type: &self.error_type,
         });
-        let psi_down = obs_pred.get_psi(&ErrorPoly {
+        let psi_down = obs_pred.get_psi(&ErrorModel {
             c: self.c,
             gl: gamma_down,
             e_type: &self.error_type,
@@ -173,14 +173,16 @@ impl NPOD {
             // log::info!("Cycle: {}", cycle);
             // psi n_sub rows, nspp columns
             let cache = if self.cycle == 1 { false } else { self.cache };
-            let obs_pred =
-                get_population_predictions(&self.equation, &self.subjects, &self.theta, cache);
+            {
+                let obs_pred =
+                    get_population_predictions(&self.equation, &self.subjects, &self.theta, cache);
 
-            self.psi = obs_pred.get_psi(&ErrorPoly {
-                c: self.c,
-                gl: self.gamma,
-                e_type: &self.error_type,
-            });
+                self.psi = obs_pred.get_psi(&ErrorModel {
+                    c: self.c,
+                    gl: self.gamma,
+                    e_type: &self.error_type,
+                });
+            }
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
@@ -255,7 +257,7 @@ impl NPOD {
             let pyl = self.psi.dot(&self.w);
 
             // Add new point to theta based on the optimization of the D function
-            let sigma = ErrorPoly {
+            let sigma = ErrorModel {
                 c: self.c,
                 gl: self.gamma,
                 e_type: &self.error_type,

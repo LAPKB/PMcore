@@ -2,7 +2,7 @@ use crate::routines::data::Subject;
 use crate::routines::datafile::CovLine;
 use crate::routines::datafile::Infusion;
 use crate::routines::datafile::Scenario;
-use crate::routines::evaluation::sigma::ErrorPoly;
+use crate::routines::evaluation::sigma::ErrorModel;
 use crate::simulator::likelihood::PopulationPredictions;
 use crate::simulator::likelihood::Prediction;
 use crate::simulator::Equation;
@@ -186,8 +186,8 @@ fn get_ypred<S: Predict<'static> + Sync + Clone>(
 /// Note: This function allows for optional caching of predicted values, which can improve
 /// performance when simulating observations for multiple scenarios.
 ///
-pub fn get_population_predictions(
-    equation: &Equation,
+pub fn get_population_predictions<'a>(
+    equation: &'a Equation,
     subjects: &Vec<Subject>,
     support_points: &Array2<f64>,
     cache: bool,

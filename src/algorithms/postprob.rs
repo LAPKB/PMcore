@@ -2,7 +2,7 @@ use crate::{
     prelude::{
         algorithms::Algorithm,
         datafile::Scenario,
-        evaluation::sigma::{ErrorPoly, ErrorType},
+        evaluation::sigma::{ErrorModel, ErrorType},
         ipm_faer::burke,
         output::NPResult,
         prob,
@@ -88,7 +88,7 @@ impl POSTPROB {
         let obs_pred =
             get_population_predictions(&self.equation, &self.subjects, &self.theta, false);
 
-        self.psi = obs_pred.get_psi(&ErrorPoly {
+        self.psi = obs_pred.get_psi(&ErrorModel {
             c: self.c,
             gl: self.gamma,
             e_type: &self.error_type,

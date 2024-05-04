@@ -1,20 +1,59 @@
-use ndarray::Array2;
+use crate::routines::{
+    data::Observation,
+    evaluation::sigma::{ErrorModel, ErrorType},
+};
 
-use crate::routines::{data::Observation, evaluation::sigma::ErrorPoly};
+use faer::utils::constrained::Array;
+use ndarray::{Array1, Array2, Axis};
+use rayon::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct SubjectPredictions {
     predictions: Vec<Prediction>,
+    flat_predictions: Array1<f64>,
+    flat_observations: Array1<f64>,
+    flat_sigma: Option<Array1<f64>>,
 }
 impl SubjectPredictions {
     pub fn get_predictions(&self) -> &Vec<Prediction> {
         &self.predictions
     }
+    pub fn add_error_model(&mut self, error_model: &ErrorModel) {
+        self.flat_sigma = Some(
+            self.predictions
+                .iter()
+                .map(|p| error_model.estimate_sigma(p))
+                .collect(),
+        );
+    }
+
+    fn subject_likelihood(&self) -> f64 {
+        if let Some(error_model) = &self.flat_sigma {
+            normal_likelihood(&self.flat_predictions, &self.flat_observations, error_model)
+        } else {
+            panic!("Error model not set")
+        }
+    }
+}
+pub fn normal_likelihood(
+    predictions: &Array1<f64>,
+    observations: &Array1<f64>,
+    sigma: &Array1<f64>,
+) -> f64 {
+    const FRAC_1_SQRT_2PI: f64 =
+        std::f64::consts::FRAC_2_SQRT_PI * std::f64::consts::FRAC_1_SQRT_2 / 2.0;
+    let diff = (observations - predictions).mapv(|x| x.powi(2));
+    let two_sigma_sq = (2.0 * sigma).mapv(|x| x.powi(2));
+    let aux_vec = FRAC_1_SQRT_2PI * (-&diff / two_sigma_sq).mapv(|x| x.exp()) / sigma;
+    aux_vec.product()
 }
 impl From<Vec<Prediction>> for SubjectPredictions {
     fn from(predictions: Vec<Prediction>) -> Self {
         Self {
+            flat_predictions: predictions.iter().map(|p| p.prediction).collect(),
+            flat_observations: predictions.iter().map(|p| p.observation).collect(),
             predictions: predictions,
+            flat_sigma: None,
         }
     }
 }
@@ -24,8 +63,28 @@ pub struct PopulationPredictions {
 }
 
 impl PopulationPredictions {
-    pub fn get_psi(&self, ep: &ErrorPoly) -> Array2<f64> {
-        unimplemented!()
+    pub fn get_psi(&self, ep: &ErrorModel) -> Array2<f64> {
+        let mut psi = Array2::zeros((
+            self.subject_predictions.nrows(),
+            self.subject_predictions.ncols(),
+        ));
+        psi.axis_iter_mut(Axis(0))
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, mut row)| {
+                row.axis_iter_mut(Axis(0))
+                    .into_par_iter()
+                    .enumerate()
+                    .for_each(|(j, mut element)| {
+                        element.fill(
+                            self.subject_predictions
+                                .get((i, j))
+                                .unwrap()
+                                .subject_likelihood(),
+                        );
+                    })
+            });
+        psi
     }
 }
 
@@ -45,12 +104,6 @@ pub struct Prediction {
     pub prediction: f64,
     pub outeq: usize,
     pub errorpoly: Option<(f64, f64, f64, f64)>,
-}
-
-impl Prediction {
-    pub fn likelihood(&self, ep: &ErrorPoly) -> f64 {
-        unimplemented!()
-    }
 }
 
 pub trait ToPrediction {
@@ -89,5 +142,37 @@ impl std::fmt::Display for Prediction {
             "Time: {:.2}\tObs: {:.4}\tPred: {:.15}\tOuteq: {:.2}",
             self.time, self.observation, self.prediction, self.outeq
         )
+    }
+}
+
+trait SigmaEstimator {
+    fn estimate_sigma(&self, prediction: &Prediction) -> f64;
+}
+
+impl<'a> SigmaEstimator for ErrorModel<'_> {
+    fn estimate_sigma(&self, prediction: &Prediction) -> f64 {
+        let (c0, c1, c2, c3) = match prediction.errorpoly {
+            Some((c0, c1, c2, c3)) => (c0, c1, c2, c3),
+            None => (self.c.0, self.c.1, self.c.2, self.c.3),
+        };
+        let alpha = c0
+            + c1 * prediction.prediction
+            + c2 * prediction.prediction.powi(2)
+            + c3 * prediction.prediction.powi(3);
+
+        let res = match self.e_type {
+            ErrorType::Add => (alpha.powi(2) + self.gl.powi(2)).sqrt(),
+            ErrorType::Prop => self.gl * alpha,
+        };
+
+        if res.is_nan() || res < 0.0 {
+            tracing::error!(
+                "The computed standard deviation is either NaN or negative (SD = {}), coercing to 0",
+                res
+            );
+            0.0
+        } else {
+            res
+        }
     }
 }

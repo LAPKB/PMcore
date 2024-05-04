@@ -2,14 +2,14 @@
 // use argmin::core::CostFunction;
 // use datafile::Scenario;
 // use ndarray::{Array1, Array2};
-// use sigma::ErrorPoly;
+// use sigma::ErrorModel;
 
 // use self::simulator::likelihood::SubjectPredictions;
 
 // struct GamLam<'a> {
 //     prediction: &'a SubjectPredictions,
 //     scenarios: &'a Vec<Scenario>,
-//     ep: ErrorPoly<'a>,
+//     ep: ErrorModel<'a>,
 // }
 
 // impl<'a> CostFunction for GamLam<'a> {
