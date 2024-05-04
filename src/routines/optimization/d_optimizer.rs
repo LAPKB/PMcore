@@ -9,7 +9,7 @@ use crate::{
         data::Subject,
         datafile::Scenario,
         evaluation::sigma::ErrorPoly,
-        simulation::predict::{get_obspred, Predict},
+        simulation::predict::{get_population_predictions, Predict},
     },
     simulator::Equation,
 };
@@ -28,9 +28,9 @@ impl<'a> CostFunction for SppOptimizer<'a> {
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = spp.to_owned().insert_axis(Axis(0));
-        let obs_pred = get_obspred(&self.equation, &self.subjects, &theta, true);
+        let obs_pred = get_population_predictions(&self.equation, &self.subjects, &theta, true);
 
-        let psi = obs_pred.likelihood(self.sig);
+        let psi = obs_pred.get_psi(self.sig);
 
         if psi.ncols() > 1 {
             tracing::error!("Psi in SppOptimizer has more than one column");

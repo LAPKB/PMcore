@@ -3,7 +3,8 @@ use crate::routines::datafile::CovLine;
 use crate::routines::datafile::Infusion;
 use crate::routines::datafile::Scenario;
 use crate::routines::evaluation::sigma::ErrorPoly;
-use crate::simulator::likelihood::IndObsPred;
+use crate::simulator::likelihood::PopulationPredictions;
+use crate::simulator::likelihood::Prediction;
 use crate::simulator::Equation;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
@@ -15,14 +16,6 @@ use ndarray::{Array, Array2, Axis};
 use std::collections::HashMap;
 use std::error;
 use std::hash::{Hash, Hasher};
-
-pub struct ObsPred(Array2<Array1<IndObsPred>>);
-
-impl ObsPred {
-    pub fn likelihood(&self, error_poly: &ErrorPoly) -> Array2<f64> {
-        unimplemented!();
-    }
-}
 
 /// Number of support points to cache for each scenario
 const CACHE_SIZE: usize = 1000;
@@ -193,12 +186,12 @@ fn get_ypred<S: Predict<'static> + Sync + Clone>(
 /// Note: This function allows for optional caching of predicted values, which can improve
 /// performance when simulating observations for multiple scenarios.
 ///
-pub fn get_obspred(
+pub fn get_population_predictions(
     equation: &Equation,
     subjects: &Vec<Subject>,
     support_points: &Array2<f64>,
     cache: bool,
-) -> ObsPred {
+) -> PopulationPredictions {
     let mut pred = Array2::default((subjects.len(), support_points.nrows()).f());
     pred.axis_iter_mut(Axis(0))
         .into_par_iter()
@@ -211,10 +204,10 @@ pub fn get_obspred(
                     let subject = subjects.get(i).unwrap();
                     let ypred =
                         equation.simulate_subject(subject, support_points.row(j).to_vec().as_ref());
-                    element.fill(Array1::from_vec(ypred));
+                    element.fill(ypred);
                 });
         });
-    ObsPred(pred)
+    pred.into()
 }
 
 fn simple_sim<S>(sim_eng: &Engine<S>, scenario: Scenario, support_point: &Array1<f64>) -> Vec<f64>

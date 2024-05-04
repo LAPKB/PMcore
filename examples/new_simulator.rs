@@ -85,12 +85,13 @@ fn main() {
     let sim_analytical_old = analytical.simulate_scenario(first_scenario, &spp);
 
     sim_diffsol_new
+        .get_predictions()
         .iter()
-        .zip(&sim_diffsol_old)
-        .zip(&sim_analytical_new)
-        .zip(&sim_analytical_old)
-        .zip(&sim_ode_solvers_new)
-        .zip(&sim_ode_solvers_old)
+        .zip(sim_diffsol_old.get_predictions())
+        .zip(sim_analytical_new.get_predictions())
+        .zip(sim_analytical_old.get_predictions())
+        .zip(sim_ode_solvers_new.get_predictions())
+        .zip(sim_ode_solvers_old.get_predictions())
         .for_each(|(((((dsn, dso), an), ao), osn), oso)| {
             println!("Old Simulator: ");
             println!("  diffsol : {}", dso);

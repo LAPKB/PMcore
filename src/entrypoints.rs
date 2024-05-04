@@ -17,7 +17,7 @@ use tokio::sync::mpsc::{self};
 
 use self::data::parse_pmetrics::read_pmetrics;
 use self::data::{DataTrait, Subject};
-use self::simulator::likelihood::IndObsPred;
+use self::simulator::likelihood::Prediction;
 use self::simulator::Equation;
 
 /// Simulate predictions from a model and prior distribution
@@ -48,7 +48,7 @@ pub fn simulate(equation: Equation, settings_path: String) -> Result<()> {
     let subjects = data.get_subjects();
 
     // Perform simulation
-    let obspred = get_obspred(&equation, &subjects, &theta, false);
+    let obspred = get_population_predictions(&equation, &subjects, &theta, false);
 
     // Prepare writer
     let sim_file = File::create("simulation_output.csv").unwrap();

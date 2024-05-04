@@ -15,7 +15,7 @@ use crate::{
 use ndarray::{Array1, Array2};
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::{data::Subject, get_obspred};
+use super::{data::Subject, get_population_predictions};
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
@@ -85,9 +85,10 @@ impl POSTPROB {
     }
 
     pub fn run(&mut self) -> NPResult {
-        let obs_pred = get_obspred(&self.equation, &self.subjects, &self.theta, false);
+        let obs_pred =
+            get_population_predictions(&self.equation, &self.subjects, &self.theta, false);
 
-        self.psi = obs_pred.likelihood(&ErrorPoly {
+        self.psi = obs_pred.get_psi(&ErrorPoly {
             c: self.c,
             gl: self.gamma,
             e_type: &self.error_type,

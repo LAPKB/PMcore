@@ -10,8 +10,10 @@ use crate::{
         data::{Covariates, Infusion, OccasionTrait, Subject, SubjectTrait},
         datafile::Scenario,
     },
-    simulator::likelihood::{IndObsPred, ToIndObsPred},
+    simulator::likelihood::{Prediction, ToPrediction},
 };
+
+use self::likelihood::SubjectPredictions;
 // use diffsol::vector::Vector;
 
 pub type T = f64;
@@ -60,7 +62,7 @@ impl Equation {
         &self,
         scenario: &Scenario,
         support_point: &Vec<f64>,
-    ) -> Vec<IndObsPred> {
+    ) -> SubjectPredictions {
         let init = self.get_init();
         let out = self.get_out();
         let covariates = Covariates::new();
@@ -104,7 +106,7 @@ impl Equation {
                     )[event.outeq.unwrap() - 1];
                     // .get(event.outeq.unwrap() - 1)
                     // .unwrap();
-                    yout.push(IndObsPred {
+                    yout.push(Prediction {
                         time: event.time,
                         observation: event.out.unwrap(),
                         prediction: pred,
@@ -125,10 +127,14 @@ impl Equation {
                 index += 1;
             }
         }
-        yout
+        yout.into()
     }
 
-    pub fn simulate_subject(&self, subject: &Subject, support_point: &Vec<f64>) -> Vec<IndObsPred> {
+    pub fn simulate_subject(
+        &self,
+        subject: &Subject,
+        support_point: &Vec<f64>,
+    ) -> SubjectPredictions {
         let init = self.get_init();
         let out = self.get_out();
         let lag = self.get_lag(support_point);
@@ -174,7 +180,7 @@ impl Equation {
                 index += 1;
             }
         }
-        yout
+        yout.into()
     }
     #[inline(always)]
     fn simulate_event(
