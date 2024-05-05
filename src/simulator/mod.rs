@@ -2,6 +2,7 @@ pub mod analytical;
 pub mod likelihood;
 // pub mod ode;
 pub mod ode_solvers;
+pub mod cache;
 use std::collections::HashMap;
 
 use self::likelihood::SubjectPredictions;
@@ -13,8 +14,9 @@ use crate::{
     },
     simulator::likelihood::{Prediction, ToPrediction},
 };
-use cached::proc_macro::cached;
 // use diffsol::vector::Vector;
+
+use cache::*;
 
 pub type T = f64;
 // pub type V = faer::Col<T>;
@@ -141,6 +143,11 @@ impl Equation {
         let fa = self.get_fa(support_point);
         let mut yout = vec![];
         for occasion in subject.get_occasions() {
+            // Check for a cache entry
+            let pred = get_entry(&subject.id, &support_point);
+            if let Some(pred) = pred {
+                return pred;
+            }
             // What should we use as the initial state for the next occasion?
             let covariates = occasion.get_covariates().unwrap();
             let mut x = get_first_state(init, support_point, &covariates);
@@ -180,7 +187,11 @@ impl Equation {
                 index += 1;
             }
         }
-        yout.into()
+        // Insert the cache entry
+        let pred: SubjectPredictions = yout.into();
+        insert_entry(&subject.id, &support_point, pred.clone());
+        pred
+
     }
     #[inline(always)]
 

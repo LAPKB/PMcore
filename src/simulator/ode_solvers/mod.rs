@@ -4,7 +4,6 @@ use crate::{
     routines::data::{Covariates, Infusion},
     simulator::{DiffEq, V},
 };
-use cached::proc_macro::cached;
 const RTOL: f64 = 1e-4;
 const ATOL: f64 = 1e-4;
 
@@ -33,8 +32,8 @@ impl ode_solvers::System<Time, State> for Model {
     }
 }
 
+// Define a cache using the cached crate
 #[inline(always)]
-// #[cached]
 pub fn simulate_ode_event(
     diffeq: &DiffEq,
     x: V,
