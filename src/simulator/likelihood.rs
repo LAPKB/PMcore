@@ -52,7 +52,7 @@ impl From<Vec<Prediction>> for SubjectPredictions {
 }
 
 pub struct PopulationPredictions {
-    subject_predictions: Array2<SubjectPredictions>,
+    pub subject_predictions: Array2<SubjectPredictions>,
 }
 
 impl Default for PopulationPredictions {
