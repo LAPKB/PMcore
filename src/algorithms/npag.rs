@@ -7,10 +7,9 @@ use crate::{
         output::{CycleLog, NPCycle, NPResult},
         prob, qr,
         settings::Settings,
-        simulation::predict::Predict,
     },
     routines::expansion::adaptative_grid::adaptative_grid,
-    simulator::Equation,
+    simulator::{likelihood::PopulationPredictions, Equation},
     tui::ui::Comm,
 };
 
@@ -47,6 +46,7 @@ pub struct NPAG {
     subjects: Vec<Subject>,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
+    population_predictions: PopulationPredictions,
     settings: Settings,
 }
 
@@ -124,6 +124,7 @@ impl NPAG {
             settings,
             subjects,
             c,
+            population_predictions: PopulationPredictions::default(),
         }
     }
 
@@ -132,15 +133,13 @@ impl NPAG {
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
-        let obs_pred =
-            get_population_predictions(&self.equation, &self.subjects, &self.theta, self.cache);
 
-        let psi_up = obs_pred.get_psi(&ErrorModel {
+        let psi_up = self.population_predictions.get_psi(&ErrorModel {
             c: self.c,
             gl: gamma_up,
             e_type: &self.error_type,
         });
-        let psi_down = obs_pred.get_psi(&ErrorModel {
+        let psi_down = self.population_predictions.get_psi(&ErrorModel {
             c: self.c,
             gl: gamma_down,
             e_type: &self.error_type,
@@ -191,16 +190,15 @@ impl NPAG {
             let _enter = cycle_span.enter();
 
             let cache = if self.cycle == 1 { false } else { self.cache };
-            {
-                let obs_pred =
-                    get_population_predictions(&self.equation, &self.subjects, &self.theta, cache);
 
-                self.psi = obs_pred.get_psi(&ErrorModel {
-                    c: self.c,
-                    gl: self.gamma,
-                    e_type: &self.error_type,
-                });
-            }
+            self.population_predictions =
+                get_population_predictions(&self.equation, &self.subjects, &self.theta, cache);
+
+            self.psi = self.population_predictions.get_psi(&ErrorModel {
+                c: self.c,
+                gl: self.gamma,
+                e_type: &self.error_type,
+            });
 
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),

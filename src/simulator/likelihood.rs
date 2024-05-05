@@ -55,6 +55,14 @@ pub struct PopulationPredictions {
     subject_predictions: Array2<SubjectPredictions>,
 }
 
+impl Default for PopulationPredictions {
+    fn default() -> Self {
+        Self {
+            subject_predictions: Array2::default((0, 0)),
+        }
+    }
+}
+
 impl PopulationPredictions {
     pub fn get_psi(&self, ep: &ErrorModel) -> Array2<f64> {
         let mut psi = Array2::zeros((

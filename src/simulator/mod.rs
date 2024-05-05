@@ -1,9 +1,10 @@
 pub mod analytical;
 pub mod likelihood;
-pub mod ode;
+// pub mod ode;
 pub mod ode_solvers;
 use std::collections::HashMap;
 
+use self::likelihood::SubjectPredictions;
 use crate::{
     prelude::data::Event,
     routines::{
@@ -12,15 +13,14 @@ use crate::{
     },
     simulator::likelihood::{Prediction, ToPrediction},
 };
-
-use self::likelihood::SubjectPredictions;
+use cached::proc_macro::cached;
 // use diffsol::vector::Vector;
 
 pub type T = f64;
 // pub type V = faer::Col<T>;
 // pub type M = faer::Mat<T>;
-pub type V = nalgebra::DVector<T>;
-// pub type V = nalgebra::SVector<T, 3>;
+// pub type V = nalgebra::DVector<T>;
+pub type V = nalgebra::SVector<T, 2>;
 pub type M = nalgebra::DMatrix<T>;
 
 pub type DiffEq = fn(&V, &V, T, &mut V, V, &Covariates);
@@ -183,6 +183,7 @@ impl Equation {
         yout.into()
     }
     #[inline(always)]
+
     fn simulate_event(
         &self,
         x: V,
@@ -194,16 +195,16 @@ impl Equation {
     ) -> V {
         match self {
             Equation::ODE(eqn, _, _, _, _) => {
-                // unimplemented!("Not implemented");
-                ode::simulate_ode_event(
-                    eqn,
-                    x,
-                    support_point,
-                    covariates,
-                    infusions,
-                    start_time,
-                    end_time,
-                )
+                unimplemented!("Not implemented");
+                // ode::simulate_ode_event(
+                //     eqn,
+                //     x,
+                //     support_point,
+                //     covariates,
+                //     infusions,
+                //     start_time,
+                //     end_time,
+                // )
             }
             Equation::OdeSolvers(eqn, _, _, _, _) => ode_solvers::simulate_ode_event(
                 eqn,
