@@ -3,7 +3,7 @@ data = "examples/data/two_eq_lag.csv"
 log = "two_eq_lag.log"
 
 [config]
-cycles=100
+cycles=1000
 engine="NPAG"
 init_points=2129
 seed=347
