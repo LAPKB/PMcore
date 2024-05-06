@@ -1,5 +1,5 @@
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
-use pmcore::simulator::{analytical::one_compartment_with_absorption, V};
+use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::{prelude::*, simulator::Equation};
 use std::path::Path;
 
@@ -27,11 +27,11 @@ fn main() -> std::io::Result<()> {
         list![
             // baseline,
             analytical_ns,
-            analytical_os,
-            ode_solvers_ns,
-            ode_solvers_os,
-            diffsol_ns,
-            diffsol_os,
+            // analytical_os,
+            // ode_solvers_ns,
+            // ode_solvers_os,
+            // diffsol_ns,
+            // diffsol_os,
         ],
         [4, 8, 16, 128],
     );
@@ -64,10 +64,11 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
+            y[0] = x[0] / v;
+            y[1] = x[1] / v;
         },
     );
     bencher.bench(|| {
@@ -89,10 +90,11 @@ pub fn analytical_os(bencher: Bencher, len: usize) {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
+            y[0] = x[0] / v;
+            y[1] = x[1] / v;
         },
     );
     bencher.bench(|| {
@@ -117,10 +119,11 @@ pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
+            y[0] = x[0] / v;
+            y[1] = x[1] / v;
         },
     );
     bencher.bench(|| {
@@ -145,10 +148,11 @@ pub fn ode_solvers_os(bencher: Bencher, len: usize) {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
+            y[0] = x[0] / v;
+            y[1] = x[1] / v;
         },
     );
     bencher.bench(|| {
@@ -173,10 +177,11 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
+            y[0] = x[0] / v;
+            y[1] = x[1] / v;
         },
     );
     bencher.bench(|| {
@@ -201,10 +206,11 @@ pub fn diffsol_os(bencher: Bencher, len: usize) {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
+            y[0] = x[0] / v;
+            y[1] = x[1] / v;
         },
     );
     bencher.bench(|| {

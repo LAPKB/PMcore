@@ -8,14 +8,17 @@ pub fn simulate_analytical_event(
     seq_eq: &SecEq,
 
     x: V,
-    support_point: &Vec<f64>,
+    spp: &Vec<f64>,
     cov: &Covariates,
     infusions: &Vec<Infusion>,
     ti: f64,
     tf: f64,
 ) -> V {
-    let mut support_point = V::from_vec(support_point.clone());
-    let mut rateiv = V::from_vec(vec![0.0, 0.0, 0.0]);
+    let mut support_point = V::zeros();
+    for (i, v) in spp.iter().enumerate() {
+        support_point[i] = *v;
+    }
+    let mut rateiv = V::zeros();
     //TODO: This should be pre-calculated
     for infusion in infusions {
         if tf >= infusion.time && tf <= infusion.duration + infusion.time {

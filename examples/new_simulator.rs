@@ -3,7 +3,6 @@ use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
 use pmcore::routines::datafile::parse;
 use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::simulator::Equation;
-use pmcore::simulator::V;
 use std::path::Path;
 
 const DATA_PATH: &str = "examples/data/two_eq_lag.csv";
@@ -36,10 +35,10 @@ fn main() {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[1] / v])
+            y[0] = x[1] / v;
         },
     );
 
@@ -51,10 +50,10 @@ fn main() {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[1] / v])
+            y[0] = x[1] / v;
         },
     );
 
@@ -70,10 +69,10 @@ fn main() {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[1] / v])
+            y[0] = x[1] / v;
         },
     );
 

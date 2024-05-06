@@ -1,8 +1,8 @@
 pub mod analytical;
 pub mod likelihood;
 // pub mod ode;
-pub mod ode_solvers;
 pub mod cache;
+pub mod ode_solvers;
 use std::collections::HashMap;
 
 use self::likelihood::SubjectPredictions;
@@ -18,16 +18,17 @@ use crate::{
 
 use cache::*;
 
-pub type T = f64;
-// pub type V = faer::Col<T>;
-// pub type M = faer::Mat<T>;
-// pub type V = nalgebra::DVector<T>;
-pub type V = nalgebra::SVector<T, 2>;
-pub type M = nalgebra::DMatrix<T>;
+type T = f64;
+// type V = faer::Col<T>;
+// type M = faer::Mat<T>;
+
+// type V = nalgebra::DVector<T>;
+type V = nalgebra::SVector<T, 4>;
+type M = nalgebra::DMatrix<T>;
 
 pub type DiffEq = fn(&V, &V, T, &mut V, V, &Covariates);
-pub type Init = fn(&V, T, &Covariates) -> V;
-pub type Out = fn(&V, &V, T, &Covariates) -> V;
+pub type Init = fn(&V, T, &Covariates, &mut V);
+pub type Out = fn(&V, &V, T, &Covariates, &mut V);
 pub type AnalyticalEq = fn(&V, &V, T, V, &Covariates) -> V;
 pub type SecEq = fn(&mut V, &Covariates);
 pub type Lag = fn(&V) -> HashMap<usize, T>;
@@ -76,7 +77,13 @@ impl Equation {
         let fa_hashmap = self.get_fa(support_point);
         let scenario = &scenario.reorder_with_lag(lag);
         let mut yout = vec![];
-        let mut x = (init)(&V::from_vec(support_point.clone()), 0.0, &covariates);
+        let mut x = V::default();
+        (init)(
+            &V::from_vec(support_point.clone()),
+            0.0,
+            &covariates,
+            &mut x,
+        );
         let mut index = 0;
         let mut infusions = vec![];
 
@@ -100,12 +107,15 @@ impl Equation {
                     }
                 } else if event.evid == 0 {
                     //obs
-                    let pred = (out)(
+                    let mut y = V::default();
+                    (out)(
                         &x,
                         &V::from_vec(support_point.clone()),
                         event.time,
                         &covariates,
-                    )[event.outeq.unwrap() - 1];
+                        &mut y,
+                    );
+                    let pred = y[event.outeq.unwrap() - 1];
                     // .get(event.outeq.unwrap() - 1)
                     // .unwrap();
                     yout.push(Prediction {
@@ -163,12 +173,13 @@ impl Equation {
                         infusions.push(infusion.clone());
                     }
                     Event::Observation(observation) => {
-                        let pred = (out)(
-                            &x,
-                            &V::from_vec(support_point.clone()),
-                            observation.time,
-                            covariates,
-                        )[observation.outeq];
+                        let mut y = V::default();
+                        let mut p = V::zeros();
+                        for (i, v) in support_point.iter().enumerate() {
+                            p[i] = *v;
+                        }
+                        (out)(&x, &p, observation.time, covariates, &mut y);
+                        let pred = y[observation.outeq];
 
                         yout.push(observation.to_obs_pred(pred));
                     }
@@ -191,7 +202,6 @@ impl Equation {
         let pred: SubjectPredictions = yout.into();
         insert_entry(&subject.id, &support_point, pred.clone());
         pred
-
     }
     #[inline(always)]
 
@@ -261,20 +271,28 @@ impl Equation {
     }
     #[inline(always)]
     fn get_lag(&self, spp: &Vec<f64>) -> HashMap<usize, f64> {
+        let mut p = V::zeros();
+        for (i, v) in spp.iter().enumerate() {
+            p[i] = *v;
+        }
         match self {
-            Equation::ODE(_, lag, _, _, _) => (lag)(&V::from_vec(spp.clone())),
-            Equation::OdeSolvers(_, lag, _, _, _) => (lag)(&V::from_vec(spp.clone())),
+            Equation::ODE(_, lag, _, _, _) => (lag)(&p),
+            Equation::OdeSolvers(_, lag, _, _, _) => (lag)(&p),
             Equation::SDE(_, _, _, _, _, _) => unimplemented!("Not Implemented"),
-            Equation::Analytical(_, _, lag, _, _, _) => (lag)(&V::from_vec(spp.clone())),
+            Equation::Analytical(_, _, lag, _, _, _) => (lag)(&p),
         }
     }
     #[inline(always)]
     fn get_fa(&self, spp: &Vec<f64>) -> HashMap<usize, f64> {
+        let mut p = V::zeros();
+        for (i, v) in spp.iter().enumerate() {
+            p[i] = *v;
+        }
         match self {
-            Equation::ODE(_, _, fa, _, _) => (fa)(&V::from_vec(spp.clone())),
-            Equation::OdeSolvers(_, _, fa, _, _) => (fa)(&V::from_vec(spp.clone())),
+            Equation::ODE(_, _, fa, _, _) => (fa)(&p),
+            Equation::OdeSolvers(_, _, fa, _, _) => (fa)(&p),
             Equation::SDE(_, _, _, _, _, _) => unimplemented!("Not Implemented"),
-            Equation::Analytical(_, _, _, fa, _, _) => (fa)(&V::from_vec(spp.clone())),
+            Equation::Analytical(_, _, _, fa, _, _) => (fa)(&p),
         }
     }
 }
@@ -291,5 +309,11 @@ impl FromVec for faer::Col<f64> {
 
 #[inline(always)]
 pub fn get_first_state(init: &Init, support_point: &Vec<f64>, cov: &Covariates) -> V {
-    (init)(&V::from_vec(support_point.clone()), 0.0, cov) //TODO: Time hardcoded
+    let mut y = V::default();
+    let mut p = V::zeros();
+    for (i, v) in support_point.iter().enumerate() {
+        p[i] = *v;
+    }
+    (init)(&p, 0.0, cov, &mut y);
+    y
 }

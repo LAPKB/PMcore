@@ -1,6 +1,6 @@
 use pmcore::{
     prelude::*,
-    simulator::{analytical::one_compartment, Equation, V},
+    simulator::{analytical::one_compartment, Equation},
 };
 
 fn main() -> Result<()> {
@@ -12,10 +12,10 @@ fn main() -> Result<()> {
         },
         |_p| lag! {},
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
-            V::from_vec(vec![x[0] / v, 0.0])
+            y[0] = x[0] / v;
         },
     );
     // let eq = Equation::new_analytical(
@@ -23,10 +23,10 @@ fn main() -> Result<()> {
     //     |_p, _cov| {},
     //     |_p| lag! {},
     //     |_p| fa! {},
-    //     |_p, _t, _cov| V::from_vec(vec![0.0]),
-    //     |x, p, _t, _cov| {
+    //     |_p, _t, _cov, _x| {},
+    //     |x, p, _t, _cov, y| {
     //         fetch_params!(p, _ke, v);
-    //         V::from_vec(vec![x[0] / v])
+    //         y[0] = x[0] / v;
     //     },
     // );
     let _result = start(eq, "examples/bimodal_ke/config.toml".to_string())?;

@@ -20,8 +20,12 @@ struct Model {
 impl Model {}
 impl ode_solvers::System<Time, State> for Model {
     fn system(&self, t: Time, y: &State, dy: &mut State) {
-        let support_point = V::from_vec(self.support_point.clone());
-        let mut rateiv = V::from_vec(vec![0.0, 0.0, 0.0]);
+        let mut support_point = V::zeros();
+        for (i, v) in self.support_point.iter().enumerate() {
+            support_point[i] = *v;
+        }
+        // let support_point = V::from_vec(self.support_point.clone());
+        let mut rateiv = V::zeros();
         //TODO: This should be pre-calculated
         for infusion in &self.infusions {
             if t >= infusion.time && t <= infusion.duration + infusion.time {
