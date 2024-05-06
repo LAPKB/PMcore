@@ -9,42 +9,22 @@ use pmcore::{
 fn main() -> Result<()> {
     // let eq = Equation::new_ode_solvers(
     //     |x, p, _t, dx, rateiv, _cov| {
-    //         // fetch_cov!(cov, t, wt);
-    //         fetch_params!(p, ke, _v);
-    //        dx[0] = -la * x[0];
-    //        dx[1] = ka * x[0] - ke * x[1];
+    //         fetch_params!(p, ke, ka, _v, _tlag);
+    //         dx[0] = -ka * x[0];
+    //         dx[1] = ka * x[0] - ke * x[1];
     //     },
     //     |p| {
-    //     fetch_params!(p, _ke, _ka, _v, tlag);
-    //     lag! {0=>tlag}
-    // },
+    //         fetch_params!(p, _ke, _ka, _v, tlag);
+    //         lag! {0=>tlag}
+    //     },
     //     |_p| fa! {},
     //     |_p, _t, _cov, _x| {},
     //     |x, p, _t, _cov, y| {
     //         fetch_params!(p, _ke, v);
     //         y[0] = x[1] / v;
     //     },
-    //     (2, 1),
     // );
-    // let eq = Equation::new_ode(
-    //     |x, p, _t, dx, rateiv, _cov| {
-    //         // fetch_cov!(cov, t, wt);
-    //         fetch_params!(p, ke, _v);
-    //        dx[0] = -la * x[0];
-    //        dx[1] = ka * x[0] - ke * x[1];
-    //     },
-    //     |p| {
-    //     fetch_params!(p, _ke, _ka, _v, tlag);
-    //     lag! {0=>tlag}
-    // },
-    //     |_p| fa! {},
-    //     |_p, _t, _cov, _x| {},
-    //     |x, p, _t, _cov, y| {
-    //         fetch_params!(p, _ke, v);
-    //         y[0] = x[1] / v;
-    //     },
-    //  (2, 1),
-    // );
+
     let eq = Equation::new_analytical(
         one_compartment_with_absorption,
         |_p, _cov| {},

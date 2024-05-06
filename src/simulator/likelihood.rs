@@ -157,9 +157,9 @@ impl<'a> SigmaEstimator for ErrorModel<'_> {
             None => (self.c.0, self.c.1, self.c.2, self.c.3),
         };
         let alpha = c0
-            + c1 * prediction.prediction
-            + c2 * prediction.prediction.powi(2)
-            + c3 * prediction.prediction.powi(3);
+            + c1 * prediction.observation
+            + c2 * prediction.observation.powi(2)
+            + c3 * prediction.observation.powi(3);
 
         let res = match self.e_type {
             ErrorType::Add => (alpha.powi(2) + self.gl.powi(2)).sqrt(),
@@ -168,8 +168,10 @@ impl<'a> SigmaEstimator for ErrorModel<'_> {
 
         if res.is_nan() || res < 0.0 {
             tracing::error!(
-                "The computed standard deviation is either NaN or negative (SD = {}), coercing to 0",
-                res
+                "The computed standard deviation is either NaN or negative (SD = {}, alpha = {}, c0 = {}, c1 = {}, c2 = {}, c3 = {}, gl = {}, e_type = {:?}, prediction = {}), coercing to 0",
+                res,
+                alpha,
+                c0, c1, c2, c3, self.gl, self.e_type, prediction
             );
             0.0
         } else {
