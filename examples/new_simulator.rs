@@ -36,11 +36,12 @@ fn main() {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[1] / v])
+            y[0] = x[1] / v;
         },
+        (2, 1),
     );
 
     let analytical = Equation::new_analytical(
@@ -51,11 +52,12 @@ fn main() {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[1] / v])
+            y[0] = x[1] / v;
         },
+        (2, 1),
     );
 
     let ode_solvers = Equation::new_ode_solvers(
@@ -70,33 +72,34 @@ fn main() {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[1] / v])
+            y[0] = x[1] / v;
         },
+        (2, 1),
     );
 
     let sim_diffsol_new = diffsol.simulate_subject(&first_subject, &spp);
-    let sim_diffsol_old = diffsol.simulate_scenario(first_scenario, &spp);
+    // let sim_diffsol_old = diffsol.simulate_scenario(first_scenario, &spp);
     let sim_ode_solvers_new = ode_solvers.simulate_subject(&first_subject, &spp);
-    let sim_ode_solvers_old = ode_solvers.simulate_scenario(first_scenario, &spp);
+    // let sim_ode_solvers_old = ode_solvers.simulate_scenario(first_scenario, &spp);
     let sim_analytical_new = analytical.simulate_subject(&first_subject, &spp);
-    let sim_analytical_old = analytical.simulate_scenario(first_scenario, &spp);
+    // let sim_analytical_old = analytical.simulate_scenario(first_scenario, &spp);
 
     sim_diffsol_new
         .get_predictions()
         .iter()
-        .zip(sim_diffsol_old.get_predictions())
+        // .zip(sim_diffsol_old.get_predictions())
         .zip(sim_analytical_new.get_predictions())
-        .zip(sim_analytical_old.get_predictions())
+        // .zip(sim_analytical_old.get_predictions())
         .zip(sim_ode_solvers_new.get_predictions())
-        .zip(sim_ode_solvers_old.get_predictions())
-        .for_each(|(((((dsn, dso), an), ao), osn), oso)| {
-            println!("Old Simulator: ");
-            println!("  diffsol : {}", dso);
-            println!("  oso_sol : {}", oso);
-            println!("  analytic: {}", ao);
+        // .zip(sim_ode_solvers_old.get_predictions())
+        .for_each(|((dsn, an), osn)| {
+            // println!("Old Simulator: ");
+            // println!("  diffsol : {}", dso);
+            // println!("  oso_sol : {}", oso);
+            // println!("  analytic: {}", ao);
             println!("New Simulator: ");
             println!("  diffsol : {}", dsn);
             println!("  osn_sol : {}", osn);

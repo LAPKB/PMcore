@@ -27,11 +27,11 @@ fn main() -> std::io::Result<()> {
         list![
             // baseline,
             analytical_ns,
-            analytical_os,
+            // analytical_os,
             ode_solvers_ns,
-            ode_solvers_os,
+            // ode_solvers_os,
             diffsol_ns,
-            diffsol_os,
+            // diffsol_os,
         ],
         [4, 8, 16, 128],
     );
@@ -64,11 +64,13 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
+            y[0] = x[0] / v;
+            y[1] = x[1] / v;
         },
+        (4, 2),
     );
     bencher.bench(|| {
         for _ in 0..len {
@@ -76,31 +78,33 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
         }
     });
 }
-pub fn analytical_os(bencher: Bencher, len: usize) {
-    let data = parse(&PATH.to_string()).unwrap();
-    let scenario = data.first().unwrap();
-    let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
+// pub fn analytical_os(bencher: Bencher, len: usize) {
+//     let data = parse(&PATH.to_string()).unwrap();
+//     let scenario = data.first().unwrap();
+//     let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
 
-    let analytical = Equation::new_analytical(
-        one_compartment_with_absorption,
-        |_p, _cov| {},
-        |p| {
-            fetch_params!(p, _ke, _ka, _v, tlag);
-            lag! {0=>tlag}
-        },
-        |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
-            fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
-        },
-    );
-    bencher.bench(|| {
-        for _ in 0..len {
-            black_box(analytical.simulate_scenario(scenario, &SPP.to_vec()));
-        }
-    });
-}
+//     let analytical = Equation::new_analytical(
+//         one_compartment_with_absorption,
+//         |_p, _cov| {},
+//         |p| {
+//             fetch_params!(p, _ke, _ka, _v, tlag);
+//             lag! {0=>tlag}
+//         },
+//         |_p| fa! {},
+//         |_p, _t, _cov, _x| {},
+//         |x, p, _t, _cov, y| {
+//             fetch_params!(p, _ke, _ka, v, _tlag);
+//             y[0] = x[0] / v;
+//             y[1] = x[1] / v;
+//         },
+//         (4, 2),
+//     );
+//     bencher.bench(|| {
+//         for _ in 0..len {
+//             black_box(analytical.simulate_scenario(scenario, &SPP.to_vec()));
+//         }
+//     });
+// }
 pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
     let data = read_pmetrics(Path::new(PATH)).unwrap();
     let subjects = data.get_subjects();
@@ -117,11 +121,13 @@ pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
+            y[0] = x[0] / v;
+            y[1] = x[1] / v;
         },
+        (4, 2),
     );
     bencher.bench(|| {
         for _ in 0..len {
@@ -129,34 +135,36 @@ pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
         }
     });
 }
-pub fn ode_solvers_os(bencher: Bencher, len: usize) {
-    let data = parse(&PATH.to_string()).unwrap();
-    let scenario = data.first().unwrap();
-    let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
+// pub fn ode_solvers_os(bencher: Bencher, len: usize) {
+//     let data = parse(&PATH.to_string()).unwrap();
+//     let scenario = data.first().unwrap();
+//     let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
 
-    let ode = Equation::new_ode_solvers(
-        |x, p, _t, dx, rateiv, _cov| {
-            fetch_params!(p, ke, ka, _v, _tlag);
-            dx[0] = -ka * x[0];
-            dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
-        },
-        |p| {
-            fetch_params!(p, _ke, _ka, _v, tlag);
-            lag! {0=>tlag}
-        },
-        |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
-            fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
-        },
-    );
-    bencher.bench(|| {
-        for _ in 0..len {
-            black_box(ode.simulate_scenario(scenario, &SPP.to_vec()));
-        }
-    });
-}
+//     let ode = Equation::new_ode_solvers(
+//         |x, p, _t, dx, rateiv, _cov| {
+//             fetch_params!(p, ke, ka, _v, _tlag);
+//             dx[0] = -ka * x[0];
+//             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
+//         },
+//         |p| {
+//             fetch_params!(p, _ke, _ka, _v, tlag);
+//             lag! {0=>tlag}
+//         },
+//         |_p| fa! {},
+//         |_p, _t, _cov, _x| {},
+//         |x, p, _t, _cov, y| {
+//             fetch_params!(p, _ke, _ka, v, _tlag);
+//             y[0] = x[0] / v;
+//             y[1] = x[1] / v;
+//         },
+//         (4, 2),
+//     );
+//     bencher.bench(|| {
+//         for _ in 0..len {
+//             black_box(ode.simulate_scenario(scenario, &SPP.to_vec()));
+//         }
+//     });
+// }
 pub fn diffsol_ns(bencher: Bencher, len: usize) {
     let data = read_pmetrics(Path::new(PATH)).unwrap();
     let subjects = data.get_subjects();
@@ -173,11 +181,13 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
             lag! {0=>tlag}
         },
         |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
+            y[0] = x[0] / v;
+            y[1] = x[1] / v;
         },
+        (4, 2),
     );
     bencher.bench(|| {
         for _ in 0..len {
@@ -185,34 +195,36 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
         }
     });
 }
-pub fn diffsol_os(bencher: Bencher, len: usize) {
-    let data = parse(&PATH.to_string()).unwrap();
-    let scenario = data.first().unwrap();
-    let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
+// pub fn diffsol_os(bencher: Bencher, len: usize) {
+//     let data = parse(&PATH.to_string()).unwrap();
+//     let scenario = data.first().unwrap();
+//     let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
 
-    let ode = Equation::new_ode(
-        |x, p, _t, dx, rateiv, _cov| {
-            fetch_params!(p, ke, ka, _v, _tlag);
-            dx[0] = -ka * x[0];
-            dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
-        },
-        |p| {
-            fetch_params!(p, _ke, _ka, _v, tlag);
-            lag! {0=>tlag}
-        },
-        |_p| fa! {},
-        |_p, _t, _cov| V::from_vec(vec![0.0, 0.0, 0.0, 0.0]),
-        |x, p, _t, _cov| {
-            fetch_params!(p, _ke, _ka, v, _tlag);
-            V::from_vec(vec![x[0] / v, x[1] / v, 0.0])
-        },
-    );
-    bencher.bench(|| {
-        for _ in 0..len {
-            black_box(ode.simulate_scenario(scenario, &SPP.to_vec()));
-        }
-    });
-}
+//     let ode = Equation::new_ode(
+//         |x, p, _t, dx, rateiv, _cov| {
+//             fetch_params!(p, ke, ka, _v, _tlag);
+//             dx[0] = -ka * x[0];
+//             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
+//         },
+//         |p| {
+//             fetch_params!(p, _ke, _ka, _v, tlag);
+//             lag! {0=>tlag}
+//         },
+//         |_p| fa! {},
+//         |_p, _t, _cov, _x| {},
+//         |x, p, _t, _cov, y| {
+//             fetch_params!(p, _ke, _ka, v, _tlag);
+//             y[0] = x[0] / v;
+//             y[1] = x[1] / v;
+//         },
+//         (4, 2),
+//     );
+//     bencher.bench(|| {
+//         for _ in 0..len {
+//             black_box(ode.simulate_scenario(scenario, &SPP.to_vec()));
+//         }
+//     });
+// }
 
 // const ATOL: f64 = 1e-4;
 // const RTOL: f64 = 1e-4;
