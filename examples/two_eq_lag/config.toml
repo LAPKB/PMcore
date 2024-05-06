@@ -3,8 +3,8 @@ data = "examples/data/two_eq_lag.csv"
 log = "two_eq_lag.log"
 
 [config]
-cycles=1000000
-engine="NPOD"
+cycles=1000
+engine="NPAG"
 init_points=2129
 seed=347
 tui=false
