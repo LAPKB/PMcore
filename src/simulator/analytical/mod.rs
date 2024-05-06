@@ -55,8 +55,8 @@ pub fn one_compartment(x: &V, p: &V, t: T, rateiv: V, _cov: &Covariates) -> V {
 
 pub fn one_compartment_with_absorption(x: &V, p: &V, t: T, rateiv: V, _cov: &Covariates) -> V {
     let mut xout = x.clone();
-    let ke = p[0];
-    let ka = p[1];
+    let ka = p[0];
+    let ke = p[1];
 
     xout[0] = x[0] * (-ka * t).exp();
 
