@@ -341,6 +341,14 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -548,6 +556,10 @@
             }
             <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
             <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
+            <span class="self">self</span>.population_predictions.subject_predictions = <span class="self">self
+                </span>.population_predictions
+                .subject_predictions
+                .select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
 
             <span class="comment">//Rank-Revealing Factorization
             </span><span class="kw">let </span>(r, perm) = qr::calculate_r(<span class="kw-2">&amp;</span><span class="self">self</span>.psi);
@@ -571,6 +583,10 @@
             }
             <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
             <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
+            <span class="self">self</span>.population_predictions.subject_predictions = <span class="self">self
+                </span>.population_predictions
+                .subject_predictions
+                .select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
 
             (<span class="self">self</span>.lambda, <span class="self">self</span>.objf) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
