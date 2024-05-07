@@ -22,14 +22,14 @@ pub fn simulate_ode_event(
     ti: f64,
     tf: f64,
 ) -> V {
-    let problem = build_pm_ode::<M, _, _, _, _>(
+    let problem = build_pm_ode::<M, _, _>(
         diffeq.clone(),
         move |_p: &V, _t: T| x.clone(),
         V::from_vec(support_point.to_vec()),
         ti,
         1.0,
         RTOL,
-        [ATOL],
+        ATOL,
         cov.clone(),
         infusions.clone(),
     )
