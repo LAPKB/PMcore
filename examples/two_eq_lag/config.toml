@@ -4,7 +4,7 @@ log = "two_eq_lag.log"
 
 [config]
 cycles=1000
-engine="NPAG"
+engine="NPOD"
 init_points=2129
 seed=347
 tui=false

@@ -121,7 +121,7 @@ where
     fn rhs_jac_inplace(&self, t: Self::T, _x: &Self::V, v: &Self::V, y: &mut Self::V) {
         //TODO: Instead of this code, we should call rhs_inplace
         let p = self.p.as_ref();
-        let mut rateiv = Self::V::zeros(self.nstates);
+        let rateiv = Self::V::zeros(self.nstates);
         //TODO: This should be pre-calculated
         (self.rhs)(v, &p, t, y, rateiv, &self.covariates);
         // (self.rhs_jac)(x, p, t, v, y);

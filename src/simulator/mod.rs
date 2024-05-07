@@ -2,17 +2,13 @@ pub mod analytical;
 pub mod cache;
 pub mod likelihood;
 pub mod ode;
-pub mod ode_solvers;
 use std::collections::HashMap;
 
 use self::likelihood::SubjectPredictions;
 use crate::{
     prelude::data::Event,
-    routines::{
-        data::{Covariates, Infusion, OccasionTrait, Subject, SubjectTrait},
-        datafile::Scenario,
-    },
-    simulator::likelihood::{Prediction, ToPrediction},
+    routines::data::{Covariates, Infusion, OccasionTrait, Subject, SubjectTrait},
+    simulator::likelihood::ToPrediction,
 };
 // use diffsol::vector::Vector;
 
@@ -36,7 +32,6 @@ pub type Neqs = (usize, usize);
 
 #[derive(Debug, Clone)]
 pub enum Equation {
-    OdeSolvers(DiffEq, Lag, Fa, Init, Out, Neqs),
     ODE(DiffEq, Lag, Fa, Init, Out, Neqs),
     SDE(DiffEq, DiffEq, Lag, Fa, Init, Out, Neqs),
     Analytical(AnalyticalEq, SecEq, Lag, Fa, Init, Out, Neqs),
@@ -57,98 +52,6 @@ impl Equation {
     ) -> Self {
         Equation::Analytical(eq, seq_eq, lag, fa, init, out, neqs)
     }
-
-    pub fn new_ode_solvers(
-        diffeq: DiffEq,
-        lag: Lag,
-        fa: Fa,
-        init: Init,
-        out: Out,
-        neqs: Neqs,
-    ) -> Self {
-        Equation::OdeSolvers(diffeq, lag, fa, init, out, neqs)
-    }
-
-    // pub fn simulate_scenario(
-    //     &self,
-    //     scenario: &Scenario,
-    //     support_point: &Vec<f64>,
-    // ) -> SubjectPredictions {
-    //     let init = self.get_init();
-    //     let out = self.get_out();
-    //     let covariates = Covariates::new();
-    //     let lag_hashmap = self.get_lag(support_point);
-    //     let lag = lag_hashmap
-    //         .into_iter()
-    //         .map(|(id, score)| (score, id))
-    //         .collect();
-    //     let fa_hashmap = self.get_fa(support_point);
-    //     let scenario = &scenario.reorder_with_lag(lag);
-    //     let mut yout = vec![];
-    //     let mut x = V::zeros(self.get_nstates());
-    //     (init)(
-    //         &V::from_vec(support_point.clone()),
-    //         0.0,
-    //         &covariates,
-    //         &mut x,
-    //     );
-    //     let mut index = 0;
-    //     let mut infusions = vec![];
-
-    //     for block in &scenario.blocks {
-    //         //todo: add covs
-    //         for event in &block.events {
-    //             if event.evid == 1 {
-    //                 if event.dur.unwrap_or(0.0) > 0.0 {
-    //                     //infusion
-    //                     infusions.push(Infusion {
-    //                         time: event.time,
-    //                         duration: event.dur.unwrap(),
-    //                         amount: event.dose.unwrap(),
-    //                         input: event.input.unwrap() - 1,
-    //                     })
-    //                 } else {
-    //                     //dose
-    //                     let comparment = event.input.unwrap() - 1;
-    //                     x[comparment] +=
-    //                         event.dose.unwrap() * fa_hashmap.get(&comparment).unwrap_or(&1.0);
-    //                 }
-    //             } else if event.evid == 0 {
-    //                 //obs
-    //                 let mut y = V::zeros(self.get_nouteqs());
-    //                 (out)(
-    //                     &x,
-    //                     &V::from_vec(support_point.clone()),
-    //                     event.time,
-    //                     &covariates,
-    //                     &mut y,
-    //                 );
-    //                 let pred = y[event.outeq.unwrap() - 1];
-    //                 // .get(event.outeq.unwrap() - 1)
-    //                 // .unwrap();
-    //                 yout.push(Prediction {
-    //                     time: event.time,
-    //                     observation: event.out.unwrap(),
-    //                     prediction: pred,
-    //                     outeq: event.outeq.unwrap() - 1,
-    //                     errorpoly: None,
-    //                 });
-    //             }
-    //             if let Some(next_time) = scenario.times.get(index + 1) {
-    //                 x = self.simulate_event(
-    //                     x,
-    //                     support_point,
-    //                     &covariates,
-    //                     &infusions,
-    //                     event.time,
-    //                     *next_time,
-    //                 );
-    //             }
-    //             index += 1;
-    //         }
-    //     }
-    //     yout.into()
-    // }
 
     pub fn simulate_subject(
         &self,
@@ -243,15 +146,6 @@ impl Equation {
                     end_time,
                 )
             }
-            Equation::OdeSolvers(eqn, _, _, _, _, _) => ode_solvers::simulate_ode_event(
-                eqn,
-                x,
-                support_point,
-                covariates,
-                infusions,
-                start_time,
-                end_time,
-            ),
             Equation::SDE(_, _, _, _, _, _, _) => {
                 unimplemented!("Not Implemented");
             }
@@ -273,7 +167,6 @@ impl Equation {
     fn get_init(&self) -> &Init {
         match self {
             Equation::ODE(_, _, _, init, _, _) => init,
-            Equation::OdeSolvers(_, _, _, init, _, _) => init,
             Equation::SDE(_, _, _, _, init, _, _) => init,
             Equation::Analytical(_, _, _, _, init, _, _) => init,
         }
@@ -282,7 +175,6 @@ impl Equation {
     fn get_out(&self) -> &Out {
         match self {
             Equation::ODE(_, _, _, _, out, _) => out,
-            Equation::OdeSolvers(_, _, _, _, out, _) => out,
             Equation::SDE(_, _, _, _, _, out, _) => out,
             Equation::Analytical(_, _, _, _, _, out, _) => out,
         }
@@ -291,7 +183,6 @@ impl Equation {
     fn get_lag(&self, spp: &Vec<f64>) -> HashMap<usize, f64> {
         match self {
             Equation::ODE(_, lag, _, _, _, _) => (lag)(&V::from_vec(spp.clone())),
-            Equation::OdeSolvers(_, lag, _, _, _, _) => (lag)(&V::from_vec(spp.clone())),
             Equation::SDE(_, _, _, _, _, _, _) => unimplemented!("Not Implemented"),
             Equation::Analytical(_, _, lag, _, _, _, _) => (lag)(&V::from_vec(spp.clone())),
         }
@@ -300,7 +191,6 @@ impl Equation {
     fn get_fa(&self, spp: &Vec<f64>) -> HashMap<usize, f64> {
         match self {
             Equation::ODE(_, _, fa, _, _, _) => (fa)(&V::from_vec(spp.clone())),
-            Equation::OdeSolvers(_, _, fa, _, _, _) => (fa)(&V::from_vec(spp.clone())),
             Equation::SDE(_, _, _, _, _, _, _) => unimplemented!("Not Implemented"),
             Equation::Analytical(_, _, _, fa, _, _, _) => (fa)(&V::from_vec(spp.clone())),
         }
@@ -309,7 +199,6 @@ impl Equation {
     fn get_nstates(&self) -> usize {
         match self {
             Equation::ODE(_, _, _, _, _, (nstates, _)) => *nstates,
-            Equation::OdeSolvers(_, _, _, _, _, (nstates, _)) => *nstates,
             Equation::SDE(_, _, _, _, _, _, (nstates, _)) => *nstates,
             Equation::Analytical(_, _, _, _, _, _, (nstates, _)) => *nstates,
         }
@@ -318,7 +207,6 @@ impl Equation {
     fn get_nouteqs(&self) -> usize {
         match self {
             Equation::ODE(_, _, _, _, _, (_, nouteqs)) => *nouteqs,
-            Equation::OdeSolvers(_, _, _, _, _, (_, nouteqs)) => *nouteqs,
             Equation::SDE(_, _, _, _, _, _, (_, nouteqs)) => *nouteqs,
             Equation::Analytical(_, _, _, _, _, _, (_, nouteqs)) => *nouteqs,
         }

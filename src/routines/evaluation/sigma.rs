@@ -34,7 +34,7 @@ pub enum ErrorType {
 /// Computes the error of an observation given its value, the error model, and the error polynomial
 /// Observations are weighted by 1/error<sup>2</sup>
 impl<'a> ErrorModel<'_> {
-    pub fn sigma(&self, yobs: &Array1<f64>) -> Array1<f64> {
+    pub fn sigma(&self, _yobs: &Array1<f64>) -> Array1<f64> {
         unimplemented!();
         // let alpha = self.c.0
         //     + self.c.1 * yobs

@@ -1,8 +1,8 @@
 use pmcore::prelude::*;
 
 // Constants for the absolute and relative tolerance for the dynamic steps used for solving the ODEs
-const ATOL: f64 = 1e-4;
-const RTOL: f64 = 1e-4;
+//const ATOL: f64 = 1e-4;
+//const RTOL: f64 = 1e-4;
 
 // // Define the state vector, which must be equal to the number of compartments in the model
 // // These are re-exported from the `nalgebra`-crate by `ode_solvers`, see https://github.com/srenevey/ode-solvers?tab=readme-ov-file#type-alias-definition

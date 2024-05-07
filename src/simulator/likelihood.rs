@@ -3,7 +3,6 @@ use crate::routines::{
     evaluation::sigma::{ErrorModel, ErrorType},
 };
 
-use faer::utils::constrained::Array;
 use ndarray::{Array1, Array2, Axis};
 use rayon::prelude::*;
 

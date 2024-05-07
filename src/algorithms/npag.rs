@@ -1,11 +1,10 @@
 use crate::{
     prelude::{
         algorithms::Algorithm,
-        datafile::Scenario,
         evaluation::sigma::{ErrorModel, ErrorType},
         ipm::burke,
         output::{CycleLog, NPCycle, NPResult},
-        prob, qr,
+        qr,
         settings::Settings,
     },
     routines::expansion::adaptative_grid::adaptative_grid,

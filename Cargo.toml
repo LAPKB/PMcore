@@ -15,7 +15,6 @@ repository = "https://github.com/LAPKB/PMcore"
 exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
-# diffsol = { path = "../../nabla-rs/diffsol" }
 diffsol = { git = "https://github.com/nabla-rs/diffsol.git", branch = "pmcore" }
 dashmap = "5.5.3"
 lazy_static = "1.4.0"
@@ -25,7 +24,6 @@ serde = "1.0.188"
 serde_derive = "1.0.188"
 serde_json = "1.0.66"
 sobol_burley = "0.5.0"
-ode_solvers = "0.4"
 ndarray-stats = "0.5.1"
 linfa-linalg = "0.1.0"
 rayon = "1.8.0"
@@ -41,13 +39,9 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "tim
 chrono = "0.4"
 config = "0.14"
 memory-stats = "1.1.0"
-serde_with = "3.6.0"
 nalgebra = "0.32.5"
 faer = "0.18.2"
 faer-ext = {version = "0.1.0", features = ["nalgebra", "ndarray"]}
-dyn-stack = "0.10.0"
-cached = "0.51.1"
-
 
 [profile.release]
 codegen-units = 1

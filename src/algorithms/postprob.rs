@@ -1,11 +1,9 @@
 use crate::{
     prelude::{
         algorithms::Algorithm,
-        datafile::Scenario,
         evaluation::sigma::{ErrorModel, ErrorType},
         ipm_faer::burke,
         output::NPResult,
-        prob,
         settings::Settings,
     },
     simulator::Equation,

@@ -6,7 +6,7 @@ use ndarray::{Array1, Axis};
 
 use crate::{
     routines::{
-        data::Subject, datafile::Scenario, evaluation::sigma::ErrorModel,
+        data::Subject, evaluation::sigma::ErrorModel,
         simulation::predict::get_population_predictions,
     },
     simulator::Equation,

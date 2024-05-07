@@ -1,15 +1,9 @@
 use crate::algorithms::initialize_algorithm;
 use crate::prelude::{output::NPResult, *};
-use crate::routines::datafile::Scenario;
 use crate::routines::settings::*;
 
-use csv::{ReaderBuilder, WriterBuilder};
 use eyre::Result;
 
-use faer::utils::vec;
-use ndarray::{Array1, Array2};
-use ndarray_csv::Array2Reader;
-use std::fs::File;
 use std::path::Path;
 use std::thread::spawn;
 use std::time::Instant;
@@ -17,7 +11,7 @@ use tokio::sync::mpsc::{self};
 
 use self::data::parse_pmetrics::read_pmetrics;
 use self::data::{DataTrait, Subject};
-use self::simulator::likelihood::Prediction;
+// use self::simulator::likelihood::Prediction;
 use self::simulator::Equation;
 
 /// Simulate predictions from a model and prior distribution
@@ -33,55 +27,56 @@ use self::simulator::Equation;
 /// The user can specify the desired settings in a TOML configuration file, see `routines::settings::simulator` for details.
 /// - `idelta`: the interval between predictions. Default is 0.0.
 /// - `tad`: the time after dose, which if greater than the last prediction time is the time for which it will predict . Default is 0.0.
-pub fn simulate(equation: Equation, settings_path: String) -> Result<()> {
-    let settings: Settings = read_settings(settings_path).unwrap();
-    let theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
-    let mut reader = ReaderBuilder::new()
-        .has_headers(true)
-        .from_reader(theta_file);
-    let theta: Array2<f64> = reader.deserialize_array2_dynamic().unwrap();
+pub fn simulate(_equation: Equation, _settings_path: String) -> Result<()> {
+    unimplemented!();
+    // let settings: Settings = read_settings(settings_path).unwrap();
+    // let theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
+    // let mut reader = ReaderBuilder::new()
+    //     .has_headers(true)
+    //     .from_reader(theta_file);
+    // // let theta: Array2<f64> = reader.deserialize_array2_dynamic().unwrap();
 
-    // Expand data
-    let idelta = settings.config.idelta;
-    let tad = settings.config.tad;
-    let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
-    let subjects = data.get_subjects();
+    // // Expand data
+    // // let idelta = settings.config.idelta;
+    // // let tad = settings.config.tad;
+    // let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
+    // // let subjects = data.get_subjects();
 
-    // Perform simulation
-    let obspred = get_population_predictions(&equation, &subjects, &theta, false);
+    // // Perform simulation
+    // // let obspred = get_population_predictions(&equation, &subjects, &theta, false);
 
-    // Prepare writer
-    let sim_file = File::create("simulation_output.csv").unwrap();
-    let mut sim_writer = WriterBuilder::new()
-        .has_headers(false)
-        .from_writer(sim_file);
-    sim_writer
-        .write_record(["id", "point", "time", "pred"])
-        .unwrap();
+    // // Prepare writer
+    // let sim_file = File::create("simulation_output.csv").unwrap();
+    // let mut sim_writer = WriterBuilder::new()
+    //     .has_headers(false)
+    //     .from_writer(sim_file);
+    // sim_writer
+    //     .write_record(["id", "point", "time", "pred"])
+    //     .unwrap();
 
-    // Write output
-    for (id, subject) in subjects.iter().enumerate() {
-        //TODO: We are missing a get_obs_times function
-        // let time = subject.obs_times.clone();
-        let time: Vec<f64> = vec![];
-        for (point, _spp) in theta.rows().into_iter().enumerate() {
-            for (i, time) in time.iter().enumerate() {
-                unimplemented!()
-                // sim_writer.write_record(&[
-                //     id.to_string(),
-                //     point.to_string(),
-                //     time.to_string(),
-                //     obspred
-                //         .get((id, point))
-                //         .unwrap()
-                //         .get(i)
-                //         .unwrap()
-                //         .to_string(),
-                // ])?;
-            }
-        }
-    }
-    Ok(())
+    // // Write output
+    // // for (id, subject) in subjects.iter().enumerate() {
+    // //     //TODO: We are missing a get_obs_times function
+    // //     // let time = subject.obs_times.clone();
+    // //     let time: Vec<f64> = vec![];
+    // //     for (point, _spp) in theta.rows().into_iter().enumerate() {
+    // //         for (i, time) in time.iter().enumerate() {
+    // //             unimplemented!()
+    // //             // sim_writer.write_record(&[
+    // //             //     id.to_string(),
+    // //             //     point.to_string(),
+    // //             //     time.to_string(),
+    // //             //     obspred
+    // //             //         .get((id, point))
+    // //             //         .unwrap()
+    // //             //         .get(i)
+    // //             //         .unwrap()
+    // //             //         .to_string(),
+    // //             // ])?;
+    // //         }
+    // //     }
+    // // }
+    // Ok(())
 }
 
 /// Primary entrypoint for PMcore

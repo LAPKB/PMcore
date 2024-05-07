@@ -1,21 +1,19 @@
 use crate::routines::data::Subject;
-use crate::routines::datafile::CovLine;
-use crate::routines::datafile::Infusion;
-use crate::routines::datafile::Scenario;
-use crate::routines::evaluation::sigma::ErrorModel;
+
+// use crate::routines::evaluation::sigma::ErrorModel;
 use crate::simulator::likelihood::PopulationPredictions;
-use crate::simulator::likelihood::Prediction;
+// use crate::simulator::likelihood::Prediction;
 use crate::simulator::Equation;
-use dashmap::mapref::entry::Entry;
-use dashmap::DashMap;
-use lazy_static::lazy_static;
+// use dashmap::mapref::entry::Entry;
+// use dashmap::DashMap;
+// use lazy_static::lazy_static;
 use ndarray::parallel::prelude::*;
 use ndarray::prelude::*;
-use ndarray::Array1;
-use ndarray::{Array, Array2, Axis};
-use std::collections::HashMap;
-use std::error;
-use std::hash::{Hash, Hasher};
+// use ndarray::Array1;
+use ndarray::{Array2, Axis};
+// use std::collections::HashMap;
+// use std::error;
+// use std::hash::{Hash, Hasher};
 
 /// Number of support points to cache for each scenario
 // const CACHE_SIZE: usize = 1000;
@@ -132,7 +130,7 @@ pub fn get_population_predictions<'a>(
     equation: &'a Equation,
     subjects: &Vec<Subject>,
     support_points: &Array2<f64>,
-    cache: bool,
+    _cache: bool,
 ) -> PopulationPredictions {
     let mut pred = Array2::default((subjects.len(), support_points.nrows()).f());
     pred.axis_iter_mut(Axis(0))
@@ -159,26 +157,26 @@ pub fn get_population_predictions<'a>(
 //     sim_eng.pred(scenario, support_point.to_vec())
 // }
 
-fn post_predictions<S>(
-    equation: &Equation,
-    post: Array2<f64>,
-    scenarios: &Vec<Scenario>,
-) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>> {
-    unimplemented!();
-    // if post.nrows() != scenarios.len() {
-    //     return Err("Error calculating the posterior predictions, size mismatch.".into());
-    // }
-    // let mut predictions: Array1<Vec<f64>> = Array1::default(post.nrows());
+// fn post_predictions<S>(
+//     _equation: &Equation,
+//     _post: Array2<f64>,
+//     _subjects: &Vec<Subject>,
+// ) -> Result<Array1<Vec<f64>>, Box<dyn error::Error>> {
+//     unimplemented!();
+//     // if post.nrows() != scenarios.len() {
+//     //     return Err("Error calculating the posterior predictions, size mismatch.".into());
+//     // }
+//     // let mut predictions: Array1<Vec<f64>> = Array1::default(post.nrows());
 
-    // predictions
-    //     .axis_iter_mut(Axis(0))
-    //     .into_par_iter()
-    //     .enumerate()
-    //     .for_each(|(i, mut pred)| {
-    //         let scenario = scenarios.get(i).unwrap();
-    //         let support_point = post.row(i).to_owned();
-    //         pred.fill(simple_sim(sim_engine, scenario.clone(), &support_point))
-    //     });
+//     // predictions
+//     //     .axis_iter_mut(Axis(0))
+//     //     .into_par_iter()
+//     //     .enumerate()
+//     //     .for_each(|(i, mut pred)| {
+//     //         let scenario = scenarios.get(i).unwrap();
+//     //         let support_point = post.row(i).to_owned();
+//     //         pred.fill(simple_sim(sim_engine, scenario.clone(), &support_point))
+//     //     });
 
-    // Ok(predictions)
-}
+//     // Ok(predictions)
+// }

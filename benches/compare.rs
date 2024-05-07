@@ -1,5 +1,5 @@
 use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
-use pmcore::simulator::{analytical::one_compartment_with_absorption, V};
+use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::{prelude::*, simulator::Equation};
 use std::path::Path;
 
@@ -28,7 +28,6 @@ fn main() -> std::io::Result<()> {
             // baseline,
             analytical_ns,
             // analytical_os,
-            ode_solvers_ns,
             // ode_solvers_os,
             diffsol_ns,
             // diffsol_os,
@@ -78,93 +77,7 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
         }
     });
 }
-// pub fn analytical_os(bencher: Bencher, len: usize) {
-//     let data = parse(&PATH.to_string()).unwrap();
-//     let scenario = data.first().unwrap();
-//     let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
 
-//     let analytical = Equation::new_analytical(
-//         one_compartment_with_absorption,
-//         |_p, _cov| {},
-//         |p| {
-//             fetch_params!(p, _ke, _ka, _v, tlag);
-//             lag! {0=>tlag}
-//         },
-//         |_p| fa! {},
-//         |_p, _t, _cov, _x| {},
-//         |x, p, _t, _cov, y| {
-//             fetch_params!(p, _ke, _ka, v, _tlag);
-//             y[0] = x[0] / v;
-//             y[1] = x[1] / v;
-//         },
-//         (4, 2),
-//     );
-//     bencher.bench(|| {
-//         for _ in 0..len {
-//             black_box(analytical.simulate_scenario(scenario, &SPP.to_vec()));
-//         }
-//     });
-// }
-pub fn ode_solvers_ns(bencher: Bencher, len: usize) {
-    let data = read_pmetrics(Path::new(PATH)).unwrap();
-    let subjects = data.get_subjects();
-    let first_subject = subjects.first().unwrap();
-
-    let ode = Equation::new_ode_solvers(
-        |x, p, _t, dx, rateiv, _cov| {
-            fetch_params!(p, ke, ka, _v, _tlag);
-            dx[0] = -ka * x[0];
-            dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
-        },
-        |p| {
-            fetch_params!(p, _ke, _ka, _v, tlag);
-            lag! {0=>tlag}
-        },
-        |_p| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, _ka, v, _tlag);
-            y[0] = x[0] / v;
-            y[1] = x[1] / v;
-        },
-        (4, 2),
-    );
-    bencher.bench(|| {
-        for _ in 0..len {
-            black_box(ode.simulate_subject(&first_subject, &SPP.to_vec()));
-        }
-    });
-}
-// pub fn ode_solvers_os(bencher: Bencher, len: usize) {
-//     let data = parse(&PATH.to_string()).unwrap();
-//     let scenario = data.first().unwrap();
-//     let scenario = &scenario.reorder_with_lag(vec![(SPP[3], 1)]);
-
-//     let ode = Equation::new_ode_solvers(
-//         |x, p, _t, dx, rateiv, _cov| {
-//             fetch_params!(p, ke, ka, _v, _tlag);
-//             dx[0] = -ka * x[0];
-//             dx[1] = ka * x[0] - ke * x[1] + rateiv[0];
-//         },
-//         |p| {
-//             fetch_params!(p, _ke, _ka, _v, tlag);
-//             lag! {0=>tlag}
-//         },
-//         |_p| fa! {},
-//         |_p, _t, _cov, _x| {},
-//         |x, p, _t, _cov, y| {
-//             fetch_params!(p, _ke, _ka, v, _tlag);
-//             y[0] = x[0] / v;
-//             y[1] = x[1] / v;
-//         },
-//         (4, 2),
-//     );
-//     bencher.bench(|| {
-//         for _ in 0..len {
-//             black_box(ode.simulate_scenario(scenario, &SPP.to_vec()));
-//         }
-//     });
-// }
 pub fn diffsol_ns(bencher: Bencher, len: usize) {
     let data = read_pmetrics(Path::new(PATH)).unwrap();
     let subjects = data.get_subjects();

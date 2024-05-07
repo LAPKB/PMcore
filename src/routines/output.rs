@@ -170,7 +170,7 @@ impl NPResult {
     }
 
     /// Writes the predictions
-    pub fn write_pred<'a>(&self, equation: &Equation, idelta: f64, tad: f64) {
+    pub fn write_pred<'a>(&self, _equation: &Equation, _idelta: f64, _tad: f64) {
         unimplemented!()
         // tracing::info!("Writing individual predictions...");
         // let result = (|| {

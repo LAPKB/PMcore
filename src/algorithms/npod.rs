@@ -2,12 +2,11 @@ use crate::{
     prelude::{
         algorithms::Algorithm,
         condensation::prune::prune,
-        datafile::Scenario,
         evaluation::sigma::{ErrorModel, ErrorType},
         ipm::burke,
         optimization::d_optimizer::SppOptimizer,
         output::{CycleLog, NPCycle, NPResult},
-        prob, qr,
+        qr,
         settings::Settings,
     },
     simulator::{likelihood::PopulationPredictions, Equation},

@@ -1,9 +1,8 @@
+use crate::simulator::likelihood::SubjectPredictions;
+use dashmap::DashMap;
+use lazy_static::lazy_static;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use lazy_static::lazy_static;
-use dashmap::DashMap;
-use crate::simulator::likelihood::SubjectPredictions;
-
 
 const CACHE_SIZE: usize = 10000;
 
@@ -31,8 +30,7 @@ impl SupportPointHash {
 }
 
 lazy_static! {
-    static ref CACHE: DashMap<CacheKey, SubjectPredictions> =
-        DashMap::with_capacity(CACHE_SIZE);
+    static ref CACHE: DashMap<CacheKey, SubjectPredictions> = DashMap::with_capacity(CACHE_SIZE);
 }
 
 pub fn get_entry(subject: &String, support_point: &Vec<f64>) -> Option<SubjectPredictions> {

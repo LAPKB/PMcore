@@ -56,8 +56,6 @@ pub mod simulator;
 pub mod routines {
     /// New data format
     pub mod data;
-    /// Handles datafile operations
-    pub mod datafile;
     /// Routines for initializing the grid
     pub mod initialization;
     pub mod optimization {
@@ -83,7 +81,6 @@ pub mod routines {
         /// Interior point method for solving the optimization problem
         pub mod ipm;
         pub mod ipm_faer;
-        pub mod prob;
         pub mod qr;
         pub mod sigma;
     }
@@ -101,7 +98,6 @@ pub mod tui;
 
 // Re-export commonly used items
 pub use eyre::Result;
-pub use ode_solvers::*;
 pub use std::collections::HashMap;
 
 /// A collection of commonly used items to simplify imports.
@@ -114,10 +110,9 @@ pub mod prelude {
     pub use crate::entrypoints::start;
     pub use crate::entrypoints::start_internal;
     pub use crate::logger;
-    pub use crate::prelude::evaluation::{prob, sigma, *};
+    pub use crate::prelude::evaluation::{sigma, *};
     pub use crate::routines::condensation;
     pub use crate::routines::data::CovariateTrait;
-    pub use crate::routines::datafile::*;
     pub use crate::routines::expansion::*;
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization;
