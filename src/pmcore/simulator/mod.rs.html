@@ -224,6 +224,7 @@
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>analytical;
 <span class="kw">pub mod </span>cache;
 <span class="kw">pub mod </span>likelihood;
@@ -297,7 +298,8 @@
             }
             <span class="comment">// What should we use as the initial state for the next occasion?
             </span><span class="kw">let </span>covariates = occasion.get_covariates().unwrap();
-            <span class="kw">let </span><span class="kw-2">mut </span>x = V::zeros(<span class="self">self</span>.get_nstates());
+            <span class="comment">//TODO: set the right initial condition when occasion &gt; 1
+            </span><span class="kw">let </span><span class="kw-2">mut </span>x = V::zeros(<span class="self">self</span>.get_nstates());
             (init)(
                 <span class="kw-2">&amp;</span>V::from_vec(support_point.clone()),
                 <span class="number">0.0</span>,
