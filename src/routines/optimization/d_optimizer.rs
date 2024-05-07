@@ -41,7 +41,7 @@ impl<'a> CostFunction for SppOptimizer<'a> {
         let nsub = psi.nrows() as f64;
         let mut sum = -nsub;
         for (p_i, pyl_i) in psi.iter().zip(self.pyl.iter()) {
-            sum += nsub + p_i / pyl_i;
+            sum += p_i / pyl_i;
         }
         Ok(-sum)
     }

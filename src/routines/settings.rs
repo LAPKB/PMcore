@@ -34,6 +34,9 @@ pub struct Paths {
     pub log: Option<String>,
     /// If provided, PMcore will use this prior instead of a "uniform" prior, see `sobol::generate` for details.
     pub prior: Option<String>,
+    /// If provided, and [Config::output] is true, PMcore will write the output to this **relative** path. Defaults to `outputs/`
+    #[serde(default = "default_output_folder")]
+    pub output_folder: Option<String>,
 }
 
 /// General configuration settings
@@ -53,6 +56,7 @@ pub struct Config {
     pub init_points: usize,
     #[serde(default = "default_false")]
     pub tui: bool,
+    /// If true (default), write outputs to files. Output path is set with [Paths::output_folder]
     #[serde(default = "default_true")]
     pub output: bool,
     /// If true (default), cache predicted values
@@ -168,7 +172,18 @@ impl Error {
                 self.value
             ));
         }
+
+        _ = self.error_type();
+
         Ok(())
+    }
+
+    pub fn error_type(&self) -> crate::routines::evaluation::sigma::ErrorType {
+        match self.class.to_lowercase().as_str() {
+            "additive" | "l" | "lambda"  => crate::routines::evaluation::sigma::ErrorType::Add,
+            "proportional" | "g" | "gamma"  => crate::routines::evaluation::sigma::ErrorType::Prop,
+            _ => panic!("Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)", self.class),
+        }
     }
 }
 
@@ -176,13 +191,13 @@ impl Error {
 ///
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
-/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE_TUI=false`.
+/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE__`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE__CONFIG__TUI=false` Note that a double underscore, `__`, is used as the separator, as some settings may contain a single underscore, such as `PMCORE__CONFIG__LOG_LEVEL`.
 pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
     let settings_path = path;
 
     let parsed = eConfig::builder()
         .add_source(config::File::with_name(&settings_path).format(config::FileFormat::Toml))
-        .add_source(config::Environment::with_prefix("PMCORE").separator("_"))
+        .add_source(config::Environment::with_prefix("PMCORE").separator("__"))
         .build()?;
 
     // Deserialize settings to the Settings struct
@@ -200,7 +215,9 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
 
     // Write a copy of the settings to file if output is enabled
     if settings.config.output {
-        write_settings_to_file(&settings).expect("Could not write settings to file");
+        if let Err(error) = write_settings_to_file(&settings) {
+            eprintln!("Could not write settings to file: {}", error);
+        }
     }
 
     Ok(settings) // Return the settings wrapped in Ok
@@ -213,8 +230,7 @@ pub fn write_settings_to_file(settings: &Settings) -> Result<(), std::io::Error>
     let serialized = serde_json::to_string_pretty(settings)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
-    let file_path = "settings.json";
-    let mut file = std::fs::File::create(file_path)?;
+    let mut file = crate::routines::output::create_output_file(settings, "settings.json")?;
     std::io::Write::write_all(&mut file, serialized.as_bytes())?;
     Ok(())
 }
@@ -252,4 +268,8 @@ fn default_10k() -> usize {
 
 fn default_cycles() -> usize {
     100
+}
+
+fn default_output_folder() -> Option<String> {
+    Some("outputs/".to_string())
 }

@@ -123,6 +123,8 @@ pub fn start(equation: Equation, settings_path: String) -> Result<NPResult> {
         subjects.iter().map(|s| s.occasions.len()).sum::<usize>()
     );
 
+    tracing::info!("Starting {}", settings.config.engine);
+
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
     let handle = if settings.config.tui {

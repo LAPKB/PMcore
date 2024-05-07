@@ -58,14 +58,7 @@ impl NPResult {
             self.write_posterior();
             self.write_obs();
             self.write_pred(equation, idelta, tad);
-            self.write_meta();
         }
-    }
-
-    // Writes meta_rust.csv
-    pub fn write_meta(&self) {
-        let mut meta_writer = MetaWriter::new();
-        meta_writer.write(self.converged, self.cycles);
     }
 
     /// Writes theta, which containts the population support points and their associated probabilities
@@ -76,7 +69,7 @@ impl NPResult {
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
 
-            let file = File::create("theta.csv")?;
+            let file = create_output_file(&self.settings, "theta.csv")?;
             let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
             // Create the headers
@@ -110,7 +103,8 @@ impl NPResult {
 
             let posterior = posterior(&psi, &w);
 
-            let file = File::create("posterior.csv")?;
+            // Create the output folder if it doesn't exist
+            let file = create_output_file(&self.settings, "posterior.csv")?;
             let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
             // Create the headers
@@ -150,8 +144,8 @@ impl NPResult {
         // let result = (|| {
         //     let subjects = self.subjects.clone();
 
-        //     let file = File::create("obs.csv")?;
-        //     let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        // let file = create_output_file(&self.settings, "obs.csv")?;
+        // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
         //     // Create the headers
         //     writer.write_record(["id", "time", "obs", "outeq"])?;
@@ -211,8 +205,8 @@ impl NPResult {
         //         false,
         //     );
 
-        //     let file = File::create("pred.csv")?;
-        //     let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        // let file = create_output_file(&self.settings, "pred.csv")?;
+        // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
         //     // Create the headers
         //     writer.write_record([
@@ -225,14 +219,14 @@ impl NPResult {
         //         "postMedian",
         //     ])?;
 
-        //     // Write contents
-        //     for (id, subject) in subjects.iter().enumerate() {
-        //         let time = subject.obs_times.clone();
+        // Write contents
+        //     for (id, scenario) in scenarios.iter().enumerate() {
+        //         let time = scenario.obs_times.clone();
         //         let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
         //         let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
         //         let post_mp = post_mean_pred.get(id).unwrap().to_owned();
         //         let post_mdp = post_median_pred.get(id).unwrap().to_owned();
-        //         for (_i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
+        //         for (i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
         //             .into_iter()
         //             .zip(pop_medp)
         //             .zip(post_mp)
@@ -242,9 +236,15 @@ impl NPResult {
         //         {
         //             writer
         //                 .write_record(&[
-        //                     subjects.get(id).unwrap().id.to_string(),
+        //                     scenarios.get(id).unwrap().id.to_string(),
         //                     t.to_string(),
-        //                     "1".to_string(),
+        //                     scenarios
+        //                         .get(id)
+        //                         .unwrap()
+        //                         .outeqs
+        //                         .get(i)
+        //                         .unwrap()
+        //                         .to_string(),
         //                     pop_mp_i.to_string(),
         //                     pop_mdp_i.to_string(),
         //                     post_mp_i.to_string(),
@@ -267,8 +267,8 @@ pub struct CycleLog {
     cycle_writer: CycleWriter,
 }
 impl CycleLog {
-    pub fn new(par_names: &[String]) -> Self {
-        let cycle_writer = CycleWriter::new("cycles.csv", par_names.to_vec());
+    pub fn new(settings: &Settings) -> Self {
+        let cycle_writer = CycleWriter::new(settings);
         Self {
             cycles: Vec::new(),
             cycle_writer,
@@ -276,8 +276,13 @@ impl CycleLog {
     }
     pub fn push_and_write(&mut self, npcycle: NPCycle, write_ouput: bool) {
         if write_ouput {
-            self.cycle_writer
-                .write(npcycle.cycle, npcycle.objf, npcycle.gamlam, &npcycle.theta);
+            self.cycle_writer.write(
+                npcycle.cycle,
+                npcycle.converged,
+                npcycle.objf,
+                npcycle.gamlam,
+                &npcycle.theta,
+            );
             self.cycle_writer.flush();
         }
         self.cycles.push(npcycle);
@@ -285,7 +290,7 @@ impl CycleLog {
 }
 
 /// Defines the result objects from a run
-/// An [NPResult] contains the necessary information to generate predictions and summary statistics
+/// An [NPCycle] contains summary of a cycle
 /// It holds the following information:
 /// - `cycle`: The cycle number
 /// - `objf`: The objective function value
@@ -293,6 +298,7 @@ impl CycleLog {
 /// - `theta`: The support points and their associated probabilities
 /// - `nspp`: The number of support points
 /// - `delta_objf`: The change in objective function value from last cycle
+/// - `converged`: Whether the algorithm has reached convergence
 #[derive(Debug, Clone)]
 pub struct NPCycle {
     pub cycle: usize,
@@ -301,6 +307,7 @@ pub struct NPCycle {
     pub theta: Array2<f64>,
     pub nspp: usize,
     pub delta_objf: f64,
+    pub converged: bool,
 }
 impl NPCycle {
     pub fn new() -> Self {
@@ -311,6 +318,7 @@ impl NPCycle {
             theta: Array2::default((0, 0)),
             nspp: 0,
             delta_objf: 0.0,
+            converged: false,
         }
     }
 }
@@ -323,102 +331,79 @@ impl Default for NPCycle {
 // Cycles
 #[derive(Debug)]
 pub struct CycleWriter {
-    writer: csv::Writer<File>,
+    writer: Option<csv::Writer<File>>,
 }
 
 impl CycleWriter {
-    pub fn new(file_path: &str, parameter_names: Vec<String>) -> CycleWriter {
-        let file = File::create(file_path).unwrap();
-        let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+    pub fn new(settings: &Settings) -> CycleWriter {
+        let writer = if settings.config.output {
+            let file = create_output_file(settings, "cycles.csv").unwrap();
+            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
-        // Write headers
-        writer.write_field("cycle").unwrap();
-        writer.write_field("neg2ll").unwrap();
-        writer.write_field("gamlam").unwrap();
-        writer.write_field("nspp").unwrap();
+            // Write headers
+            writer.write_field("cycle").unwrap();
+            writer.write_field("converged").unwrap();
+            writer.write_field("neg2ll").unwrap();
+            writer.write_field("gamlam").unwrap();
+            writer.write_field("nspp").unwrap();
 
-        for param_name in &parameter_names {
-            writer.write_field(format!("{}.mean", param_name)).unwrap();
-            writer
-                .write_field(format!("{}.median", param_name))
-                .unwrap();
-            writer.write_field(format!("{}.sd", param_name)).unwrap();
-        }
+            let parameter_names = settings.random.names();
+            for param_name in &parameter_names {
+                writer.write_field(format!("{}.mean", param_name)).unwrap();
+                writer
+                    .write_field(format!("{}.median", param_name))
+                    .unwrap();
+                writer.write_field(format!("{}.sd", param_name)).unwrap();
+            }
 
-        writer.write_record(None::<&[u8]>).unwrap();
+            writer.write_record(None::<&[u8]>).unwrap();
+            Some(writer)
+        } else {
+            None
+        };
 
         CycleWriter { writer }
     }
 
-    pub fn write(&mut self, cycle: usize, objf: f64, gamma: f64, theta: &Array2<f64>) {
-        self.writer.write_field(format!("{}", cycle)).unwrap();
-        self.writer.write_field(format!("{}", objf)).unwrap();
-        self.writer.write_field(format!("{}", gamma)).unwrap();
-        self.writer
-            .write_field(format!("{}", theta.nrows()))
-            .unwrap();
+    pub fn write(
+        &mut self,
+        cycle: usize,
+        converged: bool,
+        objf: f64,
+        gamma: f64,
+        theta: &Array2<f64>,
+    ) {
+        if let Some(writer) = &mut self.writer {
+            writer.write_field(format!("{}", cycle)).unwrap();
+            writer.write_field(format!("{}", converged)).unwrap();
+            writer.write_field(format!("{}", objf)).unwrap();
+            writer.write_field(format!("{}", gamma)).unwrap();
+            writer.write_field(format!("{}", theta.nrows())).unwrap();
 
-        for param in theta.axis_iter(Axis(1)) {
-            self.writer
-                .write_field(format!("{}", param.mean().unwrap()))
-                .unwrap();
+            for param in theta.axis_iter(Axis(1)) {
+                writer
+                    .write_field(format!("{}", param.mean().unwrap()))
+                    .unwrap();
+            }
+
+            for param in theta.axis_iter(Axis(1)) {
+                writer
+                    .write_field(format!("{}", median(param.to_owned().to_vec())))
+                    .unwrap();
+            }
+
+            for param in theta.axis_iter(Axis(1)) {
+                writer.write_field(format!("{}", param.std(1.))).unwrap();
+            }
+
+            writer.write_record(None::<&[u8]>).unwrap();
         }
-
-        for param in theta.axis_iter(Axis(1)) {
-            self.writer
-                .write_field(format!("{}", median(param.to_owned().to_vec())))
-                .unwrap();
-        }
-
-        for param in theta.axis_iter(Axis(1)) {
-            self.writer
-                .write_field(format!("{}", param.std(1.)))
-                .unwrap();
-        }
-
-        self.writer.write_record(None::<&[u8]>).unwrap();
     }
 
     pub fn flush(&mut self) {
-        self.writer.flush().unwrap();
-    }
-}
-
-// Meta
-#[derive(Debug)]
-pub struct MetaWriter {
-    writer: csv::Writer<File>,
-}
-
-impl Default for MetaWriter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl MetaWriter {
-    pub fn new() -> MetaWriter {
-        let meta_file = File::create("meta_rust.csv").unwrap();
-        let mut meta_writer = WriterBuilder::new()
-            .has_headers(false)
-            .from_writer(meta_file);
-        meta_writer.write_field("converged").unwrap();
-        meta_writer.write_field("ncycles").unwrap();
-        meta_writer.write_record(None::<&[u8]>).unwrap();
-        MetaWriter {
-            writer: meta_writer,
+        if let Some(writer) = &mut self.writer {
+            writer.flush().unwrap(); // Handle errors appropriately
         }
-    }
-
-    pub fn write(&mut self, converged: bool, cycle: usize) {
-        self.writer.write_field(converged.to_string()).unwrap();
-        self.writer.write_field(format!("{}", cycle)).unwrap();
-        self.writer.write_record(None::<&[u8]>).unwrap();
-        self.flush();
-    }
-
-    fn flush(&mut self) {
-        self.writer.flush().unwrap();
     }
 }
 
@@ -570,4 +555,24 @@ pub fn posterior_mean_median(
     }
 
     (mean, median)
+}
+
+pub fn create_output_file(settings: &Settings, file_name: &str) -> std::io::Result<File> {
+    let output_folder = settings
+        .paths
+        .output_folder
+        .as_ref()
+        .ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Output folder not specified in settings",
+        ))?;
+
+    let path = std::path::Path::new(output_folder);
+
+    // Attempt to create the output directory (does nothing if already exists)
+    std::fs::create_dir_all(path)?;
+
+    // Create and open the file, returning the File handle
+    let file_path = path.join(file_name);
+    File::create(file_path)
 }

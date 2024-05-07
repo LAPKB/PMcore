@@ -102,23 +102,15 @@ impl NPAG {
             w: Array1::default(0),
             eps: 0.2,
             last_objf: -1e30,
-            objf: f64::INFINITY,
+            objf: f64::NEG_INFINITY,
             f0: -1e30,
             f1: f64::default(),
             cycle: 1,
             gamma_delta: 0.1,
             gamma: settings.error.value,
-            error_type: match settings.error.class.to_lowercase().as_str() {
-                "additive" => ErrorType::Add,
-                "lambda" => ErrorType::Add,
-                "l" => ErrorType::Add,
-                "proportional" => ErrorType::Prop,
-                "gamma" => ErrorType::Prop,
-                "g" => ErrorType::Prop,
-                _ => panic!("Error type not supported"),
-            },
+            error_type: settings.error.error_type(),
             converged: false,
-            cycle_log: CycleLog::new(&settings.random.names()),
+            cycle_log: CycleLog::new(&settings),
             cache: settings.config.cache,
             tx,
             settings,
@@ -184,7 +176,7 @@ impl NPAG {
     }
 
     pub fn run(&mut self) -> NPResult {
-        while self.eps > THETA_E {
+        loop {
             // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
@@ -261,6 +253,62 @@ impl NPAG {
 
             self.optim_gamma();
 
+            // Log relevant cycle information
+            tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
+            tracing::debug!("Support points: {}", self.theta.shape()[0]);
+            tracing::debug!("Gamma = {:.4}", self.gamma);
+            tracing::debug!("EPS = {:.4}", self.eps);
+
+            // Increasing objf signals instability or model misspecification.
+            if self.last_objf > self.objf {
+                tracing::warn!(
+                    "Objective function decreased from {:.4} to {:.4} (delta = {})",
+                    -2.0 * self.last_objf,
+                    -2.0 * self.objf,
+                    -2.0 * self.last_objf - -2.0 * self.objf
+                );
+            }
+
+            self.w = self.lambda.clone();
+            let pyl = self.psi.dot(&self.w);
+
+            // Stop if we have reached convergence criteria
+            let mut stop = false;
+            if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
+                self.eps /= 2.;
+                if self.eps <= THETA_E {
+                    self.f1 = pyl.mapv(|x| x.ln()).sum();
+                    if (self.f1 - self.f0).abs() <= THETA_F {
+                        tracing::info!(
+                            "The run converged with the following criteria: Log-Likelihood"
+                        );
+                        self.converged = true;
+                        stop = true;
+                    } else {
+                        self.f0 = self.f1;
+                        self.eps = 0.2;
+                    }
+                }
+            }
+            if self.eps <= THETA_E {
+                tracing::info!("The run converged with the following criteria: Eps");
+                self.converged = true;
+                stop = true;
+            }
+
+            // Stop if we have reached maximum number of cycles
+            if self.cycle >= self.settings.config.cycles {
+                tracing::warn!("Maximum number of cycles reached");
+                stop = true;
+            }
+
+            // Stop if stopfile exists
+            if std::path::Path::new("stop").exists() {
+                tracing::warn!("Stopfile detected - breaking");
+                stop = true;
+            }
+
+            // Create state object
             let state = NPCycle {
                 cycle: self.cycle,
                 objf: -2. * self.objf,
@@ -268,52 +316,21 @@ impl NPAG {
                 nspp: self.theta.shape()[0],
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
+                converged: self.converged,
             };
+
+            // Update TUI with current state
             match &self.tx {
                 Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
                 None => (),
             }
 
-            // Increasing objf signals instability or model misspecification.
-            if self.last_objf > self.objf {
-                tracing::warn!(
-                    "Objective function decreased from {} to {}",
-                    self.last_objf,
-                    self.objf
-                );
-            }
-
-            self.w = self.lambda.clone();
-            let pyl = self.psi.dot(&self.w);
-
+            // Write cycle log
             self.cycle_log
                 .push_and_write(state, self.settings.config.output);
 
-            // Stop if we have reached convergence criteria
-            if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
-                self.eps /= 2.;
-                if self.eps <= THETA_E {
-                    self.f1 = pyl.mapv(|x| x.ln()).sum();
-                    if (self.f1 - self.f0).abs() <= THETA_F {
-                        tracing::info!("The run converged");
-                        self.converged = true;
-                        break;
-                    } else {
-                        self.f0 = self.f1;
-                        self.eps = 0.2;
-                    }
-                }
-            }
-
-            // Stop if we have reached maximum number of cycles
-            if self.cycle >= self.settings.config.cycles {
-                tracing::warn!("Maximum number of cycles reached");
-                break;
-            }
-
-            // Stop if stopfile exists
-            if std::path::Path::new("stop").exists() {
-                tracing::warn!("Stopfile detected - breaking");
+            // Break if stop criteria are met
+            if stop {
                 break;
             }
 

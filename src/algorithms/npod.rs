@@ -97,17 +97,13 @@ impl NPOD {
             lambda: Array1::default(0),
             w: Array1::default(0),
             last_objf: -1e30,
-            objf: f64::INFINITY,
+            objf: f64::NEG_INFINITY,
             cycle: 1,
             gamma_delta: 0.1,
             gamma: settings.error.value,
-            error_type: match settings.error.class.as_str() {
-                "additive" => ErrorType::Add,
-                "proportional" => ErrorType::Prop,
-                _ => panic!("Error type not supported"),
-            },
+            error_type: settings.error.error_type(),
             converged: false,
-            cycle_log: CycleLog::new(&settings.random.names()),
+            cycle_log: CycleLog::new(&settings),
             cache: settings.config.cache,
             tx,
             settings,
@@ -168,10 +164,13 @@ impl NPOD {
     }
 
     pub fn run(&mut self) -> NPResult {
-        while (self.last_objf - self.objf).abs() > THETA_F {
+        loop {
+            // Enter a span for each cycle, providing context for further errors
+            let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
+            let _enter = cycle_span.enter();
+
             self.last_objf = self.objf;
-            // log::info!("Cycle: {}", cycle);
-            // psi n_sub rows, nspp columns
+
             let cache = if self.cycle == 1 { false } else { self.cache };
 
             self.population_predictions =
@@ -198,6 +197,13 @@ impl NPOD {
                 }
             }
 
+            let removed = self.theta.shape()[0] - keep.len();
+            if removed > 0 {
+                tracing::debug!(
+                    "Removed {} support point(s) with weight < 1/1000 of max",
+                    removed
+                );
+            }
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
@@ -214,12 +220,13 @@ impl NPOD {
                     keep.push(*perm.get(i).unwrap());
                 }
             }
-            tracing::info!(
-                "QR decomp, cycle {}, kept: {}, thrown {}",
-                self.cycle,
-                keep.len(),
-                self.psi.ncols() - keep.len()
-            );
+            // If a support point is dropped, log it as a debug message
+            if self.psi.ncols() != keep.len() {
+                tracing::debug!(
+                    "QRD dropped {} support point(s)",
+                    self.psi.ncols() - keep.len(),
+                );
+            }
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
 
@@ -233,6 +240,39 @@ impl NPOD {
 
             self.optim_gamma();
 
+            // Increasing objf signals instability or model misspecification.
+            if self.last_objf > self.objf {
+                tracing::warn!(
+                    "Objective function decreased from {:.4} to {:.4} (delta = {})",
+                    -2.0 * self.last_objf,
+                    -2.0 * self.objf,
+                    -2.0 * self.last_objf - -2.0 * self.objf
+                );
+            }
+
+            self.w = self.lambda.clone();
+
+            // Perform checks for convergence or termination
+            let mut stop = false;
+            // Stop if objective function convergence is reached
+            if (self.last_objf - self.objf).abs() <= THETA_F {
+                tracing::info!("Objective function convergence reached");
+                self.converged = true;
+                stop = true;
+            }
+            // Stop if we have reached maximum number of cycles
+            if self.cycle >= self.settings.config.cycles {
+                tracing::warn!("Maximum number of cycles reached");
+                stop = true;
+            }
+
+            // Stop if stopfile exists
+            if std::path::Path::new("stop").exists() {
+                tracing::warn!("Stopfile detected - breaking");
+                stop = true;
+            }
+
+            // Create a new NPCycle state and log it
             let state = NPCycle {
                 cycle: self.cycle,
                 objf: -2. * self.objf,
@@ -240,20 +280,27 @@ impl NPOD {
                 nspp: self.theta.shape()[0],
                 theta: self.theta.clone(),
                 gamlam: self.gamma,
+                converged: self.converged,
             };
+
+            // Log relevant cycle information
+            tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
+            tracing::debug!("Support points: {}", self.theta.shape()[0]);
+            tracing::debug!("Gamma = {:.4}", self.gamma);
 
             match &self.tx {
                 Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
                 None => (),
             }
 
-            // If the objective function decreased, log an error.
-            // Increasing objf signals instability of model misspecification.
-            if self.last_objf > self.objf {
-                tracing::error!("Objective function decreased");
+            self.cycle_log
+                .push_and_write(state, self.settings.config.output);
+
+            if stop {
+                break;
             }
 
-            self.w = self.lambda.clone();
+            // If no stop signal, add new point to theta based on the optimization of the D function
             let pyl = self.psi.dot(&self.w);
 
             // Add new point to theta based on the optimization of the D function
@@ -262,11 +309,7 @@ impl NPOD {
                 gl: self.gamma,
                 e_type: &self.error_type,
             };
-            // for spp in self.theta.clone().rows() {
-            //     let optimizer = SppOptimizer::new(&self.engine, &self.scenarios, &sigma, &pyl);
-            //     let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
-            //     prune(&mut self.theta, candidate_point, &self.ranges, THETA_D);
-            // }
+
             let mut candididate_points: Vec<Array1<f64>> = Vec::default();
             for spp in self.theta.clone().rows() {
                 candididate_points.push(spp.to_owned());
@@ -276,30 +319,18 @@ impl NPOD {
                     SppOptimizer::new(self.equation.clone(), &self.subjects, &sigma, &pyl);
                 let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
                 *spp = candidate_point;
+                // add spp to theta
+                // recalculate psi
+                // re-run ipm to re-calculate w
+                // re-calculate pyl
+                // re-define a new optimization
             });
             for cp in candididate_points {
                 prune(&mut self.theta, cp, &self.ranges, THETA_D);
             }
 
-            // Stop if we have reached maximum number of cycles
-            if self.cycle >= self.settings.config.cycles {
-                tracing::warn!("Maximum number of cycles reached");
-                break;
-            }
-
-            // Stop if stopfile exists
-            if std::path::Path::new("stop").exists() {
-                tracing::warn!("Stopfile detected - breaking");
-                break;
-            }
-            //TODO: the cycle might break before reaching this point
-            self.cycle_log
-                .push_and_write(state, self.settings.config.output);
-
+            // Increment the cycle count and prepare for the next cycle
             self.cycle += 1;
-
-            // log::info!("cycle: {}, objf: {}", self.cycle, self.objf);
-            // dbg!((self.last_objf - self.objf).abs());
         }
 
         self.to_npresult()
