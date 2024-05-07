@@ -139,96 +139,17 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::data::{Covariates, Infusion};
 <span class="kw">use </span>diffsol::{
-    jacobian::{find_non_zero_entries, JacobianColoring},
     matrix::Matrix,
-    ode_solver::equations::OdeEquationsStatistics,
     ode_solver::problem::OdeSolverProblem,
-    op::{closure::Closure, Op},
-    vector::{Vector, VectorIndex},
+    op::{unit::UnitCallable, Op},
+    vector::Vector,
     OdeBuilder, OdeEquations, <span class="prelude-ty">Result</span>, Zero,
 };
-<span class="kw">use </span>std::{cell::RefCell, rc::Rc};
+<span class="kw">use </span>std::rc::Rc;
+
+<span class="kw">use </span><span class="kw">super</span>::closure::PMClosure;
 
 <span class="kw">pub struct </span>OdePmSolverEquationsMassI&lt;M, F, I&gt;
 <span class="kw">where
@@ -236,14 +157,10 @@
     F: Fn(<span class="kw-2">&amp;</span>M::V, <span class="kw-2">&amp;</span>M::V, M::T, <span class="kw-2">&amp;mut </span>M::V, M::V, <span class="kw-2">&amp;</span>Covariates),
     I: Fn(<span class="kw-2">&amp;</span>M::V, M::T) -&gt; M::V,
 {
-    rhs: F,
+    rhs: Rc&lt;PMClosure&lt;M, F&gt;&gt;,
+    mass: Rc&lt;UnitCallable&lt;M&gt;&gt;,
     init: I,
     p: Rc&lt;M::V&gt;,
-    nstates: usize,
-    coloring: <span class="prelude-ty">Option</span>&lt;JacobianColoring&gt;,
-    statistics: RefCell&lt;OdeEquationsStatistics&gt;,
-    covariates: Covariates,
-    infusions: Vec&lt;Infusion&gt;,
 }
 
 <span class="kw">impl</span>&lt;M, F, I&gt; OdePmSolverEquationsMassI&lt;M, F, I&gt;
@@ -257,62 +174,26 @@
         init: I,
         p: M::V,
         t0: M::T,
-        use_coloring: bool,
+        calculate_sparsity: bool,
         covariates: Covariates,
         infusions: Vec&lt;Infusion&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>y0 = init(<span class="kw-2">&amp;</span>p, M::T::zero());
         <span class="kw">let </span>nstates = y0.len();
         <span class="kw">let </span>p = Rc::new(p);
-
-        <span class="kw">let </span>statistics = RefCell::default();
-        <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>rhs = PMClosure::new(rhs, nstates, nstates, p.clone(), covariates, infusions);
+        <span class="kw">if </span>calculate_sparsity {
+            rhs.calculate_sparsity(<span class="kw-2">&amp;</span>y0, t0);
+        }
+        <span class="kw">let </span>mass = UnitCallable::&lt;M&gt;::new(nstates);
+        <span class="kw">let </span>rhs = Rc::new(rhs);
+        <span class="kw">let </span>mass = Rc::new(mass);
+        <span class="self">Self </span>{
             rhs,
+            mass,
             init,
             p: p.clone(),
-            nstates,
-            coloring: <span class="prelude-val">None</span>,
-            statistics,
-            covariates,
-            infusions,
-        };
-        <span class="kw">let </span>coloring = <span class="kw">if </span>use_coloring {
-            <span class="kw">let </span>rhs_inplace = |x: <span class="kw-2">&amp;</span>M::V, _p: <span class="kw-2">&amp;</span>M::V, t: M::T, y_rhs: <span class="kw-2">&amp;mut </span>M::V| {
-                ret.rhs_inplace(t, x, y_rhs);
-            };
-            <span class="kw">let </span>rhs_jac_inplace = |x: <span class="kw-2">&amp;</span>M::V, _p: <span class="kw-2">&amp;</span>M::V, t: M::T, v: <span class="kw-2">&amp;</span>M::V, y: <span class="kw-2">&amp;mut </span>M::V| {
-                ret.rhs_jac_inplace(t, x, v, y);
-            };
-            <span class="kw">let </span>op =
-                Closure::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(rhs_inplace, rhs_jac_inplace, nstates, nstates, p.clone());
-            <span class="prelude-val">Some</span>(JacobianColoring::new(<span class="kw-2">&amp;</span>op, <span class="kw-2">&amp;</span>y0, t0))
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
-        ret.coloring = coloring;
-        ret
-    }
-}
-
-<span class="comment">// impl Op
-</span><span class="kw">impl</span>&lt;M, F, I&gt; Op <span class="kw">for </span>OdePmSolverEquationsMassI&lt;M, F, I&gt;
-<span class="kw">where
-    </span>M: Matrix,
-    F: Fn(<span class="kw-2">&amp;</span>M::V, <span class="kw-2">&amp;</span>M::V, M::T, <span class="kw-2">&amp;mut </span>M::V, M::V, <span class="kw-2">&amp;</span>Covariates),
-    I: Fn(<span class="kw-2">&amp;</span>M::V, M::T) -&gt; M::V,
-{
-    <span class="kw">type </span>M = M;
-    <span class="kw">type </span>V = M::V;
-    <span class="kw">type </span>T = M::T;
-
-    <span class="kw">fn </span>nout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.nstates
-    }
-    <span class="kw">fn </span>nparams(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.p.len()
-    }
-    <span class="kw">fn </span>nstates(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.nstates
+        }
     }
 }
 
@@ -322,31 +203,22 @@
     F: Fn(<span class="kw-2">&amp;</span>M::V, <span class="kw-2">&amp;</span>M::V, M::T, <span class="kw-2">&amp;mut </span>M::V, M::V, <span class="kw-2">&amp;</span>Covariates),
     I: Fn(<span class="kw-2">&amp;</span>M::V, M::T) -&gt; M::V,
 {
-    <span class="kw">fn </span>rhs_inplace(<span class="kw-2">&amp;</span><span class="self">self</span>, t: <span class="self">Self</span>::T, y: <span class="kw-2">&amp;</span><span class="self">Self</span>::V, rhs_y: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::V) {
-        <span class="kw">let </span>p = <span class="self">self</span>.p.as_ref();
-        <span class="kw">let </span><span class="kw-2">mut </span>rateiv = <span class="self">Self</span>::V::zeros(<span class="self">self</span>.nstates);
-        <span class="comment">//TODO: This should be pre-calculated
-        </span><span class="kw">for </span>infusion <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.infusions {
-            <span class="kw">if </span>t &gt;= <span class="self">Self</span>::T::from(infusion.time)
-                &amp;&amp; t &lt;= <span class="self">Self</span>::T::from(infusion.duration + infusion.time)
-            {
-                rateiv[infusion.input] = <span class="self">Self</span>::T::from(infusion.amount / infusion.duration);
-            }
-        }
-        <span class="comment">// (self.sec_eq)(&amp;mut p, &amp;self.covariates);
-        </span>(<span class="self">self</span>.rhs)(y, <span class="kw-2">&amp;</span>p, t, rhs_y, rateiv, <span class="kw-2">&amp;</span><span class="self">self</span>.covariates);
-        <span class="self">self</span>.statistics.borrow_mut().number_of_rhs_evals += <span class="number">1</span>;
+    <span class="kw">type </span>T = M::T;
+    <span class="kw">type </span>V = M::V;
+    <span class="kw">type </span>M = M;
+    <span class="kw">type </span>Rhs = PMClosure&lt;M, F&gt;;
+    <span class="kw">type </span>Mass = UnitCallable&lt;M&gt;;
+    <span class="kw">fn </span>mass(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Rc&lt;<span class="self">Self</span>::Mass&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.mass
     }
 
-    <span class="kw">fn </span>rhs_jac_inplace(<span class="kw-2">&amp;</span><span class="self">self</span>, t: <span class="self">Self</span>::T, _x: <span class="kw-2">&amp;</span><span class="self">Self</span>::V, v: <span class="kw-2">&amp;</span><span class="self">Self</span>::V, y: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::V) {
-        <span class="comment">//TODO: Instead of this code, we should call rhs_inplace
-        </span><span class="kw">let </span>p = <span class="self">self</span>.p.as_ref();
-        <span class="kw">let </span>rateiv = <span class="self">Self</span>::V::zeros(<span class="self">self</span>.nstates);
-        <span class="comment">//TODO: This should be pre-calculated
-        </span>(<span class="self">self</span>.rhs)(v, <span class="kw-2">&amp;</span>p, t, y, rateiv, <span class="kw-2">&amp;</span><span class="self">self</span>.covariates);
-        <span class="comment">// (self.rhs_jac)(x, p, t, v, y);
-        </span><span class="self">self</span>.statistics.borrow_mut().number_of_jac_mul_evals += <span class="number">1</span>;
+    <span class="kw">fn </span>rhs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Rc&lt;<span class="self">Self</span>::Rhs&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.rhs
     }
+
+    <span class="kw">fn </span>is_mass_constant(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="bool-val">true
+    </span>}
 
     <span class="kw">fn </span>init(<span class="kw-2">&amp;</span><span class="self">self</span>, t: <span class="self">Self</span>::T) -&gt; <span class="self">Self</span>::V {
         <span class="kw">let </span>p = <span class="self">self</span>.p.as_ref();
@@ -355,37 +227,6 @@
 
     <span class="kw">fn </span>set_params(<span class="kw-2">&amp;mut </span><span class="self">self</span>, p: <span class="self">Self</span>::V) {
         <span class="self">self</span>.p = Rc::new(p);
-    }
-
-    <span class="kw">fn </span>algebraic_indices(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::V <span class="kw">as </span>Vector&gt;::Index {
-        &lt;<span class="self">Self</span>::V <span class="kw">as </span>Vector&gt;::Index::zeros(<span class="number">0</span>)
-    }
-
-    <span class="kw">fn </span>jacobian_matrix(<span class="kw-2">&amp;</span><span class="self">self</span>, x: <span class="kw-2">&amp;</span><span class="self">Self</span>::V, t: <span class="self">Self</span>::T) -&gt; <span class="self">Self</span>::M {
-        <span class="self">self</span>.statistics.borrow_mut().number_of_jacobian_matrix_evals += <span class="number">1</span>;
-        <span class="kw">let </span>rhs_inplace = |x: <span class="kw-2">&amp;</span><span class="self">Self</span>::V, _p: <span class="kw-2">&amp;</span><span class="self">Self</span>::V, t: <span class="self">Self</span>::T, y_rhs: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::V| {
-            <span class="self">self</span>.rhs_inplace(t, x, y_rhs);
-        };
-        <span class="kw">let </span>rhs_jac_inplace =
-            |x: <span class="kw-2">&amp;</span><span class="self">Self</span>::V, _p: <span class="kw-2">&amp;</span><span class="self">Self</span>::V, t: <span class="self">Self</span>::T, v: <span class="kw-2">&amp;</span><span class="self">Self</span>::V, y: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::V| {
-                <span class="self">self</span>.rhs_jac_inplace(t, x, v, y);
-            };
-        <span class="kw">let </span>op = Closure::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
-            rhs_inplace,
-            rhs_jac_inplace,
-            <span class="self">self</span>.nstates,
-            <span class="self">self</span>.nstates,
-            <span class="self">self</span>.p.clone(),
-        );
-        <span class="kw">let </span>triplets = <span class="kw">if let </span><span class="prelude-val">Some</span>(coloring) = <span class="kw-2">&amp;</span><span class="self">self</span>.coloring {
-            coloring.find_non_zero_entries(<span class="kw-2">&amp;</span>op, x, t)
-        } <span class="kw">else </span>{
-            find_non_zero_entries(<span class="kw-2">&amp;</span>op, x, t)
-        };
-        <span class="self">Self</span>::M::try_from_triplets(<span class="self">self</span>.nstates(), <span class="self">self</span>.nout(), triplets).unwrap()
-    }
-    <span class="kw">fn </span>get_statistics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OdeEquationsStatistics {
-        <span class="self">self</span>.statistics.borrow().clone()
     }
 }
 
@@ -426,7 +267,8 @@
             cov,
             infusions,
         );
-        <span class="kw">let </span>atol = <span class="self">Self</span>::build_atol(<span class="self">self</span>.atol, eqn.nstates())<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>atol = <span class="self">Self</span>::build_atol(<span class="self">self</span>.atol, eqn.rhs().nstates())<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(OdeSolverProblem::new(
             eqn,
             M::T::from(<span class="self">self</span>.rtol),
