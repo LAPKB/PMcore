@@ -33,17 +33,17 @@ fn scaled_sobol() {
     )
 }
 
-#[test]
-fn read_test_datafile() {
-    unimplemented!();
-    // let scenarios = datafile::parse(&"src/tests/test.csv".to_string());
-    // if let Ok(scenarios) = scenarios {
-    //     assert_eq!(scenarios.len(), 20);
-    //     // assert_eq!(scenarios.last().unwrap().id, "20");
-    //     // assert_eq!(
-    //     //     scenarios.last().unwrap().obs_times,
-    //     //     [120.0, 120.77, 121.75, 125.67, 128.67, 143.67]
-    //     // );
-    //     //TODO: Uncomment this
-    // }
-}
+// #[test]
+// fn read_test_datafile() {
+//     unimplemented!();
+//     // let scenarios = datafile::parse(&"src/tests/test.csv".to_string());
+//     // if let Ok(scenarios) = scenarios {
+//     //     assert_eq!(scenarios.len(), 20);
+//     //     // assert_eq!(scenarios.last().unwrap().id, "20");
+//     //     // assert_eq!(
+//     //     //     scenarios.last().unwrap().obs_times,
+//     //     //     [120.0, 120.77, 121.75, 125.67, 128.67, 143.67]
+//     //     // );
+//     //     //TODO: Uncomment this
+//     // }
+// }

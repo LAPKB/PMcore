@@ -71,6 +71,7 @@ impl Equation {
             }
             // What should we use as the initial state for the next occasion?
             let covariates = occasion.get_covariates().unwrap();
+            //TODO: set the right initial condition when occasion > 1
             let mut x = V::zeros(self.get_nstates());
             (init)(
                 &V::from_vec(support_point.clone()),
