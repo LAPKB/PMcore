@@ -97,8 +97,6 @@
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>argmin::{
     core::{CostFunction, Error, Executor},
     solver::neldermead::NelderMead,
@@ -106,10 +104,8 @@
 <span class="kw">use </span>ndarray::{Array1, Axis};
 
 <span class="kw">use crate</span>::{
-    routines::{
-        data::Subject, evaluation::sigma::ErrorModel,
-        simulation::predict::get_population_predictions,
-    },
+    prelude::{data::Subject, simulator::get_population_predictions},
+    routines::evaluation::sigma::ErrorModel,
     simulator::Equation,
 };
 

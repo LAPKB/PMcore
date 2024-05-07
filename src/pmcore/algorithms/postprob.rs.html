@@ -99,6 +99,7 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -106,6 +107,7 @@
         ipm_faer::burke,
         output::NPResult,
         settings::Settings,
+        simulator::get_population_predictions,
     },
     simulator::Equation,
     tui::ui::Comm,
@@ -114,7 +116,7 @@
 <span class="kw">use </span>ndarray::{Array1, Array2};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
-<span class="kw">use super</span>::{data::Subject, get_population_predictions};
+<span class="kw">use </span><span class="kw">super</span>::data::Subject;
 
 <span class="doccomment">/// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model

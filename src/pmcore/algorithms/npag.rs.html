@@ -348,6 +348,7 @@
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -356,6 +357,7 @@
         output::{CycleLog, NPCycle, NPResult},
         qr,
         settings::Settings,
+        simulator::get_population_predictions,
     },
     routines::expansion::adaptative_grid::adaptative_grid,
     simulator::{likelihood::PopulationPredictions, Equation},
@@ -366,7 +368,7 @@
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
-<span class="kw">use super</span>::{data::Subject, get_population_predictions};
+<span class="kw">use </span><span class="kw">super</span>::data::Subject;
 
 <span class="kw">const </span>THETA_E: f64 = <span class="number">1e-4</span>; <span class="comment">// Convergence criteria
 </span><span class="kw">const </span>THETA_G: f64 = <span class="number">1e-4</span>; <span class="comment">// Objective function convergence criteria

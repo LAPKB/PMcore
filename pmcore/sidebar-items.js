@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["fa","fetch_cov","fetch_params","lag"],"mod":["algorithms","entrypoints","logger","prelude","routines","simulator","tui"],"struct":["HashMap"],"type":["Result"]};
+window.SIDEBAR_ITEMS = {"macro":["fa","fetch_cov","fetch_params","lag"],"mod":["algorithms","data","entrypoints","logger","prelude","routines","simulator","tui"],"struct":["HashMap"],"type":["Result"]};
