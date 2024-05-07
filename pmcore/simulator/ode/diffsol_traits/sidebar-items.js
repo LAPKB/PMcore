@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["OdePmSolverEquationsMassI"],"trait":["BuildPmOde"]};
+window.SIDEBAR_ITEMS = {"fn":["build_pm_ode"]};
