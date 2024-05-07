@@ -99,50 +99,36 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>argmin::{
     core::{CostFunction, Error, Executor},
     solver::neldermead::NelderMead,
 };
 <span class="kw">use </span>ndarray::{Array1, Axis};
 
-<span class="kw">use </span><span class="kw">crate</span>::routines::{
-    datafile::Scenario,
-    simulation::predict::{sim_obs, Engine, Predict},
+<span class="kw">use crate</span>::{
+    routines::{
+        data::Subject, evaluation::sigma::ErrorModel,
+        simulation::predict::get_population_predictions,
+    },
+    simulator::Equation,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::prelude::{prob, sigma::Sigma};
-
-<span class="kw">pub struct </span>SppOptimizer&lt;<span class="lifetime">'a</span>, S, P&gt;
-<span class="kw">where
-    </span>S: Sigma + Sync,
-    P: Predict&lt;<span class="lifetime">'static</span>&gt; + Sync + Clone,
-{
-    engine: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Engine&lt;P&gt;,
-    scenarios: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;Scenario&gt;,
-    sig: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>S,
+<span class="kw">pub struct </span>SppOptimizer&lt;<span class="lifetime">'a</span>&gt; {
+    equation: Equation,
+    subjects: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;Subject&gt;,
+    sig: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ErrorModel&lt;<span class="lifetime">'a</span>&gt;,
     pyl: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Array1&lt;f64&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, S, P&gt; CostFunction <span class="kw">for </span>SppOptimizer&lt;<span class="lifetime">'a</span>, S, P&gt;
-<span class="kw">where
-    </span>S: Sigma + Sync,
-    P: Predict&lt;<span class="lifetime">'static</span>&gt; + Sync + Clone,
-{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; CostFunction <span class="kw">for </span>SppOptimizer&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">type </span>Param = Array1&lt;f64&gt;;
     <span class="kw">type </span>Output = f64;
     <span class="kw">fn </span>cost(<span class="kw-2">&amp;</span><span class="self">self</span>, spp: <span class="kw-2">&amp;</span><span class="self">Self</span>::Param) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
         <span class="kw">let </span>theta = spp.to_owned().insert_axis(Axis(<span class="number">0</span>));
-        <span class="kw">let </span>ypred = sim_obs(<span class="self">self</span>.engine, <span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span>theta, <span class="bool-val">true</span>);
-        <span class="kw">let </span>psi = prob::calculate_psi(<span class="kw-2">&amp;</span>ypred, <span class="self">self</span>.scenarios, <span class="self">self</span>.sig);
+        <span class="kw">let </span>obs_pred = get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.subjects, <span class="kw-2">&amp;</span>theta, <span class="bool-val">true</span>);
+
+        <span class="kw">let </span>psi = obs_pred.get_psi(<span class="self">self</span>.sig);
+
         <span class="kw">if </span>psi.ncols() &gt; <span class="number">1 </span>{
             <span class="macro">tracing::error!</span>(<span class="string">"Psi in SppOptimizer has more than one column"</span>);
         }
@@ -162,20 +148,16 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, S, P&gt; SppOptimizer&lt;<span class="lifetime">'a</span>, S, P&gt;
-<span class="kw">where
-    </span>S: Sigma + Sync,
-    P: Predict&lt;<span class="lifetime">'static</span>&gt; + Sync + Clone,
-{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; SppOptimizer&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub fn </span>new(
-        engine: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Engine&lt;P&gt;,
-        scenarios: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;Scenario&gt;,
-        sig: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>S,
+        equation: Equation,
+        subjects: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;Subject&gt;,
+        sig: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ErrorModel,
         pyl: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Array1&lt;f64&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            engine,
-            scenarios,
+            equation,
+            subjects,
             sig,
             pyl,
         }

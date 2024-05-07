@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["parse"],"struct":["Block","CovLine","Dose","Event","Infusion","Scenario"]};

@@ -152,12 +152,13 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>faer::{sparse::solvers::SpSolver, FaerMat, IntoFaer, IntoNdarray};
-<span class="kw">use </span>faer_core::{inner::DenseOwn, mat, scale, unzipped, zipped, Mat, Matrix};
-<span class="kw">use </span>std::error;
-
-<span class="kw">use </span>ndarray::{ArrayBase, Dim, OwnedRepr};
+</pre></div><pre class="rust"><code><span class="kw">use </span>faer::{mat, scale, solvers::SpSolver, unzipped, zipped, Mat};
+<span class="kw">use </span>faer_ext::<span class="kw-2">*</span>;
+<span class="comment">// use faer::{sparse::solvers::SpSolver, FaerMat, IntoFaer, IntoNdarray};
+// use faer_core::{inner::DenseOwn, mat, scale, unzipped, zipped, Mat, Matrix};
+</span><span class="kw">use </span>ndarray::{ArrayBase, Dim, OwnedRepr};
 <span class="kw">use </span>ndarray_stats::QuantileExt;
+<span class="kw">use </span>std::error;
 <span class="kw">type </span>OneDimArray = ArrayBase&lt;OwnedRepr&lt;f64&gt;, ndarray::Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;;
 
 <span class="kw">pub fn </span>burke(
@@ -167,7 +168,7 @@
     <span class="kw">if </span>psi.min().unwrap() &lt; <span class="kw-2">&amp;</span><span class="number">0.0 </span>{
         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"PSI contains negative elements"</span>.into());
     }
-    <span class="kw">let </span>psi: Matrix&lt;DenseOwn&lt;f64&gt;&gt; = psi.view().into_faer().to_owned();
+    <span class="kw">let </span>psi: Mat&lt;f64&gt; = psi.view().into_faer().to_owned();
     <span class="kw">let </span>ecol = Mat::from_fn(col, <span class="number">1</span>, |<span class="kw">_</span>, <span class="kw">_</span>| <span class="number">1.0</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>plam = <span class="kw-2">&amp;</span>psi * <span class="kw-2">&amp;</span>ecol; <span class="comment">//row x 1
     </span><span class="kw">let </span>eps = <span class="number">1e-8</span>;
@@ -178,7 +179,7 @@
     w = <span class="macro">zipped!</span>(w.as_ref()).map(|<span class="macro">unzipped!</span>(w_i)| <span class="number">1.0 </span>/ <span class="kw-2">*</span>w_i);
 
     <span class="kw">let </span>psi_t = psi.transpose();
-    <span class="kw">let </span><span class="kw-2">mut </span>ptw: Matrix&lt;DenseOwn&lt;f64&gt;&gt; = psi_t * <span class="kw-2">&amp;</span>w;
+    <span class="kw">let </span><span class="kw-2">mut </span>ptw = psi_t * <span class="kw-2">&amp;</span>w;
     <span class="kw">let </span><span class="kw-2">mut </span>max_ptw = f64::NEG_INFINITY;
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..ptw.nrows() {
         <span class="kw">if </span><span class="kw-2">*</span>ptw.get(i, <span class="number">0</span>) &gt; max_ptw {
@@ -211,15 +212,14 @@
         <span class="kw">let </span>inner = <span class="macro">zipped!</span>(lam.as_ref(), y.as_ref()).map(|<span class="macro">unzipped!</span>(lam_i, y_i)| <span class="kw-2">*</span>lam_i / <span class="kw-2">*</span>y_i);
         <span class="kw">let </span>w_plam =
             <span class="macro">zipped!</span>(plam.as_ref(), w.as_ref()).map(|<span class="macro">unzipped!</span>(plam_i, w_i)| <span class="kw-2">*</span>plam_i / <span class="kw-2">*</span>w_i);
-        <span class="kw">let </span>h: Matrix&lt;DenseOwn&lt;f64&gt;&gt; =
-            (<span class="kw-2">&amp;</span>psi * inner.as_ref().col(<span class="number">0</span>).column_vector_as_diagonal()) * <span class="kw-2">&amp;</span>psi.transpose();
-        <span class="kw">let </span><span class="kw-2">mut </span>aux: Matrix&lt;DenseOwn&lt;f64&gt;&gt; = Mat::zeros(row, row);
+        <span class="kw">let </span>h = (<span class="kw-2">&amp;</span>psi * inner.as_ref().col(<span class="number">0</span>).column_vector_as_diagonal()) * <span class="kw-2">&amp;</span>psi.transpose();
+        <span class="kw">let </span><span class="kw-2">mut </span>aux: Mat&lt;f64&gt; = Mat::zeros(row, row);
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..row {
             <span class="kw">let </span>diag = aux.get_mut(i, i);
             <span class="kw-2">*</span>diag = <span class="kw-2">*</span>w_plam.get(i, <span class="number">0</span>);
         }
         <span class="kw">let </span>h = h + aux;
-        <span class="kw">let </span>uph = h.cholesky(faer_core::Side::Lower).unwrap();
+        <span class="kw">let </span>uph = h.cholesky(faer::Side::Lower).unwrap();
         <span class="kw">let </span>smuyinv = scale(smu)
             * <span class="macro">zipped!</span>(ecol.as_ref(), y.as_ref()).map(|<span class="macro">unzipped!</span>(ecol_i, y_i)| <span class="kw-2">*</span>ecol_i / <span class="kw-2">*</span>y_i);
         <span class="kw">let </span>rhsdw = <span class="macro">zipped!</span>(erow.as_ref(), w.as_ref()).map(|<span class="macro">unzipped!</span>(erow_i, w_i)| <span class="kw-2">*</span>erow_i / <span class="kw-2">*</span>w_i)
@@ -282,7 +282,7 @@
     }
     <span class="prelude-val">Ok</span>((lam.as_ref().into_ndarray().column(<span class="number">0</span>).to_owned(), obj))
 }
-<span class="kw">fn </span>min(mat: Matrix&lt;DenseOwn&lt;f64&gt;&gt;) -&gt; f64 {
+<span class="kw">fn </span>min(mat: Mat&lt;f64&gt;) -&gt; f64 {
     <span class="kw">let </span><span class="kw-2">mut </span>min = f64::INFINITY;
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..mat.nrows() {
         <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..mat.ncols() {
@@ -293,7 +293,7 @@
     }
     min
 }
-<span class="kw">fn </span>max(mat: Matrix&lt;DenseOwn&lt;f64&gt;&gt;) -&gt; f64 {
+<span class="kw">fn </span>max(mat: Mat&lt;f64&gt;) -&gt; f64 {
     <span class="kw">let </span><span class="kw-2">mut </span>max = f64::NEG_INFINITY;
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..mat.nrows() {
         <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..mat.ncols() {

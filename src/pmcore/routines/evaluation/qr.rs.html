@@ -33,7 +33,9 @@
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>faer::{FaerMat, IntoFaer, IntoNdarray};
+<a href="#34" id="34">34</a>
+</pre></div><pre class="rust"><code><span class="comment">// use faer::{FaerMat, IntoFaer, IntoNdarray};
+</span><span class="kw">use </span>faer_ext::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array2, Axis};
 
@@ -61,7 +63,7 @@
     <span class="kw">let </span>mat_x = n_x.view().into_faer();
     <span class="kw">let </span>qr = mat_x.col_piv_qr();
     <span class="kw">let </span>r_mat = qr.compute_r();
-    <span class="kw">let </span>(forward, _inverse) = qr.col_permutation().into_arrays();
+    <span class="kw">let </span>(forward, _inverse) = qr.col_permutation().arrays();
     <span class="kw">let </span>r = r_mat.as_ref().into_ndarray().to_owned();
     <span class="kw">let </span>perm = Vec::from(forward);
     (r, perm)

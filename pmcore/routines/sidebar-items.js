@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["condensation","datafile","evaluation","expansion","initialization","optimization","output","settings","simulation"]};
+window.SIDEBAR_ITEMS = {"mod":["condensation","data","evaluation","expansion","initialization","optimization","output","settings","simulation"]};

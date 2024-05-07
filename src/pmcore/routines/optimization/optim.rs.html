@@ -20,24 +20,28 @@
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>argmin::core::CostFunction;
-<span class="kw">use </span>datafile::Scenario;
-<span class="kw">use </span>ndarray::{Array1, Array2};
-<span class="kw">use </span>sigma::ErrorPoly;
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+</pre></div><pre class="rust"><code><span class="comment">// use crate::prelude::*;
+// use argmin::core::CostFunction;
+// use datafile::Scenario;
+// use ndarray::{Array1, Array2};
+// use sigma::ErrorModel;
 
-<span class="kw">struct </span>GamLam&lt;<span class="lifetime">'a</span>&gt; {
-    pred: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Array2&lt;Array1&lt;f64&gt;&gt;,
-    scenarios: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;Scenario&gt;,
-    ep: ErrorPoly&lt;<span class="lifetime">'a</span>&gt;,
-}
+// use self::simulator::likelihood::SubjectPredictions;
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; CostFunction <span class="kw">for </span>GamLam&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">type </span>Param = f64;
-    <span class="kw">type </span>Output = f64;
-    <span class="kw">fn </span>cost(<span class="kw-2">&amp;</span><span class="self">self</span>, _param: <span class="kw-2">&amp;</span><span class="self">Self</span>::Param) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, argmin::core::Error&gt; {
-        <span class="kw">let </span>prob = prob::calculate_psi(<span class="self">self</span>.pred, <span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.ep);
-        <span class="prelude-val">Ok</span>(prob.sum())
-    }
-}
-</code></pre></div></section></main></body></html>
+// struct GamLam&lt;'a&gt; {
+//     prediction: &amp;'a SubjectPredictions,
+//     scenarios: &amp;'a Vec&lt;Scenario&gt;,
+//     ep: ErrorModel&lt;'a&gt;,
+// }
+
+// impl&lt;'a&gt; CostFunction for GamLam&lt;'a&gt; {
+//     type Param = f64;
+//     type Output = f64;
+//     fn cost(&amp;self, _param: &amp;Self::Param) -&gt; Result&lt;Self::Output, argmin::core::Error&gt; {
+//         let prob = self.prediction.likelihood(&amp;self.ep);
+//         Ok(prob.sum())
+//     }
+// }
+</span></code></pre></div></section></main></body></html>

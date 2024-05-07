@@ -341,38 +341,18 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
         condensation::prune::prune,
-        datafile::Scenario,
-        evaluation::sigma::{ErrorPoly, ErrorType},
+        evaluation::sigma::{ErrorModel, ErrorType},
         ipm::burke,
         optimization::d_optimizer::SppOptimizer,
-        output::NPResult,
-        output::{CycleLog, NPCycle},
-        prob, qr,
+        output::{CycleLog, NPCycle, NPResult},
+        qr,
         settings::Settings,
-        simulation::predict::Engine,
-        simulation::predict::{sim_obs, Predict},
     },
+    simulator::{likelihood::PopulationPredictions, Equation},
     tui::ui::Comm,
 };
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
@@ -380,14 +360,13 @@
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
+<span class="kw">use super</span>::{data::Subject, get_population_predictions};
+
 <span class="kw">const </span>THETA_D: f64 = <span class="number">1e-4</span>;
 <span class="kw">const </span>THETA_F: f64 = <span class="number">1e-2</span>;
 
-<span class="kw">pub struct </span>NPOD&lt;S&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
-{
-    engine: Engine&lt;S&gt;,
+<span class="kw">pub struct </span>NPOD {
+    equation: Equation,
     ranges: Vec&lt;(f64, f64)&gt;,
     psi: Array2&lt;f64&gt;,
     theta: Array2&lt;f64&gt;,
@@ -402,22 +381,20 @@
     converged: bool,
     cycle_log: CycleLog,
     cache: bool,
-    scenarios: Vec&lt;Scenario&gt;,
+    subjects: Vec&lt;Subject&gt;,
     c: (f64, f64, f64, f64),
     tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
+    population_predictions: PopulationPredictions,
     settings: Settings,
 }
 
-<span class="kw">impl</span>&lt;S&gt; Algorithm <span class="kw">for </span>NPOD&lt;S&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
-{
+<span class="kw">impl </span>Algorithm <span class="kw">for </span>NPOD {
     <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="self">self</span>.run()
     }
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
         NPResult::new(
-            <span class="self">self</span>.scenarios.clone(),
+            <span class="self">self</span>.subjects.clone(),
             <span class="self">self</span>.theta.clone(),
             <span class="self">self</span>.psi.clone(),
             <span class="self">self</span>.w.clone(),
@@ -429,10 +406,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;S&gt; NPOD&lt;S&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
-{
+<span class="kw">impl </span>NPOD {
     <span class="doccomment">/// Creates a new NPOD instance.
     ///
     /// # Parameters
@@ -449,19 +423,16 @@
     ///
     /// Returns a new `NPOD` instance.
     </span><span class="kw">pub fn </span>new(
-        sim_eng: Engine&lt;S&gt;,
+        equation: Equation,
         ranges: Vec&lt;(f64, f64)&gt;,
         theta: Array2&lt;f64&gt;,
-        scenarios: Vec&lt;Scenario&gt;,
+        subjects: Vec&lt;Subject&gt;,
         c: (f64, f64, f64, f64),
         tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
         settings: Settings,
-    ) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync,
-    {
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            engine: sim_eng,
+            equation,
             ranges,
             psi: Array2::default((<span class="number">0</span>, <span class="number">0</span>)),
             theta,
@@ -478,8 +449,9 @@
             cache: settings.config.cache,
             tx,
             settings,
-            scenarios,
+            subjects,
             c,
+            population_predictions: PopulationPredictions::default(),
         }
     }
 
@@ -488,25 +460,17 @@
         // TODO: Move this to e.g. /evaluation/error.rs
         </span><span class="kw">let </span>gamma_up = <span class="self">self</span>.gamma * (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
         <span class="kw">let </span>gamma_down = <span class="self">self</span>.gamma / (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
-        <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, <span class="self">self</span>.cache);
-        <span class="kw">let </span>psi_up = prob::calculate_psi(
-            <span class="kw-2">&amp;</span>ypred,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
-            <span class="kw-2">&amp;</span>ErrorPoly {
-                c: <span class="self">self</span>.c,
-                gl: gamma_up,
-                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-            },
-        );
-        <span class="kw">let </span>psi_down = prob::calculate_psi(
-            <span class="kw-2">&amp;</span>ypred,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
-            <span class="kw-2">&amp;</span>ErrorPoly {
-                c: <span class="self">self</span>.c,
-                gl: gamma_down,
-                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-            },
-        );
+
+        <span class="kw">let </span>psi_up = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
+            c: <span class="self">self</span>.c,
+            gl: gamma_up,
+            e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+        });
+        <span class="kw">let </span>psi_down = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
+            c: <span class="self">self</span>.c,
+            gl: gamma_down,
+            e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+        });
         <span class="kw">let </span>(lambda_up, objf_up) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span>psi_up) {
             <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
             <span class="prelude-val">Err</span>(err) =&gt; {
@@ -550,17 +514,16 @@
             <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
 
             <span class="kw">let </span>cache = <span class="kw">if </span><span class="self">self</span>.cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ <span class="self">self</span>.cache };
-            <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
 
-            <span class="self">self</span>.psi = prob::calculate_psi(
-                <span class="kw-2">&amp;</span>ypred,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
-                <span class="kw-2">&amp;</span>ErrorPoly {
-                    c: <span class="self">self</span>.c,
-                    gl: <span class="self">self</span>.gamma,
-                    e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-                },
-            );
+            <span class="self">self</span>.population_predictions =
+                get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.subjects, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
+
+            <span class="self">self</span>.psi = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
+                c: <span class="self">self</span>.c,
+                gl: <span class="self">self</span>.gamma,
+                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+            });
+
             (<span class="self">self</span>.lambda, <span class="kw">_</span>) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
                 <span class="prelude-val">Err</span>(err) =&gt; {
@@ -681,7 +644,9 @@
 
             <span class="comment">// If no stop signal, add new point to theta based on the optimization of the D function
             </span><span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
-            <span class="kw">let </span>sigma = ErrorPoly {
+
+            <span class="comment">// Add new point to theta based on the optimization of the D function
+            </span><span class="kw">let </span>sigma = ErrorModel {
                 c: <span class="self">self</span>.c,
                 gl: <span class="self">self</span>.gamma,
                 e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
@@ -692,7 +657,8 @@
                 candididate_points.push(spp.to_owned());
             }
             candididate_points.par_iter_mut().for_each(|spp| {
-                <span class="kw">let </span>optimizer = SppOptimizer::new(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span>sigma, <span class="kw-2">&amp;</span>pyl);
+                <span class="kw">let </span>optimizer =
+                    SppOptimizer::new(<span class="self">self</span>.equation.clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.subjects, <span class="kw-2">&amp;</span>sigma, <span class="kw-2">&amp;</span>pyl);
                 <span class="kw">let </span>candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
                 <span class="kw-2">*</span>spp = candidate_point;
                 <span class="comment">// add spp to theta

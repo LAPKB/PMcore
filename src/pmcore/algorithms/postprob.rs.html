@@ -99,46 +99,27 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
-        datafile::Scenario,
-        evaluation::sigma::{ErrorPoly, ErrorType},
+        evaluation::sigma::{ErrorModel, ErrorType},
         ipm_faer::burke,
         output::NPResult,
-        prob,
         settings::Settings,
-        simulation::predict::Engine,
-        simulation::predict::{sim_obs, Predict},
     },
+    simulator::Equation,
     tui::ui::Comm,
 };
 
 <span class="kw">use </span>ndarray::{Array1, Array2};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
+<span class="kw">use super</span>::{data::Subject, get_population_predictions};
+
 <span class="doccomment">/// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
-</span><span class="kw">pub struct </span>POSTPROB&lt;S&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
-{
-    engine: Engine&lt;S&gt;,
+</span><span class="kw">pub struct </span>POSTPROB {
+    equation: Equation,
     psi: Array2&lt;f64&gt;,
     theta: Array2&lt;f64&gt;,
     w: Array1&lt;f64&gt;,
@@ -147,23 +128,20 @@
     converged: bool,
     gamma: f64,
     error_type: ErrorType,
-    scenarios: Vec&lt;Scenario&gt;,
+    subjects: Vec&lt;Subject&gt;,
     c: (f64, f64, f64, f64),
     <span class="attr">#[allow(dead_code)]
     </span>tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
     settings: Settings,
 }
 
-<span class="kw">impl</span>&lt;S&gt; Algorithm <span class="kw">for </span>POSTPROB&lt;S&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
-{
+<span class="kw">impl </span>Algorithm <span class="kw">for </span>POSTPROB {
     <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="self">self</span>.run()
     }
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
         NPResult::new(
-            <span class="self">self</span>.scenarios.clone(),
+            <span class="self">self</span>.subjects.clone(),
             <span class="self">self</span>.theta.clone(),
             <span class="self">self</span>.psi.clone(),
             <span class="self">self</span>.w.clone(),
@@ -175,23 +153,17 @@
     }
 }
 
-<span class="kw">impl</span>&lt;S&gt; POSTPROB&lt;S&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
-{
+<span class="kw">impl </span>POSTPROB {
     <span class="kw">pub fn </span>new(
-        sim_eng: Engine&lt;S&gt;,
+        equation: Equation,
         theta: Array2&lt;f64&gt;,
-        scenarios: Vec&lt;Scenario&gt;,
+        subjects: Vec&lt;Subject&gt;,
         c: (f64, f64, f64, f64),
         tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
         settings: Settings,
-    ) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync,
-    {
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            engine: sim_eng,
+            equation,
             psi: Array2::default((<span class="number">0</span>, <span class="number">0</span>)),
             theta,
             w: Array1::default(<span class="number">0</span>),
@@ -206,22 +178,20 @@
             },
             tx,
             settings,
-            scenarios,
+            subjects,
             c,
         }
     }
 
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
-        <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, <span class="bool-val">false</span>);
-        <span class="self">self</span>.psi = prob::calculate_psi(
-            <span class="kw-2">&amp;</span>ypred,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
-            <span class="kw-2">&amp;</span>ErrorPoly {
-                c: <span class="self">self</span>.c,
-                gl: <span class="self">self</span>.gamma,
-                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-            },
-        );
+        <span class="kw">let </span>obs_pred =
+            get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.subjects, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, <span class="bool-val">false</span>);
+
+        <span class="self">self</span>.psi = obs_pred.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
+            c: <span class="self">self</span>.c,
+            gl: <span class="self">self</span>.gamma,
+            e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+        });
         <span class="kw">let </span>(w, objf) = burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi).expect(<span class="string">"Error in IPM"</span>);
         <span class="self">self</span>.w = w;
         <span class="self">self</span>.objf = objf;

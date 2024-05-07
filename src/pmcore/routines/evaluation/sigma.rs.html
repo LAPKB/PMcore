@@ -61,40 +61,26 @@
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>ndarray::Array1;
 
 <span class="doccomment">/// Contains information on the observation error
-</span><span class="kw">pub trait </span>Sigma {
-    <span class="doccomment">/// Estimates the standard deviation of the observation error for given observations.
-    ///
-    /// # Arguments
-    ///
-    /// * `yobs` - A 1-dimensional Array containing observed values.
-    ///
-    /// # Returns
-    ///
-    /// A 1-dimensional Array representing the estimated standard deviation of the observation error.
-    </span><span class="kw">fn </span>sigma(<span class="kw-2">&amp;</span><span class="self">self</span>, yobs: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; Array1&lt;f64&gt;;
-}
 
-<span class="doccomment">/// ErrorPoly contains the information on uncertainties in observations
+/// ErrorModel contains the information on uncertainties in observations
 ///
 /// The elements of the error polynomial corresponds to the terms in SD = C0 + C1 x obs + C2*obs^2 + C3*obs^3
 ///
 /// See [ErrorType] for more information
-</span><span class="kw">pub struct </span>ErrorPoly&lt;<span class="lifetime">'a</span>&gt; {
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>ErrorModel&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>c: (f64, f64, f64, f64),
     <span class="kw">pub </span>gl: f64,
     <span class="kw">pub </span>e_type: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ErrorType,
 }
 
-<span class="doccomment">/// ErrorType defines the current error model
+<span class="comment">// Note to self, if we want to support multiple distribution samplers in the future
+// the easiest way is to create a distribution enum and to put it into the ErrorModel.
+
+</span><span class="doccomment">/// ErrorType defines the current error model
 ///
 /// # Multiplicative / Proportional
 /// error = SD * γ (gamma)
@@ -107,31 +93,33 @@
     Prop,
 }
 
-<span class="doccomment">/// Computes the error of an observation given its value, the error model, and the error polynomial
+<span class="comment">//TODO: remove
+</span><span class="doccomment">/// Computes the error of an observation given its value, the error model, and the error polynomial
 /// Observations are weighted by 1/error&lt;sup&gt;2&lt;/sup&gt;
-</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Sigma <span class="kw">for </span>ErrorPoly&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">fn </span>sigma(<span class="kw-2">&amp;</span><span class="self">self</span>, yobs: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; Array1&lt;f64&gt; {
-        <span class="kw">let </span>alpha = <span class="self">self</span>.c.<span class="number">0
-            </span>+ <span class="self">self</span>.c.<span class="number">1 </span>* yobs
-            + <span class="self">self</span>.c.<span class="number">2 </span>* yobs.mapv(|x| x.powi(<span class="number">2</span>))
-            + <span class="self">self</span>.c.<span class="number">3 </span>* yobs.mapv(|x| x.powi(<span class="number">3</span>));
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ErrorModel&lt;<span class="lifetime">'_</span>&gt; {
+    <span class="kw">pub fn </span>sigma(<span class="kw-2">&amp;</span><span class="self">self</span>, _yobs: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; Array1&lt;f64&gt; {
+        <span class="macro">unimplemented!</span>();
+        <span class="comment">// let alpha = self.c.0
+        //     + self.c.1 * yobs
+        //     + self.c.2 * yobs.mapv(|x| x.powi(2))
+        //     + self.c.3 * yobs.mapv(|x| x.powi(3));
 
-        <span class="kw">let </span>res = <span class="kw">match </span><span class="self">self</span>.e_type {
-            ErrorType::Add =&gt; (alpha.mapv(|x| x.powi(<span class="number">2</span>)) + <span class="self">self</span>.gl.powi(<span class="number">2</span>)).mapv(|x| x.sqrt()),
-            ErrorType::Prop =&gt; <span class="self">self</span>.gl * alpha,
-        };
+        // let res = match self.e_type {
+        //     ErrorType::Add =&gt; (alpha.mapv(|x| x.powi(2)) + self.gl.powi(2)).mapv(|x| x.sqrt()),
+        //     ErrorType::Prop =&gt; self.gl * alpha,
+        // };
 
-        res.mapv(|x| {
-            <span class="kw">if </span>x.is_nan() || x &lt; <span class="number">0.0 </span>{
-                <span class="macro">tracing::error!</span>(
-                    <span class="string">"The computed standard deviation is either NaN or negative (SD = {}), coercing to 0"</span>,
-                    x
-                );
-                <span class="number">0.0
-            </span>} <span class="kw">else </span>{
-                x
-            }
-        })
-    }
+        // res.mapv(|x| {
+        //     if x.is_nan() || x &lt; 0.0 {
+        //         tracing::error!(
+        //             "The computed standard deviation is either NaN or negative (SD = {}), coercing to 0",
+        //             x
+        //         );
+        //         0.0
+        //     } else {
+        //         x
+        //     }
+        // })
+    </span>}
 }
 </code></pre></div></section></main></body></html>

@@ -348,33 +348,17 @@
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
-        datafile::Scenario,
-        evaluation::sigma::{ErrorPoly, ErrorType},
+        evaluation::sigma::{ErrorModel, ErrorType},
         ipm::burke,
-        output::NPResult,
-        output::{CycleLog, NPCycle},
-        prob, qr,
+        output::{CycleLog, NPCycle, NPResult},
+        qr,
         settings::Settings,
-        simulation::predict::Engine,
-        simulation::predict::{sim_obs, Predict},
     },
     routines::expansion::adaptative_grid::adaptative_grid,
+    simulator::{likelihood::PopulationPredictions, Equation},
     tui::ui::Comm,
 };
 
@@ -382,16 +366,15 @@
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
+<span class="kw">use super</span>::{data::Subject, get_population_predictions};
+
 <span class="kw">const </span>THETA_E: f64 = <span class="number">1e-4</span>; <span class="comment">// Convergence criteria
 </span><span class="kw">const </span>THETA_G: f64 = <span class="number">1e-4</span>; <span class="comment">// Objective function convergence criteria
 </span><span class="kw">const </span>THETA_F: f64 = <span class="number">1e-2</span>;
 <span class="kw">const </span>THETA_D: f64 = <span class="number">1e-4</span>;
 
-<span class="kw">pub struct </span>NPAG&lt;S&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
-{
-    engine: Engine&lt;S&gt;,
+<span class="kw">pub struct </span>NPAG {
+    equation: Equation,
     ranges: Vec&lt;(f64, f64)&gt;,
     psi: Array2&lt;f64&gt;,
     theta: Array2&lt;f64&gt;,
@@ -409,22 +392,20 @@
     converged: bool,
     cycle_log: CycleLog,
     cache: bool,
-    scenarios: Vec&lt;Scenario&gt;,
+    subjects: Vec&lt;Subject&gt;,
     c: (f64, f64, f64, f64),
     tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
+    population_predictions: PopulationPredictions,
     settings: Settings,
 }
 
-<span class="kw">impl</span>&lt;S&gt; Algorithm <span class="kw">for </span>NPAG&lt;S&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
-{
+<span class="kw">impl </span>Algorithm <span class="kw">for </span>NPAG {
     <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
         <span class="self">self</span>.run()
     }
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
         NPResult::new(
-            <span class="self">self</span>.scenarios.clone(),
+            <span class="self">self</span>.subjects.clone(),
             <span class="self">self</span>.theta.clone(),
             <span class="self">self</span>.psi.clone(),
             <span class="self">self</span>.w.clone(),
@@ -436,10 +417,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;S&gt; NPAG&lt;S&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + Clone,
-{
+<span class="kw">impl </span>NPAG {
     <span class="doccomment">/// Creates a new NPAG instance.
     ///
     /// # Parameters
@@ -456,19 +434,16 @@
     ///
     /// Returns a new `NPAG` instance.
     </span><span class="kw">pub fn </span>new(
-        sim_eng: Engine&lt;S&gt;,
+        equation: Equation,
         ranges: Vec&lt;(f64, f64)&gt;,
         theta: Array2&lt;f64&gt;,
-        scenarios: Vec&lt;Scenario&gt;,
+        subjects: Vec&lt;Subject&gt;,
         c: (f64, f64, f64, f64),
         tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
         settings: Settings,
-    ) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync,
-    {
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            engine: sim_eng,
+            equation,
             ranges,
             psi: Array2::default((<span class="number">0</span>, <span class="number">0</span>)),
             theta,
@@ -488,8 +463,9 @@
             cache: settings.config.cache,
             tx,
             settings,
-            scenarios,
+            subjects,
             c,
+            population_predictions: PopulationPredictions::default(),
         }
     }
 
@@ -498,25 +474,18 @@
         // TODO: Move this to e.g. /evaluation/error.rs
         </span><span class="kw">let </span>gamma_up = <span class="self">self</span>.gamma * (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
         <span class="kw">let </span>gamma_down = <span class="self">self</span>.gamma / (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
-        <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, <span class="self">self</span>.cache);
-        <span class="kw">let </span>psi_up = prob::calculate_psi(
-            <span class="kw-2">&amp;</span>ypred,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
-            <span class="kw-2">&amp;</span>ErrorPoly {
-                c: <span class="self">self</span>.c,
-                gl: gamma_up,
-                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-            },
-        );
-        <span class="kw">let </span>psi_down = prob::calculate_psi(
-            <span class="kw-2">&amp;</span>ypred,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
-            <span class="kw-2">&amp;</span>ErrorPoly {
-                c: <span class="self">self</span>.c,
-                gl: gamma_down,
-                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-            },
-        );
+
+        <span class="kw">let </span>psi_up = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
+            c: <span class="self">self</span>.c,
+            gl: gamma_up,
+            e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+        });
+        <span class="kw">let </span>psi_down = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
+            c: <span class="self">self</span>.c,
+            gl: gamma_down,
+            e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+        });
+
         <span class="kw">let </span>(lambda_up, objf_up) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span>psi_up) {
             <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
             <span class="prelude-val">Err</span>(err) =&gt; {
@@ -563,17 +532,14 @@
 
             <span class="kw">let </span>cache = <span class="kw">if </span><span class="self">self</span>.cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ <span class="self">self</span>.cache };
 
-            <span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
+            <span class="self">self</span>.population_predictions =
+                get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.subjects, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
 
-            <span class="self">self</span>.psi = prob::calculate_psi(
-                <span class="kw-2">&amp;</span>ypred,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.scenarios,
-                <span class="kw-2">&amp;</span>ErrorPoly {
-                    c: <span class="self">self</span>.c,
-                    gl: <span class="self">self</span>.gamma,
-                    e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-                },
-            );
+            <span class="self">self</span>.psi = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
+                c: <span class="self">self</span>.c,
+                gl: <span class="self">self</span>.gamma,
+                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+            });
 
             (<span class="self">self</span>.lambda, <span class="kw">_</span>) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
@@ -592,6 +558,10 @@
 
             <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
             <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
+            <span class="self">self</span>.population_predictions.subject_predictions = <span class="self">self
+                </span>.population_predictions
+                .subject_predictions
+                .select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
 
             <span class="comment">//Rank-Revealing Factorization
             </span><span class="kw">let </span>(r, perm) = qr::calculate_r(<span class="kw-2">&amp;</span><span class="self">self</span>.psi);
@@ -617,6 +587,10 @@
 
             <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
             <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
+            <span class="self">self</span>.population_predictions.subject_predictions = <span class="self">self
+                </span>.population_predictions
+                .subject_predictions
+                .select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
 
             (<span class="self">self</span>.lambda, <span class="self">self</span>.objf) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),

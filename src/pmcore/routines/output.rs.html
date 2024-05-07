@@ -578,25 +578,21 @@
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
-<span class="kw">use </span>datafile::Scenario;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
-<span class="kw">use </span>predict::{post_predictions, sim_obs, Engine, Predict};
 <span class="kw">use </span>settings::Settings;
 <span class="kw">use </span>std::fs::File;
+
+<span class="kw">use </span><span class="self">self</span>::data::Subject;
+<span class="kw">use </span><span class="self">self</span>::simulator::Equation;
 
 <span class="doccomment">/// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>NPResult {
-    <span class="kw">pub </span>scenarios: Vec&lt;Scenario&gt;,
+    <span class="kw">pub </span>subjects: Vec&lt;Subject&gt;,
     <span class="kw">pub </span>theta: Array2&lt;f64&gt;,
     <span class="kw">pub </span>psi: Array2&lt;f64&gt;,
     <span class="kw">pub </span>w: Array1&lt;f64&gt;,
@@ -610,7 +606,7 @@
 <span class="kw">impl </span>NPResult {
     <span class="doccomment">/// Create a new NPResult object
     </span><span class="kw">pub fn </span>new(
-        scenarios: Vec&lt;Scenario&gt;,
+        subjects: Vec&lt;Subject&gt;,
         theta: Array2&lt;f64&gt;,
         psi: Array2&lt;f64&gt;,
         w: Array1&lt;f64&gt;,
@@ -624,7 +620,7 @@
         </span><span class="kw">let </span>par_names = settings.random.names();
 
         <span class="self">Self </span>{
-            scenarios,
+            subjects,
             theta,
             psi,
             w,
@@ -636,15 +632,12 @@
         }
     }
 
-    <span class="kw">pub fn </span>write_outputs&lt;<span class="lifetime">'a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, write: bool, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;, idelta: f64, tad: f64)
-    <span class="kw">where
-        </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + <span class="lifetime">'static </span>+ Clone + std::marker::Send,
-    {
+    <span class="kw">pub fn </span>write_outputs(<span class="kw-2">&amp;</span><span class="self">self</span>, write: bool, equation: <span class="kw-2">&amp;</span>Equation, idelta: f64, tad: f64) {
         <span class="kw">if </span>write {
             <span class="self">self</span>.write_theta();
             <span class="self">self</span>.write_posterior();
             <span class="self">self</span>.write_obs();
-            <span class="self">self</span>.write_pred(engine, idelta, tad);
+            <span class="self">self</span>.write_pred(equation, idelta, tad);
         }
     }
 
@@ -686,7 +679,7 @@
             <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
             <span class="kw">let </span>psi: Array2&lt;f64&gt; = <span class="self">self</span>.psi.clone();
             <span class="kw">let </span>par_names: Vec&lt;String&gt; = <span class="self">self</span>.par_names.clone();
-            <span class="kw">let </span>scenarios = <span class="self">self</span>.scenarios.clone();
+            <span class="kw">let </span>subjects = <span class="self">self</span>.subjects.clone();
 
             <span class="kw">let </span>posterior = posterior(<span class="kw-2">&amp;</span>psi, <span class="kw-2">&amp;</span>w);
 
@@ -707,7 +700,7 @@
             <span class="comment">// Write contents
             </span><span class="kw">for </span>(sub, row) <span class="kw">in </span>posterior.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
                 <span class="kw">for </span>(spp, elem) <span class="kw">in </span>row.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
-                    writer.write_field(<span class="kw-2">&amp;</span>scenarios.get(sub).unwrap().id)<span class="question-mark">?</span>;
+                    writer.write_field(<span class="kw-2">&amp;</span>subjects.get(sub).unwrap().id)<span class="question-mark">?</span>;
                     writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, spp))<span class="question-mark">?</span>;
                     <span class="kw">for </span>param <span class="kw">in </span>theta.row(spp) {
                         writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{param}"</span>))<span class="question-mark">?</span>;
@@ -726,130 +719,127 @@
 
     <span class="doccomment">/// Write the observations, which is the reformatted input data
     </span><span class="kw">pub fn </span>write_obs(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">tracing::info!</span>(<span class="string">"Writing (expanded) observations..."</span>);
-        <span class="kw">let </span>result = (|| {
-            <span class="kw">let </span>scenarios = <span class="self">self</span>.scenarios.clone();
+        <span class="macro">unimplemented!</span>()
+        <span class="comment">// tracing::info!("Writing (expanded) observations...");
+        // let result = (|| {
+        //     let subjects = self.subjects.clone();
 
-            <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"obs.csv"</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
+        // let file = create_output_file(&amp;self.settings, "obs.csv")?;
+        // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
-            <span class="comment">// Create the headers
-            </span>writer.write_record([<span class="string">"id"</span>, <span class="string">"time"</span>, <span class="string">"obs"</span>, <span class="string">"outeq"</span>])<span class="question-mark">?</span>;
+        //     // Create the headers
+        //     writer.write_record(["id", "time", "obs", "outeq"])?;
 
-            <span class="comment">// Write contents
-            </span><span class="kw">for </span>scenario <span class="kw">in </span>scenarios {
-                <span class="kw">for </span>(i, (observation, time)) <span class="kw">in
-                    </span>scenario.obs.iter().zip(<span class="kw-2">&amp;</span>scenario.obs_times).enumerate()
-                {
-                    writer.write_record(<span class="kw-2">&amp;</span>[
-                        scenario.id.to_string(),
-                        time.to_string(),
-                        observation.to_string(),
-                        scenario.outeqs.get(i).unwrap().to_string(),
-                    ])<span class="question-mark">?</span>;
-                }
-            }
-            writer.flush()
-        })();
+        //     // Write contents
+        //     for subject in subjects {
+        //         for (observation, time) in subject.obs.iter().zip(&amp;subject.obs_times) {
+        //             writer.write_record(&amp;[
+        //                 subject.id.to_string(),
+        //                 time.to_string(),
+        //                 observation.to_string(),
+        //                 "1".to_string(),
+        //             ])?;
+        //         }
+        //     }
+        //     writer.flush()
+        // })();
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">tracing::error!</span>(<span class="string">"Error while writing observations: {}"</span>, e);
-        }
-    }
+        // if let Err(e) = result {
+        //     tracing::error!("Error while writing observations: {}", e);
+        // }
+    </span>}
 
     <span class="doccomment">/// Writes the predictions
-    </span><span class="kw">pub fn </span>write_pred&lt;<span class="lifetime">'a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, engine: <span class="kw-2">&amp;</span>Engine&lt;S&gt;, idelta: f64, tad: f64)
-    <span class="kw">where
-        </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">'static </span>+ Clone,
-    {
-        <span class="macro">tracing::info!</span>(<span class="string">"Writing individual predictions..."</span>);
-        <span class="kw">let </span>result = (|| {
-            <span class="kw">let </span><span class="kw-2">mut </span>scenarios = <span class="self">self</span>.scenarios.clone();
-            <span class="comment">// Add an event interval to each scenario
-            </span><span class="kw">if </span>idelta &gt; <span class="number">0.0 </span>{
-                scenarios.iter_mut().for_each(|scenario| {
-                    <span class="kw-2">*</span>scenario = scenario.add_event_interval(idelta, tad);
-                });
-            }
+    </span><span class="kw">pub fn </span>write_pred&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, _equation: <span class="kw-2">&amp;</span>Equation, _idelta: f64, _tad: f64) {
+        <span class="macro">unimplemented!</span>()
+        <span class="comment">// tracing::info!("Writing individual predictions...");
+        // let result = (|| {
+        //     let mut subjects = self.subjects.clone();
+        //     // Add an event interval to each scenario
+        //     if idelta &gt; 0.0 {
+        //         subjects.iter_mut().for_each(|scenario| {
+        //             *scenario = scenario.add_event_interval(idelta, tad);
+        //         });
+        //     }
 
-            <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
-            <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
-            <span class="kw">let </span>psi: Array2&lt;f64&gt; = <span class="self">self</span>.psi.clone();
+        //     let theta: Array2&lt;f64&gt; = self.theta.clone();
+        //     let w: Array1&lt;f64&gt; = self.w.clone();
+        //     let psi: Array2&lt;f64&gt; = self.psi.clone();
 
-            <span class="kw">let </span>(pop_mean, pop_median) = population_mean_median(<span class="kw-2">&amp;</span>theta, <span class="kw-2">&amp;</span>w);
-            <span class="kw">let </span>(post_mean, post_median) = posterior_mean_median(<span class="kw-2">&amp;</span>theta, <span class="kw-2">&amp;</span>psi, <span class="kw-2">&amp;</span>w);
-            <span class="kw">let </span>post_mean_pred = post_predictions(engine, post_mean, <span class="kw-2">&amp;</span>scenarios).unwrap();
-            <span class="kw">let </span>post_median_pred = post_predictions(engine, post_median, <span class="kw-2">&amp;</span>scenarios).unwrap();
+        //     let (pop_mean, pop_median) = population_mean_median(&amp;theta, &amp;w);
+        //     let (post_mean, post_median) = posterior_mean_median(&amp;theta, &amp;psi, &amp;w);
+        //     let post_mean_pred = post_predictions(equation, post_mean, &amp;subjects).unwrap();
+        //     let post_median_pred = post_predictions(equation, post_median, &amp;subjects).unwrap();
 
-            <span class="kw">let </span>ndim = pop_mean.len();
-            <span class="kw">let </span>pop_mean_pred = sim_obs(
-                engine,
-                <span class="kw-2">&amp;</span>scenarios,
-                <span class="kw-2">&amp;</span>pop_mean.into_shape((<span class="number">1</span>, ndim)).unwrap(),
-                <span class="bool-val">false</span>,
-            );
-            <span class="kw">let </span>pop_median_pred = sim_obs(
-                engine,
-                <span class="kw-2">&amp;</span>scenarios,
-                <span class="kw-2">&amp;</span>pop_median.into_shape((<span class="number">1</span>, ndim)).unwrap(),
-                <span class="bool-val">false</span>,
-            );
+        //     let ndim = pop_mean.len();
+        //     let pop_mean_pred = sim_obs(
+        //         engine,
+        //         &amp;subjects,
+        //         &amp;pop_mean.into_shape((1, ndim)).unwrap(),
+        //         false,
+        //     );
+        //     let pop_median_pred = sim_obs(
+        //         engine,
+        //         &amp;subjects,
+        //         &amp;pop_median.into_shape((1, ndim)).unwrap(),
+        //         false,
+        //     );
 
-            <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"pred.csv"</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
+        // let file = create_output_file(&amp;self.settings, "pred.csv")?;
+        // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
-            <span class="comment">// Create the headers
-            </span>writer.write_record([
-                <span class="string">"id"</span>,
-                <span class="string">"time"</span>,
-                <span class="string">"outeq"</span>,
-                <span class="string">"popMean"</span>,
-                <span class="string">"popMedian"</span>,
-                <span class="string">"postMean"</span>,
-                <span class="string">"postMedian"</span>,
-            ])<span class="question-mark">?</span>;
+        //     // Create the headers
+        //     writer.write_record([
+        //         "id",
+        //         "time",
+        //         "outeq",
+        //         "popMean",
+        //         "popMedian",
+        //         "postMean",
+        //         "postMedian",
+        //     ])?;
 
-            <span class="comment">// Write contents
-            </span><span class="kw">for </span>(id, scenario) <span class="kw">in </span>scenarios.iter().enumerate() {
-                <span class="kw">let </span>time = scenario.obs_times.clone();
-                <span class="kw">let </span>pop_mp = pop_mean_pred.get((id, <span class="number">0</span>)).unwrap().to_owned();
-                <span class="kw">let </span>pop_medp = pop_median_pred.get((id, <span class="number">0</span>)).unwrap().to_owned();
-                <span class="kw">let </span>post_mp = post_mean_pred.get(id).unwrap().to_owned();
-                <span class="kw">let </span>post_mdp = post_median_pred.get(id).unwrap().to_owned();
-                <span class="kw">for </span>(i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) <span class="kw">in </span>pop_mp
-                    .into_iter()
-                    .zip(pop_medp)
-                    .zip(post_mp)
-                    .zip(post_mdp)
-                    .zip(time)
-                    .enumerate()
-                {
-                    writer
-                        .write_record(<span class="kw-2">&amp;</span>[
-                            scenarios.get(id).unwrap().id.to_string(),
-                            t.to_string(),
-                            scenarios
-                                .get(id)
-                                .unwrap()
-                                .outeqs
-                                .get(i)
-                                .unwrap()
-                                .to_string(),
-                            pop_mp_i.to_string(),
-                            pop_mdp_i.to_string(),
-                            post_mp_i.to_string(),
-                            post_medp_i.to_string(),
-                        ])
-                        .unwrap();
-                }
-            }
-            writer.flush()
-        })();
+        // Write contents
+        //     for (id, scenario) in scenarios.iter().enumerate() {
+        //         let time = scenario.obs_times.clone();
+        //         let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
+        //         let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
+        //         let post_mp = post_mean_pred.get(id).unwrap().to_owned();
+        //         let post_mdp = post_median_pred.get(id).unwrap().to_owned();
+        //         for (i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
+        //             .into_iter()
+        //             .zip(pop_medp)
+        //             .zip(post_mp)
+        //             .zip(post_mdp)
+        //             .zip(time)
+        //             .enumerate()
+        //         {
+        //             writer
+        //                 .write_record(&amp;[
+        //                     scenarios.get(id).unwrap().id.to_string(),
+        //                     t.to_string(),
+        //                     scenarios
+        //                         .get(id)
+        //                         .unwrap()
+        //                         .outeqs
+        //                         .get(i)
+        //                         .unwrap()
+        //                         .to_string(),
+        //                     pop_mp_i.to_string(),
+        //                     pop_mdp_i.to_string(),
+        //                     post_mp_i.to_string(),
+        //                     post_medp_i.to_string(),
+        //                 ])
+        //                 .unwrap();
+        //         }
+        //     }
+        //     writer.flush()
+        // })();
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">tracing::error!</span>(<span class="string">"Error while writing predictions: {}"</span>, e);
-        }
-    }
+        // if let Err(e) = result {
+        //     tracing::error!("Error while writing predictions: {}", e);
+        // }
+    </span>}
 }
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>CycleLog {

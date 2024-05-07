@@ -124,25 +124,6 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
@@ -266,24 +247,5 @@
         <span class="comment">// Flushing is not required for this use case
         </span><span class="prelude-val">Ok</span>(())
     }
-}
-
-<span class="kw">use </span>memory_stats::memory_stats;
-<span class="kw">pub fn </span>trace_memory(msg: <span class="kw-2">&amp;</span>str) {
-    <span class="macro">tracing::info!</span>(msg);
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(usage) = memory_stats() {
-        <span class="comment">// PAGESIZE is 4KB
-        </span><span class="macro">tracing::info!</span>(
-            <span class="string">"Current physical memory usage: {} MB"</span>,
-            usage.physical_mem / (<span class="number">4096 </span>* <span class="number">1024</span>)
-        );
-        <span class="macro">tracing::info!</span>(
-            <span class="string">"Current virtual memory usage: {} MB"</span>,
-            usage.virtual_mem / (<span class="number">4096 </span>* <span class="number">1024</span>)
-        );
-    } <span class="kw">else </span>{
-        <span class="macro">tracing::info!</span>(<span class="string">"Couldn't get the current memory usage :("</span>);
-    }
-    <span class="macro">tracing::info!</span>(<span class="string">"==================================================="</span>);
 }
 </code></pre></div></section></main></body></html>

@@ -175,33 +175,21 @@
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
-<span class="kw">use </span><span class="kw">crate</span>::prelude::{
-    output::NPResult,
-    predict::{Engine, Predict},
-    <span class="kw-2">*</span>,
-};
-<span class="kw">use </span><span class="kw">crate</span>::routines::datafile::Scenario;
+<span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPResult, <span class="kw-2">*</span>};
 <span class="kw">use </span><span class="kw">crate</span>::routines::settings::<span class="kw-2">*</span>;
 
-<span class="kw">use </span>csv::{ReaderBuilder, WriterBuilder};
 <span class="kw">use </span>eyre::Result;
 
-<span class="kw">use </span>ndarray::Array2;
-<span class="kw">use </span>ndarray_csv::Array2Reader;
-<span class="kw">use </span>predict::sim_obs;
-<span class="kw">use </span>std::fs::File;
+<span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>std::thread::spawn;
 <span class="kw">use </span>std::time::Instant;
 <span class="kw">use </span>tokio::sync::mpsc::{<span class="self">self</span>};
+
+<span class="kw">use </span><span class="self">self</span>::data::parse_pmetrics::read_pmetrics;
+<span class="kw">use </span><span class="self">self</span>::data::{DataTrait, Subject};
+<span class="comment">// use self::simulator::likelihood::Prediction;
+</span><span class="kw">use </span><span class="self">self</span>::simulator::Equation;
 
 <span class="doccomment">/// Simulate predictions from a model and prior distribution
 ///
@@ -216,62 +204,63 @@
 /// The user can specify the desired settings in a TOML configuration file, see `routines::settings::simulator` for details.
 /// - `idelta`: the interval between predictions. Default is 0.0.
 /// - `tad`: the time after dose, which if greater than the last prediction time is the time for which it will predict . Default is 0.0.
-</span><span class="kw">pub fn </span>simulate&lt;S&gt;(engine: Engine&lt;S&gt;, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">'static </span>+ Clone,
-{
-    <span class="kw">let </span>settings: Settings = read_settings(settings_path).unwrap();
-    <span class="kw">let </span>theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
-    <span class="kw">let </span><span class="kw-2">mut </span>reader = ReaderBuilder::new()
-        .has_headers(<span class="bool-val">true</span>)
-        .from_reader(theta_file);
-    <span class="kw">let </span>theta: Array2&lt;f64&gt; = reader.deserialize_array2_dynamic().unwrap();
+</span><span class="kw">pub fn </span>simulate(_equation: Equation, _settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="macro">unimplemented!</span>();
+    <span class="comment">// let settings: Settings = read_settings(settings_path).unwrap();
+    // let theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
+    // let mut reader = ReaderBuilder::new()
+    //     .has_headers(true)
+    //     .from_reader(theta_file);
+    // // let theta: Array2&lt;f64&gt; = reader.deserialize_array2_dynamic().unwrap();
 
-    <span class="comment">// Expand data
-    </span><span class="kw">let </span>idelta = settings.config.idelta;
-    <span class="kw">let </span>tad = settings.config.tad;
-    <span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.paths.data).unwrap();
-    scenarios.iter_mut().for_each(|scenario| {
-        <span class="kw-2">*</span>scenario = scenario.add_event_interval(idelta, tad);
-    });
+    // // Expand data
+    // // let idelta = settings.config.idelta;
+    // // let tad = settings.config.tad;
+    // let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
+    // // let subjects = data.get_subjects();
 
-    <span class="comment">// Perform simulation
-    </span><span class="kw">let </span>ypred = sim_obs(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>scenarios, <span class="kw-2">&amp;</span>theta, <span class="bool-val">false</span>);
+    // // Perform simulation
+    // // let obspred = get_population_predictions(&amp;equation, &amp;subjects, &amp;theta, false);
 
-    <span class="comment">// Prepare writer
-    </span><span class="kw">let </span>sim_file = File::create(<span class="string">"simulation_output.csv"</span>).unwrap();
-    <span class="kw">let </span><span class="kw-2">mut </span>sim_writer = WriterBuilder::new()
-        .has_headers(<span class="bool-val">false</span>)
-        .from_writer(sim_file);
-    sim_writer
-        .write_record([<span class="string">"id"</span>, <span class="string">"point"</span>, <span class="string">"time"</span>, <span class="string">"pred"</span>])
-        .unwrap();
+    // // Prepare writer
+    // let sim_file = File::create("simulation_output.csv").unwrap();
+    // let mut sim_writer = WriterBuilder::new()
+    //     .has_headers(false)
+    //     .from_writer(sim_file);
+    // sim_writer
+    //     .write_record(["id", "point", "time", "pred"])
+    //     .unwrap();
 
-    <span class="comment">// Write output
-    </span><span class="kw">for </span>(id, scenario) <span class="kw">in </span>scenarios.iter().enumerate() {
-        <span class="kw">let </span>time = scenario.obs_times.clone();
-        <span class="kw">for </span>(point, _spp) <span class="kw">in </span>theta.rows().into_iter().enumerate() {
-            <span class="kw">for </span>(i, time) <span class="kw">in </span>time.iter().enumerate() {
-                sim_writer.write_record(<span class="kw-2">&amp;</span>[
-                    id.to_string(),
-                    point.to_string(),
-                    time.to_string(),
-                    ypred.get((id, point)).unwrap().get(i).unwrap().to_string(),
-                ])<span class="question-mark">?</span>;
-            }
-        }
-    }
-    <span class="prelude-val">Ok</span>(())
-}
+    // // Write output
+    // // for (id, subject) in subjects.iter().enumerate() {
+    // //     //TODO: We are missing a get_obs_times function
+    // //     // let time = subject.obs_times.clone();
+    // //     let time: Vec&lt;f64&gt; = vec![];
+    // //     for (point, _spp) in theta.rows().into_iter().enumerate() {
+    // //         for (i, time) in time.iter().enumerate() {
+    // //             unimplemented!()
+    // //             // sim_writer.write_record(&amp;[
+    // //             //     id.to_string(),
+    // //             //     point.to_string(),
+    // //             //     time.to_string(),
+    // //             //     obspred
+    // //             //         .get((id, point))
+    // //             //         .unwrap()
+    // //             //         .get(i)
+    // //             //         .unwrap()
+    // //             //         .to_string(),
+    // //             // ])?;
+    // //         }
+    // //     }
+    // // }
+    // Ok(())
+</span>}
 
 <span class="doccomment">/// Primary entrypoint for PMcore
 ///
 /// This function is the primary entrypoint for PMcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
-</span><span class="kw">pub fn </span>start&lt;S&gt;(engine: Engine&lt;S&gt;, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">'static </span>+ Clone,
-{
+</span><span class="kw">pub fn </span>start(equation: Equation, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt; {
     <span class="kw">let </span>now = Instant::now();
     <span class="kw">let </span>settings = <span class="kw">match </span>read_settings(settings_path) {
         <span class="prelude-val">Ok</span>(s) =&gt; s,
@@ -293,19 +282,17 @@
     logger::setup_log(<span class="kw-2">&amp;</span>settings, tx.clone());
     <span class="macro">tracing::info!</span>(<span class="string">"Starting PMcore"</span>);
 
-    <span class="comment">// Read input data and remove excluded scenarios (if any)
-    </span><span class="kw">let </span><span class="kw-2">mut </span>scenarios = datafile::parse(<span class="kw-2">&amp;</span>settings.paths.data).unwrap();
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(exclude) = <span class="kw-2">&amp;</span>settings.config.exclude {
-        <span class="kw">for </span>val <span class="kw">in </span>exclude {
-            scenarios.remove(val.as_ptr() <span class="kw">as </span>usize);
-        }
-    }
-
+    <span class="comment">// Read input data
+    </span><span class="kw">let </span>data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
+    <span class="kw">let </span>subjects = data.get_subjects();
     <span class="comment">// Provide information of the input data
     </span><span class="macro">tracing::info!</span>(
-        <span class="string">"Datafile contains {} subjects with a total of {} observations"</span>,
-        scenarios.len(),
-        scenarios.iter().map(|s| s.obs_times.len()).sum::&lt;usize&gt;()
+        <span class="comment">// "Datafile contains {} subjects with a total of {} observations",
+        </span><span class="string">"Datafile contains {} subjects with a total of {} occasions"</span>,
+        subjects.len(),
+        <span class="comment">//TODO: again we are missing a get_obs_times function
+        // subjects.iter().map(|s| s.obs_times.len()).sum::&lt;usize&gt;()
+        </span>subjects.iter().map(|s| s.occasions.len()).sum::&lt;usize&gt;()
     );
 
     <span class="macro">tracing::info!</span>(<span class="string">"Starting {}"</span>, settings.config.engine);
@@ -323,14 +310,14 @@
 
     <span class="comment">// Initialize algorithm and run
     </span><span class="kw">let </span><span class="kw-2">mut </span>algorithm =
-        initialize_algorithm(engine.clone(), settings.clone(), scenarios, tx.clone());
+        initialize_algorithm(equation.clone(), settings.clone(), subjects, tx.clone());
     <span class="kw">let </span>result = algorithm.fit();
 
     <span class="comment">// Write output files (if configured)
     </span><span class="kw">if </span>settings.config.output {
         <span class="kw">let </span>idelta = settings.config.idelta;
         <span class="kw">let </span>tad = settings.config.tad;
-        result.write_outputs(<span class="bool-val">true</span>, <span class="kw-2">&amp;</span>engine, idelta, tad);
+        result.write_outputs(<span class="bool-val">true</span>, <span class="kw-2">&amp;</span>equation, idelta, tad);
     }
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(tx) = tx {
@@ -349,18 +336,15 @@
 /// It does not write any output files, and does not start a TUI.
 ///
 /// Returns an NPresult object
-</span><span class="kw">pub fn </span>start_internal&lt;S&gt;(
-    engine: Engine&lt;S&gt;,
+</span><span class="kw">pub fn </span>start_internal(
+    equation: Equation,
     settings: Settings,
-    scenarios: Vec&lt;Scenario&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt;
-<span class="kw">where
-    </span>S: Predict&lt;<span class="lifetime">'static</span>&gt; + std::marker::Sync + std::marker::Send + <span class="lifetime">'static </span>+ Clone,
-{
+    subjects: Vec&lt;Subject&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt; {
     <span class="kw">let </span>now = Instant::now();
     logger::setup_log(<span class="kw-2">&amp;</span>settings, <span class="prelude-val">None</span>);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(engine.clone(), settings.clone(), scenarios, <span class="prelude-val">None</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(equation, settings.clone(), subjects, <span class="prelude-val">None</span>);
 
     <span class="kw">let </span>result = algorithm.fit();
     <span class="macro">tracing::info!</span>(<span class="string">"Total time: {:.2?}"</span>, now.elapsed());

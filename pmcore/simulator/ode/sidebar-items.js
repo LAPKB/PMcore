@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["simulate_ode_event"],"mod":["diffsol_traits"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["algorithms","butcher_tableau","controller","dop853","dop_shared","dopri5","entrypoints","logger","prelude","rk4","routines","tui"],"struct":["Dop853","Dopri5","HashMap","Rk4"],"trait":["System"],"type":["DVector","OVector","Result","SVector","Vector1","Vector2","Vector3","Vector4","Vector5","Vector6"]};
+window.SIDEBAR_ITEMS = {"macro":["fa","fetch_cov","fetch_params","lag"],"mod":["algorithms","entrypoints","logger","prelude","routines","simulator","tui"],"struct":["HashMap"],"type":["Result"]};
