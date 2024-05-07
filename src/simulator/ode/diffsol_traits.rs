@@ -123,13 +123,6 @@ where
         let p = self.p.as_ref();
         let mut rateiv = Self::V::zeros(self.nstates);
         //TODO: This should be pre-calculated
-        for infusion in &self.infusions {
-            if t >= Self::T::from(infusion.time)
-                && t <= Self::T::from(infusion.duration + infusion.time)
-            {
-                rateiv[infusion.input] = Self::T::from(infusion.amount / infusion.duration);
-            }
-        }
         (self.rhs)(v, &p, t, y, rateiv, &self.covariates);
         // (self.rhs_jac)(x, p, t, v, y);
         self.statistics.borrow_mut().number_of_jac_mul_evals += 1;
