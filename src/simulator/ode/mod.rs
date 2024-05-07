@@ -1,3 +1,4 @@
+pub mod closure;
 pub mod diffsol_traits;
 use crate::{
     routines::data::{Covariates, Infusion},

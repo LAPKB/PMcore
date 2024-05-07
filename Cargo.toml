@@ -16,6 +16,7 @@ exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
 diffsol = { git = "https://github.com/nabla-rs/diffsol.git", branch = "pmcore" }
+# diffsol = "0.1.5"
 dashmap = "5.5.3"
 lazy_static = "1.4.0"
 csv = "1.2.1"
@@ -42,6 +43,7 @@ nalgebra = "0.32.5"
 faer = "0.18.2"
 faer-ext = {version = "0.1.0", features = ["nalgebra", "ndarray"]}
 serde_with = "3.8.1"
+
 
 [profile.release]
 codegen-units = 1
