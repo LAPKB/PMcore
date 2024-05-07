@@ -1,17 +1,14 @@
 use crate::{
     prelude::{
         algorithms::Algorithm,
-        datafile::Scenario,
-        evaluation::sigma::{ErrorPoly, ErrorType},
+        evaluation::sigma::{ErrorModel, ErrorType},
         ipm::burke,
-        output::NPResult,
-        output::{CycleLog, NPCycle},
-        prob, qr,
+        output::{CycleLog, NPCycle, NPResult},
+        qr,
         settings::Settings,
-        simulation::predict::Engine,
-        simulation::predict::{sim_obs, Predict},
     },
     routines::expansion::adaptative_grid::adaptative_grid,
+    simulator::{likelihood::PopulationPredictions, Equation},
     tui::ui::Comm,
 };
 
@@ -19,16 +16,15 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
+use super::{data::Subject, get_population_predictions};
+
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-pub struct NPAG<S>
-where
-    S: Predict<'static> + std::marker::Sync + Clone,
-{
-    engine: Engine<S>,
+pub struct NPAG {
+    equation: Equation,
     ranges: Vec<(f64, f64)>,
     psi: Array2<f64>,
     theta: Array2<f64>,
@@ -46,22 +42,20 @@ where
     converged: bool,
     cycle_log: CycleLog,
     cache: bool,
-    scenarios: Vec<Scenario>,
+    subjects: Vec<Subject>,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
+    population_predictions: PopulationPredictions,
     settings: Settings,
 }
 
-impl<S> Algorithm for NPAG<S>
-where
-    S: Predict<'static> + std::marker::Sync + Clone,
-{
+impl Algorithm for NPAG {
     fn fit(&mut self) -> NPResult {
         self.run()
     }
     fn to_npresult(&self) -> NPResult {
         NPResult::new(
-            self.scenarios.clone(),
+            self.subjects.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
@@ -73,10 +67,7 @@ where
     }
 }
 
-impl<S> NPAG<S>
-where
-    S: Predict<'static> + std::marker::Sync + Clone,
-{
+impl NPAG {
     /// Creates a new NPAG instance.
     ///
     /// # Parameters
@@ -93,19 +84,16 @@ where
     ///
     /// Returns a new `NPAG` instance.
     pub fn new(
-        sim_eng: Engine<S>,
+        equation: Equation,
         ranges: Vec<(f64, f64)>,
         theta: Array2<f64>,
-        scenarios: Vec<Scenario>,
+        subjects: Vec<Subject>,
         c: (f64, f64, f64, f64),
         tx: Option<UnboundedSender<Comm>>,
         settings: Settings,
-    ) -> Self
-    where
-        S: Predict<'static> + std::marker::Sync,
-    {
+    ) -> Self {
         Self {
-            engine: sim_eng,
+            equation,
             ranges,
             psi: Array2::default((0, 0)),
             theta,
@@ -125,8 +113,9 @@ where
             cache: settings.config.cache,
             tx,
             settings,
-            scenarios,
+            subjects,
             c,
+            population_predictions: PopulationPredictions::default(),
         }
     }
 
@@ -135,25 +124,18 @@ where
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
-        let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, self.cache);
-        let psi_up = prob::calculate_psi(
-            &ypred,
-            &self.scenarios,
-            &ErrorPoly {
-                c: self.c,
-                gl: gamma_up,
-                e_type: &self.error_type,
-            },
-        );
-        let psi_down = prob::calculate_psi(
-            &ypred,
-            &self.scenarios,
-            &ErrorPoly {
-                c: self.c,
-                gl: gamma_down,
-                e_type: &self.error_type,
-            },
-        );
+
+        let psi_up = self.population_predictions.get_psi(&ErrorModel {
+            c: self.c,
+            gl: gamma_up,
+            e_type: &self.error_type,
+        });
+        let psi_down = self.population_predictions.get_psi(&ErrorModel {
+            c: self.c,
+            gl: gamma_down,
+            e_type: &self.error_type,
+        });
+
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
@@ -200,17 +182,14 @@ where
 
             let cache = if self.cycle == 1 { false } else { self.cache };
 
-            let ypred = sim_obs(&self.engine, &self.scenarios, &self.theta, cache);
+            self.population_predictions =
+                get_population_predictions(&self.equation, &self.subjects, &self.theta, cache);
 
-            self.psi = prob::calculate_psi(
-                &ypred,
-                &self.scenarios,
-                &ErrorPoly {
-                    c: self.c,
-                    gl: self.gamma,
-                    e_type: &self.error_type,
-                },
-            );
+            self.psi = self.population_predictions.get_psi(&ErrorModel {
+                c: self.c,
+                gl: self.gamma,
+                e_type: &self.error_type,
+            });
 
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
@@ -229,6 +208,10 @@ where
 
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
+            self.population_predictions.subject_predictions = self
+                .population_predictions
+                .subject_predictions
+                .select(Axis(1), &keep);
 
             //Rank-Revealing Factorization
             let (r, perm) = qr::calculate_r(&self.psi);
@@ -254,6 +237,10 @@ where
 
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
+            self.population_predictions.subject_predictions = self
+                .population_predictions
+                .subject_predictions
+                .select(Axis(1), &keep);
 
             (self.lambda, self.objf) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),

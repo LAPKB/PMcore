@@ -4,35 +4,30 @@ use argmin::{
 };
 use ndarray::{Array1, Axis};
 
-use crate::routines::{
-    datafile::Scenario,
-    simulation::predict::{sim_obs, Engine, Predict},
+use crate::{
+    routines::{
+        data::Subject, evaluation::sigma::ErrorModel,
+        simulation::predict::get_population_predictions,
+    },
+    simulator::Equation,
 };
 
-use crate::prelude::{prob, sigma::Sigma};
-
-pub struct SppOptimizer<'a, S, P>
-where
-    S: Sigma + Sync,
-    P: Predict<'static> + Sync + Clone,
-{
-    engine: &'a Engine<P>,
-    scenarios: &'a Vec<Scenario>,
-    sig: &'a S,
+pub struct SppOptimizer<'a> {
+    equation: Equation,
+    subjects: &'a Vec<Subject>,
+    sig: &'a ErrorModel<'a>,
     pyl: &'a Array1<f64>,
 }
 
-impl<'a, S, P> CostFunction for SppOptimizer<'a, S, P>
-where
-    S: Sigma + Sync,
-    P: Predict<'static> + Sync + Clone,
-{
+impl<'a> CostFunction for SppOptimizer<'a> {
     type Param = Array1<f64>;
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = spp.to_owned().insert_axis(Axis(0));
-        let ypred = sim_obs(self.engine, self.scenarios, &theta, true);
-        let psi = prob::calculate_psi(&ypred, self.scenarios, self.sig);
+        let obs_pred = get_population_predictions(&self.equation, &self.subjects, &theta, true);
+
+        let psi = obs_pred.get_psi(self.sig);
+
         if psi.ncols() > 1 {
             tracing::error!("Psi in SppOptimizer has more than one column");
         }
@@ -52,20 +47,16 @@ where
     }
 }
 
-impl<'a, S, P> SppOptimizer<'a, S, P>
-where
-    S: Sigma + Sync,
-    P: Predict<'static> + Sync + Clone,
-{
+impl<'a> SppOptimizer<'a> {
     pub fn new(
-        engine: &'a Engine<P>,
-        scenarios: &'a Vec<Scenario>,
-        sig: &'a S,
+        equation: Equation,
+        subjects: &'a Vec<Subject>,
+        sig: &'a ErrorModel,
         pyl: &'a Array1<f64>,
     ) -> Self {
         Self {
-            engine,
-            scenarios,
+            equation,
+            subjects,
             sig,
             pyl,
         }

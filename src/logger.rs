@@ -122,22 +122,3 @@ impl Write for TuiWriter {
         Ok(())
     }
 }
-
-use memory_stats::memory_stats;
-pub fn trace_memory(msg: &str) {
-    tracing::info!(msg);
-    if let Some(usage) = memory_stats() {
-        // PAGESIZE is 4KB
-        tracing::info!(
-            "Current physical memory usage: {} MB",
-            usage.physical_mem / (4096 * 1024)
-        );
-        tracing::info!(
-            "Current virtual memory usage: {} MB",
-            usage.virtual_mem / (4096 * 1024)
-        );
-    } else {
-        tracing::info!("Couldn't get the current memory usage :(");
-    }
-    tracing::info!("===================================================");
-}

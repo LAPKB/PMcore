@@ -1,6 +1,6 @@
 [package]
 name = "pmcore"
-version = "0.1.6"
+version = "0.2.0"
 edition = "2021"
 authors = [
     "Julián D. Otálvaro <juliandavid347@gmail.com>",
@@ -15,6 +15,7 @@ repository = "https://github.com/LAPKB/PMcore"
 exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
+diffsol = { git = "https://github.com/nabla-rs/diffsol.git", branch = "pmcore" }
 dashmap = "5.5.3"
 lazy_static = "1.4.0"
 csv = "1.2.1"
@@ -23,7 +24,6 @@ serde = "1.0.188"
 serde_derive = "1.0.188"
 serde_json = "1.0.66"
 sobol_burley = "0.5.0"
-ode_solvers = "0.4"
 ndarray-stats = "0.5.1"
 linfa-linalg = "0.1.0"
 rayon = "1.8.0"
@@ -32,27 +32,25 @@ ratatui = { version = "0.26.0", features = ["crossterm"] }
 crossterm = "0.27.0"
 tokio = { version = "1.32.0", features = ["sync", "rt"] }
 ndarray-csv = "0.5.2"
-argmin = { version = "0.9.0", features = [] }
-faer-core = { version = "0.17", features = [] }
-argmin-math = { version = "0.3.0", features = ["ndarray_v0_15-nolinalg-serde"] }
-faer = { version = "0.17", features = ["nalgebra", "ndarray"] }
+argmin = { version = "0.10.0", features = [] }
+argmin-math = { version = "0.4.0", features = ["ndarray_v0_15-nolinalg"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
 chrono = "0.4"
 config = "0.14"
-memory-stats = "1.1.0"
+nalgebra = "0.32.5"
+faer = "0.18.2"
+faer-ext = {version = "0.1.0", features = ["nalgebra", "ndarray"]}
+serde_with = "3.8.1"
 
 [profile.release]
 codegen-units = 1
 opt-level = 3
 
 [dev-dependencies]
-diol = {version = "0.8"}
+# divan = "0.1.14"
+diol = "0.8.2"
 
 [[bench]]
-name = "evaluation"
 harness = false
-
-[[bench]]
-name = "initialization"
-harness = false
+name = "compare"

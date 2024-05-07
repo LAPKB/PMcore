@@ -11,7 +11,6 @@
 //! You can run this example with:
 //! `cargo run --example neldermead-cubic --features slog-logger`
 
-use argmin::core::observers::{ObserverMode, SlogLogger};
 use argmin::core::{CostFunction, Error, Executor, State};
 use argmin::solver::neldermead::NelderMead;
 
@@ -72,7 +71,7 @@ fn run() -> Result<(), Error> {
         // Run solver
         let res = Executor::new(cost, solver)
             .configure(|state| state.max_iters(100))
-            .add_observer(SlogLogger::term(), ObserverMode::Always)
+            // .add_observer(SlogLogger::term(), ObserverMode::Always)
             .run()?;
 
         // Wait a second (lets the logger flush everything before printing again)
@@ -90,7 +89,7 @@ fn run() -> Result<(), Error> {
         let solver = NelderMead::new(vec![-3.0, -4.0]).with_sd_tolerance(0.0001)?;
         let res = Executor::new(cost, solver)
             .configure(|state| state.max_iters(100))
-            .add_observer(SlogLogger::term(), ObserverMode::Always)
+            // .add_observer(SlogLogger::term(), ObserverMode::Always)
             .run()?;
         std::thread::sleep(std::time::Duration::from_secs(1));
         println!("{res}");
@@ -106,7 +105,7 @@ fn run() -> Result<(), Error> {
         let solver = NelderMead::new(vec![4.0, 6.0]).with_sd_tolerance(0.0001)?;
         let res = Executor::new(cost, solver)
             .configure(|state| state.max_iters(100))
-            .add_observer(SlogLogger::term(), ObserverMode::Always)
+            // .add_observer(SlogLogger::term(), ObserverMode::Always)
             .run()?;
         std::thread::sleep(std::time::Duration::from_secs(1));
         println!("{res}");

@@ -1,17 +1,18 @@
 use crate::prelude::*;
 use csv::WriterBuilder;
-use datafile::Scenario;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
-use predict::{post_predictions, sim_obs, Engine, Predict};
 use settings::Settings;
 use std::fs::File;
+
+use self::data::Subject;
+use self::simulator::Equation;
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 #[derive(Debug)]
 pub struct NPResult {
-    pub scenarios: Vec<Scenario>,
+    pub subjects: Vec<Subject>,
     pub theta: Array2<f64>,
     pub psi: Array2<f64>,
     pub w: Array1<f64>,
@@ -25,7 +26,7 @@ pub struct NPResult {
 impl NPResult {
     /// Create a new NPResult object
     pub fn new(
-        scenarios: Vec<Scenario>,
+        subjects: Vec<Subject>,
         theta: Array2<f64>,
         psi: Array2<f64>,
         w: Array1<f64>,
@@ -39,7 +40,7 @@ impl NPResult {
         let par_names = settings.random.names();
 
         Self {
-            scenarios,
+            subjects,
             theta,
             psi,
             w,
@@ -51,15 +52,12 @@ impl NPResult {
         }
     }
 
-    pub fn write_outputs<'a, S>(&self, write: bool, engine: &Engine<S>, idelta: f64, tad: f64)
-    where
-        S: Predict<'static> + std::marker::Sync + 'static + Clone + std::marker::Send,
-    {
+    pub fn write_outputs(&self, write: bool, equation: &Equation, idelta: f64, tad: f64) {
         if write {
             self.write_theta();
             self.write_posterior();
             self.write_obs();
-            self.write_pred(engine, idelta, tad);
+            self.write_pred(equation, idelta, tad);
         }
     }
 
@@ -101,7 +99,7 @@ impl NPResult {
             let w: Array1<f64> = self.w.clone();
             let psi: Array2<f64> = self.psi.clone();
             let par_names: Vec<String> = self.par_names.clone();
-            let scenarios = self.scenarios.clone();
+            let subjects = self.subjects.clone();
 
             let posterior = posterior(&psi, &w);
 
@@ -122,7 +120,7 @@ impl NPResult {
             // Write contents
             for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
                 for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                    writer.write_field(&scenarios.get(sub).unwrap().id)?;
+                    writer.write_field(&subjects.get(sub).unwrap().id)?;
                     writer.write_field(format!("{}", spp))?;
                     for param in theta.row(spp) {
                         writer.write_field(&format!("{param}"))?;
@@ -141,129 +139,126 @@ impl NPResult {
 
     /// Write the observations, which is the reformatted input data
     pub fn write_obs(&self) {
-        tracing::info!("Writing (expanded) observations...");
-        let result = (|| {
-            let scenarios = self.scenarios.clone();
+        unimplemented!()
+        // tracing::info!("Writing (expanded) observations...");
+        // let result = (|| {
+        //     let subjects = self.subjects.clone();
 
-            let file = create_output_file(&self.settings, "obs.csv")?;
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        // let file = create_output_file(&self.settings, "obs.csv")?;
+        // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
-            // Create the headers
-            writer.write_record(["id", "time", "obs", "outeq"])?;
+        //     // Create the headers
+        //     writer.write_record(["id", "time", "obs", "outeq"])?;
 
-            // Write contents
-            for scenario in scenarios {
-                for (i, (observation, time)) in
-                    scenario.obs.iter().zip(&scenario.obs_times).enumerate()
-                {
-                    writer.write_record(&[
-                        scenario.id.to_string(),
-                        time.to_string(),
-                        observation.to_string(),
-                        scenario.outeqs.get(i).unwrap().to_string(),
-                    ])?;
-                }
-            }
-            writer.flush()
-        })();
+        //     // Write contents
+        //     for subject in subjects {
+        //         for (observation, time) in subject.obs.iter().zip(&subject.obs_times) {
+        //             writer.write_record(&[
+        //                 subject.id.to_string(),
+        //                 time.to_string(),
+        //                 observation.to_string(),
+        //                 "1".to_string(),
+        //             ])?;
+        //         }
+        //     }
+        //     writer.flush()
+        // })();
 
-        if let Err(e) = result {
-            tracing::error!("Error while writing observations: {}", e);
-        }
+        // if let Err(e) = result {
+        //     tracing::error!("Error while writing observations: {}", e);
+        // }
     }
 
     /// Writes the predictions
-    pub fn write_pred<'a, S>(&self, engine: &Engine<S>, idelta: f64, tad: f64)
-    where
-        S: Predict<'static> + std::marker::Sync + std::marker::Send + 'static + Clone,
-    {
-        tracing::info!("Writing individual predictions...");
-        let result = (|| {
-            let mut scenarios = self.scenarios.clone();
-            // Add an event interval to each scenario
-            if idelta > 0.0 {
-                scenarios.iter_mut().for_each(|scenario| {
-                    *scenario = scenario.add_event_interval(idelta, tad);
-                });
-            }
+    pub fn write_pred<'a>(&self, _equation: &Equation, _idelta: f64, _tad: f64) {
+        unimplemented!()
+        // tracing::info!("Writing individual predictions...");
+        // let result = (|| {
+        //     let mut subjects = self.subjects.clone();
+        //     // Add an event interval to each scenario
+        //     if idelta > 0.0 {
+        //         subjects.iter_mut().for_each(|scenario| {
+        //             *scenario = scenario.add_event_interval(idelta, tad);
+        //         });
+        //     }
 
-            let theta: Array2<f64> = self.theta.clone();
-            let w: Array1<f64> = self.w.clone();
-            let psi: Array2<f64> = self.psi.clone();
+        //     let theta: Array2<f64> = self.theta.clone();
+        //     let w: Array1<f64> = self.w.clone();
+        //     let psi: Array2<f64> = self.psi.clone();
 
-            let (pop_mean, pop_median) = population_mean_median(&theta, &w);
-            let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
-            let post_mean_pred = post_predictions(engine, post_mean, &scenarios).unwrap();
-            let post_median_pred = post_predictions(engine, post_median, &scenarios).unwrap();
+        //     let (pop_mean, pop_median) = population_mean_median(&theta, &w);
+        //     let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
+        //     let post_mean_pred = post_predictions(equation, post_mean, &subjects).unwrap();
+        //     let post_median_pred = post_predictions(equation, post_median, &subjects).unwrap();
 
-            let ndim = pop_mean.len();
-            let pop_mean_pred = sim_obs(
-                engine,
-                &scenarios,
-                &pop_mean.into_shape((1, ndim)).unwrap(),
-                false,
-            );
-            let pop_median_pred = sim_obs(
-                engine,
-                &scenarios,
-                &pop_median.into_shape((1, ndim)).unwrap(),
-                false,
-            );
+        //     let ndim = pop_mean.len();
+        //     let pop_mean_pred = sim_obs(
+        //         engine,
+        //         &subjects,
+        //         &pop_mean.into_shape((1, ndim)).unwrap(),
+        //         false,
+        //     );
+        //     let pop_median_pred = sim_obs(
+        //         engine,
+        //         &subjects,
+        //         &pop_median.into_shape((1, ndim)).unwrap(),
+        //         false,
+        //     );
 
-            let file = create_output_file(&self.settings, "pred.csv")?;
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        // let file = create_output_file(&self.settings, "pred.csv")?;
+        // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
-            // Create the headers
-            writer.write_record([
-                "id",
-                "time",
-                "outeq",
-                "popMean",
-                "popMedian",
-                "postMean",
-                "postMedian",
-            ])?;
+        //     // Create the headers
+        //     writer.write_record([
+        //         "id",
+        //         "time",
+        //         "outeq",
+        //         "popMean",
+        //         "popMedian",
+        //         "postMean",
+        //         "postMedian",
+        //     ])?;
 
-            // Write contents
-            for (id, scenario) in scenarios.iter().enumerate() {
-                let time = scenario.obs_times.clone();
-                let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
-                let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
-                let post_mp = post_mean_pred.get(id).unwrap().to_owned();
-                let post_mdp = post_median_pred.get(id).unwrap().to_owned();
-                for (i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
-                    .into_iter()
-                    .zip(pop_medp)
-                    .zip(post_mp)
-                    .zip(post_mdp)
-                    .zip(time)
-                    .enumerate()
-                {
-                    writer
-                        .write_record(&[
-                            scenarios.get(id).unwrap().id.to_string(),
-                            t.to_string(),
-                            scenarios
-                                .get(id)
-                                .unwrap()
-                                .outeqs
-                                .get(i)
-                                .unwrap()
-                                .to_string(),
-                            pop_mp_i.to_string(),
-                            pop_mdp_i.to_string(),
-                            post_mp_i.to_string(),
-                            post_medp_i.to_string(),
-                        ])
-                        .unwrap();
-                }
-            }
-            writer.flush()
-        })();
+        // Write contents
+        //     for (id, scenario) in scenarios.iter().enumerate() {
+        //         let time = scenario.obs_times.clone();
+        //         let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
+        //         let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
+        //         let post_mp = post_mean_pred.get(id).unwrap().to_owned();
+        //         let post_mdp = post_median_pred.get(id).unwrap().to_owned();
+        //         for (i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
+        //             .into_iter()
+        //             .zip(pop_medp)
+        //             .zip(post_mp)
+        //             .zip(post_mdp)
+        //             .zip(time)
+        //             .enumerate()
+        //         {
+        //             writer
+        //                 .write_record(&[
+        //                     scenarios.get(id).unwrap().id.to_string(),
+        //                     t.to_string(),
+        //                     scenarios
+        //                         .get(id)
+        //                         .unwrap()
+        //                         .outeqs
+        //                         .get(i)
+        //                         .unwrap()
+        //                         .to_string(),
+        //                     pop_mp_i.to_string(),
+        //                     pop_mdp_i.to_string(),
+        //                     post_mp_i.to_string(),
+        //                     post_medp_i.to_string(),
+        //                 ])
+        //                 .unwrap();
+        //         }
+        //     }
+        //     writer.flush()
+        // })();
 
-        if let Err(e) = result {
-            tracing::error!("Error while writing predictions: {}", e);
-        }
+        // if let Err(e) = result {
+        //     tracing::error!("Error while writing predictions: {}", e);
+        // }
     }
 }
 #[derive(Debug)]

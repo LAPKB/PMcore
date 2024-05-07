@@ -1,9 +1,10 @@
-use faer::{sparse::solvers::SpSolver, FaerMat, IntoFaer, IntoNdarray};
-use faer_core::{inner::DenseOwn, mat, scale, unzipped, zipped, Mat, Matrix};
-use std::error;
-
+use faer::{mat, scale, solvers::SpSolver, unzipped, zipped, Mat};
+use faer_ext::*;
+// use faer::{sparse::solvers::SpSolver, FaerMat, IntoFaer, IntoNdarray};
+// use faer_core::{inner::DenseOwn, mat, scale, unzipped, zipped, Mat, Matrix};
 use ndarray::{ArrayBase, Dim, OwnedRepr};
 use ndarray_stats::QuantileExt;
+use std::error;
 type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
 pub fn burke(
@@ -13,7 +14,7 @@ pub fn burke(
     if psi.min().unwrap() < &0.0 {
         return Err("PSI contains negative elements".into());
     }
-    let psi: Matrix<DenseOwn<f64>> = psi.view().into_faer().to_owned();
+    let psi: Mat<f64> = psi.view().into_faer().to_owned();
     let ecol = Mat::from_fn(col, 1, |_, _| 1.0);
     let mut plam = &psi * &ecol; //row x 1
     let eps = 1e-8;
@@ -24,7 +25,7 @@ pub fn burke(
     w = zipped!(w.as_ref()).map(|unzipped!(w_i)| 1.0 / *w_i);
 
     let psi_t = psi.transpose();
-    let mut ptw: Matrix<DenseOwn<f64>> = psi_t * &w;
+    let mut ptw = psi_t * &w;
     let mut max_ptw = f64::NEG_INFINITY;
     for i in 0..ptw.nrows() {
         if *ptw.get(i, 0) > max_ptw {
@@ -57,15 +58,14 @@ pub fn burke(
         let inner = zipped!(lam.as_ref(), y.as_ref()).map(|unzipped!(lam_i, y_i)| *lam_i / *y_i);
         let w_plam =
             zipped!(plam.as_ref(), w.as_ref()).map(|unzipped!(plam_i, w_i)| *plam_i / *w_i);
-        let h: Matrix<DenseOwn<f64>> =
-            (&psi * inner.as_ref().col(0).column_vector_as_diagonal()) * &psi.transpose();
-        let mut aux: Matrix<DenseOwn<f64>> = Mat::zeros(row, row);
+        let h = (&psi * inner.as_ref().col(0).column_vector_as_diagonal()) * &psi.transpose();
+        let mut aux: Mat<f64> = Mat::zeros(row, row);
         for i in 0..row {
             let diag = aux.get_mut(i, i);
             *diag = *w_plam.get(i, 0);
         }
         let h = h + aux;
-        let uph = h.cholesky(faer_core::Side::Lower).unwrap();
+        let uph = h.cholesky(faer::Side::Lower).unwrap();
         let smuyinv = scale(smu)
             * zipped!(ecol.as_ref(), y.as_ref()).map(|unzipped!(ecol_i, y_i)| *ecol_i / *y_i);
         let rhsdw = zipped!(erow.as_ref(), w.as_ref()).map(|unzipped!(erow_i, w_i)| *erow_i / *w_i)
@@ -128,7 +128,7 @@ pub fn burke(
     }
     Ok((lam.as_ref().into_ndarray().column(0).to_owned(), obj))
 }
-fn min(mat: Matrix<DenseOwn<f64>>) -> f64 {
+fn min(mat: Mat<f64>) -> f64 {
     let mut min = f64::INFINITY;
     for i in 0..mat.nrows() {
         for j in 0..mat.ncols() {
@@ -139,7 +139,7 @@ fn min(mat: Matrix<DenseOwn<f64>>) -> f64 {
     }
     min
 }
-fn max(mat: Matrix<DenseOwn<f64>>) -> f64 {
+fn max(mat: Mat<f64>) -> f64 {
     let mut max = f64::NEG_INFINITY;
     for i in 0..mat.nrows() {
         for j in 0..mat.ncols() {
