@@ -1,11 +1,13 @@
-use crate::routines::data::{Covariates, Infusion};
+use crate::prelude::data::{Covariates, Infusion};
+use anyhow::Result;
 use diffsol::{
     matrix::Matrix,
     ode_solver::problem::OdeSolverProblem,
     op::{unit::UnitCallable, Op},
     vector::Vector,
-    OdeBuilder, OdeEquations, Result, Zero,
+    OdeBuilder, OdeEquations,
 };
+use num_traits::Zero;
 use std::rc::Rc;
 
 use super::closure::PMClosure;

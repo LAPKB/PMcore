@@ -1,5 +1,5 @@
+use pmcore::prelude::data::{parse_pmetrics::read_pmetrics, DataTrait};
 use pmcore::prelude::*;
-use pmcore::routines::data::{parse_pmetrics::read_pmetrics, DataTrait};
 use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::simulator::Equation;
 use std::path::Path;

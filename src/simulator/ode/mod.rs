@@ -1,7 +1,7 @@
 pub mod closure;
 pub mod diffsol_traits;
 use crate::{
-    routines::data::{Covariates, Infusion},
+    prelude::data::{Covariates, Infusion},
     simulator::{ode::diffsol_traits::BuildPmOde, DiffEq, M, T, V},
 };
 

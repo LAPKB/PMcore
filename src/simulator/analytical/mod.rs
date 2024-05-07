@@ -1,4 +1,4 @@
-use crate::{routines::data::Covariates, simulator::*};
+use crate::{prelude::data::Covariates, simulator::*};
 
 // let eq = |x: &V, p: &V, t:T, rateiv: V, _cov: &Covariates|
 

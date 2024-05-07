@@ -2,17 +2,22 @@ pub mod analytical;
 pub mod cache;
 pub mod likelihood;
 pub mod ode;
+use ndarray::{parallel::prelude::*, Axis};
 use std::collections::HashMap;
 
-use self::likelihood::SubjectPredictions;
+use self::likelihood::{PopulationPredictions, SubjectPredictions};
 use crate::{
-    prelude::data::Event,
-    routines::data::{Covariates, Infusion, OccasionTrait, Subject, SubjectTrait},
+    prelude::data::{Covariates, Event, Infusion, OccasionTrait, Subject, SubjectTrait},
     simulator::likelihood::ToPrediction,
 };
-// use diffsol::vector::Vector;
 
+// use dashmap::mapref::entry::Entry;
+// use dashmap::DashMap;
+// use lazy_static::lazy_static;
+use ndarray::prelude::*;
+// use ndarray::Array1;
 use cache::*;
+use ndarray::Array2;
 
 pub type T = f64;
 // pub type V = faer::Col<T>;
@@ -212,6 +217,30 @@ impl Equation {
             Equation::Analytical(_, _, _, _, _, _, (_, nouteqs)) => *nouteqs,
         }
     }
+}
+
+pub fn get_population_predictions<'a>(
+    equation: &'a Equation,
+    subjects: &Vec<Subject>,
+    support_points: &Array2<f64>,
+    _cache: bool,
+) -> PopulationPredictions {
+    let mut pred = Array2::default((subjects.len(), support_points.nrows()).f());
+    pred.axis_iter_mut(Axis(0))
+        .into_par_iter()
+        .enumerate()
+        .for_each(|(i, mut row)| {
+            row.axis_iter_mut(Axis(0))
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(j, mut element)| {
+                    let subject = subjects.get(i).unwrap();
+                    let ypred =
+                        equation.simulate_subject(subject, support_points.row(j).to_vec().as_ref());
+                    element.fill(ypred);
+                });
+        });
+    pred.into()
 }
 
 trait FromVec {

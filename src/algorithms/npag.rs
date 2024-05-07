@@ -6,6 +6,7 @@ use crate::{
         output::{CycleLog, NPCycle, NPResult},
         qr,
         settings::Settings,
+        simulator::get_population_predictions,
     },
     routines::expansion::adaptative_grid::adaptative_grid,
     simulator::{likelihood::PopulationPredictions, Equation},
@@ -16,7 +17,7 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::{data::Subject, get_population_predictions};
+use super::data::Subject;
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria

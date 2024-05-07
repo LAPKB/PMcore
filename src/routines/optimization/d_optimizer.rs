@@ -5,10 +5,8 @@ use argmin::{
 use ndarray::{Array1, Axis};
 
 use crate::{
-    routines::{
-        data::Subject, evaluation::sigma::ErrorModel,
-        simulation::predict::get_population_predictions,
-    },
+    prelude::{data::Subject, simulator::get_population_predictions},
+    routines::evaluation::sigma::ErrorModel,
     simulator::Equation,
 };
 

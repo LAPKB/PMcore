@@ -8,6 +8,7 @@ use crate::{
         output::{CycleLog, NPCycle, NPResult},
         qr,
         settings::Settings,
+        simulator::get_population_predictions,
     },
     simulator::{likelihood::PopulationPredictions, Equation},
     tui::ui::Comm,
@@ -17,7 +18,7 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::{data::Subject, get_population_predictions};
+use super::data::Subject;
 
 const THETA_D: f64 = 1e-4;
 const THETA_F: f64 = 1e-2;

@@ -1,4 +1,4 @@
-use pmcore::routines::data::*;
+use pmcore::prelude::data::*;
 
 fn main() {
     let path = std::path::Path::new("examples/data/bimodal_ke.csv");

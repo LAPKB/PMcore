@@ -5,6 +5,7 @@ use crate::{
         ipm_faer::burke,
         output::NPResult,
         settings::Settings,
+        simulator::get_population_predictions,
     },
     simulator::Equation,
     tui::ui::Comm,
@@ -13,7 +14,7 @@ use crate::{
 use ndarray::{Array1, Array2};
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::{data::Subject, get_population_predictions};
+use super::data::Subject;
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model

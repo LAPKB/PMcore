@@ -1,6 +1,6 @@
-use crate::routines::{
-    data::Observation,
-    evaluation::sigma::{ErrorModel, ErrorType},
+use crate::{
+    prelude::data::Observation,
+    routines::evaluation::sigma::{ErrorModel, ErrorType},
 };
 
 use ndarray::{Array1, Array2, Axis};

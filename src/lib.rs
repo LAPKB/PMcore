@@ -52,10 +52,12 @@ pub mod algorithms;
 
 pub mod simulator;
 
+/// New data format
+pub mod data;
+
 /// Routines for the crate
 pub mod routines {
-    /// New data format
-    pub mod data;
+
     /// Routines for initializing the grid
     pub mod initialization;
     pub mod optimization {
@@ -84,9 +86,6 @@ pub mod routines {
         pub mod qr;
         pub mod sigma;
     }
-    pub mod simulation {
-        pub mod predict;
-    }
 }
 
 /// Entry points for external use of the framework.
@@ -112,12 +111,9 @@ pub mod prelude {
     pub use crate::logger;
     pub use crate::prelude::evaluation::{sigma, *};
     pub use crate::routines::condensation;
-    pub use crate::routines::data::CovariateTrait;
     pub use crate::routines::expansion::*;
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization;
-    pub use crate::routines::simulation::predict::*;
-    pub use crate::routines::simulation::*;
     pub use crate::routines::*;
     pub use crate::tui::ui::*;
     #[macro_export]
