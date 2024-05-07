@@ -15,8 +15,7 @@ repository = "https://github.com/LAPKB/PMcore"
 exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
-diffsol = { git = "https://github.com/nabla-rs/diffsol.git", branch = "pmcore" }
-# diffsol = "0.1.5"
+diffsol = "0.1.6"
 dashmap = "5.5.3"
 lazy_static = "1.4.0"
 csv = "1.2.1"
