@@ -22,6 +22,9 @@ pub fn simulate_ode_event(
     ti: f64,
     tf: f64,
 ) -> V {
+    if ti == tf {
+        return x;
+    }
     let problem = build_pm_ode::<M, _, _>(
         diffeq.clone(),
         move |_p: &V, _t: T| x.clone(),
