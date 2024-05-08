@@ -6,7 +6,7 @@ use pmcore::{prelude::*, simulator::Equation};
 fn main() -> Result<()> {
     let eq = Equation::new_ode(
         |x, p, t, dx, rateiv, cov| {
-            fetch_cov!(cov, t, age, wt, ht, bsa, pkvisit, bmi, bmip, dxa_bf, block);
+            fetch_cov!(cov, t, wt, pkvisit);
             fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
@@ -19,7 +19,7 @@ fn main() -> Result<()> {
         |_p| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, t, cov, y| {
-            fetch_cov!(cov, t, age, wt, ht, bsa, pkvisit, bmi, bmip, dxa_bf, block);
+            fetch_cov!(cov, t, wt, pkvisit);
             fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
