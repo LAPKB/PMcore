@@ -30,7 +30,7 @@ pub fn simulate_ode_event(
         move |_p: &V, _t: T| x.clone(),
         V::from_vec(support_point.to_vec()),
         ti,
-        1.0,
+        1e-3,
         RTOL,
         ATOL,
         cov.clone(),

@@ -138,22 +138,16 @@ pub mod prelude {
     }
     #[macro_export]
     macro_rules! lag {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            {
-                use std::iter::{Iterator, IntoIterator};
-                Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]))
-            }
-        };
+        ($($k:expr => $v:expr),* $(,)?) => {{
+            core::convert::From::from([$(($k, $v),)*])
+        }};
     }
 
     #[macro_export]
     macro_rules! fa {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            {
-                use std::iter::{Iterator, IntoIterator};
-                Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]))
-            }
-        };
+        ($($k:expr => $v:expr),* $(,)?) => {{
+            core::convert::From::from([$(($k, $v),)*])
+        }};
     }
 }
 
