@@ -155,12 +155,6 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! PMcore is a framework for developing and running non-parametric algorithms for population pharmacokinetic modelling
 //!
 //! The framework is designed to be modular and flexible, allowing for easy integration of new algorithms and methods. It is heavily designed around the specifications for Pmetrics, a package for R, and is designed to be used in conjunction with it. However, as a general rust library, it can be used for a wide variety of applications, not limited to pharmacometrics.
@@ -301,22 +295,16 @@
     }
     <span class="attr">#[macro_export]
     </span><span class="macro">macro_rules!</span> lag {
-        ($(<span class="macro-nonterminal">$k</span>:expr =&gt; <span class="macro-nonterminal">$v</span>:expr),* $(,)<span class="question-mark">?</span>) =&gt; {
-            {
-                <span class="kw">use </span>std::iter::{Iterator, IntoIterator};
-                Iterator::collect(IntoIterator::into_iter([$((<span class="macro-nonterminal">$k</span>, <span class="macro-nonterminal">$v</span>),)<span class="kw-2">*</span>]))
-            }
-        };
+        ($(<span class="macro-nonterminal">$k</span>:expr =&gt; <span class="macro-nonterminal">$v</span>:expr),* $(,)<span class="question-mark">?</span>) =&gt; {{
+            core::convert::From::from([$((<span class="macro-nonterminal">$k</span>, <span class="macro-nonterminal">$v</span>),)<span class="kw-2">*</span>])
+        }};
     }
 
     <span class="attr">#[macro_export]
     </span><span class="macro">macro_rules!</span> fa {
-        ($(<span class="macro-nonterminal">$k</span>:expr =&gt; <span class="macro-nonterminal">$v</span>:expr),* $(,)<span class="question-mark">?</span>) =&gt; {
-            {
-                <span class="kw">use </span>std::iter::{Iterator, IntoIterator};
-                Iterator::collect(IntoIterator::into_iter([$((<span class="macro-nonterminal">$k</span>, <span class="macro-nonterminal">$v</span>),)<span class="kw-2">*</span>]))
-            }
-        };
+        ($(<span class="macro-nonterminal">$k</span>:expr =&gt; <span class="macro-nonterminal">$v</span>:expr),* $(,)<span class="question-mark">?</span>) =&gt; {{
+            core::convert::From::from([$((<span class="macro-nonterminal">$k</span>, <span class="macro-nonterminal">$v</span>),)<span class="kw-2">*</span>])
+        }};
     }
 }
 
