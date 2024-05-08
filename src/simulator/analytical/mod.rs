@@ -14,6 +14,9 @@ pub fn simulate_analytical_event(
     ti: f64,
     tf: f64,
 ) -> V {
+    if ti == tf {
+        return x;
+    }
     let mut support_point = V::from_vec(support_point.clone());
     let mut rateiv = V::from_vec(vec![0.0, 0.0, 0.0]);
     //TODO: This should be pre-calculated
