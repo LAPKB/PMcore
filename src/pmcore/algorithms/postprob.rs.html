@@ -98,11 +98,10 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
+        data::Data,
         evaluation::sigma::{ErrorModel, ErrorType},
         ipm_faer::burke,
         output::NPResult,
@@ -116,8 +115,6 @@
 <span class="kw">use </span>ndarray::{Array1, Array2};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
-<span class="kw">use </span><span class="kw">super</span>::data::Subject;
-
 <span class="doccomment">/// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
 </span><span class="kw">pub struct </span>POSTPROB {
@@ -130,7 +127,7 @@
     converged: bool,
     gamma: f64,
     error_type: ErrorType,
-    subjects: Vec&lt;Subject&gt;,
+    data: Data,
     c: (f64, f64, f64, f64),
     <span class="attr">#[allow(dead_code)]
     </span>tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
@@ -143,7 +140,7 @@
     }
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
         NPResult::new(
-            <span class="self">self</span>.subjects.clone(),
+            <span class="self">self</span>.data.clone(),
             <span class="self">self</span>.theta.clone(),
             <span class="self">self</span>.psi.clone(),
             <span class="self">self</span>.w.clone(),
@@ -159,7 +156,7 @@
     <span class="kw">pub fn </span>new(
         equation: Equation,
         theta: Array2&lt;f64&gt;,
-        subjects: Vec&lt;Subject&gt;,
+        data: Data,
         c: (f64, f64, f64, f64),
         tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
         settings: Settings,
@@ -180,14 +177,13 @@
             },
             tx,
             settings,
-            subjects,
+            data,
             c,
         }
     }
 
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
-        <span class="kw">let </span>obs_pred =
-            get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.subjects, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, <span class="bool-val">false</span>);
+        <span class="kw">let </span>obs_pred = get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, <span class="bool-val">false</span>);
 
         <span class="self">self</span>.psi = obs_pred.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
             c: <span class="self">self</span>.c,

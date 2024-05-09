@@ -349,7 +349,6 @@
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
@@ -370,7 +369,7 @@
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
-<span class="kw">use </span><span class="kw">super</span>::data::Subject;
+<span class="kw">use </span><span class="kw">super</span>::data::Data;
 
 <span class="kw">const </span>THETA_D: f64 = <span class="number">1e-4</span>;
 <span class="kw">const </span>THETA_F: f64 = <span class="number">1e-2</span>;
@@ -391,7 +390,7 @@
     converged: bool,
     cycle_log: CycleLog,
     cache: bool,
-    subjects: Vec&lt;Subject&gt;,
+    data: Data,
     c: (f64, f64, f64, f64),
     tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
     population_predictions: PopulationPredictions,
@@ -404,7 +403,7 @@
     }
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
         NPResult::new(
-            <span class="self">self</span>.subjects.clone(),
+            <span class="self">self</span>.data.clone(),
             <span class="self">self</span>.theta.clone(),
             <span class="self">self</span>.psi.clone(),
             <span class="self">self</span>.w.clone(),
@@ -436,7 +435,7 @@
         equation: Equation,
         ranges: Vec&lt;(f64, f64)&gt;,
         theta: Array2&lt;f64&gt;,
-        subjects: Vec&lt;Subject&gt;,
+        data: Data,
         c: (f64, f64, f64, f64),
         tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
         settings: Settings,
@@ -459,7 +458,7 @@
             cache: settings.config.cache,
             tx,
             settings,
-            subjects,
+            data,
             c,
             population_predictions: PopulationPredictions::default(),
         }
@@ -526,7 +525,7 @@
             <span class="kw">let </span>cache = <span class="kw">if </span><span class="self">self</span>.cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ <span class="self">self</span>.cache };
 
             <span class="self">self</span>.population_predictions =
-                get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.subjects, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
+                get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
 
             <span class="self">self</span>.psi = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
                 c: <span class="self">self</span>.c,
@@ -675,8 +674,7 @@
                 candididate_points.push(spp.to_owned());
             }
             candididate_points.par_iter_mut().for_each(|spp| {
-                <span class="kw">let </span>optimizer =
-                    SppOptimizer::new(<span class="self">self</span>.equation.clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.subjects, <span class="kw-2">&amp;</span>sigma, <span class="kw-2">&amp;</span>pyl);
+                <span class="kw">let </span>optimizer = SppOptimizer::new(<span class="self">self</span>.equation.clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span>sigma, <span class="kw-2">&amp;</span>pyl);
                 <span class="kw">let </span>candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
                 <span class="kw-2">*</span>spp = candidate_point;
                 <span class="comment">// add spp to theta

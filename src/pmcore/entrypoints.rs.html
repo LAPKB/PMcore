@@ -170,11 +170,6 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPResult, <span class="kw-2">*</span>};
 <span class="kw">use </span><span class="kw">crate</span>::routines::settings::<span class="kw-2">*</span>;
@@ -186,8 +181,8 @@
 <span class="kw">use </span>std::time::Instant;
 <span class="kw">use </span>tokio::sync::mpsc::{<span class="self">self</span>};
 
-<span class="kw">use </span><span class="self">self</span>::data::parse_pmetrics::read_pmetrics;
-<span class="kw">use </span><span class="self">self</span>::data::{DataTrait, Subject};
+<span class="kw">use </span><span class="self">self</span>::data::pmetrics::read_pmetrics;
+<span class="kw">use </span><span class="self">self</span>::data::DataTrait;
 <span class="comment">// use self::simulator::likelihood::Prediction;
 </span><span class="kw">use </span><span class="self">self</span>::simulator::Equation;
 
@@ -309,8 +304,7 @@
     };
 
     <span class="comment">// Initialize algorithm and run
-    </span><span class="kw">let </span><span class="kw-2">mut </span>algorithm =
-        initialize_algorithm(equation.clone(), settings.clone(), subjects, tx.clone());
+    </span><span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone());
     <span class="kw">let </span>result = algorithm.fit();
 
     <span class="comment">// Write output files (if configured)
@@ -336,15 +330,11 @@
 /// It does not write any output files, and does not start a TUI.
 ///
 /// Returns an NPresult object
-</span><span class="kw">pub fn </span>start_internal(
-    equation: Equation,
-    settings: Settings,
-    subjects: Vec&lt;Subject&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt; {
+</span><span class="kw">pub fn </span>start_internal(equation: Equation, settings: Settings, data: Data) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt; {
     <span class="kw">let </span>now = Instant::now();
     logger::setup_log(<span class="kw-2">&amp;</span>settings, <span class="prelude-val">None</span>);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(equation, settings.clone(), subjects, <span class="prelude-val">None</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(equation, settings.clone(), data, <span class="prelude-val">None</span>);
 
     <span class="kw">let </span>result = algorithm.fit();
     <span class="macro">tracing::info!</span>(<span class="string">"Total time: {:.2?}"</span>, now.elapsed());

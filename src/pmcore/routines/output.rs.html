@@ -554,30 +554,6 @@
 <a href="#552" id="552">552</a>
 <a href="#553" id="553">553</a>
 <a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
@@ -585,14 +561,14 @@
 <span class="kw">use </span>settings::Settings;
 <span class="kw">use </span>std::fs::File;
 
-<span class="kw">use </span><span class="self">self</span>::data::Subject;
+<span class="kw">use </span><span class="self">self</span>::data::Data;
 <span class="kw">use </span><span class="self">self</span>::simulator::Equation;
 
 <span class="doccomment">/// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>NPResult {
-    <span class="kw">pub </span>subjects: Vec&lt;Subject&gt;,
+    <span class="kw">pub </span>data: Data,
     <span class="kw">pub </span>theta: Array2&lt;f64&gt;,
     <span class="kw">pub </span>psi: Array2&lt;f64&gt;,
     <span class="kw">pub </span>w: Array1&lt;f64&gt;,
@@ -606,7 +582,7 @@
 <span class="kw">impl </span>NPResult {
     <span class="doccomment">/// Create a new NPResult object
     </span><span class="kw">pub fn </span>new(
-        subjects: Vec&lt;Subject&gt;,
+        data: Data,
         theta: Array2&lt;f64&gt;,
         psi: Array2&lt;f64&gt;,
         w: Array1&lt;f64&gt;,
@@ -620,7 +596,7 @@
         </span><span class="kw">let </span>par_names = settings.random.names();
 
         <span class="self">Self </span>{
-            subjects,
+            data,
             theta,
             psi,
             w,
@@ -679,9 +655,9 @@
             <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
             <span class="kw">let </span>psi: Array2&lt;f64&gt; = <span class="self">self</span>.psi.clone();
             <span class="kw">let </span>par_names: Vec&lt;String&gt; = <span class="self">self</span>.par_names.clone();
-            <span class="kw">let </span>subjects = <span class="self">self</span>.subjects.clone();
+            <span class="comment">//let subjects = self.subjects.clone();
 
-            <span class="kw">let </span>posterior = posterior(<span class="kw-2">&amp;</span>psi, <span class="kw-2">&amp;</span>w);
+            </span><span class="kw">let </span>posterior = posterior(<span class="kw-2">&amp;</span>psi, <span class="kw-2">&amp;</span>w);
 
             <span class="comment">// Create the output folder if it doesn't exist
             </span><span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"posterior.csv"</span>)<span class="question-mark">?</span>;
@@ -698,7 +674,8 @@
             writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
 
             <span class="comment">// Write contents
-            </span><span class="kw">for </span>(sub, row) <span class="kw">in </span>posterior.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
+            </span><span class="kw">let </span>subjects = <span class="self">self</span>.data.get_subjects();
+            <span class="kw">for </span>(sub, row) <span class="kw">in </span>posterior.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
                 <span class="kw">for </span>(spp, elem) <span class="kw">in </span>row.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
                     writer.write_field(<span class="kw-2">&amp;</span>subjects.get(sub).unwrap().id)<span class="question-mark">?</span>;
                     writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, spp))<span class="question-mark">?</span>;
@@ -719,35 +696,10 @@
 
     <span class="doccomment">/// Write the observations, which is the reformatted input data
     </span><span class="kw">pub fn </span>write_obs(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="macro">unimplemented!</span>()
-        <span class="comment">// tracing::info!("Writing (expanded) observations...");
-        // let result = (|| {
-        //     let subjects = self.subjects.clone();
-
-        // let file = create_output_file(&amp;self.settings, "obs.csv")?;
-        // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-
-        //     // Create the headers
-        //     writer.write_record(["id", "time", "obs", "outeq"])?;
-
-        //     // Write contents
-        //     for subject in subjects {
-        //         for (observation, time) in subject.obs.iter().zip(&amp;subject.obs_times) {
-        //             writer.write_record(&amp;[
-        //                 subject.id.to_string(),
-        //                 time.to_string(),
-        //                 observation.to_string(),
-        //                 "1".to_string(),
-        //             ])?;
-        //         }
-        //     }
-        //     writer.flush()
-        // })();
-
-        // if let Err(e) = result {
-        //     tracing::error!("Error while writing observations: {}", e);
-        // }
-    </span>}
+        <span class="macro">tracing::info!</span>(<span class="string">"Writing observations..."</span>);
+        <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"obs.csv"</span>).unwrap();
+        data::pmetrics::write_pmetrics_observations(<span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span>file)
+    }
 
     <span class="doccomment">/// Writes the predictions
     </span><span class="kw">pub fn </span>write_pred&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, _equation: <span class="kw-2">&amp;</span>Equation, _idelta: f64, _tad: f64) {

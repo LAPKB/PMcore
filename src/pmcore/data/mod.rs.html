@@ -721,7 +721,7 @@
 <a href="#719" id="719">719</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::Deserialize;
 <span class="kw">use </span>std::{collections::HashMap, fmt};
-<span class="kw">pub mod </span>parse_pmetrics;
+<span class="kw">pub mod </span>pmetrics;
 
 <span class="kw">pub trait </span>DataTrait {
     <span class="kw">fn </span>get_subjects(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Subject&gt;;
@@ -1120,7 +1120,7 @@ impl Infusions {
 /// [Data] implements the [DataTrait], which provides methods to access the data
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Data {
-    subjects: Vec&lt;Subject&gt;,
+    <span class="kw">pub </span>subjects: Vec&lt;Subject&gt;,
 }
 
 <span class="kw">impl </span>Data {

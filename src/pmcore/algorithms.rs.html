@@ -72,7 +72,7 @@
 <span class="kw">use </span>prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>tokio::sync::mpsc;
 
-<span class="kw">use </span><span class="self">self</span>::{data::Subject, simulator::Equation};
+<span class="kw">use </span><span class="self">self</span>::{simulator::Equation, Data};
 
 <span class="kw">mod </span>npag;
 <span class="kw">mod </span>npod;
@@ -86,7 +86,7 @@
 <span class="kw">pub fn </span>initialize_algorithm(
     equation: Equation,
     settings: Settings,
-    subjects: Vec&lt;Subject&gt;,
+    data: Data,
     tx: <span class="prelude-ty">Option</span>&lt;mpsc::UnboundedSender&lt;Comm&gt;&gt;,
 ) -&gt; Box&lt;<span class="kw">dyn </span>Algorithm&gt; {
     <span class="kw">if </span>std::path::Path::new(<span class="string">"stop"</span>).exists() {
@@ -104,7 +104,7 @@
             equation,
             ranges,
             theta,
-            subjects,
+            data,
             settings.error.poly,
             tx,
             settings,
@@ -113,7 +113,7 @@
             equation,
             ranges,
             theta,
-            subjects,
+            data,
             settings.error.poly,
             tx,
             settings,
@@ -121,7 +121,7 @@
         <span class="string">"POSTPROB" </span>=&gt; Box::new(postprob::POSTPROB::new(
             equation,
             theta,
-            subjects,
+            data,
             settings.error.poly,
             tx,
             settings,

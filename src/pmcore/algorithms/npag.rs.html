@@ -368,7 +368,7 @@
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
-<span class="kw">use </span><span class="kw">super</span>::data::Subject;
+<span class="kw">use </span><span class="kw">super</span>::data::Data;
 
 <span class="kw">const </span>THETA_E: f64 = <span class="number">1e-4</span>; <span class="comment">// Convergence criteria
 </span><span class="kw">const </span>THETA_G: f64 = <span class="number">1e-4</span>; <span class="comment">// Objective function convergence criteria
@@ -394,7 +394,7 @@
     converged: bool,
     cycle_log: CycleLog,
     cache: bool,
-    subjects: Vec&lt;Subject&gt;,
+    data: Data,
     c: (f64, f64, f64, f64),
     tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
     population_predictions: PopulationPredictions,
@@ -407,7 +407,7 @@
     }
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
         NPResult::new(
-            <span class="self">self</span>.subjects.clone(),
+            <span class="self">self</span>.data.clone(),
             <span class="self">self</span>.theta.clone(),
             <span class="self">self</span>.psi.clone(),
             <span class="self">self</span>.w.clone(),
@@ -439,7 +439,7 @@
         equation: Equation,
         ranges: Vec&lt;(f64, f64)&gt;,
         theta: Array2&lt;f64&gt;,
-        subjects: Vec&lt;Subject&gt;,
+        data: Data,
         c: (f64, f64, f64, f64),
         tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
         settings: Settings,
@@ -465,7 +465,7 @@
             cache: settings.config.cache,
             tx,
             settings,
-            subjects,
+            data,
             c,
             population_predictions: PopulationPredictions::default(),
         }
@@ -535,7 +535,7 @@
             <span class="kw">let </span>cache = <span class="kw">if </span><span class="self">self</span>.cycle == <span class="number">1 </span>{ <span class="bool-val">false </span>} <span class="kw">else </span>{ <span class="self">self</span>.cache };
 
             <span class="self">self</span>.population_predictions =
-                get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.subjects, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
+                get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
 
             <span class="self">self</span>.psi = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
                 c: <span class="self">self</span>.c,
