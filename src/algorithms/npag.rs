@@ -17,7 +17,7 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::data::Subject;
+use super::data::Data;
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
@@ -43,7 +43,7 @@ pub struct NPAG {
     converged: bool,
     cycle_log: CycleLog,
     cache: bool,
-    subjects: Vec<Subject>,
+    data: Data,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
     population_predictions: PopulationPredictions,
@@ -56,7 +56,7 @@ impl Algorithm for NPAG {
     }
     fn to_npresult(&self) -> NPResult {
         NPResult::new(
-            self.subjects.clone(),
+            self.data.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
@@ -88,7 +88,7 @@ impl NPAG {
         equation: Equation,
         ranges: Vec<(f64, f64)>,
         theta: Array2<f64>,
-        subjects: Vec<Subject>,
+        data: Data,
         c: (f64, f64, f64, f64),
         tx: Option<UnboundedSender<Comm>>,
         settings: Settings,
@@ -114,7 +114,7 @@ impl NPAG {
             cache: settings.config.cache,
             tx,
             settings,
-            subjects,
+            data,
             c,
             population_predictions: PopulationPredictions::default(),
         }
@@ -184,7 +184,7 @@ impl NPAG {
             let cache = if self.cycle == 1 { false } else { self.cache };
 
             self.population_predictions =
-                get_population_predictions(&self.equation, &self.subjects, &self.theta, cache);
+                get_population_predictions(&self.equation, &self.data, &self.theta, cache);
 
             self.psi = self.population_predictions.get_psi(&ErrorModel {
                 c: self.c,

@@ -5,14 +5,14 @@ use ndarray::{Array, Array1, Array2, Axis};
 use settings::Settings;
 use std::fs::File;
 
-use self::data::Subject;
+use self::data::Data;
 use self::simulator::Equation;
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 #[derive(Debug)]
 pub struct NPResult {
-    pub subjects: Vec<Subject>,
+    pub data: Data,
     pub theta: Array2<f64>,
     pub psi: Array2<f64>,
     pub w: Array1<f64>,
@@ -26,7 +26,7 @@ pub struct NPResult {
 impl NPResult {
     /// Create a new NPResult object
     pub fn new(
-        subjects: Vec<Subject>,
+        data: Data,
         theta: Array2<f64>,
         psi: Array2<f64>,
         w: Array1<f64>,
@@ -40,7 +40,7 @@ impl NPResult {
         let par_names = settings.random.names();
 
         Self {
-            subjects,
+            data,
             theta,
             psi,
             w,
@@ -99,7 +99,7 @@ impl NPResult {
             let w: Array1<f64> = self.w.clone();
             let psi: Array2<f64> = self.psi.clone();
             let par_names: Vec<String> = self.par_names.clone();
-            let subjects = self.subjects.clone();
+            //let subjects = self.subjects.clone();
 
             let posterior = posterior(&psi, &w);
 
@@ -118,6 +118,7 @@ impl NPResult {
             writer.write_record(None::<&[u8]>)?;
 
             // Write contents
+            let subjects = self.data.get_subjects();
             for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
                 for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
                     writer.write_field(&subjects.get(sub).unwrap().id)?;
@@ -139,34 +140,9 @@ impl NPResult {
 
     /// Write the observations, which is the reformatted input data
     pub fn write_obs(&self) {
-        unimplemented!()
-        // tracing::info!("Writing (expanded) observations...");
-        // let result = (|| {
-        //     let subjects = self.subjects.clone();
-
-        // let file = create_output_file(&self.settings, "obs.csv")?;
-        // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-
-        //     // Create the headers
-        //     writer.write_record(["id", "time", "obs", "outeq"])?;
-
-        //     // Write contents
-        //     for subject in subjects {
-        //         for (observation, time) in subject.obs.iter().zip(&subject.obs_times) {
-        //             writer.write_record(&[
-        //                 subject.id.to_string(),
-        //                 time.to_string(),
-        //                 observation.to_string(),
-        //                 "1".to_string(),
-        //             ])?;
-        //         }
-        //     }
-        //     writer.flush()
-        // })();
-
-        // if let Err(e) = result {
-        //     tracing::error!("Error while writing observations: {}", e);
-        // }
+        tracing::info!("Writing observations...");
+        let file = create_output_file(&self.settings, "obs.csv").unwrap();
+        data::pmetrics::write_pmetrics_observations(&self.data, &file)
     }
 
     /// Writes the predictions

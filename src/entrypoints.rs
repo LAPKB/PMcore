@@ -9,8 +9,8 @@ use std::thread::spawn;
 use std::time::Instant;
 use tokio::sync::mpsc::{self};
 
-use self::data::parse_pmetrics::read_pmetrics;
-use self::data::{DataTrait, Subject};
+use self::data::pmetrics::read_pmetrics;
+use self::data::DataTrait;
 // use self::simulator::likelihood::Prediction;
 use self::simulator::Equation;
 
@@ -132,8 +132,7 @@ pub fn start(equation: Equation, settings_path: String) -> Result<NPResult> {
     };
 
     // Initialize algorithm and run
-    let mut algorithm =
-        initialize_algorithm(equation.clone(), settings.clone(), subjects, tx.clone());
+    let mut algorithm = initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone());
     let result = algorithm.fit();
 
     // Write output files (if configured)
@@ -159,15 +158,11 @@ pub fn start(equation: Equation, settings_path: String) -> Result<NPResult> {
 /// It does not write any output files, and does not start a TUI.
 ///
 /// Returns an NPresult object
-pub fn start_internal(
-    equation: Equation,
-    settings: Settings,
-    subjects: Vec<Subject>,
-) -> Result<NPResult> {
+pub fn start_internal(equation: Equation, settings: Settings, data: Data) -> Result<NPResult> {
     let now = Instant::now();
     logger::setup_log(&settings, None);
 
-    let mut algorithm = initialize_algorithm(equation, settings.clone(), subjects, None);
+    let mut algorithm = initialize_algorithm(equation, settings.clone(), data, None);
 
     let result = algorithm.fit();
     tracing::info!("Total time: {:.2?}", now.elapsed());

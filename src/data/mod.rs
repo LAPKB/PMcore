@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use std::{collections::HashMap, fmt};
-pub mod parse_pmetrics;
+pub mod pmetrics;
 
 pub trait DataTrait {
     fn get_subjects(&self) -> Vec<Subject>;
@@ -399,7 +399,7 @@ impl SubjectTrait for Subject {
 /// [Data] implements the [DataTrait], which provides methods to access the data
 #[derive(Debug, Clone)]
 pub struct Data {
-    subjects: Vec<Subject>,
+    pub subjects: Vec<Subject>,
 }
 
 impl Data {

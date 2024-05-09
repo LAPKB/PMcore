@@ -1,4 +1,4 @@
-use pmcore::prelude::data::{parse_pmetrics::read_pmetrics, DataTrait};
+use pmcore::prelude::data::{pmetrics::read_pmetrics, DataTrait};
 use pmcore::prelude::*;
 use pmcore::simulator::analytical::one_compartment_with_absorption;
 use pmcore::simulator::Equation;

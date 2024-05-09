@@ -7,7 +7,10 @@ use std::collections::HashMap;
 
 use self::likelihood::{PopulationPredictions, SubjectPredictions};
 use crate::{
-    prelude::data::{Covariates, Event, Infusion, OccasionTrait, Subject, SubjectTrait},
+    prelude::{
+        data::{Covariates, Data, Event, Infusion, OccasionTrait, Subject, SubjectTrait},
+        DataTrait,
+    },
     simulator::likelihood::ToPrediction,
 };
 
@@ -221,10 +224,11 @@ impl Equation {
 
 pub fn get_population_predictions<'a>(
     equation: &'a Equation,
-    subjects: &Vec<Subject>,
+    data: &Data,
     support_points: &Array2<f64>,
     _cache: bool,
 ) -> PopulationPredictions {
+    let subjects = data.get_subjects();
     let mut pred = Array2::default((subjects.len(), support_points.nrows()).f());
     pred.axis_iter_mut(Axis(0))
         .into_par_iter()
@@ -241,14 +245,4 @@ pub fn get_population_predictions<'a>(
                 });
         });
     pred.into()
-}
-
-trait FromVec {
-    fn from_vec(vec: Vec<f64>) -> Self;
-}
-
-impl FromVec for faer::Col<f64> {
-    fn from_vec(vec: Vec<f64>) -> Self {
-        faer::Col::from_fn(vec.len(), |i| vec[i])
-    }
 }
