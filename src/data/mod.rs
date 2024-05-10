@@ -503,6 +503,7 @@ impl DataTrait for Data {
                     new_events.push(Event::Observation(obs));
 
                     time += idelta;
+                    time = (time * 1e6).round() / 1e6;
                 }
 
                 new_events.extend(old_events);

@@ -18,8 +18,6 @@ log_level = "info"
 Ke = [0.001, 3.0]
 V = [25.0, 250.0]
 
-
-
 [error]
 value = 0.0
 class = "additive"

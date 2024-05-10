@@ -149,6 +149,7 @@ impl NPResult {
     pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) {
         tracing::info!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
+        println!("{:?}", data);
 
         let theta: Array2<f64> = self.theta.clone();
         let w: Array1<f64> = self.w.clone();

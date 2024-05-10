@@ -24,9 +24,8 @@ pub fn simulate_ode_event(
 ) -> V {
     if ti == tf {
         return x;
-    } else if ti > tf {
-        panic!("final simulation time must be greater than initial time");
     }
+    // let init_state = x.clone();
     let problem = build_pm_ode::<M, _, _>(
         diffeq.clone(),
         move |_p: &V, _t: T| x.clone(),
@@ -40,5 +39,12 @@ pub fn simulate_ode_event(
     )
     .unwrap();
     let mut solver = Bdf::default();
-    solver.solve(&problem, tf).unwrap()
+    match solver.solve(&problem, tf) {
+        Ok(x) => x,
+        Err(err) => {
+            tracing::error!("Error in ODE solver: {:?}", err);
+            panic!();
+            // init_state
+        }
+    }
 }
