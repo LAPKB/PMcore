@@ -693,9 +693,9 @@
     </span><span class="kw">pub fn </span>write_pred(<span class="kw-2">&amp;</span><span class="self">self</span>, equation: <span class="kw-2">&amp;</span>Equation, idelta: f64, tad: f64) {
         <span class="macro">tracing::info!</span>(<span class="string">"Writing predictions..."</span>);
         <span class="kw">let </span>data = <span class="self">self</span>.data.expand(idelta, tad);
-        <span class="macro">println!</span>(<span class="string">"{:?}"</span>, data);
+        <span class="comment">// println!("{:?}", data);
 
-        <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
+        </span><span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
         <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
         <span class="kw">let </span>psi: Array2&lt;f64&gt; = <span class="self">self</span>.psi.clone();
 
