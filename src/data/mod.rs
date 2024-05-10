@@ -451,6 +451,9 @@ impl DataTrait for Data {
     }
 
     fn expand(&self, idelta: f64, tad: f64) -> Data {
+        if idelta <= 0.0 {
+            return self.clone();
+        }
         // Determine the last time of the last observation, or Infusion + Duration
         let mut last_time = self
             .subjects
