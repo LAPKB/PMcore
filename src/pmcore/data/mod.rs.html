@@ -790,6 +790,9 @@
 <a href="#788" id="788">788</a>
 <a href="#789" id="789">789</a>
 <a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::Deserialize;
 <span class="kw">use </span>std::{collections::HashMap, fmt};
 <span class="kw">pub mod </span>pmetrics;
@@ -1243,6 +1246,9 @@ impl Infusions {
     }
 
     <span class="kw">fn </span>expand(<span class="kw-2">&amp;</span><span class="self">self</span>, idelta: f64, tad: f64) -&gt; Data {
+        <span class="kw">if </span>idelta &lt;= <span class="number">0.0 </span>{
+            <span class="kw">return </span><span class="self">self</span>.clone();
+        }
         <span class="comment">// Determine the last time of the last observation, or Infusion + Duration
         </span><span class="kw">let </span><span class="kw-2">mut </span>last_time = <span class="self">self
             </span>.subjects
