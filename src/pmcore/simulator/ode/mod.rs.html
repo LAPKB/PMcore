@@ -42,6 +42,8 @@
 <a href="#40" id="40">40</a>
 <a href="#41" id="41">41</a>
 <a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>closure;
 <span class="kw">pub mod </span>diffsol_traits;
 <span class="kw">use crate</span>::{
@@ -68,6 +70,8 @@
 ) -&gt; V {
     <span class="kw">if </span>ti == tf {
         <span class="kw">return </span>x;
+    } <span class="kw">else if </span>ti &gt; tf {
+        <span class="macro">panic!</span>(<span class="string">"final simulation time must be greater than initial time"</span>);
     }
     <span class="kw">let </span>problem = build_pm_ode::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
         diffeq.clone(),

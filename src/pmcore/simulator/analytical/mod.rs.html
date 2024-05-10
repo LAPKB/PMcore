@@ -168,6 +168,8 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{prelude::data::Covariates, simulator::<span class="kw-2">*</span>};
 
 <span class="comment">// let eq = |x: &amp;V, p: &amp;V, t:T, rateiv: V, _cov: &amp;Covariates|
@@ -186,6 +188,8 @@
 ) -&gt; V {
     <span class="kw">if </span>ti == tf {
         <span class="kw">return </span>x;
+    } <span class="kw">else if </span>ti &gt; tf {
+        <span class="macro">panic!</span>(<span class="string">"final simulation time must be greater than initial time"</span>);
     }
     <span class="kw">let </span><span class="kw-2">mut </span>support_point = V::from_vec(support_point.clone());
     <span class="kw">let </span><span class="kw-2">mut </span>rateiv = V::from_vec(<span class="macro">vec!</span>[<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">0.0</span>]);
