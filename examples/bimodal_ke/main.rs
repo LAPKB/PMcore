@@ -4,14 +4,14 @@ use pmcore::{
 };
 
 fn main() -> Result<()> {
-    let method = "ode".to_string();
+    let method = "analytical".to_string();
 
     let eq = match method.as_str() {
         "ode" => {
             Equation::new_ode(
                 |x, p, _t, dx, rateiv, _cov| {
                     // fetch_cov!(cov, t, wt);
-                    fetch_params!(p, _v, ke);
+                    fetch_params!(p, ke, _v);
                     dx[0] = -ke * x[0] + rateiv[0];
                 },
                 |_p| lag! {},
@@ -26,7 +26,7 @@ fn main() -> Result<()> {
         }
         "analytical" => Equation::new_analytical(
             one_compartment,
-            |_p, _cov| {},
+            |p, _cov| {},
             |_p| lag! {},
             |_p| fa! {},
             |_p, _t, _cov, _x| {},
