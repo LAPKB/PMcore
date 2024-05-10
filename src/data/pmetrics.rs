@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_read_pmetrics() {
-        let path = std::path::Path::new("examples/data/bimodal_ke_blocks.csv");
+        let path = std::path::Path::new("examples/bimodal_ke/bimodal_ke_blocks.csv");
         let data = read_pmetrics(&path).unwrap();
 
         assert_eq!(data.nsubjects(), 1);
