@@ -109,7 +109,11 @@ impl Equation {
                         );
                         let pred = y[observation.outeq];
 
-                        yout.push(observation.to_obs_pred(pred));
+                        yout.push(observation.to_obs_pred(
+                            pred,
+                            subject.id.clone(),
+                            occasion.index,
+                        ));
                     }
                 }
 

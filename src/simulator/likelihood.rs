@@ -86,6 +86,13 @@ impl PopulationPredictions {
             });
         psi
     }
+    pub fn get_predictions(&self) -> Vec<&Prediction> {
+        self.subject_predictions
+            .iter()
+            .map(|sp| sp.get_predictions())
+            .flatten()
+            .collect()
+    }
 }
 
 impl From<Array2<SubjectPredictions>> for PopulationPredictions {
@@ -99,6 +106,8 @@ impl From<Array2<SubjectPredictions>> for PopulationPredictions {
 /// Prediction holds an observation and its prediction
 #[derive(Debug, Clone)]
 pub struct Prediction {
+    pub id: String,
+    pub occasion: usize,
     pub time: f64,
     pub observation: f64,
     pub prediction: f64,
@@ -107,12 +116,14 @@ pub struct Prediction {
 }
 
 pub trait ToPrediction {
-    fn to_obs_pred(&self, pred: f64) -> Prediction;
+    fn to_obs_pred(&self, pred: f64, id: String, occasion: usize) -> Prediction;
 }
 
 impl ToPrediction for Observation {
-    fn to_obs_pred(&self, pred: f64) -> Prediction {
+    fn to_obs_pred(&self, pred: f64, id: String, occasion: usize) -> Prediction {
         Prediction {
+            id: id,
+            occasion: occasion,
             time: self.time,
             observation: self.value,
             prediction: pred,
@@ -125,9 +136,11 @@ impl ToPrediction for Observation {
 impl Default for Prediction {
     fn default() -> Self {
         Self {
+            id: String::new(),
+            occasion: 99,
             time: 0.0,
-            observation: 0.0,
-            prediction: 0.0,
+            observation: -99.0,
+            prediction: -99.0,
             outeq: 0,
             errorpoly: None,
         }

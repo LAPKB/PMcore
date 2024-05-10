@@ -146,95 +146,82 @@ impl NPResult {
     }
 
     /// Writes the predictions
-    pub fn write_pred<'a>(&self, _equation: &Equation, _idelta: f64, _tad: f64) {
-        unimplemented!()
-        // tracing::info!("Writing individual predictions...");
-        // let result = (|| {
-        //     let mut subjects = self.subjects.clone();
-        //     // Add an event interval to each scenario
-        //     if idelta > 0.0 {
-        //         subjects.iter_mut().for_each(|scenario| {
-        //             *scenario = scenario.add_event_interval(idelta, tad);
-        //         });
-        //     }
+    pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) {
+        tracing::info!("Writing predictions...");
+        let data = self.data.expand(idelta, tad);
 
-        //     let theta: Array2<f64> = self.theta.clone();
-        //     let w: Array1<f64> = self.w.clone();
-        //     let psi: Array2<f64> = self.psi.clone();
+        let theta: Array2<f64> = self.theta.clone();
+        let w: Array1<f64> = self.w.clone();
+        let psi: Array2<f64> = self.psi.clone();
 
-        //     let (pop_mean, pop_median) = population_mean_median(&theta, &w);
-        //     let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
-        //     let post_mean_pred = post_predictions(equation, post_mean, &subjects).unwrap();
-        //     let post_median_pred = post_predictions(equation, post_median, &subjects).unwrap();
+        let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
+        let (pop_mean, pop_median) = population_mean_median(&theta, &w);
 
-        //     let ndim = pop_mean.len();
-        //     let pop_mean_pred = sim_obs(
-        //         engine,
-        //         &subjects,
-        //         &pop_mean.into_shape((1, ndim)).unwrap(),
-        //         false,
-        //     );
-        //     let pop_median_pred = sim_obs(
-        //         engine,
-        //         &subjects,
-        //         &pop_median.into_shape((1, ndim)).unwrap(),
-        //         false,
-        //     );
+        let subjects = data.get_subjects();
+        if subjects.len() != post_mean.nrows() {
+            panic!("Number of subjects and number of posterior means do not match");
+        }
 
-        // let file = create_output_file(&self.settings, "pred.csv")?;
-        // let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        let file = create_output_file(&self.settings, "pred.csv");
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(file.unwrap());
 
-        //     // Create the headers
-        //     writer.write_record([
-        //         "id",
-        //         "time",
-        //         "outeq",
-        //         "popMean",
-        //         "popMedian",
-        //         "postMean",
-        //         "postMedian",
-        //     ])?;
+        // Create the headers
+        writer
+            .write_record([
+                "id",
+                "time",
+                "outeq",
+                "popMean",
+                "popMedian",
+                "postMean",
+                "postMedian",
+            ])
+            .unwrap();
 
-        // Write contents
-        //     for (id, scenario) in scenarios.iter().enumerate() {
-        //         let time = scenario.obs_times.clone();
-        //         let pop_mp = pop_mean_pred.get((id, 0)).unwrap().to_owned();
-        //         let pop_medp = pop_median_pred.get((id, 0)).unwrap().to_owned();
-        //         let post_mp = post_mean_pred.get(id).unwrap().to_owned();
-        //         let post_mdp = post_median_pred.get(id).unwrap().to_owned();
-        //         for (i, ((((pop_mp_i, pop_mdp_i), post_mp_i), post_medp_i), t)) in pop_mp
-        //             .into_iter()
-        //             .zip(pop_medp)
-        //             .zip(post_mp)
-        //             .zip(post_mdp)
-        //             .zip(time)
-        //             .enumerate()
-        //         {
-        //             writer
-        //                 .write_record(&[
-        //                     scenarios.get(id).unwrap().id.to_string(),
-        //                     t.to_string(),
-        //                     scenarios
-        //                         .get(id)
-        //                         .unwrap()
-        //                         .outeqs
-        //                         .get(i)
-        //                         .unwrap()
-        //                         .to_string(),
-        //                     pop_mp_i.to_string(),
-        //                     pop_mdp_i.to_string(),
-        //                     post_mp_i.to_string(),
-        //                     post_medp_i.to_string(),
-        //                 ])
-        //                 .unwrap();
-        //         }
-        //     }
-        //     writer.flush()
-        // })();
+        for (i, subject) in subjects.iter().enumerate() {
+            // Population predictions
+            let pop_mean_pred = equation
+                .simulate_subject(subject, &pop_mean.to_vec())
+                .get_predictions()
+                .clone();
+            let pop_median_pred = equation
+                .simulate_subject(subject, &pop_median.to_vec())
+                .get_predictions()
+                .clone();
 
-        // if let Err(e) = result {
-        //     tracing::error!("Error while writing predictions: {}", e);
-        // }
+            // Posterior predictions
+            let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
+            let post_mean_pred = equation
+                .simulate_subject(subject, &post_mean_spp)
+                .get_predictions()
+                .clone();
+            let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
+            let post_median_pred = equation
+                .simulate_subject(subject, &post_median_spp)
+                .get_predictions()
+                .clone();
+
+            pop_mean_pred
+                .iter()
+                .zip(pop_median_pred.iter())
+                .zip(post_mean_pred.iter())
+                .zip(post_median_pred.iter())
+                .for_each(|(((pop_mean, pop_median), post_mean), post_median)| {
+                    writer
+                        .write_record([
+                            &subject.id,
+                            &format!("{:.3}", pop_mean.time),
+                            &format!("{}", pop_mean.outeq),
+                            &format!("{:.4}", pop_mean.prediction),
+                            &format!("{:.4}", pop_median.prediction),
+                            &format!("{:.4}", post_mean.prediction),
+                            &format!("{:.4}", post_median.prediction),
+                        ])
+                        .unwrap();
+                });
+        }
     }
 }
 #[derive(Debug)]
