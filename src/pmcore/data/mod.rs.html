@@ -793,6 +793,7 @@
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
 <a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::Deserialize;
 <span class="kw">use </span>std::{collections::HashMap, fmt};
 <span class="kw">pub mod </span>pmetrics;
@@ -1298,6 +1299,7 @@ impl Infusions {
                     new_events.push(Event::Observation(obs));
 
                     time += idelta;
+                    time = (time * <span class="number">1e6</span>).round() / <span class="number">1e6</span>;
                 }
 
                 new_events.extend(old_events);
