@@ -16,6 +16,8 @@ pub fn simulate_analytical_event(
 ) -> V {
     if ti == tf {
         return x;
+    } else if ti > tf {
+        panic!("final simulation time must be greater than initial time");
     }
     let mut support_point = V::from_vec(support_point.clone());
     let mut rateiv = V::from_vec(vec![0.0, 0.0, 0.0]);

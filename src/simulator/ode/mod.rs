@@ -24,6 +24,8 @@ pub fn simulate_ode_event(
 ) -> V {
     if ti == tf {
         return x;
+    } else if ti > tf {
+        panic!("final simulation time must be greater than initial time");
     }
     let problem = build_pm_ode::<M, _, _>(
         diffeq.clone(),

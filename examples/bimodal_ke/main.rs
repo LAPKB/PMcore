@@ -4,7 +4,7 @@ use pmcore::{
 };
 
 fn main() -> Result<()> {
-    let method = "ode".to_string();
+    let method = "analytical".to_string();
 
     let eq = match method.as_str() {
         "ode" => {
@@ -26,7 +26,7 @@ fn main() -> Result<()> {
         }
         "analytical" => Equation::new_analytical(
             one_compartment,
-            |_p, _cov| {},
+            |p, _cov| {},
             |_p| lag! {},
             |_p| fa! {},
             |_p, _t, _cov, _x| {},
