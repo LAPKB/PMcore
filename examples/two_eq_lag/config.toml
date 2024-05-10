@@ -1,5 +1,5 @@
 [paths]
-data = "examples/data/two_eq_lag.csv"
+data = "examples/two_eq_lag/two_eq_lag.csv"
 log = "two_eq_lag.log"
 
 [config]
