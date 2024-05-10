@@ -178,6 +178,19 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::data::Observation,
     routines::evaluation::sigma::{ErrorModel, ErrorType},
@@ -266,6 +279,13 @@
             });
         psi
     }
+    <span class="kw">pub fn </span>get_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;<span class="kw-2">&amp;</span>Prediction&gt; {
+        <span class="self">self</span>.subject_predictions
+            .iter()
+            .map(|sp| sp.get_predictions())
+            .flatten()
+            .collect()
+    }
 }
 
 <span class="kw">impl </span>From&lt;Array2&lt;SubjectPredictions&gt;&gt; <span class="kw">for </span>PopulationPredictions {
@@ -279,6 +299,8 @@
 <span class="doccomment">/// Prediction holds an observation and its prediction
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Prediction {
+    <span class="kw">pub </span>id: String,
+    <span class="kw">pub </span>occasion: usize,
     <span class="kw">pub </span>time: f64,
     <span class="kw">pub </span>observation: f64,
     <span class="kw">pub </span>prediction: f64,
@@ -287,12 +309,14 @@
 }
 
 <span class="kw">pub trait </span>ToPrediction {
-    <span class="kw">fn </span>to_obs_pred(<span class="kw-2">&amp;</span><span class="self">self</span>, pred: f64) -&gt; Prediction;
+    <span class="kw">fn </span>to_obs_pred(<span class="kw-2">&amp;</span><span class="self">self</span>, pred: f64, id: String, occasion: usize) -&gt; Prediction;
 }
 
 <span class="kw">impl </span>ToPrediction <span class="kw">for </span>Observation {
-    <span class="kw">fn </span>to_obs_pred(<span class="kw-2">&amp;</span><span class="self">self</span>, pred: f64) -&gt; Prediction {
+    <span class="kw">fn </span>to_obs_pred(<span class="kw-2">&amp;</span><span class="self">self</span>, pred: f64, id: String, occasion: usize) -&gt; Prediction {
         Prediction {
+            id: id,
+            occasion: occasion,
             time: <span class="self">self</span>.time,
             observation: <span class="self">self</span>.value,
             prediction: pred,
@@ -305,9 +329,11 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>Prediction {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            id: String::new(),
+            occasion: <span class="number">99</span>,
             time: <span class="number">0.0</span>,
-            observation: <span class="number">0.0</span>,
-            prediction: <span class="number">0.0</span>,
+            observation: -<span class="number">99.0</span>,
+            prediction: -<span class="number">99.0</span>,
             outeq: <span class="number">0</span>,
             errorpoly: <span class="prelude-val">None</span>,
         }
