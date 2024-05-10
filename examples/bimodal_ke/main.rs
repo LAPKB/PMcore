@@ -26,7 +26,7 @@ fn main() -> Result<()> {
         }
         "analytical" => Equation::new_analytical(
             one_compartment,
-            |p, _cov| {},
+            |_p, _cov| {},
             |_p| lag! {},
             |_p| fa! {},
             |_p, _t, _cov, _x| {},
