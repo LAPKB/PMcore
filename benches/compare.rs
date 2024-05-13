@@ -1,6 +1,6 @@
-use pmcore::prelude::data::{parse_pmetrics::read_pmetrics, DataTrait};
-use pmcore::simulator::analytical::one_compartment_with_absorption;
-use pmcore::{prelude::*, simulator::Equation};
+use pmcore::prelude::{
+    data::read_pmetrics, models::one_compartment_with_absorption, simulator::Equation, *,
+};
 use std::path::Path;
 
 // type V = nalgebra::DVector<f64>;

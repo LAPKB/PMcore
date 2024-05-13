@@ -44,6 +44,7 @@ faer-ext = {version = "0.1.0", features = ["nalgebra", "ndarray"]}
 serde_with = "3.8.1"
 anyhow = "1.0.83"
 num-traits = "0.2.19"
+alma = {path = "../alma"}
 
 
 [profile.release]

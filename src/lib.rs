@@ -50,11 +50,6 @@
 /// Provides the various algorithms used within the framework
 pub mod algorithms;
 
-pub mod simulator;
-
-/// New data format
-pub mod data;
-
 /// Routines for the crate
 pub mod routines {
 
@@ -84,7 +79,6 @@ pub mod routines {
         pub mod ipm;
         pub mod ipm_faer;
         pub mod qr;
-        pub mod sigma;
     }
 }
 
@@ -105,50 +99,32 @@ pub mod prelude {
     pub use super::Result;
     pub use super::*;
     pub use crate::algorithms;
-    pub use crate::data::*;
     pub use crate::entrypoints::simulate;
     pub use crate::entrypoints::start;
     pub use crate::entrypoints::start_internal;
     pub use crate::logger;
-    pub use crate::prelude::evaluation::{sigma, *};
+    pub use crate::prelude::evaluation::*;
     pub use crate::routines::condensation;
     pub use crate::routines::expansion::*;
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization;
     pub use crate::routines::*;
     pub use crate::tui::ui::*;
-    #[macro_export]
-    macro_rules! fetch_params {
-        ($p:expr, $($name:ident),*) => {
-            let p = $p;
-            let mut idx = 0;
-            $(
-                let $name = p[idx];
-                idx += 1;
-            )*
-        };
+    //Alma re-exports
+    pub mod simulator {
+        pub use alma::prelude::simulator::*;
     }
-    #[macro_export]
-    macro_rules! fetch_cov {
-        ($cov:expr, $t:expr, $($name:ident),*) => {
-            $(
-                let $name = $cov.get_covariate(stringify!($name)).unwrap().interpolate($t).unwrap();
-            )*
-        };
+    pub mod data {
+        pub use alma::prelude::data::*;
     }
-    #[macro_export]
-    macro_rules! lag {
-        ($($k:expr => $v:expr),* $(,)?) => {{
-            core::convert::From::from([$(($k, $v),)*])
-        }};
+    pub mod models {
+        pub use alma::prelude::models::*;
     }
 
-    #[macro_export]
-    macro_rules! fa {
-        ($($k:expr => $v:expr),* $(,)?) => {{
-            core::convert::From::from([$(($k, $v),)*])
-        }};
-    }
+    pub use alma::fa;
+    pub use alma::fetch_cov;
+    pub use alma::fetch_params;
+    pub use alma::lag;
 }
 
 //Tests

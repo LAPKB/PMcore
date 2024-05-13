@@ -1,20 +1,15 @@
+use alma::prelude::{
+    data::{ErrorModel, ErrorType, Subject},
+    simulator::{get_population_predictions, Equation},
+};
+
 use crate::{
-    prelude::{
-        algorithms::Algorithm,
-        evaluation::sigma::{ErrorModel, ErrorType},
-        ipm_faer::burke,
-        output::NPResult,
-        settings::Settings,
-        simulator::get_population_predictions,
-    },
-    simulator::Equation,
+    prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings},
     tui::ui::Comm,
 };
 
 use ndarray::{Array1, Array2};
 use tokio::sync::mpsc::UnboundedSender;
-
-use super::data::Subject;
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
@@ -87,11 +82,7 @@ impl POSTPROB {
         let obs_pred =
             get_population_predictions(&self.equation, &self.subjects, &self.theta, false);
 
-        self.psi = obs_pred.get_psi(&ErrorModel {
-            c: self.c,
-            gl: self.gamma,
-            e_type: &self.error_type,
-        });
+        self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
         let (w, objf) = burke(&self.psi).expect("Error in IPM");
         self.w = w;
         self.objf = objf;

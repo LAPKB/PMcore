@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use alma::prelude::data::ErrorType;
 use config::Config as eConfig;
 use serde::Deserialize;
 use serde_derive::Serialize;
@@ -178,10 +179,10 @@ impl Error {
         Ok(())
     }
 
-    pub fn error_type(&self) -> crate::routines::evaluation::sigma::ErrorType {
+    pub fn error_type(&self) -> ErrorType {
         match self.class.to_lowercase().as_str() {
-            "additive" | "l" | "lambda"  => crate::routines::evaluation::sigma::ErrorType::Add,
-            "proportional" | "g" | "gamma"  => crate::routines::evaluation::sigma::ErrorType::Prop,
+            "additive" | "l" | "lambda"  => ErrorType::Add,
+            "proportional" | "g" | "gamma"  => ErrorType::Prop,
             _ => panic!("Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)", self.class),
         }
     }

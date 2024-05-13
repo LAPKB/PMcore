@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
-use pmcore::{prelude::*, simulator::Equation};
+use pmcore::prelude::{models::one_compartment, simulator::Equation, *};
 
 fn main() -> Result<()> {
     let eq = Equation::new_ode(

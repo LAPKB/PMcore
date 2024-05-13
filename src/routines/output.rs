@@ -1,12 +1,10 @@
 use crate::prelude::*;
+use alma::prelude::{data::Subject, simulator::Equation};
 use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use settings::Settings;
 use std::fs::File;
-
-use self::data::Subject;
-use self::simulator::Equation;
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
@@ -120,7 +118,7 @@ impl NPResult {
             // Write contents
             for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
                 for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                    writer.write_field(&subjects.get(sub).unwrap().id)?;
+                    writer.write_field(&subjects.get(sub).unwrap().id())?;
                     writer.write_field(format!("{}", spp))?;
                     for param in theta.row(spp) {
                         writer.write_field(&format!("{param}"))?;

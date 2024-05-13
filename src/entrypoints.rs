@@ -4,15 +4,15 @@ use crate::routines::settings::*;
 
 use eyre::Result;
 
+use alma::prelude::{
+    data::{read_pmetrics, Subject},
+    simulator::Equation,
+};
 use std::path::Path;
 use std::thread::spawn;
 use std::time::Instant;
 use tokio::sync::mpsc::{self};
-
-use self::data::parse_pmetrics::read_pmetrics;
-use self::data::{DataTrait, Subject};
 // use self::simulator::likelihood::Prediction;
-use self::simulator::Equation;
 
 /// Simulate predictions from a model and prior distribution
 ///
@@ -115,7 +115,7 @@ pub fn start(equation: Equation, settings_path: String) -> Result<NPResult> {
         subjects.len(),
         //TODO: again we are missing a get_obs_times function
         // subjects.iter().map(|s| s.obs_times.len()).sum::<usize>()
-        subjects.iter().map(|s| s.occasions.len()).sum::<usize>()
+        subjects.iter().map(|s| s.occasions().len()).sum::<usize>()
     );
 
     tracing::info!("Starting {}", settings.config.engine);

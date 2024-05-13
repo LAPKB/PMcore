@@ -1,9 +1,7 @@
-use pmcore::prelude::data::{parse_pmetrics::read_pmetrics, DataTrait};
-use pmcore::prelude::*;
-use pmcore::simulator::analytical::one_compartment_with_absorption;
-use pmcore::simulator::Equation;
+use pmcore::prelude::{
+    data::read_pmetrics, models::one_compartment_with_absorption, simulator::Equation, *,
+};
 use std::path::Path;
-
 const DATA_PATH: &str = "examples/data/two_eq_lag.csv";
 
 fn main() {

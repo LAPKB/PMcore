@@ -2,15 +2,12 @@ use crate::{
     prelude::{
         algorithms::Algorithm,
         condensation::prune::prune,
-        evaluation::sigma::{ErrorModel, ErrorType},
         ipm::burke,
         optimization::d_optimizer::SppOptimizer,
         output::{CycleLog, NPCycle, NPResult},
         qr,
         settings::Settings,
-        simulator::get_population_predictions,
     },
-    simulator::{likelihood::PopulationPredictions, Equation},
     tui::ui::Comm,
 };
 use ndarray::parallel::prelude::*;
@@ -18,7 +15,10 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::data::Subject;
+use alma::prelude::{
+    data::{ErrorModel, ErrorType, Subject},
+    simulator::{get_population_predictions, Equation, PopulationPredictions},
+};
 
 const THETA_D: f64 = 1e-4;
 const THETA_F: f64 = 1e-2;
@@ -119,16 +119,16 @@ impl NPOD {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
-        let psi_up = self.population_predictions.get_psi(&ErrorModel {
-            c: self.c,
-            gl: gamma_up,
-            e_type: &self.error_type,
-        });
-        let psi_down = self.population_predictions.get_psi(&ErrorModel {
-            c: self.c,
-            gl: gamma_down,
-            e_type: &self.error_type,
-        });
+        let psi_up = self.population_predictions.get_psi(&ErrorModel::new(
+            self.c,
+            gamma_up,
+            &self.error_type,
+        ));
+        let psi_down = self.population_predictions.get_psi(&ErrorModel::new(
+            self.c,
+            gamma_down,
+            &self.error_type,
+        ));
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
@@ -176,11 +176,11 @@ impl NPOD {
             self.population_predictions =
                 get_population_predictions(&self.equation, &self.subjects, &self.theta, cache);
 
-            self.psi = self.population_predictions.get_psi(&ErrorModel {
-                c: self.c,
-                gl: self.gamma,
-                e_type: &self.error_type,
-            });
+            self.psi = self.population_predictions.get_psi(&ErrorModel::new(
+                self.c,
+                self.gamma,
+                &self.error_type,
+            ));
 
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
@@ -312,11 +312,7 @@ impl NPOD {
             let pyl = self.psi.dot(&self.w);
 
             // Add new point to theta based on the optimization of the D function
-            let sigma = ErrorModel {
-                c: self.c,
-                gl: self.gamma,
-                e_type: &self.error_type,
-            };
+            let sigma = ErrorModel::new(self.c, self.gamma, &self.error_type);
 
             let mut candididate_points: Vec<Array1<f64>> = Vec::default();
             for spp in self.theta.clone().rows() {

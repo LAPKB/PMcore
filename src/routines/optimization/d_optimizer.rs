@@ -4,10 +4,9 @@ use argmin::{
 };
 use ndarray::{Array1, Axis};
 
-use crate::{
-    prelude::{data::Subject, simulator::get_population_predictions},
-    routines::evaluation::sigma::ErrorModel,
-    simulator::Equation,
+use alma::prelude::{
+    data::{ErrorModel, Subject},
+    simulator::{get_population_predictions, Equation},
 };
 
 pub struct SppOptimizer<'a> {

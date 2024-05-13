@@ -1,10 +1,10 @@
 use crate::prelude::{self, settings::Settings};
 
+use alma::prelude::{data::Subject, simulator::Equation};
 use output::NPResult;
 use prelude::*;
 use tokio::sync::mpsc;
-
-use self::{data::Subject, simulator::Equation};
+// use self::{data::Subject, simulator::Equation};
 
 mod npag;
 mod npod;

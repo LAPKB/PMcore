@@ -1,7 +1,4 @@
-use pmcore::{
-    prelude::*,
-    simulator::{analytical::one_compartment, Equation},
-};
+use pmcore::prelude::{models::one_compartment, simulator::Equation, *};
 
 fn main() -> Result<()> {
     let method = "ode".to_string();
