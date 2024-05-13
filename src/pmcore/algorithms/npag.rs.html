@@ -344,11 +344,6 @@
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
     simulator::{get_population_predictions, Equation, PopulationPredictions},
@@ -640,11 +635,6 @@
                         <span class="self">self</span>.eps = <span class="number">0.2</span>;
                     }
                 }
-            }
-            <span class="kw">if </span><span class="self">self</span>.eps &lt;= THETA_E {
-                <span class="macro">tracing::info!</span>(<span class="string">"The run converged with the following criteria: Eps"</span>);
-                <span class="self">self</span>.converged = <span class="bool-val">true</span>;
-                stop = <span class="bool-val">true</span>;
             }
 
             <span class="comment">// Stop if we have reached maximum number of cycles
