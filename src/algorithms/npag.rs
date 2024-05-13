@@ -290,11 +290,6 @@ impl NPAG {
                     }
                 }
             }
-            if self.eps <= THETA_E {
-                tracing::info!("The run converged with the following criteria: Eps");
-                self.converged = true;
-                stop = true;
-            }
 
             // Stop if we have reached maximum number of cycles
             if self.cycle >= self.settings.config.cycles {
