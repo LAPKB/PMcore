@@ -15,8 +15,8 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-use alma::prelude::{
-    data::{ErrorModel, ErrorType, Subject},
+use pharmsol::prelude::{
+    data::{Data, ErrorModel, ErrorType},
     simulator::{get_population_predictions, Equation, PopulationPredictions},
 };
 
@@ -39,7 +39,7 @@ pub struct NPOD {
     converged: bool,
     cycle_log: CycleLog,
     cache: bool,
-    subjects: Vec<Subject>,
+    data: Data,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
     population_predictions: PopulationPredictions,
@@ -52,7 +52,7 @@ impl Algorithm for NPOD {
     }
     fn to_npresult(&self) -> NPResult {
         NPResult::new(
-            self.subjects.clone(),
+            self.data.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
@@ -84,7 +84,7 @@ impl NPOD {
         equation: Equation,
         ranges: Vec<(f64, f64)>,
         theta: Array2<f64>,
-        subjects: Vec<Subject>,
+        data: Data,
         c: (f64, f64, f64, f64),
         tx: Option<UnboundedSender<Comm>>,
         settings: Settings,
@@ -107,7 +107,7 @@ impl NPOD {
             cache: settings.config.cache,
             tx,
             settings,
-            subjects,
+            data,
             c,
             population_predictions: PopulationPredictions::default(),
         }
@@ -174,7 +174,7 @@ impl NPOD {
             let cache = if self.cycle == 1 { false } else { self.cache };
 
             self.population_predictions =
-                get_population_predictions(&self.equation, &self.subjects, &self.theta, cache);
+                get_population_predictions(&self.equation, &self.data, &self.theta, cache);
 
             self.psi = self.population_predictions.get_psi(&ErrorModel::new(
                 self.c,
@@ -319,8 +319,7 @@ impl NPOD {
                 candididate_points.push(spp.to_owned());
             }
             candididate_points.par_iter_mut().for_each(|spp| {
-                let optimizer =
-                    SppOptimizer::new(self.equation.clone(), &self.subjects, &sigma, &pyl);
+                let optimizer = SppOptimizer::new(self.equation.clone(), &self.data, &sigma, &pyl);
                 let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
                 *spp = candidate_point;
                 // add spp to theta

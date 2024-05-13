@@ -1,7 +1,7 @@
 use crate::prelude::{self, settings::Settings};
 
-use alma::prelude::{data::Subject, simulator::Equation};
 use output::NPResult;
+use pharmsol::prelude::{data::Data, simulator::Equation};
 use prelude::*;
 use tokio::sync::mpsc;
 // use self::{data::Subject, simulator::Equation};
@@ -18,7 +18,7 @@ pub trait Algorithm {
 pub fn initialize_algorithm(
     equation: Equation,
     settings: Settings,
-    subjects: Vec<Subject>,
+    data: Data,
     tx: Option<mpsc::UnboundedSender<Comm>>,
 ) -> Box<dyn Algorithm> {
     if std::path::Path::new("stop").exists() {
@@ -36,7 +36,7 @@ pub fn initialize_algorithm(
             equation,
             ranges,
             theta,
-            subjects,
+            data,
             settings.error.poly,
             tx,
             settings,
@@ -45,7 +45,7 @@ pub fn initialize_algorithm(
             equation,
             ranges,
             theta,
-            subjects,
+            data,
             settings.error.poly,
             tx,
             settings,
@@ -53,7 +53,7 @@ pub fn initialize_algorithm(
         "POSTPROB" => Box::new(postprob::POSTPROB::new(
             equation,
             theta,
-            subjects,
+            data,
             settings.error.poly,
             tx,
             settings,

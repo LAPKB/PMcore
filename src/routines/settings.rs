@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use alma::prelude::data::ErrorType;
+use pharmsol::prelude::data::ErrorType;
 use config::Config as eConfig;
 use serde::Deserialize;
 use serde_derive::Serialize;

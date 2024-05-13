@@ -1,5 +1,5 @@
 [paths]
-data = "examples/data/theophylline.csv"
+data = "examples/theophylline/theophylline.csv"
 log = "theophylline.log"
 #prior = "theta_bimodal_ke.csv"
 

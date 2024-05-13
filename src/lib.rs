@@ -112,19 +112,19 @@ pub mod prelude {
     pub use crate::tui::ui::*;
     //Alma re-exports
     pub mod simulator {
-        pub use alma::prelude::simulator::*;
+        pub use pharmsol::prelude::simulator::*;
     }
     pub mod data {
-        pub use alma::prelude::data::*;
+        pub use pharmsol::prelude::data::*;
     }
     pub mod models {
-        pub use alma::prelude::models::*;
+        pub use pharmsol::prelude::models::*;
     }
 
-    pub use alma::fa;
-    pub use alma::fetch_cov;
-    pub use alma::fetch_params;
-    pub use alma::lag;
+    pub use pharmsol::fa;
+    pub use pharmsol::fetch_cov;
+    pub use pharmsol::fetch_params;
+    pub use pharmsol::lag;
 }
 
 //Tests

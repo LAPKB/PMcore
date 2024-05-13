@@ -1,5 +1,5 @@
-use alma::prelude::{
-    data::{ErrorModel, ErrorType, Subject},
+use pharmsol::prelude::{
+    data::{Data, ErrorModel, ErrorType},
     simulator::{get_population_predictions, Equation},
 };
 
@@ -23,7 +23,7 @@ pub struct POSTPROB {
     converged: bool,
     gamma: f64,
     error_type: ErrorType,
-    subjects: Vec<Subject>,
+    data: Data,
     c: (f64, f64, f64, f64),
     #[allow(dead_code)]
     tx: Option<UnboundedSender<Comm>>,
@@ -36,7 +36,7 @@ impl Algorithm for POSTPROB {
     }
     fn to_npresult(&self) -> NPResult {
         NPResult::new(
-            self.subjects.clone(),
+            self.data.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
@@ -52,7 +52,7 @@ impl POSTPROB {
     pub fn new(
         equation: Equation,
         theta: Array2<f64>,
-        subjects: Vec<Subject>,
+        data: Data,
         c: (f64, f64, f64, f64),
         tx: Option<UnboundedSender<Comm>>,
         settings: Settings,
@@ -73,14 +73,13 @@ impl POSTPROB {
             },
             tx,
             settings,
-            subjects,
+            data,
             c,
         }
     }
 
     pub fn run(&mut self) -> NPResult {
-        let obs_pred =
-            get_population_predictions(&self.equation, &self.subjects, &self.theta, false);
+        let obs_pred = get_population_predictions(&self.equation, &self.data, &self.theta, false);
 
         self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
         let (w, objf) = burke(&self.psi).expect("Error in IPM");

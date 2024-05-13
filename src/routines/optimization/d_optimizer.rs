@@ -4,14 +4,14 @@ use argmin::{
 };
 use ndarray::{Array1, Axis};
 
-use alma::prelude::{
-    data::{ErrorModel, Subject},
+use pharmsol::prelude::{
+    data::{Data, ErrorModel},
     simulator::{get_population_predictions, Equation},
 };
 
 pub struct SppOptimizer<'a> {
     equation: Equation,
-    subjects: &'a Vec<Subject>,
+    data: &'a Data,
     sig: &'a ErrorModel<'a>,
     pyl: &'a Array1<f64>,
 }
@@ -21,7 +21,7 @@ impl<'a> CostFunction for SppOptimizer<'a> {
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = spp.to_owned().insert_axis(Axis(0));
-        let obs_pred = get_population_predictions(&self.equation, &self.subjects, &theta, true);
+        let obs_pred = get_population_predictions(&self.equation, self.data, &theta, true);
 
         let psi = obs_pred.get_psi(self.sig);
 
@@ -47,13 +47,13 @@ impl<'a> CostFunction for SppOptimizer<'a> {
 impl<'a> SppOptimizer<'a> {
     pub fn new(
         equation: Equation,
-        subjects: &'a Vec<Subject>,
+        data: &'a Data,
         sig: &'a ErrorModel,
         pyl: &'a Array1<f64>,
     ) -> Self {
         Self {
             equation,
-            subjects,
+            data,
             sig,
             pyl,
         }

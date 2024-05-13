@@ -1,5 +1,5 @@
 [paths]
-data="examples/data/meta.csv"
+data="examples/meta/meta.csv"
 log="meta.log"
 #prior_list="Optional"
 [config]
