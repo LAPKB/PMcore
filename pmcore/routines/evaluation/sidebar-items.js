@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["ipm","ipm_faer","qr","sigma"]};
+window.SIDEBAR_ITEMS = {"mod":["ipm","ipm_faer","qr"]};

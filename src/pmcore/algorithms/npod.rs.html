@@ -345,23 +345,16 @@
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
         condensation::prune::prune,
-        evaluation::sigma::{ErrorModel, ErrorType},
         ipm::burke,
         optimization::d_optimizer::SppOptimizer,
         output::{CycleLog, NPCycle, NPResult},
         qr,
         settings::Settings,
-        simulator::get_population_predictions,
     },
-    simulator::{likelihood::PopulationPredictions, Equation},
     tui::ui::Comm,
 };
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
@@ -369,7 +362,10 @@
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
-<span class="kw">use </span><span class="kw">super</span>::data::Data;
+<span class="kw">use </span>pharmsol::prelude::{
+    data::{Data, ErrorModel, ErrorType},
+    simulator::{get_population_predictions, Equation, PopulationPredictions},
+};
 
 <span class="kw">const </span>THETA_D: f64 = <span class="number">1e-4</span>;
 <span class="kw">const </span>THETA_F: f64 = <span class="number">1e-2</span>;
@@ -470,16 +466,16 @@
         </span><span class="kw">let </span>gamma_up = <span class="self">self</span>.gamma * (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
         <span class="kw">let </span>gamma_down = <span class="self">self</span>.gamma / (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
 
-        <span class="kw">let </span>psi_up = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
-            c: <span class="self">self</span>.c,
-            gl: gamma_up,
-            e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-        });
-        <span class="kw">let </span>psi_down = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
-            c: <span class="self">self</span>.c,
-            gl: gamma_down,
-            e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-        });
+        <span class="kw">let </span>psi_up = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel::new(
+            <span class="self">self</span>.c,
+            gamma_up,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+        ));
+        <span class="kw">let </span>psi_down = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel::new(
+            <span class="self">self</span>.c,
+            gamma_down,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+        ));
         <span class="kw">let </span>(lambda_up, objf_up) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span>psi_up) {
             <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
             <span class="prelude-val">Err</span>(err) =&gt; {
@@ -527,11 +523,11 @@
             <span class="self">self</span>.population_predictions =
                 get_population_predictions(<span class="kw-2">&amp;</span><span class="self">self</span>.equation, <span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span><span class="self">self</span>.theta, cache);
 
-            <span class="self">self</span>.psi = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel {
-                c: <span class="self">self</span>.c,
-                gl: <span class="self">self</span>.gamma,
-                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-            });
+            <span class="self">self</span>.psi = <span class="self">self</span>.population_predictions.get_psi(<span class="kw-2">&amp;</span>ErrorModel::new(
+                <span class="self">self</span>.c,
+                <span class="self">self</span>.gamma,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
+            ));
 
             (<span class="self">self</span>.lambda, <span class="kw">_</span>) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
@@ -663,11 +659,7 @@
             </span><span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
 
             <span class="comment">// Add new point to theta based on the optimization of the D function
-            </span><span class="kw">let </span>sigma = ErrorModel {
-                c: <span class="self">self</span>.c,
-                gl: <span class="self">self</span>.gamma,
-                e_type: <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
-            };
+            </span><span class="kw">let </span>sigma = ErrorModel::new(<span class="self">self</span>.c, <span class="self">self</span>.gamma, <span class="kw-2">&amp;</span><span class="self">self</span>.error_type);
 
             <span class="kw">let </span><span class="kw-2">mut </span>candididate_points: Vec&lt;Array1&lt;f64&gt;&gt; = Vec::default();
             <span class="kw">for </span>spp <span class="kw">in </span><span class="self">self</span>.theta.clone().rows() {

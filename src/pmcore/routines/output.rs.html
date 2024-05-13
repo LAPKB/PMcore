@@ -541,16 +541,14 @@
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>pharmsol::prelude::data::{write_pmetrics_observations, Data};
+<span class="kw">use </span>pharmsol::prelude::simulator::Equation;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
 <span class="kw">use </span>settings::Settings;
 <span class="kw">use </span>std::fs::File;
-
-<span class="kw">use </span><span class="self">self</span>::data::Data;
-<span class="kw">use </span><span class="self">self</span>::simulator::Equation;
 
 <span class="doccomment">/// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
@@ -665,7 +663,7 @@
             </span><span class="kw">let </span>subjects = <span class="self">self</span>.data.get_subjects();
             <span class="kw">for </span>(sub, row) <span class="kw">in </span>posterior.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
                 <span class="kw">for </span>(spp, elem) <span class="kw">in </span>row.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
-                    writer.write_field(<span class="kw-2">&amp;</span>subjects.get(sub).unwrap().id)<span class="question-mark">?</span>;
+                    writer.write_field(<span class="kw-2">&amp;</span>subjects.get(sub).unwrap().id())<span class="question-mark">?</span>;
                     writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, spp))<span class="question-mark">?</span>;
                     <span class="kw">for </span>param <span class="kw">in </span>theta.row(spp) {
                         writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{param}"</span>))<span class="question-mark">?</span>;
@@ -686,7 +684,7 @@
     </span><span class="kw">pub fn </span>write_obs(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="macro">tracing::info!</span>(<span class="string">"Writing observations..."</span>);
         <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"obs.csv"</span>).unwrap();
-        data::pmetrics::write_pmetrics_observations(<span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span>file)
+        write_pmetrics_observations(<span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span>file)
     }
 
     <span class="doccomment">/// Writes the predictions
@@ -756,13 +754,13 @@
                 .for_each(|(((pop_mean, pop_median), post_mean), post_median)| {
                     writer
                         .write_record([
-                            <span class="kw-2">&amp;</span>subject.id,
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.3}"</span>, pop_mean.time),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, pop_mean.outeq),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, pop_mean.prediction),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, pop_median.prediction),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_mean.prediction),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_median.prediction),
+                            subject.id(),
+                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.3}"</span>, pop_mean.time()),
+                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, pop_mean.outeq()),
+                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, pop_mean.prediction()),
+                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, pop_median.prediction()),
+                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_mean.prediction()),
+                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_median.prediction()),
                         ])
                         .unwrap();
                 });

@@ -131,30 +131,6 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! PMcore is a framework for developing and running non-parametric algorithms for population pharmacokinetic modelling
 //!
 //! The framework is designed to be modular and flexible, allowing for easy integration of new algorithms and methods. It is heavily designed around the specifications for Pmetrics, a package for R, and is designed to be used in conjunction with it. However, as a general rust library, it can be used for a wide variety of applications, not limited to pharmacometrics.
@@ -207,11 +183,6 @@
 /// Provides the various algorithms used within the framework
 </span><span class="kw">pub mod </span>algorithms;
 
-<span class="kw">pub mod </span>simulator;
-
-<span class="doccomment">/// New data format
-</span><span class="kw">pub mod </span>data;
-
 <span class="doccomment">/// Routines for the crate
 </span><span class="kw">pub mod </span>routines {
 
@@ -241,7 +212,6 @@
         </span><span class="kw">pub mod </span>ipm;
         <span class="kw">pub mod </span>ipm_faer;
         <span class="kw">pub mod </span>qr;
-        <span class="kw">pub mod </span>sigma;
     }
 }
 
@@ -262,50 +232,32 @@
     <span class="kw">pub use </span><span class="kw">super</span>::Result;
     <span class="kw">pub use super</span>::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::algorithms;
-    <span class="kw">pub use </span><span class="kw">crate</span>::data::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::entrypoints::simulate;
     <span class="kw">pub use </span><span class="kw">crate</span>::entrypoints::start;
     <span class="kw">pub use </span><span class="kw">crate</span>::entrypoints::start_internal;
     <span class="kw">pub use </span><span class="kw">crate</span>::logger;
-    <span class="kw">pub use </span><span class="kw">crate</span>::prelude::evaluation::{sigma, <span class="kw-2">*</span>};
+    <span class="kw">pub use </span><span class="kw">crate</span>::prelude::evaluation::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::condensation;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::expansion::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::initialization::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::optimization;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::tui::ui::<span class="kw-2">*</span>;
-    <span class="attr">#[macro_export]
-    </span><span class="macro">macro_rules!</span> fetch_params {
-        (<span class="macro-nonterminal">$p</span>:expr, $(<span class="macro-nonterminal">$name</span>:ident),<span class="kw-2">*</span>) =&gt; {
-            <span class="kw">let </span>p = <span class="macro-nonterminal">$p</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>idx = <span class="number">0</span>;
-            $(
-                <span class="kw">let </span><span class="macro-nonterminal">$name </span>= p[idx];
-                idx += <span class="number">1</span>;
-            )*
-        };
+    <span class="comment">//Alma re-exports
+    </span><span class="kw">pub mod </span>simulator {
+        <span class="kw">pub use </span>pharmsol::prelude::simulator::<span class="kw-2">*</span>;
     }
-    <span class="attr">#[macro_export]
-    </span><span class="macro">macro_rules!</span> fetch_cov {
-        (<span class="macro-nonterminal">$cov</span>:expr, <span class="macro-nonterminal">$t</span>:expr, $(<span class="macro-nonterminal">$name</span>:ident),<span class="kw-2">*</span>) =&gt; {
-            $(
-                <span class="kw">let </span><span class="macro-nonterminal">$name </span>= <span class="macro-nonterminal">$cov</span>.get_covariate(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)).unwrap().interpolate(<span class="macro-nonterminal">$t</span>).unwrap();
-            )*
-        };
+    <span class="kw">pub mod </span>data {
+        <span class="kw">pub use </span>pharmsol::prelude::data::<span class="kw-2">*</span>;
     }
-    <span class="attr">#[macro_export]
-    </span><span class="macro">macro_rules!</span> lag {
-        ($(<span class="macro-nonterminal">$k</span>:expr =&gt; <span class="macro-nonterminal">$v</span>:expr),* $(,)<span class="question-mark">?</span>) =&gt; {{
-            core::convert::From::from([$((<span class="macro-nonterminal">$k</span>, <span class="macro-nonterminal">$v</span>),)<span class="kw-2">*</span>])
-        }};
+    <span class="kw">pub mod </span>models {
+        <span class="kw">pub use </span>pharmsol::prelude::models::<span class="kw-2">*</span>;
     }
 
-    <span class="attr">#[macro_export]
-    </span><span class="macro">macro_rules!</span> fa {
-        ($(<span class="macro-nonterminal">$k</span>:expr =&gt; <span class="macro-nonterminal">$v</span>:expr),* $(,)<span class="question-mark">?</span>) =&gt; {{
-            core::convert::From::from([$((<span class="macro-nonterminal">$k</span>, <span class="macro-nonterminal">$v</span>),)<span class="kw-2">*</span>])
-        }};
-    }
+    <span class="kw">pub use </span>pharmsol::fa;
+    <span class="kw">pub use </span>pharmsol::fetch_cov;
+    <span class="kw">pub use </span>pharmsol::fetch_params;
+    <span class="kw">pub use </span>pharmsol::lag;
 }
 
 <span class="comment">//Tests

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["normal_likelihood"],"struct":["PopulationPredictions","Prediction","SubjectPredictions"],"trait":["ToPrediction"]};

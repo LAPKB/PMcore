@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"pmcore":[["impl&lt;M, F&gt; Op for <a class=\"struct\" href=\"pmcore/simulator/ode/closure/struct.PMClosure.html\" title=\"struct pmcore::simulator::ode::closure::PMClosure\">PMClosure</a>&lt;M, F&gt;<div class=\"where\">where\n    M: Matrix,\n    F: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.78.0/core/ops/function/trait.Fn.html\" title=\"trait core::ops::function::Fn\">Fn</a>(&amp;M::V, &amp;M::V, M::T, &amp;mut M::V, M::V, &amp;<a class=\"struct\" href=\"pmcore/data/struct.Covariates.html\" title=\"struct pmcore::data::Covariates\">Covariates</a>),</div>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

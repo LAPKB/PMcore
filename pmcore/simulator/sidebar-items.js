@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Equation"],"fn":["get_population_predictions"],"mod":["analytical","cache","likelihood","ode"],"type":["AnalyticalEq","DiffEq","Fa","Init","Lag","M","Neqs","Out","SecEq","T","V"]};

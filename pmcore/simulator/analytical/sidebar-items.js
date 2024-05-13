@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["one_compartment","one_compartment_with_absorption","simulate_analytical_event"]};

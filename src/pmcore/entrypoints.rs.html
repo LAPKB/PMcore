@@ -168,25 +168,21 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPResult, <span class="kw-2">*</span>};
 <span class="kw">use </span><span class="kw">crate</span>::routines::settings::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>eyre::Result;
+<span class="kw">use </span>pharmsol::prelude::data::Data;
 
+<span class="kw">use </span>pharmsol::prelude::{data::read_pmetrics, simulator::Equation};
 <span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>std::thread::spawn;
 <span class="kw">use </span>std::time::Instant;
 <span class="kw">use </span>tokio::sync::mpsc::{<span class="self">self</span>};
-
-<span class="kw">use </span><span class="self">self</span>::data::pmetrics::read_pmetrics;
-<span class="kw">use </span><span class="self">self</span>::data::DataTrait;
 <span class="comment">// use self::simulator::likelihood::Prediction;
-</span><span class="kw">use </span><span class="self">self</span>::simulator::Equation;
 
-<span class="doccomment">/// Simulate predictions from a model and prior distribution
+</span><span class="doccomment">/// Simulate predictions from a model and prior distribution
 ///
 /// This function is used to simulate predictions from a model and prior distribution.
 /// The output is a CSV file with the following columns:
@@ -287,7 +283,7 @@
         subjects.len(),
         <span class="comment">//TODO: again we are missing a get_obs_times function
         // subjects.iter().map(|s| s.obs_times.len()).sum::&lt;usize&gt;()
-        </span>subjects.iter().map(|s| s.occasions.len()).sum::&lt;usize&gt;()
+        </span>subjects.iter().map(|s| s.occasions().len()).sum::&lt;usize&gt;()
     );
 
     <span class="macro">tracing::info!</span>(<span class="string">"Starting {}"</span>, settings.config.engine);

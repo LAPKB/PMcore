@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["HashMap"],"type":["Result"]};
+window.SIDEBAR_ITEMS = {"macro":["fa","fetch_cov","fetch_params","lag"],"mod":["data","models","simulator"],"struct":["HashMap"],"type":["Result"]};

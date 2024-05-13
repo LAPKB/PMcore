@@ -275,9 +275,11 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
-</span><span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
+</span><span class="kw">use </span>pharmsol::prelude::data::ErrorType;
+<span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
 <span class="kw">use </span>serde::Deserialize;
 <span class="kw">use </span>serde_derive::Serialize;
 <span class="kw">use </span>serde_json;
@@ -455,10 +457,10 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub fn </span>error_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::routines::evaluation::sigma::ErrorType {
+    <span class="kw">pub fn </span>error_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ErrorType {
         <span class="kw">match </span><span class="self">self</span>.class.to_lowercase().as_str() {
-            <span class="string">"additive" </span>| <span class="string">"l" </span>| <span class="string">"lambda"  </span>=&gt; <span class="kw">crate</span>::routines::evaluation::sigma::ErrorType::Add,
-            <span class="string">"proportional" </span>| <span class="string">"g" </span>| <span class="string">"gamma"  </span>=&gt; <span class="kw">crate</span>::routines::evaluation::sigma::ErrorType::Prop,
+            <span class="string">"additive" </span>| <span class="string">"l" </span>| <span class="string">"lambda"  </span>=&gt; ErrorType::Add,
+            <span class="string">"proportional" </span>| <span class="string">"g" </span>| <span class="string">"gamma"  </span>=&gt; ErrorType::Prop,
             <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)"</span>, <span class="self">self</span>.class),
         }
     }
