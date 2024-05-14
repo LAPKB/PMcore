@@ -1,8 +1,9 @@
 # PMcore
-[![Build](https://github.com/LAPKB/PMcore/actions/workflows/rust.yml/badge.svg)](https://github.com/LAPKB/PMcore/actions/workflows/rust.yml)
-[![Documentation](https://github.com/LAPKB/PMcore/actions/workflows/docs.yml/badge.svg)]([https://github.com/LAPKB/PMcore/actions/workflows/docs.yml](https://lapkb.github.io/PMcore/pmcore/))
-[![Security Audit](https://github.com/LAPKB/PMcore/actions/workflows/security_audit.yml/badge.svg)](https://github.com/LAPKB/PMcore/actions/workflows/security_audit.yml)
-[![crates.io](https://img.shields.io/crates/v/pmcore.svg)]([https://github.com/LAPKB/PMcore/actions/workflows/security_audit.yml](https://crates.io/crates/pmcore))
+![Build](https://github.com/LAPKB/PMcore/actions/workflows/rust.yml/badge.svg)
+[![Documentation](https://github.com/LAPKB/PMcore/actions/workflows/docs.yml/badge.svg)](https://lapkb.github.io/PMcore/pmcore/)
+![Security Audit](https://github.com/LAPKB/PMcore/actions/workflows/security_audit.yml/badge.svg)
+[![crates.io](https://img.shields.io/crates/v/pmcore.svg)](https://crates.io/crates/pmcore)
+
 
 Rust library with the building blocks to create and implement new non-parametric algorithms for population pharmacokinetic modelling and their integration with [Pmetrics](https://github.com/LAPKB/Pmetrics).
 
