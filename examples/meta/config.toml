@@ -10,6 +10,7 @@ seed=347
 tui=false
 output=true
 cache = true
+sampler = "osat"
 [random]
 CLs = [0.0,2.0]
 fm = [0.0,1.0]
