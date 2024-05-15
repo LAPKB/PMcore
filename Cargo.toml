@@ -35,8 +35,8 @@ chrono = "0.4"
 config = "0.14"
 faer = "0.18.2"
 faer-ext = {version = "0.1.0", features = ["nalgebra", "ndarray"]}
-pharmsol = "0.1.0"
-
+pharmsol = "0.1.2"
+# pharmsol ={ path = "../pharmsol" }
 
 
 [profile.release]

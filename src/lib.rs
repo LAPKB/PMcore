@@ -121,6 +121,10 @@ pub mod prelude {
         pub use pharmsol::prelude::models::*;
     }
 
+    //traits
+    pub use pharmsol::prelude::*;
+
+    //macros
     pub use pharmsol::fa;
     pub use pharmsol::fetch_cov;
     pub use pharmsol::fetch_params;
