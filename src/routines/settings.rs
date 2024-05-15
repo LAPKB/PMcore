@@ -74,6 +74,8 @@ pub struct Config {
     /// Generate predictions at [Config::idelta] intervals to this many hours after the last dose
     #[serde(default = "default_tad")]
     pub tad: f64,
+    #[serde(default = "default_sampler")]
+    pub sampler: Option<String>,
 }
 
 /// Random parameters to be estimated
@@ -274,3 +276,8 @@ fn default_cycles() -> usize {
 fn default_output_folder() -> Option<String> {
     Some("outputs/".to_string())
 }
+
+fn default_sampler() -> Option<String> {
+    Some("sobol".to_string())
+}
+

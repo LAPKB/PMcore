@@ -6,7 +6,7 @@ use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equati
 fn main() -> Result<()> {
     let eq = Equation::new_ode(
         |x, p, _t, dx, rateiv, _cov| {
-            // fetch_cov!(cov, t, wt);
+            fetch_cov!(cov, t,);
             fetch_params!(p, ka, ke, _tlag, _v);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1];
