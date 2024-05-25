@@ -1,12 +1,48 @@
-use faer::{mat, scale, solvers::SpSolver, unzipped, zipped, Mat};
+use faer::{mat, scale, linalg::solvers::SpSolver, unzipped, zipped, Mat};
 use faer_ext::*;
-// use faer::{sparse::solvers::SpSolver, FaerMat, IntoFaer, IntoNdarray};
-// use faer_core::{inner::DenseOwn, mat, scale, unzipped, zipped, Mat, Matrix};
 use ndarray::{ArrayBase, Dim, OwnedRepr};
 use ndarray_stats::QuantileExt;
 use std::error;
 type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
+/// Applies the Burke's Interior Point Method (IPM) to solve a specific optimization problem.
+///
+/// The Burke's IPM is an iterative optimization technique used for solving convex optimization
+/// problems. It is applied to a matrix `psi`, iteratively updating variables and calculating
+/// an objective function until convergence.
+///
+/// The objective function to maximize is:
+/// f(x) = Σ(log(Σ(ψ_ij * x_j))) for i = 1 to n_sub
+///
+/// Subject to the constraints:
+/// 1. x_j >= 0 for all j = 1 to n_point
+/// 2. Σ(x_j) = 1 for j = 1 to n_point
+///
+/// Where:
+/// - ψ is an n_sub x n_point matrix with non-negative entries.
+/// - x is a probability vector of length n_point.
+///
+/// # Arguments
+///
+/// * `psi` - A reference to a 2D Array representing the input matrix for optimization.
+///
+/// # Returns
+///
+/// A `Result` containing a tuple with two elements:
+///
+/// * `lam` - An `Array1<f64>` representing the solution of the optimization problem.
+/// * `obj` - A f64 value representing the objective function value at the solution.
+///
+/// # Errors
+///
+/// This function returns an error if any of the optimization steps encounter issues. The error
+/// type is a boxed dynamic error (`Box<dyn error::Error>`).
+///
+/// # Example
+///
+/// Note: This function applies the Interior Point Method (IPM) to iteratively update variables
+/// until convergence, solving the convex optimization problem.
+///
 pub fn burke(
     psi: &ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>,
 ) -> Result<(OneDimArray, f64), Box<dyn error::Error>> {

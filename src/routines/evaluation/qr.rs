@@ -4,22 +4,6 @@ use ndarray::parallel::prelude::*;
 use ndarray::{Array2, Axis};
 
 pub fn calculate_r(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
-    // TODO: we need more testing but this code seems not to be needed
-    // if n_psi.ncols() > n_psi.nrows() {
-    //     let nrows = n_psi.nrows();
-    //     let ncols = n_psi.ncols();
-
-    //     let diff = ncols - nrows;
-    //     let zeros = Array2::<f64>::zeros((diff, ncols));
-    //     let mut new_n_psi = Array2::<f64>::zeros((nrows + diff, ncols));
-    //     new_n_psi.slice_mut(s![..nrows, ..]).assign(&n_psi);
-    //     new_n_psi.slice_mut(s![nrows.., ..]).assign(&zeros);
-    //     n_psi = new_n_psi;
-    //     log::info!(
-    //         "Cycle: {}. nspp>nsub. n_psi matrix has been expanded.",
-    //         cycle
-    //     );
-    // }
     let mut n_x = x.clone();
     n_x.axis_iter_mut(Axis(0))
         .into_par_iter()

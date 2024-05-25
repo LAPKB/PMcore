@@ -1,5 +1,19 @@
 use ndarray::{Array1, Array2};
 
+/// Prunes the `theta` array based on the `candidate` array and `limits`.
+///
+/// This function checks if the `candidate` support point is within the limits defined
+/// by the user and also if is not too close to the current support points.
+///
+/// If the `candidate` is within the limits and is not too close to the current support points,
+/// it is added to `theta`. Otherwise, it is discarded.
+///
+/// # Arguments
+///
+/// * `theta` - Current Support points.
+/// * `candidate` - Candidate support point.
+/// * `limits` - (min, max) limits for each dimension.
+/// * `min_dist` - The minimum allowed distance between the candidate and the current support points.
 pub fn prune(
     theta: &mut Array2<f64>,
     candidate: Array1<f64>,
