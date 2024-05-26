@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use pharmsol::prelude::data::{write_pmetrics_observations, Data};
+use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
 use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
@@ -538,4 +538,33 @@ pub fn create_output_file(settings: &Settings, file_name: &str) -> std::io::Resu
     // Create and open the file, returning the File handle
     let file_path = path.join(file_name);
     File::create(file_path)
+}
+
+pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) {
+    let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+
+    writer
+        .write_record(&["id", "block", "time", "out", "outeq"])
+        .unwrap();
+    for subject in data.get_subjects() {
+        for occasion in subject.occasions() {
+            for event in occasion.get_events(None, None, false) {
+                match event {
+                    Event::Observation(obs) => {
+                        // Write each field individually
+                        writer
+                            .write_record(&[
+                                &subject.id,
+                                &occasion.index.to_string(),
+                                &obs.time.to_string(),
+                                &obs.value.to_string(),
+                                &obs.outeq.to_string(),
+                            ])
+                            .unwrap();
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
 }
