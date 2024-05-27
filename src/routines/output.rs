@@ -1,9 +1,9 @@
 use crate::prelude::*;
-use pharmsol::prelude::data::*;
-use pharmsol::prelude::simulator::Equation;
 use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
+use pharmsol::prelude::data::*;
+use pharmsol::prelude::simulator::Equation;
 use settings::Settings;
 use std::fs::File;
 
@@ -554,11 +554,11 @@ pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) {
                         // Write each field individually
                         writer
                             .write_record(&[
-                                &subject.id,
-                                &occasion.index.to_string(),
-                                &obs.time.to_string(),
-                                &obs.value.to_string(),
-                                &obs.outeq.to_string(),
+                                &subject.id(),
+                                &occasion.index().to_string(),
+                                &obs.time().to_string(),
+                                &obs.value().to_string(),
+                                &obs.outeq().to_string(),
                             ])
                             .unwrap();
                     }
