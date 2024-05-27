@@ -571,11 +571,11 @@
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>pharmsol::prelude::data::<span class="kw-2">*</span>;
-<span class="kw">use </span>pharmsol::prelude::simulator::Equation;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
+<span class="kw">use </span>pharmsol::prelude::data::<span class="kw-2">*</span>;
+<span class="kw">use </span>pharmsol::prelude::simulator::Equation;
 <span class="kw">use </span>settings::Settings;
 <span class="kw">use </span>std::fs::File;
 
@@ -1126,11 +1126,11 @@
                         <span class="comment">// Write each field individually
                         </span>writer
                             .write_record(<span class="kw-2">&amp;</span>[
-                                <span class="kw-2">&amp;</span>subject.id,
-                                <span class="kw-2">&amp;</span>occasion.index.to_string(),
-                                <span class="kw-2">&amp;</span>obs.time.to_string(),
-                                <span class="kw-2">&amp;</span>obs.value.to_string(),
-                                <span class="kw-2">&amp;</span>obs.outeq.to_string(),
+                                <span class="kw-2">&amp;</span>subject.id(),
+                                <span class="kw-2">&amp;</span>occasion.index().to_string(),
+                                <span class="kw-2">&amp;</span>obs.time().to_string(),
+                                <span class="kw-2">&amp;</span>obs.value().to_string(),
+                                <span class="kw-2">&amp;</span>obs.outeq().to_string(),
                             ])
                             .unwrap();
                     }
@@ -1139,4 +1139,5 @@
             }
         }
     }
-}</code></pre></div></section></main></body></html>
+}
+</code></pre></div></section></main></body></html>
