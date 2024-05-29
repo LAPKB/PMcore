@@ -469,7 +469,7 @@ fn find_m0(ufinal: f64, v: f64, alpha: f64, h1: f64, h2: f64) -> f64 {
     xm // Return the calculated xm0est
 }
 fn main() -> Result<()> {
-    start(
+    fit(
         Engine::new(Ode {}),
         "examples/drusano/config.toml".to_string(),
     )?;

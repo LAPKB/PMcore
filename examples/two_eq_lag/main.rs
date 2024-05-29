@@ -38,7 +38,7 @@ fn main() -> Result<()> {
     //     },
     //     (2, 1),
     // );
-    let _result = start(eq, "examples/two_eq_lag/config.toml".to_string())?;
+    let _result = fit(eq, "examples/two_eq_lag/config.toml".to_string())?;
 
     Ok(())
 }

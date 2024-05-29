@@ -1,6 +1,6 @@
 [package]
 name = "pmcore"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 authors = [
     "Julián D. Otálvaro <juliandavid347@gmail.com>",
@@ -33,10 +33,10 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
 chrono = "0.4"
 config = "0.14"
-faer = "0.18.2"
-faer-ext = {version = "0.1.0", features = ["nalgebra", "ndarray"]}
-pharmsol = "0.1.2"
+faer = "0.19.0"
+faer-ext = {version = "0.2.0", features = ["nalgebra", "ndarray"]}
 # pharmsol ={ path = "../pharmsol" }
+pharmsol = "=0.1.11"
 
 
 [profile.release]
@@ -45,6 +45,7 @@ opt-level = 3
 
 [dev-dependencies]
 # divan = "0.1.14"
+
 diol = "0.8.2"
 
 [[bench]]
