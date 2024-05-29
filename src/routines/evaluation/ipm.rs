@@ -7,11 +7,22 @@ use ndarray_stats::{DeviationExt, QuantileExt};
 // use crate::logger::trace_memory;
 type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
-/// Apply the Burke's Interior Point Method (IPM) to solve a specific optimization problem.
+/// Applies the Burke's Interior Point Method (IPM) to solve a specific optimization problem.
 ///
 /// The Burke's IPM is an iterative optimization technique used for solving convex optimization
 /// problems. It is applied to a matrix `psi`, iteratively updating variables and calculating
 /// an objective function until convergence.
+///
+/// The objective function to maximize is:
+/// f(x) = Σ(log(Σ(ψ_ij * x_j))) for i = 1 to n_sub
+///
+/// Subject to the constraints:
+/// 1. x_j >= 0 for all j = 1 to n_point
+/// 2. Σ(x_j) = 1 for j = 1 to n_point
+///
+/// Where:
+/// - ψ is an n_sub x n_point matrix with non-negative entries.
+/// - x is a probability vector of length n_point.
 ///
 /// # Arguments
 ///
@@ -30,7 +41,6 @@ type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 /// type is a boxed dynamic error (`Box<dyn error::Error>`).
 ///
 /// # Example
-///
 ///
 /// Note: This function applies the Interior Point Method (IPM) to iteratively update variables
 /// until convergence, solving the convex optimization problem.

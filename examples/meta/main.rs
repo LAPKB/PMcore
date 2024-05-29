@@ -26,11 +26,11 @@ fn main() -> Result<()> {
             let ke = cl / v;
             let v2 = relv * v;
             y[0] = x[0] / v;
-            y[1] = x[0] / v2;
+            y[1] = x[1] / v2;
         },
         (2, 2),
     );
-    let _result = start(eq, "examples/meta/config.toml".to_string())?;
+    let _result = fit(eq, "examples/meta/config.toml".to_string())?;
 
     Ok(())
 }

@@ -36,6 +36,6 @@ fn main() -> Result<()> {
         _ => panic!("Method not found"),
     };
 
-    let _result = start(eq, "examples/bimodal_ke/config.toml".to_string())?;
+    let _result = fit(eq, "examples/bimodal_ke/config.toml".to_string())?;
     Ok(())
 }

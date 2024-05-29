@@ -28,7 +28,7 @@ pub fn initialize_algorithm(
         }
     }
     let ranges = settings.random.ranges();
-    let theta = initialization::sample_space(&settings, &ranges);
+    let theta = initialization::sample_space(&settings, &ranges, &data, &equation);
 
     //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
     match settings.config.engine.as_str() {

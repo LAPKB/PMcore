@@ -2,9 +2,24 @@ use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
 use sobol_burley::sample;
 
-/// Generates a 2-dimensional array containing a Sobol sequence within the given ranges
+/// Generates a 2-dimensional array containing a Sobol sequence within the given ranges.
+///
+/// This function samples the space using a Sobol sequence of `n_points` points. distributed along `range_params.len()` dimensions.
+///
+/// This function is used to initialize an optimization algorithm.
+/// The generated Sobol sequence provides the initial sampling of the step to be used in the first cycle of the optimization algorithm.
+///
+/// # Arguments
+///
+/// * `n_points` - The number of points in the Sobol sequence.
+/// * `range_params` - A vector of tuples, where each tuple represents the minimum and maximum value of a parameter.
+/// * `seed` - The seed for the Sobol sequence generator.
+///
 /// # Returns
-/// A 2D array where each row is a point, and each column corresponds to a parameter.
+///
+/// A 2D array where each row is a point in the Sobol sequence, and each column corresponds to a parameter.
+/// The value of each parameter is scaled to be within the corresponding range.
+///
 pub fn generate(
     n_points: usize,
     range_params: &Vec<(f64, f64)>,

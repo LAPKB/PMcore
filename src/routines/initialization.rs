@@ -1,12 +1,20 @@
 use std::fs::File;
 
-use ndarray::Array2;
+use crate::prelude::data::Data;
+use crate::prelude::simulator::Equation;
+use ndarray::{Array1, Array2};
+use pharmsol::prelude::EstimateTheta;
 
 use crate::prelude::settings::Settings;
 
 pub mod sobol;
 
-pub fn sample_space(settings: &Settings, ranges: &Vec<(f64, f64)>) -> Array2<f64> {
+pub fn sample_space(
+    settings: &Settings,
+    ranges: &Vec<(f64, f64)>,
+    data: &Data,
+    eqn: &Equation,
+) -> Array2<f64> {
     match &settings.paths.prior {
         Some(prior_path) => {
             tracing::info!("Reading prior from {}", prior_path);
@@ -72,6 +80,25 @@ pub fn sample_space(settings: &Settings, ranges: &Vec<(f64, f64)>) -> Array2<f64
             Array2::from_shape_vec((n_points, n_params), theta_values)
                 .expect("Failed to create theta Array2")
         }
-        None => sobol::generate(settings.config.init_points, ranges, settings.config.seed),
+        None => match &settings.config.sampler {
+            Some(sampler) => match sampler.as_str() {
+                "sobol" => {
+                    sobol::generate(settings.config.init_points, ranges, settings.config.seed)
+                }
+                "osat" => {
+                    let mut point = vec![];
+                    for range in ranges {
+                        point.push((range.1 - range.0) / 2.0);
+                    }
+                    data.estimate_theta(eqn, &Array1::from_vec(point))
+                }
+                _ => {
+                    panic!("Unknown sampler: {}", sampler);
+                }
+            },
+            None => {
+                panic!("No sampler specified");
+            }
+        },
     }
 }

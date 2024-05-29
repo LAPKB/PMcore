@@ -81,7 +81,7 @@ pub fn simulate(_equation: Equation, _settings_path: String) -> Result<()> {
 ///
 /// This function is the primary entrypoint for PMcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
-pub fn start(equation: Equation, settings_path: String) -> Result<NPResult> {
+pub fn fit(equation: Equation, settings_path: String) -> Result<NPResult> {
     let now = Instant::now();
     let settings = match read_settings(settings_path) {
         Ok(s) => s,
