@@ -131,6 +131,10 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! PMcore is a framework for developing and running non-parametric algorithms for population pharmacokinetic modelling
 //!
 //! The framework is designed to be modular and flexible, allowing for easy integration of new algorithms and methods. It is heavily designed around the specifications for Pmetrics, a package for R, and is designed to be used in conjunction with it. However, as a general rust library, it can be used for a wide variety of applications, not limited to pharmacometrics.
@@ -232,8 +236,8 @@
     <span class="kw">pub use </span><span class="kw">super</span>::Result;
     <span class="kw">pub use super</span>::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::algorithms;
+    <span class="kw">pub use </span><span class="kw">crate</span>::entrypoints::fit;
     <span class="kw">pub use </span><span class="kw">crate</span>::entrypoints::simulate;
-    <span class="kw">pub use </span><span class="kw">crate</span>::entrypoints::start;
     <span class="kw">pub use </span><span class="kw">crate</span>::entrypoints::start_internal;
     <span class="kw">pub use </span><span class="kw">crate</span>::logger;
     <span class="kw">pub use </span><span class="kw">crate</span>::prelude::evaluation::<span class="kw-2">*</span>;
@@ -254,7 +258,11 @@
         <span class="kw">pub use </span>pharmsol::prelude::models::<span class="kw-2">*</span>;
     }
 
-    <span class="kw">pub use </span>pharmsol::fa;
+    <span class="comment">//traits
+    </span><span class="kw">pub use </span>pharmsol::prelude::<span class="kw-2">*</span>;
+
+    <span class="comment">//macros
+    </span><span class="kw">pub use </span>pharmsol::fa;
     <span class="kw">pub use </span>pharmsol::fetch_cov;
     <span class="kw">pub use </span>pharmsol::fetch_params;
     <span class="kw">pub use </span>pharmsol::lag;

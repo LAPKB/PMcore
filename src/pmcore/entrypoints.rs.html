@@ -251,7 +251,7 @@
 ///
 /// This function is the primary entrypoint for PMcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
-</span><span class="kw">pub fn </span>start(equation: Equation, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt; {
+</span><span class="kw">pub fn </span>fit(equation: Equation, settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt; {
     <span class="kw">let </span>now = Instant::now();
     <span class="kw">let </span>settings = <span class="kw">match </span>read_settings(settings_path) {
         <span class="prelude-val">Ok</span>(s) =&gt; s,

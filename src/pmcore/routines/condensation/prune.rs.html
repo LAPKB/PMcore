@@ -19,9 +19,37 @@
 <a href="#17" id="17">17</a>
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>ndarray::{Array1, Array2};
 
-<span class="kw">pub fn </span>prune(
+<span class="doccomment">/// Prunes the `theta` array based on the `candidate` array and `limits`.
+///
+/// This function checks if the `candidate` support point is within the limits defined
+/// by the user and also if is not too close to the current support points.
+///
+/// If the `candidate` is within the limits and is not too close to the current support points,
+/// it is added to `theta`. Otherwise, it is discarded.
+///
+/// # Arguments
+///
+/// * `theta` - Current Support points.
+/// * `candidate` - Candidate support point.
+/// * `limits` - (min, max) limits for each dimension.
+/// * `min_dist` - The minimum allowed distance between the candidate and the current support points.
+</span><span class="kw">pub fn </span>prune(
     theta: <span class="kw-2">&amp;mut </span>Array2&lt;f64&gt;,
     candidate: Array1&lt;f64&gt;,
     limits: <span class="kw-2">&amp;</span>[(f64, f64)],

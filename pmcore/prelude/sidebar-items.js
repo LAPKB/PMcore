@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["fa","fetch_cov","fetch_params","lag"],"mod":["data","models","simulator"],"struct":["HashMap"],"type":["Result"]};
+window.SIDEBAR_ITEMS = {"enum":["Event","InterpolationMethod"],"macro":["fa","fetch_cov","fetch_params","lag"],"mod":["builder","covariate","data","error_model","event","models","simulator","structs"],"struct":["Bolus","Covariate","Covariates","Data","HashMap","Infusion","Observation","Occasion","Subject"],"trait":["EstimateTheta","OptimalSupportPoint","SubjectBuilderExt"],"type":["Result"]};

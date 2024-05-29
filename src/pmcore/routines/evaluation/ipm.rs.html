@@ -146,6 +146,16 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::error;
 
 <span class="kw">use </span>linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
@@ -155,11 +165,22 @@
 <span class="comment">// use crate::logger::trace_memory;
 </span><span class="kw">type </span>OneDimArray = ArrayBase&lt;OwnedRepr&lt;f64&gt;, ndarray::Dim&lt;[usize; <span class="number">1</span>]&gt;&gt;;
 
-<span class="doccomment">/// Apply the Burke's Interior Point Method (IPM) to solve a specific optimization problem.
+<span class="doccomment">/// Applies the Burke's Interior Point Method (IPM) to solve a specific optimization problem.
 ///
 /// The Burke's IPM is an iterative optimization technique used for solving convex optimization
 /// problems. It is applied to a matrix `psi`, iteratively updating variables and calculating
 /// an objective function until convergence.
+///
+/// The objective function to maximize is:
+/// f(x) = Σ(log(Σ(ψ_ij * x_j))) for i = 1 to n_sub
+///
+/// Subject to the constraints:
+/// 1. x_j &gt;= 0 for all j = 1 to n_point
+/// 2. Σ(x_j) = 1 for j = 1 to n_point
+///
+/// Where:
+/// - ψ is an n_sub x n_point matrix with non-negative entries.
+/// - x is a probability vector of length n_point.
 ///
 /// # Arguments
 ///
@@ -178,7 +199,6 @@
 /// type is a boxed dynamic error (`Box&lt;dyn error::Error&gt;`).
 ///
 /// # Example
-///
 ///
 /// Note: This function applies the Interior Point Method (IPM) to iteratively update variables
 /// until convergence, solving the convex optimization problem.

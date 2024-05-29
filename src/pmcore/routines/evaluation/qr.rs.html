@@ -18,45 +18,13 @@
 <a href="#16" id="16">16</a>
 <a href="#17" id="17">17</a>
 <a href="#18" id="18">18</a>
-<a href="#19" id="19">19</a>
-<a href="#20" id="20">20</a>
-<a href="#21" id="21">21</a>
-<a href="#22" id="22">22</a>
-<a href="#23" id="23">23</a>
-<a href="#24" id="24">24</a>
-<a href="#25" id="25">25</a>
-<a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a>
-<a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a>
-<a href="#30" id="30">30</a>
-<a href="#31" id="31">31</a>
-<a href="#32" id="32">32</a>
-<a href="#33" id="33">33</a>
-<a href="#34" id="34">34</a>
 </pre></div><pre class="rust"><code><span class="comment">// use faer::{FaerMat, IntoFaer, IntoNdarray};
 </span><span class="kw">use </span>faer_ext::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array2, Axis};
 
 <span class="kw">pub fn </span>calculate_r(x: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;) -&gt; (Array2&lt;f64&gt;, Vec&lt;usize&gt;) {
-    <span class="comment">// TODO: we need more testing but this code seems not to be needed
-    // if n_psi.ncols() &gt; n_psi.nrows() {
-    //     let nrows = n_psi.nrows();
-    //     let ncols = n_psi.ncols();
-
-    //     let diff = ncols - nrows;
-    //     let zeros = Array2::&lt;f64&gt;::zeros((diff, ncols));
-    //     let mut new_n_psi = Array2::&lt;f64&gt;::zeros((nrows + diff, ncols));
-    //     new_n_psi.slice_mut(s![..nrows, ..]).assign(&amp;n_psi);
-    //     new_n_psi.slice_mut(s![nrows.., ..]).assign(&amp;zeros);
-    //     n_psi = new_n_psi;
-    //     log::info!(
-    //         "Cycle: {}. nspp&gt;nsub. n_psi matrix has been expanded.",
-    //         cycle
-    //     );
-    // }
-    </span><span class="kw">let </span><span class="kw-2">mut </span>n_x = x.clone();
+    <span class="kw">let </span><span class="kw-2">mut </span>n_x = x.clone();
     n_x.axis_iter_mut(Axis(<span class="number">0</span>))
         .into_par_iter()
         .for_each(|<span class="kw-2">mut </span>row| row /= row.sum());

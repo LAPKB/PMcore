@@ -96,7 +96,7 @@
         }
     }
     <span class="kw">let </span>ranges = settings.random.ranges();
-    <span class="kw">let </span>theta = initialization::sample_space(<span class="kw-2">&amp;</span>settings, <span class="kw-2">&amp;</span>ranges);
+    <span class="kw">let </span>theta = initialization::sample_space(<span class="kw-2">&amp;</span>settings, <span class="kw-2">&amp;</span>ranges, <span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>equation);
 
     <span class="comment">//This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
     </span><span class="kw">match </span>settings.config.engine.as_str() {
