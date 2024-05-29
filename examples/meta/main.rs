@@ -30,7 +30,7 @@ fn main() -> Result<()> {
         },
         (2, 2),
     );
-    let _result = start(eq, "examples/meta/config.toml".to_string())?;
+    let _result = fit(eq, "examples/meta/config.toml".to_string())?;
 
     Ok(())
 }

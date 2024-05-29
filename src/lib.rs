@@ -99,8 +99,8 @@ pub mod prelude {
     pub use super::Result;
     pub use super::*;
     pub use crate::algorithms;
+    pub use crate::entrypoints::fit;
     pub use crate::entrypoints::simulate;
-    pub use crate::entrypoints::start;
     pub use crate::entrypoints::start_internal;
     pub use crate::logger;
     pub use crate::prelude::evaluation::*;

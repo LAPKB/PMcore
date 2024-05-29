@@ -29,7 +29,7 @@ fn main() -> Result<()> {
         },
         (2, 1),
     );
-    let _result = start(eq, "examples/theophylline/config.toml".to_string())?;
+    let _result = fit(eq, "examples/theophylline/config.toml".to_string())?;
 
     Ok(())
 }
