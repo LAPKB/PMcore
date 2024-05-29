@@ -13,7 +13,7 @@ output = true
 cache = true
 idelta = 0.1
 log_level = "info"
-sampler = "osat"
+sampler = "sobol"
 [random]
 Ke = [0.001, 3.0]
 V = [25.0, 250.0]
