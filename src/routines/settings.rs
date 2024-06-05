@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use pharmsol::prelude::data::ErrorType;
 use config::Config as eConfig;
+use pharmsol::prelude::data::ErrorType;
 use serde::Deserialize;
 use serde_derive::Serialize;
 use serde_json;
@@ -280,4 +280,3 @@ fn default_output_folder() -> Option<String> {
 fn default_sampler() -> Option<String> {
     Some("sobol".to_string())
 }
-

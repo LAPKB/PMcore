@@ -20,7 +20,7 @@ use sobol_burley::sample;
 /// A 2D array where each row is a point in the Sobol sequence, and each column corresponds to a parameter.
 /// The value of each parameter is scaled to be within the corresponding range.
 ///
-pub fn generate(
+pub fn sobol(
     n_points: usize,
     range_params: &Vec<(f64, f64)>,
     seed: usize,
@@ -41,6 +41,41 @@ pub fn generate(
         column.par_mapv_inplace(|x| min + x * (max - min));
     }
     seq
+}
+
+#[cfg(test)]
+use crate::prelude::*;
+
+#[test]
+fn basic_sobol() {
+    assert_eq!(
+        initialization::sobol::sobol(5, &vec![(0., 1.), (0., 1.), (0., 1.)], 347),
+        ndarray::array![
+            [0.10731887817382813, 0.14647412300109863, 0.5851038694381714],
+            [0.9840304851531982, 0.7633365392684937, 0.19097506999969482],
+            [0.38477110862731934, 0.734661340713501, 0.2616291046142578],
+            [0.7023299932479858, 0.41038262844085693, 0.9158684015274048],
+            [0.6016758680343628, 0.6171295642852783, 0.6263971328735352]
+        ]
+    )
+}
+
+#[test]
+fn scaled_sobol() {
+    assert_eq!(
+        initialization::sobol::sobol(5, &vec![(0., 1.), (0., 2.), (-1., 1.)], 347),
+        ndarray::array![
+            [
+                0.10731887817382813,
+                0.29294824600219727,
+                0.17020773887634277
+            ],
+            [0.9840304851531982, 1.5266730785369873, -0.6180498600006104],
+            [0.38477110862731934, 1.469322681427002, -0.4767417907714844],
+            [0.7023299932479858, 0.8207652568817139, 0.8317368030548096],
+            [0.6016758680343628, 1.2342591285705566, 0.2527942657470703]
+        ]
+    )
 }
 
 //TODO: It should be possible to avoid one of the for-loops

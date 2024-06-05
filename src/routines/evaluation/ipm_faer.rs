@@ -1,4 +1,4 @@
-use faer::{mat, scale, linalg::solvers::SpSolver, unzipped, zipped, Mat};
+use faer::{linalg::solvers::SpSolver, mat, scale, unzipped, zipped, Mat};
 use faer_ext::*;
 use ndarray::{ArrayBase, Dim, OwnedRepr};
 use ndarray_stats::QuantileExt;

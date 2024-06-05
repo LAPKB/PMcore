@@ -82,9 +82,7 @@ pub fn sample_space(
         }
         None => match &settings.config.sampler {
             Some(sampler) => match sampler.as_str() {
-                "sobol" => {
-                    sobol::generate(settings.config.init_points, ranges, settings.config.seed)
-                }
+                "sobol" => sobol::sobol(settings.config.init_points, ranges, settings.config.seed),
                 "osat" => {
                     let mut point = vec![];
                     for range in ranges {
