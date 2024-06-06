@@ -4,8 +4,8 @@ use pharmsol::prelude::data::ErrorType;
 use serde::Deserialize;
 use serde_derive::Serialize;
 use serde_json;
-use std::{collections::HashMap, fs::File};
 use std::io::Read;
+use std::{collections::HashMap, fs::File};
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -275,4 +275,3 @@ fn default_output_folder() -> Option<String> {
 fn default_sampler() -> Option<String> {
     Some("sobol".to_string())
 }
-
