@@ -6,6 +6,7 @@ use serde_derive::Serialize;
 use serde_json;
 use std::io::Read;
 use std::{collections::HashMap, fs::File};
+use std::collections::BTreeMap;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -92,7 +93,7 @@ pub struct Config {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Random {
     #[serde(flatten)]
-    pub parameters: HashMap<String, (f64, f64)>,
+    pub parameters: BTreeMap<String, (f64, f64)>,
 }
 
 impl Random {
