@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
 use pharmsol::prelude::data::ErrorType;
-use config::Config as eConfig;
 use serde::Deserialize;
 use serde_derive::Serialize;
 use serde_json;
-use std::collections::HashMap;
+use std::{collections::HashMap, fs::File};
+use std::io::Read;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -103,14 +103,11 @@ impl Random {
 
     /// Returns a vector of tuples containing the names and ranges of the random parameters
     pub fn names_and_ranges(&self) -> Vec<(String, (f64, f64))> {
-        let mut pairs: Vec<(String, (f64, f64))> = self
+        let pairs: Vec<(String, (f64, f64))> = self
             .parameters
             .iter()
             .map(|(key, &(upper, lower))| (key.clone(), (upper, lower)))
             .collect();
-
-        // Sorting alphabetically by name
-        pairs.sort_by(|a, b| a.0.cmp(&b.0));
 
         pairs
     }
@@ -195,26 +192,24 @@ impl Error {
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
 /// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE__`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE__CONFIG__TUI=false` Note that a double underscore, `__`, is used as the separator, as some settings may contain a single underscore, such as `PMCORE__CONFIG__LOG_LEVEL`.
-pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
-    let settings_path = path;
+pub fn read_settings(path: String) -> Result<Settings, Box<dyn std::error::Error>> {
+    // Read the file contents
+    let mut file = File::open(&path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
 
-    let parsed = eConfig::builder()
-        .add_source(config::File::with_name(&settings_path).format(config::FileFormat::Toml))
-        .add_source(config::Environment::with_prefix("PMCORE").separator("__"))
-        .build()?;
-
-    // Deserialize settings to the Settings struct
-    let settings: Settings = parsed.try_deserialize()?;
+    // Parse the settings from the file contents
+    let settings: Settings = toml::from_str(&contents)?;
 
     // Validate entries
     settings
         .random
         .validate()
-        .map_err(config::ConfigError::Message)?;
+        .map_err(|e| format!("Validation error: {}", e))?;
     settings
         .error
         .validate()
-        .map_err(config::ConfigError::Message)?;
+        .map_err(|e| format!("Validation error: {}", e))?;
 
     // Write a copy of the settings to file if output is enabled
     if settings.config.output {
