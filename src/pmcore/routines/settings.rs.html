@@ -281,16 +281,15 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
-</span><span class="kw">use </span>pharmsol::prelude::data::ErrorType;
-<span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
+</span><span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
+<span class="kw">use </span>pharmsol::prelude::data::ErrorType;
 <span class="kw">use </span>serde::Deserialize;
 <span class="kw">use </span>serde_derive::Serialize;
 <span class="kw">use </span>serde_json;
 <span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>toml::Table;
 
 <span class="doccomment">/// Contains all settings for PMcore
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
@@ -377,47 +376,45 @@
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
 </span><span class="kw">pub struct </span>Random {
     <span class="attr">#[serde(flatten)]
-    </span><span class="kw">pub </span>parameters: HashMap&lt;String, (f64, f64)&gt;,
+    </span><span class="kw">pub </span>parameters: Table,
 }
 
 <span class="kw">impl </span>Random {
     <span class="doccomment">/// Get the upper and lower bounds of a random parameter from its key
-    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(f64, f64)&gt; {
-        <span class="self">self</span>.parameters.get(key)
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;(f64, f64)&gt; {
+        <span class="self">self</span>.parameters
+            .get(key)
+            .and_then(|v| v.as_array())
+            .map(|v| {
+                <span class="kw">let </span>lower = v[<span class="number">0</span>].as_float().unwrap();
+                <span class="kw">let </span>upper = v[<span class="number">1</span>].as_float().unwrap();
+                (lower, upper)
+            })
     }
 
-    <span class="doccomment">/// Returns a vector of tuples containing the names and ranges of the random parameters
-    </span><span class="kw">pub fn </span>names_and_ranges(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(String, (f64, f64))&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>pairs: Vec&lt;(String, (f64, f64))&gt; = <span class="self">self
-            </span>.parameters
-            .iter()
-            .map(|(key, <span class="kw-2">&amp;</span>(upper, lower))| (key.clone(), (upper, lower)))
-            .collect();
-
-        <span class="comment">// Sorting alphabetically by name
-        </span>pairs.sort_by(|a, b| a.<span class="number">0</span>.cmp(<span class="kw-2">&amp;</span>b.<span class="number">0</span>));
-
-        pairs
-    }
     <span class="doccomment">/// Returns a vector of the names of the random parameters
     </span><span class="kw">pub fn </span>names(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {
-        <span class="self">self</span>.names_and_ranges()
-            .into_iter()
-            .map(|(name, <span class="kw">_</span>)| name)
-            .collect()
+        <span class="self">self</span>.parameters.keys().cloned().collect()
     }
 
     <span class="doccomment">/// Returns a vector of the upper and lower bounds of the random parameters
     </span><span class="kw">pub fn </span>ranges(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(f64, f64)&gt; {
-        <span class="self">self</span>.names_and_ranges()
-            .into_iter()
-            .map(|(<span class="kw">_</span>, range)| range)
+        <span class="self">self</span>.parameters
+            .values()
+            .map(|v| {
+                <span class="kw">let </span>lower = v.as_array().unwrap()[<span class="number">0</span>].as_float().unwrap();
+                <span class="kw">let </span>upper = v.as_array().unwrap()[<span class="number">1</span>].as_float().unwrap();
+                (lower, upper)
+            })
             .collect()
     }
 
     <span class="doccomment">/// Validate the boundaries of the random parameters
     </span><span class="kw">pub fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-        <span class="kw">for </span>(key, <span class="kw-2">&amp;</span>(lower, upper)) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.parameters {
+        <span class="kw">for </span>(key, range) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.parameters {
+            <span class="kw">let </span>range = range.as_array().unwrap();
+            <span class="kw">let </span>lower = range[<span class="number">0</span>].as_float().unwrap();
+            <span class="kw">let </span>upper = range[<span class="number">1</span>].as_float().unwrap();
             <span class="kw">if </span>lower &gt;= upper {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
                     <span class="string">"In key '{}', lower bound ({}) is not less than upper bound ({})"</span>,
@@ -565,5 +562,4 @@
 <span class="kw">fn </span>default_sampler() -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
     <span class="prelude-val">Some</span>(<span class="string">"sobol"</span>.to_string())
 }
-
 </code></pre></div></section></main></body></html>
