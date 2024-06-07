@@ -289,7 +289,7 @@
 <span class="kw">use </span>serde_derive::Serialize;
 <span class="kw">use </span>serde_json;
 <span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>toml::{map::Map, Table, Value};
+<span class="kw">use </span>toml::Table;
 
 <span class="doccomment">/// Contains all settings for PMcore
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
@@ -376,7 +376,7 @@
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
 </span><span class="kw">pub struct </span>Random {
     <span class="attr">#[serde(flatten)]
-    </span><span class="kw">pub </span>parameters: Map&lt;String, Value&gt;,
+    </span><span class="kw">pub </span>parameters: Table,
 }
 
 <span class="kw">impl </span>Random {
