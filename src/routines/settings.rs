@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_derive::Serialize;
 use serde_json;
 use std::collections::HashMap;
-use toml::Table;
+use toml::{map::Map, Table, Value};
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -93,7 +93,7 @@ pub struct Config {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Random {
     #[serde(flatten)]
-    pub parameters: Table,
+    pub parameters: Map<String, Value>,
 }
 
 impl Random {
