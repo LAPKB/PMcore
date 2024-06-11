@@ -6,7 +6,7 @@ fn main() {
     for i in 0..10 {
         let s = read_settings(path.clone()).unwrap();
         let keys: Vec<&String> = s.random.parameters.keys().collect();
-        let values = s.random.parameters.values();
+        // let values = s.random.parameters.values();
         println!("{}: {:?}", i, keys);
     }
 }
