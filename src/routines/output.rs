@@ -411,33 +411,44 @@ pub fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f
 
         // Calculate the median
         let ct = theta.column(i);
-        let mut tup: Vec<(f64, f64)> = Vec::new();
-        for (ti, wi) in ct.iter().zip(w) {
-            tup.push((*ti, *wi));
-        }
+        match ct.len() {
+            0 => {
+                panic!("No support points found in the posterior distribution")
+            }
+            1 => {
+                *mdn = ct[0];
+                continue;
+            }
+            _ => {
+                let mut tup: Vec<(f64, f64)> = Vec::new();
+                for (ti, wi) in ct.iter().zip(w) {
+                    tup.push((*ti, *wi));
+                }
 
-        tup.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+                tup.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
 
-        let mut wacc: Vec<f64> = Vec::new();
-        let mut widx: usize = 0;
+                let mut wacc: Vec<f64> = Vec::new();
+                let mut widx: usize = 0;
 
-        for (i, (_, wi)) in tup.iter().enumerate() {
-            let acc = wi + wacc.last().unwrap_or(&0.0);
-            wacc.push(acc);
+                for (i, (_, wi)) in tup.iter().enumerate() {
+                    let acc = wi + wacc.last().unwrap_or(&0.0);
+                    wacc.push(acc);
 
-            if acc > 0.5 {
-                widx = i;
-                break;
+                    if acc > 0.5 {
+                        widx = i;
+                        break;
+                    }
+                }
+
+                let acc2 = wacc.pop().unwrap();
+                let acc1 = wacc.pop().unwrap();
+                let par2 = tup.get(widx).unwrap().0;
+                let par1 = tup.get(widx - 1).unwrap().0;
+                let slope = (par2 - par1) / (acc2 - acc1);
+
+                *mdn = par1 + slope * (0.5 - acc1);
             }
         }
-
-        let acc2 = wacc.pop().unwrap();
-        let acc1 = wacc.pop().unwrap();
-        let par2 = tup.get(widx).unwrap().0;
-        let par1 = tup.get(widx - 1).unwrap().0;
-        let slope = (par2 - par1) / (acc2 - acc1);
-
-        *mdn = par1 + slope * (0.5 - acc1);
     }
 
     (mean, median)
