@@ -15,8 +15,28 @@ pub fn sample_space(
     data: &Data,
     eqn: &Equation,
 ) -> Array2<f64> {
-    match &settings.paths.prior {
-        Some(prior_path) => {
+    match settings.paths.prior.as_str() {
+        "uniform" => match &settings.config.sampler {
+            Some(sampler) => match sampler.as_str() {
+                "sobol" => {
+                    sobol::generate(settings.config.init_points, ranges, settings.config.seed)
+                }
+                "osat" => {
+                    let mut point = vec![];
+                    for range in ranges {
+                        point.push((range.1 - range.0) / 2.0);
+                    }
+                    data.estimate_theta(eqn, &Array1::from_vec(point))
+                }
+                _ => {
+                    panic!("Unknown sampler: {}", sampler);
+                }
+            },
+            None => {
+                panic!("No sampler specified");
+            }
+        },
+        prior_path => {
             tracing::info!("Reading prior from {}", prior_path);
             let file = File::open(prior_path).unwrap();
             let mut reader = csv::ReaderBuilder::new()
@@ -80,25 +100,5 @@ pub fn sample_space(
             Array2::from_shape_vec((n_points, n_params), theta_values)
                 .expect("Failed to create theta Array2")
         }
-        None => match &settings.config.sampler {
-            Some(sampler) => match sampler.as_str() {
-                "sobol" => {
-                    sobol::generate(settings.config.init_points, ranges, settings.config.seed)
-                }
-                "osat" => {
-                    let mut point = vec![];
-                    for range in ranges {
-                        point.push((range.1 - range.0) / 2.0);
-                    }
-                    data.estimate_theta(eqn, &Array1::from_vec(point))
-                }
-                _ => {
-                    panic!("Unknown sampler: {}", sampler);
-                }
-            },
-            None => {
-                panic!("No sampler specified");
-            }
-        },
     }
 }

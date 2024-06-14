@@ -35,7 +35,8 @@ pub struct Paths {
     /// If provided, the log file will be written to this path.
     pub log: Option<String>,
     /// If provided, PMcore will use this prior instead of a "uniform" prior, see `sobol::generate` for details.
-    pub prior: Option<String>,
+    #[serde(default = "default_prior")]
+    pub prior: String,
     /// If provided, and [Config::output] is true, PMcore will write the output to this **relative** path. Defaults to `outputs/`
     #[serde(default = "default_output_folder")]
     pub output_folder: Option<String>,
@@ -270,6 +271,10 @@ fn default_10k() -> usize {
 
 fn default_cycles() -> usize {
     100
+}
+
+fn default_prior() -> String {
+    "uniform".to_string()
 }
 
 fn default_output_folder() -> Option<String> {
