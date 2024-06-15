@@ -570,26 +570,6 @@
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
 <a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
@@ -992,6 +972,57 @@
     }
 }
 
+<span class="kw">fn </span>weighted_median(data: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;, weights: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; f64 {
+    <span class="comment">// Ensure the parameters and weights vectors have the same length
+    </span><span class="macro">assert_eq!</span>(
+        data.len(),
+        weights.len(),
+        <span class="string">"The length of parameters and weights must be the same"
+    </span>);
+    <span class="comment">// Handle edge case where all parameters are the same
+    </span><span class="kw">if </span>data.iter().all(|<span class="kw-2">&amp;</span>x| x == data[<span class="number">0</span>]) {
+        <span class="kw">return </span>data[<span class="number">0</span>];
+    }
+
+    <span class="comment">// // Handle the edge case where there is only one parameter
+    // if data.len() == 1 {
+    //     return data[0];
+    // }
+    </span><span class="kw">let </span><span class="kw-2">mut </span>tup: Vec&lt;(f64, f64)&gt; = Vec::new();
+
+    <span class="kw">for </span>(ti, wi) <span class="kw">in </span>data.iter().zip(weights) {
+        tup.push((<span class="kw-2">*</span>ti, <span class="kw-2">*</span>wi));
+    }
+
+    tup.sort_by(|a, b| a.<span class="number">0</span>.partial_cmp(<span class="kw-2">&amp;</span>b.<span class="number">0</span>).unwrap());
+
+    <span class="kw">if </span>tup.first().unwrap().<span class="number">1 </span>&gt;= <span class="number">0.5 </span>{
+        tup.sort_by(|a, b| b.<span class="number">0</span>.partial_cmp(<span class="kw-2">&amp;</span>a.<span class="number">0</span>).unwrap());
+    }
+
+    <span class="kw">let </span><span class="kw-2">mut </span>wacc: Vec&lt;f64&gt; = Vec::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>widx: usize = <span class="number">0</span>;
+
+    <span class="kw">for </span>(i, (ti, wi)) <span class="kw">in </span>tup.iter().enumerate() {
+        <span class="kw">let </span>acc = wi + wacc.last().unwrap_or(<span class="kw-2">&amp;</span><span class="number">0.0</span>);
+        wacc.push(acc);
+
+        <span class="kw">if </span>acc &gt; <span class="number">0.5 </span>{
+            widx = i;
+            <span class="kw">break</span>;
+        } <span class="kw">else if </span>acc == <span class="number">0.5 </span>{
+            <span class="kw">return </span><span class="kw-2">*</span>ti;
+        }
+    }
+
+    <span class="kw">let </span>acc2 = wacc.pop().unwrap();
+    <span class="kw">let </span>acc1 = wacc.pop().unwrap();
+    <span class="kw">let </span>par2 = tup.get(widx).unwrap().<span class="number">0</span>;
+    <span class="kw">let </span>par1 = tup.get(widx - <span class="number">1</span>).unwrap().<span class="number">0</span>;
+    <span class="kw">let </span>slope = (par2 - par1) / (acc2 - acc1);
+    par1 + slope * (<span class="number">0.5 </span>- acc1)
+}
+
 <span class="kw">pub fn </span>population_mean_median(theta: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;, w: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; (Array1&lt;f64&gt;, Array1&lt;f64&gt;) {
     <span class="kw">let </span><span class="kw-2">mut </span>mean = Array1::zeros(theta.ncols());
     <span class="kw">let </span><span class="kw-2">mut </span>median = Array1::zeros(theta.ncols());
@@ -1003,44 +1034,14 @@
 
         <span class="comment">// Calculate the median
         </span><span class="kw">let </span>ct = theta.column(i);
-        <span class="kw">match </span>ct.len() {
-            <span class="number">0 </span>=&gt; {
-                <span class="macro">panic!</span>(<span class="string">"No support points found in the posterior distribution"</span>)
-            }
-            <span class="number">1 </span>=&gt; {
-                <span class="kw-2">*</span>mdn = ct[<span class="number">0</span>];
-                <span class="kw">continue</span>;
-            }
-            <span class="kw">_ </span>=&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>tup: Vec&lt;(f64, f64)&gt; = Vec::new();
-                <span class="kw">for </span>(ti, wi) <span class="kw">in </span>ct.iter().zip(w) {
-                    tup.push((<span class="kw-2">*</span>ti, <span class="kw-2">*</span>wi));
-                }
-
-                tup.sort_by(|(a, <span class="kw">_</span>), (b, <span class="kw">_</span>)| a.partial_cmp(b).unwrap());
-
-                <span class="kw">let </span><span class="kw-2">mut </span>wacc: Vec&lt;f64&gt; = Vec::new();
-                <span class="kw">let </span><span class="kw-2">mut </span>widx: usize = <span class="number">0</span>;
-
-                <span class="kw">for </span>(i, (<span class="kw">_</span>, wi)) <span class="kw">in </span>tup.iter().enumerate() {
-                    <span class="kw">let </span>acc = wi + wacc.last().unwrap_or(<span class="kw-2">&amp;</span><span class="number">0.0</span>);
-                    wacc.push(acc);
-
-                    <span class="kw">if </span>acc &gt; <span class="number">0.5 </span>{
-                        widx = i;
-                        <span class="kw">break</span>;
-                    }
-                }
-
-                <span class="kw">let </span>acc2 = wacc.pop().unwrap();
-                <span class="kw">let </span>acc1 = wacc.pop().unwrap();
-                <span class="kw">let </span>par2 = tup.get(widx).unwrap().<span class="number">0</span>;
-                <span class="kw">let </span>par1 = tup.get(widx - <span class="number">1</span>).unwrap().<span class="number">0</span>;
-                <span class="kw">let </span>slope = (par2 - par1) / (acc2 - acc1);
-
-                <span class="kw-2">*</span>mdn = par1 + slope * (<span class="number">0.5 </span>- acc1);
-            }
+        <span class="kw">let </span><span class="kw-2">mut </span>params = <span class="macro">vec!</span>[];
+        <span class="kw">let </span><span class="kw-2">mut </span>weights = <span class="macro">vec!</span>[];
+        <span class="kw">for </span>(ti, wi) <span class="kw">in </span>ct.iter().zip(w) {
+            params.push(<span class="kw-2">*</span>ti);
+            weights.push(<span class="kw-2">*</span>wi);
         }
+
+        <span class="kw-2">*</span>mdn = weighted_median(<span class="kw-2">&amp;</span>Array::from(params), <span class="kw-2">&amp;</span>Array::from(weights));
     }
 
     (mean, median)
@@ -1079,49 +1080,8 @@
             post_mean.push(the_mean);
 
             <span class="comment">// Calculate the median
-            </span><span class="kw">let </span><span class="kw-2">mut </span>tup: Vec&lt;(f64, f64)&gt; = Vec::new();
-
-            <span class="kw">match </span>pars.len() {
-                <span class="number">0 </span>=&gt; {
-                    <span class="macro">panic!</span>(<span class="string">"No support points found in the posterior distribution"</span>)
-                }
-                <span class="number">1 </span>=&gt; {
-                    post_median.push(pars[<span class="number">0</span>]);
-                    <span class="kw">continue</span>;
-                }
-                <span class="kw">_ </span>=&gt; {
-                    <span class="kw">for </span>(ti, wi) <span class="kw">in </span>pars.iter().zip(probs) {
-                        tup.push((<span class="kw-2">*</span>ti, <span class="kw-2">*</span>wi));
-                    }
-
-                    tup.sort_by(|(a, <span class="kw">_</span>), (b, <span class="kw">_</span>)| a.partial_cmp(b).unwrap());
-
-                    <span class="kw">if </span>tup.first().unwrap().<span class="number">1 </span>&gt;= <span class="number">0.5 </span>{
-                        tup.sort_by(|(a, <span class="kw">_</span>), (b, <span class="kw">_</span>)| b.partial_cmp(a).unwrap());
-                    }
-
-                    <span class="kw">let </span><span class="kw-2">mut </span>wacc: Vec&lt;f64&gt; = Vec::new();
-                    <span class="kw">let </span><span class="kw-2">mut </span>widx: usize = <span class="number">0</span>;
-
-                    <span class="kw">for </span>(i, (<span class="kw">_</span>, wi)) <span class="kw">in </span>tup.iter().enumerate() {
-                        <span class="kw">let </span>acc = wi + wacc.last().unwrap_or(<span class="kw-2">&amp;</span><span class="number">0.0</span>);
-                        wacc.push(acc);
-
-                        <span class="kw">if </span>acc &gt; <span class="number">0.5 </span>{
-                            widx = i;
-                            <span class="kw">break</span>;
-                        }
-                    }
-
-                    <span class="kw">let </span>acc2 = wacc.pop().unwrap();
-                    <span class="kw">let </span>acc1 = wacc.pop().unwrap();
-                    <span class="kw">let </span>par2 = tup.get(widx).unwrap().<span class="number">0</span>;
-                    <span class="kw">let </span>par1 = tup.get(widx - <span class="number">1</span>).unwrap().<span class="number">0</span>;
-                    <span class="kw">let </span>slope = (par2 - par1) / (acc2 - acc1);
-                    <span class="kw">let </span>the_median = par1 + slope * (<span class="number">0.5 </span>- acc1);
-                    post_median.push(the_median);
-                }
-            }
+            </span><span class="kw">let </span>median = weighted_median(<span class="kw-2">&amp;</span>pars.to_owned(), <span class="kw-2">&amp;</span>probs.to_owned());
+            post_median.push(median);
         }
 
         mean.push_row(Array::from(post_mean.clone()).view())
