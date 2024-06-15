@@ -8,7 +8,6 @@ fn main() -> Result<()> {
             Equation::new_ode(
                 |x, p, _t, dx, rateiv, _cov| {
                     // fetch_cov!(cov, t, wt);\
-                    println!("{:?}", p);
                     fetch_params!(p, _v, ke);
                     dx[0] = -ke * x[0] + rateiv[0];
                 },

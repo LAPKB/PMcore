@@ -120,6 +120,34 @@ impl NPAG {
         }
     }
 
+    fn validate_psi(&mut self) {
+        // check all the elements of psi that are NaN, Inf or -Inf and report the columns and rows
+        // let mut bad: Vec<(usize, usize)> = Vec::new();
+        // let mut invalid = false;
+        for i in 0..self.psi.nrows() {
+            for j in 0..self.psi.ncols() {
+                let val = self.psi.get_mut((i, j)).unwrap();
+                if val.is_nan() || val.is_infinite() {
+                    // invalid = true;
+                    tracing::warn!("Invalid psi value: psi[{}, {}] = {}", i, j, val);
+                    tracing::warn!("Set to 0.0");
+                    *val = 0.0;
+                    // let obspred = self
+                    //     .population_predictions
+                    //     .subject_predictions
+                    //     .get((i, j))
+                    //     .unwrap();
+                    // tracing::debug!("Observed values: {:?}", &obspred.flat_observations());
+                    // tracing::debug!("Predicted values: {:?}", &obspred.flat_predictions());
+                    // tracing::debug!("====================================================");
+                }
+            }
+        }
+        // if invalid {
+        //     panic!("Invalid psi matrix");
+        // }
+    }
+
     fn optim_gamma(&mut self) {
         //Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
@@ -191,6 +219,8 @@ impl NPAG {
                 self.gamma,
                 &self.error_type,
             ));
+
+            self.validate_psi();
 
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
