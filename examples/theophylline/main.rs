@@ -19,7 +19,7 @@ fn main() -> Result<()> {
     // );
     let eq = Equation::new_analytical(
         one_compartment_with_absorption,
-        |_p, _cov| {},
+        |_p, _t, _cov| {},
         |_p| lag! {},
         |_p| fa! {},
         |_p, _t, _cov, _x| {},
