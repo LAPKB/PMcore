@@ -400,6 +400,57 @@ pub fn median(data: Vec<f64>) -> f64 {
     }
 }
 
+fn weighted_median(data: &Array1<f64>, weights: &Array1<f64>) -> f64 {
+    // Ensure the parameters and weights vectors have the same length
+    assert_eq!(
+        data.len(),
+        weights.len(),
+        "The length of parameters and weights must be the same"
+    );
+    // Handle edge case where all parameters are the same
+    if data.iter().all(|&x| x == data[0]) {
+        return data[0];
+    }
+
+    // // Handle the edge case where there is only one parameter
+    // if data.len() == 1 {
+    //     return data[0];
+    // }
+    let mut tup: Vec<(f64, f64)> = Vec::new();
+
+    for (ti, wi) in data.iter().zip(weights) {
+        tup.push((*ti, *wi));
+    }
+
+    tup.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+    if tup.first().unwrap().1 >= 0.5 {
+        tup.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    }
+
+    let mut wacc: Vec<f64> = Vec::new();
+    let mut widx: usize = 0;
+
+    for (i, (ti, wi)) in tup.iter().enumerate() {
+        let acc = wi + wacc.last().unwrap_or(&0.0);
+        wacc.push(acc);
+
+        if acc > 0.5 {
+            widx = i;
+            break;
+        } else if acc == 0.5 {
+            return *ti;
+        }
+    }
+
+    let acc2 = wacc.pop().unwrap();
+    let acc1 = wacc.pop().unwrap();
+    let par2 = tup.get(widx).unwrap().0;
+    let par1 = tup.get(widx - 1).unwrap().0;
+    let slope = (par2 - par1) / (acc2 - acc1);
+    par1 + slope * (0.5 - acc1)
+}
+
 pub fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>, Array1<f64>) {
     let mut mean = Array1::zeros(theta.ncols());
     let mut median = Array1::zeros(theta.ncols());
@@ -411,33 +462,14 @@ pub fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f
 
         // Calculate the median
         let ct = theta.column(i);
-        let mut tup: Vec<(f64, f64)> = Vec::new();
+        let mut params = vec![];
+        let mut weights = vec![];
         for (ti, wi) in ct.iter().zip(w) {
-            tup.push((*ti, *wi));
+            params.push(*ti);
+            weights.push(*wi);
         }
 
-        tup.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
-
-        let mut wacc: Vec<f64> = Vec::new();
-        let mut widx: usize = 0;
-
-        for (i, (_, wi)) in tup.iter().enumerate() {
-            let acc = wi + wacc.last().unwrap_or(&0.0);
-            wacc.push(acc);
-
-            if acc > 0.5 {
-                widx = i;
-                break;
-            }
-        }
-
-        let acc2 = wacc.pop().unwrap();
-        let acc1 = wacc.pop().unwrap();
-        let par2 = tup.get(widx).unwrap().0;
-        let par1 = tup.get(widx - 1).unwrap().0;
-        let slope = (par2 - par1) / (acc2 - acc1);
-
-        *mdn = par1 + slope * (0.5 - acc1);
+        *mdn = weighted_median(&Array::from(params), &Array::from(weights));
     }
 
     (mean, median)
@@ -476,38 +508,8 @@ pub fn posterior_mean_median(
             post_mean.push(the_mean);
 
             // Calculate the median
-            let mut tup: Vec<(f64, f64)> = Vec::new();
-
-            for (ti, wi) in pars.iter().zip(probs) {
-                tup.push((*ti, *wi));
-            }
-
-            tup.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
-
-            if tup.first().unwrap().1 >= 0.5 {
-                tup.sort_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap());
-            }
-
-            let mut wacc: Vec<f64> = Vec::new();
-            let mut widx: usize = 0;
-
-            for (i, (_, wi)) in tup.iter().enumerate() {
-                let acc = wi + wacc.last().unwrap_or(&0.0);
-                wacc.push(acc);
-
-                if acc > 0.5 {
-                    widx = i;
-                    break;
-                }
-            }
-
-            let acc2 = wacc.pop().unwrap();
-            let acc1 = wacc.pop().unwrap();
-            let par2 = tup.get(widx).unwrap().0;
-            let par1 = tup.get(widx - 1).unwrap().0;
-            let slope = (par2 - par1) / (acc2 - acc1);
-            let the_median = par1 + slope * (0.5 - acc1);
-            post_median.push(the_median);
+            let median = weighted_median(&pars.to_owned(), &probs.to_owned());
+            post_median.push(median);
         }
 
         mean.push_row(Array::from(post_mean.clone()).view())

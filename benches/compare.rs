@@ -57,7 +57,7 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
 
     let analytical = Equation::new_analytical(
         one_compartment_with_absorption,
-        |_p, _cov| {},
+        |_p, _t, _cov| {},
         |p| {
             fetch_params!(p, _ke, _ka, _v, tlag);
             lag! {0=>tlag}

@@ -6,6 +6,7 @@ use serde::Deserialize;
 use serde_derive::Serialize;
 use serde_json;
 use std::collections::HashMap;
+use toml::Table;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -34,7 +35,8 @@ pub struct Paths {
     /// If provided, the log file will be written to this path.
     pub log: Option<String>,
     /// If provided, PMcore will use this prior instead of a "uniform" prior, see `sobol::generate` for details.
-    pub prior: Option<String>,
+    #[serde(default = "default_prior")]
+    pub prior: String,
     /// If provided, and [Config::output] is true, PMcore will write the output to this **relative** path. Defaults to `outputs/`
     #[serde(default = "default_output_folder")]
     pub output_folder: Option<String>,
@@ -92,47 +94,45 @@ pub struct Config {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Random {
     #[serde(flatten)]
-    pub parameters: HashMap<String, (f64, f64)>,
+    pub parameters: Table,
 }
 
 impl Random {
     /// Get the upper and lower bounds of a random parameter from its key
-    pub fn get(&self, key: &str) -> Option<&(f64, f64)> {
-        self.parameters.get(key)
+    pub fn get(&self, key: &str) -> Option<(f64, f64)> {
+        self.parameters
+            .get(key)
+            .and_then(|v| v.as_array())
+            .map(|v| {
+                let lower = v[0].as_float().unwrap();
+                let upper = v[1].as_float().unwrap();
+                (lower, upper)
+            })
     }
 
-    /// Returns a vector of tuples containing the names and ranges of the random parameters
-    pub fn names_and_ranges(&self) -> Vec<(String, (f64, f64))> {
-        let mut pairs: Vec<(String, (f64, f64))> = self
-            .parameters
-            .iter()
-            .map(|(key, &(upper, lower))| (key.clone(), (upper, lower)))
-            .collect();
-
-        // Sorting alphabetically by name
-        pairs.sort_by(|a, b| a.0.cmp(&b.0));
-
-        pairs
-    }
     /// Returns a vector of the names of the random parameters
     pub fn names(&self) -> Vec<String> {
-        self.names_and_ranges()
-            .into_iter()
-            .map(|(name, _)| name)
-            .collect()
+        self.parameters.keys().cloned().collect()
     }
 
     /// Returns a vector of the upper and lower bounds of the random parameters
     pub fn ranges(&self) -> Vec<(f64, f64)> {
-        self.names_and_ranges()
-            .into_iter()
-            .map(|(_, range)| range)
+        self.parameters
+            .values()
+            .map(|v| {
+                let lower = v.as_array().unwrap()[0].as_float().unwrap();
+                let upper = v.as_array().unwrap()[1].as_float().unwrap();
+                (lower, upper)
+            })
             .collect()
     }
 
     /// Validate the boundaries of the random parameters
     pub fn validate(&self) -> Result<(), String> {
-        for (key, &(lower, upper)) in &self.parameters {
+        for (key, range) in &self.parameters {
+            let range = range.as_array().unwrap();
+            let lower = range[0].as_float().unwrap();
+            let upper = range[1].as_float().unwrap();
             if lower >= upper {
                 return Err(format!(
                     "In key '{}', lower bound ({}) is not less than upper bound ({})",
@@ -271,6 +271,10 @@ fn default_10k() -> usize {
 
 fn default_cycles() -> usize {
     100
+}
+
+fn default_prior() -> String {
+    "uniform".to_string()
 }
 
 fn default_output_folder() -> Option<String> {
