@@ -102,6 +102,10 @@
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::File;
 
 <span class="kw">use </span><span class="kw">crate</span>::prelude::data::Data;
@@ -111,6 +115,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::prelude::settings::Settings;
 
+<span class="kw">pub mod </span>latin;
 <span class="kw">pub mod </span>sobol;
 
 <span class="kw">pub fn </span>sample_space(
@@ -124,6 +129,9 @@
             <span class="prelude-val">Some</span>(sampler) =&gt; <span class="kw">match </span>sampler.as_str() {
                 <span class="string">"sobol" </span>=&gt; {
                     sobol::generate(settings.config.init_points, ranges, settings.config.seed)
+                }
+                <span class="string">"latin" </span>=&gt; {
+                    latin::generate(settings.config.init_points, ranges, settings.config.seed)
                 }
                 <span class="string">"osat" </span>=&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>point = <span class="macro">vec!</span>[];
