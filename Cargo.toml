@@ -35,9 +35,9 @@ chrono = "0.4"
 config = {version = "0.14", features=["preserve_order"]}
 faer = "0.19.0"
 faer-ext = {version = "0.2.0", features = ["nalgebra", "ndarray"]}
-# pharmsol ={ path = "../pharmsol" }
 pharmsol = "0.2.1"
 toml = "0.8.14" #REMOVE
+rand = "0.8.5"
 
 
 [profile.release]
@@ -45,8 +45,6 @@ codegen-units = 1
 opt-level = 3
 
 [dev-dependencies]
-# divan = "0.1.14"
-
 diol = "0.8.2"
 
 [[bench]]

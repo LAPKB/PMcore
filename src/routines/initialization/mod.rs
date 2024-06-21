@@ -7,6 +7,7 @@ use pharmsol::prelude::EstimateTheta;
 
 use crate::prelude::settings::Settings;
 
+pub mod latin;
 pub mod sobol;
 
 pub fn sample_space(
@@ -20,6 +21,9 @@ pub fn sample_space(
             Some(sampler) => match sampler.as_str() {
                 "sobol" => {
                     sobol::generate(settings.config.init_points, ranges, settings.config.seed)
+                }
+                "latin" => {
+                    latin::generate(settings.config.init_points, ranges, settings.config.seed)
                 }
                 "osat" => {
                     let mut point = vec![];
