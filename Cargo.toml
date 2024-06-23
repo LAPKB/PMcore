@@ -39,6 +39,7 @@ faer-ext = {version = "0.2.0", features = ["nalgebra", "ndarray"]}
 pharmsol = {path = "../pharmsol"}
 toml = "0.8.14" #REMOVE
 rand = "0.8.5"
+tabled = "0.15.0"
 
 
 [profile.release]

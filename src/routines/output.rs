@@ -7,6 +7,7 @@ use pharmsol::prelude::simulator::Equation;
 use pharmsol::prelude::simulator::Prediction;
 use settings::Settings;
 use std::fs::File;
+use tabled::{Table, Tabled};
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
@@ -121,31 +122,59 @@ impl NPResult {
         let post_mean_mpe_mae = calculate_stats(post_mean_pred);
         let post_median_mpe_mae = calculate_stats(post_median_pred);
 
-        let aic = 2.0 * self.objf + 2.0 * self.theta.ncols() as f64;
+        let aic: f64 = 2.0 * self.objf + 2.0 * self.theta.ncols() as f64;
+        let bic: f64 = self.objf + self.theta.ncols() as f64 * (self.theta.nrows() as f64).ln();
 
         tracing::info!("Model summary:");
         tracing::info!("Final objective function value: {:.4}", self.objf);
-        tracing::info!("AIC: {}", aic);
+        tracing::info!("AIC: {:.4}", aic);
+        tracing::info!("BIC: {:.4}", bic);
         tracing::info!("Number of support points: {}", self.theta.nrows());
 
-        tracing::info!("Below are prediction error (MPE, bias) and mean absolute error (MAE, accuracy) for each output equation.");
-        tracing::info!("Population mean predictions:");
-        for (outeq, (mpe, mae)) in pop_mean_mpe_mae {
-            tracing::info!("OUTEQ: {}\t\tMPE: {:.2}\tMAE: {:.2}", outeq, mpe, mae);
-        }
-        tracing::info!("Population median predictions:");
-        for (outeq, (mpe, mae)) in pop_median_mpe_mae {
-            tracing::info!("OUTEQ: {}\t\tMPE: {:.2}\tMAE: {:.2}", outeq, mpe, mae);
-        }
-        tracing::info!("Posterior mean predictions:");
-        for (outeq, (mpe, mae)) in post_mean_mpe_mae {
-            tracing::info!("OUTEQ: {}\t\tMPE: {:.2}\tMAE: {:.2}", outeq, mpe, mae);
-        }
-        tracing::info!("Posterior median predictions:");
-        for (outeq, (mpe, mae)) in post_median_mpe_mae {
-            tracing::info!("OUTEQ: {}\t\tMPE: {:.2},\tMAE: {:.2}", outeq, mpe, mae);
+        tracing::info!("Below are mean prediction error (MPE, bias) and mean absolute error (MAE, accuracy) for each output equation.");
+
+        fn create_table(
+            mean_data: &HashMap<usize, (f64, f64)>,
+            median_data: &HashMap<usize, (f64, f64)>,
+            title: &str,
+        ) -> String {
+            let mut rows = Vec::new();
+
+            for (outeq, (mpe, mae)) in mean_data {
+                rows.push(PredictionRow {
+                    outeq: *outeq,
+                    icen: "mean",
+                    mae: format!("{:.2}", mae),
+                    mpe: format!("{:.2}", mpe),
+                });
+            }
+            for (outeq, (mpe, mae)) in median_data {
+                rows.push(PredictionRow {
+                    outeq: *outeq,
+                    icen: "median",
+                    mae: format!("{:.2}", mae),
+                    mpe: format!("{:.2}", mpe),
+                });
+            }
+
+            let table = Table::new(&rows).to_string();
+            format!("{}\n{}", title, table)
         }
 
+        // Create and log the tables
+        let pop_table = create_table(
+            &pop_mean_mpe_mae,
+            &pop_median_mpe_mae,
+            "Population Predictions",
+        );
+        tracing::info!("{}", pop_table);
+
+        let post_table = create_table(
+            &post_mean_mpe_mae,
+            &post_median_mpe_mae,
+            "Posterior Predictions",
+        );
+        tracing::info!("{}", post_table);
     }
 
     /// Write the output files
@@ -677,4 +706,12 @@ fn calculate_mpe(predictions: &Vec<Prediction>) -> f64 {
 fn calculate_mae(predictions: &Vec<Prediction>) -> f64 {
     let total_absolute_error: f64 = predictions.iter().map(|p| p.absolute_error()).sum();
     total_absolute_error / predictions.len() as f64
+}
+
+#[derive(Tabled)]
+struct PredictionRow {
+    outeq: usize,
+    icen: &'static str,
+    mae: String,
+    mpe: String,
 }

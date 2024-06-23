@@ -140,8 +140,8 @@ pub fn fit(equation: Equation, settings_path: String) -> Result<NPResult> {
         result.write_outputs(true, &equation, idelta, tad);
     }
 
-      // Log moodel summary statistics
-      result.summary(&equation);
+    // Log moodel summary statistics
+    result.summary(&equation);
 
     if let Some(tx) = tx {
         tx.send(Comm::StopUI).unwrap();
