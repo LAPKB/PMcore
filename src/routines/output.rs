@@ -2,8 +2,9 @@ use crate::prelude::*;
 use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
-use pharmsol::prelude::data::*;
+use pharmsol::prelude::data::{Data, Event};
 use pharmsol::prelude::simulator::Equation;
+use pharmsol::prelude::simulator::Prediction;
 use settings::Settings;
 use std::fs::File;
 
@@ -51,6 +52,103 @@ impl NPResult {
         }
     }
 
+    /// Function to log summary statistics for the model
+    pub fn summary(&self, equation: &Equation) {
+        let (post_mean, post_median) = posterior_mean_median(&self.theta, &self.psi, &self.w);
+        let (pop_mean, pop_median) = population_mean_median(&self.theta, &self.w);
+
+        let subjects = self.data.get_subjects();
+
+        let mut pop_mean_pred = Vec::new();
+        let mut pop_median_pred = Vec::new();
+        let mut post_mean_pred = Vec::new();
+        let mut post_median_pred = Vec::new();
+
+        for i in 0..subjects.len() {
+            let subject = subjects.get(i).unwrap();
+            // Population predictions
+            let pop_mean_pred_i = equation
+                .simulate_subject(subject, &pop_mean.to_vec())
+                .get_predictions()
+                .clone();
+            let pop_median_pred_i = equation
+                .simulate_subject(subject, &pop_median.to_vec())
+                .get_predictions()
+                .clone();
+
+            // Posterior predictions
+            let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
+            let post_mean_pred_i = equation
+                .simulate_subject(subject, &post_mean_spp)
+                .get_predictions()
+                .clone();
+            let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
+            let post_median_pred_i = equation
+                .simulate_subject(subject, &post_median_spp)
+                .get_predictions()
+                .clone();
+
+            pop_mean_pred.push(pop_mean_pred_i);
+            pop_median_pred.push(pop_median_pred_i);
+            post_mean_pred.push(post_mean_pred_i);
+            post_median_pred.push(post_median_pred_i);
+        }
+
+        let calculate_stats = |predictions: Vec<Vec<Prediction>>| -> HashMap<usize, (f64, f64)> {
+            let mut grouped_predictions: HashMap<usize, Vec<Prediction>> = HashMap::new();
+
+            for pred_vec in predictions {
+                for pred in pred_vec {
+                    grouped_predictions
+                        .entry(pred.outeq())
+                        .or_insert_with(Vec::new)
+                        .push(pred);
+                }
+            }
+
+            grouped_predictions
+                .into_iter()
+                .map(|(outeq, preds)| {
+                    let mpe = calculate_mpe(&preds);
+                    let mae = calculate_mae(&preds);
+                    (outeq, (mpe, mae))
+                })
+                .collect()
+        };
+
+        let pop_mean_mpe_mae = calculate_stats(pop_mean_pred);
+        let pop_median_mpe_mae = calculate_stats(pop_median_pred);
+        let post_mean_mpe_mae = calculate_stats(post_mean_pred);
+        let post_median_mpe_mae = calculate_stats(post_median_pred);
+
+        let aic = 2.0 * self.objf + 2.0 * self.theta.ncols() as f64;
+
+        tracing::info!("Model summary:");
+        tracing::info!("Final objective function value: {:.4}", self.objf);
+        tracing::info!("AIC: {}", aic);
+        tracing::info!("Number of support points: {}", self.theta.nrows());
+
+        tracing::info!("Below are prediction error (MPE, bias) and mean absolute error (MAE, accuracy) for each output equation.");
+        tracing::info!("Population mean predictions:");
+        for (outeq, (mpe, mae)) in pop_mean_mpe_mae {
+            tracing::info!("OUTEQ: {}\t\tMPE: {:.2}\tMAE: {:.2}", outeq, mpe, mae);
+        }
+        tracing::info!("Population median predictions:");
+        for (outeq, (mpe, mae)) in pop_median_mpe_mae {
+            tracing::info!("OUTEQ: {}\t\tMPE: {:.2}\tMAE: {:.2}", outeq, mpe, mae);
+        }
+        tracing::info!("Posterior mean predictions:");
+        for (outeq, (mpe, mae)) in post_mean_mpe_mae {
+            tracing::info!("OUTEQ: {}\t\tMPE: {:.2}\tMAE: {:.2}", outeq, mpe, mae);
+        }
+        tracing::info!("Posterior median predictions:");
+        for (outeq, (mpe, mae)) in post_median_mpe_mae {
+            tracing::info!("OUTEQ: {}\t\tMPE: {:.2},\tMAE: {:.2}", outeq, mpe, mae);
+        }
+
+    }
+
+    /// Write the output files
     pub fn write_outputs(&self, write: bool, equation: &Equation, idelta: f64, tad: f64) {
         if write {
             self.write_theta();
@@ -569,4 +667,14 @@ pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) {
             }
         }
     }
+}
+
+fn calculate_mpe(predictions: &Vec<Prediction>) -> f64 {
+    let total_percentage_error: f64 = predictions.iter().map(|p| p.prediction_error()).sum();
+    total_percentage_error / predictions.len() as f64
+}
+
+fn calculate_mae(predictions: &Vec<Prediction>) -> f64 {
+    let total_absolute_error: f64 = predictions.iter().map(|p| p.absolute_error()).sum();
+    total_absolute_error / predictions.len() as f64
 }
