@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Equation"],"fn":["get_population_predictions"],"struct":["PopulationPredictions","SubjectPredictions"]};
+window.SIDEBAR_ITEMS = {"enum":["Equation"],"fn":["get_population_predictions"],"struct":["PopulationPredictions","Prediction","SubjectPredictions"]};
