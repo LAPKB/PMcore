@@ -133,6 +133,7 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! PMcore is a framework for developing and running non-parametric algorithms for population pharmacokinetic modelling
 //!
 //! The framework is designed to be modular and flexible, allowing for easy integration of new algorithms and methods. It is heavily designed around the specifications for Pmetrics, a package for R, and is designed to be used in conjunction with it. However, as a general rust library, it can be used for a wide variety of applications, not limited to pharmacometrics.
@@ -243,6 +244,7 @@
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::expansion::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::initialization::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::optimization;
+    <span class="kw">pub use </span><span class="kw">crate</span>::routines::settings::read_settings;
     <span class="kw">pub use </span><span class="kw">crate</span>::routines::<span class="kw-2">*</span>;
     <span class="kw">pub use </span><span class="kw">crate</span>::tui::ui::<span class="kw-2">*</span>;
     <span class="comment">//Alma re-exports
