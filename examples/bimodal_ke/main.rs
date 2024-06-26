@@ -1,6 +1,6 @@
 use pmcore::prelude::{models::one_compartment, simulator::Equation, *};
 
-fn main() -> Result<()> {
+fn main() {
     let method = "ode".to_string();
 
     let eq = match method.as_str() {
@@ -36,6 +36,6 @@ fn main() -> Result<()> {
         _ => panic!("Method not found"),
     };
 
-    let _result = fit(eq, "examples/bimodal_ke/config.toml".to_string())?;
-    Ok(())
+    let settings = read_settings("examples/bimodal_ke/config.toml".to_string()).unwrap();
+    let _result = fit(eq, settings);
 }

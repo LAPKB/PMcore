@@ -1,6 +1,6 @@
 use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
 
-fn main() -> Result<()> {
+fn main() {
     // let eq = Equation::new_ode(
     //     |x, p, _t, dx, rateiv, _cov| {
     //         // fetch_cov!(cov, t, wt);
@@ -29,7 +29,6 @@ fn main() -> Result<()> {
         },
         (2, 1),
     );
-    let _result = fit(eq, "examples/theophylline/config.toml".to_string())?;
-
-    Ok(())
+    let settings = read_settings("examples/theophylline/config.toml".to_string()).unwrap();
+    let _result = fit(eq, settings);
 }

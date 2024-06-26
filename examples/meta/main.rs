@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 use pmcore::prelude::{models::one_compartment, simulator::Equation, *};
 
-fn main() -> Result<()> {
+fn main() {
     let eq = Equation::new_ode(
         |x, p, t, dx, rateiv, cov| {
             fetch_cov!(cov, t, wt, pkvisit);
@@ -30,7 +30,6 @@ fn main() -> Result<()> {
         },
         (2, 2),
     );
-    let _result = fit(eq, "examples/meta/config.toml".to_string())?;
-
-    Ok(())
+    let settings = read_settings("examples/meta/config.toml".to_string()).unwrap();
+    let _result = fit(eq, settings);
 }
