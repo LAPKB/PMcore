@@ -48,15 +48,23 @@ impl Paths {
     /// If a `#` symbol is found, it will automatically increment the number by one.
     pub fn parse_output_folder(&mut self) {
         let folder = self.output_folder.as_ref().unwrap().clone();
-        // Check for the presence of a `#` symbol
-        if folder.contains('#') {
-            let mut folder = folder.clone();
-            let mut num = 1;
-            while std::path::Path::new(&folder.replace("#", &num.to_string())).exists() {
-                num += 1;
+        // Check for the presence exactly one `#` symbol
+        let count = folder.matches('#').count();
+        match count {
+            0 => self.output_folder = Some(folder),
+            1 => {
+                let mut folder = folder.clone();
+                let mut num = 1;
+                while std::path::Path::new(&folder.replace("#", &num.to_string())).exists() {
+                    num += 1;
+                }
+                folder = folder.replace("#", &num.to_string());
+                self.output_folder = Some(folder);
             }
-            folder = folder.replace("#", &num.to_string());
-            self.output_folder = Some(folder);
+            _ => {
+                eprintln!("Only one `#` symbol is allowed in the setting folder path. Rename the `output_folder setting` in the configuration file and re-run the program.");
+                std::process::exit(-1);
+            }
         }
     }
 }
