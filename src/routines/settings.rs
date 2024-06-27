@@ -42,6 +42,25 @@ pub struct Paths {
     pub output_folder: Option<String>,
 }
 
+impl Paths {
+    /// Parses the output folder location
+    ////
+    /// If a `#` symbol is found, it will automatically increment the number by one.
+    pub fn parse_output_folder(&mut self) {
+        let folder = self.output_folder.as_ref().unwrap().clone();
+        // Check for the presence of a `#` symbol
+        if folder.contains('#') {
+            let mut folder = folder.clone();
+            let mut num = 1;
+            while std::path::Path::new(&folder.replace("#", &num.to_string())).exists() {
+                num += 1;
+            }
+            folder = folder.replace("#", &num.to_string());
+            self.output_folder = Some(folder);
+        }
+    }
+}
+
 /// General configuration settings
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -204,7 +223,7 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
         .build()?;
 
     // Deserialize settings to the Settings struct
-    let settings: Settings = parsed.try_deserialize()?;
+    let mut settings: Settings = parsed.try_deserialize()?;
 
     // Validate entries
     settings
@@ -215,6 +234,9 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
         .error
         .validate()
         .map_err(config::ConfigError::Message)?;
+
+    // Parse the output folder
+    settings.paths.parse_output_folder();
 
     // Write a copy of the settings to file if output is enabled
     if settings.config.output {
