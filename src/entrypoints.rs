@@ -109,7 +109,11 @@ pub fn fit(equation: Equation, settings: Settings) -> Result<NPResult> {
         subjects.iter().map(|s| s.occasions().len()).sum::<usize>()
     );
 
-    tracing::info!("Starting {}", settings.config.engine);
+    // Tell the user where the output files will be written
+    tracing::info!(
+        "Output files will be written to {}",
+        settings.paths.output_folder.as_ref().unwrap().clone()
+    );
 
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
@@ -122,8 +126,16 @@ pub fn fit(equation: Equation, settings: Settings) -> Result<NPResult> {
         spawn(move || {})
     };
 
-    // Initialize algorithm and run
+    // Initialize algorithm
     let mut algorithm = initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone());
+
+    // Tell the user which algorithm is being used
+    tracing::info!(
+        "The program will run with the {} algorithm",
+        settings.config.engine
+    );
+
+    // Run the algorithm
     let result = algorithm.fit();
 
     // Write output files (if configured)
