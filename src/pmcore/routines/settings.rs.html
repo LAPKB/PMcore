@@ -284,6 +284,36 @@
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
 <a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
@@ -326,6 +356,33 @@
     <span class="doccomment">/// If provided, and [Config::output] is true, PMcore will write the output to this **relative** path. Defaults to `outputs/`
     </span><span class="attr">#[serde(default = <span class="string">"default_output_folder"</span>)]
     </span><span class="kw">pub </span>output_folder: <span class="prelude-ty">Option</span>&lt;String&gt;,
+}
+
+<span class="kw">impl </span>Paths {
+    <span class="doccomment">/// Parses the output folder location
+    </span><span class="comment">////
+    </span><span class="doccomment">/// If a `#` symbol is found, it will automatically increment the number by one.
+    </span><span class="kw">pub fn </span>parse_output_folder(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">let </span>folder = <span class="self">self</span>.output_folder.as_ref().unwrap().clone();
+        <span class="comment">// Check for the presence exactly one `#` symbol
+        </span><span class="kw">let </span>count = folder.matches(<span class="string">'#'</span>).count();
+        <span class="kw">match </span>count {
+            <span class="number">0 </span>=&gt; <span class="self">self</span>.output_folder = <span class="prelude-val">Some</span>(folder),
+            <span class="number">1 </span>=&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>folder = folder.clone();
+                <span class="kw">let </span><span class="kw-2">mut </span>num = <span class="number">1</span>;
+                <span class="kw">while </span>std::path::Path::new(<span class="kw-2">&amp;</span>folder.replace(<span class="string">"#"</span>, <span class="kw-2">&amp;</span>num.to_string())).exists() {
+                    num += <span class="number">1</span>;
+                }
+                folder = folder.replace(<span class="string">"#"</span>, <span class="kw-2">&amp;</span>num.to_string());
+                <span class="self">self</span>.output_folder = <span class="prelude-val">Some</span>(folder);
+            }
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">"Only one `#` symbol is allowed in the setting folder path. Rename the `output_folder setting` in the configuration file and re-run the program."</span>);
+                std::process::exit(-<span class="number">1</span>);
+            }
+        }
+    }
 }
 
 <span class="doccomment">/// General configuration settings
@@ -490,7 +547,7 @@
         .build()<span class="question-mark">?</span>;
 
     <span class="comment">// Deserialize settings to the Settings struct
-    </span><span class="kw">let </span>settings: Settings = parsed.try_deserialize()<span class="question-mark">?</span>;
+    </span><span class="kw">let </span><span class="kw-2">mut </span>settings: Settings = parsed.try_deserialize()<span class="question-mark">?</span>;
 
     <span class="comment">// Validate entries
     </span>settings
@@ -501,6 +558,9 @@
         .error
         .validate()
         .map_err(config::ConfigError::Message)<span class="question-mark">?</span>;
+
+    <span class="comment">// Parse the output folder
+    </span>settings.paths.parse_output_folder();
 
     <span class="comment">// Write a copy of the settings to file if output is enabled
     </span><span class="kw">if </span>settings.config.output {
