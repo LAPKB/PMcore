@@ -111,10 +111,17 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     );
 
     // Tell the user where the output files will be written
-    tracing::info!(
-        "Output files will be written to {}",
-        settings.paths.output_folder.as_ref().unwrap().clone()
-    );
+    match settings.config.output {
+        true => {
+            tracing::info!(
+                "Output files will be written to {}",
+                settings.paths.output_folder.as_ref().unwrap()
+            )
+        }
+        false => {
+            tracing::info!("Output files will not be written - set `output = true` in the configuration file to enable output files")
+        }
+    }
 
     // Spawn new thread for TUI
     let settings_tui = settings.clone();
