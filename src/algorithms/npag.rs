@@ -51,7 +51,7 @@ pub struct NPAG {
 }
 
 impl Algorithm for NPAG {
-    fn fit(&mut self) -> NPResult {
+    fn fit(&mut self) -> anyhow::Result<NPResult> {
         self.run()
     }
     fn to_npresult(&self) -> NPResult {
@@ -203,7 +203,7 @@ impl NPAG {
         adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
     }
 
-    pub fn run(&mut self) -> NPResult {
+    pub fn run(&mut self) -> anyhow::Result<NPResult> {
         loop {
             // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
@@ -365,7 +365,7 @@ impl NPAG {
             self.last_objf = self.objf;
         }
 
-        self.to_npresult()
+        Ok(self.to_npresult())
     }
 }
 fn norm_zero(a: &Array1<f64>) -> f64 {

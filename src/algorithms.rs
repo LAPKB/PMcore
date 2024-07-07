@@ -1,5 +1,6 @@
 use crate::prelude::{self, settings::Settings};
 
+use anyhow::Result;
 use output::NPResult;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use prelude::*;
@@ -11,7 +12,7 @@ mod npod;
 mod postprob;
 
 pub trait Algorithm {
-    fn fit(&mut self) -> NPResult;
+    fn fit(&mut self) -> Result<NPResult>;
     fn to_npresult(&self) -> NPResult;
 }
 

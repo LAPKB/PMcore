@@ -2,7 +2,7 @@ use crate::algorithms::initialize_algorithm;
 use crate::prelude::{output::NPResult, *};
 use crate::routines::settings::*;
 
-use eyre::Result;
+use anyhow::Result;
 use pharmsol::prelude::data::Data;
 
 use pharmsol::prelude::{data::read_pmetrics, simulator::Equation};
@@ -10,6 +10,7 @@ use std::path::Path;
 use std::thread::spawn;
 use std::time::Instant;
 use tokio::sync::mpsc::{self};
+
 // use self::simulator::likelihood::Prediction;
 
 /// Simulate predictions from a model and prior distribution
@@ -81,7 +82,7 @@ pub fn simulate(_equation: Equation, _settings_path: String) -> Result<()> {
 ///
 /// This function is the primary entrypoint for PMcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
-pub fn fit(equation: Equation, settings: Settings) -> Result<NPResult> {
+pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     let now = Instant::now();
 
     // Configure MPSC channels for TUI
@@ -136,7 +137,13 @@ pub fn fit(equation: Equation, settings: Settings) -> Result<NPResult> {
     );
 
     // Run the algorithm
-    let result = algorithm.fit();
+    let result = match algorithm.fit() {
+        Ok(result) => result,
+        Err(err) => {
+            tracing::error!("An error has occurred during model fitting: {}", err);
+            return Err(err);
+        }
+    };
 
     // Write output files (if configured)
     if settings.config.output {
@@ -148,7 +155,7 @@ pub fn fit(equation: Equation, settings: Settings) -> Result<NPResult> {
     if let Some(tx) = tx {
         tx.send(Comm::StopUI).unwrap();
     }
-    handle.join().unwrap();
+    handle.join().expect("Failed to close the TUI thread");
     tracing::info!("Program complete after {:.2?}", now.elapsed());
 
     Ok(result)
@@ -169,5 +176,5 @@ pub fn start_internal(equation: Equation, settings: Settings, data: Data) -> Res
 
     let result = algorithm.fit();
     tracing::info!("Total time: {:.2?}", now.elapsed());
-    Ok(result)
+    result
 }
