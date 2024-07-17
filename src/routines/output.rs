@@ -20,6 +20,7 @@ pub struct NPResult {
     pub converged: bool,
     pub par_names: Vec<String>,
     pub settings: Settings,
+    pub cyclelog: CycleLog,
 }
 
 impl NPResult {
@@ -33,6 +34,7 @@ impl NPResult {
         cycles: usize,
         converged: bool,
         settings: Settings,
+        cyclelog: CycleLog,
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
 
@@ -48,11 +50,13 @@ impl NPResult {
             converged,
             par_names,
             settings,
+            cyclelog,
         }
     }
 
     pub fn write_outputs(&self, write: bool, equation: &Equation, idelta: f64, tad: f64) {
         if write {
+            self.cyclelog.write(&self.settings);
             self.write_theta();
             self.write_posterior();
             self.write_obs();
@@ -224,36 +228,8 @@ impl NPResult {
         }
     }
 }
-#[derive(Debug)]
-pub struct CycleLog {
-    pub cycles: Vec<NPCycle>,
-    cycle_writer: CycleWriter,
-}
-impl CycleLog {
-    pub fn new(settings: &Settings) -> Self {
-        let cycle_writer = CycleWriter::new(settings);
-        Self {
-            cycles: Vec::new(),
-            cycle_writer,
-        }
-    }
-    pub fn push_and_write(&mut self, npcycle: NPCycle, write_ouput: bool) {
-        if write_ouput {
-            self.cycle_writer.write(
-                npcycle.cycle,
-                npcycle.converged,
-                npcycle.objf,
-                npcycle.gamlam,
-                &npcycle.theta,
-            );
-            self.cycle_writer.flush();
-        }
-        self.cycles.push(npcycle);
-    }
-}
 
-/// Defines the result objects from a run
-/// An [NPCycle] contains summary of a cycle
+/// An [NPCycle] object contains the summary of a cycle
 /// It holds the following information:
 /// - `cycle`: The cycle number
 /// - `objf`: The objective function value
@@ -272,101 +248,102 @@ pub struct NPCycle {
     pub delta_objf: f64,
     pub converged: bool,
 }
+
 impl NPCycle {
-    pub fn new() -> Self {
+    pub fn new(
+        cycle: usize,
+        objf: f64,
+        gamlam: f64,
+        theta: Array2<f64>,
+        nspp: usize,
+        delta_objf: f64,
+        converged: bool,
+    ) -> Self {
+        Self {
+            cycle,
+            objf,
+            gamlam,
+            theta,
+            nspp,
+            delta_objf,
+            converged,
+        }
+    }
+
+    pub fn placeholder() -> Self {
         Self {
             cycle: 0,
             objf: 0.0,
             gamlam: 0.0,
-            theta: Array2::default((0, 0)),
+            theta: Array2::zeros((0, 0)),
             nspp: 0,
             delta_objf: 0.0,
             converged: false,
         }
     }
 }
-impl Default for NPCycle {
-    fn default() -> Self {
-        Self::new()
-    }
+
+/// This holdes a vector of [NPCycle] objects to provide a more detailed log
+#[derive(Debug, Clone)]
+pub struct CycleLog {
+    pub cycles: Vec<NPCycle>,
 }
 
-// Cycles
-#[derive(Debug)]
-pub struct CycleWriter {
-    writer: Option<csv::Writer<File>>,
-}
-
-impl CycleWriter {
-    pub fn new(settings: &Settings) -> CycleWriter {
-        let writer = if settings.config.output {
-            let file = create_output_file(settings, "cycles.csv").unwrap();
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-
-            // Write headers
-            writer.write_field("cycle").unwrap();
-            writer.write_field("converged").unwrap();
-            writer.write_field("neg2ll").unwrap();
-            writer.write_field("gamlam").unwrap();
-            writer.write_field("nspp").unwrap();
-
-            let parameter_names = settings.random.names();
-            for param_name in &parameter_names {
-                writer.write_field(format!("{}.mean", param_name)).unwrap();
-                writer
-                    .write_field(format!("{}.median", param_name))
-                    .unwrap();
-                writer.write_field(format!("{}.sd", param_name)).unwrap();
-            }
-
-            writer.write_record(None::<&[u8]>).unwrap();
-            Some(writer)
-        } else {
-            None
-        };
-
-        CycleWriter { writer }
+impl CycleLog {
+    pub fn new() -> Self {
+        Self { cycles: Vec::new() }
     }
 
-    pub fn write(
-        &mut self,
-        cycle: usize,
-        converged: bool,
-        objf: f64,
-        gamma: f64,
-        theta: &Array2<f64>,
-    ) {
-        if let Some(writer) = &mut self.writer {
-            writer.write_field(format!("{}", cycle)).unwrap();
-            writer.write_field(format!("{}", converged)).unwrap();
-            writer.write_field(format!("{}", objf)).unwrap();
-            writer.write_field(format!("{}", gamma)).unwrap();
-            writer.write_field(format!("{}", theta.nrows())).unwrap();
+    pub fn push(&mut self, cycle: NPCycle) {
+        self.cycles.push(cycle);
+    }
 
-            for param in theta.axis_iter(Axis(1)) {
+    pub fn write(&self, settings: &Settings) {
+        tracing::info!("Writing cycles...");
+        let file = create_output_file(settings, "cycles.csv").unwrap();
+        let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+
+        // Write headers
+        writer.write_field("cycle").unwrap();
+        writer.write_field("converged").unwrap();
+        writer.write_field("neg2ll").unwrap();
+        writer.write_field("gamlam").unwrap();
+        writer.write_field("nspp").unwrap();
+
+        let parameter_names = settings.random.names();
+        for param_name in &parameter_names {
+            writer.write_field(format!("{}.mean", param_name)).unwrap();
+            writer
+                .write_field(format!("{}.median", param_name))
+                .unwrap();
+            writer.write_field(format!("{}.sd", param_name)).unwrap();
+        }
+
+        writer.write_record(None::<&[u8]>).unwrap();
+
+        for cycle in &self.cycles {
+            writer.write_field(format!("{}", cycle.cycle)).unwrap();
+            writer.write_field(format!("{}", cycle.converged)).unwrap();
+            writer.write_field(format!("{}", cycle.objf)).unwrap();
+            writer.write_field(format!("{}", cycle.gamlam)).unwrap();
+            writer
+                .write_field(format!("{}", cycle.theta.nrows()))
+                .unwrap();
+
+            for param in cycle.theta.axis_iter(Axis(1)) {
                 writer
                     .write_field(format!("{}", param.mean().unwrap()))
                     .unwrap();
-            }
-
-            for param in theta.axis_iter(Axis(1)) {
                 writer
                     .write_field(format!("{}", median(param.to_owned().to_vec())))
                     .unwrap();
-            }
-
-            for param in theta.axis_iter(Axis(1)) {
                 writer.write_field(format!("{}", param.std(1.))).unwrap();
             }
 
             writer.write_record(None::<&[u8]>).unwrap();
         }
-    }
 
-    pub fn flush(&mut self) {
-        if let Some(writer) = &mut self.writer {
-            writer.flush().unwrap(); // Handle errors appropriately
-        }
+        writer.flush().unwrap(); // TODO: Handle errors
     }
 }
 

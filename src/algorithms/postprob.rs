@@ -11,6 +11,8 @@ use crate::{
 use ndarray::{Array1, Array2};
 use tokio::sync::mpsc::UnboundedSender;
 
+use super::output::CycleLog;
+
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
 pub struct POSTPROB {
@@ -28,6 +30,7 @@ pub struct POSTPROB {
     #[allow(dead_code)]
     tx: Option<UnboundedSender<Comm>>,
     settings: Settings,
+    cyclelog: CycleLog,
 }
 
 impl Algorithm for POSTPROB {
@@ -44,6 +47,7 @@ impl Algorithm for POSTPROB {
             self.cycle,
             self.converged,
             self.settings.clone(),
+            self.cyclelog.clone(),
         )
     }
 }
@@ -75,6 +79,7 @@ impl POSTPROB {
             settings,
             data,
             c,
+            cyclelog: CycleLog::new(),
         }
     }
 
