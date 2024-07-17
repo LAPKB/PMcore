@@ -366,6 +366,9 @@ pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
 }
 
 pub fn median(data: Vec<f64>) -> f64 {
+    let mut data = data.clone();
+    data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
     let size = data.len();
     match size {
         even if even % 2 == 0 => {
@@ -378,54 +381,47 @@ pub fn median(data: Vec<f64>) -> f64 {
 }
 
 fn weighted_median(data: &Array1<f64>, weights: &Array1<f64>) -> f64 {
-    // Ensure the parameters and weights vectors have the same length
+    // Ensure the data and weights arrays have the same length
     assert_eq!(
         data.len(),
         weights.len(),
-        "The length of parameters and weights must be the same"
+        "The length of data and weights must be the same"
     );
-    // Handle edge case where all parameters are the same
-    if data.iter().all(|&x| x == data[0]) {
-        return data[0];
-    }
+    assert!(
+        weights.iter().all(|&x| x >= 0.0),
+        "Weights must be non-negative"
+    );
 
-    // // Handle the edge case where there is only one parameter
-    // if data.len() == 1 {
-    //     return data[0];
-    // }
-    let mut tup: Vec<(f64, f64)> = Vec::new();
+    // Create a vector of tuples (data, weight)
+    let mut weighted_data: Vec<(f64, f64)> = data
+        .iter()
+        .zip(weights.iter())
+        .map(|(&d, &w)| (d, w))
+        .collect();
 
-    for (ti, wi) in data.iter().zip(weights) {
-        tup.push((*ti, *wi));
-    }
+    // Sort the vector by the data values
+    weighted_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-    tup.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    // Calculate the cumulative sum of weights
+    let total_weight: f64 = weights.sum();
+    let mut cumulative_sum = 0.0;
 
-    if tup.first().unwrap().1 >= 0.5 {
-        tup.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
-    }
+    for (i, &(_, weight)) in weighted_data.iter().enumerate() {
+        cumulative_sum += weight;
 
-    let mut wacc: Vec<f64> = Vec::new();
-    let mut widx: usize = 0;
-
-    for (i, (ti, wi)) in tup.iter().enumerate() {
-        let acc = wi + wacc.last().unwrap_or(&0.0);
-        wacc.push(acc);
-
-        if acc > 0.5 {
-            widx = i;
-            break;
-        } else if acc == 0.5 {
-            return *ti;
+        if cumulative_sum == total_weight / 2.0 {
+            // If the cumulative sum equals half the total weight, average this value with the next
+            if i + 1 < weighted_data.len() {
+                return (weighted_data[i].0 + weighted_data[i + 1].0) / 2.0;
+            } else {
+                return weighted_data[i].0;
+            }
+        } else if cumulative_sum > total_weight / 2.0 {
+            return weighted_data[i].0;
         }
     }
 
-    let acc2 = wacc.pop().unwrap();
-    let acc1 = wacc.pop().unwrap();
-    let par2 = tup.get(widx).unwrap().0;
-    let par1 = tup.get(widx - 1).unwrap().0;
-    let slope = (par2 - par1) / (acc2 - acc1);
-    par1 + slope * (0.5 - acc1)
+    unreachable!("The function should have returned a value before reaching this point.");
 }
 
 pub fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>, Array1<f64>) {
@@ -545,5 +541,107 @@ pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::median;
+
+    #[test]
+    fn test_median_odd() {
+        let data = vec![1.0, 3.0, 2.0];
+        assert_eq!(median(data), 2.0);
+    }
+
+    #[test]
+    fn test_median_even() {
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        assert_eq!(median(data), 2.5);
+    }
+
+    #[test]
+    fn test_median_single() {
+        let data = vec![42.0];
+        assert_eq!(median(data), 42.0);
+    }
+
+    #[test]
+    fn test_median_sorted() {
+        let data = vec![5.0, 10.0, 15.0, 20.0, 25.0];
+        assert_eq!(median(data), 15.0);
+    }
+
+    #[test]
+    fn test_median_unsorted() {
+        let data = vec![10.0, 30.0, 20.0, 50.0, 40.0];
+        assert_eq!(median(data), 30.0);
+    }
+
+    #[test]
+    fn test_median_with_duplicates() {
+        let data = vec![1.0, 2.0, 2.0, 3.0, 4.0];
+        assert_eq!(median(data), 2.0);
+    }
+
+    use super::weighted_median;
+    use ndarray::Array1;
+
+    #[test]
+    fn test_weighted_median_simple() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0]);
+        let weights = Array1::from(vec![0.2, 0.5, 0.3]);
+        assert_eq!(weighted_median(&data, &weights), 2.0);
+    }
+
+    #[test]
+    fn test_weighted_median_even_weights() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0, 4.0]);
+        let weights = Array1::from(vec![0.25, 0.25, 0.25, 0.25]);
+        assert_eq!(weighted_median(&data, &weights), 2.5);
+    }
+
+    #[test]
+    fn test_weighted_median_single_element() {
+        let data = Array1::from(vec![42.0]);
+        let weights = Array1::from(vec![1.0]);
+        assert_eq!(weighted_median(&data, &weights), 42.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "The length of data and weights must be the same")]
+    fn test_weighted_median_mismatched_lengths() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0]);
+        let weights = Array1::from(vec![0.1, 0.2]);
+        weighted_median(&data, &weights);
+    }
+
+    #[test]
+    fn test_weighted_median_all_same_elements() {
+        let data = Array1::from(vec![5.0, 5.0, 5.0, 5.0]);
+        let weights = Array1::from(vec![0.1, 0.2, 0.3, 0.4]);
+        assert_eq!(weighted_median(&data, &weights), 5.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Weights must be non-negative")]
+    fn test_weighted_median_negative_weights() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0, 4.0]);
+        let weights = Array1::from(vec![0.2, -0.5, 0.5, 0.8]);
+        assert_eq!(weighted_median(&data, &weights), 4.0);
+    }
+
+    #[test]
+    fn test_weighted_median_unsorted_data() {
+        let data = Array1::from(vec![3.0, 1.0, 4.0, 2.0]);
+        let weights = Array1::from(vec![0.1, 0.3, 0.4, 0.2]);
+        assert_eq!(weighted_median(&data, &weights), 2.5);
+    }
+
+    #[test]
+    fn test_weighted_median_with_zero_weights() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0, 4.0]);
+        let weights = Array1::from(vec![0.0, 0.0, 1.0, 0.0]);
+        assert_eq!(weighted_median(&data, &weights), 3.0);
     }
 }
