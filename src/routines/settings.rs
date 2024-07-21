@@ -162,7 +162,7 @@ impl Random {
             let upper = range[1].as_float().unwrap();
             if lower >= upper {
                 return Err(format!(
-                    "In key '{}', lower bound ({}) is not less than upper bound ({})",
+                    "For parameter '{}', lower bound ({}) is not less than upper bound ({})",
                     key, lower, upper
                 ));
             }

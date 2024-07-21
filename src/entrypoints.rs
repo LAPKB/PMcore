@@ -2,7 +2,9 @@ use crate::algorithms::initialize_algorithm;
 use crate::prelude::{output::NPResult, *};
 use crate::routines::settings::*;
 
+use csv::WriterBuilder;
 use eyre::Result;
+use output::create_output_file;
 use pharmsol::prelude::data::Data;
 
 use pharmsol::prelude::{data::read_pmetrics, simulator::Equation};
@@ -10,71 +12,64 @@ use std::path::Path;
 use std::thread::spawn;
 use std::time::Instant;
 use tokio::sync::mpsc::{self};
-// use self::simulator::likelihood::Prediction;
 
 /// Simulate predictions from a model and prior distribution
-///
-/// This function is used to simulate predictions from a model and prior distribution.
-/// The output is a CSV file with the following columns:
-/// - `id`: subject ID, corresponding to the desired dose regimen
-/// - `point`: support point index (0-indexed)
-/// - `time`: prediction time
-/// - `pred`: simulated prediction
-///
-/// # Arguments
-/// The user can specify the desired settings in a TOML configuration file, see `routines::settings::simulator` for details.
-/// - `idelta`: the interval between predictions. Default is 0.0.
-/// - `tad`: the time after dose, which if greater than the last prediction time is the time for which it will predict . Default is 0.0.
-pub fn simulate(_equation: Equation, _settings_path: String) -> Result<()> {
-    unimplemented!();
-    // let settings: Settings = read_settings(settings_path).unwrap();
-    // let theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
-    // let mut reader = ReaderBuilder::new()
-    //     .has_headers(true)
-    //     .from_reader(theta_file);
-    // // let theta: Array2<f64> = reader.deserialize_array2_dynamic().unwrap();
+pub fn simulate(equation: Equation, settings: Settings) -> Result<()> {
+    let now = Instant::now();
 
-    // // Expand data
-    // // let idelta = settings.config.idelta;
-    // // let tad = settings.config.tad;
-    // let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
-    // // let subjects = data.get_subjects();
+    // Setup log
+    logger::setup_log(&settings, None);
 
-    // // Perform simulation
-    // // let obspred = get_population_predictions(&equation, &subjects, &theta, false);
+    // Read input data
+    let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
+    let subjects = data.get_subjects();
 
-    // // Prepare writer
-    // let sim_file = File::create("simulation_output.csv").unwrap();
-    // let mut sim_writer = WriterBuilder::new()
-    //     .has_headers(false)
-    //     .from_writer(sim_file);
-    // sim_writer
-    //     .write_record(["id", "point", "time", "pred"])
-    //     .unwrap();
+    // Expand data
+    data.expand(settings.config.idelta, settings.config.tad);
 
-    // // Write output
-    // // for (id, subject) in subjects.iter().enumerate() {
-    // //     //TODO: We are missing a get_obs_times function
-    // //     // let time = subject.obs_times.clone();
-    // //     let time: Vec<f64> = vec![];
-    // //     for (point, _spp) in theta.rows().into_iter().enumerate() {
-    // //         for (i, time) in time.iter().enumerate() {
-    // //             unimplemented!()
-    // //             // sim_writer.write_record(&[
-    // //             //     id.to_string(),
-    // //             //     point.to_string(),
-    // //             //     time.to_string(),
-    // //             //     obspred
-    // //             //         .get((id, point))
-    // //             //         .unwrap()
-    // //             //         .get(i)
-    // //             //         .unwrap()
-    // //             //         .to_string(),
-    // //             // ])?;
-    // //         }
-    // //     }
-    // // }
-    // Ok(())
+    tracing::info!("Preparing simulator...");
+
+    // Provide information of the input data
+    tracing::info!(
+        // "Datafile contains {} subjects with a total of {} observations",
+        "Datafile contains {} subjects with a total of {} occasions",
+        subjects.len(),
+        subjects.iter().map(|s| s.occasions().len()).sum::<usize>()
+    );
+
+    // Read prior
+    let ranges = settings.random.ranges();
+    let prior = sample_space(&settings, &ranges, &data, &equation);
+
+    // Tell the user where the output file will be written
+    tracing::info!(
+        "Simulated predictions will be written to {}",
+        settings.paths.output_folder.as_ref().unwrap().clone()
+    );
+    let file = create_output_file(&settings, "sim.csv")?;
+    let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+    writer.write_record(&["subject", "time", "outeq", "pred"])?;
+
+    // Perform simulation
+    for subject in data.get_subjects() {
+        tracing::info!("Simulating subject {}", subject.id());
+        for support_point in prior.rows() {
+            let subject_prediction = equation.simulate_subject(subject, &support_point.to_vec());
+
+            for pred in subject_prediction.get_predictions() {
+                writer.write_record(&[
+                    &subject.id(),
+                    &pred.time().to_string(),
+                    &pred.outeq().to_string(),
+                    &pred.prediction().to_string(),
+                ])?;
+            }
+        }
+    }
+    writer.flush()?;
+
+    tracing::info!("Simulation complete after {:.2?}", now.elapsed());
+    Ok(())
 }
 
 /// Primary entrypoint for PMcore

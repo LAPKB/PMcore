@@ -70,7 +70,7 @@ pub fn sample_space(
                         reordered_indices.push(index);
                     }
                     None => {
-                        panic!("Parameter {} is not present in the CSV file.", random_name);
+                        panic!("Parameter {} is not present in the CSV file. The following parameters are expected: {:?}", random_name, &random_names);
                     }
                 }
             }
@@ -90,7 +90,17 @@ pub fn sample_space(
                 let record = result.unwrap();
                 let values: Vec<f64> = reordered_indices
                     .iter()
-                    .map(|&i| record[i].parse::<f64>().unwrap())
+                    .map(|&i| {
+                        record[i]
+                            .parse::<f64>()
+                            .map_err(|e| {
+                                format!(
+                                    "Failed to parse parameter value: {} with row {:?}",
+                                    e, &record
+                                )
+                            })
+                            .unwrap()
+                    })
                     .collect();
                 theta_values.push(values);
             }
