@@ -64,6 +64,7 @@ impl Algorithm for NPAG {
             self.cycle,
             self.converged,
             self.settings.clone(),
+            self.cycle_log.clone(),
         )
     }
 }
@@ -110,7 +111,7 @@ impl NPAG {
             gamma: settings.error.value,
             error_type: settings.error.error_type(),
             converged: false,
-            cycle_log: CycleLog::new(&settings),
+            cycle_log: CycleLog::new(),
             cache: settings.config.cache,
             tx,
             settings,
@@ -351,8 +352,7 @@ impl NPAG {
             }
 
             // Write cycle log
-            self.cycle_log
-                .push_and_write(state, self.settings.config.output);
+            self.cycle_log.push(state);
 
             // Break if stop criteria are met
             if stop {
