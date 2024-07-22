@@ -24,6 +24,8 @@ pub struct Settings {
     pub constant: Option<Constant>,
     /// Defines the error model and polynomial to be used
     pub error: Error,
+    /// Advanced options, mostly hyperparameters, for the algorithm(s)
+    pub advanced: Advanced,
 }
 
 /// This struct contains the paths to the data, log and prior files.
@@ -215,6 +217,62 @@ impl Error {
             _ => panic!("Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)", self.class),
         }
     }
+}
+
+/// This struct contains advanced options and hyperparameters
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Advanced {
+    pub convergence: Convergence,
+    /// The minimum distance required between a candiate point and the existing grid (THETA_D)
+    ///
+    /// This is used in [algorithms::NPAG] and [algorithms::NPOD]
+    pub min_distance: f64,
+    /// Maximum number of steps in Nelder-Mead optimization
+    ///
+    /// This is used in [algorithms::NPOD]
+    pub nm_steps: usize,
+    /// Tolerance for the Nelder-Mead optimization
+    ///
+    /// This is used in [crate::algorithms::NPOD]
+    pub tolerance: f64,
+}
+
+impl Default for Advanced {
+    fn default() -> Self {
+        Advanced {
+            convergence: Convergence {
+                likelihood: 1e-4,
+                pyl: 1e-2,
+                eps: 1e-2,
+            },
+            min_distance: 0.12,
+            nm_steps: 100,
+            tolerance: 1e-6,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(deny_unknown_fields)]
+/// This struct contains the convergence criteria for the algorithm
+pub struct Convergence {
+    /// The objective function convergence criterion for the algorithm
+    ///
+    /// The objective function is the negative log likelihood
+    /// Previously referred to as THETA_G
+    pub likelihood: f64,
+    /// The PYL convergence criterion for the algorithm
+    ///
+    /// P(Y|L) represents the probability of the observation given its weighted support
+    /// Previously referred to as THETA_F
+    pub pyl: f64,
+    /// Precision convergence criterion for the algorithm
+    ///
+    /// The precision variable, sometimes referred to as `eps`, is the distance from existing points in the grid to the candidate point. A candidate point is suggested at a distance of `eps` times the range of the parameter.
+    /// For example, if the parameter `alpha` has a range of `[0.0, 1.0]`, and `eps` is `0.1`, then the candidate point will be at a distance of `0.1 * (1.0 - 0.0) = 0.1` from the existing grid point(s).
+    /// Previously referred to as THETA_E
+    pub eps: f64,
 }
 
 /// Parses the settings from a TOML configuration file
