@@ -405,6 +405,7 @@
             <span class="self">self</span>.cycle,
             <span class="self">self</span>.converged,
             <span class="self">self</span>.settings.clone(),
+            <span class="self">self</span>.cycle_log.clone(),
         )
     }
 }
@@ -448,7 +449,7 @@
             gamma: settings.error.value,
             error_type: settings.error.error_type(),
             converged: <span class="bool-val">false</span>,
-            cycle_log: CycleLog::new(<span class="kw-2">&amp;</span>settings),
+            cycle_log: CycleLog::new(),
             cache: settings.config.cache,
             tx,
             settings,
@@ -646,8 +647,7 @@
                 <span class="prelude-val">None </span>=&gt; (),
             }
 
-            <span class="self">self</span>.cycle_log
-                .push_and_write(state, <span class="self">self</span>.settings.config.output);
+            <span class="self">self</span>.cycle_log.push(state);
 
             <span class="kw">if </span>stop {
                 <span class="kw">break</span>;

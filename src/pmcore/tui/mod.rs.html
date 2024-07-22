@@ -115,7 +115,7 @@
     <span class="attr">#[allow(clippy::new_without_default)]
     </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>actions = <span class="macro">vec!</span>[Action::Quit, Action::Stop, Action::Next].into();
-        <span class="kw">let </span>state = NPCycle::new();
+        <span class="kw">let </span>state = NPCycle::placeholder();
         <span class="kw">let </span>tab_index = <span class="number">0</span>;
         <span class="kw">let </span>tab_titles = <span class="macro">vec!</span>[<span class="string">"Logs"</span>, <span class="string">"Plot"</span>, <span class="string">"Parameters"</span>];
 

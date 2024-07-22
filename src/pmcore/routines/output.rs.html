@@ -570,6 +570,81 @@
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
 <a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
@@ -592,6 +667,7 @@
     <span class="kw">pub </span>converged: bool,
     <span class="kw">pub </span>par_names: Vec&lt;String&gt;,
     <span class="kw">pub </span>settings: Settings,
+    <span class="kw">pub </span>cyclelog: CycleLog,
 }
 
 <span class="kw">impl </span>NPResult {
@@ -605,6 +681,7 @@
         cycles: usize,
         converged: bool,
         settings: Settings,
+        cyclelog: CycleLog,
     ) -&gt; <span class="self">Self </span>{
         <span class="comment">// TODO: Add support for fixed and constant parameters
 
@@ -620,11 +697,13 @@
             converged,
             par_names,
             settings,
+            cyclelog,
         }
     }
 
     <span class="kw">pub fn </span>write_outputs(<span class="kw-2">&amp;</span><span class="self">self</span>, write: bool, equation: <span class="kw-2">&amp;</span>Equation, idelta: f64, tad: f64) {
         <span class="kw">if </span>write {
+            <span class="self">self</span>.cyclelog.write(<span class="kw-2">&amp;</span><span class="self">self</span>.settings);
             <span class="self">self</span>.write_theta();
             <span class="self">self</span>.write_posterior();
             <span class="self">self</span>.write_obs();
@@ -796,36 +875,8 @@
         }
     }
 }
-<span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>CycleLog {
-    <span class="kw">pub </span>cycles: Vec&lt;NPCycle&gt;,
-    cycle_writer: CycleWriter,
-}
-<span class="kw">impl </span>CycleLog {
-    <span class="kw">pub fn </span>new(settings: <span class="kw-2">&amp;</span>Settings) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>cycle_writer = CycleWriter::new(settings);
-        <span class="self">Self </span>{
-            cycles: Vec::new(),
-            cycle_writer,
-        }
-    }
-    <span class="kw">pub fn </span>push_and_write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, npcycle: NPCycle, write_ouput: bool) {
-        <span class="kw">if </span>write_ouput {
-            <span class="self">self</span>.cycle_writer.write(
-                npcycle.cycle,
-                npcycle.converged,
-                npcycle.objf,
-                npcycle.gamlam,
-                <span class="kw-2">&amp;</span>npcycle.theta,
-            );
-            <span class="self">self</span>.cycle_writer.flush();
-        }
-        <span class="self">self</span>.cycles.push(npcycle);
-    }
-}
 
-<span class="doccomment">/// Defines the result objects from a run
-/// An [NPCycle] contains summary of a cycle
+<span class="doccomment">/// An [NPCycle] object contains the summary of a cycle
 /// It holds the following information:
 /// - `cycle`: The cycle number
 /// - `objf`: The objective function value
@@ -844,102 +895,103 @@
     <span class="kw">pub </span>delta_objf: f64,
     <span class="kw">pub </span>converged: bool,
 }
+
 <span class="kw">impl </span>NPCycle {
-    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(
+        cycle: usize,
+        objf: f64,
+        gamlam: f64,
+        theta: Array2&lt;f64&gt;,
+        nspp: usize,
+        delta_objf: f64,
+        converged: bool,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            cycle,
+            objf,
+            gamlam,
+            theta,
+            nspp,
+            delta_objf,
+            converged,
+        }
+    }
+
+    <span class="kw">pub fn </span>placeholder() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             cycle: <span class="number">0</span>,
             objf: <span class="number">0.0</span>,
             gamlam: <span class="number">0.0</span>,
-            theta: Array2::default((<span class="number">0</span>, <span class="number">0</span>)),
+            theta: Array2::zeros((<span class="number">0</span>, <span class="number">0</span>)),
             nspp: <span class="number">0</span>,
             delta_objf: <span class="number">0.0</span>,
             converged: <span class="bool-val">false</span>,
         }
     }
 }
-<span class="kw">impl </span>Default <span class="kw">for </span>NPCycle {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::new()
-    }
+
+<span class="doccomment">/// This holdes a vector of [NPCycle] objects to provide a more detailed log
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>CycleLog {
+    <span class="kw">pub </span>cycles: Vec&lt;NPCycle&gt;,
 }
 
-<span class="comment">// Cycles
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>CycleWriter {
-    writer: <span class="prelude-ty">Option</span>&lt;csv::Writer&lt;File&gt;&gt;,
-}
-
-<span class="kw">impl </span>CycleWriter {
-    <span class="kw">pub fn </span>new(settings: <span class="kw-2">&amp;</span>Settings) -&gt; CycleWriter {
-        <span class="kw">let </span>writer = <span class="kw">if </span>settings.config.output {
-            <span class="kw">let </span>file = create_output_file(settings, <span class="string">"cycles.csv"</span>).unwrap();
-            <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
-
-            <span class="comment">// Write headers
-            </span>writer.write_field(<span class="string">"cycle"</span>).unwrap();
-            writer.write_field(<span class="string">"converged"</span>).unwrap();
-            writer.write_field(<span class="string">"neg2ll"</span>).unwrap();
-            writer.write_field(<span class="string">"gamlam"</span>).unwrap();
-            writer.write_field(<span class="string">"nspp"</span>).unwrap();
-
-            <span class="kw">let </span>parameter_names = settings.random.names();
-            <span class="kw">for </span>param_name <span class="kw">in </span><span class="kw-2">&amp;</span>parameter_names {
-                writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.mean"</span>, param_name)).unwrap();
-                writer
-                    .write_field(<span class="macro">format!</span>(<span class="string">"{}.median"</span>, param_name))
-                    .unwrap();
-                writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.sd"</span>, param_name)).unwrap();
-            }
-
-            writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
-            <span class="prelude-val">Some</span>(writer)
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
-
-        CycleWriter { writer }
+<span class="kw">impl </span>CycleLog {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ cycles: Vec::new() }
     }
 
-    <span class="kw">pub fn </span>write(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        cycle: usize,
-        converged: bool,
-        objf: f64,
-        gamma: f64,
-        theta: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;,
-    ) {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(writer) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.writer {
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle)).unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, converged)).unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, objf)).unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, gamma)).unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, theta.nrows())).unwrap();
+    <span class="kw">pub fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cycle: NPCycle) {
+        <span class="self">self</span>.cycles.push(cycle);
+    }
 
-            <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
+    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>, settings: <span class="kw-2">&amp;</span>Settings) {
+        <span class="macro">tracing::info!</span>(<span class="string">"Writing cycles..."</span>);
+        <span class="kw">let </span>file = create_output_file(settings, <span class="string">"cycles.csv"</span>).unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
+
+        <span class="comment">// Write headers
+        </span>writer.write_field(<span class="string">"cycle"</span>).unwrap();
+        writer.write_field(<span class="string">"converged"</span>).unwrap();
+        writer.write_field(<span class="string">"neg2ll"</span>).unwrap();
+        writer.write_field(<span class="string">"gamlam"</span>).unwrap();
+        writer.write_field(<span class="string">"nspp"</span>).unwrap();
+
+        <span class="kw">let </span>parameter_names = settings.random.names();
+        <span class="kw">for </span>param_name <span class="kw">in </span><span class="kw-2">&amp;</span>parameter_names {
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.mean"</span>, param_name)).unwrap();
+            writer
+                .write_field(<span class="macro">format!</span>(<span class="string">"{}.median"</span>, param_name))
+                .unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.sd"</span>, param_name)).unwrap();
+        }
+
+        writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
+
+        <span class="kw">for </span>cycle <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.cycles {
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.cycle)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.converged)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.objf)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.gamlam)).unwrap();
+            writer
+                .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.theta.nrows()))
+                .unwrap();
+
+            <span class="kw">for </span>param <span class="kw">in </span>cycle.theta.axis_iter(Axis(<span class="number">1</span>)) {
                 writer
                     .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.mean().unwrap()))
                     .unwrap();
-            }
-
-            <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
                 writer
                     .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, median(param.to_owned().to_vec())))
                     .unwrap();
-            }
-
-            <span class="kw">for </span>param <span class="kw">in </span>theta.axis_iter(Axis(<span class="number">1</span>)) {
                 writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.std(<span class="number">1.</span>))).unwrap();
             }
 
             writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
         }
-    }
 
-    <span class="kw">pub fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(writer) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.writer {
-            writer.flush().unwrap(); <span class="comment">// Handle errors appropriately
-        </span>}
-    }
+        writer.flush().unwrap(); <span class="comment">// TODO: Handle errors
+    </span>}
 }
 
 <span class="kw">pub fn </span>posterior(psi: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;, w: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; Array2&lt;f64&gt; {
@@ -961,6 +1013,9 @@
 }
 
 <span class="kw">pub fn </span>median(data: Vec&lt;f64&gt;) -&gt; f64 {
+    <span class="kw">let </span><span class="kw-2">mut </span>data = data.clone();
+    data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
     <span class="kw">let </span>size = data.len();
     <span class="kw">match </span>size {
         even <span class="kw">if </span>even % <span class="number">2 </span>== <span class="number">0 </span>=&gt; {
@@ -973,54 +1028,47 @@
 }
 
 <span class="kw">fn </span>weighted_median(data: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;, weights: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; f64 {
-    <span class="comment">// Ensure the parameters and weights vectors have the same length
+    <span class="comment">// Ensure the data and weights arrays have the same length
     </span><span class="macro">assert_eq!</span>(
         data.len(),
         weights.len(),
-        <span class="string">"The length of parameters and weights must be the same"
+        <span class="string">"The length of data and weights must be the same"
     </span>);
-    <span class="comment">// Handle edge case where all parameters are the same
-    </span><span class="kw">if </span>data.iter().all(|<span class="kw-2">&amp;</span>x| x == data[<span class="number">0</span>]) {
-        <span class="kw">return </span>data[<span class="number">0</span>];
-    }
+    <span class="macro">assert!</span>(
+        weights.iter().all(|<span class="kw-2">&amp;</span>x| x &gt;= <span class="number">0.0</span>),
+        <span class="string">"Weights must be non-negative"
+    </span>);
 
-    <span class="comment">// // Handle the edge case where there is only one parameter
-    // if data.len() == 1 {
-    //     return data[0];
-    // }
-    </span><span class="kw">let </span><span class="kw-2">mut </span>tup: Vec&lt;(f64, f64)&gt; = Vec::new();
+    <span class="comment">// Create a vector of tuples (data, weight)
+    </span><span class="kw">let </span><span class="kw-2">mut </span>weighted_data: Vec&lt;(f64, f64)&gt; = data
+        .iter()
+        .zip(weights.iter())
+        .map(|(<span class="kw-2">&amp;</span>d, <span class="kw-2">&amp;</span>w)| (d, w))
+        .collect();
 
-    <span class="kw">for </span>(ti, wi) <span class="kw">in </span>data.iter().zip(weights) {
-        tup.push((<span class="kw-2">*</span>ti, <span class="kw-2">*</span>wi));
-    }
+    <span class="comment">// Sort the vector by the data values
+    </span>weighted_data.sort_by(|a, b| a.<span class="number">0</span>.partial_cmp(<span class="kw-2">&amp;</span>b.<span class="number">0</span>).unwrap());
 
-    tup.sort_by(|a, b| a.<span class="number">0</span>.partial_cmp(<span class="kw-2">&amp;</span>b.<span class="number">0</span>).unwrap());
+    <span class="comment">// Calculate the cumulative sum of weights
+    </span><span class="kw">let </span>total_weight: f64 = weights.sum();
+    <span class="kw">let </span><span class="kw-2">mut </span>cumulative_sum = <span class="number">0.0</span>;
 
-    <span class="kw">if </span>tup.first().unwrap().<span class="number">1 </span>&gt;= <span class="number">0.5 </span>{
-        tup.sort_by(|a, b| b.<span class="number">0</span>.partial_cmp(<span class="kw-2">&amp;</span>a.<span class="number">0</span>).unwrap());
-    }
+    <span class="kw">for </span>(i, <span class="kw-2">&amp;</span>(<span class="kw">_</span>, weight)) <span class="kw">in </span>weighted_data.iter().enumerate() {
+        cumulative_sum += weight;
 
-    <span class="kw">let </span><span class="kw-2">mut </span>wacc: Vec&lt;f64&gt; = Vec::new();
-    <span class="kw">let </span><span class="kw-2">mut </span>widx: usize = <span class="number">0</span>;
-
-    <span class="kw">for </span>(i, (ti, wi)) <span class="kw">in </span>tup.iter().enumerate() {
-        <span class="kw">let </span>acc = wi + wacc.last().unwrap_or(<span class="kw-2">&amp;</span><span class="number">0.0</span>);
-        wacc.push(acc);
-
-        <span class="kw">if </span>acc &gt; <span class="number">0.5 </span>{
-            widx = i;
-            <span class="kw">break</span>;
-        } <span class="kw">else if </span>acc == <span class="number">0.5 </span>{
-            <span class="kw">return </span><span class="kw-2">*</span>ti;
+        <span class="kw">if </span>cumulative_sum == total_weight / <span class="number">2.0 </span>{
+            <span class="comment">// If the cumulative sum equals half the total weight, average this value with the next
+            </span><span class="kw">if </span>i + <span class="number">1 </span>&lt; weighted_data.len() {
+                <span class="kw">return </span>(weighted_data[i].<span class="number">0 </span>+ weighted_data[i + <span class="number">1</span>].<span class="number">0</span>) / <span class="number">2.0</span>;
+            } <span class="kw">else </span>{
+                <span class="kw">return </span>weighted_data[i].<span class="number">0</span>;
+            }
+        } <span class="kw">else if </span>cumulative_sum &gt; total_weight / <span class="number">2.0 </span>{
+            <span class="kw">return </span>weighted_data[i].<span class="number">0</span>;
         }
     }
 
-    <span class="kw">let </span>acc2 = wacc.pop().unwrap();
-    <span class="kw">let </span>acc1 = wacc.pop().unwrap();
-    <span class="kw">let </span>par2 = tup.get(widx).unwrap().<span class="number">0</span>;
-    <span class="kw">let </span>par1 = tup.get(widx - <span class="number">1</span>).unwrap().<span class="number">0</span>;
-    <span class="kw">let </span>slope = (par2 - par1) / (acc2 - acc1);
-    par1 + slope * (<span class="number">0.5 </span>- acc1)
+    <span class="macro">unreachable!</span>(<span class="string">"The function should have returned a value before reaching this point."</span>);
 }
 
 <span class="kw">pub fn </span>population_mean_median(theta: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;, w: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; (Array1&lt;f64&gt;, Array1&lt;f64&gt;) {
@@ -1140,6 +1188,108 @@
                 }
             }
         }
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span><span class="kw">super</span>::median;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_median_odd() {
+        <span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">3.0</span>, <span class="number">2.0</span>];
+        <span class="macro">assert_eq!</span>(median(data), <span class="number">2.0</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_median_even() {
+        <span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>];
+        <span class="macro">assert_eq!</span>(median(data), <span class="number">2.5</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_median_single() {
+        <span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">42.0</span>];
+        <span class="macro">assert_eq!</span>(median(data), <span class="number">42.0</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_median_sorted() {
+        <span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">5.0</span>, <span class="number">10.0</span>, <span class="number">15.0</span>, <span class="number">20.0</span>, <span class="number">25.0</span>];
+        <span class="macro">assert_eq!</span>(median(data), <span class="number">15.0</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_median_unsorted() {
+        <span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">10.0</span>, <span class="number">30.0</span>, <span class="number">20.0</span>, <span class="number">50.0</span>, <span class="number">40.0</span>];
+        <span class="macro">assert_eq!</span>(median(data), <span class="number">30.0</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_median_with_duplicates() {
+        <span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>];
+        <span class="macro">assert_eq!</span>(median(data), <span class="number">2.0</span>);
+    }
+
+    <span class="kw">use </span><span class="kw">super</span>::weighted_median;
+    <span class="kw">use </span>ndarray::Array1;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_weighted_median_simple() {
+        <span class="kw">let </span>data = Array1::from(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>]);
+        <span class="kw">let </span>weights = Array1::from(<span class="macro">vec!</span>[<span class="number">0.2</span>, <span class="number">0.5</span>, <span class="number">0.3</span>]);
+        <span class="macro">assert_eq!</span>(weighted_median(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>weights), <span class="number">2.0</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_weighted_median_even_weights() {
+        <span class="kw">let </span>data = Array1::from(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>]);
+        <span class="kw">let </span>weights = Array1::from(<span class="macro">vec!</span>[<span class="number">0.25</span>, <span class="number">0.25</span>, <span class="number">0.25</span>, <span class="number">0.25</span>]);
+        <span class="macro">assert_eq!</span>(weighted_median(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>weights), <span class="number">2.5</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_weighted_median_single_element() {
+        <span class="kw">let </span>data = Array1::from(<span class="macro">vec!</span>[<span class="number">42.0</span>]);
+        <span class="kw">let </span>weights = Array1::from(<span class="macro">vec!</span>[<span class="number">1.0</span>]);
+        <span class="macro">assert_eq!</span>(weighted_median(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>weights), <span class="number">42.0</span>);
+    }
+
+    <span class="attr">#[test]
+    #[should_panic(expected = <span class="string">"The length of data and weights must be the same"</span>)]
+    </span><span class="kw">fn </span>test_weighted_median_mismatched_lengths() {
+        <span class="kw">let </span>data = Array1::from(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>]);
+        <span class="kw">let </span>weights = Array1::from(<span class="macro">vec!</span>[<span class="number">0.1</span>, <span class="number">0.2</span>]);
+        weighted_median(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>weights);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_weighted_median_all_same_elements() {
+        <span class="kw">let </span>data = Array1::from(<span class="macro">vec!</span>[<span class="number">5.0</span>, <span class="number">5.0</span>, <span class="number">5.0</span>, <span class="number">5.0</span>]);
+        <span class="kw">let </span>weights = Array1::from(<span class="macro">vec!</span>[<span class="number">0.1</span>, <span class="number">0.2</span>, <span class="number">0.3</span>, <span class="number">0.4</span>]);
+        <span class="macro">assert_eq!</span>(weighted_median(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>weights), <span class="number">5.0</span>);
+    }
+
+    <span class="attr">#[test]
+    #[should_panic(expected = <span class="string">"Weights must be non-negative"</span>)]
+    </span><span class="kw">fn </span>test_weighted_median_negative_weights() {
+        <span class="kw">let </span>data = Array1::from(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>]);
+        <span class="kw">let </span>weights = Array1::from(<span class="macro">vec!</span>[<span class="number">0.2</span>, -<span class="number">0.5</span>, <span class="number">0.5</span>, <span class="number">0.8</span>]);
+        <span class="macro">assert_eq!</span>(weighted_median(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>weights), <span class="number">4.0</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_weighted_median_unsorted_data() {
+        <span class="kw">let </span>data = Array1::from(<span class="macro">vec!</span>[<span class="number">3.0</span>, <span class="number">1.0</span>, <span class="number">4.0</span>, <span class="number">2.0</span>]);
+        <span class="kw">let </span>weights = Array1::from(<span class="macro">vec!</span>[<span class="number">0.1</span>, <span class="number">0.3</span>, <span class="number">0.4</span>, <span class="number">0.2</span>]);
+        <span class="macro">assert_eq!</span>(weighted_median(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>weights), <span class="number">2.5</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_weighted_median_with_zero_weights() {
+        <span class="kw">let </span>data = Array1::from(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>]);
+        <span class="kw">let </span>weights = Array1::from(<span class="macro">vec!</span>[<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">1.0</span>, <span class="number">0.0</span>]);
+        <span class="macro">assert_eq!</span>(weighted_median(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>weights), <span class="number">3.0</span>);
     }
 }
 </code></pre></div></section></main></body></html>
