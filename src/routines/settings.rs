@@ -25,6 +25,7 @@ pub struct Settings {
     /// Defines the error model and polynomial to be used
     pub error: Error,
     /// Advanced options, mostly hyperparameters, for the algorithm(s)
+    #[serde(default)]
     pub advanced: Advanced,
 }
 
@@ -241,11 +242,7 @@ pub struct Advanced {
 impl Default for Advanced {
     fn default() -> Self {
         Advanced {
-            convergence: Convergence {
-                likelihood: 1e-4,
-                pyl: 1e-2,
-                eps: 1e-2,
-            },
+            convergence: Convergence::default(),
             min_distance: 0.12,
             nm_steps: 100,
             tolerance: 1e-6,
@@ -273,6 +270,16 @@ pub struct Convergence {
     /// For example, if the parameter `alpha` has a range of `[0.0, 1.0]`, and `eps` is `0.1`, then the candidate point will be at a distance of `0.1 * (1.0 - 0.0) = 0.1` from the existing grid point(s).
     /// Previously referred to as THETA_E
     pub eps: f64,
+}
+
+impl Default for Convergence {
+    fn default() -> Self {
+        Convergence {
+            likelihood: 1e-4,
+            pyl: 1e-2,
+            eps: 1e-2,
+        }
+    }
 }
 
 /// Parses the settings from a TOML configuration file
