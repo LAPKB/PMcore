@@ -2,7 +2,7 @@ use crate::algorithms::initialize_algorithm;
 use crate::prelude::{output::NPResult, *};
 use crate::routines::settings::*;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use pharmsol::prelude::data::Data;
 
 use pharmsol::prelude::{data::read_pmetrics, simulator::Equation};
@@ -100,13 +100,11 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     // Read input data
     let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
     let subjects = data.get_subjects();
+
     // Provide information of the input data
     tracing::info!(
-        // "Datafile contains {} subjects with a total of {} observations",
         "Datafile contains {} subjects with a total of {} occasions",
         subjects.len(),
-        //TODO: again we are missing a get_obs_times function
-        // subjects.iter().map(|s| s.obs_times.len()).sum::<usize>()
         subjects.iter().map(|s| s.occasions().len()).sum::<usize>()
     );
 
@@ -156,13 +154,16 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     if settings.config.output {
         let idelta = settings.config.idelta;
         let tad = settings.config.tad;
-        result.write_outputs(true, &equation, idelta, tad);
+        result.write_outputs(true, &equation, idelta, tad)?;
     }
 
     if let Some(tx) = tx {
-        tx.send(Comm::StopUI).unwrap();
+        tx.send(Comm::StopUI)
+            .context("Failed to send stop signal to the TUI")?;
     }
     handle.join().expect("Failed to close the TUI thread");
+
+    // Provide information about the program runtime|
     tracing::info!("Program complete after {:.2?}", now.elapsed());
 
     Ok(result)

@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
@@ -54,19 +55,26 @@ impl NPResult {
         }
     }
 
-    pub fn write_outputs(&self, write: bool, equation: &Equation, idelta: f64, tad: f64) {
+    pub fn write_outputs(
+        &self,
+        write: bool,
+        equation: &Equation,
+        idelta: f64,
+        tad: f64,
+    ) -> Result<()> {
         if write {
-            self.cyclelog.write(&self.settings);
-            self.write_theta();
-            self.write_posterior();
-            self.write_obs();
-            self.write_pred(equation, idelta, tad);
+            self.cyclelog.write(&self.settings)?;
+            self.write_theta()?;
+            self.write_posterior()?;
+            self.write_obs()?;
+            self.write_pred(equation, idelta, tad)?;
         }
+        Ok(())
     }
 
     /// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
-    pub fn write_theta(&self) {
+    pub fn write_theta(&self) -> Result<()> {
         tracing::info!("Writing final parameter distribution...");
         let result = (|| {
             let theta: Array2<f64> = self.theta.clone();
@@ -92,67 +100,64 @@ impl NPResult {
         if let Err(e) = result {
             tracing::error!("Error while writing theta: {}", e);
         }
+        Ok(())
     }
 
     /// Writes the posterior support points for each individual
-    pub fn write_posterior(&self) {
+    pub fn write_posterior(&self) -> Result<()> {
         tracing::info!("Writing posterior parameter probabilities...");
-        let result = (|| {
-            let theta: Array2<f64> = self.theta.clone();
-            let w: Array1<f64> = self.w.clone();
-            let psi: Array2<f64> = self.psi.clone();
-            let par_names: Vec<String> = self.par_names.clone();
-            //let subjects = self.subjects.clone();
+        let theta: Array2<f64> = self.theta.clone();
+        let w: Array1<f64> = self.w.clone();
+        let psi: Array2<f64> = self.psi.clone();
+        let par_names: Vec<String> = self.par_names.clone();
+        //let subjects = self.subjects.clone();
 
-            let posterior = posterior(&psi, &w);
+        let posterior = posterior(&psi, &w);
 
-            // Create the output folder if it doesn't exist
-            let file = create_output_file(&self.settings, "posterior.csv")?;
-            let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+        // Create the output folder if it doesn't exist
+        let file = create_output_file(&self.settings, "posterior.csv")?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-            // Create the headers
-            writer.write_field("id")?;
-            writer.write_field("point")?;
-            for i in 0..theta.ncols() {
-                let param_name = par_names.get(i).unwrap();
-                writer.write_field(param_name)?;
-            }
-            writer.write_field("prob")?;
-            writer.write_record(None::<&[u8]>)?;
-
-            // Write contents
-            let subjects = self.data.get_subjects();
-            for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
-                for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                    writer.write_field(&subjects.get(sub).unwrap().id())?;
-                    writer.write_field(format!("{}", spp))?;
-                    for param in theta.row(spp) {
-                        writer.write_field(&format!("{param}"))?;
-                    }
-                    writer.write_field(&format!("{elem:.10}"))?;
-                    writer.write_record(None::<&[u8]>)?;
-                }
-            }
-            writer.flush()
-        })();
-
-        if let Err(e) = result {
-            tracing::error!("Error while writing posterior: {}", e);
+        // Create the headers
+        writer.write_field("id")?;
+        writer.write_field("point")?;
+        for i in 0..theta.ncols() {
+            let param_name = par_names.get(i).unwrap();
+            writer.write_field(param_name)?;
         }
+        writer.write_field("prob")?;
+        writer.write_record(None::<&[u8]>)?;
+
+        // Write contents
+        let subjects = self.data.get_subjects();
+        for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
+            for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
+                writer.write_field(&subjects.get(sub).unwrap().id())?;
+                writer.write_field(format!("{}", spp))?;
+                for param in theta.row(spp) {
+                    writer.write_field(&format!("{param}"))?;
+                }
+                writer.write_field(&format!("{elem:.10}"))?;
+                writer.write_record(None::<&[u8]>)?;
+            }
+        }
+        writer.flush()?;
+
+        Ok(())
     }
 
     /// Write the observations, which is the reformatted input data
-    pub fn write_obs(&self) {
+    pub fn write_obs(&self) -> Result<()> {
         tracing::info!("Writing observations...");
-        let file = create_output_file(&self.settings, "obs.csv").unwrap();
-        write_pmetrics_observations(&self.data, &file)
+        let file = create_output_file(&self.settings, "obs.csv")?;
+        write_pmetrics_observations(&self.data, &file);
+        Ok(())
     }
 
     /// Writes the predictions
-    pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) {
+    pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) -> Result<()> {
         tracing::info!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
-        // println!("{:?}", data);
 
         let theta: Array2<f64> = self.theta.clone();
         let w: Array1<f64> = self.w.clone();
@@ -163,7 +168,7 @@ impl NPResult {
 
         let subjects = data.get_subjects();
         if subjects.len() != post_mean.nrows() {
-            panic!("Number of subjects and number of posterior means do not match");
+            bail!("Number of subjects and number of posterior means do not match");
         }
 
         let file = create_output_file(&self.settings, "pred.csv");
@@ -172,17 +177,15 @@ impl NPResult {
             .from_writer(file.unwrap());
 
         // Create the headers
-        writer
-            .write_record([
-                "id",
-                "time",
-                "outeq",
-                "popMean",
-                "popMedian",
-                "postMean",
-                "postMedian",
-            ])
-            .unwrap();
+        writer.write_record([
+            "id",
+            "time",
+            "outeq",
+            "popMean",
+            "popMedian",
+            "postMean",
+            "postMedian",
+        ])?;
 
         for (i, subject) in subjects.iter().enumerate() {
             // Population predictions
@@ -223,9 +226,10 @@ impl NPResult {
                             &format!("{:.4}", post_mean.prediction()),
                             &format!("{:.4}", post_median.prediction()),
                         ])
-                        .unwrap();
+                        .expect("Failed to write record");
                 });
         }
+        Ok(())
     }
 }
 
@@ -298,34 +302,34 @@ impl CycleLog {
         self.cycles.push(cycle);
     }
 
-    pub fn write(&self, settings: &Settings) {
+    pub fn write(&self, settings: &Settings) -> Result<()> {
         tracing::info!("Writing cycles...");
-        let file = create_output_file(settings, "cycles.csv").unwrap();
+        let file = create_output_file(settings, "cycles.csv")?;
         let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
         // Write headers
-        writer.write_field("cycle").unwrap();
-        writer.write_field("converged").unwrap();
-        writer.write_field("neg2ll").unwrap();
-        writer.write_field("gamlam").unwrap();
-        writer.write_field("nspp").unwrap();
+        writer.write_field("cycle")?;
+        writer.write_field("converged")?;
+        writer.write_field("neg2ll")?;
+        writer.write_field("gamlam")?;
+        writer.write_field("nspp")?;
 
         let parameter_names = settings.random.names();
         for param_name in &parameter_names {
-            writer.write_field(format!("{}.mean", param_name)).unwrap();
+            writer.write_field(format!("{}.mean", param_name))?;
             writer
                 .write_field(format!("{}.median", param_name))
                 .unwrap();
-            writer.write_field(format!("{}.sd", param_name)).unwrap();
+            writer.write_field(format!("{}.sd", param_name))?;
         }
 
-        writer.write_record(None::<&[u8]>).unwrap();
+        writer.write_record(None::<&[u8]>)?;
 
         for cycle in &self.cycles {
-            writer.write_field(format!("{}", cycle.cycle)).unwrap();
-            writer.write_field(format!("{}", cycle.converged)).unwrap();
-            writer.write_field(format!("{}", cycle.objf)).unwrap();
-            writer.write_field(format!("{}", cycle.gamlam)).unwrap();
+            writer.write_field(format!("{}", cycle.cycle))?;
+            writer.write_field(format!("{}", cycle.converged))?;
+            writer.write_field(format!("{}", cycle.objf))?;
+            writer.write_field(format!("{}", cycle.gamlam))?;
             writer
                 .write_field(format!("{}", cycle.theta.nrows()))
                 .unwrap();
@@ -337,13 +341,14 @@ impl CycleLog {
                 writer
                     .write_field(format!("{}", median(param.to_owned().to_vec())))
                     .unwrap();
-                writer.write_field(format!("{}", param.std(1.))).unwrap();
+                writer.write_field(format!("{}", param.std(1.)))?;
             }
 
-            writer.write_record(None::<&[u8]>).unwrap();
+            writer.write_record(None::<&[u8]>)?;
         }
 
-        writer.flush().unwrap(); // TODO: Handle errors
+        writer.flush().context("Failed to flush writer")?;
+        Ok(())
     }
 }
 
