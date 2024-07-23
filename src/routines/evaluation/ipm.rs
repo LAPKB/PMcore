@@ -90,7 +90,9 @@ pub fn burke(
         }
         let h = psi_inner.dot(&psi.t()) + Array2::from_diag(&w_plam);
 
-        let uph = h.cholesky()?;
+        let uph = h
+            .cholesky()
+            .context("Error during Cholesky decomposition")?;
 
         let uph = uph.t();
         let smuyinv = smu * (&ecol / &y);

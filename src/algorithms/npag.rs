@@ -233,7 +233,7 @@ impl NPAG {
 
             let mut keep = Vec::<usize>::new();
             for (index, lam) in self.lambda.iter().enumerate() {
-                if *lam > self.lambda.max().unwrap() / 1000_f64 {
+                if *lam > self.lambda.max()? / 1000_f64 {
                     keep.push(index);
                 }
             }
@@ -262,7 +262,7 @@ impl NPAG {
             // If a support point is dropped, log it as a debug message
             if self.psi.ncols() != keep.len() {
                 tracing::debug!(
-                    "QRD dropped {} support point(s)",
+                    "QR decomposition dropped {} support point(s)",
                     self.psi.ncols() - keep.len(),
                 );
             }

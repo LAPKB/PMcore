@@ -1,5 +1,6 @@
 use crate::routines::settings::Settings;
 use crate::tui::ui::Comm;
+use anyhow::Result;
 use std::io::{self, Write};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing_subscriber::fmt::time::FormatTime;
@@ -20,7 +21,7 @@ use tracing_subscriber::EnvFilter;
 /// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
 ///
 /// If not, the log messages are written to stdout.
-pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) {
+pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> Result<()> {
     // Use the log level defined in configuration file, or default to info
     let log_level = settings.config.log_level.as_str();
     let env_filter = EnvFilter::new(log_level);
@@ -36,8 +37,7 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) {
         .create(true)
         .write(true)
         .truncate(true)
-        .open(log_path)
-        .expect("Failed to open log file - does the directory exist?");
+        .open(log_path)?;
 
     let file_layer = fmt::layer()
         .with_writer(file)
@@ -84,11 +84,13 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) {
         .with(stdout_layer)
         .with(tui_layer)
         .init();
+
     tracing::info!(
         "Logging is configured with level {} to file {:?}",
         log_level,
         log_path
     );
+    Ok(())
 }
 
 #[derive(Clone)]

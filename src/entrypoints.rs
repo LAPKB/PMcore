@@ -94,7 +94,7 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
         false => (None, None),
     };
 
-    logger::setup_log(&settings, tx.clone());
+    logger::setup_log(&settings, tx.clone())?;
     tracing::info!("Starting PMcore");
 
     // Read input data
@@ -178,7 +178,7 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
 /// Returns an NPresult object
 pub fn start_internal(equation: Equation, settings: Settings, data: Data) -> Result<NPResult> {
     let now = Instant::now();
-    logger::setup_log(&settings, None);
+    logger::setup_log(&settings, None)?;
 
     let mut algorithm = initialize_algorithm(equation, settings.clone(), data, None);
 
