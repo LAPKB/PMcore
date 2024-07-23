@@ -317,8 +317,7 @@ impl CycleLog {
         let parameter_names = settings.random.names();
         for param_name in &parameter_names {
             writer.write_field(format!("{}.mean", param_name))?;
-            writer
-                .write_field(format!("{}.median", param_name))?;
+            writer.write_field(format!("{}.median", param_name))?;
             writer.write_field(format!("{}.sd", param_name))?;
         }
 
@@ -337,8 +336,7 @@ impl CycleLog {
                 writer
                     .write_field(format!("{}", param.mean().unwrap()))
                     .unwrap();
-                writer
-                    .write_field(format!("{}", median(param.to_owned().to_vec())))?;
+                writer.write_field(format!("{}", median(param.to_owned().to_vec())))?;
                 writer.write_field(format!("{}", param.std(1.)))?;
             }
 

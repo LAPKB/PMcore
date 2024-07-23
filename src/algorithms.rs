@@ -1,11 +1,11 @@
 use crate::prelude::{self, settings::Settings};
 
+use anyhow::Error;
 use anyhow::{bail, Result};
 use output::NPResult;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use prelude::*;
 use tokio::sync::mpsc;
-use anyhow::Error;
 // use self::{data::Subject, simulator::Equation};
 
 mod npag;
