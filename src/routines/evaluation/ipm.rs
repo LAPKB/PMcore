@@ -63,7 +63,6 @@ pub fn burke(
     let mut w = 1. / &plam;
 
     let mut ptw = psi.t().dot(&w);
-    print!("{:#?}", ptw);
     let shrink = 2. * *ptw.max().context("Failed to get max value")?;
     lam *= shrink;
     plam *= shrink;
