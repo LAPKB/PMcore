@@ -1,6 +1,10 @@
-use pharmsol::prelude::{
-    data::{Data, ErrorModel, ErrorType},
-    simulator::{get_population_predictions, Equation, PopulationPredictions},
+use anyhow::Result;
+use pharmsol::{
+    prelude::{
+        data::{Data, ErrorModel, ErrorType},
+        simulator::{get_population_predictions, Equation, PopulationPredictions},
+    },
+    Subject,
 };
 
 use crate::{
@@ -15,7 +19,7 @@ use crate::{
     tui::ui::Comm,
 };
 
-use ndarray::{Array, Array1, Array2, Axis};
+use ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -121,32 +125,48 @@ impl NPAG {
         }
     }
 
-    fn validate_psi(&mut self) {
-        // check all the elements of psi that are NaN, Inf or -Inf and report the columns and rows
-        // let mut bad: Vec<(usize, usize)> = Vec::new();
-        // let mut invalid = false;
-        for i in 0..self.psi.nrows() {
-            for j in 0..self.psi.ncols() {
-                let val = self.psi.get_mut((i, j)).unwrap();
-                if val.is_nan() || val.is_infinite() {
-                    // invalid = true;
-                    tracing::warn!("Invalid psi value: psi[{}, {}] = {}", i, j, val);
-                    tracing::warn!("Set to 0.0");
-                    *val = 0.0;
-                    // let obspred = self
-                    //     .population_predictions
-                    //     .subject_predictions
-                    //     .get((i, j))
-                    //     .unwrap();
-                    // tracing::debug!("Observed values: {:?}", &obspred.flat_observations());
-                    // tracing::debug!("Predicted values: {:?}", &obspred.flat_predictions());
-                    // tracing::debug!("====================================================");
+    fn validate_psi(&mut self) -> Result<()> {
+        // First coerce all NaN and infinite in psi to 0.0
+        if self.psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
+            tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
+            for i in 0..self.psi.nrows() {
+                for j in 0..self.psi.ncols() {
+                    let val = self.psi.get_mut((i, j)).unwrap();
+                    if val.is_nan() || val.is_infinite() {
+                        *val = 0.0;
+                    }
                 }
             }
         }
-        // if invalid {
-        //     panic!("Invalid psi matrix");
-        // }
+
+        let psi = self.psi.clone();
+
+        // Calculate the sum of each column in psi
+        let (_, col) = psi.dim();
+        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
+        let plam = psi.dot(&ecol);
+        let w = 1. / &plam;
+
+        // Get the index of each element in `w` that is NaN or infinite
+        let indices: Vec<usize> = w
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x.is_nan() || x.is_infinite())
+            .map(|(i, _)| i)
+            .collect::<Vec<_>>();
+
+        // If any elements in `w` are NaN or infinite, return the subject IDs for each index
+        if !indices.is_empty() {
+            let subject: Vec<&Subject> = self.data.get_subjects();
+            let zero_probability_subjects: Vec<&String> =
+                indices.iter().map(|&i| subject[i].id()).collect();
+
+            return Err(anyhow::anyhow!(
+                "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects
+            ));
+        }
+
+        Ok(())
     }
 
     fn optim_gamma(&mut self) {
@@ -221,7 +241,7 @@ impl NPAG {
                 &self.error_type,
             ));
 
-            self.validate_psi();
+            self.validate_psi()?;
 
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
