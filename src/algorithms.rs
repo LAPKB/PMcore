@@ -1,10 +1,11 @@
 use crate::prelude::{self, settings::Settings};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use output::NPResult;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use prelude::*;
 use tokio::sync::mpsc;
+use anyhow::Error;
 // use self::{data::Subject, simulator::Equation};
 
 mod npag;
@@ -21,7 +22,7 @@ pub fn initialize_algorithm(
     settings: Settings,
     data: Data,
     tx: Option<mpsc::UnboundedSender<Comm>>,
-) -> Box<dyn Algorithm> {
+) -> Result<Box<dyn Algorithm>, Error> {
     if std::path::Path::new("stop").exists() {
         match std::fs::remove_file("stop") {
             Ok(_) => tracing::info!("Removed previous stop file"),
@@ -33,7 +34,7 @@ pub fn initialize_algorithm(
 
     //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
     match settings.config.engine.as_str() {
-        "NPAG" => Box::new(npag::NPAG::new(
+        "NPAG" => Ok(Box::new(npag::NPAG::new(
             equation,
             ranges,
             theta,
@@ -41,8 +42,8 @@ pub fn initialize_algorithm(
             settings.error.poly,
             tx,
             settings,
-        )),
-        "NPOD" => Box::new(npod::NPOD::new(
+        ))),
+        "NPOD" => Ok(Box::new(npod::NPOD::new(
             equation,
             ranges,
             theta,
@@ -50,18 +51,17 @@ pub fn initialize_algorithm(
             settings.error.poly,
             tx,
             settings,
-        )),
-        "POSTPROB" => Box::new(postprob::POSTPROB::new(
+        ))),
+        "POSTPROB" => Ok(Box::new(postprob::POSTPROB::new(
             equation,
             theta,
             data,
             settings.error.poly,
             tx,
             settings,
-        )),
+        ))),
         alg => {
-            eprintln!("Error: Algorithm not recognized: {}", alg);
-            std::process::exit(-1)
+            bail!("Algorithm {} not implemented", alg);
         }
     }
 }
