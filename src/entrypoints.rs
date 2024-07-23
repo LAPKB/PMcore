@@ -28,54 +28,6 @@ use tokio::sync::mpsc::{self};
 /// - `tad`: the time after dose, which if greater than the last prediction time is the time for which it will predict . Default is 0.0.
 pub fn simulate(_equation: Equation, _settings_path: String) -> Result<()> {
     unimplemented!();
-    // let settings: Settings = read_settings(settings_path).unwrap();
-    // let theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
-    // let mut reader = ReaderBuilder::new()
-    //     .has_headers(true)
-    //     .from_reader(theta_file);
-    // // let theta: Array2<f64> = reader.deserialize_array2_dynamic().unwrap();
-
-    // // Expand data
-    // // let idelta = settings.config.idelta;
-    // // let tad = settings.config.tad;
-    // let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
-    // // let subjects = data.get_subjects();
-
-    // // Perform simulation
-    // // let obspred = get_population_predictions(&equation, &subjects, &theta, false);
-
-    // // Prepare writer
-    // let sim_file = File::create("simulation_output.csv").unwrap();
-    // let mut sim_writer = WriterBuilder::new()
-    //     .has_headers(false)
-    //     .from_writer(sim_file);
-    // sim_writer
-    //     .write_record(["id", "point", "time", "pred"])
-    //     .unwrap();
-
-    // // Write output
-    // // for (id, subject) in subjects.iter().enumerate() {
-    // //     //TODO: We are missing a get_obs_times function
-    // //     // let time = subject.obs_times.clone();
-    // //     let time: Vec<f64> = vec![];
-    // //     for (point, _spp) in theta.rows().into_iter().enumerate() {
-    // //         for (i, time) in time.iter().enumerate() {
-    // //             unimplemented!()
-    // //             // sim_writer.write_record(&[
-    // //             //     id.to_string(),
-    // //             //     point.to_string(),
-    // //             //     time.to_string(),
-    // //             //     obspred
-    // //             //         .get((id, point))
-    // //             //         .unwrap()
-    // //             //         .get(i)
-    // //             //         .unwrap()
-    // //             //         .to_string(),
-    // //             // ])?;
-    // //         }
-    // //     }
-    // // }
-    // Ok(())
 }
 
 /// Primary entrypoint for PMcore
@@ -133,7 +85,7 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     };
 
     // Initialize algorithm
-    let mut algorithm = initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone());
+    let mut algorithm = initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone())?;
 
     // Tell the user which algorithm is being used
     tracing::info!(
@@ -180,7 +132,7 @@ pub fn start_internal(equation: Equation, settings: Settings, data: Data) -> Res
     let now = Instant::now();
     logger::setup_log(&settings, None)?;
 
-    let mut algorithm = initialize_algorithm(equation, settings.clone(), data, None);
+    let mut algorithm = initialize_algorithm(equation, settings.clone(), data, None)?;
 
     let result = algorithm.fit();
     tracing::info!("Total time: {:.2?}", now.elapsed());
