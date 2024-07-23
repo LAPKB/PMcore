@@ -6,9 +6,9 @@ use prelude::*;
 use tokio::sync::mpsc;
 // use self::{data::Subject, simulator::Equation};
 
-mod npag;
-mod npod;
-mod postprob;
+pub mod npag;
+pub mod npod;
+pub mod postprob;
 
 pub trait Algorithm {
     fn fit(&mut self) -> NPResult;

@@ -227,15 +227,14 @@ pub struct Advanced {
     pub convergence: Convergence,
     /// The minimum distance required between a candiate point and the existing grid (THETA_D)
     ///
-    /// This is used in [algorithms::NPAG] and [algorithms::NPOD]
+    /// This is general for all non-parametric algorithms
     pub min_distance: f64,
     /// Maximum number of steps in Nelder-Mead optimization
-    ///
-    /// This is used in [algorithms::NPOD]
+    /// This is used in the [NPOD](crate::algorithms::npod) algorithm, specifically in the [D-optimizer](crate::routines::optimization::d_optimizer)
     pub nm_steps: usize,
-    /// Tolerance for the Nelder-Mead optimization
+    /// Tolerance (in standard deviations) for the Nelder-Mead optimization
     ///
-    /// This is used in [crate::algorithms::NPOD]
+    /// This is used in the [NPOD](crate::algorithms::npod) algorithm, specifically in the [D-optimizer](crate::routines::optimization::d_optimizer)
     pub tolerance: f64,
 }
 
@@ -323,7 +322,7 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
 
 /// Writes a copy of the parsed settings to file
 ///
-/// This function writes a copy of the parsed settings to file. The file is written to the current working directory, and is named `settings.json`.
+/// This function writes a copy of the parsed settings to file. The file is written to output folder specified in the [ settings](crate::routines::settings::Settings::paths), and is named `settings.json`.
 pub fn write_settings_to_file(settings: &Settings) -> Result<(), std::io::Error> {
     let serialized = serde_json::to_string_pretty(settings)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
