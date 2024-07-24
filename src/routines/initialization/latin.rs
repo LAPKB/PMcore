@@ -1,3 +1,4 @@
+use anyhow::Result;
 use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
 use rand::distributions::{Distribution, Uniform};
@@ -24,7 +25,7 @@ pub fn generate(
     n_points: usize,
     range_params: &Vec<(f64, f64)>,
     seed: usize,
-) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
+) -> Result<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>> {
     let n_params = range_params.len();
     let mut seq = Array::<f64, _>::zeros((n_points, n_params).f());
     let mut rng = StdRng::seed_from_u64(seed as u64);
@@ -40,7 +41,7 @@ pub fn generate(
             seq[[i, j]] = min + ((intervals[i] + value) / n_points as f64) * (max - min);
         }
     }
-    seq
+    Ok(seq)
 }
 
 #[cfg(test)]
@@ -49,7 +50,7 @@ mod tests {
 
     #[test]
     fn test_generate_lhs() {
-        let result = generate(5, &vec![(0., 1.), (0., 100.), (0., 1000.)], 42);
+        let result = generate(5, &vec![(0., 1.), (0., 100.), (0., 1000.)], 42).unwrap();
         assert_eq!(result.shape(), &[5, 3]);
         assert_eq!(
             result,

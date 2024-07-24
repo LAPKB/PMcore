@@ -2,7 +2,7 @@ use crate::algorithms::initialize_algorithm;
 use crate::prelude::{output::NPResult, *};
 use crate::routines::settings::*;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use pharmsol::prelude::data::Data;
 
 use pharmsol::prelude::{data::read_pmetrics, simulator::Equation};
@@ -85,7 +85,20 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     };
 
     // Initialize algorithm
-    let mut algorithm = initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone())?;
+    let mut algorithm =
+        match initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone()) {
+            Ok(algorithm) => algorithm,
+            Err(err) => {
+                tracing::error!(
+                    "An error has occurred during algorithm initialization: {}",
+                    err
+                );
+                bail!(
+                    "An error has occurred during algorithm initialization: {}",
+                    err
+                );
+            }
+        };
 
     // Tell the user which algorithm is being used
     tracing::info!(
