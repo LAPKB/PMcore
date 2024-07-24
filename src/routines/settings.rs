@@ -76,8 +76,8 @@ pub struct Config {
     /// Maximum number of cycles
     #[serde(default = "default_cycles")]
     pub cycles: usize,
-    /// Denotes the algorithm to use, `NPAG` is the only supported algorithm for now.
-    pub engine: String,
+    /// Denotes the algorithm to use
+    pub algorithm: String,
     #[serde(default = "default_seed")]
     /// Default seed for the initialization
     pub seed: usize,

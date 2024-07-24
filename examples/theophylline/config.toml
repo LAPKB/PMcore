@@ -5,7 +5,7 @@ log = "theophylline.log"
 
 [config]
 cycles = 1024
-engine = "NPAG"
+algorithm = "NPAG"
 init_points = 100
 seed = 347
 tui = false

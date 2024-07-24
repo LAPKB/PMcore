@@ -103,7 +103,7 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     // Tell the user which algorithm is being used
     tracing::info!(
         "The program will run with the {} algorithm",
-        settings.config.engine
+        settings.config.algorithm
     );
 
     // Run the algorithm

@@ -38,7 +38,7 @@ pub fn initialize_algorithm(
 
     //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
     let ranges = settings.random.ranges();
-    match settings.config.engine.as_str() {
+    match settings.config.algorithm.as_str() {
         "NPAG" => Ok(Box::new(npag::NPAG::new(
             equation,
             ranges,
