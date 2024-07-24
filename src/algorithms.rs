@@ -16,7 +16,7 @@ mod npod;
 mod postprob;
 
 pub trait Algorithm {
-    fn fit(&mut self) -> Result<NPResult>;
+    fn fit(&mut self) -> Result<NPResult, (anyhow::Error, NPResult)>;
     fn to_npresult(&self) -> NPResult;
 }
 

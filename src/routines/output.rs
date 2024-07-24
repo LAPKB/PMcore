@@ -55,19 +55,17 @@ impl NPResult {
         }
     }
 
-    pub fn write_outputs(
-        &self,
-        write: bool,
-        equation: &Equation,
-        idelta: f64,
-        tad: f64,
-    ) -> Result<()> {
-        if write {
+    pub fn write_outputs(&self, equation: &Equation) -> Result<()> {
+        if self.settings.config.output {
+            let idelta = self.settings.config.idelta;
+            let tad = self.settings.config.tad;
             self.cyclelog.write(&self.settings)?;
-            self.write_theta()?;
-            self.write_posterior()?;
-            self.write_obs()?;
-            self.write_pred(equation, idelta, tad)?;
+            self.write_theta().context("Failed to write theta")?;
+            self.write_posterior()
+                .context("Failed to write posterior")?;
+            self.write_obs().context("Failed to write observations")?;
+            self.write_pred(equation, idelta, tad)
+                .context("Failed to write predictions")?;
         }
         Ok(())
     }
@@ -112,7 +110,12 @@ impl NPResult {
         let par_names: Vec<String> = self.par_names.clone();
         //let subjects = self.subjects.clone();
 
-        let posterior = posterior(&psi, &w);
+        // Check for compatible sizes
+        if theta.nrows() != w.len() || theta.nrows() != psi.nrows() || psi.nrows() != w.len() {
+            bail!("Number of parameters and number of weights do not match");
+        }
+
+        let posterior = posterior(&psi, &w).context("Failed to calculate posterior")?;
 
         // Create the output folder if it doesn't exist
         let file = create_output_file(&self.settings, "posterior.csv")?;
@@ -163,18 +166,24 @@ impl NPResult {
         let w: Array1<f64> = self.w.clone();
         let psi: Array2<f64> = self.psi.clone();
 
-        let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w);
-        let (pop_mean, pop_median) = population_mean_median(&theta, &w);
+        // Check for compatible sizes
+        if theta.nrows() != w.len() || theta.nrows() != psi.nrows() || psi.nrows() != w.len() {
+            bail!("Number of parameters and number of weights do not match");
+        }
+
+        let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
+            .context("Failed to calculate posterior mean and median")?;
+
+        let (pop_mean, pop_median) = population_mean_median(&theta, &w)
+            .context("Failed to calculate posterior mean and median")?;
 
         let subjects = data.get_subjects();
         if subjects.len() != post_mean.nrows() {
             bail!("Number of subjects and number of posterior means do not match");
         }
 
-        let file = create_output_file(&self.settings, "pred.csv");
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(file.unwrap());
+        let file = create_output_file(&self.settings, "pred.csv")?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
         // Create the headers
         writer.write_record([
@@ -348,7 +357,7 @@ impl CycleLog {
     }
 }
 
-pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
+pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Result<Array2<f64>> {
     let py = psi.dot(w);
     let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
     post.axis_iter_mut(Axis(0))
@@ -363,7 +372,7 @@ pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
                     element.fill(elem);
                 });
         });
-    post
+    Ok(post)
 }
 
 pub fn median(data: Vec<f64>) -> f64 {
@@ -425,7 +434,10 @@ fn weighted_median(data: &Array1<f64>, weights: &Array1<f64>) -> f64 {
     unreachable!("The function should have returned a value before reaching this point.");
 }
 
-pub fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>, Array1<f64>) {
+pub fn population_mean_median(
+    theta: &Array2<f64>,
+    w: &Array1<f64>,
+) -> Result<(Array1<f64>, Array1<f64>)> {
     let mut mean = Array1::zeros(theta.ncols());
     let mut median = Array1::zeros(theta.ncols());
 
@@ -446,24 +458,31 @@ pub fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f
         *mdn = weighted_median(&Array::from(params), &Array::from(weights));
     }
 
-    (mean, median)
+    Ok((mean, median))
 }
 
 pub fn posterior_mean_median(
     theta: &Array2<f64>,
     psi: &Array2<f64>,
     w: &Array1<f64>,
-) -> (Array2<f64>, Array2<f64>) {
+) -> Result<(Array2<f64>, Array2<f64>)> {
     let mut mean = Array2::zeros((0, theta.ncols()));
     let mut median = Array2::zeros((0, theta.ncols()));
+
+    // Check for compatible sizes
+    if theta.nrows() != w.len() || theta.nrows() != psi.nrows() || psi.nrows() != w.len() {
+        bail!("Number of parameters and number of weights do not match");
+    }
 
     // Normalize psi to get probabilities of each spp for each id
     let mut psi_norm: Array2<f64> = Array2::zeros((0, psi.ncols()));
     for row in psi.axis_iter(Axis(0)) {
+        tracing::warn!("Normalizing row");
         let row_w = row.to_owned() * w.to_owned();
+        tracing::warn!("Normalizing row finished");
         let row_sum = row_w.sum();
         let row_norm = &row_w / row_sum;
-        psi_norm.push_row(row_norm.view()).unwrap();
+        psi_norm.push_row(row_norm.view())?;
     }
 
     // Transpose normalized psi to get ID (col) by prob (row)
@@ -486,14 +505,11 @@ pub fn posterior_mean_median(
             post_median.push(median);
         }
 
-        mean.push_row(Array::from(post_mean.clone()).view())
-            .unwrap();
-        median
-            .push_row(Array::from(post_median.clone()).view())
-            .unwrap();
+        mean.push_row(Array::from(post_mean.clone()).view())?;
+        median.push_row(Array::from(post_median.clone()).view())?;
     }
 
-    (mean, median)
+    Ok((mean, median))
 }
 
 pub fn create_output_file(settings: &Settings, file_name: &str) -> std::io::Result<File> {
