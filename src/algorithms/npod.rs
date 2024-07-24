@@ -47,7 +47,7 @@ pub struct NPOD {
 }
 
 impl Algorithm for NPOD {
-    fn fit(&mut self) -> NPResult {
+    fn fit(&mut self) -> anyhow::Result<NPResult> {
         self.run()
     }
     fn to_npresult(&self) -> NPResult {
@@ -164,7 +164,7 @@ impl NPOD {
         }
     }
 
-    pub fn run(&mut self) -> NPResult {
+    pub fn run(&mut self) -> anyhow::Result<NPResult> {
         loop {
             // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
@@ -336,7 +336,7 @@ impl NPOD {
             self.cycle += 1;
         }
 
-        self.to_npresult()
+        Ok(self.to_npresult())
     }
 }
 fn norm_zero(a: &Array1<f64>) -> f64 {

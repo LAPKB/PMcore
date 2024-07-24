@@ -1,3 +1,4 @@
+use anyhow::Result;
 use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
 use sobol_burley::sample;
@@ -24,14 +25,14 @@ pub fn generate(
     n_points: usize,
     range_params: &Vec<(f64, f64)>,
     seed: usize,
-) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> {
+) -> Result<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>> {
     let n_params = range_params.len();
     let mut seq = Array::<f64, _>::zeros((n_points, n_params).f());
     for i in 0..n_points {
         let mut row = seq.slice_mut(s![i, ..]);
         let mut point: Vec<f64> = Vec::new();
         for j in 0..n_params {
-            point.push(sample(i.try_into().unwrap(), j.try_into().unwrap(), seed as u32) as f64)
+            point.push(sample(i.try_into()?, j.try_into()?, seed as u32) as f64)
         }
         row.assign(&Array::from(point));
     }
@@ -40,7 +41,7 @@ pub fn generate(
         let (min, max) = range_params.get(i).unwrap();
         column.par_mapv_inplace(|x| min + x * (max - min));
     }
-    seq
+    Ok(seq)
 }
 
 #[cfg(test)]
@@ -49,7 +50,7 @@ use crate::prelude::*;
 #[test]
 fn basic_sobol() {
     assert_eq!(
-        initialization::sobol::generate(5, &vec![(0., 1.), (0., 1.), (0., 1.)], 347),
+        initialization::sobol::generate(5, &vec![(0., 1.), (0., 1.), (0., 1.)], 347).unwrap(),
         ndarray::array![
             [0.10731887817382813, 0.14647412300109863, 0.5851038694381714],
             [0.9840304851531982, 0.7633365392684937, 0.19097506999969482],
@@ -63,7 +64,7 @@ fn basic_sobol() {
 #[test]
 fn scaled_sobol() {
     assert_eq!(
-        initialization::sobol::generate(5, &vec![(0., 1.), (0., 2.), (-1., 1.)], 347),
+        initialization::sobol::generate(5, &vec![(0., 1.), (0., 2.), (-1., 1.)], 347).unwrap(),
         ndarray::array![
             [
                 0.10731887817382813,

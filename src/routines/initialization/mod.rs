@@ -2,6 +2,7 @@ use std::fs::File;
 
 use crate::prelude::data::Data;
 use crate::prelude::simulator::Equation;
+use anyhow::{bail, Result};
 use ndarray::{Array1, Array2};
 use pharmsol::prelude::EstimateTheta;
 
@@ -10,34 +11,31 @@ use crate::prelude::settings::Settings;
 pub mod latin;
 pub mod sobol;
 
-pub fn sample_space(
-    settings: &Settings,
-    ranges: &Vec<(f64, f64)>,
-    data: &Data,
-    eqn: &Equation,
-) -> Array2<f64> {
+/// This function generates the grid of support points according to the sampler specified in the [Settings]
+pub fn sample_space(settings: &Settings, data: &Data, eqn: &Equation) -> Result<Array2<f64>> {
+    let ranges = settings.random.ranges();
     match settings.paths.prior.as_str() {
         "uniform" => match &settings.config.sampler {
             Some(sampler) => match sampler.as_str() {
                 "sobol" => {
-                    sobol::generate(settings.config.init_points, ranges, settings.config.seed)
+                    sobol::generate(settings.config.init_points, &ranges, settings.config.seed)
                 }
                 "latin" => {
-                    latin::generate(settings.config.init_points, ranges, settings.config.seed)
+                    latin::generate(settings.config.init_points, &ranges, settings.config.seed)
                 }
                 "osat" => {
                     let mut point = vec![];
                     for range in ranges {
                         point.push((range.1 - range.0) / 2.0);
                     }
-                    data.estimate_theta(eqn, &Array1::from_vec(point))
+                    Ok(data.estimate_theta(eqn, &Array1::from_vec(point)))
                 }
                 _ => {
-                    panic!("Unknown sampler: {}", sampler);
+                    bail!("Unknown sampler specified in settings: {}", sampler);
                 }
             },
             None => {
-                panic!("No sampler specified");
+                bail!("No sampler specified in settings");
             }
         },
         prior_path => {
@@ -101,8 +99,7 @@ pub fn sample_space(
             // Convert nested Vec into a single Vec
             let theta_values: Vec<f64> = theta_values.into_iter().flatten().collect();
 
-            Array2::from_shape_vec((n_points, n_params), theta_values)
-                .expect("Failed to create theta Array2")
+            Ok(Array2::from_shape_vec((n_points, n_params), theta_values)?)
         }
     }
 }

@@ -1,7 +1,7 @@
 //! Defines the Terminal User Interface (TUI) for PMcore
 
+use anyhow::Result;
 use crossterm::execute;
-use eyre::Result;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
