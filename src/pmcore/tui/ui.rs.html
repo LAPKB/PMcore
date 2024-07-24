@@ -233,8 +233,8 @@
 <a href="#233" id="233">233</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Defines the Terminal User Interface (TUI) for PMcore
 
-</span><span class="kw">use </span>crossterm::execute;
-<span class="kw">use </span>eyre::Result;
+</span><span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>crossterm::execute;
 <span class="kw">use </span>ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},

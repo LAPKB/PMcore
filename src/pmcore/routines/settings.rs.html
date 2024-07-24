@@ -314,6 +314,7 @@
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
@@ -323,6 +324,7 @@
 <span class="kw">use </span>serde_json;
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>toml::Table;
+<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 
 <span class="doccomment">/// Contains all settings for PMcore
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
@@ -362,12 +364,12 @@
     <span class="doccomment">/// Parses the output folder location
     </span><span class="comment">////
     </span><span class="doccomment">/// If a `#` symbol is found, it will automatically increment the number by one.
-    </span><span class="kw">pub fn </span>parse_output_folder(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+    </span><span class="kw">pub fn </span>parse_output_folder(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>folder = <span class="self">self</span>.output_folder.as_ref().unwrap().clone();
         <span class="comment">// Check for the presence exactly one `#` symbol
         </span><span class="kw">let </span>count = folder.matches(<span class="string">'#'</span>).count();
         <span class="kw">match </span>count {
-            <span class="number">0 </span>=&gt; <span class="self">self</span>.output_folder = <span class="prelude-val">Some</span>(folder),
+            <span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">self</span>.output_folder = <span class="prelude-val">Some</span>(folder)),
             <span class="number">1 </span>=&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>folder = folder.clone();
                 <span class="kw">let </span><span class="kw-2">mut </span>num = <span class="number">1</span>;
@@ -376,10 +378,10 @@
                 }
                 folder = folder.replace(<span class="string">"#"</span>, <span class="kw-2">&amp;</span>num.to_string());
                 <span class="self">self</span>.output_folder = <span class="prelude-val">Some</span>(folder);
+                <span class="prelude-val">Ok</span>(())
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">eprintln!</span>(<span class="string">"Only one `#` symbol is allowed in the setting folder path. Rename the `output_folder setting` in the configuration file and re-run the program."</span>);
-                std::process::exit(-<span class="number">1</span>);
+                <span class="macro">bail!</span>(<span class="string">"Only one `#` symbol is allowed in the setting folder path. Rename the `output_folder setting` in the configuration file and re-run the program."</span>)
             }
         }
     }
@@ -392,8 +394,8 @@
     <span class="doccomment">/// Maximum number of cycles
     </span><span class="attr">#[serde(default = <span class="string">"default_cycles"</span>)]
     </span><span class="kw">pub </span>cycles: usize,
-    <span class="doccomment">/// Denotes the algorithm to use, `NPAG` is the only supported algorithm for now.
-    </span><span class="kw">pub </span>engine: String,
+    <span class="doccomment">/// Denotes the algorithm to use
+    </span><span class="kw">pub </span>algorithm: String,
     <span class="attr">#[serde(default = <span class="string">"default_seed"</span>)]
     </span><span class="doccomment">/// Default seed for the initialization
     </span><span class="kw">pub </span>seed: usize,
@@ -538,7 +540,7 @@
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
 /// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE__`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE__CONFIG__TUI=false` Note that a double underscore, `__`, is used as the separator, as some settings may contain a single underscore, such as `PMCORE__CONFIG__LOG_LEVEL`.
-</span><span class="kw">pub fn </span>read_settings(path: String) -&gt; <span class="prelude-ty">Result</span>&lt;Settings, config::ConfigError&gt; {
+</span><span class="kw">pub fn </span>read_settings(path: String) -&gt; <span class="prelude-ty">Result</span>&lt;Settings, anyhow::Error&gt; {
     <span class="kw">let </span>settings_path = path;
 
     <span class="kw">let </span>parsed = eConfig::builder()
@@ -560,12 +562,12 @@
         .map_err(config::ConfigError::Message)<span class="question-mark">?</span>;
 
     <span class="comment">// Parse the output folder
-    </span>settings.paths.parse_output_folder();
+    </span>settings.paths.parse_output_folder()<span class="question-mark">?</span>;
 
     <span class="comment">// Write a copy of the settings to file if output is enabled
     </span><span class="kw">if </span>settings.config.output {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = write_settings_to_file(<span class="kw-2">&amp;</span>settings) {
-            <span class="macro">eprintln!</span>(<span class="string">"Could not write settings to file: {}"</span>, error);
+            <span class="macro">bail!</span>(<span class="string">"Could not write settings to file: {}"</span>, error);
         }
     }
 

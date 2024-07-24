@@ -645,7 +645,9 @@
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>csv::WriterBuilder;
 <span class="kw">use </span>ndarray::parallel::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
@@ -701,19 +703,26 @@
         }
     }
 
-    <span class="kw">pub fn </span>write_outputs(<span class="kw-2">&amp;</span><span class="self">self</span>, write: bool, equation: <span class="kw-2">&amp;</span>Equation, idelta: f64, tad: f64) {
+    <span class="kw">pub fn </span>write_outputs(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        write: bool,
+        equation: <span class="kw-2">&amp;</span>Equation,
+        idelta: f64,
+        tad: f64,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span>write {
-            <span class="self">self</span>.cyclelog.write(<span class="kw-2">&amp;</span><span class="self">self</span>.settings);
-            <span class="self">self</span>.write_theta();
-            <span class="self">self</span>.write_posterior();
-            <span class="self">self</span>.write_obs();
-            <span class="self">self</span>.write_pred(equation, idelta, tad);
+            <span class="self">self</span>.cyclelog.write(<span class="kw-2">&amp;</span><span class="self">self</span>.settings)<span class="question-mark">?</span>;
+            <span class="self">self</span>.write_theta()<span class="question-mark">?</span>;
+            <span class="self">self</span>.write_posterior()<span class="question-mark">?</span>;
+            <span class="self">self</span>.write_obs()<span class="question-mark">?</span>;
+            <span class="self">self</span>.write_pred(equation, idelta, tad)<span class="question-mark">?</span>;
         }
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
-    </span><span class="kw">pub fn </span>write_theta(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+    </span><span class="kw">pub fn </span>write_theta(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">"Writing final parameter distribution..."</span>);
         <span class="kw">let </span>result = (|| {
             <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
@@ -739,69 +748,66 @@
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
             <span class="macro">tracing::error!</span>(<span class="string">"Error while writing theta: {}"</span>, e);
         }
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Writes the posterior support points for each individual
-    </span><span class="kw">pub fn </span>write_posterior(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+    </span><span class="kw">pub fn </span>write_posterior(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">"Writing posterior parameter probabilities..."</span>);
-        <span class="kw">let </span>result = (|| {
-            <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
-            <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
-            <span class="kw">let </span>psi: Array2&lt;f64&gt; = <span class="self">self</span>.psi.clone();
-            <span class="kw">let </span>par_names: Vec&lt;String&gt; = <span class="self">self</span>.par_names.clone();
-            <span class="comment">//let subjects = self.subjects.clone();
+        <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
+        <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
+        <span class="kw">let </span>psi: Array2&lt;f64&gt; = <span class="self">self</span>.psi.clone();
+        <span class="kw">let </span>par_names: Vec&lt;String&gt; = <span class="self">self</span>.par_names.clone();
+        <span class="comment">//let subjects = self.subjects.clone();
 
-            </span><span class="kw">let </span>posterior = posterior(<span class="kw-2">&amp;</span>psi, <span class="kw-2">&amp;</span>w);
+        </span><span class="kw">let </span>posterior = posterior(<span class="kw-2">&amp;</span>psi, <span class="kw-2">&amp;</span>w);
 
-            <span class="comment">// Create the output folder if it doesn't exist
-            </span><span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"posterior.csv"</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">true</span>).from_writer(file);
+        <span class="comment">// Create the output folder if it doesn't exist
+        </span><span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"posterior.csv"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">true</span>).from_writer(file);
 
-            <span class="comment">// Create the headers
-            </span>writer.write_field(<span class="string">"id"</span>)<span class="question-mark">?</span>;
-            writer.write_field(<span class="string">"point"</span>)<span class="question-mark">?</span>;
-            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..theta.ncols() {
-                <span class="kw">let </span>param_name = par_names.get(i).unwrap();
-                writer.write_field(param_name)<span class="question-mark">?</span>;
-            }
-            writer.write_field(<span class="string">"prob"</span>)<span class="question-mark">?</span>;
-            writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
-
-            <span class="comment">// Write contents
-            </span><span class="kw">let </span>subjects = <span class="self">self</span>.data.get_subjects();
-            <span class="kw">for </span>(sub, row) <span class="kw">in </span>posterior.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
-                <span class="kw">for </span>(spp, elem) <span class="kw">in </span>row.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
-                    writer.write_field(<span class="kw-2">&amp;</span>subjects.get(sub).unwrap().id())<span class="question-mark">?</span>;
-                    writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, spp))<span class="question-mark">?</span>;
-                    <span class="kw">for </span>param <span class="kw">in </span>theta.row(spp) {
-                        writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{param}"</span>))<span class="question-mark">?</span>;
-                    }
-                    writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{elem:.10}"</span>))<span class="question-mark">?</span>;
-                    writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
-                }
-            }
-            writer.flush()
-        })();
-
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-            <span class="macro">tracing::error!</span>(<span class="string">"Error while writing posterior: {}"</span>, e);
+        <span class="comment">// Create the headers
+        </span>writer.write_field(<span class="string">"id"</span>)<span class="question-mark">?</span>;
+        writer.write_field(<span class="string">"point"</span>)<span class="question-mark">?</span>;
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..theta.ncols() {
+            <span class="kw">let </span>param_name = par_names.get(i).unwrap();
+            writer.write_field(param_name)<span class="question-mark">?</span>;
         }
+        writer.write_field(<span class="string">"prob"</span>)<span class="question-mark">?</span>;
+        writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
+
+        <span class="comment">// Write contents
+        </span><span class="kw">let </span>subjects = <span class="self">self</span>.data.get_subjects();
+        <span class="kw">for </span>(sub, row) <span class="kw">in </span>posterior.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
+            <span class="kw">for </span>(spp, elem) <span class="kw">in </span>row.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
+                writer.write_field(<span class="kw-2">&amp;</span>subjects.get(sub).unwrap().id())<span class="question-mark">?</span>;
+                writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, spp))<span class="question-mark">?</span>;
+                <span class="kw">for </span>param <span class="kw">in </span>theta.row(spp) {
+                    writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{param}"</span>))<span class="question-mark">?</span>;
+                }
+                writer.write_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{elem:.10}"</span>))<span class="question-mark">?</span>;
+                writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
+            }
+        }
+        writer.flush()<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Write the observations, which is the reformatted input data
-    </span><span class="kw">pub fn </span>write_obs(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+    </span><span class="kw">pub fn </span>write_obs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">"Writing observations..."</span>);
-        <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"obs.csv"</span>).unwrap();
-        write_pmetrics_observations(<span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span>file)
+        <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"obs.csv"</span>)<span class="question-mark">?</span>;
+        write_pmetrics_observations(<span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span>file);
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Writes the predictions
-    </span><span class="kw">pub fn </span>write_pred(<span class="kw-2">&amp;</span><span class="self">self</span>, equation: <span class="kw-2">&amp;</span>Equation, idelta: f64, tad: f64) {
+    </span><span class="kw">pub fn </span>write_pred(<span class="kw-2">&amp;</span><span class="self">self</span>, equation: <span class="kw-2">&amp;</span>Equation, idelta: f64, tad: f64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">"Writing predictions..."</span>);
         <span class="kw">let </span>data = <span class="self">self</span>.data.expand(idelta, tad);
-        <span class="comment">// println!("{:?}", data);
 
-        </span><span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
+        <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
         <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
         <span class="kw">let </span>psi: Array2&lt;f64&gt; = <span class="self">self</span>.psi.clone();
 
@@ -810,7 +816,7 @@
 
         <span class="kw">let </span>subjects = data.get_subjects();
         <span class="kw">if </span>subjects.len() != post_mean.nrows() {
-            <span class="macro">panic!</span>(<span class="string">"Number of subjects and number of posterior means do not match"</span>);
+            <span class="macro">bail!</span>(<span class="string">"Number of subjects and number of posterior means do not match"</span>);
         }
 
         <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"pred.csv"</span>);
@@ -819,17 +825,15 @@
             .from_writer(file.unwrap());
 
         <span class="comment">// Create the headers
-        </span>writer
-            .write_record([
-                <span class="string">"id"</span>,
-                <span class="string">"time"</span>,
-                <span class="string">"outeq"</span>,
-                <span class="string">"popMean"</span>,
-                <span class="string">"popMedian"</span>,
-                <span class="string">"postMean"</span>,
-                <span class="string">"postMedian"</span>,
-            ])
-            .unwrap();
+        </span>writer.write_record([
+            <span class="string">"id"</span>,
+            <span class="string">"time"</span>,
+            <span class="string">"outeq"</span>,
+            <span class="string">"popMean"</span>,
+            <span class="string">"popMedian"</span>,
+            <span class="string">"postMean"</span>,
+            <span class="string">"postMedian"</span>,
+        ])<span class="question-mark">?</span>;
 
         <span class="kw">for </span>(i, subject) <span class="kw">in </span>subjects.iter().enumerate() {
             <span class="comment">// Population predictions
@@ -870,9 +874,10 @@
                             <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_mean.prediction()),
                             <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_median.prediction()),
                         ])
-                        .unwrap();
+                        .expect(<span class="string">"Failed to write record"</span>);
                 });
         }
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -945,34 +950,32 @@
         <span class="self">self</span>.cycles.push(cycle);
     }
 
-    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>, settings: <span class="kw-2">&amp;</span>Settings) {
+    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>, settings: <span class="kw-2">&amp;</span>Settings) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">"Writing cycles..."</span>);
-        <span class="kw">let </span>file = create_output_file(settings, <span class="string">"cycles.csv"</span>).unwrap();
+        <span class="kw">let </span>file = create_output_file(settings, <span class="string">"cycles.csv"</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
 
         <span class="comment">// Write headers
-        </span>writer.write_field(<span class="string">"cycle"</span>).unwrap();
-        writer.write_field(<span class="string">"converged"</span>).unwrap();
-        writer.write_field(<span class="string">"neg2ll"</span>).unwrap();
-        writer.write_field(<span class="string">"gamlam"</span>).unwrap();
-        writer.write_field(<span class="string">"nspp"</span>).unwrap();
+        </span>writer.write_field(<span class="string">"cycle"</span>)<span class="question-mark">?</span>;
+        writer.write_field(<span class="string">"converged"</span>)<span class="question-mark">?</span>;
+        writer.write_field(<span class="string">"neg2ll"</span>)<span class="question-mark">?</span>;
+        writer.write_field(<span class="string">"gamlam"</span>)<span class="question-mark">?</span>;
+        writer.write_field(<span class="string">"nspp"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>parameter_names = settings.random.names();
         <span class="kw">for </span>param_name <span class="kw">in </span><span class="kw-2">&amp;</span>parameter_names {
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.mean"</span>, param_name)).unwrap();
-            writer
-                .write_field(<span class="macro">format!</span>(<span class="string">"{}.median"</span>, param_name))
-                .unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.sd"</span>, param_name)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.mean"</span>, param_name))<span class="question-mark">?</span>;
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.median"</span>, param_name))<span class="question-mark">?</span>;
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.sd"</span>, param_name))<span class="question-mark">?</span>;
         }
 
-        writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
+        writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
 
         <span class="kw">for </span>cycle <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.cycles {
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.cycle)).unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.converged)).unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.objf)).unwrap();
-            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.gamlam)).unwrap();
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.cycle))<span class="question-mark">?</span>;
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.converged))<span class="question-mark">?</span>;
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.objf))<span class="question-mark">?</span>;
+            writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.gamlam))<span class="question-mark">?</span>;
             writer
                 .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, cycle.theta.nrows()))
                 .unwrap();
@@ -981,17 +984,16 @@
                 writer
                     .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.mean().unwrap()))
                     .unwrap();
-                writer
-                    .write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, median(param.to_owned().to_vec())))
-                    .unwrap();
-                writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.std(<span class="number">1.</span>))).unwrap();
+                writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, median(param.to_owned().to_vec())))<span class="question-mark">?</span>;
+                writer.write_field(<span class="macro">format!</span>(<span class="string">"{}"</span>, param.std(<span class="number">1.</span>)))<span class="question-mark">?</span>;
             }
 
-            writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;).unwrap();
+            writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
         }
 
-        writer.flush().unwrap(); <span class="comment">// TODO: Handle errors
-    </span>}
+        writer.flush().context(<span class="string">"Failed to flush writer"</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="kw">pub fn </span>posterior(psi: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;, w: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; Array2&lt;f64&gt; {

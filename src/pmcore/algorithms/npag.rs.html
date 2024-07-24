@@ -372,9 +372,33 @@
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>pharmsol::prelude::{
-    data::{Data, ErrorModel, ErrorType},
-    simulator::{get_population_predictions, Equation, PopulationPredictions},
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>pharmsol::{
+    prelude::{
+        data::{Data, ErrorModel, ErrorType},
+        simulator::{get_population_predictions, Equation, PopulationPredictions},
+    },
+    Subject,
 };
 
 <span class="kw">use crate</span>::{
@@ -389,7 +413,7 @@
     tui::ui::Comm,
 };
 
-<span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
+<span class="kw">use </span>ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 
@@ -425,7 +449,7 @@
 }
 
 <span class="kw">impl </span>Algorithm <span class="kw">for </span>NPAG {
-    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
+    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; anyhow::Result&lt;NPResult&gt; {
         <span class="self">self</span>.run()
     }
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
@@ -495,33 +519,49 @@
         }
     }
 
-    <span class="kw">fn </span>validate_psi(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="comment">// check all the elements of psi that are NaN, Inf or -Inf and report the columns and rows
-        // let mut bad: Vec&lt;(usize, usize)&gt; = Vec::new();
-        // let mut invalid = false;
-        </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.psi.nrows() {
-            <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.psi.ncols() {
-                <span class="kw">let </span>val = <span class="self">self</span>.psi.get_mut((i, j)).unwrap();
-                <span class="kw">if </span>val.is_nan() || val.is_infinite() {
-                    <span class="comment">// invalid = true;
-                    </span><span class="macro">tracing::warn!</span>(<span class="string">"Invalid psi value: psi[{}, {}] = {}"</span>, i, j, val);
-                    <span class="macro">tracing::warn!</span>(<span class="string">"Set to 0.0"</span>);
-                    <span class="kw-2">*</span>val = <span class="number">0.0</span>;
-                    <span class="comment">// let obspred = self
-                    //     .population_predictions
-                    //     .subject_predictions
-                    //     .get((i, j))
-                    //     .unwrap();
-                    // tracing::debug!("Observed values: {:?}", &amp;obspred.flat_observations());
-                    // tracing::debug!("Predicted values: {:?}", &amp;obspred.flat_predictions());
-                    // tracing::debug!("====================================================");
-                </span>}
+    <span class="kw">fn </span>validate_psi(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="comment">// First coerce all NaN and infinite in psi to 0.0
+        </span><span class="kw">if </span><span class="self">self</span>.psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
+            <span class="macro">tracing::warn!</span>(<span class="string">"Psi contains NaN or Inf values, coercing to 0.0"</span>);
+            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.psi.nrows() {
+                <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.psi.ncols() {
+                    <span class="kw">let </span>val = <span class="self">self</span>.psi.get_mut((i, j)).unwrap();
+                    <span class="kw">if </span>val.is_nan() || val.is_infinite() {
+                        <span class="kw-2">*</span>val = <span class="number">0.0</span>;
+                    }
+                }
             }
         }
-        <span class="comment">// if invalid {
-        //     panic!("Invalid psi matrix");
-        // }
-    </span>}
+
+        <span class="kw">let </span>psi = <span class="self">self</span>.psi.clone();
+
+        <span class="comment">// Calculate the sum of each column in psi
+        </span><span class="kw">let </span>(<span class="kw">_</span>, col) = psi.dim();
+        <span class="kw">let </span>ecol: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt; = Array::ones(col);
+        <span class="kw">let </span>plam = psi.dot(<span class="kw-2">&amp;</span>ecol);
+        <span class="kw">let </span>w = <span class="number">1. </span>/ <span class="kw-2">&amp;</span>plam;
+
+        <span class="comment">// Get the index of each element in `w` that is NaN or infinite
+        </span><span class="kw">let </span>indices: Vec&lt;usize&gt; = w
+            .iter()
+            .enumerate()
+            .filter(|(<span class="kw">_</span>, x)| x.is_nan() || x.is_infinite())
+            .map(|(i, <span class="kw">_</span>)| i)
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+        <span class="comment">// If any elements in `w` are NaN or infinite, return the subject IDs for each index
+        </span><span class="kw">if </span>!indices.is_empty() {
+            <span class="kw">let </span>subject: Vec&lt;<span class="kw-2">&amp;</span>Subject&gt; = <span class="self">self</span>.data.get_subjects();
+            <span class="kw">let </span>zero_probability_subjects: Vec&lt;<span class="kw-2">&amp;</span>String&gt; =
+                indices.iter().map(|<span class="kw-2">&amp;</span>i| subject[i].id()).collect();
+
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">"The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}"</span>, zero_probability_subjects
+            ));
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
 
     <span class="kw">fn </span>optim_gamma(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="comment">//Gam/Lam optimization
@@ -578,7 +618,7 @@
         adaptative_grid(<span class="kw-2">&amp;mut </span><span class="self">self</span>.theta, <span class="self">self</span>.eps, <span class="kw-2">&amp;</span><span class="self">self</span>.ranges, THETA_D);
     }
 
-    <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult {
+    <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; anyhow::Result&lt;NPResult&gt; {
         <span class="kw">loop </span>{
             <span class="comment">// Enter a span for each cycle, providing context for further errors
             </span><span class="kw">let </span>cycle_span = <span class="macro">tracing::span!</span>(tracing::Level::INFO, <span class="string">"Cycle"</span>, cycle = <span class="self">self</span>.cycle);
@@ -595,7 +635,7 @@
                 <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
             ));
 
-            <span class="self">self</span>.validate_psi();
+            <span class="self">self</span>.validate_psi()<span class="question-mark">?</span>;
 
             (<span class="self">self</span>.lambda, <span class="kw">_</span>) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
@@ -607,7 +647,7 @@
 
             <span class="kw">let </span><span class="kw-2">mut </span>keep = Vec::&lt;usize&gt;::new();
             <span class="kw">for </span>(index, lam) <span class="kw">in </span><span class="self">self</span>.lambda.iter().enumerate() {
-                <span class="kw">if </span><span class="kw-2">*</span>lam &gt; <span class="self">self</span>.lambda.max().unwrap() / <span class="number">1000_f64 </span>{
+                <span class="kw">if </span><span class="kw-2">*</span>lam &gt; <span class="self">self</span>.lambda.max()<span class="question-mark">? </span>/ <span class="number">1000_f64 </span>{
                     keep.push(index);
                 }
             }
@@ -636,7 +676,7 @@
             <span class="comment">// If a support point is dropped, log it as a debug message
             </span><span class="kw">if </span><span class="self">self</span>.psi.ncols() != keep.len() {
                 <span class="macro">tracing::debug!</span>(
-                    <span class="string">"QRD dropped {} support point(s)"</span>,
+                    <span class="string">"QR decomposition dropped {} support point(s)"</span>,
                     <span class="self">self</span>.psi.ncols() - keep.len(),
                 );
             }
@@ -739,7 +779,7 @@
             <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
         }
 
-        <span class="self">self</span>.to_npresult()
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.to_npresult())
     }
 }
 <span class="kw">fn </span>norm_zero(a: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; f64 {

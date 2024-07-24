@@ -64,8 +64,17 @@
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, settings::Settings};
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
+<span class="kw">use </span>std::path::Path;
 
+<span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, settings::Settings};
+
+<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>output::NPResult;
 <span class="kw">use </span>pharmsol::prelude::{data::Data, simulator::Equation};
 <span class="kw">use </span>prelude::<span class="kw-2">*</span>;
@@ -77,7 +86,7 @@
 <span class="kw">mod </span>postprob;
 
 <span class="kw">pub trait </span>Algorithm {
-    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NPResult;
+    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt;;
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult;
 }
 
@@ -86,19 +95,21 @@
     settings: Settings,
     data: Data,
     tx: <span class="prelude-ty">Option</span>&lt;mpsc::UnboundedSender&lt;Comm&gt;&gt;,
-) -&gt; Box&lt;<span class="kw">dyn </span>Algorithm&gt; {
-    <span class="kw">if </span>std::path::Path::new(<span class="string">"stop"</span>).exists() {
-        <span class="kw">match </span>std::fs::remove_file(<span class="string">"stop"</span>) {
-            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">tracing::info!</span>(<span class="string">"Removed previous stop file"</span>),
-            <span class="prelude-val">Err</span>(err) =&gt; <span class="macro">panic!</span>(<span class="string">"Unable to remove previous stop file: {}"</span>, err),
-        }
+) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>Algorithm&gt;, Error&gt; {
+    <span class="comment">// If a stop file exists in the current directory, remove it
+    </span><span class="kw">if </span>Path::new(<span class="string">"stop"</span>).exists() {
+        <span class="macro">tracing::info!</span>(<span class="string">"Removing existing stop file prior to run"</span>);
+        fs::remove_file(<span class="string">"stop"</span>).context(<span class="string">"Unable to remove previous stop file"</span>)<span class="question-mark">?</span>;
     }
-    <span class="kw">let </span>ranges = settings.random.ranges();
-    <span class="kw">let </span>theta = initialization::sample_space(<span class="kw-2">&amp;</span>settings, <span class="kw-2">&amp;</span>ranges, <span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>equation);
+
+    <span class="comment">// Initialize the sample space
+    </span><span class="kw">let </span>theta = initialization::sample_space(<span class="kw-2">&amp;</span>settings, <span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>equation)
+        .context(<span class="string">"Sample space initialization failed"</span>)<span class="question-mark">?</span>;
 
     <span class="comment">//This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
-    </span><span class="kw">match </span>settings.config.engine.as_str() {
-        <span class="string">"NPAG" </span>=&gt; Box::new(npag::NPAG::new(
+    </span><span class="kw">let </span>ranges = settings.random.ranges();
+    <span class="kw">match </span>settings.config.algorithm.as_str() {
+        <span class="string">"NPAG" </span>=&gt; <span class="prelude-val">Ok</span>(Box::new(npag::NPAG::new(
             equation,
             ranges,
             theta,
@@ -106,8 +117,8 @@
             settings.error.poly,
             tx,
             settings,
-        )),
-        <span class="string">"NPOD" </span>=&gt; Box::new(npod::NPOD::new(
+        ))),
+        <span class="string">"NPOD" </span>=&gt; <span class="prelude-val">Ok</span>(Box::new(npod::NPOD::new(
             equation,
             ranges,
             theta,
@@ -115,19 +126,16 @@
             settings.error.poly,
             tx,
             settings,
-        )),
-        <span class="string">"POSTPROB" </span>=&gt; Box::new(postprob::POSTPROB::new(
+        ))),
+        <span class="string">"POSTPROB" </span>=&gt; <span class="prelude-val">Ok</span>(Box::new(postprob::POSTPROB::new(
             equation,
             theta,
             data,
             settings.error.poly,
             tx,
             settings,
-        )),
-        alg =&gt; {
-            <span class="macro">eprintln!</span>(<span class="string">"Error: Algorithm not recognized: {}"</span>, alg);
-            std::process::exit(-<span class="number">1</span>)
-        }
+        ))),
+        alg =&gt; <span class="macro">bail!</span>(<span class="string">"Algorithm {} not implemented"</span>, alg),
     }
 }
 </code></pre></div></section></main></body></html>

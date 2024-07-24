@@ -83,7 +83,9 @@
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>ndarray::prelude::<span class="kw-2">*</span>;
+<a href="#86" id="86">86</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>ndarray::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array, ArrayBase, OwnedRepr};
 <span class="kw">use </span>sobol_burley::sample;
 
@@ -109,14 +111,14 @@
     n_points: usize,
     range_params: <span class="kw-2">&amp;</span>Vec&lt;(f64, f64)&gt;,
     seed: usize,
-) -&gt; ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">2</span>]&gt;&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">2</span>]&gt;&gt;&gt; {
     <span class="kw">let </span>n_params = range_params.len();
     <span class="kw">let </span><span class="kw-2">mut </span>seq = Array::&lt;f64, <span class="kw">_</span>&gt;::zeros((n_points, n_params).f());
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n_points {
         <span class="kw">let </span><span class="kw-2">mut </span>row = seq.slice_mut(<span class="macro">s!</span>[i, ..]);
         <span class="kw">let </span><span class="kw-2">mut </span>point: Vec&lt;f64&gt; = Vec::new();
         <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..n_params {
-            point.push(sample(i.try_into().unwrap(), j.try_into().unwrap(), seed <span class="kw">as </span>u32) <span class="kw">as </span>f64)
+            point.push(sample(i.try_into()<span class="question-mark">?</span>, j.try_into()<span class="question-mark">?</span>, seed <span class="kw">as </span>u32) <span class="kw">as </span>f64)
         }
         row.assign(<span class="kw-2">&amp;</span>Array::from(point));
     }
@@ -125,7 +127,7 @@
         <span class="kw">let </span>(min, max) = range_params.get(i).unwrap();
         column.par_mapv_inplace(|x| min + x * (max - min));
     }
-    seq
+    <span class="prelude-val">Ok</span>(seq)
 }
 
 <span class="attr">#[cfg(test)]
@@ -134,7 +136,7 @@
 <span class="attr">#[test]
 </span><span class="kw">fn </span>basic_sobol() {
     <span class="macro">assert_eq!</span>(
-        initialization::sobol::generate(<span class="number">5</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">1.</span>)], <span class="number">347</span>),
+        initialization::sobol::generate(<span class="number">5</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">1.</span>)], <span class="number">347</span>).unwrap(),
         <span class="macro">ndarray::array!</span>[
             [<span class="number">0.10731887817382813</span>, <span class="number">0.14647412300109863</span>, <span class="number">0.5851038694381714</span>],
             [<span class="number">0.9840304851531982</span>, <span class="number">0.7633365392684937</span>, <span class="number">0.19097506999969482</span>],
@@ -148,7 +150,7 @@
 <span class="attr">#[test]
 </span><span class="kw">fn </span>scaled_sobol() {
     <span class="macro">assert_eq!</span>(
-        initialization::sobol::generate(<span class="number">5</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">2.</span>), (-<span class="number">1.</span>, <span class="number">1.</span>)], <span class="number">347</span>),
+        initialization::sobol::generate(<span class="number">5</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">2.</span>), (-<span class="number">1.</span>, <span class="number">1.</span>)], <span class="number">347</span>).unwrap(),
         <span class="macro">ndarray::array!</span>[
             [
                 <span class="number">0.10731887817382813</span>,

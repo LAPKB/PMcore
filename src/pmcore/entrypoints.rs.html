@@ -151,31 +151,11 @@
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPResult, <span class="kw-2">*</span>};
 <span class="kw">use </span><span class="kw">crate</span>::routines::settings::<span class="kw-2">*</span>;
 
-<span class="kw">use </span>eyre::Result;
+<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>pharmsol::prelude::data::Data;
 
 <span class="kw">use </span>pharmsol::prelude::{data::read_pmetrics, simulator::Equation};
@@ -183,6 +163,7 @@
 <span class="kw">use </span>std::thread::spawn;
 <span class="kw">use </span>std::time::Instant;
 <span class="kw">use </span>tokio::sync::mpsc::{<span class="self">self</span>};
+
 <span class="comment">// use self::simulator::likelihood::Prediction;
 
 </span><span class="doccomment">/// Simulate predictions from a model and prior distribution
@@ -200,61 +181,13 @@
 /// - `tad`: the time after dose, which if greater than the last prediction time is the time for which it will predict . Default is 0.0.
 </span><span class="kw">pub fn </span>simulate(_equation: Equation, _settings_path: String) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="macro">unimplemented!</span>();
-    <span class="comment">// let settings: Settings = read_settings(settings_path).unwrap();
-    // let theta_file = File::open(settings.paths.prior.unwrap()).unwrap();
-    // let mut reader = ReaderBuilder::new()
-    //     .has_headers(true)
-    //     .from_reader(theta_file);
-    // // let theta: Array2&lt;f64&gt; = reader.deserialize_array2_dynamic().unwrap();
-
-    // // Expand data
-    // // let idelta = settings.config.idelta;
-    // // let tad = settings.config.tad;
-    // let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
-    // // let subjects = data.get_subjects();
-
-    // // Perform simulation
-    // // let obspred = get_population_predictions(&amp;equation, &amp;subjects, &amp;theta, false);
-
-    // // Prepare writer
-    // let sim_file = File::create("simulation_output.csv").unwrap();
-    // let mut sim_writer = WriterBuilder::new()
-    //     .has_headers(false)
-    //     .from_writer(sim_file);
-    // sim_writer
-    //     .write_record(["id", "point", "time", "pred"])
-    //     .unwrap();
-
-    // // Write output
-    // // for (id, subject) in subjects.iter().enumerate() {
-    // //     //TODO: We are missing a get_obs_times function
-    // //     // let time = subject.obs_times.clone();
-    // //     let time: Vec&lt;f64&gt; = vec![];
-    // //     for (point, _spp) in theta.rows().into_iter().enumerate() {
-    // //         for (i, time) in time.iter().enumerate() {
-    // //             unimplemented!()
-    // //             // sim_writer.write_record(&amp;[
-    // //             //     id.to_string(),
-    // //             //     point.to_string(),
-    // //             //     time.to_string(),
-    // //             //     obspred
-    // //             //         .get((id, point))
-    // //             //         .unwrap()
-    // //             //         .get(i)
-    // //             //         .unwrap()
-    // //             //         .to_string(),
-    // //             // ])?;
-    // //         }
-    // //     }
-    // // }
-    // Ok(())
-</span>}
+}
 
 <span class="doccomment">/// Primary entrypoint for PMcore
 ///
 /// This function is the primary entrypoint for PMcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
-</span><span class="kw">pub fn </span>fit(equation: Equation, settings: Settings) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt; {
+</span><span class="kw">pub fn </span>fit(equation: Equation, settings: Settings) -&gt; anyhow::Result&lt;NPResult&gt; {
     <span class="kw">let </span>now = Instant::now();
 
     <span class="comment">// Configure MPSC channels for TUI
@@ -266,27 +199,32 @@
         <span class="bool-val">false </span>=&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
     };
 
-    logger::setup_log(<span class="kw-2">&amp;</span>settings, tx.clone());
+    logger::setup_log(<span class="kw-2">&amp;</span>settings, tx.clone())<span class="question-mark">?</span>;
     <span class="macro">tracing::info!</span>(<span class="string">"Starting PMcore"</span>);
 
     <span class="comment">// Read input data
     </span><span class="kw">let </span>data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
     <span class="kw">let </span>subjects = data.get_subjects();
+
     <span class="comment">// Provide information of the input data
     </span><span class="macro">tracing::info!</span>(
-        <span class="comment">// "Datafile contains {} subjects with a total of {} observations",
-        </span><span class="string">"Datafile contains {} subjects with a total of {} occasions"</span>,
+        <span class="string">"Datafile contains {} subjects with a total of {} occasions"</span>,
         subjects.len(),
-        <span class="comment">//TODO: again we are missing a get_obs_times function
-        // subjects.iter().map(|s| s.obs_times.len()).sum::&lt;usize&gt;()
-        </span>subjects.iter().map(|s| s.occasions().len()).sum::&lt;usize&gt;()
+        subjects.iter().map(|s| s.occasions().len()).sum::&lt;usize&gt;()
     );
 
     <span class="comment">// Tell the user where the output files will be written
-    </span><span class="macro">tracing::info!</span>(
-        <span class="string">"Output files will be written to {}"</span>,
-        settings.paths.output_folder.as_ref().unwrap().clone()
-    );
+    </span><span class="kw">match </span>settings.config.output {
+        <span class="bool-val">true </span>=&gt; {
+            <span class="macro">tracing::info!</span>(
+                <span class="string">"Output files will be written to {}"</span>,
+                settings.paths.output_folder.as_ref().unwrap()
+            )
+        }
+        <span class="bool-val">false </span>=&gt; {
+            <span class="macro">tracing::info!</span>(<span class="string">"Output files will not be written - set `output = true` in the configuration file to enable output files"</span>)
+        }
+    }
 
     <span class="comment">// Spawn new thread for TUI
     </span><span class="kw">let </span>settings_tui = settings.clone();
@@ -300,29 +238,51 @@
     };
 
     <span class="comment">// Initialize algorithm
-    </span><span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone());
+    </span><span class="kw">let </span><span class="kw-2">mut </span>algorithm =
+        <span class="kw">match </span>initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone()) {
+            <span class="prelude-val">Ok</span>(algorithm) =&gt; algorithm,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">tracing::error!</span>(
+                    <span class="string">"An error has occurred during algorithm initialization: {}"</span>,
+                    err
+                );
+                <span class="macro">bail!</span>(
+                    <span class="string">"An error has occurred during algorithm initialization: {}"</span>,
+                    err
+                );
+            }
+        };
 
     <span class="comment">// Tell the user which algorithm is being used
     </span><span class="macro">tracing::info!</span>(
         <span class="string">"The program will run with the {} algorithm"</span>,
-        settings.config.engine
+        settings.config.algorithm
     );
 
     <span class="comment">// Run the algorithm
-    </span><span class="kw">let </span>result = algorithm.fit();
+    </span><span class="kw">let </span>result = <span class="kw">match </span>algorithm.fit() {
+        <span class="prelude-val">Ok</span>(result) =&gt; result,
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="macro">tracing::error!</span>(<span class="string">"An error has occurred during model fitting: {}"</span>, err);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(err);
+        }
+    };
 
     <span class="comment">// Write output files (if configured)
     </span><span class="kw">if </span>settings.config.output {
         <span class="kw">let </span>idelta = settings.config.idelta;
         <span class="kw">let </span>tad = settings.config.tad;
-        result.write_outputs(<span class="bool-val">true</span>, <span class="kw-2">&amp;</span>equation, idelta, tad);
+        result.write_outputs(<span class="bool-val">true</span>, <span class="kw-2">&amp;</span>equation, idelta, tad)<span class="question-mark">?</span>;
     }
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(tx) = tx {
-        tx.send(Comm::StopUI).unwrap();
+        tx.send(Comm::StopUI)
+            .context(<span class="string">"Failed to send stop signal to the TUI"</span>)<span class="question-mark">?</span>;
     }
-    handle.join().unwrap();
-    <span class="macro">tracing::info!</span>(<span class="string">"Program complete after {:.2?}"</span>, now.elapsed());
+    handle.join().expect(<span class="string">"Failed to close the TUI thread"</span>);
+
+    <span class="comment">// Provide information about the program runtime|
+    </span><span class="macro">tracing::info!</span>(<span class="string">"Program complete after {:.2?}"</span>, now.elapsed());
 
     <span class="prelude-val">Ok</span>(result)
 }
@@ -336,12 +296,12 @@
 /// Returns an NPresult object
 </span><span class="kw">pub fn </span>start_internal(equation: Equation, settings: Settings, data: Data) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt; {
     <span class="kw">let </span>now = Instant::now();
-    logger::setup_log(<span class="kw-2">&amp;</span>settings, <span class="prelude-val">None</span>);
+    logger::setup_log(<span class="kw-2">&amp;</span>settings, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(equation, settings.clone(), data, <span class="prelude-val">None</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(equation, settings.clone(), data, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>result = algorithm.fit();
     <span class="macro">tracing::info!</span>(<span class="string">"Total time: {:.2?}"</span>, now.elapsed());
-    <span class="prelude-val">Ok</span>(result)
+    result
 }
 </code></pre></div></section></main></body></html>

@@ -103,13 +103,11 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::File;
 
 <span class="kw">use </span><span class="kw">crate</span>::prelude::data::Data;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::simulator::Equation;
+<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>ndarray::{Array1, Array2};
 <span class="kw">use </span>pharmsol::prelude::EstimateTheta;
 
@@ -118,34 +116,31 @@
 <span class="kw">pub mod </span>latin;
 <span class="kw">pub mod </span>sobol;
 
-<span class="kw">pub fn </span>sample_space(
-    settings: <span class="kw-2">&amp;</span>Settings,
-    ranges: <span class="kw-2">&amp;</span>Vec&lt;(f64, f64)&gt;,
-    data: <span class="kw-2">&amp;</span>Data,
-    eqn: <span class="kw-2">&amp;</span>Equation,
-) -&gt; Array2&lt;f64&gt; {
+<span class="doccomment">/// This function generates the grid of support points according to the sampler specified in the [Settings]
+</span><span class="kw">pub fn </span>sample_space(settings: <span class="kw-2">&amp;</span>Settings, data: <span class="kw-2">&amp;</span>Data, eqn: <span class="kw-2">&amp;</span>Equation) -&gt; <span class="prelude-ty">Result</span>&lt;Array2&lt;f64&gt;&gt; {
+    <span class="kw">let </span>ranges = settings.random.ranges();
     <span class="kw">match </span>settings.paths.prior.as_str() {
         <span class="string">"uniform" </span>=&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>settings.config.sampler {
             <span class="prelude-val">Some</span>(sampler) =&gt; <span class="kw">match </span>sampler.as_str() {
                 <span class="string">"sobol" </span>=&gt; {
-                    sobol::generate(settings.config.init_points, ranges, settings.config.seed)
+                    sobol::generate(settings.config.init_points, <span class="kw-2">&amp;</span>ranges, settings.config.seed)
                 }
                 <span class="string">"latin" </span>=&gt; {
-                    latin::generate(settings.config.init_points, ranges, settings.config.seed)
+                    latin::generate(settings.config.init_points, <span class="kw-2">&amp;</span>ranges, settings.config.seed)
                 }
                 <span class="string">"osat" </span>=&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>point = <span class="macro">vec!</span>[];
                     <span class="kw">for </span>range <span class="kw">in </span>ranges {
                         point.push((range.<span class="number">1 </span>- range.<span class="number">0</span>) / <span class="number">2.0</span>);
                     }
-                    data.estimate_theta(eqn, <span class="kw-2">&amp;</span>Array1::from_vec(point))
+                    <span class="prelude-val">Ok</span>(data.estimate_theta(eqn, <span class="kw-2">&amp;</span>Array1::from_vec(point)))
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">panic!</span>(<span class="string">"Unknown sampler: {}"</span>, sampler);
+                    <span class="macro">bail!</span>(<span class="string">"Unknown sampler specified in settings: {}"</span>, sampler);
                 }
             },
             <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">panic!</span>(<span class="string">"No sampler specified"</span>);
+                <span class="macro">bail!</span>(<span class="string">"No sampler specified in settings"</span>);
             }
         },
         prior_path =&gt; {
@@ -209,8 +204,7 @@
             <span class="comment">// Convert nested Vec into a single Vec
             </span><span class="kw">let </span>theta_values: Vec&lt;f64&gt; = theta_values.into_iter().flatten().collect();
 
-            Array2::from_shape_vec((n_points, n_params), theta_values)
-                .expect(<span class="string">"Failed to create theta Array2"</span>)
+            <span class="prelude-val">Ok</span>(Array2::from_shape_vec((n_points, n_params), theta_values)<span class="question-mark">?</span>)
         }
     }
 }

@@ -154,8 +154,7 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::error;
-
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
 <span class="kw">use </span>ndarray::{array, Array, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
@@ -203,11 +202,11 @@
 ///
 </span><span class="kw">pub fn </span>burke(
     psi: <span class="kw-2">&amp;</span>ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">2</span>]&gt;&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(OneDimArray, f64), Box&lt;<span class="kw">dyn </span>error::Error&gt;&gt; {
+) -&gt; anyhow::Result&lt;(OneDimArray, f64)&gt; {
     <span class="kw">let </span>psi = psi.mapv(|x| x.abs());
     <span class="kw">let </span>(row, col) = psi.dim();
     <span class="kw">if </span>psi.min()<span class="question-mark">? </span>&lt; <span class="kw-2">&amp;</span><span class="number">0.0 </span>{
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"PSI contains negative elements"</span>.into());
+        <span class="macro">bail!</span>(<span class="string">"Input matrix must have non-negative entries"</span>)
     }
     <span class="kw">let </span>ecol: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt; = Array::ones(col);
     <span class="kw">let </span><span class="kw-2">mut </span>plam = psi.dot(<span class="kw-2">&amp;</span>ecol);
@@ -220,8 +219,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>w = <span class="number">1. </span>/ <span class="kw-2">&amp;</span>plam;
 
     <span class="kw">let </span><span class="kw-2">mut </span>ptw = psi.t().dot(<span class="kw-2">&amp;</span>w);
-
-    <span class="kw">let </span>shrink = <span class="number">2. </span>* <span class="kw-2">*</span>ptw.max().unwrap();
+    <span class="kw">let </span>shrink = <span class="number">2. </span>* <span class="kw-2">*</span>ptw.max().context(<span class="string">"Failed to get max value"</span>)<span class="question-mark">?</span>;
     lam <span class="kw-2">*</span>= shrink;
     plam <span class="kw-2">*</span>= shrink;
     w /= shrink;
@@ -248,7 +246,9 @@
         }
         <span class="kw">let </span>h = psi_inner.dot(<span class="kw-2">&amp;</span>psi.t()) + Array2::from_diag(<span class="kw-2">&amp;</span>w_plam);
 
-        <span class="kw">let </span>uph = h.cholesky()<span class="question-mark">?</span>;
+        <span class="kw">let </span>uph = h
+            .cholesky()
+            .context(<span class="string">"Error during Cholesky decomposition"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>uph = uph.t();
         <span class="kw">let </span>smuyinv = smu * (<span class="kw-2">&amp;</span>ecol / <span class="kw-2">&amp;</span>y);
@@ -266,12 +266,12 @@
 
         <span class="kw">let </span>dlam = smuyinv - <span class="kw-2">&amp;</span>lam - inner * <span class="kw-2">&amp;</span>dy;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>alfpri = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dlam / <span class="kw-2">&amp;</span>lam).min().unwrap().min(-<span class="number">0.5</span>));
+        <span class="kw">let </span><span class="kw-2">mut </span>alfpri = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dlam / <span class="kw-2">&amp;</span>lam).min()<span class="question-mark">?</span>.min(-<span class="number">0.5</span>));
 
         alfpri = (<span class="number">0.99995 </span>* alfpri).min(<span class="number">1.0</span>);
 
-        <span class="kw">let </span><span class="kw-2">mut </span>alfdual = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dy / <span class="kw-2">&amp;</span>y).min().unwrap().min(-<span class="number">0.5</span>));
-        alfdual = alfdual.min(-<span class="number">1. </span>/ (<span class="kw-2">&amp;</span>dw / <span class="kw-2">&amp;</span>w).min().unwrap().min(-<span class="number">0.5</span>));
+        <span class="kw">let </span><span class="kw-2">mut </span>alfdual = -<span class="number">1. </span>/ ((<span class="kw-2">&amp;</span>dy / <span class="kw-2">&amp;</span>y).min()<span class="question-mark">?</span>.min(-<span class="number">0.5</span>));
+        alfdual = alfdual.min(-<span class="number">1. </span>/ (<span class="kw-2">&amp;</span>dw / <span class="kw-2">&amp;</span>w).min()<span class="question-mark">?</span>.min(-<span class="number">0.5</span>));
         alfdual = (<span class="number">0.99995 </span>* alfdual).min(<span class="number">1.0</span>);
         lam = lam + alfpri * dlam;
         w = w + alfdual * <span class="kw-2">&amp;</span>dw;

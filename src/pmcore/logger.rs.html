@@ -122,8 +122,11 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
+<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 <span class="kw">use </span>tracing_subscriber::fmt::time::FormatTime;
@@ -144,7 +147,7 @@
 /// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
 ///
 /// If not, the log messages are written to stdout.
-</span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;) {
+</span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Use the log level defined in configuration file, or default to info
     </span><span class="kw">let </span>log_level = settings.config.log_level.as_str();
     <span class="kw">let </span>env_filter = EnvFilter::new(log_level);
@@ -160,8 +163,7 @@
         .create(<span class="bool-val">true</span>)
         .write(<span class="bool-val">true</span>)
         .truncate(<span class="bool-val">true</span>)
-        .open(log_path)
-        .expect(<span class="string">"Failed to open log file - does the directory exist?"</span>);
+        .open(log_path)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>file_layer = fmt::layer()
         .with_writer(file)
@@ -208,11 +210,13 @@
         .with(stdout_layer)
         .with(tui_layer)
         .init();
+
     <span class="macro">tracing::info!</span>(
         <span class="string">"Logging is configured with level {} to file {:?}"</span>,
         log_level,
         log_path
     );
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="attr">#[derive(Clone)]
