@@ -497,14 +497,7 @@ pub fn posterior_mean_median(
 }
 
 pub fn create_output_file(settings: &Settings, file_name: &str) -> std::io::Result<File> {
-    let output_folder = settings
-        .paths
-        .output_folder
-        .as_ref()
-        .ok_or(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Output folder not specified in settings",
-        ))?;
+    let output_folder = &settings.output.path;
 
     let path = std::path::Path::new(output_folder);
 

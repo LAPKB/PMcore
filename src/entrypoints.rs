@@ -61,12 +61,10 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     );
 
     // Tell the user where the output files will be written
-    match settings.config.output {
+    match &settings.output.write {
         true => {
-            tracing::info!(
-                "Output files will be written to {}",
-                settings.paths.output_folder.as_ref().unwrap()
-            )
+            let output_path = &settings.output.path;
+            tracing::info!("Output files will be written to {}", output_path)
         }
         false => {
             tracing::info!("Output files will not be written - set `output = true` in the configuration file to enable output files")
@@ -116,9 +114,9 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     };
 
     // Write output files (if configured)
-    if settings.config.output {
-        let idelta = settings.config.idelta;
-        let tad = settings.config.tad;
+    if settings.output.write {
+        let idelta = settings.predictions.idelta;
+        let tad = settings.predictions.tad;
         result.write_outputs(true, &equation, idelta, tad)?;
     }
 

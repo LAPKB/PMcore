@@ -2,6 +2,7 @@ use crate::routines::settings::Settings;
 use crate::tui::ui::Comm;
 use anyhow::Result;
 use std::io::{self, Write};
+use std::path::Path;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing_subscriber::fmt::time::FormatTime;
 use tracing_subscriber::fmt::{self};
@@ -22,12 +23,12 @@ use tracing_subscriber::EnvFilter;
 ///
 /// If not, the log messages are written to stdout.
 pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> Result<()> {
-    // Use the log level defined in configuration file, or default to info
-    let log_level = settings.config.log_level.as_str();
+    // Use the log level defined in configuration file
+    let log_level = settings.log.level.as_str();
     let env_filter = EnvFilter::new(log_level);
 
-    // Use the log file defined in configuration file, or default to pmcore.log
-    let log_path = std::path::Path::new(settings.paths.log.as_ref().unwrap());
+    // Use the log file defined in configuration file
+    let log_path = Path::new(&settings.log.file);
 
     // Define a registry with that level as an environment filter
     let subscriber = Registry::default().with(env_filter);
