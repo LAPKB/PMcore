@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
@@ -20,6 +21,7 @@ pub struct NPResult {
     pub converged: bool,
     pub par_names: Vec<String>,
     pub settings: Settings,
+    pub cyclelog: CycleLog,
 }
 
 impl NPResult {
@@ -33,6 +35,7 @@ impl NPResult {
         cycles: usize,
         converged: bool,
         settings: Settings,
+        cyclelog: CycleLog,
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
 
@@ -48,21 +51,30 @@ impl NPResult {
             converged,
             par_names,
             settings,
+            cyclelog,
         }
     }
 
-    pub fn write_outputs(&self, write: bool, equation: &Equation, idelta: f64, tad: f64) {
+    pub fn write_outputs(
+        &self,
+        write: bool,
+        equation: &Equation,
+        idelta: f64,
+        tad: f64,
+    ) -> Result<()> {
         if write {
-            self.write_theta();
-            self.write_posterior();
-            self.write_obs();
-            self.write_pred(equation, idelta, tad);
+            self.cyclelog.write(&self.settings)?;
+            self.write_theta()?;
+            self.write_posterior()?;
+            self.write_obs()?;
+            self.write_pred(equation, idelta, tad)?;
         }
+        Ok(())
     }
 
     /// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
-    pub fn write_theta(&self) {
+    pub fn write_theta(&self) -> Result<()> {
         tracing::info!("Writing final parameter distribution...");
         let result = (|| {
             let theta: Array2<f64> = self.theta.clone();
@@ -88,67 +100,64 @@ impl NPResult {
         if let Err(e) = result {
             tracing::error!("Error while writing theta: {}", e);
         }
+        Ok(())
     }
 
     /// Writes the posterior support points for each individual
-    pub fn write_posterior(&self) {
+    pub fn write_posterior(&self) -> Result<()> {
         tracing::info!("Writing posterior parameter probabilities...");
-        let result = (|| {
-            let theta: Array2<f64> = self.theta.clone();
-            let w: Array1<f64> = self.w.clone();
-            let psi: Array2<f64> = self.psi.clone();
-            let par_names: Vec<String> = self.par_names.clone();
-            //let subjects = self.subjects.clone();
+        let theta: Array2<f64> = self.theta.clone();
+        let w: Array1<f64> = self.w.clone();
+        let psi: Array2<f64> = self.psi.clone();
+        let par_names: Vec<String> = self.par_names.clone();
+        //let subjects = self.subjects.clone();
 
-            let posterior = posterior(&psi, &w);
+        let posterior = posterior(&psi, &w);
 
-            // Create the output folder if it doesn't exist
-            let file = create_output_file(&self.settings, "posterior.csv")?;
-            let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+        // Create the output folder if it doesn't exist
+        let file = create_output_file(&self.settings, "posterior.csv")?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-            // Create the headers
-            writer.write_field("id")?;
-            writer.write_field("point")?;
-            for i in 0..theta.ncols() {
-                let param_name = par_names.get(i).unwrap();
-                writer.write_field(param_name)?;
-            }
-            writer.write_field("prob")?;
-            writer.write_record(None::<&[u8]>)?;
-
-            // Write contents
-            let subjects = self.data.get_subjects();
-            for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
-                for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                    writer.write_field(&subjects.get(sub).unwrap().id())?;
-                    writer.write_field(format!("{}", spp))?;
-                    for param in theta.row(spp) {
-                        writer.write_field(&format!("{param}"))?;
-                    }
-                    writer.write_field(&format!("{elem:.10}"))?;
-                    writer.write_record(None::<&[u8]>)?;
-                }
-            }
-            writer.flush()
-        })();
-
-        if let Err(e) = result {
-            tracing::error!("Error while writing posterior: {}", e);
+        // Create the headers
+        writer.write_field("id")?;
+        writer.write_field("point")?;
+        for i in 0..theta.ncols() {
+            let param_name = par_names.get(i).unwrap();
+            writer.write_field(param_name)?;
         }
+        writer.write_field("prob")?;
+        writer.write_record(None::<&[u8]>)?;
+
+        // Write contents
+        let subjects = self.data.get_subjects();
+        for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
+            for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
+                writer.write_field(&subjects.get(sub).unwrap().id())?;
+                writer.write_field(format!("{}", spp))?;
+                for param in theta.row(spp) {
+                    writer.write_field(&format!("{param}"))?;
+                }
+                writer.write_field(&format!("{elem:.10}"))?;
+                writer.write_record(None::<&[u8]>)?;
+            }
+        }
+        writer.flush()?;
+
+        Ok(())
     }
 
     /// Write the observations, which is the reformatted input data
-    pub fn write_obs(&self) {
+    pub fn write_obs(&self) -> Result<()> {
         tracing::info!("Writing observations...");
-        let file = create_output_file(&self.settings, "obs.csv").unwrap();
-        write_pmetrics_observations(&self.data, &file)
+        let file = create_output_file(&self.settings, "obs.csv")?;
+        write_pmetrics_observations(&self.data, &file);
+        Ok(())
     }
 
     /// Writes the predictions
-    pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) {
+    pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) -> Result<()> {
         tracing::info!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
-        // println!("{:?}", data);
 
         let theta: Array2<f64> = self.theta.clone();
         let w: Array1<f64> = self.w.clone();
@@ -159,7 +168,7 @@ impl NPResult {
 
         let subjects = data.get_subjects();
         if subjects.len() != post_mean.nrows() {
-            panic!("Number of subjects and number of posterior means do not match");
+            bail!("Number of subjects and number of posterior means do not match");
         }
 
         let file = create_output_file(&self.settings, "pred.csv");
@@ -168,17 +177,15 @@ impl NPResult {
             .from_writer(file.unwrap());
 
         // Create the headers
-        writer
-            .write_record([
-                "id",
-                "time",
-                "outeq",
-                "popMean",
-                "popMedian",
-                "postMean",
-                "postMedian",
-            ])
-            .unwrap();
+        writer.write_record([
+            "id",
+            "time",
+            "outeq",
+            "popMean",
+            "popMedian",
+            "postMean",
+            "postMedian",
+        ])?;
 
         for (i, subject) in subjects.iter().enumerate() {
             // Population predictions
@@ -219,41 +226,14 @@ impl NPResult {
                             &format!("{:.4}", post_mean.prediction()),
                             &format!("{:.4}", post_median.prediction()),
                         ])
-                        .unwrap();
+                        .expect("Failed to write record");
                 });
         }
-    }
-}
-#[derive(Debug)]
-pub struct CycleLog {
-    pub cycles: Vec<NPCycle>,
-    cycle_writer: CycleWriter,
-}
-impl CycleLog {
-    pub fn new(settings: &Settings) -> Self {
-        let cycle_writer = CycleWriter::new(settings);
-        Self {
-            cycles: Vec::new(),
-            cycle_writer,
-        }
-    }
-    pub fn push_and_write(&mut self, npcycle: NPCycle, write_ouput: bool) {
-        if write_ouput {
-            self.cycle_writer.write(
-                npcycle.cycle,
-                npcycle.converged,
-                npcycle.objf,
-                npcycle.gamlam,
-                &npcycle.theta,
-            );
-            self.cycle_writer.flush();
-        }
-        self.cycles.push(npcycle);
+        Ok(())
     }
 }
 
-/// Defines the result objects from a run
-/// An [NPCycle] contains summary of a cycle
+/// An [NPCycle] object contains the summary of a cycle
 /// It holds the following information:
 /// - `cycle`: The cycle number
 /// - `objf`: The objective function value
@@ -272,101 +252,99 @@ pub struct NPCycle {
     pub delta_objf: f64,
     pub converged: bool,
 }
+
 impl NPCycle {
-    pub fn new() -> Self {
+    pub fn new(
+        cycle: usize,
+        objf: f64,
+        gamlam: f64,
+        theta: Array2<f64>,
+        nspp: usize,
+        delta_objf: f64,
+        converged: bool,
+    ) -> Self {
+        Self {
+            cycle,
+            objf,
+            gamlam,
+            theta,
+            nspp,
+            delta_objf,
+            converged,
+        }
+    }
+
+    pub fn placeholder() -> Self {
         Self {
             cycle: 0,
             objf: 0.0,
             gamlam: 0.0,
-            theta: Array2::default((0, 0)),
+            theta: Array2::zeros((0, 0)),
             nspp: 0,
             delta_objf: 0.0,
             converged: false,
         }
     }
 }
-impl Default for NPCycle {
-    fn default() -> Self {
-        Self::new()
-    }
+
+/// This holdes a vector of [NPCycle] objects to provide a more detailed log
+#[derive(Debug, Clone)]
+pub struct CycleLog {
+    pub cycles: Vec<NPCycle>,
 }
 
-// Cycles
-#[derive(Debug)]
-pub struct CycleWriter {
-    writer: Option<csv::Writer<File>>,
-}
-
-impl CycleWriter {
-    pub fn new(settings: &Settings) -> CycleWriter {
-        let writer = if settings.config.output {
-            let file = create_output_file(settings, "cycles.csv").unwrap();
-            let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
-
-            // Write headers
-            writer.write_field("cycle").unwrap();
-            writer.write_field("converged").unwrap();
-            writer.write_field("neg2ll").unwrap();
-            writer.write_field("gamlam").unwrap();
-            writer.write_field("nspp").unwrap();
-
-            let parameter_names = settings.random.names();
-            for param_name in &parameter_names {
-                writer.write_field(format!("{}.mean", param_name)).unwrap();
-                writer
-                    .write_field(format!("{}.median", param_name))
-                    .unwrap();
-                writer.write_field(format!("{}.sd", param_name)).unwrap();
-            }
-
-            writer.write_record(None::<&[u8]>).unwrap();
-            Some(writer)
-        } else {
-            None
-        };
-
-        CycleWriter { writer }
+impl CycleLog {
+    pub fn new() -> Self {
+        Self { cycles: Vec::new() }
     }
 
-    pub fn write(
-        &mut self,
-        cycle: usize,
-        converged: bool,
-        objf: f64,
-        gamma: f64,
-        theta: &Array2<f64>,
-    ) {
-        if let Some(writer) = &mut self.writer {
-            writer.write_field(format!("{}", cycle)).unwrap();
-            writer.write_field(format!("{}", converged)).unwrap();
-            writer.write_field(format!("{}", objf)).unwrap();
-            writer.write_field(format!("{}", gamma)).unwrap();
-            writer.write_field(format!("{}", theta.nrows())).unwrap();
+    pub fn push(&mut self, cycle: NPCycle) {
+        self.cycles.push(cycle);
+    }
 
-            for param in theta.axis_iter(Axis(1)) {
+    pub fn write(&self, settings: &Settings) -> Result<()> {
+        tracing::info!("Writing cycles...");
+        let file = create_output_file(settings, "cycles.csv")?;
+        let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+
+        // Write headers
+        writer.write_field("cycle")?;
+        writer.write_field("converged")?;
+        writer.write_field("neg2ll")?;
+        writer.write_field("gamlam")?;
+        writer.write_field("nspp")?;
+
+        let parameter_names = settings.random.names();
+        for param_name in &parameter_names {
+            writer.write_field(format!("{}.mean", param_name))?;
+            writer.write_field(format!("{}.median", param_name))?;
+            writer.write_field(format!("{}.sd", param_name))?;
+        }
+
+        writer.write_record(None::<&[u8]>)?;
+
+        for cycle in &self.cycles {
+            writer.write_field(format!("{}", cycle.cycle))?;
+            writer.write_field(format!("{}", cycle.converged))?;
+            writer.write_field(format!("{}", cycle.objf))?;
+            writer.write_field(format!("{}", cycle.gamlam))?;
+            writer
+                .write_field(format!("{}", cycle.theta.nrows()))
+                .unwrap();
+
+            for param in cycle.theta.axis_iter(Axis(1)) {
                 writer
                     .write_field(format!("{}", param.mean().unwrap()))
                     .unwrap();
+                writer.write_field(format!("{}", median(param.to_owned().to_vec())))?;
+                writer.write_field(format!("{}", param.std(1.)))?;
             }
 
-            for param in theta.axis_iter(Axis(1)) {
-                writer
-                    .write_field(format!("{}", median(param.to_owned().to_vec())))
-                    .unwrap();
-            }
-
-            for param in theta.axis_iter(Axis(1)) {
-                writer.write_field(format!("{}", param.std(1.))).unwrap();
-            }
-
-            writer.write_record(None::<&[u8]>).unwrap();
+            writer.write_record(None::<&[u8]>)?;
         }
-    }
 
-    pub fn flush(&mut self) {
-        if let Some(writer) = &mut self.writer {
-            writer.flush().unwrap(); // Handle errors appropriately
-        }
+        writer.flush().context("Failed to flush writer")?;
+        Ok(())
     }
 }
 
@@ -389,6 +367,9 @@ pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Array2<f64> {
 }
 
 pub fn median(data: Vec<f64>) -> f64 {
+    let mut data = data.clone();
+    data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
     let size = data.len();
     match size {
         even if even % 2 == 0 => {
@@ -401,54 +382,47 @@ pub fn median(data: Vec<f64>) -> f64 {
 }
 
 fn weighted_median(data: &Array1<f64>, weights: &Array1<f64>) -> f64 {
-    // Ensure the parameters and weights vectors have the same length
+    // Ensure the data and weights arrays have the same length
     assert_eq!(
         data.len(),
         weights.len(),
-        "The length of parameters and weights must be the same"
+        "The length of data and weights must be the same"
     );
-    // Handle edge case where all parameters are the same
-    if data.iter().all(|&x| x == data[0]) {
-        return data[0];
-    }
+    assert!(
+        weights.iter().all(|&x| x >= 0.0),
+        "Weights must be non-negative"
+    );
 
-    // // Handle the edge case where there is only one parameter
-    // if data.len() == 1 {
-    //     return data[0];
-    // }
-    let mut tup: Vec<(f64, f64)> = Vec::new();
+    // Create a vector of tuples (data, weight)
+    let mut weighted_data: Vec<(f64, f64)> = data
+        .iter()
+        .zip(weights.iter())
+        .map(|(&d, &w)| (d, w))
+        .collect();
 
-    for (ti, wi) in data.iter().zip(weights) {
-        tup.push((*ti, *wi));
-    }
+    // Sort the vector by the data values
+    weighted_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-    tup.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    // Calculate the cumulative sum of weights
+    let total_weight: f64 = weights.sum();
+    let mut cumulative_sum = 0.0;
 
-    if tup.first().unwrap().1 >= 0.5 {
-        tup.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
-    }
+    for (i, &(_, weight)) in weighted_data.iter().enumerate() {
+        cumulative_sum += weight;
 
-    let mut wacc: Vec<f64> = Vec::new();
-    let mut widx: usize = 0;
-
-    for (i, (ti, wi)) in tup.iter().enumerate() {
-        let acc = wi + wacc.last().unwrap_or(&0.0);
-        wacc.push(acc);
-
-        if acc > 0.5 {
-            widx = i;
-            break;
-        } else if acc == 0.5 {
-            return *ti;
+        if cumulative_sum == total_weight / 2.0 {
+            // If the cumulative sum equals half the total weight, average this value with the next
+            if i + 1 < weighted_data.len() {
+                return (weighted_data[i].0 + weighted_data[i + 1].0) / 2.0;
+            } else {
+                return weighted_data[i].0;
+            }
+        } else if cumulative_sum > total_weight / 2.0 {
+            return weighted_data[i].0;
         }
     }
 
-    let acc2 = wacc.pop().unwrap();
-    let acc1 = wacc.pop().unwrap();
-    let par2 = tup.get(widx).unwrap().0;
-    let par1 = tup.get(widx - 1).unwrap().0;
-    let slope = (par2 - par1) / (acc2 - acc1);
-    par1 + slope * (0.5 - acc1)
+    unreachable!("The function should have returned a value before reaching this point.");
 }
 
 pub fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> (Array1<f64>, Array1<f64>) {
@@ -568,5 +542,107 @@ pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::median;
+
+    #[test]
+    fn test_median_odd() {
+        let data = vec![1.0, 3.0, 2.0];
+        assert_eq!(median(data), 2.0);
+    }
+
+    #[test]
+    fn test_median_even() {
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        assert_eq!(median(data), 2.5);
+    }
+
+    #[test]
+    fn test_median_single() {
+        let data = vec![42.0];
+        assert_eq!(median(data), 42.0);
+    }
+
+    #[test]
+    fn test_median_sorted() {
+        let data = vec![5.0, 10.0, 15.0, 20.0, 25.0];
+        assert_eq!(median(data), 15.0);
+    }
+
+    #[test]
+    fn test_median_unsorted() {
+        let data = vec![10.0, 30.0, 20.0, 50.0, 40.0];
+        assert_eq!(median(data), 30.0);
+    }
+
+    #[test]
+    fn test_median_with_duplicates() {
+        let data = vec![1.0, 2.0, 2.0, 3.0, 4.0];
+        assert_eq!(median(data), 2.0);
+    }
+
+    use super::weighted_median;
+    use ndarray::Array1;
+
+    #[test]
+    fn test_weighted_median_simple() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0]);
+        let weights = Array1::from(vec![0.2, 0.5, 0.3]);
+        assert_eq!(weighted_median(&data, &weights), 2.0);
+    }
+
+    #[test]
+    fn test_weighted_median_even_weights() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0, 4.0]);
+        let weights = Array1::from(vec![0.25, 0.25, 0.25, 0.25]);
+        assert_eq!(weighted_median(&data, &weights), 2.5);
+    }
+
+    #[test]
+    fn test_weighted_median_single_element() {
+        let data = Array1::from(vec![42.0]);
+        let weights = Array1::from(vec![1.0]);
+        assert_eq!(weighted_median(&data, &weights), 42.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "The length of data and weights must be the same")]
+    fn test_weighted_median_mismatched_lengths() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0]);
+        let weights = Array1::from(vec![0.1, 0.2]);
+        weighted_median(&data, &weights);
+    }
+
+    #[test]
+    fn test_weighted_median_all_same_elements() {
+        let data = Array1::from(vec![5.0, 5.0, 5.0, 5.0]);
+        let weights = Array1::from(vec![0.1, 0.2, 0.3, 0.4]);
+        assert_eq!(weighted_median(&data, &weights), 5.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Weights must be non-negative")]
+    fn test_weighted_median_negative_weights() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0, 4.0]);
+        let weights = Array1::from(vec![0.2, -0.5, 0.5, 0.8]);
+        assert_eq!(weighted_median(&data, &weights), 4.0);
+    }
+
+    #[test]
+    fn test_weighted_median_unsorted_data() {
+        let data = Array1::from(vec![3.0, 1.0, 4.0, 2.0]);
+        let weights = Array1::from(vec![0.1, 0.3, 0.4, 0.2]);
+        assert_eq!(weighted_median(&data, &weights), 2.5);
+    }
+
+    #[test]
+    fn test_weighted_median_with_zero_weights() {
+        let data = Array1::from(vec![1.0, 2.0, 3.0, 4.0]);
+        let weights = Array1::from(vec![0.0, 0.0, 1.0, 0.0]);
+        assert_eq!(weighted_median(&data, &weights), 3.0);
     }
 }

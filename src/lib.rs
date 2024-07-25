@@ -90,7 +90,7 @@ pub mod logger;
 pub mod tui;
 
 // Re-export commonly used items
-pub use eyre::Result;
+pub use anyhow::Result;
 pub use std::collections::HashMap;
 
 /// A collection of commonly used items to simplify imports.

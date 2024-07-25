@@ -1,5 +1,4 @@
-use std::error;
-
+use anyhow::{bail, Context};
 use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
 use ndarray::{array, Array, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
@@ -47,11 +46,11 @@ type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 ///
 pub fn burke(
     psi: &ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>,
-) -> Result<(OneDimArray, f64), Box<dyn error::Error>> {
+) -> anyhow::Result<(OneDimArray, f64)> {
     let psi = psi.mapv(|x| x.abs());
     let (row, col) = psi.dim();
     if psi.min()? < &0.0 {
-        return Err("PSI contains negative elements".into());
+        bail!("Input matrix must have non-negative entries")
     }
     let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
     let mut plam = psi.dot(&ecol);
@@ -64,8 +63,7 @@ pub fn burke(
     let mut w = 1. / &plam;
 
     let mut ptw = psi.t().dot(&w);
-
-    let shrink = 2. * *ptw.max().unwrap();
+    let shrink = 2. * *ptw.max().context("Failed to get max value")?;
     lam *= shrink;
     plam *= shrink;
     w /= shrink;
@@ -92,7 +90,9 @@ pub fn burke(
         }
         let h = psi_inner.dot(&psi.t()) + Array2::from_diag(&w_plam);
 
-        let uph = h.cholesky()?;
+        let uph = h
+            .cholesky()
+            .context("Error during Cholesky decomposition")?;
 
         let uph = uph.t();
         let smuyinv = smu * (&ecol / &y);
@@ -110,12 +110,12 @@ pub fn burke(
 
         let dlam = smuyinv - &lam - inner * &dy;
 
-        let mut alfpri = -1. / ((&dlam / &lam).min().unwrap().min(-0.5));
+        let mut alfpri = -1. / ((&dlam / &lam).min()?.min(-0.5));
 
         alfpri = (0.99995 * alfpri).min(1.0);
 
-        let mut alfdual = -1. / ((&dy / &y).min().unwrap().min(-0.5));
-        alfdual = alfdual.min(-1. / (&dw / &w).min().unwrap().min(-0.5));
+        let mut alfdual = -1. / ((&dy / &y).min()?.min(-0.5));
+        alfdual = alfdual.min(-1. / (&dw / &w).min()?.min(-0.5));
         alfdual = (0.99995 * alfdual).min(1.0);
         lam = lam + alfpri * dlam;
         w = w + alfdual * &dw;

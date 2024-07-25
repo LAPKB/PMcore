@@ -79,7 +79,7 @@ pub fn draw_options<'a>(settings: &Settings) -> Table<'a> {
     // Define the table data
 
     let cycles = settings.config.cycles.to_string();
-    let engine = settings.config.engine.to_string();
+    let engine = settings.config.algorithm.to_string();
     let conv_crit = "Placeholder".to_string();
     let indpts = settings.config.init_points.to_string();
     let error = settings.error.class.to_string();

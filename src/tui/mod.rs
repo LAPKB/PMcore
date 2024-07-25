@@ -32,7 +32,7 @@ impl App {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let actions = vec![Action::Quit, Action::Stop, Action::Next].into();
-        let state = NPCycle::new();
+        let state = NPCycle::placeholder();
         let tab_index = 0;
         let tab_titles = vec!["Logs", "Plot", "Parameters"];
 

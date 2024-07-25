@@ -47,7 +47,7 @@ pub struct NPOD {
 }
 
 impl Algorithm for NPOD {
-    fn fit(&mut self) -> NPResult {
+    fn fit(&mut self) -> anyhow::Result<NPResult> {
         self.run()
     }
     fn to_npresult(&self) -> NPResult {
@@ -60,6 +60,7 @@ impl Algorithm for NPOD {
             self.cycle,
             self.converged,
             self.settings.clone(),
+            self.cycle_log.clone(),
         )
     }
 }
@@ -103,7 +104,7 @@ impl NPOD {
             gamma: settings.error.value,
             error_type: settings.error.error_type(),
             converged: false,
-            cycle_log: CycleLog::new(&settings),
+            cycle_log: CycleLog::new(),
             cache: settings.config.cache,
             tx,
             settings,
@@ -163,7 +164,7 @@ impl NPOD {
         }
     }
 
-    pub fn run(&mut self) -> NPResult {
+    pub fn run(&mut self) -> anyhow::Result<NPResult> {
         loop {
             // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
@@ -301,8 +302,7 @@ impl NPOD {
                 None => (),
             }
 
-            self.cycle_log
-                .push_and_write(state, self.settings.config.output);
+            self.cycle_log.push(state);
 
             if stop {
                 break;
@@ -336,7 +336,7 @@ impl NPOD {
             self.cycle += 1;
         }
 
-        self.to_npresult()
+        Ok(self.to_npresult())
     }
 }
 fn norm_zero(a: &Array1<f64>) -> f64 {

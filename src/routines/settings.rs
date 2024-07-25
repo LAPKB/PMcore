@@ -7,6 +7,7 @@ use serde_derive::Serialize;
 use serde_json;
 use std::collections::HashMap;
 use toml::Table;
+use anyhow::{bail, Result};
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -49,12 +50,12 @@ impl Paths {
     /// Parses the output folder location
     ////
     /// If a `#` symbol is found, it will automatically increment the number by one.
-    pub fn parse_output_folder(&mut self) {
+    pub fn parse_output_folder(&mut self) -> Result<(), anyhow::Error> {
         let folder = self.output_folder.as_ref().unwrap().clone();
         // Check for the presence exactly one `#` symbol
         let count = folder.matches('#').count();
         match count {
-            0 => self.output_folder = Some(folder),
+            0 => Ok(self.output_folder = Some(folder)),
             1 => {
                 let mut folder = folder.clone();
                 let mut num = 1;
@@ -63,10 +64,10 @@ impl Paths {
                 }
                 folder = folder.replace("#", &num.to_string());
                 self.output_folder = Some(folder);
+                Ok(())
             }
             _ => {
-                eprintln!("Only one `#` symbol is allowed in the setting folder path. Rename the `output_folder setting` in the configuration file and re-run the program.");
-                std::process::exit(-1);
+                bail!("Only one `#` symbol is allowed in the setting folder path. Rename the `output_folder setting` in the configuration file and re-run the program.")
             }
         }
     }
@@ -79,8 +80,8 @@ pub struct Config {
     /// Maximum number of cycles
     #[serde(default = "default_cycles")]
     pub cycles: usize,
-    /// Denotes the algorithm to use, `NPAG` is the only supported algorithm for now.
-    pub engine: String,
+    /// Denotes the algorithm to use
+    pub algorithm: String,
     #[serde(default = "default_seed")]
     /// Default seed for the initialization
     pub seed: usize,
@@ -286,7 +287,7 @@ impl Default for Convergence {
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
 /// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE__`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE__CONFIG__TUI=false` Note that a double underscore, `__`, is used as the separator, as some settings may contain a single underscore, such as `PMCORE__CONFIG__LOG_LEVEL`.
-pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
+pub fn read_settings(path: String) -> Result<Settings, anyhow::Error> {
     let settings_path = path;
 
     let parsed = eConfig::builder()
@@ -308,12 +309,12 @@ pub fn read_settings(path: String) -> Result<Settings, config::ConfigError> {
         .map_err(config::ConfigError::Message)?;
 
     // Parse the output folder
-    settings.paths.parse_output_folder();
+    settings.paths.parse_output_folder()?;
 
     // Write a copy of the settings to file if output is enabled
     if settings.config.output {
         if let Err(error) = write_settings_to_file(&settings) {
-            eprintln!("Could not write settings to file: {}", error);
+            bail!("Could not write settings to file: {}", error);
         }
     }
 
