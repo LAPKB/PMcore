@@ -1,0 +1,26 @@
+[paths]
+data = "examples/iov/data.csv"
+log = "iov.log"
+
+[config]
+cycles = 1024
+algorithm = "NPAG"
+init_points = 2129
+seed = 22
+tui = false
+output = true
+cache = true
+idelta = 0.1
+log_level = "info"
+sampler = "sobol"
+[random]
+ke = [0.001, 3.0]
+ske = [0.0, 3.0]
+v = [25.0, 250.0]
+
+
+
+[error]
+value = 0.0
+class = "additive"
+poly = [0.0, 0.05, 0.0, 0.0]

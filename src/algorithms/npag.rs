@@ -2,7 +2,7 @@ use anyhow::Result;
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel, ErrorType},
-        simulator::{get_population_predictions, Equation, PopulationPredictions},
+        simulator::{get_population_predictions, pf_psi, Equation, PopulationPredictions},
     },
     Subject,
 };
@@ -232,14 +232,24 @@ impl NPAG {
 
             let cache = if self.cycle == 1 { false } else { self.cache };
 
-            self.population_predictions =
-                get_population_predictions(&self.equation, &self.data, &self.theta, cache);
+            if self.equation.is_sde() {
+                self.psi = pf_psi(
+                    &self.equation,
+                    &self.data,
+                    &self.theta,
+                    &ErrorModel::new(self.c, self.gamma, &self.error_type),
+                    1000,
+                )
+            } else {
+                self.population_predictions =
+                    get_population_predictions(&self.equation, &self.data, &self.theta, cache);
 
-            self.psi = self.population_predictions.get_psi(&ErrorModel::new(
-                self.c,
-                self.gamma,
-                &self.error_type,
-            ));
+                self.psi = self.population_predictions.get_psi(&ErrorModel::new(
+                    self.c,
+                    self.gamma,
+                    &self.error_type,
+                ));
+            }
 
             self.validate_psi()?;
 
@@ -302,7 +312,7 @@ impl NPAG {
                 }
             };
 
-            self.optim_gamma();
+            // self.optim_gamma();
 
             // Log relevant cycle information
             tracing::info!("Objective function = {:.4}", -2.0 * self.objf);

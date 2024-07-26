@@ -515,7 +515,7 @@ pub fn create_output_file(settings: &Settings, file_name: &str) -> std::io::Resu
     let file_path = path.join(file_name);
     File::create(file_path)
 }
-
+//TODO: move this to pharmsol
 pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) {
     let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 

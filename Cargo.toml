@@ -34,7 +34,8 @@ chrono = "0.4"
 config = {version = "0.14", features=["preserve_order"]}
 faer = "0.19.0"
 faer-ext = {version = "0.2.0", features = ["nalgebra", "ndarray"]}
-pharmsol = "0.2.3"
+# pharmsol = "0.2.3"
+pharmsol = {git = "https://github.com/LAPKB/pharmsol", branch="pf"}
 toml = "0.8.14" #REMOVE
 rand = "0.8.5"
 anyhow = "1.0.86"
