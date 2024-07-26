@@ -369,7 +369,7 @@ impl Predictions {
 #[serde(deny_unknown_fields, default)]
 pub struct Log {
     /// The maximum log level to display
-    /// 
+    ///
     /// The log level is defined as a string, and can be one of the following:
     /// - `trace`
     /// - `debug`
@@ -404,7 +404,7 @@ pub struct Prior {
     /// The seed for the random number generator
     pub seed: usize,
     /// Optionally, the path to a file containing the prior in a CSV-format
-    /// 
+    ///
     /// The file should contain the prior in a CSV format, with the first row containing the parameter names, and the subsequent rows containing the values for each parameter.
     /// The `prob` column is optional, and will if present be ignored
     pub file: Option<String>,

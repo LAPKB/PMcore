@@ -76,7 +76,7 @@ impl NPResult {
     /// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) -> Result<()> {
-        tracing::info!("Writing final parameter distribution...");
+        tracing::info!("Writing population parameter distribution...");
         let result: Result<(), anyhow::Error> = (|| {
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
@@ -99,7 +99,7 @@ impl NPResult {
             }
             writer.flush()?;
             tracing::info!(
-                "Parameter distribution written to {:?}",
+                "Population parameter distribution written to {:?}",
                 &outputfile.get_relative_path()
             );
             Ok(())
@@ -126,7 +126,7 @@ impl NPResult {
         let outputfile = OutputFile::new(&self.settings.output.path, "posterior.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
-            .from_writer(outputfile.file);
+            .from_writer(&outputfile.file);
 
         // Create the headers
         writer.write_field("id")?;
@@ -152,6 +152,10 @@ impl NPResult {
             }
         }
         writer.flush()?;
+        tracing::info!(
+            "Posterior parameters written to {:?}",
+            &outputfile.get_relative_path()
+        );
 
         Ok(())
     }
@@ -170,6 +174,7 @@ impl NPResult {
 
     /// Writes the predictions
     pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) -> Result<()> {
+        tracing::info!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
 
         let theta: Array2<f64> = self.theta.clone();
@@ -364,6 +369,7 @@ impl CycleLog {
         }
 
         writer.flush()?;
+        tracing::info!("Cycles written to {:?}", &outputfile.get_relative_path());
         Ok(())
     }
 }
