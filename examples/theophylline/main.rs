@@ -33,6 +33,6 @@ fn main() {
         (2, 1),
     );
     let settings = read_settings("examples/theophylline/config.toml".to_string()).unwrap();
-    let data = read_pmetrics(Path::new("examples/bimodal_ke/data.csv")).unwrap();
+    let data = read_pmetrics(Path::new("examples/theophylline/theophylline.csv")).unwrap();
     let _result = fit(eq, data, settings);
 }

@@ -1,19 +1,8 @@
-[paths]
-data = "examples/theophylline/theophylline.csv"
-log = "theophylline.log"
-#prior = "theta_bimodal_ke.csv"
-
 [config]
 cycles = 1024
 algorithm = "NPAG"
-init_points = 100
-seed = 347
 tui = false
-output = true
 cache = true
-idelta = 0.1
-log_level = "info"
-
 
 [random]
 Ka = [0.001, 3.0]
@@ -24,3 +13,11 @@ V = [0.001, 50.0]
 value = 10.0
 class = "gamma"
 poly = [0.1, 0.1, 0.0, 0.0]
+
+[output]
+write = true
+
+[prior]
+sampler = "sobol"
+points = 100
+seed = 347

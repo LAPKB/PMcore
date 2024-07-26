@@ -1,6 +1,3 @@
-[paths]
-data = "examples/bimodal_ke/bimodal_ke.csv"
-
 [config]
 cycles = 1024
 algorithm = "NPAG"
@@ -24,4 +21,3 @@ sampler = "sobol"
 
 [output]
 write = true
-path = "."

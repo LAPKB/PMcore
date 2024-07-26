@@ -1,23 +1,24 @@
-[paths]
-data = "examples/two_eq_lag/two_eq_lag.csv"
-log = "two_eq_lag.log"
-
 [config]
 cycles = 1000
 algorithm = "NPAG"
-init_points = 2129
-seed = 347
 tui = false
-output = true
 cache = true
+
 [random]
 Ka = [0.1, 0.9]
 Ke = [0.001, 0.1]
 Tlag1 = [0.0, 4.0]
 V = [30.0, 120.0]
-[fixed]
-[constant]
+
 [error]
 value = 5
 class = "proportional"
 poly = [0.02, 0.05, -2e-04, 0.0]
+
+[prior]
+sampler = "sobol"
+points = 2129
+seed = 347
+
+[output]
+write = true
