@@ -270,10 +270,12 @@ impl NPAG {
 
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
-            self.population_predictions.subject_predictions = self
-                .population_predictions
-                .subject_predictions
-                .select(Axis(1), &keep);
+            if !self.equation.is_sde() {
+                self.population_predictions.subject_predictions = self
+                    .population_predictions
+                    .subject_predictions
+                    .select(Axis(1), &keep);
+            }
 
             //Rank-Revealing Factorization
             let (r, perm) = qr::calculate_r(&self.psi);
@@ -299,10 +301,12 @@ impl NPAG {
 
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
-            self.population_predictions.subject_predictions = self
-                .population_predictions
-                .subject_predictions
-                .select(Axis(1), &keep);
+            if !self.equation.is_sde() {
+                self.population_predictions.subject_predictions = self
+                    .population_predictions
+                    .subject_predictions
+                    .select(Axis(1), &keep);
+            }
 
             (self.lambda, self.objf) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
