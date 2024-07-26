@@ -88,7 +88,7 @@ impl Settings {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Config {
-    /// Maximum number of cycles
+    /// Maximum number of cycles to run
     #[serde(default)]
     pub cycles: usize,
     /// Denotes the algorithm to use
@@ -98,7 +98,10 @@ pub struct Config {
     /// If true (default), cache predicted values
     #[serde(default)]
     pub cache: bool,
-    /// Vector if IDs to exclude
+    /// Vector of IDs to include
+    #[serde(default)]
+    pub include: Option<Vec<String>>,
+    /// Vector of IDs to exclude
     #[serde(default)]
     pub exclude: Option<Vec<String>>,
 }
@@ -110,6 +113,7 @@ impl Default for Config {
             algorithm: "npag".to_string(),
             tui: false,
             cache: false,
+            include: None,
             exclude: None,
         }
     }
@@ -222,8 +226,11 @@ impl Default for Constant {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Error {
+    /// The initial value of `gamma` or `lambda`
     pub value: f64,
+    /// The error class, either `additive` or `proportional`
     pub class: String,
+    /// The assay error polynomial
     pub poly: (f64, f64, f64, f64),
 }
 
@@ -361,8 +368,18 @@ impl Predictions {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Log {
+    /// The maximum log level to display
+    /// 
+    /// The log level is defined as a string, and can be one of the following:
+    /// - `trace`
+    /// - `debug`
+    /// - `info`
+    /// - `warn`
+    /// - `error`
     pub level: String,
+    /// The file to write the log to
     pub file: String,
+    /// Whether to write the log to file
     pub write: bool,
 }
 
@@ -376,12 +393,20 @@ impl Default for Log {
     }
 }
 
+/// Configuration for the prior
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Prior {
+    /// The sampler to use for the prior if not supplied
     pub sampler: String,
+    /// The number of points to generate for the prior
     pub points: usize,
+    /// The seed for the random number generator
     pub seed: usize,
+    /// Optionally, the path to a file containing the prior in a CSV-format
+    /// 
+    /// The file should contain the prior in a CSV format, with the first row containing the parameter names, and the subsequent rows containing the values for each parameter.
+    /// The `prob` column is optional, and will if present be ignored
     pub file: Option<String>,
 }
 
@@ -396,11 +421,14 @@ impl Default for Prior {
     }
 }
 
+/// Configuration for the output files
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Output {
+    /// Whether to write the output files
     #[serde(default)]
     pub write: bool,
+    /// The (relative) path to write the output files to
     #[serde(default)]
     pub path: String,
 }
