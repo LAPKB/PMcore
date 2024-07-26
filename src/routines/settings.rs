@@ -382,6 +382,7 @@ impl Predictions {
 pub struct Log {
     pub level: String,
     pub file: String,
+    pub write: bool,
 }
 
 impl Default for Log {
@@ -389,6 +390,7 @@ impl Default for Log {
         Log {
             level: String::from("info"),
             file: String::from("log.txt"),
+            write: true,
         }
     }
 }
@@ -483,11 +485,8 @@ pub fn read_settings(path: String) -> Result<Settings, anyhow::Error> {
     // Validate entries
     settings.validate()?;
 
-    println!("{:#?}", &settings.output);
     // Parse the output folder
     settings.output.parse_output_folder()?;
-
-    println!("{:#?}", &settings.output);
 
     // Write a copy of the settings to file if output is enabled
     if settings.output.write {

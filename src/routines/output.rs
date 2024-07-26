@@ -545,7 +545,7 @@ impl OutputFile {
         })
     }
 
-    fn get_relative_path(&self) -> &Path {
+    pub fn get_relative_path(&self) -> &Path {
         &self.relative_path
     }
 }
