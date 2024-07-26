@@ -6,7 +6,8 @@ use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
 use settings::Settings;
-use std::fs::File;
+use std::fs::{create_dir_all, File, OpenOptions};
+use std::path::{Path, PathBuf};
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
@@ -76,12 +77,14 @@ impl NPResult {
     /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) -> Result<()> {
         tracing::info!("Writing final parameter distribution...");
-        let result = (|| {
+        let result: Result<(), anyhow::Error> = (|| {
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
 
-            let file = create_output_file(&self.settings, "theta.csv")?;
-            let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+            let outputfile = OutputFile::new(&self.settings.output.path, "theta.csv")?;
+            let mut writer = WriterBuilder::new()
+                .has_headers(true)
+                .from_writer(&outputfile.file);
 
             // Create the headers
             let mut theta_header = self.par_names.clone();
@@ -94,7 +97,12 @@ impl NPResult {
                 row.push(w_val.to_string());
                 writer.write_record(&row)?;
             }
-            writer.flush()
+            writer.flush()?;
+            tracing::info!(
+                "Parameter distribution written to {:?}",
+                &outputfile.get_relative_path()
+            );
+            Ok(())
         })();
 
         if let Err(e) = result {
@@ -115,8 +123,10 @@ impl NPResult {
         let posterior = posterior(&psi, &w);
 
         // Create the output folder if it doesn't exist
-        let file = create_output_file(&self.settings, "posterior.csv")?;
-        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+        let outputfile = OutputFile::new(&self.settings.output.path, "posterior.csv")?;
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(outputfile.file);
 
         // Create the headers
         writer.write_field("id")?;
@@ -149,14 +159,17 @@ impl NPResult {
     /// Write the observations, which is the reformatted input data
     pub fn write_obs(&self) -> Result<()> {
         tracing::info!("Writing observations...");
-        let file = create_output_file(&self.settings, "obs.csv")?;
-        write_pmetrics_observations(&self.data, &file);
+        let outputfile = OutputFile::new(&self.settings.output.path, "obs.csv")?;
+        write_pmetrics_observations(&self.data, &outputfile.file);
+        tracing::info!(
+            "Observations written to {:?}",
+            &outputfile.get_relative_path()
+        );
         Ok(())
     }
 
     /// Writes the predictions
     pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) -> Result<()> {
-        tracing::info!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
 
         let theta: Array2<f64> = self.theta.clone();
@@ -171,10 +184,10 @@ impl NPResult {
             bail!("Number of subjects and number of posterior means do not match");
         }
 
-        let file = create_output_file(&self.settings, "pred.csv");
+        let outputfile = OutputFile::new(&self.settings.output.path, "pred.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
-            .from_writer(file.unwrap());
+            .from_writer(&outputfile.file);
 
         // Create the headers
         writer.write_record([
@@ -229,6 +242,11 @@ impl NPResult {
                         .expect("Failed to write record");
                 });
         }
+        writer.flush()?;
+        tracing::info!(
+            "Predictions written to {:?}",
+            &outputfile.get_relative_path()
+        );
         Ok(())
     }
 }
@@ -304,8 +322,10 @@ impl CycleLog {
 
     pub fn write(&self, settings: &Settings) -> Result<()> {
         tracing::info!("Writing cycles...");
-        let file = create_output_file(settings, "cycles.csv")?;
-        let mut writer = WriterBuilder::new().has_headers(false).from_writer(file);
+        let outputfile = OutputFile::new(&settings.output.path, "cycles.csv")?;
+        let mut writer = WriterBuilder::new()
+            .has_headers(false)
+            .from_writer(&outputfile.file);
 
         // Write headers
         writer.write_field("cycle")?;
@@ -343,7 +363,7 @@ impl CycleLog {
             writer.write_record(None::<&[u8]>)?;
         }
 
-        writer.flush().context("Failed to flush writer")?;
+        writer.flush()?;
         Ok(())
     }
 }
@@ -496,17 +516,38 @@ pub fn posterior_mean_median(
     (mean, median)
 }
 
-pub fn create_output_file(settings: &Settings, file_name: &str) -> std::io::Result<File> {
-    let output_folder = &settings.output.path;
+/// Contains all the necessary information of an output file
+#[derive(Debug)]
+pub struct OutputFile {
+    pub file: File,
+    pub relative_path: PathBuf,
+}
 
-    let path = std::path::Path::new(output_folder);
+impl OutputFile {
+    pub fn new(folder: &str, file_name: &str) -> Result<Self> {
+        let relative_path = Path::new(&folder).join(file_name);
 
-    // Attempt to create the output directory (does nothing if already exists)
-    std::fs::create_dir_all(path)?;
+        if let Some(parent) = relative_path.parent() {
+            create_dir_all(parent)
+                .with_context(|| format!("Failed to create directories for {:?}", parent))?;
+        }
 
-    // Create and open the file, returning the File handle
-    let file_path = path.join(file_name);
-    File::create(file_path)
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&relative_path)
+            .with_context(|| format!("Failed to open file: {:?}", relative_path))?;
+
+        Ok(OutputFile {
+            file,
+            relative_path,
+        })
+    }
+
+    fn get_relative_path(&self) -> &Path {
+        &self.relative_path
+    }
 }
 
 pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) {

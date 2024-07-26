@@ -9,6 +9,8 @@ use serde_json;
 use std::collections::HashMap;
 use toml::Table;
 
+use super::output::OutputFile;
+
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
@@ -434,8 +436,7 @@ impl Output {
     ////
     /// If a `#` symbol is found, it will automatically increment the number by one.
     pub fn parse_output_folder(&mut self) -> Result<()> {
-
-        if self.path.is_empty() {
+        if self.path.is_empty() || self.path == "" {
             // Set a default path if none is provided
             self.path = Output::default().path;
         }
@@ -457,7 +458,7 @@ impl Output {
                 Ok(())
             }
             _ => {
-                bail!("Only one `#` symbol is allowed in the setting folder path. Rename the `output_folder` setting` in the configuration file and re-run the program.")
+                bail!("Only one `#` symbol is allowed in the setting folder path. Rename the `output_folder` setting in the configuration file and re-run the program.")
             }
         }
     }
@@ -479,13 +480,14 @@ pub fn read_settings(path: String) -> Result<Settings, anyhow::Error> {
     // Deserialize settings to the Settings struct
     let mut settings: Settings = parsed.try_deserialize()?;
 
-    dbg!(settings.clone());
-
     // Validate entries
     settings.validate()?;
 
+    println!("{:#?}", &settings.output);
     // Parse the output folder
     settings.output.parse_output_folder()?;
+
+    println!("{:#?}", &settings.output);
 
     // Write a copy of the settings to file if output is enabled
     if settings.output.write {
@@ -501,11 +503,12 @@ pub fn read_settings(path: String) -> Result<Settings, anyhow::Error> {
 ///
 /// This function writes a copy of the parsed settings to file.
 /// The file is written to output folder specified in the [settings](crate::routines::settings::Settings::paths), and is named `settings.json`.
-pub fn write_settings_to_file(settings: &Settings) -> Result<(), std::io::Error> {
+pub fn write_settings_to_file(settings: &Settings) -> Result<()> {
     let serialized = serde_json::to_string_pretty(settings)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
-    let mut file = crate::routines::output::create_output_file(settings, "settings.json")?;
+    let outputfile = OutputFile::new(settings.output.path.as_str(), "settings.json")?;
+    let mut file = outputfile.file;
     std::io::Write::write_all(&mut file, serialized.as_bytes())?;
     Ok(())
 }
