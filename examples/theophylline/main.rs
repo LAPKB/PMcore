@@ -1,3 +1,6 @@
+use std::path::Path;
+
+use data::read_pmetrics;
 use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
 
 fn main() {
@@ -30,5 +33,6 @@ fn main() {
         (2, 1),
     );
     let settings = read_settings("examples/theophylline/config.toml".to_string()).unwrap();
-    let _result = fit(eq, settings);
+    let data = read_pmetrics(Path::new("examples/bimodal_ke/data.csv")).unwrap();
+    let _result = fit(eq, data, settings);
 }

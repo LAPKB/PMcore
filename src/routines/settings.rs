@@ -15,9 +15,6 @@ use super::output::OutputFile;
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Settings {
-    /// Paths to the data, log and prior files
-    #[serde(default)]
-    pub paths: Paths,
     /// General configuration settings
     #[serde(default)]
     pub config: Config,
@@ -58,7 +55,6 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            paths: Paths::default(),
             config: Config::default(),
             random: Random::default(),
             fixed: None,
@@ -88,21 +84,6 @@ impl Settings {
     }
 }
 
-/// This struct contains the paths to the data, log and prior files.
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(deny_unknown_fields, default)]
-pub struct Paths {
-    /// Path to the data file, see `datafile::parse` for details.
-    pub data: String,
-}
-
-impl Default for Paths {
-    fn default() -> Self {
-        Paths {
-            data: String::new(),
-        }
-    }
-}
 /// General configuration settings
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]

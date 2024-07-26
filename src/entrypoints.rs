@@ -5,8 +5,7 @@ use crate::routines::settings::*;
 use anyhow::{bail, Context, Result};
 use pharmsol::prelude::data::Data;
 
-use pharmsol::prelude::{data::read_pmetrics, simulator::Equation};
-use std::path::Path;
+use pharmsol::prelude::simulator::Equation;
 use std::thread::spawn;
 use std::time::Instant;
 use tokio::sync::mpsc::{self};
@@ -26,7 +25,7 @@ use tokio::sync::mpsc::{self};
 /// The user can specify the desired settings in a TOML configuration file, see `routines::settings::simulator` for details.
 /// - `idelta`: the interval between predictions. Default is 0.0.
 /// - `tad`: the time after dose, which if greater than the last prediction time is the time for which it will predict . Default is 0.0.
-pub fn simulate(_equation: Equation, _settings_path: String) -> Result<()> {
+pub fn simulate(_equation: Equation, _data: Data, _settings: Settings) -> Result<()> {
     unimplemented!();
 }
 
@@ -34,7 +33,7 @@ pub fn simulate(_equation: Equation, _settings_path: String) -> Result<()> {
 ///
 /// This function is the primary entrypoint for PMcore, and is used to run the algorithm.
 /// The settings for this function is specified in a TOML configuration file, see `routines::settings::run` for details.
-pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
+pub fn fit(equation: Equation, data: Data, settings: Settings) -> anyhow::Result<NPResult> {
     let now = Instant::now();
 
     // Configure MPSC channels for TUI
@@ -50,7 +49,6 @@ pub fn fit(equation: Equation, settings: Settings) -> anyhow::Result<NPResult> {
     tracing::info!("Starting PMcore");
 
     // Read input data
-    let data = read_pmetrics(Path::new(settings.paths.data.as_str())).unwrap();
     let subjects = data.get_subjects();
 
     // Provide information of the input data
