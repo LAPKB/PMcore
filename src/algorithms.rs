@@ -11,9 +11,9 @@ use prelude::*;
 use tokio::sync::mpsc;
 // use self::{data::Subject, simulator::Equation};
 
-mod npag;
-mod npod;
-mod postprob;
+pub mod npag;
+pub mod npod;
+pub mod postprob;
 
 pub trait Algorithm {
     fn fit(&mut self) -> Result<NPResult>;
@@ -33,8 +33,7 @@ pub fn initialize_algorithm(
     }
 
     // Initialize the sample space
-    let theta = initialization::sample_space(&settings, &data, &equation)
-        .context("Sample space initialization failed")?;
+    let theta = initialization::sample_space(&settings, &data, &equation)?;
 
     //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
     let ranges = settings.random.ranges();
