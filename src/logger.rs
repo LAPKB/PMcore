@@ -1,3 +1,4 @@
+use crate::prelude::output::OutputFile;
 use crate::routines::settings::Settings;
 use crate::tui::ui::Comm;
 use anyhow::Result;
@@ -22,27 +23,33 @@ use tracing_subscriber::EnvFilter;
 ///
 /// If not, the log messages are written to stdout.
 pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> Result<()> {
-    // Use the log level defined in configuration file, or default to info
-    let log_level = settings.config.log_level.as_str();
+    // Use the log level defined in configuration file
+    let log_level = settings.log.level.as_str();
     let env_filter = EnvFilter::new(log_level);
-
-    // Use the log file defined in configuration file, or default to pmcore.log
-    let log_path = std::path::Path::new(settings.paths.log.as_ref().unwrap());
 
     // Define a registry with that level as an environment filter
     let subscriber = Registry::default().with(env_filter);
 
-    // Define a layer for the log file
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(log_path)?;
+    // Define outputfile
+    let outputfile = match settings.log.write {
+        true => Some(OutputFile::new(&settings.output.path, &settings.log.file)?),
+        false => None,
+    };
 
-    let file_layer = fmt::layer()
-        .with_writer(file)
-        .with_ansi(false)
-        .with_timer(CompactTimestamp);
+    // Define layer for file
+    let file_layer = match outputfile {
+        Some(outputfile) => {
+            let file = outputfile.file;
+
+            let layer = fmt::layer()
+                .with_writer(file)
+                .with_ansi(false)
+                .with_timer(CompactTimestamp);
+
+            Some(layer)
+        }
+        None => None,
+    };
 
     // Define layer for stdout
     let stdout_layer = match settings.config.tui {
@@ -85,11 +92,6 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> R
         .with(tui_layer)
         .init();
 
-    tracing::info!(
-        "Logging is configured with level {} to file {:?}",
-        log_level,
-        log_path
-    );
     Ok(())
 }
 

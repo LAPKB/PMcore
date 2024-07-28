@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
+use std::path::Path;
+
+use data::read_pmetrics;
 use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
 
 fn main() {
@@ -40,5 +43,6 @@ fn main() {
     // );
 
     let settings = read_settings("examples/two_eq_lag/config.toml".to_string()).unwrap();
-    let _result = fit(eq, settings);
+    let data = read_pmetrics(Path::new("examples/two_eq_lag/two_eq_lag.csv")).unwrap();
+    let _result = fit(eq, data, settings);
 }
