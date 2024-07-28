@@ -479,8 +479,8 @@ impl Output {
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
 /// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE__`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE__CONFIG__TUI=false` Note that a double underscore, `__`, is used as the separator, as some settings may contain a single underscore, such as `PMCORE__CONFIG__LOG_LEVEL`.
-pub fn read_settings(path: String) -> Result<Settings, anyhow::Error> {
-    let settings_path = path;
+pub fn read(path: impl Into<String>) -> Result<Settings, anyhow::Error> {
+    let settings_path = path.into();
 
     let parsed = eConfig::builder()
         .add_source(config::File::with_name(&settings_path).format(config::FileFormat::Toml))
