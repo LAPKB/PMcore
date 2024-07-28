@@ -55,7 +55,7 @@ pub struct NPAG {
 }
 
 impl Algorithm for NPAG {
-    fn fit(&mut self) -> anyhow::Result<NPResult> {
+    fn fit(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
         self.run()
     }
     fn to_npresult(&self) -> NPResult {
@@ -224,7 +224,7 @@ impl NPAG {
         adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
     }
 
-    pub fn run(&mut self) -> anyhow::Result<NPResult> {
+    pub fn run(&mut self) -> Result<NPResult, (anyhow::Error, NPResult)> {
         loop {
             // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
@@ -241,19 +241,28 @@ impl NPAG {
                 &self.error_type,
             ));
 
-            self.validate_psi()?;
+            if let Err(err) = self.validate_psi() {
+                return Err((err, self.to_npresult()));
+            }
 
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
-                    //todo: write out report
-                    panic!("Error in IPM: {:?}", err);
+                    return Err((
+                        anyhow::anyhow!("Error in IPM: {:?}", err),
+                        self.to_npresult(),
+                    ));
                 }
+            };
+
+            let max_lambda = match self.lambda.max() {
+                Ok(max_lambda) => max_lambda,
+                Err(err) => return Err((anyhow::anyhow!(err), self.to_npresult())),
             };
 
             let mut keep = Vec::<usize>::new();
             for (index, lam) in self.lambda.iter().enumerate() {
-                if *lam > self.lambda.max()? / 1000_f64 {
+                if *lam > max_lambda / 1000_f64 {
                     keep.push(index);
                 }
             }
@@ -297,8 +306,10 @@ impl NPAG {
             (self.lambda, self.objf) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
                 Err(err) => {
-                    //todo: write out report
-                    panic!("Error in IPM: {:?}", err);
+                    return Err((
+                        anyhow::anyhow!("Error in IPM: {:?}", err),
+                        self.to_npresult(),
+                    ));
                 }
             };
 
@@ -330,9 +341,7 @@ impl NPAG {
                 if self.eps <= THETA_E {
                     self.f1 = pyl.mapv(|x| x.ln()).sum();
                     if (self.f1 - self.f0).abs() <= THETA_F {
-                        tracing::info!(
-                            "The run converged with the following criteria: Log-Likelihood"
-                        );
+                        tracing::info!("The model converged after {} cycles", self.cycle,);
                         self.converged = true;
                         stop = true;
                     } else {

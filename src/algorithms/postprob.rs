@@ -34,7 +34,7 @@ pub struct POSTPROB {
 }
 
 impl Algorithm for POSTPROB {
-    fn fit(&mut self) -> anyhow::Result<NPResult> {
+    fn fit(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
         self.run()
     }
     fn to_npresult(&self) -> NPResult {
@@ -83,7 +83,7 @@ impl POSTPROB {
         }
     }
 
-    pub fn run(&mut self) -> anyhow::Result<NPResult> {
+    pub fn run(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
         let obs_pred = get_population_predictions(&self.equation, &self.data, &self.theta, false);
 
         self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
