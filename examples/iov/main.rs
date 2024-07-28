@@ -26,6 +26,7 @@ fn main() {
         (2, 1),
     );
 
-    let settings = read_settings("examples/iov/config.toml".to_string()).unwrap();
-    let _result = fit(sde, settings);
+    let settings = settings::read("examples/iov/config.toml".to_string()).unwrap();
+    let data = data::read_pmetrics("examples/iov/iov.csv").unwrap();
+    let _result = fit(sde, data, settings);
 }
