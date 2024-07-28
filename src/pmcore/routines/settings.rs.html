@@ -519,10 +519,10 @@
 <a href="#519" id="519">519</a>
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
-</span><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+</span><span class="kw">use </span><span class="kw">super</span>::output::OutputFile;
+<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
 <span class="kw">use </span>pharmsol::prelude::data::ErrorType;
 <span class="kw">use </span>serde::Deserialize;
@@ -530,8 +530,6 @@
 <span class="kw">use </span>serde_json;
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>toml::Table;
-
-<span class="kw">use </span><span class="kw">super</span>::output::OutputFile;
 
 <span class="doccomment">/// Contains all settings for PMcore
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]

@@ -141,18 +141,11 @@
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::algorithms::initialize_algorithm;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::{output::NPResult, <span class="kw-2">*</span>};
 <span class="kw">use </span><span class="kw">crate</span>::routines::settings::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>pharmsol::prelude::data::Data;
 
 <span class="kw">use </span>pharmsol::prelude::simulator::Equation;
 <span class="kw">use </span>std::thread::spawn;
@@ -253,19 +246,32 @@
 
     <span class="comment">// Run the algorithm
     </span><span class="kw">let </span>result = <span class="kw">match </span>algorithm.fit() {
-        <span class="prelude-val">Ok</span>(result) =&gt; result,
-        <span class="prelude-val">Err</span>(err) =&gt; {
-            <span class="macro">tracing::error!</span>(<span class="string">"An error has occurred during model fitting: {}"</span>, err);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(err);
+        <span class="prelude-val">Ok</span>(result) =&gt; {
+            <span class="kw">match </span>result.write_outputs(<span class="kw-2">&amp;</span>equation) {
+                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+                    <span class="macro">tracing::info!</span>(<span class="string">"Output files written successfully"</span>);
+                }
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">tracing::error!</span>(<span class="string">"An error has occurred while writing output files: {}"</span>, err);
+                }
+            };
+            <span class="prelude-val">Ok</span>(result)
+        }
+        <span class="prelude-val">Err</span>((error, partial_result)) =&gt; {
+            <span class="macro">tracing::error!</span>(<span class="string">"An error has occurred during model fitting: {}"</span>, error);
+            <span class="macro">tracing::error!</span>(
+                <span class="string">"Attempting to write output files. These can be used to restart the model."
+            </span>);
+            <span class="kw">if </span>settings.output.write {
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = partial_result.write_outputs(<span class="kw-2">&amp;</span>equation) {
+                    <span class="macro">tracing::error!</span>(<span class="string">"An error has occurred while writing output files: {}"</span>, err);
+                } <span class="kw">else </span>{
+                    <span class="macro">tracing::info!</span>(<span class="string">"Output files written successfully"</span>);
+                }
+            }
+            <span class="prelude-val">Err</span>(error)
         }
     };
-
-    <span class="comment">// Write output files (if configured)
-    </span><span class="kw">if </span>settings.output.write {
-        <span class="kw">let </span>idelta = settings.predictions.idelta;
-        <span class="kw">let </span>tad = settings.predictions.tad;
-        result.write_outputs(<span class="bool-val">true</span>, <span class="kw-2">&amp;</span>equation, idelta, tad)<span class="question-mark">?</span>;
-    }
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(tx) = tx {
         tx.send(Comm::StopUI)
@@ -276,24 +282,6 @@
     <span class="comment">// Provide information about the program runtime|
     </span><span class="macro">tracing::info!</span>(<span class="string">"Program complete after {:.2?}"</span>, now.elapsed());
 
-    <span class="prelude-val">Ok</span>(result)
-}
-
-<span class="doccomment">/// Alternative entrypoint, primarily meant for third-party libraries or APIs
-///
-/// This entrypoint takes an `Engine` (from the model), `Data` from the settings, and `scenarios` containing dose information and observations
-///
-/// It does not write any output files, and does not start a TUI.
-///
-/// Returns an NPresult object
-</span><span class="kw">pub fn </span>start_internal(equation: Equation, settings: Settings, data: Data) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt; {
-    <span class="kw">let </span>now = Instant::now();
-    logger::setup_log(<span class="kw-2">&amp;</span>settings, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
-
-    <span class="kw">let </span><span class="kw-2">mut </span>algorithm = initialize_algorithm(equation, settings.clone(), data, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
-
-    <span class="kw">let </span>result = algorithm.fit();
-    <span class="macro">tracing::info!</span>(<span class="string">"Total time: {:.2?}"</span>, now.elapsed());
-    result
+    <span class="prelude-val">Ok</span>(result<span class="question-mark">?</span>)
 }
 </code></pre></div></section></main></body></html>

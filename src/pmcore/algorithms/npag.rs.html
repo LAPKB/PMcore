@@ -392,6 +392,15 @@
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>pharmsol::{
     prelude::{
@@ -449,7 +458,7 @@
 }
 
 <span class="kw">impl </span>Algorithm <span class="kw">for </span>NPAG {
-    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; anyhow::Result&lt;NPResult&gt; {
+    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; anyhow::Result&lt;NPResult, (anyhow::Error, NPResult)&gt; {
         <span class="self">self</span>.run()
     }
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
@@ -618,7 +627,7 @@
         adaptative_grid(<span class="kw-2">&amp;mut </span><span class="self">self</span>.theta, <span class="self">self</span>.eps, <span class="kw-2">&amp;</span><span class="self">self</span>.ranges, THETA_D);
     }
 
-    <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; anyhow::Result&lt;NPResult&gt; {
+    <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult, (anyhow::Error, NPResult)&gt; {
         <span class="kw">loop </span>{
             <span class="comment">// Enter a span for each cycle, providing context for further errors
             </span><span class="kw">let </span>cycle_span = <span class="macro">tracing::span!</span>(tracing::Level::INFO, <span class="string">"Cycle"</span>, cycle = <span class="self">self</span>.cycle);
@@ -635,19 +644,28 @@
                 <span class="kw-2">&amp;</span><span class="self">self</span>.error_type,
             ));
 
-            <span class="self">self</span>.validate_psi()<span class="question-mark">?</span>;
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.validate_psi() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>((err, <span class="self">self</span>.to_npresult()));
+            }
 
             (<span class="self">self</span>.lambda, <span class="kw">_</span>) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
                 <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="comment">//todo: write out report
-                    </span><span class="macro">panic!</span>(<span class="string">"Error in IPM: {:?}"</span>, err);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>((
+                        <span class="macro">anyhow::anyhow!</span>(<span class="string">"Error in IPM: {:?}"</span>, err),
+                        <span class="self">self</span>.to_npresult(),
+                    ));
                 }
+            };
+
+            <span class="kw">let </span>max_lambda = <span class="kw">match </span><span class="self">self</span>.lambda.max() {
+                <span class="prelude-val">Ok</span>(max_lambda) =&gt; max_lambda,
+                <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((<span class="macro">anyhow::anyhow!</span>(err), <span class="self">self</span>.to_npresult())),
             };
 
             <span class="kw">let </span><span class="kw-2">mut </span>keep = Vec::&lt;usize&gt;::new();
             <span class="kw">for </span>(index, lam) <span class="kw">in </span><span class="self">self</span>.lambda.iter().enumerate() {
-                <span class="kw">if </span><span class="kw-2">*</span>lam &gt; <span class="self">self</span>.lambda.max()<span class="question-mark">? </span>/ <span class="number">1000_f64 </span>{
+                <span class="kw">if </span><span class="kw-2">*</span>lam &gt; max_lambda / <span class="number">1000_f64 </span>{
                     keep.push(index);
                 }
             }
@@ -691,8 +709,10 @@
             (<span class="self">self</span>.lambda, <span class="self">self</span>.objf) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
                 <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
                 <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="comment">//todo: write out report
-                    </span><span class="macro">panic!</span>(<span class="string">"Error in IPM: {:?}"</span>, err);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>((
+                        <span class="macro">anyhow::anyhow!</span>(<span class="string">"Error in IPM: {:?}"</span>, err),
+                        <span class="self">self</span>.to_npresult(),
+                    ));
                 }
             };
 
@@ -724,9 +744,7 @@
                 <span class="kw">if </span><span class="self">self</span>.eps &lt;= THETA_E {
                     <span class="self">self</span>.f1 = pyl.mapv(|x| x.ln()).sum();
                     <span class="kw">if </span>(<span class="self">self</span>.f1 - <span class="self">self</span>.f0).abs() &lt;= THETA_F {
-                        <span class="macro">tracing::info!</span>(
-                            <span class="string">"The run converged with the following criteria: Log-Likelihood"
-                        </span>);
+                        <span class="macro">tracing::info!</span>(<span class="string">"The model converged after {} cycles"</span>, <span class="self">self</span>.cycle,);
                         <span class="self">self</span>.converged = <span class="bool-val">true</span>;
                         stop = <span class="bool-val">true</span>;
                     } <span class="kw">else </span>{

@@ -85,7 +85,7 @@
 <span class="kw">pub mod </span>postprob;
 
 <span class="kw">pub trait </span>Algorithm {
-    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&gt;;
+    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult, (anyhow::Error, NPResult)&gt;;
     <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult;
 }
 
