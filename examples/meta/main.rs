@@ -3,7 +3,6 @@
 #![allow(unused_imports)]
 use std::path::Path;
 
-use data::read_pmetrics;
 use pmcore::prelude::{models::one_compartment, simulator::Equation, *};
 
 fn main() {
@@ -33,7 +32,7 @@ fn main() {
         },
         (2, 2),
     );
-    let settings = read_settings("examples/meta/config.toml".to_string()).unwrap();
-    let data = read_pmetrics(Path::new("examples/meta/meta.csv")).unwrap();
+    let settings = settings::read("examples/meta/config.toml").unwrap();
+    let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
     let _result = fit(eq, data, settings);
 }

@@ -1,7 +1,6 @@
 use pmcore::prelude::{
     data::read_pmetrics, models::one_compartment_with_absorption, simulator::Equation, *,
 };
-use std::path::Path;
 
 // type V = nalgebra::DVector<f64>;
 // type V = nalgebra::SVector<f64, 3>;
@@ -51,7 +50,7 @@ fn main() -> std::io::Result<()> {
 //     });
 // }
 pub fn analytical_ns(bencher: Bencher, len: usize) {
-    let data = read_pmetrics(Path::new(PATH)).unwrap();
+    let data = read_pmetrics(PATH).unwrap();
     let subjects = data.get_subjects();
     let first_subject = subjects.first().unwrap();
 
@@ -79,7 +78,7 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
 }
 
 pub fn diffsol_ns(bencher: Bencher, len: usize) {
-    let data = read_pmetrics(Path::new(PATH)).unwrap();
+    let data = read_pmetrics(PATH).unwrap();
     let subjects = data.get_subjects();
     let first_subject = subjects.first().unwrap();
 

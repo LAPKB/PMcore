@@ -1,6 +1,3 @@
-use std::path::Path;
-
-use data::read_pmetrics;
 use pmcore::prelude::{models::one_compartment, simulator::Equation, *};
 
 fn main() {
@@ -39,7 +36,7 @@ fn main() {
         _ => panic!("Method not found"),
     };
 
-    let settings = read_settings("examples/bimodal_ke/config.toml".to_string()).unwrap();
-    let data = read_pmetrics(Path::new("examples/bimodal_ke/bimodal_ke.csv")).unwrap();
+    let settings = settings::read("examples/bimodal_ke/config.toml").unwrap();
+    let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
     let _result = fit(eq, data, settings);
 }

@@ -17,7 +17,7 @@ fn main() {
         (1, 1),
     );
 
-    let data = read_pmetrics(std::path::Path::new("examples/bimodal_ke/bimodal_ke.csv")).unwrap();
+    let data = read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
     let theta = data.estimate_theta(&eq, &array![1.5, 125.0]);
     dbg!(theta);
 }

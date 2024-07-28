@@ -1,6 +1,3 @@
-use std::path::Path;
-
-use data::read_pmetrics;
 use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
 
 fn main() {
@@ -32,7 +29,7 @@ fn main() {
         },
         (2, 1),
     );
-    let settings = read_settings("examples/theophylline/config.toml".to_string()).unwrap();
-    let data = read_pmetrics(Path::new("examples/theophylline/theophylline.csv")).unwrap();
+    let settings = settings::read("examples/theophylline/config.toml").unwrap();
+    let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
     let _result = fit(eq, data, settings);
 }
