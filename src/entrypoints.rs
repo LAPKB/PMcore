@@ -103,46 +103,32 @@ pub fn fit(equation: Equation, data: Data, settings: Settings) -> anyhow::Result
 
     // Run the algorithm
     let result = match algorithm.fit() {
-        Ok(result) => result,
-        Err(err) => {
-            let error = err.0;
-            let result = err.1;
-
+        Ok(result) => {
+            match result.write_outputs(&equation) {
+                Ok(_) => {
+                    tracing::info!("Output files written successfully");
+                }
+                Err(err) => {
+                    tracing::error!("An error has occurred while writing output files: {}", err);
+                }
+            };
+            Ok(result)
+        }
+        Err((error, partial_result)) => {
             tracing::error!("An error has occurred during model fitting: {}", error);
             tracing::error!(
                 "Attempting to write output files. These can be used to restart the model."
             );
-
-            // If the settings are configured to write output files, attempt to write the output files
-            // This might fail for various reasons, such as incompatible shapes, if the program errors mid-cycle
             if settings.output.write {
-                match result.write_outputs(&equation) {
-                    Ok(_) => {
-                        tracing::info!("Output files written successfully");
-                    }
-                    Err(err) => {
-                        tracing::error!(
-                            "An error has occurred while writing output files: {}",
-                            err
-                        );
-                    }
+                if let Err(err) = partial_result.write_outputs(&equation) {
+                    tracing::error!("An error has occurred while writing output files: {}", err);
+                } else {
+                    tracing::info!("Output files written successfully");
                 }
             }
-            return Err(error);
+            Err(error)
         }
     };
-
-    // Write output files (if configured)
-    if settings.output.write {
-        match result.write_outputs(&equation) {
-            Ok(_) => {
-                tracing::info!("Output files written successfully");
-            }
-            Err(err) => {
-                tracing::error!("An error has occurred while writing output files: {}", err);
-            }
-        };
-    }
 
     if let Some(tx) = tx {
         tx.send(Comm::StopUI)
@@ -153,5 +139,5 @@ pub fn fit(equation: Equation, data: Data, settings: Settings) -> anyhow::Result
     // Provide information about the program runtime|
     tracing::info!("Program complete after {:.2?}", now.elapsed());
 
-    Ok(result)
+    Ok(result?)
 }
