@@ -468,6 +468,12 @@ pub fn population_mean_median(
     theta: &Array2<f64>,
     w: &Array1<f64>,
 ) -> Result<(Array1<f64>, Array1<f64>)> {
+
+    // Check for compatible sizes
+    if theta.nrows() != w.len() {
+        bail!("Number of parameters and number of weights do not match. Theta: {}, w: {}", theta.nrows(), w.len());
+    }
+
     let mut mean = Array1::zeros(theta.ncols());
     let mut median = Array1::zeros(theta.ncols());
 
