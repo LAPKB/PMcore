@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use super::output::OutputFile;
 use anyhow::{bail, Result};
 use config::Config as eConfig;
 use pharmsol::prelude::data::ErrorType;
@@ -8,7 +9,6 @@ use serde_derive::Serialize;
 use serde_json;
 use std::collections::HashMap;
 use toml::Table;
-use super::output::OutputFile;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]

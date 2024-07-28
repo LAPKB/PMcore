@@ -115,7 +115,7 @@ pub fn fit(equation: Equation, data: Data, settings: Settings) -> anyhow::Result
 
             // If the settings are configured to write output files, attempt to write the output files
             // This might fail for various reasons, such as incompatible shapes, if the program errors mid-cycle
-            if settings.config.output {
+            if settings.output.write {
                 match result.write_outputs(&equation) {
                     Ok(_) => {
                         tracing::info!("Output files written successfully");
@@ -134,9 +134,14 @@ pub fn fit(equation: Equation, data: Data, settings: Settings) -> anyhow::Result
 
     // Write output files (if configured)
     if settings.output.write {
-        let idelta = settings.predictions.idelta;
-        let tad = settings.predictions.tad;
-        result.write_outputs(true, &equation, idelta, tad)?;
+        match result.write_outputs(&equation) {
+            Ok(_) => {
+                tracing::info!("Output files written successfully");
+            }
+            Err(err) => {
+                tracing::error!("An error has occurred while writing output files: {}", err);
+            }
+        };
     }
 
     if let Some(tx) = tx {

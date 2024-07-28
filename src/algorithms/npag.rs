@@ -341,9 +341,7 @@ impl NPAG {
                 if self.eps <= THETA_E {
                     self.f1 = pyl.mapv(|x| x.ln()).sum();
                     if (self.f1 - self.f0).abs() <= THETA_F {
-                        tracing::info!(
-                            "The run converged with the following criteria: Log-Likelihood"
-                        );
+                        tracing::info!("The model converged after {} cycles", self.cycle,);
                         self.converged = true;
                         stop = true;
                     } else {

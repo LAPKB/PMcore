@@ -57,14 +57,14 @@ impl NPResult {
     }
 
     pub fn write_outputs(&self, equation: &Equation) -> Result<()> {
-        if self.settings.config.output {
-            let idelta = self.settings.config.idelta;
-            let tad = self.settings.config.tad;
+        if self.settings.output.write {
+            let idelta: f64 = self.settings.predictions.idelta;
+            let tad = self.settings.predictions.tad;
             self.cyclelog.write(&self.settings)?;
+            self.write_obs().context("Failed to write observations")?;
             self.write_theta().context("Failed to write theta")?;
             self.write_posterior()
                 .context("Failed to write posterior")?;
-            self.write_obs().context("Failed to write observations")?;
             self.write_pred(equation, idelta, tad)
                 .context("Failed to write predictions")?;
         }
@@ -74,7 +74,7 @@ impl NPResult {
     /// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) -> Result<()> {
-        tracing::info!("Writing population parameter distribution...");
+        tracing::debug!("Writing population parameter distribution...");
         let result: Result<(), anyhow::Error> = (|| {
             let theta: Array2<f64> = self.theta.clone();
             let w: Array1<f64> = self.w.clone();
@@ -111,22 +111,29 @@ impl NPResult {
 
     /// Writes the posterior support points for each individual
     pub fn write_posterior(&self) -> Result<()> {
-        tracing::info!("Writing posterior parameter probabilities...");
+        tracing::debug!("Writing posterior parameter probabilities...");
         let theta: Array2<f64> = self.theta.clone();
         let w: Array1<f64> = self.w.clone();
         let psi: Array2<f64> = self.psi.clone();
         let par_names: Vec<String> = self.par_names.clone();
-        //let subjects = self.subjects.clone();
 
-        // Check for compatible sizes
-        if theta.nrows() != w.len() || theta.nrows() != psi.nrows() || psi.nrows() != w.len() {
-            bail!("Number of parameters and number of weights do not match");
-        }
-
-        let posterior = posterior(&psi, &w).context("Failed to calculate posterior")?;
+        // Calculate the posterior probabilities
+        let posterior = match posterior(&psi, &w) {
+            Ok(p) => p,
+            Err(e) => {
+                tracing::error!("Failed to calculate posterior: {}", e);
+                return Err(e.context("Failed to calculate posterior"));
+            }
+        };
 
         // Create the output folder if it doesn't exist
-        let outputfile = OutputFile::new(&self.settings.output.path, "posterior.csv")?;
+        let outputfile = match OutputFile::new(&self.settings.output.path, "posterior.csv") {
+            Ok(of) => of,
+            Err(e) => {
+                tracing::error!("Failed to create output file: {}", e);
+                return Err(e.context("Failed to create output file"));
+            }
+        };
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
@@ -165,9 +172,9 @@ impl NPResult {
 
     /// Write the observations, which is the reformatted input data
     pub fn write_obs(&self) -> Result<()> {
-        tracing::info!("Writing observations...");
+        tracing::debug!("Writing observations...");
         let outputfile = OutputFile::new(&self.settings.output.path, "obs.csv")?;
-        write_pmetrics_observations(&self.data, &outputfile.file);
+        write_pmetrics_observations(&self.data, &outputfile.file)?;
         tracing::info!(
             "Observations written to {:?}",
             &outputfile.get_relative_path()
@@ -177,17 +184,12 @@ impl NPResult {
 
     /// Writes the predictions
     pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) -> Result<()> {
-        tracing::info!("Writing predictions...");
+        tracing::debug!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
 
         let theta: Array2<f64> = self.theta.clone();
         let w: Array1<f64> = self.w.clone();
         let psi: Array2<f64> = self.psi.clone();
-
-        // Check for compatible sizes
-        if theta.nrows() != w.len() || theta.nrows() != psi.nrows() || psi.nrows() != w.len() {
-            bail!("Number of parameters and number of weights do not match");
-        }
 
         let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
             .context("Failed to calculate posterior mean and median")?;
@@ -337,7 +339,7 @@ impl CycleLog {
     }
 
     pub fn write(&self, settings: &Settings) -> Result<()> {
-        tracing::info!("Writing cycles...");
+        tracing::debug!("Writing cycles...");
         let outputfile = OutputFile::new(&settings.output.path, "cycles.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(false)
@@ -498,16 +500,14 @@ pub fn posterior_mean_median(
     let mut median = Array2::zeros((0, theta.ncols()));
 
     // Check for compatible sizes
-    if theta.nrows() != w.len() || theta.nrows() != psi.nrows() || psi.nrows() != w.len() {
+    if theta.nrows() != w.len() || theta.nrows() != psi.ncols() || psi.ncols() != w.len() {
         bail!("Number of parameters and number of weights do not match");
     }
 
     // Normalize psi to get probabilities of each spp for each id
     let mut psi_norm: Array2<f64> = Array2::zeros((0, psi.ncols()));
     for row in psi.axis_iter(Axis(0)) {
-        tracing::warn!("Normalizing row");
         let row_w = row.to_owned() * w.to_owned();
-        tracing::warn!("Normalizing row finished");
         let row_sum = row_w.sum();
         let row_norm = &row_w / row_sum;
         psi_norm.push_row(row_norm.view())?;
@@ -574,33 +574,30 @@ impl OutputFile {
     }
 }
 
-pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) {
+pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<()> {
     let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-    writer
-        .write_record(&["id", "block", "time", "out", "outeq"])
-        .unwrap();
+    writer.write_record(&["id", "block", "time", "out", "outeq"])?;
     for subject in data.get_subjects() {
         for occasion in subject.occasions() {
             for event in occasion.get_events(None, None, false) {
                 match event {
                     Event::Observation(obs) => {
                         // Write each field individually
-                        writer
-                            .write_record(&[
-                                &subject.id(),
-                                &occasion.index().to_string(),
-                                &obs.time().to_string(),
-                                &obs.value().to_string(),
-                                &obs.outeq().to_string(),
-                            ])
-                            .unwrap();
+                        writer.write_record(&[
+                            &subject.id(),
+                            &occasion.index().to_string(),
+                            &obs.time().to_string(),
+                            &obs.value().to_string(),
+                            &obs.outeq().to_string(),
+                        ])?;
                     }
                     _ => {}
                 }
             }
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
