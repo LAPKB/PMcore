@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/initialization/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-081576b923113409.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.79.0 (129f3b996 2024-06-10)" data-channel="1.79.0" data-search-js="search-bf21c90c8c1d92b1.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-e32f0c247825364d.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-09095024cf37855e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../pmcore/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Type ‘S’ or ‘/’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings">Settings</a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/initialization/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.0 (051478957 2024-07-21)" data-channel="1.80.0" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -103,11 +103,18 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::File;
 
 <span class="kw">use </span><span class="kw">crate</span>::prelude::data::Data;
 <span class="kw">use </span><span class="kw">crate</span>::prelude::simulator::Equation;
-<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>ndarray::{Array1, Array2};
 <span class="kw">use </span>pharmsol::prelude::EstimateTheta;
 
@@ -118,94 +125,101 @@
 
 <span class="doccomment">/// This function generates the grid of support points according to the sampler specified in the [Settings]
 </span><span class="kw">pub fn </span>sample_space(settings: <span class="kw-2">&amp;</span>Settings, data: <span class="kw-2">&amp;</span>Data, eqn: <span class="kw-2">&amp;</span>Equation) -&gt; <span class="prelude-ty">Result</span>&lt;Array2&lt;f64&gt;&gt; {
-    <span class="kw">let </span>ranges = settings.random.ranges();
-    <span class="kw">match </span>settings.paths.prior.as_str() {
-        <span class="string">"uniform" </span>=&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>settings.config.sampler {
-            <span class="prelude-val">Some</span>(sampler) =&gt; <span class="kw">match </span>sampler.as_str() {
-                <span class="string">"sobol" </span>=&gt; {
-                    sobol::generate(settings.config.init_points, <span class="kw-2">&amp;</span>ranges, settings.config.seed)
-                }
-                <span class="string">"latin" </span>=&gt; {
-                    latin::generate(settings.config.init_points, <span class="kw-2">&amp;</span>ranges, settings.config.seed)
-                }
-                <span class="string">"osat" </span>=&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>point = <span class="macro">vec!</span>[];
-                    <span class="kw">for </span>range <span class="kw">in </span>ranges {
-                        point.push((range.<span class="number">1 </span>- range.<span class="number">0</span>) / <span class="number">2.0</span>);
-                    }
-                    <span class="prelude-val">Ok</span>(data.estimate_theta(eqn, <span class="kw-2">&amp;</span>Array1::from_vec(point)))
-                }
-                <span class="kw">_ </span>=&gt; {
-                    <span class="macro">bail!</span>(<span class="string">"Unknown sampler specified in settings: {}"</span>, sampler);
-                }
-            },
+    <span class="comment">// Get the ranges of the random parameters
+    </span><span class="kw">let </span>ranges = settings.random.ranges();
+
+    <span class="comment">// If a prior file is provided, read it and return
+    </span><span class="kw">if </span>settings.prior.file.is_some() {
+        <span class="kw">let </span>prior = parse_prior(
+            settings.prior.file.as_ref().unwrap(),
+            <span class="kw-2">&amp;</span>settings.random.names(),
+        )<span class="question-mark">?</span>;
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(prior);
+    }
+
+    <span class="comment">// Otherwise, parse the sampler type and generate the grid
+    </span><span class="kw">let </span>prior = <span class="kw">match </span>settings.prior.sampler.as_str() {
+        <span class="string">"sobol" </span>=&gt; sobol::generate(settings.prior.points, <span class="kw-2">&amp;</span>ranges, settings.prior.seed)<span class="question-mark">?</span>,
+        <span class="string">"latin" </span>=&gt; latin::generate(settings.prior.points, <span class="kw-2">&amp;</span>ranges, settings.prior.seed)<span class="question-mark">?</span>,
+        <span class="string">"osat" </span>=&gt; {
+            <span class="kw">let </span><span class="kw-2">mut </span>point = <span class="macro">vec!</span>[];
+            <span class="kw">for </span>range <span class="kw">in </span>ranges {
+                point.push((range.<span class="number">1 </span>- range.<span class="number">0</span>) / <span class="number">2.0</span>);
+            }
+            data.estimate_theta(eqn, <span class="kw-2">&amp;</span>Array1::from_vec(point))
+        }
+        <span class="kw">_ </span>=&gt; {
+            <span class="macro">bail!</span>(
+                <span class="string">"Unknown sampler specified in settings: {}"</span>,
+                settings.prior.sampler
+            );
+        }
+    };
+
+    <span class="prelude-val">Ok</span>(prior)
+}
+
+<span class="doccomment">/// This function reads the prior distribution from a file
+</span><span class="kw">pub fn </span>parse_prior(path: <span class="kw-2">&amp;</span>String, names: <span class="kw-2">&amp;</span>Vec&lt;String&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Array2&lt;f64&gt;&gt; {
+    <span class="macro">tracing::info!</span>(<span class="string">"Reading prior from {}"</span>, path);
+    <span class="kw">let </span>file = File::open(path).context(<span class="macro">format!</span>(<span class="string">"Unable to open the prior file '{}'"</span>, path))<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>reader = csv::ReaderBuilder::new()
+        .has_headers(<span class="bool-val">true</span>)
+        .from_reader(file);
+
+    <span class="kw">let </span><span class="kw-2">mut </span>parameter_names: Vec&lt;String&gt; = reader
+        .headers()<span class="question-mark">?
+        </span>.clone()
+        .into_iter()
+        .map(|s| s.trim().to_owned())
+        .collect();
+
+    <span class="comment">// Remove "prob" column if present
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(index) = parameter_names.iter().position(|name| name == <span class="string">"prob"</span>) {
+        parameter_names.remove(index);
+    }
+
+    <span class="comment">// Check and reorder parameters to match names in settings.parsed.random
+    </span><span class="kw">let </span>random_names: Vec&lt;String&gt; = names.clone();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>reordered_indices: Vec&lt;usize&gt; = Vec::new();
+    <span class="kw">for </span>random_name <span class="kw">in </span><span class="kw-2">&amp;</span>random_names {
+        <span class="kw">match </span>parameter_names.iter().position(|name| name == random_name) {
+            <span class="prelude-val">Some</span>(index) =&gt; {
+                reordered_indices.push(index);
+            }
             <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">bail!</span>(<span class="string">"No sampler specified in settings"</span>);
+                <span class="macro">bail!</span>(<span class="string">"Parameter {} is not present in the CSV file."</span>, random_name);
             }
-        },
-        prior_path =&gt; {
-            <span class="macro">tracing::info!</span>(<span class="string">"Reading prior from {}"</span>, prior_path);
-            <span class="kw">let </span>file = File::open(prior_path).unwrap();
-            <span class="kw">let </span><span class="kw-2">mut </span>reader = csv::ReaderBuilder::new()
-                .has_headers(<span class="bool-val">true</span>)
-                .from_reader(file);
-
-            <span class="kw">let </span><span class="kw-2">mut </span>parameter_names: Vec&lt;String&gt; = reader
-                .headers()
-                .unwrap()
-                .clone()
-                .into_iter()
-                .map(|s| s.trim().to_owned())
-                .collect();
-
-            <span class="comment">// Remove "prob" column if present
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(index) = parameter_names.iter().position(|name| name == <span class="string">"prob"</span>) {
-                parameter_names.remove(index);
-            }
-
-            <span class="comment">// Check and reorder parameters to match names in settings.parsed.random
-            </span><span class="kw">let </span>random_names: Vec&lt;String&gt; = settings.random.names();
-
-            <span class="kw">let </span><span class="kw-2">mut </span>reordered_indices: Vec&lt;usize&gt; = Vec::new();
-            <span class="kw">for </span>random_name <span class="kw">in </span><span class="kw-2">&amp;</span>random_names {
-                <span class="kw">match </span>parameter_names.iter().position(|name| name == random_name) {
-                    <span class="prelude-val">Some</span>(index) =&gt; {
-                        reordered_indices.push(index);
-                    }
-                    <span class="prelude-val">None </span>=&gt; {
-                        <span class="macro">panic!</span>(<span class="string">"Parameter {} is not present in the CSV file."</span>, random_name);
-                    }
-                }
-            }
-
-            <span class="comment">// Check if there are remaining parameters not present in settings.parsed.random
-            </span><span class="kw">if </span>parameter_names.len() &gt; random_names.len() {
-                <span class="kw">let </span>extra_parameters: Vec&lt;<span class="kw-2">&amp;</span>String&gt; = parameter_names.iter().collect();
-                <span class="macro">panic!</span>(
-                    <span class="string">"Found parameters in the prior not present in configuration: {:?}"</span>,
-                    extra_parameters
-                );
-            }
-
-            <span class="comment">// Read parameter values row by row, keeping only those associated with the reordered parameters
-            </span><span class="kw">let </span><span class="kw-2">mut </span>theta_values = Vec::new();
-            <span class="kw">for </span>result <span class="kw">in </span>reader.records() {
-                <span class="kw">let </span>record = result.unwrap();
-                <span class="kw">let </span>values: Vec&lt;f64&gt; = reordered_indices
-                    .iter()
-                    .map(|<span class="kw-2">&amp;</span>i| record[i].parse::&lt;f64&gt;().unwrap())
-                    .collect();
-                theta_values.push(values);
-            }
-
-            <span class="kw">let </span>n_points = theta_values.len();
-            <span class="kw">let </span>n_params = random_names.len();
-
-            <span class="comment">// Convert nested Vec into a single Vec
-            </span><span class="kw">let </span>theta_values: Vec&lt;f64&gt; = theta_values.into_iter().flatten().collect();
-
-            <span class="prelude-val">Ok</span>(Array2::from_shape_vec((n_points, n_params), theta_values)<span class="question-mark">?</span>)
         }
     }
+
+    <span class="comment">// Check if there are remaining parameters not present in settings.parsed.random
+    </span><span class="kw">if </span>parameter_names.len() &gt; random_names.len() {
+        <span class="kw">let </span>extra_parameters: Vec&lt;<span class="kw-2">&amp;</span>String&gt; = parameter_names.iter().collect();
+        <span class="macro">bail!</span>(
+            <span class="string">"Found parameters in the prior not present in configuration: {:?}"</span>,
+            extra_parameters
+        );
+    }
+
+    <span class="comment">// Read parameter values row by row, keeping only those associated with the reordered parameters
+    </span><span class="kw">let </span><span class="kw-2">mut </span>theta_values = Vec::new();
+    <span class="kw">for </span>result <span class="kw">in </span>reader.records() {
+        <span class="kw">let </span>record = result.unwrap();
+        <span class="kw">let </span>values: Vec&lt;f64&gt; = reordered_indices
+            .iter()
+            .map(|<span class="kw-2">&amp;</span>i| record[i].parse::&lt;f64&gt;().unwrap())
+            .collect();
+        theta_values.push(values);
+    }
+
+    <span class="kw">let </span>n_points = theta_values.len();
+    <span class="kw">let </span>n_params = random_names.len();
+
+    <span class="comment">// Convert nested Vec into a single Vec
+    </span><span class="kw">let </span>theta_values: Vec&lt;f64&gt; = theta_values.into_iter().flatten().collect();
+
+    <span class="prelude-val">Ok</span>(Array2::from_shape_vec((n_points, n_params), theta_values)<span class="question-mark">?</span>)
 }
 </code></pre></div></section></main></body></html>

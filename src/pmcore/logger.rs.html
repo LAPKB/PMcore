@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/logger.rs`."><title>logger.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-081576b923113409.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.79.0 (129f3b996 2024-06-10)" data-channel="1.79.0" data-search-js="search-bf21c90c8c1d92b1.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-e32f0c247825364d.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-09095024cf37855e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pmcore/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Type ‘S’ or ‘/’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings">Settings</a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/logger.rs`."><title>logger.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.0 (051478957 2024-07-21)" data-channel="1.80.0" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -124,7 +124,10 @@
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::output::OutputFile;
+<span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 <span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
@@ -148,27 +151,33 @@
 ///
 /// If not, the log messages are written to stdout.
 </span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    <span class="comment">// Use the log level defined in configuration file, or default to info
-    </span><span class="kw">let </span>log_level = settings.config.log_level.as_str();
+    <span class="comment">// Use the log level defined in configuration file
+    </span><span class="kw">let </span>log_level = settings.log.level.as_str();
     <span class="kw">let </span>env_filter = EnvFilter::new(log_level);
-
-    <span class="comment">// Use the log file defined in configuration file, or default to pmcore.log
-    </span><span class="kw">let </span>log_path = std::path::Path::new(settings.paths.log.as_ref().unwrap());
 
     <span class="comment">// Define a registry with that level as an environment filter
     </span><span class="kw">let </span>subscriber = Registry::default().with(env_filter);
 
-    <span class="comment">// Define a layer for the log file
-    </span><span class="kw">let </span>file = std::fs::OpenOptions::new()
-        .create(<span class="bool-val">true</span>)
-        .write(<span class="bool-val">true</span>)
-        .truncate(<span class="bool-val">true</span>)
-        .open(log_path)<span class="question-mark">?</span>;
+    <span class="comment">// Define outputfile
+    </span><span class="kw">let </span>outputfile = <span class="kw">match </span>settings.log.write {
+        <span class="bool-val">true </span>=&gt; <span class="prelude-val">Some</span>(OutputFile::new(<span class="kw-2">&amp;</span>settings.output.path, <span class="kw-2">&amp;</span>settings.log.file)<span class="question-mark">?</span>),
+        <span class="bool-val">false </span>=&gt; <span class="prelude-val">None</span>,
+    };
 
-    <span class="kw">let </span>file_layer = fmt::layer()
-        .with_writer(file)
-        .with_ansi(<span class="bool-val">false</span>)
-        .with_timer(CompactTimestamp);
+    <span class="comment">// Define layer for file
+    </span><span class="kw">let </span>file_layer = <span class="kw">match </span>outputfile {
+        <span class="prelude-val">Some</span>(outputfile) =&gt; {
+            <span class="kw">let </span>file = outputfile.file;
+
+            <span class="kw">let </span>layer = fmt::layer()
+                .with_writer(file)
+                .with_ansi(<span class="bool-val">false</span>)
+                .with_timer(CompactTimestamp);
+
+            <span class="prelude-val">Some</span>(layer)
+        }
+        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+    };
 
     <span class="comment">// Define layer for stdout
     </span><span class="kw">let </span>stdout_layer = <span class="kw">match </span>settings.config.tui {
@@ -211,11 +220,6 @@
         .with(tui_layer)
         .init();
 
-    <span class="macro">tracing::info!</span>(
-        <span class="string">"Logging is configured with level {} to file {:?}"</span>,
-        log_level,
-        log_path
-    );
     <span class="prelude-val">Ok</span>(())
 }
 

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["read_settings","write_settings_to_file"],"struct":["Config","Constant","Error","Fixed","Paths","Random","Settings"]};
+window.SIDEBAR_ITEMS = {"fn":["read_settings","write_settings_to_file"],"struct":["Advanced","Config","Constant","Convergence","Error","Fixed","Log","Output","Predictions","Prior","Random","Settings"]};

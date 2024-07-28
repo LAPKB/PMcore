@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"pmcore":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.79.0/core/hash/trait.Hash.html\" title=\"trait core::hash::Hash\">Hash</a> for <a class=\"enum\" href=\"pmcore/tui/inputs/key/enum.Key.html\" title=\"enum pmcore::tui::inputs::key::Key\">Key</a>"]]
+"pmcore":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.80.0/core/hash/trait.Hash.html\" title=\"trait core::hash::Hash\">Hash</a> for <a class=\"enum\" href=\"pmcore/tui/inputs/key/enum.Key.html\" title=\"enum pmcore::tui::inputs::key::Key\">Key</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

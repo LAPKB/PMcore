@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/output.rs`."><title>output.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-081576b923113409.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.79.0 (129f3b996 2024-06-10)" data-channel="1.79.0" data-search-js="search-bf21c90c8c1d92b1.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-e32f0c247825364d.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-09095024cf37855e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pmcore/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Type ‘S’ or ‘/’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings">Settings</a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/output.rs`."><title>output.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.0 (051478957 2024-07-21)" data-channel="1.80.0" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -646,6 +646,46 @@
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>csv::WriterBuilder;
@@ -654,7 +694,8 @@
 <span class="kw">use </span>pharmsol::prelude::data::<span class="kw-2">*</span>;
 <span class="kw">use </span>pharmsol::prelude::simulator::Equation;
 <span class="kw">use </span>settings::Settings;
-<span class="kw">use </span>std::fs::File;
+<span class="kw">use </span>std::fs::{create_dir_all, File, OpenOptions};
+<span class="kw">use </span>std::path::{Path, PathBuf};
 
 <span class="doccomment">/// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
@@ -723,13 +764,15 @@
     <span class="doccomment">/// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     </span><span class="kw">pub fn </span>write_theta(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">tracing::info!</span>(<span class="string">"Writing final parameter distribution..."</span>);
-        <span class="kw">let </span>result = (|| {
+        <span class="macro">tracing::info!</span>(<span class="string">"Writing population parameter distribution..."</span>);
+        <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; = (|| {
             <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
             <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
 
-            <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"theta.csv"</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">true</span>).from_writer(file);
+            <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"theta.csv"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
+                .has_headers(<span class="bool-val">true</span>)
+                .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
 
             <span class="comment">// Create the headers
             </span><span class="kw">let </span><span class="kw-2">mut </span>theta_header = <span class="self">self</span>.par_names.clone();
@@ -742,7 +785,12 @@
                 row.push(w_val.to_string());
                 writer.write_record(<span class="kw-2">&amp;</span>row)<span class="question-mark">?</span>;
             }
-            writer.flush()
+            writer.flush()<span class="question-mark">?</span>;
+            <span class="macro">tracing::info!</span>(
+                <span class="string">"Population parameter distribution written to {:?}"</span>,
+                <span class="kw-2">&amp;</span>outputfile.get_relative_path()
+            );
+            <span class="prelude-val">Ok</span>(())
         })();
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
@@ -763,8 +811,10 @@
         </span><span class="kw">let </span>posterior = posterior(<span class="kw-2">&amp;</span>psi, <span class="kw-2">&amp;</span>w);
 
         <span class="comment">// Create the output folder if it doesn't exist
-        </span><span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"posterior.csv"</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">true</span>).from_writer(file);
+        </span><span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"posterior.csv"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
+            .has_headers(<span class="bool-val">true</span>)
+            .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
 
         <span class="comment">// Create the headers
         </span>writer.write_field(<span class="string">"id"</span>)<span class="question-mark">?</span>;
@@ -790,6 +840,10 @@
             }
         }
         writer.flush()<span class="question-mark">?</span>;
+        <span class="macro">tracing::info!</span>(
+            <span class="string">"Posterior parameters written to {:?}"</span>,
+            <span class="kw-2">&amp;</span>outputfile.get_relative_path()
+        );
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -797,8 +851,12 @@
     <span class="doccomment">/// Write the observations, which is the reformatted input data
     </span><span class="kw">pub fn </span>write_obs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">"Writing observations..."</span>);
-        <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"obs.csv"</span>)<span class="question-mark">?</span>;
-        write_pmetrics_observations(<span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span>file);
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"obs.csv"</span>)<span class="question-mark">?</span>;
+        write_pmetrics_observations(<span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span>outputfile.file);
+        <span class="macro">tracing::info!</span>(
+            <span class="string">"Observations written to {:?}"</span>,
+            <span class="kw-2">&amp;</span>outputfile.get_relative_path()
+        );
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -819,10 +877,10 @@
             <span class="macro">bail!</span>(<span class="string">"Number of subjects and number of posterior means do not match"</span>);
         }
 
-        <span class="kw">let </span>file = create_output_file(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="string">"pred.csv"</span>);
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"pred.csv"</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
             .has_headers(<span class="bool-val">true</span>)
-            .from_writer(file.unwrap());
+            .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
 
         <span class="comment">// Create the headers
         </span>writer.write_record([
@@ -877,6 +935,11 @@
                         .expect(<span class="string">"Failed to write record"</span>);
                 });
         }
+        writer.flush()<span class="question-mark">?</span>;
+        <span class="macro">tracing::info!</span>(
+            <span class="string">"Predictions written to {:?}"</span>,
+            <span class="kw-2">&amp;</span>outputfile.get_relative_path()
+        );
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -952,8 +1015,10 @@
 
     <span class="kw">pub fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>, settings: <span class="kw-2">&amp;</span>Settings) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">"Writing cycles..."</span>);
-        <span class="kw">let </span>file = create_output_file(settings, <span class="string">"cycles.csv"</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new().has_headers(<span class="bool-val">false</span>).from_writer(file);
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span>settings.output.path, <span class="string">"cycles.csv"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
+            .has_headers(<span class="bool-val">false</span>)
+            .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
 
         <span class="comment">// Write headers
         </span>writer.write_field(<span class="string">"cycle"</span>)<span class="question-mark">?</span>;
@@ -991,7 +1056,8 @@
             writer.write_record(<span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>[u8]&gt;)<span class="question-mark">?</span>;
         }
 
-        writer.flush().context(<span class="string">"Failed to flush writer"</span>)<span class="question-mark">?</span>;
+        writer.flush()<span class="question-mark">?</span>;
+        <span class="macro">tracing::info!</span>(<span class="string">"Cycles written to {:?}"</span>, <span class="kw-2">&amp;</span>outputfile.get_relative_path());
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -1144,24 +1210,38 @@
     (mean, median)
 }
 
-<span class="kw">pub fn </span>create_output_file(settings: <span class="kw-2">&amp;</span>Settings, file_name: <span class="kw-2">&amp;</span>str) -&gt; std::io::Result&lt;File&gt; {
-    <span class="kw">let </span>output_folder = settings
-        .paths
-        .output_folder
-        .as_ref()
-        .ok_or(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            <span class="string">"Output folder not specified in settings"</span>,
-        ))<span class="question-mark">?</span>;
+<span class="doccomment">/// Contains all the necessary information of an output file
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>OutputFile {
+    <span class="kw">pub </span>file: File,
+    <span class="kw">pub </span>relative_path: PathBuf,
+}
 
-    <span class="kw">let </span>path = std::path::Path::new(output_folder);
+<span class="kw">impl </span>OutputFile {
+    <span class="kw">pub fn </span>new(folder: <span class="kw-2">&amp;</span>str, file_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>relative_path = Path::new(<span class="kw-2">&amp;</span>folder).join(file_name);
 
-    <span class="comment">// Attempt to create the output directory (does nothing if already exists)
-    </span>std::fs::create_dir_all(path)<span class="question-mark">?</span>;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = relative_path.parent() {
+            create_dir_all(parent)
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"Failed to create directories for {:?}"</span>, parent))<span class="question-mark">?</span>;
+        }
 
-    <span class="comment">// Create and open the file, returning the File handle
-    </span><span class="kw">let </span>file_path = path.join(file_name);
-    File::create(file_path)
+        <span class="kw">let </span>file = OpenOptions::new()
+            .write(<span class="bool-val">true</span>)
+            .create(<span class="bool-val">true</span>)
+            .truncate(<span class="bool-val">true</span>)
+            .open(<span class="kw-2">&amp;</span>relative_path)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"Failed to open file: {:?}"</span>, relative_path))<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(OutputFile {
+            file,
+            relative_path,
+        })
+    }
+
+    <span class="kw">pub fn </span>get_relative_path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Path {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.relative_path
+    }
 }
 
 <span class="kw">pub fn </span>write_pmetrics_observations(data: <span class="kw-2">&amp;</span>Data, file: <span class="kw-2">&amp;</span>std::fs::File) {

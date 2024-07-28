@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["sample_space"],"mod":["latin","sobol"]};
+window.SIDEBAR_ITEMS = {"fn":["parse_prior","sample_space"],"mod":["latin","sobol"]};
