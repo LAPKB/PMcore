@@ -494,31 +494,6 @@
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
-<a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span><span class="kw">super</span>::output::OutputFile;
@@ -536,39 +511,28 @@
 #[serde(deny_unknown_fields, default)]
 </span><span class="kw">pub struct </span>Settings {
     <span class="doccomment">/// General configuration settings
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>config: Config,
     <span class="doccomment">/// Random parameters to be estimated
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>random: Random,
     <span class="doccomment">/// Parameters which are estimated, but fixed for the population
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>fixed: <span class="prelude-ty">Option</span>&lt;Fixed&gt;,
     <span class="doccomment">/// Parameters which are held constant
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>constant: <span class="prelude-ty">Option</span>&lt;Constant&gt;,
     <span class="doccomment">/// Defines the error model and polynomial to be used
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>error: Error,
     <span class="doccomment">/// Configuration for predictions
     ///
     /// This struct contains the interval at which to generate predictions, and the time after dose to generate predictions to
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>predictions: Predictions,
     <span class="doccomment">/// Configuration for logging
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>log: Log,
     <span class="doccomment">/// Configuration for (optional) prior
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>prior: Prior,
     <span class="doccomment">/// Configuration for the output files
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>output: Output,
     <span class="doccomment">/// Configuration for the convergence criteria
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>convergence: Convergence,
     <span class="doccomment">/// Advanced options, mostly hyperparameters, for the algorithm(s)
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>advanced: Advanced,
 }
 
@@ -609,20 +573,15 @@
 #[serde(deny_unknown_fields, default)]
 </span><span class="kw">pub struct </span>Config {
     <span class="doccomment">/// Maximum number of cycles to run
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>cycles: usize,
     <span class="doccomment">/// Denotes the algorithm to use
     </span><span class="kw">pub </span>algorithm: String,
-    <span class="attr">#[serde(default)]
-    </span><span class="kw">pub </span>tui: bool,
+    <span class="kw">pub </span>tui: bool,
     <span class="doccomment">/// If true (default), cache predicted values
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>cache: bool,
     <span class="doccomment">/// Vector of IDs to include
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>include: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
     <span class="doccomment">/// Vector of IDs to exclude
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>exclude: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
 }
 
@@ -791,16 +750,13 @@
     <span class="doccomment">/// The minimum distance required between a candiate point and the existing grid (THETA_D)
     ///
     /// This is general for all non-parametric algorithms
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>min_distance: f64,
     <span class="doccomment">/// Maximum number of steps in Nelder-Mead optimization
     /// This is used in the [NPOD](crate::algorithms::npod) algorithm, specifically in the [D-optimizer](crate::routines::optimization::d_optimizer)
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>nm_steps: usize,
     <span class="doccomment">/// Tolerance (in standard deviations) for the Nelder-Mead optimization
     ///
     /// This is used in the [NPOD](crate::algorithms::npod) algorithm, specifically in the [D-optimizer](crate::routines::optimization::d_optimizer)
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>tolerance: f64,
 }
 
@@ -822,13 +778,11 @@
     ///
     /// The objective function is the negative log likelihood
     /// Previously referred to as THETA_G
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>likelihood: f64,
     <span class="doccomment">/// The PYL convergence criterion for the algorithm
     ///
     /// P(Y|L) represents the probability of the observation given its weighted support
     /// Previously referred to as THETA_F
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>pyl: f64,
     <span class="doccomment">/// Precision convergence criterion for the algorithm
     ///
@@ -852,14 +806,12 @@
 #[serde(deny_unknown_fields, default)]
 </span><span class="kw">pub struct </span>Predictions {
     <span class="doccomment">/// The interval for which predictions are generated
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>idelta: f64,
     <span class="doccomment">/// The time after the last dose for which predictions are generated
     ///
     /// Predictions will always be generated until the last event (observation or dose) in the data.
     /// This setting is used to generate predictions beyond the last event if the `tad` if sufficiently large.
     /// This can be useful for generating predictions for a subject who only received a dose, but has no observations.
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>tad: f64,
 }
 
@@ -946,10 +898,8 @@
 #[serde(deny_unknown_fields, default)]
 </span><span class="kw">pub struct </span>Output {
     <span class="doccomment">/// Whether to write the output files
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>write: bool,
     <span class="doccomment">/// The (relative) path to write the output files to
-    </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>path: String,
 }
 
@@ -999,13 +949,13 @@
 ///
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
-/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE__`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE__CONFIG__TUI=false` Note that a double underscore, `__`, is used as the separator, as some settings may contain a single underscore, such as `PMCORE__CONFIG__LOG_LEVEL`.
+/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE_CONFIG_TUI=false` A single underscore, `_`, is used as the separator for nested entries.
 </span><span class="kw">pub fn </span>read(path: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Settings, anyhow::Error&gt; {
     <span class="kw">let </span>settings_path = path.into();
 
     <span class="kw">let </span>parsed = eConfig::builder()
         .add_source(config::File::with_name(<span class="kw-2">&amp;</span>settings_path).format(config::FileFormat::Toml))
-        .add_source(config::Environment::with_prefix(<span class="string">"PMCORE"</span>).separator(<span class="string">"__"</span>))
+        .add_source(config::Environment::with_prefix(<span class="string">"PMCORE"</span>).separator(<span class="string">"_"</span>))
         .build()<span class="question-mark">?</span>;
 
     <span class="comment">// Deserialize settings to the Settings struct
