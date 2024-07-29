@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use super::output::OutputFile;
 use anyhow::{bail, Result};
 use config::Config as eConfig;
 use pharmsol::prelude::data::ErrorType;
@@ -9,46 +10,33 @@ use serde_json;
 use std::collections::HashMap;
 use toml::Table;
 
-use super::output::OutputFile;
-
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Settings {
     /// General configuration settings
-    #[serde(default)]
     pub config: Config,
     /// Random parameters to be estimated
-    #[serde(default)]
     pub random: Random,
     /// Parameters which are estimated, but fixed for the population
-    #[serde(default)]
     pub fixed: Option<Fixed>,
     /// Parameters which are held constant
-    #[serde(default)]
     pub constant: Option<Constant>,
     /// Defines the error model and polynomial to be used
-    #[serde(default)]
     pub error: Error,
     /// Configuration for predictions
     ///
     /// This struct contains the interval at which to generate predictions, and the time after dose to generate predictions to
-    #[serde(default)]
     pub predictions: Predictions,
     /// Configuration for logging
-    #[serde(default)]
     pub log: Log,
     /// Configuration for (optional) prior
-    #[serde(default)]
     pub prior: Prior,
     /// Configuration for the output files
-    #[serde(default)]
     pub output: Output,
     /// Configuration for the convergence criteria
-    #[serde(default)]
     pub convergence: Convergence,
     /// Advanced options, mostly hyperparameters, for the algorithm(s)
-    #[serde(default)]
     pub advanced: Advanced,
 }
 
@@ -89,20 +77,15 @@ impl Settings {
 #[serde(deny_unknown_fields, default)]
 pub struct Config {
     /// Maximum number of cycles to run
-    #[serde(default)]
     pub cycles: usize,
     /// Denotes the algorithm to use
     pub algorithm: String,
-    #[serde(default)]
     pub tui: bool,
     /// If true (default), cache predicted values
-    #[serde(default)]
     pub cache: bool,
     /// Vector of IDs to include
-    #[serde(default)]
     pub include: Option<Vec<String>>,
     /// Vector of IDs to exclude
-    #[serde(default)]
     pub exclude: Option<Vec<String>>,
 }
 
@@ -271,16 +254,13 @@ pub struct Advanced {
     /// The minimum distance required between a candiate point and the existing grid (THETA_D)
     ///
     /// This is general for all non-parametric algorithms
-    #[serde(default)]
     pub min_distance: f64,
     /// Maximum number of steps in Nelder-Mead optimization
     /// This is used in the [NPOD](crate::algorithms::npod) algorithm, specifically in the [D-optimizer](crate::routines::optimization::d_optimizer)
-    #[serde(default)]
     pub nm_steps: usize,
     /// Tolerance (in standard deviations) for the Nelder-Mead optimization
     ///
     /// This is used in the [NPOD](crate::algorithms::npod) algorithm, specifically in the [D-optimizer](crate::routines::optimization::d_optimizer)
-    #[serde(default)]
     pub tolerance: f64,
 }
 
@@ -302,13 +282,11 @@ pub struct Convergence {
     ///
     /// The objective function is the negative log likelihood
     /// Previously referred to as THETA_G
-    #[serde(default)]
     pub likelihood: f64,
     /// The PYL convergence criterion for the algorithm
     ///
     /// P(Y|L) represents the probability of the observation given its weighted support
     /// Previously referred to as THETA_F
-    #[serde(default)]
     pub pyl: f64,
     /// Precision convergence criterion for the algorithm
     ///
@@ -332,14 +310,12 @@ impl Default for Convergence {
 #[serde(deny_unknown_fields, default)]
 pub struct Predictions {
     /// The interval for which predictions are generated
-    #[serde(default)]
     pub idelta: f64,
     /// The time after the last dose for which predictions are generated
     ///
     /// Predictions will always be generated until the last event (observation or dose) in the data.
     /// This setting is used to generate predictions beyond the last event if the `tad` if sufficiently large.
     /// This can be useful for generating predictions for a subject who only received a dose, but has no observations.
-    #[serde(default)]
     pub tad: f64,
 }
 
@@ -426,10 +402,8 @@ impl Default for Prior {
 #[serde(deny_unknown_fields, default)]
 pub struct Output {
     /// Whether to write the output files
-    #[serde(default)]
     pub write: bool,
     /// The (relative) path to write the output files to
-    #[serde(default)]
     pub path: String,
 }
 
@@ -479,13 +453,13 @@ impl Output {
 ///
 /// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
 ///
-/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE__`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE__CONFIG__TUI=false` Note that a double underscore, `__`, is used as the separator, as some settings may contain a single underscore, such as `PMCORE__CONFIG__LOG_LEVEL`.
+/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE_CONFIG_TUI=false` A single underscore, `_`, is used as the separator for nested entries.
 pub fn read(path: impl Into<String>) -> Result<Settings, anyhow::Error> {
     let settings_path = path.into();
 
     let parsed = eConfig::builder()
         .add_source(config::File::with_name(&settings_path).format(config::FileFormat::Toml))
-        .add_source(config::Environment::with_prefix("PMCORE").separator("__"))
+        .add_source(config::Environment::with_prefix("PMCORE").separator("_"))
         .build()?;
 
     // Deserialize settings to the Settings struct

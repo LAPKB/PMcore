@@ -3,7 +3,6 @@ use crate::prelude::{output::NPResult, *};
 use crate::routines::settings::*;
 
 use anyhow::{bail, Context, Result};
-use pharmsol::prelude::data::Data;
 
 use pharmsol::prelude::simulator::Equation;
 use std::thread::spawn;
@@ -104,19 +103,32 @@ pub fn fit(equation: Equation, data: Data, settings: Settings) -> anyhow::Result
 
     // Run the algorithm
     let result = match algorithm.fit() {
-        Ok(result) => result,
-        Err(err) => {
-            tracing::error!("An error has occurred during model fitting: {}", err);
-            return Err(err);
+        Ok(result) => {
+            match result.write_outputs(&equation) {
+                Ok(_) => {
+                    tracing::info!("Output files written successfully");
+                }
+                Err(err) => {
+                    tracing::error!("An error has occurred while writing output files: {}", err);
+                }
+            };
+            Ok(result)
+        }
+        Err((error, partial_result)) => {
+            tracing::error!("An error has occurred during model fitting: {}", error);
+            tracing::error!(
+                "Attempting to write output files. These can be used to restart the model."
+            );
+            if settings.output.write {
+                if let Err(err) = partial_result.write_outputs(&equation) {
+                    tracing::error!("An error has occurred while writing output files: {}", err);
+                } else {
+                    tracing::info!("Output files written successfully");
+                }
+            }
+            Err(error)
         }
     };
-
-    // Write output files (if configured)
-    if settings.output.write {
-        let idelta = settings.predictions.idelta;
-        let tad = settings.predictions.tad;
-        result.write_outputs(true, &equation, idelta, tad)?;
-    }
 
     if let Some(tx) = tx {
         tx.send(Comm::StopUI)
@@ -127,23 +139,5 @@ pub fn fit(equation: Equation, data: Data, settings: Settings) -> anyhow::Result
     // Provide information about the program runtime|
     tracing::info!("Program complete after {:.2?}", now.elapsed());
 
-    Ok(result)
-}
-
-/// Alternative entrypoint, primarily meant for third-party libraries or APIs
-///
-/// This entrypoint takes an `Engine` (from the model), `Data` from the settings, and `scenarios` containing dose information and observations
-///
-/// It does not write any output files, and does not start a TUI.
-///
-/// Returns an NPresult object
-pub fn start_internal(equation: Equation, settings: Settings, data: Data) -> Result<NPResult> {
-    let now = Instant::now();
-    logger::setup_log(&settings, None)?;
-
-    let mut algorithm = initialize_algorithm(equation, settings.clone(), data, None)?;
-
-    let result = algorithm.fit();
-    tracing::info!("Total time: {:.2?}", now.elapsed());
-    result
+    Ok(result?)
 }
