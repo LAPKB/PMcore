@@ -22,8 +22,10 @@ impl Events {
         thread::spawn(move || {
             loop {
                 // poll for tick rate duration, if no event, sent tick event.
-                if crossterm::event::poll(tick_rate).unwrap() {
-                    if let crossterm::event::Event::Key(key) = crossterm::event::read().unwrap() {
+                if ratatui::crossterm::event::poll(tick_rate).unwrap() {
+                    if let ratatui::crossterm::event::Event::Key(key) =
+                        ratatui::crossterm::event::read().unwrap()
+                    {
                         let key = Key::from(key);
                         event_tx.send(InputEvent::Input(key)).unwrap();
                     }

@@ -1,12 +1,15 @@
 //! Defines the Terminal User Interface (TUI) for PMcore
 
 use anyhow::Result;
-use crossterm::execute;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     Frame, Terminal,
 };
+
+use ratatui::crossterm;
+use ratatui::crossterm::execute;
+
 use std::{
     io::stdout,
     process::exit,
@@ -34,8 +37,8 @@ use crate::tui::components::*;
 pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<()> {
     initialize_panic_handler();
     let mut stdout = stdout();
-    execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
-    crossterm::terminal::enable_raw_mode()?;
+    execute!(stdout, ratatui::crossterm::terminal::EnterAlternateScreen)?;
+    ratatui::crossterm::terminal::enable_raw_mode()?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let mut app = App::new();
@@ -112,7 +115,7 @@ pub fn start_ui(mut rx: UnboundedReceiver<Comm>, settings: Settings) -> Result<(
     // Exit alternate screen and disable raw mode
     execute!(
         terminal.backend_mut(),
-        crossterm::terminal::LeaveAlternateScreen
+        ratatui::crossterm::terminal::LeaveAlternateScreen
     )?;
     crossterm::terminal::disable_raw_mode()?;
 
@@ -127,7 +130,7 @@ pub fn draw(
     settings: &Settings,
     log_history: &Vec<String>,
 ) {
-    let size = rect.size();
+    let size = rect.area();
 
     // Vertical layout (overall)
     let chunks = Layout::default()
