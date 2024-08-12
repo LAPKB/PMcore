@@ -494,6 +494,9 @@
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span><span class="kw">super</span>::output::OutputFile;
@@ -851,7 +854,10 @@
     </span><span class="kw">pub </span>level: String,
     <span class="doccomment">/// The file to write the log to
     </span><span class="kw">pub </span>file: String,
-    <span class="doccomment">/// Whether to write the log to file
+    <span class="doccomment">/// Whether to write logs
+    ///
+    /// If set to `false`, a global subscriber will not be set by PMcore.
+    /// This can be useful when the user wants to use a custom subscriber for a third-party library, or perform benchmarks.
     </span><span class="kw">pub </span>write: bool,
 }
 
