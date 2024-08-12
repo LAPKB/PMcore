@@ -44,7 +44,10 @@ pub fn fit(equation: Equation, data: Data, settings: Settings) -> anyhow::Result
         false => (None, None),
     };
 
-    logger::setup_log(&settings, tx.clone())?;
+    if settings.log.write {
+        logger::setup_log(&settings, tx.clone())?;
+    };
+
     tracing::info!("Starting PMcore");
 
     // Read input data

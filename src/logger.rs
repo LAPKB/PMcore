@@ -31,25 +31,13 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> R
     let subscriber = Registry::default().with(env_filter);
 
     // Define outputfile
-    let outputfile = match settings.log.write {
-        true => Some(OutputFile::new(&settings.output.path, &settings.log.file)?),
-        false => None,
-    };
+    let outputfile = OutputFile::new(&settings.output.path, &settings.log.file)?;
 
     // Define layer for file
-    let file_layer = match outputfile {
-        Some(outputfile) => {
-            let file = outputfile.file;
-
-            let layer = fmt::layer()
-                .with_writer(file)
-                .with_ansi(false)
-                .with_timer(CompactTimestamp);
-
-            Some(layer)
-        }
-        None => None,
-    };
+    let file_layer = fmt::layer()
+        .with_writer(outputfile.file)
+        .with_ansi(false)
+        .with_timer(CompactTimestamp);
 
     // Define layer for stdout
     let stdout_layer = match settings.config.tui {

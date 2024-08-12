@@ -355,7 +355,10 @@ pub struct Log {
     pub level: String,
     /// The file to write the log to
     pub file: String,
-    /// Whether to write the log to file
+    /// Whether to write logs
+    ///
+    /// If set to `false`, a global subscriber will not be set by PMcore.
+    /// This can be useful when the user wants to use a custom subscriber for a third-party library, or perform benchmarks.
     pub write: bool,
 }
 
