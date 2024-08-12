@@ -3,6 +3,7 @@ use crate::routines::settings::Settings;
 use crate::tui::ui::Comm;
 use anyhow::Result;
 use std::io::{self, Write};
+use std::time::Instant;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing_subscriber::fmt::time::FormatTime;
 use tracing_subscriber::fmt::{self};
@@ -27,6 +28,10 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> R
     let log_level = settings.log.level.as_str();
     let env_filter = EnvFilter::new(log_level);
 
+    let timestamper = CompactTimestamp {
+        start: Instant::now(),
+    };
+
     // Define a registry with that level as an environment filter
     let subscriber = Registry::default().with(env_filter);
 
@@ -44,7 +49,7 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> R
             let layer = fmt::layer()
                 .with_writer(file)
                 .with_ansi(false)
-                .with_timer(CompactTimestamp);
+                .with_timer(timestamper.clone());
 
             Some(layer)
         }
@@ -58,7 +63,7 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> R
                 .with_writer(std::io::stdout)
                 .with_ansi(true)
                 .with_target(false)
-                .with_timer(CompactTimestamp);
+                .with_timer(timestamper.clone());
             Some(layer)
         }
         true => None,
@@ -76,7 +81,7 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> R
                 .with_writer(tui_writer_closure)
                 .with_ansi(false)
                 .with_target(false)
-                .with_timer(CompactTimestamp);
+                .with_timer(timestamper.clone());
             Some(layer)
         } else {
             None
@@ -96,14 +101,21 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> R
 }
 
 #[derive(Clone)]
-struct CompactTimestamp;
+struct CompactTimestamp {
+    start: Instant,
+}
 
 impl FormatTime for CompactTimestamp {
     fn format_time(
         &self,
         w: &mut tracing_subscriber::fmt::format::Writer<'_>,
     ) -> Result<(), std::fmt::Error> {
-        write!(w, "{}", chrono::Local::now().format("%H:%M:%S"))
+        let elapsed = self.start.elapsed();
+        let hours = elapsed.as_secs() / 3600;
+        let minutes = (elapsed.as_secs() % 3600) / 60;
+        let seconds = elapsed.as_secs() % 60;
+
+        write!(w, "{:02}h {:02}m {:02}s", hours, minutes, seconds)
     }
 }
 
