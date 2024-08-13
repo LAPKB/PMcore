@@ -238,7 +238,7 @@ impl NPAG {
                     &self.data,
                     &self.theta,
                     &ErrorModel::new(self.c, self.gamma, &self.error_type),
-                    1000,
+                    10_000_000,
                 )
             } else {
                 self.population_predictions =
@@ -276,6 +276,12 @@ impl NPAG {
                     keep.push(index);
                 }
             }
+            if self.psi.ncols() != keep.len() {
+                tracing::debug!(
+                    "1) Lambda (max/1000) dropped {} support point(s)",
+                    self.psi.ncols() - keep.len(),
+                );
+            }
 
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
@@ -303,7 +309,7 @@ impl NPAG {
             // If a support point is dropped, log it as a debug message
             if self.psi.ncols() != keep.len() {
                 tracing::debug!(
-                    "QR decomposition dropped {} support point(s)",
+                    "2)QR decomposition dropped {} support point(s)",
                     self.psi.ncols() - keep.len(),
                 );
             }
@@ -332,7 +338,7 @@ impl NPAG {
             // Log relevant cycle information
             tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
             tracing::debug!("Support points: {}", self.theta.shape()[0]);
-            tracing::debug!("Gamma = {:.4}", self.gamma);
+            // tracing::debug!("Gamma = {:.4}", self.gamma);
             tracing::debug!("EPS = {:.4}", self.eps);
 
             // Increasing objf signals instability or model misspecification.

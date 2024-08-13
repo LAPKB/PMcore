@@ -29,12 +29,20 @@ pub fn adaptative_grid(
     for spp in old_theta.rows() {
         for (j, val) in spp.into_iter().enumerate() {
             let l = eps * (ranges[j].1 - ranges[j].0); //abs?
+            dbg!(val + l);
+            dbg!(val - l);
             if val + l < ranges[j].1 {
                 let mut plus = Array::zeros(spp.len());
                 plus[j] = l;
                 plus = plus + spp;
                 prune(theta, plus, ranges, min_dist);
                 // (n_spp, _) = theta.dim();
+            } else {
+                tracing::debug!(
+                    "AG: Rejected point. Out of bounds. p:{}, p+eps:{}",
+                    val,
+                    val + l,
+                );
             }
             if val - l > ranges[j].0 {
                 let mut minus = Array::zeros(spp.len());
@@ -42,8 +50,21 @@ pub fn adaptative_grid(
                 minus = minus + spp;
                 prune(theta, minus, ranges, min_dist);
                 // (n_spp, _) = theta.dim();
+            } else {
+                tracing::debug!(
+                    "AG: Rejected point. Out of bounds. p:{}, p-eps:{}",
+                    val,
+                    val - l
+                );
             }
         }
+    }
+    if theta.nrows() != (old_theta.nrows() + 2 * old_theta.ncols()) {
+        tracing::debug!(
+            "3) The adaptive grid tried to add {} support points, from those {} were rejected.",
+            2 * old_theta.ncols(),
+            2 * old_theta.ncols() + old_theta.nrows() - theta.nrows()
+        );
     }
     theta.to_owned()
 }
