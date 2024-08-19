@@ -5,9 +5,13 @@ tui = false
 cache = true
 
 [random]
-ske = [0.0, 0.02]
-# ke = [0.001, 3.0]
-# v = [25.0, 250.0]
+#_ka, _ke0, _ske, _kcp, _kpc
+ka = [0.03, 0.07]
+ke0 = [0.03, 0.3]
+ske = [0.0, 2.0]
+kcp = [0.07, 0.13]
+kpc = [0.03, 0.07]
+
 
 [error]
 value = 0.01
