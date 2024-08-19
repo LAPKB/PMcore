@@ -24,7 +24,7 @@ use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
-const THETA_G: f64 = 1e-4; // Objective function convergence criteria
+const THETA_G: f64 = 1e-1; // Objective function convergence criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
@@ -238,7 +238,7 @@ impl NPAG {
                     &self.data,
                     &self.theta,
                     &ErrorModel::new(self.c, self.gamma, &self.error_type),
-                    10_000_000,
+                    1_000_000,
                 )
             } else {
                 self.population_predictions =

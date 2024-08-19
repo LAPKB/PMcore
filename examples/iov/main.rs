@@ -6,9 +6,11 @@ fn main() {
             fetch_params!(p, _ske);
             let ke = x[1];
             let ke0 = 0.7;
-            dx[1] = -ke + ke0;
+            let ka = 0.3;
+            dx[2] = -ke + ke0;
             // user defined
-            dx[0] = -ke * x[0];
+            dx[0] = -ka * x[0];
+            dx[1] = ka * x[0] - ke * x[1];
         },
         |p, d| {
             fetch_params!(p, ske);
@@ -18,13 +20,13 @@ fn main() {
         |_p| fa! {},
         |p, _t, _cov, x| {
             fetch_params!(p, _ske);
-            x[1] = 0.7;
+            x[1] = 0.7
         },
-        |x, _p, _t, _cov, y| {
-            // fetch_params!(p, _ke0, v);
-            y[0] = x[0] / 50.0;
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _ske);
+            y[0] = x[1] / 50.0;
         },
-        (2, 1),
+        (3, 1),
     );
 
     // let ode = simulator::Equation::new_ode(
