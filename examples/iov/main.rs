@@ -4,7 +4,7 @@ fn main() {
         |x, p, _t, dx, _rateiv, _cov| {
             // automatically defined
             fetch_params!(p, _ske);
-            let ke = x[1];
+            let ke = x[2];
             let ke0 = 0.7;
             let ka = 0.3;
             dx[2] = -ke + ke0;
