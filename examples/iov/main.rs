@@ -14,13 +14,13 @@ fn main() {
         },
         |p, d| {
             fetch_params!(p, ske);
-            d[1] = ske;
+            d[2] = ske;
         },
         |_p| lag! {},
         |_p| fa! {},
         |p, _t, _cov, x| {
             fetch_params!(p, _ske);
-            x[1] = 0.7
+            x[2] = 0.7
         },
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ske);
