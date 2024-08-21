@@ -21,7 +21,7 @@ impl<'a> CostFunction for SppOptimizer<'a> {
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = spp.to_owned().insert_axis(Axis(0));
-        let obs_pred = get_population_predictions(&self.equation, self.data, &theta, true);
+        let obs_pred = get_population_predictions(&self.equation, self.data, &theta, true, false);
 
         let psi = obs_pred.get_psi(self.sig);
 

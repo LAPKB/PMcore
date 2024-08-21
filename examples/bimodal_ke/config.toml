@@ -18,6 +18,7 @@ level = "info"
 
 [prior]
 sampler = "sobol"
+points = 20000
 
 [output]
 write = true

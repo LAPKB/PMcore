@@ -174,8 +174,13 @@ impl NPOD {
 
             let cache = if self.cycle == 1 { false } else { self.cache };
 
-            self.population_predictions =
-                get_population_predictions(&self.equation, &self.data, &self.theta, cache);
+            self.population_predictions = get_population_predictions(
+                &self.equation,
+                &self.data,
+                &self.theta,
+                cache,
+                self.cycle == 1,
+            );
 
             self.psi = self.population_predictions.get_psi(&ErrorModel::new(
                 self.c,
