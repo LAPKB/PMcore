@@ -84,7 +84,13 @@ impl POSTPROB {
     }
 
     pub fn run(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
-        let obs_pred = get_population_predictions(&self.equation, &self.data, &self.theta, false);
+        let obs_pred = get_population_predictions(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            false,
+            self.cycle == 1,
+        );
 
         self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
         let (w, objf) = burke(&self.psi).expect("Error in IPM");

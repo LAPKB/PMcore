@@ -1,3 +1,4 @@
+static NPARTICLES: usize = 10_000;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
@@ -24,7 +25,7 @@ use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
-const THETA_G: f64 = 1e-1; // Objective function convergence criteria
+const THETA_G: f64 = 1e-4; // Objective function convergence criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
@@ -175,16 +176,38 @@ impl NPAG {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
-        let psi_up = self.population_predictions.get_psi(&ErrorModel::new(
-            self.c,
-            gamma_up,
-            &self.error_type,
-        ));
-        let psi_down = self.population_predictions.get_psi(&ErrorModel::new(
-            self.c,
-            gamma_down,
-            &self.error_type,
-        ));
+        let psi_up = if self.equation.is_sde() {
+            pf_psi(
+                &self.equation,
+                &self.data,
+                &self.theta,
+                &ErrorModel::new(self.c, gamma_up, &self.error_type),
+                NPARTICLES,
+                self.cycle == 1,
+            )
+        } else {
+            self.population_predictions.get_psi(&ErrorModel::new(
+                self.c,
+                gamma_up,
+                &self.error_type,
+            ))
+        };
+        let psi_down = if self.equation.is_sde() {
+            pf_psi(
+                &self.equation,
+                &self.data,
+                &self.theta,
+                &ErrorModel::new(self.c, gamma_down, &self.error_type),
+                NPARTICLES,
+                self.cycle == 1,
+            )
+        } else {
+            self.population_predictions.get_psi(&ErrorModel::new(
+                self.c,
+                gamma_down,
+                &self.error_type,
+            ))
+        };
 
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
@@ -238,11 +261,17 @@ impl NPAG {
                     &self.data,
                     &self.theta,
                     &ErrorModel::new(self.c, self.gamma, &self.error_type),
-                    1_000_000,
+                    NPARTICLES,
+                    self.cycle == 1,
                 )
             } else {
-                self.population_predictions =
-                    get_population_predictions(&self.equation, &self.data, &self.theta, cache);
+                self.population_predictions = get_population_predictions(
+                    &self.equation,
+                    &self.data,
+                    &self.theta,
+                    cache,
+                    self.cycle == 1,
+                );
 
                 self.psi = self.population_predictions.get_psi(&ErrorModel::new(
                     self.c,
@@ -333,7 +362,7 @@ impl NPAG {
                 }
             };
 
-            // self.optim_gamma();
+            self.optim_gamma();
 
             // Log relevant cycle information
             tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
