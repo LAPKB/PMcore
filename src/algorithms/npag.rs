@@ -184,6 +184,7 @@ impl NPAG {
                 &ErrorModel::new(self.c, gamma_up, &self.error_type),
                 NPARTICLES,
                 self.cycle == 1,
+                self.cache,
             )
         } else {
             self.population_predictions.get_psi(&ErrorModel::new(
@@ -200,6 +201,7 @@ impl NPAG {
                 &ErrorModel::new(self.c, gamma_down, &self.error_type),
                 NPARTICLES,
                 self.cycle == 1,
+                self.cache,
             )
         } else {
             self.population_predictions.get_psi(&ErrorModel::new(
@@ -220,7 +222,9 @@ impl NPAG {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 //todo: write out report
-                panic!("Error in IPM: {:?}", err);
+                //panic!("Error in IPM: {:?}", err);
+                tracing::warn!("Error in IPM: {:?}. Trying to recover.", err);
+                (Array1::zeros(1), f64::NEG_INFINITY)
             }
         };
         if objf_up > self.objf {
@@ -263,6 +267,7 @@ impl NPAG {
                     &ErrorModel::new(self.c, self.gamma, &self.error_type),
                     NPARTICLES,
                     self.cycle == 1,
+                    cache,
                 )
             } else {
                 self.population_predictions = get_population_predictions(
@@ -362,12 +367,12 @@ impl NPAG {
                 }
             };
 
-            self.optim_gamma();
+            // self.optim_gamma();
 
             // Log relevant cycle information
             tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
             tracing::debug!("Support points: {}", self.theta.shape()[0]);
-            // tracing::debug!("Gamma = {:.4}", self.gamma);
+            tracing::debug!("Gamma = {:.16}", self.gamma);
             tracing::debug!("EPS = {:.4}", self.eps);
 
             // Increasing objf signals instability or model misspecification.

@@ -72,7 +72,7 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(analytical.simulate_subject(&first_subject, &SPP.to_vec()));
+            black_box(analytical.simulate_subject(&first_subject, &SPP.to_vec(), false));
         }
     });
 }
@@ -103,7 +103,7 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(ode.simulate_subject(&first_subject, &SPP.to_vec()));
+            black_box(ode.simulate_subject(&first_subject, &SPP.to_vec(), false));
         }
     });
 }

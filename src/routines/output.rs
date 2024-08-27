@@ -221,23 +221,23 @@ impl NPResult {
         for (i, subject) in subjects.iter().enumerate() {
             // Population predictions
             let pop_mean_pred = equation
-                .simulate_subject(subject, &pop_mean.to_vec())
+                .simulate_subject(subject, &pop_mean.to_vec(), false)
                 .get_predictions()
                 .clone();
             let pop_median_pred = equation
-                .simulate_subject(subject, &pop_median.to_vec())
+                .simulate_subject(subject, &pop_median.to_vec(), false)
                 .get_predictions()
                 .clone();
 
             // Posterior predictions
             let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
             let post_mean_pred = equation
-                .simulate_subject(subject, &post_mean_spp)
+                .simulate_subject(subject, &post_mean_spp, false)
                 .get_predictions()
                 .clone();
             let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
             let post_median_pred = equation
-                .simulate_subject(subject, &post_median_spp)
+                .simulate_subject(subject, &post_median_spp, false)
                 .get_predictions()
                 .clone();
 

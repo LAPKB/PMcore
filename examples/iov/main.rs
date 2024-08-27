@@ -4,9 +4,7 @@ fn main() {
         |x, p, _t, dx, _rateiv, _cov| {
             // automatically defined
             fetch_params!(p, ke0);
-            if ke0 < 0.0 {
-                panic!("ke0 must be positive");
-            }
+            // let ke0 = 1.2;
             dx[1] = -x[1] + ke0;
             let ke = x[1];
             // user defined
@@ -20,7 +18,7 @@ fn main() {
         |_p| fa! {},
         |p, _t, _cov, x| {
             fetch_params!(p, ke0);
-            x[1] = ke0
+            x[1] = ke0;
         },
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke0);
