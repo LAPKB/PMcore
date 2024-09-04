@@ -15,9 +15,14 @@ use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 use tokio::sync::mpsc::UnboundedSender;
 
-use pharmsol::prelude::{
-    data::{Data, ErrorModel, ErrorType},
-    simulator::{get_population_predictions, Equation, PopulationPredictions},
+use pharmsol::{
+    prelude::{
+        data::{Data, ErrorModel, ErrorType},
+        simulator::{
+            get_population_predictions, Equation, PopulationPredictions, SubjectPredictions,
+        },
+    },
+    Cache,
 };
 
 const THETA_D: f64 = 1e-4;
@@ -38,7 +43,6 @@ pub struct NPOD {
     error_type: ErrorType,
     converged: bool,
     cycle_log: CycleLog,
-    cache: bool,
     data: Data,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
@@ -105,7 +109,6 @@ impl NPOD {
             error_type: settings.error.error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            cache: settings.config.cache,
             tx,
             settings,
             data,
@@ -165,6 +168,19 @@ impl NPOD {
     }
 
     pub fn run(&mut self) -> Result<NPResult, (anyhow::Error, NPResult)> {
+        // Setup the cache
+        let cache = match self.settings.config.cache {
+            true => {
+                tracing::debug!("Caching enabled");
+                let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::new_unbounded();
+                cache
+            }
+            false => {
+                tracing::debug!("Caching disabled");
+                let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::None;
+                cache
+            }
+        };
         loop {
             // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
@@ -172,10 +188,13 @@ impl NPOD {
 
             self.last_objf = self.objf;
 
-            let cache = if self.cycle == 1 { false } else { self.cache };
-
-            self.population_predictions =
-                get_population_predictions(&self.equation, &self.data, &self.theta, cache);
+            self.population_predictions = get_population_predictions(
+                &self.equation,
+                &self.data,
+                &self.theta,
+                cache.clone(),
+                self.cycle == 1,
+            );
 
             self.psi = self.population_predictions.get_psi(&ErrorModel::new(
                 self.c,

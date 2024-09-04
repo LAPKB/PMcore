@@ -2,9 +2,11 @@ use anyhow::Result;
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel, ErrorType},
-        simulator::{get_population_predictions, Equation, PopulationPredictions},
+        simulator::{
+            get_population_predictions, Equation, PopulationPredictions, SubjectPredictions,
+        },
     },
-    Subject,
+    Cache, Subject,
 };
 
 use crate::{
@@ -46,7 +48,6 @@ pub struct NPAG {
     error_type: ErrorType,
     converged: bool,
     cycle_log: CycleLog,
-    cache: bool,
     data: Data,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
@@ -116,7 +117,6 @@ impl NPAG {
             error_type: settings.error.error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            cache: settings.config.cache,
             tx,
             settings,
             data,
@@ -225,15 +225,32 @@ impl NPAG {
     }
 
     pub fn run(&mut self) -> Result<NPResult, (anyhow::Error, NPResult)> {
+        // Setup the cache
+        let cache = match self.settings.config.cache {
+            true => {
+                tracing::debug!("Caching enabled");
+                let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::new_unbounded();
+                cache
+            }
+            false => {
+                tracing::debug!("Caching disabled");
+                let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::None;
+                cache
+            }
+        };
+
         loop {
             // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
 
-            let cache = if self.cycle == 1 { false } else { self.cache };
-
-            self.population_predictions =
-                get_population_predictions(&self.equation, &self.data, &self.theta, cache);
+            self.population_predictions = get_population_predictions(
+                &self.equation,
+                &self.data,
+                &self.theta,
+                cache.clone(),
+                self.cycle == 1,
+            );
 
             self.psi = self.population_predictions.get_psi(&ErrorModel::new(
                 self.c,

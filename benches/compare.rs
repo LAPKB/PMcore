@@ -1,3 +1,4 @@
+use pharmsol::Cache;
 use pmcore::prelude::{
     data::read_pmetrics, models::one_compartment_with_absorption, simulator::Equation, *,
 };
@@ -72,7 +73,7 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(analytical.simulate_subject(&first_subject, &SPP.to_vec()));
+            black_box(analytical.simulate_subject(&first_subject, &SPP.to_vec(), Cache::None));
         }
     });
 }
@@ -103,7 +104,7 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(ode.simulate_subject(&first_subject, &SPP.to_vec()));
+            black_box(ode.simulate_subject(&first_subject, &SPP.to_vec(), Cache::None));
         }
     });
 }
