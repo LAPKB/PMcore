@@ -411,6 +411,11 @@ impl NPAG {
             self.last_objf = self.objf;
         }
 
+        tracing::debug!(
+            "Cache hit rate was {:.2}%",
+            cache.hits() as f64 / (cache.hits() as f64 + cache.misses() as f64) * 100.0
+        );
+
         Ok(self.to_npresult())
     }
 }
