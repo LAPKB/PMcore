@@ -124,6 +124,7 @@ impl NPOD {
             &self.theta,
             &ErrorModel::new(self.c, gamma_up, &self.error_type),
             false,
+            true,
         );
 
         let psi_down = psi(
@@ -132,6 +133,7 @@ impl NPOD {
             &self.theta,
             &ErrorModel::new(self.c, gamma_down, &self.error_type),
             false,
+            true,
         );
 
         let (lambda_up, objf_up) = match burke(&psi_up) {
@@ -195,6 +197,7 @@ impl NPOD {
                 &self.theta,
                 &ErrorModel::new(self.c, self.gamma, &self.error_type),
                 self.cycle == 1,
+                self.cycle != 1,
             );
 
             (self.lambda, _) = match burke(&self.psi) {

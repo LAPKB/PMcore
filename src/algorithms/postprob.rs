@@ -90,6 +90,7 @@ impl POSTPROB {
             &self.theta,
             &ErrorModel::new(self.c, self.gamma, &self.error_type),
             false,
+            false,
         );
         // let obs_pred = get_population_predictions(
         //     &self.equation,

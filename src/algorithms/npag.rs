@@ -190,6 +190,7 @@ impl NPAG {
                 &self.theta,
                 &ErrorModel::new(self.c, gamma_up, &self.error_type),
                 false,
+                true,
             )
         };
         let psi_down = if self.equation.is_sde() {
@@ -209,6 +210,7 @@ impl NPAG {
                 &self.theta,
                 &ErrorModel::new(self.c, gamma_down, &self.error_type),
                 false,
+                true,
             )
         };
 
@@ -274,6 +276,7 @@ impl NPAG {
                     &self.theta,
                     &ErrorModel::new(self.c, self.gamma, &self.error_type),
                     self.cycle == 1,
+                    self.cycle != 1,
                 );
             }
 
