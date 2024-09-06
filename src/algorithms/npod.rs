@@ -123,7 +123,6 @@ impl NPOD {
             &self.data,
             &self.theta,
             &ErrorModel::new(self.c, gamma_up, &self.error_type),
-            true,
             false,
         );
 
@@ -132,7 +131,6 @@ impl NPOD {
             &self.data,
             &self.theta,
             &ErrorModel::new(self.c, gamma_down, &self.error_type),
-            true,
             false,
         );
 
@@ -191,20 +189,12 @@ impl NPOD {
 
             self.last_objf = self.objf;
 
-            let cache = if self.cycle == 1 {
-                false
-            } else {
-                // cache.clone()
-                self.settings.config.cache
-            };
-
             self.psi = psi(
                 &self.equation,
                 &self.data,
                 &self.theta,
                 &ErrorModel::new(self.c, self.gamma, &self.error_type),
-                cache,
-                !cache,
+                self.cycle == 1,
             );
 
             (self.lambda, _) = match burke(&self.psi) {

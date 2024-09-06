@@ -180,9 +180,8 @@ impl NPAG {
                 &self.theta,
                 &ErrorModel::new(self.c, gamma_up, &self.error_type),
                 NPARTICLES,
-                self.cycle == 1,
-                // cache.clone(),
                 false,
+                // cache.clone(),
             )
         } else {
             psi(
@@ -190,7 +189,6 @@ impl NPAG {
                 &self.data,
                 &self.theta,
                 &ErrorModel::new(self.c, gamma_up, &self.error_type),
-                true,
                 false,
             )
         };
@@ -201,7 +199,6 @@ impl NPAG {
                 &self.theta,
                 &ErrorModel::new(self.c, gamma_down, &self.error_type),
                 NPARTICLES,
-                self.cycle == 1,
                 false,
                 // cache.clone(),
             )
@@ -211,7 +208,6 @@ impl NPAG {
                 &self.data,
                 &self.theta,
                 &ErrorModel::new(self.c, gamma_down, &self.error_type),
-                true,
                 false,
             )
         };
@@ -262,14 +258,6 @@ impl NPAG {
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
 
-            let cache = if self.cycle == 1 {
-                // Cache::None
-                false
-            } else {
-                // cache.clone()
-                self.settings.config.cache
-            };
-
             if self.equation.is_sde() {
                 self.psi = pf_psi(
                     &self.equation,
@@ -278,7 +266,6 @@ impl NPAG {
                     &ErrorModel::new(self.c, self.gamma, &self.error_type),
                     NPARTICLES,
                     self.cycle == 1,
-                    cache.clone(),
                 )
             } else {
                 self.psi = psi(
@@ -286,8 +273,7 @@ impl NPAG {
                     &self.data,
                     &self.theta,
                     &ErrorModel::new(self.c, self.gamma, &self.error_type),
-                    cache,
-                    !cache,
+                    self.cycle == 1,
                 );
             }
 
