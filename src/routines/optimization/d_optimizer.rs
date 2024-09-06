@@ -6,7 +6,7 @@ use ndarray::{Array1, Axis};
 
 use pharmsol::prelude::{
     data::{Data, ErrorModel},
-    simulator::{get_population_predictions, Equation},
+    simulator::{psi, Equation},
 };
 
 pub struct SppOptimizer<'a> {
@@ -21,9 +21,8 @@ impl<'a> CostFunction for SppOptimizer<'a> {
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = spp.to_owned().insert_axis(Axis(0));
-        let obs_pred = get_population_predictions(&self.equation, self.data, &theta, true, false);
 
-        let psi = obs_pred.get_psi(self.sig);
+        let psi = psi(&self.equation, self.data, &theta, self.sig, false, false);
 
         if psi.ncols() > 1 {
             tracing::error!("Psi in SppOptimizer has more than one column");

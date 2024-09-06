@@ -5,10 +5,10 @@ use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
+// use pharmsol::Cache;
 use settings::Settings;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
-
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 #[derive(Debug)]
@@ -221,23 +221,23 @@ impl NPResult {
         for (i, subject) in subjects.iter().enumerate() {
             // Population predictions
             let pop_mean_pred = equation
-                .simulate_subject(subject, &pop_mean.to_vec(), false)
+                .simulate_subject(subject, &pop_mean.to_vec())
                 .get_predictions()
                 .clone();
             let pop_median_pred = equation
-                .simulate_subject(subject, &pop_median.to_vec(), false)
+                .simulate_subject(subject, &pop_median.to_vec())
                 .get_predictions()
                 .clone();
 
             // Posterior predictions
             let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
             let post_mean_pred = equation
-                .simulate_subject(subject, &post_mean_spp, false)
+                .simulate_subject(subject, &post_mean_spp)
                 .get_predictions()
                 .clone();
             let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
             let post_median_pred = equation
-                .simulate_subject(subject, &post_median_spp, false)
+                .simulate_subject(subject, &post_median_spp)
                 .get_predictions()
                 .clone();
 

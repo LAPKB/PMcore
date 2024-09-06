@@ -37,7 +37,7 @@ fn main() {
         .repeat(1000, 0.01)
         .build();
 
-    let op = eq.simulate_subject(&subject, &vec![0.3, 0.2, 0.5], false);
+    let op = eq.simulate_subject(&subject, &vec![0.3, 0.2, 0.5]);
 
     let times = op.flat_time();
     let pred = op.flat_predictions();

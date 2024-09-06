@@ -1,6 +1,6 @@
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
-    simulator::{get_population_predictions, Equation},
+    simulator::{psi, Equation},
 };
 
 use crate::{
@@ -84,15 +84,23 @@ impl POSTPROB {
     }
 
     pub fn run(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
-        let obs_pred = get_population_predictions(
+        self.psi = psi(
             &self.equation,
             &self.data,
             &self.theta,
+            &ErrorModel::new(self.c, self.gamma, &self.error_type),
             false,
-            self.cycle == 1,
+            false,
         );
+        // let obs_pred = get_population_predictions(
+        //     &self.equation,
+        //     &self.data,
+        //     &self.theta,
+        //     false,
+        //     self.cycle == 1,
+        // );
 
-        self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
+        // self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
         let (w, objf) = burke(&self.psi).expect("Error in IPM");
         self.w = w;
         self.objf = objf;

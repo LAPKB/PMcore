@@ -3,7 +3,7 @@ use anyhow::Result;
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel, ErrorType},
-        simulator::{get_population_predictions, pf_psi, Equation, PopulationPredictions},
+        simulator::{pf_psi, psi, Equation},
     },
     Subject,
 };
@@ -47,11 +47,9 @@ pub struct NPAG {
     error_type: ErrorType,
     converged: bool,
     cycle_log: CycleLog,
-    cache: bool,
     data: Data,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
-    population_predictions: PopulationPredictions,
     settings: Settings,
 }
 
@@ -117,12 +115,10 @@ impl NPAG {
             error_type: settings.error.error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            cache: settings.config.cache,
             tx,
             settings,
             data,
             c,
-            population_predictions: PopulationPredictions::default(),
         }
     }
 
@@ -170,6 +166,7 @@ impl NPAG {
         Ok(())
     }
 
+    // fn optim_gamma(&mut self, cache: Cache<u64, f64>) {
     fn optim_gamma(&mut self) {
         //Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
@@ -184,14 +181,18 @@ impl NPAG {
                 &ErrorModel::new(self.c, gamma_up, &self.error_type),
                 NPARTICLES,
                 self.cycle == 1,
-                self.cache,
+                // cache.clone(),
+                false,
             )
         } else {
-            self.population_predictions.get_psi(&ErrorModel::new(
-                self.c,
-                gamma_up,
-                &self.error_type,
-            ))
+            psi(
+                &self.equation,
+                &self.data,
+                &self.theta,
+                &ErrorModel::new(self.c, gamma_up, &self.error_type),
+                true,
+                false,
+            )
         };
         let psi_down = if self.equation.is_sde() {
             pf_psi(
@@ -201,14 +202,18 @@ impl NPAG {
                 &ErrorModel::new(self.c, gamma_down, &self.error_type),
                 NPARTICLES,
                 self.cycle == 1,
-                self.cache,
+                false,
+                // cache.clone(),
             )
         } else {
-            self.population_predictions.get_psi(&ErrorModel::new(
-                self.c,
-                gamma_down,
-                &self.error_type,
-            ))
+            psi(
+                &self.equation,
+                &self.data,
+                &self.theta,
+                &ErrorModel::new(self.c, gamma_down, &self.error_type),
+                true,
+                false,
+            )
         };
 
         let (lambda_up, objf_up) = match burke(&psi_up) {
@@ -257,7 +262,13 @@ impl NPAG {
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
 
-            let cache = if self.cycle == 1 { false } else { self.cache };
+            let cache = if self.cycle == 1 {
+                // Cache::None
+                false
+            } else {
+                // cache.clone()
+                self.settings.config.cache
+            };
 
             if self.equation.is_sde() {
                 self.psi = pf_psi(
@@ -267,22 +278,17 @@ impl NPAG {
                     &ErrorModel::new(self.c, self.gamma, &self.error_type),
                     NPARTICLES,
                     self.cycle == 1,
-                    cache,
+                    cache.clone(),
                 )
             } else {
-                self.population_predictions = get_population_predictions(
+                self.psi = psi(
                     &self.equation,
                     &self.data,
                     &self.theta,
+                    &ErrorModel::new(self.c, self.gamma, &self.error_type),
                     cache,
-                    self.cycle == 1,
+                    !cache,
                 );
-
-                self.psi = self.population_predictions.get_psi(&ErrorModel::new(
-                    self.c,
-                    self.gamma,
-                    &self.error_type,
-                ));
             }
 
             if let Err(err) = self.validate_psi() {
@@ -319,12 +325,6 @@ impl NPAG {
 
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
-            if !self.equation.is_sde() {
-                self.population_predictions.subject_predictions = self
-                    .population_predictions
-                    .subject_predictions
-                    .select(Axis(1), &keep);
-            }
 
             //Rank-Revealing Factorization
             let (r, perm) = qr::calculate_r(&self.psi);
@@ -350,12 +350,6 @@ impl NPAG {
 
             self.theta = self.theta.select(Axis(0), &keep);
             self.psi = self.psi.select(Axis(1), &keep);
-            if !self.equation.is_sde() {
-                self.population_predictions.subject_predictions = self
-                    .population_predictions
-                    .subject_predictions
-                    .select(Axis(1), &keep);
-            }
 
             (self.lambda, self.objf) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
@@ -367,7 +361,8 @@ impl NPAG {
                 }
             };
 
-            // self.optim_gamma();
+            // self.optim_gamma(cache.clone());
+            self.optim_gamma();
 
             // Log relevant cycle information
             tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
