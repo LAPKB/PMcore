@@ -77,7 +77,13 @@ impl NPResult {
         tracing::debug!("Writing population parameter distribution...");
         let result: Result<(), anyhow::Error> = (|| {
             let theta: Array2<f64> = self.theta.clone();
-            let w: Array1<f64> = self.w.clone();
+            let mut w: Array1<f64> = self.w.clone();
+
+            // If w and theta are not the same length, change w to be all zeroes
+            if w.len() != theta.nrows() {
+                tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
+                w = Array1::zeros(theta.nrows());
+            }
 
             let outputfile = OutputFile::new(&self.settings.output.path, "theta.csv")?;
             let mut writer = WriterBuilder::new()
