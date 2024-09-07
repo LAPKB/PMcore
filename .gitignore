@@ -26,3 +26,4 @@ settings.json
 /outputs/*
 /benches/*.json
 log.txt
+op.csv

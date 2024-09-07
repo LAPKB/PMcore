@@ -62,6 +62,8 @@ impl NPResult {
             let tad = self.settings.predictions.tad;
             self.cyclelog.write(&self.settings)?;
             self.write_obs().context("Failed to write observations")?;
+            self.write_obspred(equation)
+                .context("Failed to write observed-predicted file")?;
             self.write_theta().context("Failed to write theta")?;
             self.write_posterior()
                 .context("Failed to write posterior")?;
@@ -71,6 +73,97 @@ impl NPResult {
         Ok(())
     }
 
+    /// Writes the observations and predictions to a single file
+    pub fn write_obspred(&self, equation: &impl Equation) -> Result<()> {
+        tracing::debug!("Writing observations and predictions...");
+
+        let theta: Array2<f64> = self.theta.clone();
+        let w: Array1<f64> = self.w.clone();
+        let psi: Array2<f64> = self.psi.clone();
+
+        let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
+            .context("Failed to calculate posterior mean and median")?;
+
+        let (pop_mean, pop_median) = population_mean_median(&theta, &w)
+            .context("Failed to calculate posterior mean and median")?;
+
+        let subjects = self.data.get_subjects();
+        if subjects.len() != post_mean.nrows() {
+            bail!("Number of subjects and number of posterior means do not match");
+        }
+
+        let outputfile = OutputFile::new(&self.settings.output.path, "op.csv")?;
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(&outputfile.file);
+
+        // Create the headers
+        writer.write_record([
+            "id",
+            "time",
+            "outeq",
+            "obs",
+            "popMean",
+            "popMedian",
+            "postMean",
+            "postMedian",
+        ])?;
+
+        for (i, subject) in subjects.iter().enumerate() {
+            // Population predictions
+            let pop_mean_pred = equation
+                .simulate_subject(subject, &pop_mean.to_vec(), None)
+                .0
+                .get_predictions()
+                .clone();
+            let pop_median_pred = equation
+                .simulate_subject(subject, &pop_median.to_vec(), None)
+                .0
+                .get_predictions()
+                .clone();
+
+            // Posterior predictions
+            let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
+            let post_mean_pred = equation
+                .simulate_subject(subject, &post_mean_spp, None)
+                .0
+                .get_predictions()
+                .clone();
+            let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
+            let post_median_pred = equation
+                .simulate_subject(subject, &post_median_spp, None)
+                .0
+                .get_predictions()
+                .clone();
+
+            // Write the records
+            pop_mean_pred
+                .iter()
+                .zip(pop_median_pred.iter())
+                .zip(post_mean_pred.iter())
+                .zip(post_median_pred.iter())
+                .for_each(|(((pop_mean, pop_median), post_mean), post_median)| {
+                    writer
+                        .write_record([
+                            subject.id(),
+                            &format!("{:.3}", pop_mean.time()),
+                            &format!("{}", pop_mean.outeq()),
+                            &format!("{:.4}", pop_mean.observation()),
+                            &format!("{:.4}", pop_mean.prediction()),
+                            &format!("{:.4}", pop_median.prediction()),
+                            &format!("{:.4}", post_mean.prediction()),
+                            &format!("{:.4}", post_median.prediction()),
+                        ])
+                        .expect("Failed to write record");
+                });
+        }
+        writer.flush()?;
+        tracing::info!(
+            "Observations with predictions written to {:?}",
+            &outputfile.get_relative_path()
+        );
+        Ok(())
+    }
     /// Writes theta, which containts the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) -> Result<()> {
