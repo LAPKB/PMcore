@@ -6,7 +6,7 @@ use std::path::Path;
 use pmcore::prelude::{models::one_compartment, simulator::Equation, *};
 
 fn main() {
-    let eq = Equation::new_ode(
+    let eq = equation::ODE::new(
         |x, p, t, dx, rateiv, cov| {
             fetch_cov!(cov, t, wt, pkvisit);
             fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);

@@ -97,7 +97,6 @@ pub use std::collections::HashMap;
 pub mod prelude {
     pub use super::HashMap;
     pub use super::Result;
-    pub use super::*;
     pub use crate::algorithms;
     pub use crate::entrypoints::fit;
     pub use crate::entrypoints::simulate;
@@ -123,6 +122,8 @@ pub mod prelude {
 
     //traits
     pub use pharmsol::prelude::*;
+    #[allow(ambiguous_glob_reexports)]
+    pub use pharmsol::*;
 
     //macros
     pub use pharmsol::fa;

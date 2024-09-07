@@ -21,7 +21,7 @@ pub trait Algorithm {
 }
 
 pub fn initialize_algorithm(
-    equation: Equation,
+    equation: impl Equation,
     settings: Settings,
     data: Data,
     tx: Option<mpsc::UnboundedSender<Comm>>,

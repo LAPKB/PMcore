@@ -23,8 +23,8 @@ use pharmsol::prelude::{
 const THETA_D: f64 = 1e-4;
 const THETA_F: f64 = 1e-2;
 
-pub struct NPOD {
-    equation: Equation,
+pub struct NPOD<E: Equation> {
+    equation: E,
     ranges: Vec<(f64, f64)>,
     psi: Array2<f64>,
     theta: Array2<f64>,
@@ -45,7 +45,7 @@ pub struct NPOD {
     settings: Settings,
 }
 
-impl Algorithm for NPOD {
+impl<E: Equation> Algorithm for NPOD<E> {
     fn fit(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
         self.run()
     }
@@ -64,7 +64,7 @@ impl Algorithm for NPOD {
     }
 }
 
-impl NPOD {
+impl<E: Equation> NPOD<E> {
     /// Creates a new NPOD instance.
     ///
     /// # Parameters
@@ -81,7 +81,7 @@ impl NPOD {
     ///
     /// Returns a new `NPOD` instance.
     pub fn new(
-        equation: Equation,
+        equation: E,
         ranges: Vec<(f64, f64)>,
         theta: Array2<f64>,
         data: Data,
@@ -336,7 +336,7 @@ impl NPOD {
                 candididate_points.push(spp.to_owned());
             }
             candididate_points.par_iter_mut().for_each(|spp| {
-                let optimizer = SppOptimizer::new(self.equation.clone(), &self.data, &sigma, &pyl);
+                let optimizer = SppOptimizer::new(&self.equation, &self.data, &sigma, &pyl);
                 let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
                 *spp = candidate_point;
                 // add spp to theta

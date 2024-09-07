@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 fn main() {
-    let sde = simulator::Equation::new_sde(
+    let sde = equation::SDE::new(
         |x, p, _t, dx, _rateiv, _cov| {
             // automatically defined
             fetch_params!(p, ke0);
@@ -25,6 +25,7 @@ fn main() {
             y[0] = x[0] / 50.0;
         },
         (2, 1),
+        10000,
     );
 
     let settings = settings::read("examples/iov/config.toml".to_string()).unwrap();

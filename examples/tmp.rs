@@ -1,8 +1,8 @@
 use ndarray::array;
-use pmcore::prelude::{data::read_pmetrics, simulator::Equation, *};
+use pmcore::prelude::{data::read_pmetrics, *};
 
 fn main() {
-    let eq = Equation::new_ode(
+    let eq = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
             fetch_params!(p, ke, _v);
             dx[0] = -ke * x[0] + rateiv[0];

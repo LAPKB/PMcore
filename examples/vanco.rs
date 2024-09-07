@@ -1,6 +1,6 @@
 use pmcore::prelude::{simulator::Equation, *};
 fn main() {
-    let eq = Equation::new_ode(
+    let eq = equation::ODE::new(
         |x, p, _t, dx, _rateiv, _cov| {
             fetch_params!(p, ke, kcp, kpc);
             dx[0] = -ke * x[0] - kcp * x[0] + kpc * x[1];
@@ -37,7 +37,7 @@ fn main() {
         .repeat(1000, 0.01)
         .build();
 
-    let op = eq.simulate_subject(&subject, &vec![0.3, 0.2, 0.5]);
+    let op = eq.simulate_subject(&subject, &vec![0.3, 0.2, 0.5], None).0;
 
     let times = op.flat_time();
     let pred = op.flat_predictions();

@@ -15,8 +15,8 @@ use super::output::CycleLog;
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
-pub struct POSTPROB {
-    equation: Equation,
+pub struct POSTPROB<E: Equation> {
+    equation: E,
     psi: Array2<f64>,
     theta: Array2<f64>,
     w: Array1<f64>,
@@ -33,7 +33,7 @@ pub struct POSTPROB {
     cyclelog: CycleLog,
 }
 
-impl Algorithm for POSTPROB {
+impl<E: Equation> Algorithm for POSTPROB<E> {
     fn fit(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
         self.run()
     }
@@ -52,9 +52,9 @@ impl Algorithm for POSTPROB {
     }
 }
 
-impl POSTPROB {
+impl<E: Equation> POSTPROB<E> {
     pub fn new(
-        equation: Equation,
+        equation: E,
         theta: Array2<f64>,
         data: Data,
         c: (f64, f64, f64, f64),

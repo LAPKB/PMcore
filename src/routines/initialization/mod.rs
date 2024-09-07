@@ -12,7 +12,7 @@ pub mod latin;
 pub mod sobol;
 
 /// This function generates the grid of support points according to the sampler specified in the [Settings]
-pub fn sample_space(settings: &Settings, data: &Data, eqn: &Equation) -> Result<Array2<f64>> {
+pub fn sample_space(settings: &Settings, data: &Data, eqn: &impl Equation) -> Result<Array2<f64>> {
     // Get the ranges of the random parameters
     let ranges = settings.random.ranges();
 

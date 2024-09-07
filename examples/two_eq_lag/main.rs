@@ -7,7 +7,7 @@ use data::read_pmetrics;
 use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
 
 fn main() {
-    let eq = Equation::new_ode(
+    let eq = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
             fetch_cov!(cov, t,);
             fetch_params!(p, ka, ke, _tlag, _v);

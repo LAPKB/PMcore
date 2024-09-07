@@ -56,7 +56,7 @@ impl NPResult {
         }
     }
 
-    pub fn write_outputs(&self, equation: &Equation) -> Result<()> {
+    pub fn write_outputs(&self, equation: &impl Equation) -> Result<()> {
         if self.settings.output.write {
             let idelta: f64 = self.settings.predictions.idelta;
             let tad = self.settings.predictions.tad;
@@ -183,7 +183,7 @@ impl NPResult {
     }
 
     /// Writes the predictions
-    pub fn write_pred(&self, equation: &Equation, idelta: f64, tad: f64) -> Result<()> {
+    pub fn write_pred(&self, equation: &impl Equation, idelta: f64, tad: f64) -> Result<()> {
         tracing::debug!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
 
@@ -221,23 +221,27 @@ impl NPResult {
         for (i, subject) in subjects.iter().enumerate() {
             // Population predictions
             let pop_mean_pred = equation
-                .simulate_subject(subject, &pop_mean.to_vec())
+                .simulate_subject(subject, &pop_mean.to_vec(), None)
+                .0
                 .get_predictions()
                 .clone();
             let pop_median_pred = equation
-                .simulate_subject(subject, &pop_median.to_vec())
+                .simulate_subject(subject, &pop_median.to_vec(), None)
+                .0
                 .get_predictions()
                 .clone();
 
             // Posterior predictions
             let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
             let post_mean_pred = equation
-                .simulate_subject(subject, &post_mean_spp)
+                .simulate_subject(subject, &post_mean_spp, None)
+                .0
                 .get_predictions()
                 .clone();
             let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
             let post_median_pred = equation
-                .simulate_subject(subject, &post_median_spp)
+                .simulate_subject(subject, &post_median_spp, None)
+                .0
                 .get_predictions()
                 .clone();
 

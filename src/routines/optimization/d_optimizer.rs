@@ -9,20 +9,20 @@ use pharmsol::prelude::{
     simulator::{psi, Equation},
 };
 
-pub struct SppOptimizer<'a> {
-    equation: Equation,
+pub struct SppOptimizer<'a, E: Equation> {
+    equation: &'a E,
     data: &'a Data,
     sig: &'a ErrorModel<'a>,
     pyl: &'a Array1<f64>,
 }
 
-impl<'a> CostFunction for SppOptimizer<'a> {
+impl<'a, E: Equation> CostFunction for SppOptimizer<'a, E> {
     type Param = Array1<f64>;
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = spp.to_owned().insert_axis(Axis(0));
 
-        let psi = psi(&self.equation, self.data, &theta, self.sig, false, false);
+        let psi = psi(self.equation, self.data, &theta, self.sig, false, false);
 
         if psi.ncols() > 1 {
             tracing::error!("Psi in SppOptimizer has more than one column");
@@ -43,13 +43,8 @@ impl<'a> CostFunction for SppOptimizer<'a> {
     }
 }
 
-impl<'a> SppOptimizer<'a> {
-    pub fn new(
-        equation: Equation,
-        data: &'a Data,
-        sig: &'a ErrorModel,
-        pyl: &'a Array1<f64>,
-    ) -> Self {
+impl<'a, E: Equation> SppOptimizer<'a, E> {
+    pub fn new(equation: &'a E, data: &'a Data, sig: &'a ErrorModel, pyl: &'a Array1<f64>) -> Self {
         Self {
             equation,
             data,

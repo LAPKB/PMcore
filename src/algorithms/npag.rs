@@ -1,9 +1,8 @@
-static NPARTICLES: usize = 10_000;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel, ErrorType},
-        simulator::{pf_psi, psi, Equation},
+        simulator::{psi, Equation},
     },
     Subject,
 };
@@ -29,8 +28,8 @@ const THETA_G: f64 = 1e-4; // Objective function convergence criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-pub struct NPAG {
-    equation: Equation,
+pub struct NPAG<E: Equation> {
+    equation: E,
     ranges: Vec<(f64, f64)>,
     psi: Array2<f64>,
     theta: Array2<f64>,
@@ -53,7 +52,7 @@ pub struct NPAG {
     settings: Settings,
 }
 
-impl Algorithm for NPAG {
+impl<E: Equation> Algorithm for NPAG<E> {
     fn fit(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
         self.run()
     }
@@ -72,7 +71,7 @@ impl Algorithm for NPAG {
     }
 }
 
-impl NPAG {
+impl<E: Equation> NPAG<E> {
     /// Creates a new NPAG instance.
     ///
     /// # Parameters
@@ -89,7 +88,7 @@ impl NPAG {
     ///
     /// Returns a new `NPAG` instance.
     pub fn new(
-        equation: Equation,
+        equation: E,
         ranges: Vec<(f64, f64)>,
         theta: Array2<f64>,
         data: Data,
@@ -173,46 +172,22 @@ impl NPAG {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
-        let psi_up = if self.equation.is_sde() {
-            pf_psi(
-                &self.equation,
-                &self.data,
-                &self.theta,
-                &ErrorModel::new(self.c, gamma_up, &self.error_type),
-                NPARTICLES,
-                false,
-                // cache.clone(),
-            )
-        } else {
-            psi(
-                &self.equation,
-                &self.data,
-                &self.theta,
-                &ErrorModel::new(self.c, gamma_up, &self.error_type),
-                false,
-                true,
-            )
-        };
-        let psi_down = if self.equation.is_sde() {
-            pf_psi(
-                &self.equation,
-                &self.data,
-                &self.theta,
-                &ErrorModel::new(self.c, gamma_down, &self.error_type),
-                NPARTICLES,
-                false,
-                // cache.clone(),
-            )
-        } else {
-            psi(
-                &self.equation,
-                &self.data,
-                &self.theta,
-                &ErrorModel::new(self.c, gamma_down, &self.error_type),
-                false,
-                true,
-            )
-        };
+        let psi_up = psi(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            &ErrorModel::new(self.c, gamma_up, &self.error_type),
+            false,
+            true,
+        );
+        let psi_down = psi(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            &ErrorModel::new(self.c, gamma_down, &self.error_type),
+            false,
+            true,
+        );
 
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
@@ -260,25 +235,14 @@ impl NPAG {
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
             let _enter = cycle_span.enter();
 
-            if self.equation.is_sde() {
-                self.psi = pf_psi(
-                    &self.equation,
-                    &self.data,
-                    &self.theta,
-                    &ErrorModel::new(self.c, self.gamma, &self.error_type),
-                    NPARTICLES,
-                    self.cycle == 1,
-                )
-            } else {
-                self.psi = psi(
-                    &self.equation,
-                    &self.data,
-                    &self.theta,
-                    &ErrorModel::new(self.c, self.gamma, &self.error_type),
-                    self.cycle == 1,
-                    self.cycle != 1,
-                );
-            }
+            self.psi = psi(
+                &self.equation,
+                &self.data,
+                &self.theta,
+                &ErrorModel::new(self.c, self.gamma, &self.error_type),
+                self.cycle == 1,
+                self.cycle != 1,
+            );
 
             if let Err(err) = self.validate_psi() {
                 return Err((err, self.to_npresult()));
