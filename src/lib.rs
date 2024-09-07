@@ -106,7 +106,7 @@ pub mod prelude {
     pub use crate::routines::expansion::*;
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization;
-    pub use crate::routines::settings::*;
+    // pub use crate::routines::settings::*;
     pub use crate::routines::*;
     pub use crate::tui::ui::*;
     //Alma re-exports
@@ -122,7 +122,6 @@ pub mod prelude {
 
     //traits
     pub use pharmsol::prelude::*;
-    #[allow(ambiguous_glob_reexports)]
     pub use pharmsol::*;
 
     //macros

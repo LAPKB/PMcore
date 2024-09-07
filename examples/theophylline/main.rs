@@ -1,4 +1,4 @@
-use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
+use pmcore::prelude::{models::one_compartment_with_absorption, *};
 
 fn main() {
     // let eq = Equation::new_ode(
