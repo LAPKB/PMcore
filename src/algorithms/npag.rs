@@ -244,6 +244,8 @@ impl<E: Equation> NPAG<E> {
                 self.cycle != 1,
             );
 
+            dbg!(&self.psi);
+
             if let Err(err) = self.validate_psi() {
                 return Err((err, self.to_npresult()));
             }
