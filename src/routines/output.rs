@@ -168,43 +168,38 @@ impl NPResult {
     /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) -> Result<()> {
         tracing::debug!("Writing population parameter distribution...");
-        let result: Result<(), anyhow::Error> = (|| {
-            let theta: Array2<f64> = self.theta.clone();
-            let mut w: Array1<f64> = self.w.clone();
 
-            // If w and theta are not the same length, change w to be all zeroes
-            if w.len() != theta.nrows() {
-                tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
-                w = Array1::zeros(theta.nrows());
-            }
+        let theta = &self.theta;
+        let w = if self.w.len() != theta.nrows() {
+            tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
+            Array1::zeros(theta.nrows())
+        } else {
+            self.w.clone()
+        };
 
-            let outputfile = OutputFile::new(&self.settings.output.path, "theta.csv")?;
-            let mut writer = WriterBuilder::new()
-                .has_headers(true)
-                .from_writer(&outputfile.file);
+        let outputfile = OutputFile::new(&self.settings.output.path, "theta.csv")
+            .context("Failed to create output file for theta")?;
 
-            // Create the headers
-            let mut theta_header = self.par_names.clone();
-            theta_header.push("prob".to_string());
-            writer.write_record(&theta_header)?;
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(&outputfile.file);
 
-            // Write contents
-            for (theta_row, &w_val) in theta.outer_iter().zip(w.iter()) {
-                let mut row: Vec<String> = theta_row.iter().map(|&val| val.to_string()).collect();
-                row.push(w_val.to_string());
-                writer.write_record(&row)?;
-            }
-            writer.flush()?;
-            tracing::info!(
-                "Population parameter distribution written to {:?}",
-                &outputfile.get_relative_path()
-            );
-            Ok(())
-        })();
+        // Create the headers
+        let mut theta_header = self.par_names.clone();
+        theta_header.push("prob".to_string());
+        writer.write_record(&theta_header)?;
 
-        if let Err(e) = result {
-            tracing::error!("Error while writing theta: {}", e);
+        // Write contents
+        for (theta_row, &w_val) in theta.outer_iter().zip(w.iter()) {
+            let mut row: Vec<String> = theta_row.iter().map(|&val| val.to_string()).collect();
+            row.push(w_val.to_string());
+            writer.write_record(&row)?;
         }
+        writer.flush()?;
+        tracing::info!(
+            "Population parameter distribution written to {:?}",
+            &outputfile.get_relative_path()
+        );
         Ok(())
     }
 
