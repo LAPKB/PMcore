@@ -97,7 +97,6 @@ pub use std::collections::HashMap;
 pub mod prelude {
     pub use super::HashMap;
     pub use super::Result;
-    pub use super::*;
     pub use crate::algorithms;
     pub use crate::entrypoints::fit;
     pub use crate::entrypoints::simulate;
@@ -107,7 +106,7 @@ pub mod prelude {
     pub use crate::routines::expansion::*;
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization;
-    pub use crate::routines::settings::*;
+    // pub use crate::routines::settings::*;
     pub use crate::routines::*;
     pub use crate::tui::ui::*;
     //Alma re-exports
@@ -123,6 +122,7 @@ pub mod prelude {
 
     //traits
     pub use pharmsol::prelude::*;
+    pub use pharmsol::*;
 
     //macros
     pub use pharmsol::fa;

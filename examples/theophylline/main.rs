@@ -1,4 +1,4 @@
-use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
+use pmcore::prelude::{models::one_compartment_with_absorption, *};
 
 fn main() {
     // let eq = Equation::new_ode(
@@ -17,7 +17,7 @@ fn main() {
     //     },
     //     (2, 1),
     // );
-    let eq = Equation::new_analytical(
+    let eq = equation::Analytical::new(
         one_compartment_with_absorption,
         |_p, _t, _cov| {},
         |_p| lag! {},

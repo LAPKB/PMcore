@@ -26,6 +26,12 @@ pub fn prune(
             dist += (val - spp.get(i).unwrap()).abs() / (limits[i].1 - limits[i].0);
         }
         if dist <= min_dist {
+            // panic!("point discarded");
+            // tracing::debug!(
+            //     "Prune: Rejected point:{}. Too close to existing support points dist:{}.",
+            //     candidate,
+            //     dist
+            // );
             return;
         }
     }

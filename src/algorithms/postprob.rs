@@ -1,6 +1,6 @@
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
-    simulator::{get_population_predictions, Equation},
+    simulator::{psi, Equation},
 };
 
 use crate::{
@@ -15,8 +15,8 @@ use super::output::CycleLog;
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
-pub struct POSTPROB {
-    equation: Equation,
+pub struct POSTPROB<E: Equation> {
+    equation: E,
     psi: Array2<f64>,
     theta: Array2<f64>,
     w: Array1<f64>,
@@ -33,7 +33,7 @@ pub struct POSTPROB {
     cyclelog: CycleLog,
 }
 
-impl Algorithm for POSTPROB {
+impl<E: Equation> Algorithm for POSTPROB<E> {
     fn fit(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
         self.run()
     }
@@ -52,9 +52,9 @@ impl Algorithm for POSTPROB {
     }
 }
 
-impl POSTPROB {
+impl<E: Equation> POSTPROB<E> {
     pub fn new(
-        equation: Equation,
+        equation: E,
         theta: Array2<f64>,
         data: Data,
         c: (f64, f64, f64, f64),
@@ -84,9 +84,23 @@ impl POSTPROB {
     }
 
     pub fn run(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
-        let obs_pred = get_population_predictions(&self.equation, &self.data, &self.theta, false);
+        self.psi = psi(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            &ErrorModel::new(self.c, self.gamma, &self.error_type),
+            false,
+            false,
+        );
+        // let obs_pred = get_population_predictions(
+        //     &self.equation,
+        //     &self.data,
+        //     &self.theta,
+        //     false,
+        //     self.cycle == 1,
+        // );
 
-        self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
+        // self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
         let (w, objf) = burke(&self.psi).expect("Error in IPM");
         self.w = w;
         self.objf = objf;

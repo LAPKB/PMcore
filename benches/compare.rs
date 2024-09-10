@@ -54,7 +54,7 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
     let subjects = data.get_subjects();
     let first_subject = subjects.first().unwrap();
 
-    let analytical = Equation::new_analytical(
+    let analytical = equation::Analytical::new(
         one_compartment_with_absorption,
         |_p, _t, _cov| {},
         |p| {
@@ -72,7 +72,7 @@ pub fn analytical_ns(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(analytical.simulate_subject(&first_subject, &SPP.to_vec()));
+            black_box(analytical.simulate_subject(&first_subject, &SPP.to_vec(), None));
         }
     });
 }
@@ -82,7 +82,7 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
     let subjects = data.get_subjects();
     let first_subject = subjects.first().unwrap();
 
-    let ode = Equation::new_ode(
+    let ode = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
             fetch_params!(p, ke, ka, _v, _tlag);
             dx[0] = -ka * x[0];
@@ -103,7 +103,7 @@ pub fn diffsol_ns(bencher: Bencher, len: usize) {
     );
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(ode.simulate_subject(&first_subject, &SPP.to_vec()));
+            black_box(ode.simulate_subject(&first_subject, &SPP.to_vec(), None));
         }
     });
 }

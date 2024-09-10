@@ -17,14 +17,14 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
-    simulator::{get_population_predictions, Equation, PopulationPredictions},
+    simulator::{psi, Equation, PopulationPredictions},
 };
 
 const THETA_D: f64 = 1e-4;
 const THETA_F: f64 = 1e-2;
 
-pub struct NPOD {
-    equation: Equation,
+pub struct NPOD<E: Equation> {
+    equation: E,
     ranges: Vec<(f64, f64)>,
     psi: Array2<f64>,
     theta: Array2<f64>,
@@ -38,7 +38,6 @@ pub struct NPOD {
     error_type: ErrorType,
     converged: bool,
     cycle_log: CycleLog,
-    cache: bool,
     data: Data,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
@@ -46,7 +45,7 @@ pub struct NPOD {
     settings: Settings,
 }
 
-impl Algorithm for NPOD {
+impl<E: Equation> Algorithm for NPOD<E> {
     fn fit(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
         self.run()
     }
@@ -65,7 +64,7 @@ impl Algorithm for NPOD {
     }
 }
 
-impl NPOD {
+impl<E: Equation> NPOD<E> {
     /// Creates a new NPOD instance.
     ///
     /// # Parameters
@@ -82,7 +81,7 @@ impl NPOD {
     ///
     /// Returns a new `NPOD` instance.
     pub fn new(
-        equation: Equation,
+        equation: E,
         ranges: Vec<(f64, f64)>,
         theta: Array2<f64>,
         data: Data,
@@ -105,7 +104,6 @@ impl NPOD {
             error_type: settings.error.error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            cache: settings.config.cache,
             tx,
             settings,
             data,
@@ -120,16 +118,24 @@ impl NPOD {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
-        let psi_up = self.population_predictions.get_psi(&ErrorModel::new(
-            self.c,
-            gamma_up,
-            &self.error_type,
-        ));
-        let psi_down = self.population_predictions.get_psi(&ErrorModel::new(
-            self.c,
-            gamma_down,
-            &self.error_type,
-        ));
+        let psi_up = psi(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            &ErrorModel::new(self.c, gamma_up, &self.error_type),
+            false,
+            true,
+        );
+
+        let psi_down = psi(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            &ErrorModel::new(self.c, gamma_down, &self.error_type),
+            false,
+            true,
+        );
+
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
@@ -165,6 +171,19 @@ impl NPOD {
     }
 
     pub fn run(&mut self) -> Result<NPResult, (anyhow::Error, NPResult)> {
+        // Setup the cache
+        // let cache = match self.settings.config.cache {
+        //     true => {
+        //         tracing::debug!("Caching enabled");
+        //         let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::new_unbounded();
+        //         cache
+        //     }
+        //     false => {
+        //         tracing::debug!("Caching disabled");
+        //         let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::None;
+        //         cache
+        //     }
+        // };
         loop {
             // Enter a span for each cycle, providing context for further errors
             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
@@ -172,16 +191,14 @@ impl NPOD {
 
             self.last_objf = self.objf;
 
-            let cache = if self.cycle == 1 { false } else { self.cache };
-
-            self.population_predictions =
-                get_population_predictions(&self.equation, &self.data, &self.theta, cache);
-
-            self.psi = self.population_predictions.get_psi(&ErrorModel::new(
-                self.c,
-                self.gamma,
-                &self.error_type,
-            ));
+            self.psi = psi(
+                &self.equation,
+                &self.data,
+                &self.theta,
+                &ErrorModel::new(self.c, self.gamma, &self.error_type),
+                self.cycle == 1,
+                self.cycle != 1,
+            );
 
             (self.lambda, _) = match burke(&self.psi) {
                 Ok((lambda, objf)) => (lambda, objf),
@@ -319,7 +336,7 @@ impl NPOD {
                 candididate_points.push(spp.to_owned());
             }
             candididate_points.par_iter_mut().for_each(|spp| {
-                let optimizer = SppOptimizer::new(self.equation.clone(), &self.data, &sigma, &pyl);
+                let optimizer = SppOptimizer::new(&self.equation, &self.data, &sigma, &pyl);
                 let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
                 *spp = candidate_point;
                 // add spp to theta
