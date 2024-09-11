@@ -31,10 +31,10 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
 chrono = "0.4"
 config = {version = "0.14", features=["preserve_order"]}
-faer = "0.19.0"
+faer = "0.19.3"
 faer-ext = {version = "0.2.0", features = ["nalgebra", "ndarray"]}
-pharmsol = "0.6.0"
-# pharmsol = {path = "../pharmsol"}
+# pharmsol = "0.6.0"
+pharmsol = {path = "../pharmsol"}
 toml = "0.8.14" #REMOVE
 rand = "0.8.5"
 anyhow = "1.0.86"
