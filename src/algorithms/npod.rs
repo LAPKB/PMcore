@@ -14,7 +14,7 @@ use anyhow::{Context, Error};
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
@@ -50,17 +50,17 @@ pub struct NPOD<E: Equation> {
 impl<E: Equation> Algorithm<E> for NPOD<E> {
     type Matrix = Array2<f64>;
 
-    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
-        let ranges = settings.random.ranges();
-        let theta = Array2::zeros((data.get_subjects().len(), 1));
-        let c = (0.0, 0.0, 0.0, 0.0);
-        let tx = None;
-
+    fn new(
+        settings: Settings,
+        equation: E,
+        data: Data,
+        tx: Option<UnboundedSender<Comm>>,
+    ) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            ranges,
+            ranges: settings.random.ranges(),
             psi: Array2::default((0, 0)),
-            theta,
+            theta: Array2::default((0, 0)),
             lambda: Array1::default(0),
             w: Array1::default(0),
             last_objf: -1e30,
@@ -72,9 +72,9 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             converged: false,
             cycle_log: CycleLog::new(),
             tx,
+            c: settings.error.poly,
             settings,
             data,
-            c,
         }))
     }
     fn to_npresult(&self) -> NPResult {
@@ -103,11 +103,19 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
     }
 
+    fn get_cycle(&self) -> usize {
+        self.cycle
+    }
+
     fn set_theta(&mut self, theta: Self::Matrix) {
         self.theta = theta;
     }
 
-    fn converge_criteria(&self) -> bool {
+    fn inc_cycle(&mut self) {
+        self.cycle += 1;
+    }
+
+    fn converge_criteria(&mut self) -> bool {
         unimplemented!()
     }
 
@@ -116,6 +124,13 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
     }
 
     fn filter(&mut self) -> Result<(), (Error, NPResult)> {
+        unimplemented!()
+    }
+    fn optimizations(&mut self) -> Result<(), (Error, NPResult)> {
+        unimplemented!()
+    }
+
+    fn logs(&self) {
         unimplemented!()
     }
 

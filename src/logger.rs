@@ -40,16 +40,15 @@ pub fn setup_log(settings: &Settings, ui_tx: Option<UnboundedSender<Comm>>) -> R
         .with_timer(CompactTimestamp);
 
     // Define layer for stdout
-    let stdout_layer = match settings.config.tui {
-        false => {
-            let layer = fmt::layer()
-                .with_writer(std::io::stdout)
-                .with_ansi(true)
-                .with_target(false)
-                .with_timer(CompactTimestamp);
-            Some(layer)
-        }
-        true => None,
+    let stdout_layer = if settings.config.tui {
+        None
+    } else {
+        let layer = fmt::layer()
+            .with_writer(std::io::stdout)
+            .with_ansi(true)
+            .with_target(false)
+            .with_timer(CompactTimestamp);
+        Some(layer)
     };
 
     // Check if ui_tx is Some and clone it for use in the closure

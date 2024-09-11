@@ -36,12 +36,11 @@ pub fn fit(equation: impl Equation, data: Data, settings: Settings) -> anyhow::R
     let now = Instant::now();
 
     // Configure MPSC channels for TUI
-    let (tx, rx) = match settings.config.tui {
-        true => {
-            let (to, from) = mpsc::unbounded_channel::<Comm>();
-            (Some(to), Some(from))
-        }
-        false => (None, None),
+    let (tx, rx) = if settings.config.tui {
+        let (to, from) = mpsc::unbounded_channel::<Comm>();
+        (Some(to), Some(from))
+    } else {
+        (None, None)
     };
 
     if settings.log.write {
@@ -61,14 +60,11 @@ pub fn fit(equation: impl Equation, data: Data, settings: Settings) -> anyhow::R
     );
 
     // Tell the user where the output files will be written
-    match &settings.output.write {
-        true => {
-            let output_path = &settings.output.path;
-            tracing::info!("Output files will be written to {}", output_path)
-        }
-        false => {
-            tracing::info!("Output files will not be written - set `output = true` in the configuration file to enable output files")
-        }
+    if settings.output.write {
+        let output_path = &settings.output.path;
+        tracing::info!("Output files will be written to {}", output_path)
+    } else {
+        tracing::info!("Output files will not be written - set `output = true` in the configuration file to enable output files")
     }
 
     // Spawn new thread for TUI
@@ -83,20 +79,24 @@ pub fn fit(equation: impl Equation, data: Data, settings: Settings) -> anyhow::R
     };
 
     // Initialize algorithm
-    let mut algorithm =
-        match dispatch_algorithm::<_, Array2<f64>>(settings.clone(), equation.clone(), data) {
-            Ok(algorithm) => algorithm,
-            Err(err) => {
-                tracing::error!(
-                    "An error has occurred during algorithm initialization: {}",
-                    err
-                );
-                bail!(
-                    "An error has occurred during algorithm initialization: {}",
-                    err
-                );
-            }
-        };
+    let mut algorithm = match dispatch_algorithm::<_, Array2<f64>>(
+        settings.clone(),
+        equation.clone(),
+        data,
+        tx.clone(),
+    ) {
+        Ok(algorithm) => algorithm,
+        Err(err) => {
+            tracing::error!(
+                "An error has occurred during algorithm initialization: {}",
+                err
+            );
+            bail!(
+                "An error has occurred during algorithm initialization: {}",
+                err
+            );
+        }
+    };
 
     // Tell the user which algorithm is being used
     tracing::info!(

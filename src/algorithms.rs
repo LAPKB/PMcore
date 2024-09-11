@@ -13,7 +13,7 @@ use pharmsol::prelude::{data::Data, simulator::Equation};
 use postprob::POSTPROB;
 use prelude::*;
 use settings::Config;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, UnboundedSender};
 // use self::{data::Subject, simulator::Equation};
 
 pub mod npag;
@@ -22,38 +22,49 @@ pub mod postprob;
 
 pub trait Algorithm<E: Equation> {
     type Matrix;
-    fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
+    fn new(
+        config: Settings,
+        equation: E,
+        data: Data,
+        tx: Option<UnboundedSender<Comm>>,
+    ) -> Result<Box<Self>, Error>
     where
         Self: Sized;
     fn get_settings(&self) -> &Settings;
     fn get_data(&self) -> &Data;
     fn get_prior(&self) -> Self::Matrix;
+    fn get_cycle(&self) -> usize;
     fn set_theta(&mut self, theta: Self::Matrix);
+    fn inc_cycle(&mut self);
     fn initialize(&mut self) -> Result<(), Error> {
         // If a stop file exists in the current directory, remove it
         if Path::new("stop").exists() {
             tracing::info!("Removing existing stop file prior to run");
             fs::remove_file("stop").context("Unable to remove previous stop file")?;
         }
-        // Initialize the sample space
         self.set_theta(self.get_prior());
-        // let theta = initialization::sample_space(
-        //     self.get_settings(),
-        //     self.get_data(),
-        //     self.get_equation(),
-        // )?;
         Ok(())
     }
-    fn converge_criteria(&self) -> bool;
+    fn converge_criteria(&mut self) -> bool;
     fn evaluation(&mut self) -> Result<(), (Error, NPResult)>;
     fn filter(&mut self) -> Result<(), (Error, NPResult)>;
+    fn optimizations(&mut self) -> Result<(), (Error, NPResult)>;
+    fn logs(&self);
     fn expansion(&mut self) -> Result<(), (Error, NPResult)>;
     fn fit(&mut self) -> Result<NPResult, (Error, NPResult)> {
         self.initialize().unwrap();
-        while !self.converge_criteria() {
+        loop {
+            if self.get_cycle() > 1 {
+                if self.converge_criteria() {
+                    break;
+                }
+                self.expansion()?;
+            }
             self.evaluation()?;
             self.filter()?;
-            self.expansion()?;
+            self.optimizations()?;
+            self.logs();
+            self.inc_cycle();
         }
         Ok(self.to_npresult())
     }
@@ -64,11 +75,12 @@ pub fn dispatch_algorithm<E: Equation, M>(
     settings: Settings,
     equation: E,
     data: Data,
+    tx: Option<UnboundedSender<Comm>>,
 ) -> Result<Box<dyn Algorithm<E, Matrix = Array2<f64>>>, Error> {
     match settings.config.algorithm.as_str() {
-        "NPAG" => Ok(NPAG::new(settings, equation, data)?),
-        "NPOD" => Ok(NPOD::new(settings, equation, data)?),
-        "POSTPROB" => Ok(POSTPROB::new(settings, equation, data)?),
+        "NPAG" => Ok(NPAG::new(settings, equation, data, tx)?),
+        "NPOD" => Ok(NPOD::new(settings, equation, data, tx)?),
+        "POSTPROB" => Ok(POSTPROB::new(settings, equation, data, tx)?),
         alg => bail!("Algorithm {} not implemented", alg),
     }
 }

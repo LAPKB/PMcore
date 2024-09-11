@@ -36,28 +36,31 @@ pub struct POSTPROB<E: Equation> {
 impl<E: Equation> Algorithm<E> for POSTPROB<E> {
     type Matrix = Array2<f64>;
 
-    fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
-        let theta = Array2::zeros((data.get_subjects().len(), 1));
-        let c = (0.0, 0.0, 0.0, 0.0);
-
+    fn new(
+        settings: Settings,
+        equation: E,
+        data: Data,
+        tx: Option<UnboundedSender<Comm>>,
+    ) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
             psi: Array2::default((0, 0)),
-            theta,
+            theta: Array2::default((0, 0)),
             w: Array1::default(0),
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
-            gamma: config.error.value,
-            error_type: match config.error.class.as_str() {
+            gamma: settings.error.value,
+            error_type: match settings.error.class.as_str() {
                 "additive" => ErrorType::Add,
                 "proportional" => ErrorType::Prop,
                 _ => panic!("Error type not supported"),
             },
+            c: settings.error.poly,
             tx: None,
-            settings: config,
+            settings,
             data,
-            c,
+
             cyclelog: CycleLog::new(),
         }))
     }
@@ -86,11 +89,17 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         unimplemented!()
     }
 
+    fn get_cycle(&self) -> usize {
+        self.cycle
+    }
+
     fn set_theta(&mut self, theta: Self::Matrix) {
         self.theta = theta;
     }
 
-    fn converge_criteria(&self) -> bool {
+    fn inc_cycle(&mut self) {}
+
+    fn converge_criteria(&mut self) -> bool {
         unimplemented!()
     }
 
@@ -99,6 +108,13 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
     }
 
     fn filter(&mut self) -> Result<(), (Error, NPResult)> {
+        unimplemented!()
+    }
+    fn optimizations(&mut self) -> Result<(), (Error, NPResult)> {
+        unimplemented!()
+    }
+
+    fn logs(&self) {
         unimplemented!()
     }
 

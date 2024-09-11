@@ -83,9 +83,10 @@ pub fn draw_options<'a>(settings: &Settings) -> Table<'a> {
     let conv_crit = "Placeholder".to_string();
     let indpts = settings.prior.points.to_string();
     let error = settings.error.class.to_string();
-    let cache = match settings.config.cache {
-        true => "Enabled".to_string(),
-        false => "Disabled".to_string(),
+    let cache = if settings.config.cache {
+        "Enabled".to_string()
+    } else {
+        "Disabled".to_string()
     };
     let seed = settings.prior.seed.to_string();
 
