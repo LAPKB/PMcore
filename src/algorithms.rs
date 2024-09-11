@@ -5,8 +5,12 @@ use crate::prelude::{self, settings::Settings};
 
 use anyhow::{bail, Result};
 use anyhow::{Context, Error};
+use ndarray::Array2;
+use npag::*;
+use npod::NPOD;
 use output::NPResult;
 use pharmsol::prelude::{data::Data, simulator::Equation};
+use postprob::POSTPROB;
 use prelude::*;
 use settings::Config;
 use tokio::sync::mpsc;
@@ -16,9 +20,11 @@ pub mod npag;
 pub mod npod;
 pub mod postprob;
 
-pub trait Algorithm: Sized {
+pub trait Algorithm<E: Equation> {
     type Matrix;
-    fn new(config: &Config) -> Result<Self>;
+    fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
+    where
+        Self: Sized;
     fn get_settings(&self) -> &Settings;
     fn get_data(&self) -> &Data;
     fn get_prior(&self) -> Self::Matrix;
@@ -39,11 +45,11 @@ pub trait Algorithm: Sized {
         Ok(())
     }
     fn converge_criteria(&self) -> bool;
-    fn evaluation(&mut self) -> Result<(), Error>;
-    fn filter(&mut self) -> Result<(), Error>;
-    fn expansion(&mut self) -> Result<(), Error>;
-    fn fit(mut self) -> Result<NPResult, Error> {
-        self.initialize()?;
+    fn evaluation(&mut self) -> Result<(), (Error, NPResult)>;
+    fn filter(&mut self) -> Result<(), (Error, NPResult)>;
+    fn expansion(&mut self) -> Result<(), (Error, NPResult)>;
+    fn fit(&mut self) -> Result<NPResult, (Error, NPResult)> {
+        self.initialize().unwrap();
         while !self.converge_criteria() {
             self.evaluation()?;
             self.filter()?;
@@ -51,44 +57,18 @@ pub trait Algorithm: Sized {
         }
         Ok(self.to_npresult())
     }
-    fn to_npresult(self) -> NPResult;
+    fn to_npresult(&self) -> NPResult;
 }
 
-pub fn initialize_algorithm(
-    equation: impl Equation,
+pub fn dispatch_algorithm<E: Equation, M>(
     settings: Settings,
+    equation: E,
     data: Data,
-    tx: Option<mpsc::UnboundedSender<Comm>>,
-) -> Result<Box<dyn Algorithm>, Error> {
-    //This should be a macro, so it can automatically expands as soon as we add a new option in the Type Enum
-    let ranges = settings.random.ranges();
+) -> Result<Box<dyn Algorithm<E, Matrix = Array2<f64>>>, Error> {
     match settings.config.algorithm.as_str() {
-        "NPAG" => Ok(Box::new(npag::NPAG::new(
-            equation,
-            ranges,
-            theta,
-            data,
-            settings.error.poly,
-            tx,
-            settings,
-        ))),
-        "NPOD" => Ok(Box::new(npod::NPOD::new(
-            equation,
-            ranges,
-            theta,
-            data,
-            settings.error.poly,
-            tx,
-            settings,
-        ))),
-        "POSTPROB" => Ok(Box::new(postprob::POSTPROB::new(
-            equation,
-            theta,
-            data,
-            settings.error.poly,
-            tx,
-            settings,
-        ))),
+        "NPAG" => Ok(NPAG::new(settings, equation, data)?),
+        "NPOD" => Ok(NPOD::new(settings, equation, data)?),
+        "POSTPROB" => Ok(POSTPROB::new(settings, equation, data)?),
         alg => bail!("Algorithm {} not implemented", alg),
     }
 }

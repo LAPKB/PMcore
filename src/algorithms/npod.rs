@@ -10,6 +10,7 @@ use crate::{
     },
     tui::ui::Comm,
 };
+use anyhow::{Context, Error};
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
@@ -17,8 +18,10 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
-    simulator::{psi, Equation, PopulationPredictions},
+    simulator::{psi, Equation},
 };
+
+use super::initialization;
 
 const THETA_D: f64 = 1e-4;
 const THETA_F: f64 = 1e-2;
@@ -41,55 +44,19 @@ pub struct NPOD<E: Equation> {
     data: Data,
     c: (f64, f64, f64, f64),
     tx: Option<UnboundedSender<Comm>>,
-    population_predictions: PopulationPredictions,
     settings: Settings,
 }
 
-impl<E: Equation> Algorithm for NPOD<E> {
-    fn fit(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
-        self.run()
-    }
-    fn to_npresult(&self) -> NPResult {
-        NPResult::new(
-            self.data.clone(),
-            self.theta.clone(),
-            self.psi.clone(),
-            self.w.clone(),
-            self.objf,
-            self.cycle,
-            self.converged,
-            self.settings.clone(),
-            self.cycle_log.clone(),
-        )
-    }
-}
+impl<E: Equation> Algorithm<E> for NPOD<E> {
+    type Matrix = Array2<f64>;
 
-impl<E: Equation> NPOD<E> {
-    /// Creates a new NPOD instance.
-    ///
-    /// # Parameters
-    ///
-    /// - `sim_eng`: An instance of the prediction engine.
-    /// - `ranges`: A vector of value ranges for each parameter.
-    /// - `theta`: An initial parameter matrix.
-    /// - `scenarios`: A vector of scenarios.
-    /// - `c`: A tuple containing coefficients for the error polynomial.
-    /// - `tx`: An unbounded sender for communicating progress.
-    /// - `settings`: Data settings and configurations.
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `NPOD` instance.
-    pub fn new(
-        equation: E,
-        ranges: Vec<(f64, f64)>,
-        theta: Array2<f64>,
-        data: Data,
-        c: (f64, f64, f64, f64),
-        tx: Option<UnboundedSender<Comm>>,
-        settings: Settings,
-    ) -> Self {
-        Self {
+    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
+        let ranges = settings.random.ranges();
+        let theta = Array2::zeros((data.get_subjects().len(), 1));
+        let c = (0.0, 0.0, 0.0, 0.0);
+        let tx = None;
+
+        Ok(Box::new(Self {
             equation,
             ranges,
             psi: Array2::default((0, 0)),
@@ -108,254 +75,338 @@ impl<E: Equation> NPOD<E> {
             settings,
             data,
             c,
-            population_predictions: PopulationPredictions::default(),
-        }
+        }))
+    }
+    fn to_npresult(&self) -> NPResult {
+        NPResult::new(
+            self.data.clone(),
+            self.theta.clone(),
+            self.psi.clone(),
+            self.w.clone(),
+            -2. * self.objf,
+            self.cycle,
+            self.converged,
+            self.settings.clone(),
+            self.cycle_log.clone(),
+        )
     }
 
-    fn optim_gamma(&mut self) {
-        //Gam/Lam optimization
-        // TODO: Move this to e.g. /evaluation/error.rs
-        let gamma_up = self.gamma * (1.0 + self.gamma_delta);
-        let gamma_down = self.gamma / (1.0 + self.gamma_delta);
-
-        let psi_up = psi(
-            &self.equation,
-            &self.data,
-            &self.theta,
-            &ErrorModel::new(self.c, gamma_up, &self.error_type),
-            false,
-            true,
-        );
-
-        let psi_down = psi(
-            &self.equation,
-            &self.data,
-            &self.theta,
-            &ErrorModel::new(self.c, gamma_down, &self.error_type),
-            false,
-            true,
-        );
-
-        let (lambda_up, objf_up) = match burke(&psi_up) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                //todo: write out report
-                panic!("Error in IPM: {:?}", err);
-            }
-        };
-        let (lambda_down, objf_down) = match burke(&psi_down) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                //todo: write out report
-                panic!("Error in IPM: {:?}", err);
-            }
-        };
-        if objf_up > self.objf {
-            self.gamma = gamma_up;
-            self.objf = objf_up;
-            self.gamma_delta *= 4.;
-            self.lambda = lambda_up;
-            self.psi = psi_up;
-        }
-        if objf_down > self.objf {
-            self.gamma = gamma_down;
-            self.objf = objf_down;
-            self.gamma_delta *= 4.;
-            self.lambda = lambda_down;
-            self.psi = psi_down;
-        }
-        self.gamma_delta *= 0.5;
-        if self.gamma_delta <= 0.01 {
-            self.gamma_delta = 0.1;
-        }
+    fn get_settings(&self) -> &Settings {
+        &self.settings
     }
 
-    pub fn run(&mut self) -> Result<NPResult, (anyhow::Error, NPResult)> {
-        // Setup the cache
-        // let cache = match self.settings.config.cache {
-        //     true => {
-        //         tracing::debug!("Caching enabled");
-        //         let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::new_unbounded();
-        //         cache
-        //     }
-        //     false => {
-        //         tracing::debug!("Caching disabled");
-        //         let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::None;
-        //         cache
-        //     }
-        // };
-        loop {
-            // Enter a span for each cycle, providing context for further errors
-            let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
-            let _enter = cycle_span.enter();
+    fn get_data(&self) -> &Data {
+        &self.data
+    }
 
-            self.last_objf = self.objf;
+    fn get_prior(&self) -> Self::Matrix {
+        initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
+    }
 
-            self.psi = psi(
-                &self.equation,
-                &self.data,
-                &self.theta,
-                &ErrorModel::new(self.c, self.gamma, &self.error_type),
-                self.cycle == 1,
-                self.cycle != 1,
-            );
+    fn set_theta(&mut self, theta: Self::Matrix) {
+        self.theta = theta;
+    }
 
-            (self.lambda, _) = match burke(&self.psi) {
-                Ok((lambda, objf)) => (lambda, objf),
-                Err(err) => {
-                    //todo: write out report
-                    panic!("Error in IPM: {:?}", err);
-                }
-            };
+    fn converge_criteria(&self) -> bool {
+        unimplemented!()
+    }
 
-            let mut keep = Vec::<usize>::new();
-            for (index, lam) in self.lambda.iter().enumerate() {
-                if *lam > self.lambda.max().unwrap() / 1000_f64 {
-                    keep.push(index);
-                }
-            }
+    fn evaluation(&mut self) -> Result<(), (Error, NPResult)> {
+        unimplemented!()
+    }
 
-            let removed = self.theta.shape()[0] - keep.len();
-            if removed > 0 {
-                tracing::debug!(
-                    "Removed {} support point(s) with weight < 1/1000 of max",
-                    removed
-                );
-            }
-            self.theta = self.theta.select(Axis(0), &keep);
-            self.psi = self.psi.select(Axis(1), &keep);
-            self.population_predictions.subject_predictions = self
-                .population_predictions
-                .subject_predictions
-                .select(Axis(1), &keep);
+    fn filter(&mut self) -> Result<(), (Error, NPResult)> {
+        unimplemented!()
+    }
 
-            //Rank-Revealing Factorization
-            let (r, perm) = qr::calculate_r(&self.psi);
-
-            let mut keep = Vec::<usize>::new();
-            //The minimum between the number of subjects and the actual number of support points
-            let lim_loop = self.psi.nrows().min(self.psi.ncols());
-            for i in 0..lim_loop {
-                let test = norm_zero(&r.column(i).to_owned());
-                let ratio = r.get((i, i)).unwrap() / test;
-                if ratio.abs() >= 1e-8 {
-                    keep.push(*perm.get(i).unwrap());
-                }
-            }
-            // If a support point is dropped, log it as a debug message
-            if self.psi.ncols() != keep.len() {
-                tracing::debug!(
-                    "QRD dropped {} support point(s)",
-                    self.psi.ncols() - keep.len(),
-                );
-            }
-            self.theta = self.theta.select(Axis(0), &keep);
-            self.psi = self.psi.select(Axis(1), &keep);
-            self.population_predictions.subject_predictions = self
-                .population_predictions
-                .subject_predictions
-                .select(Axis(1), &keep);
-
-            (self.lambda, self.objf) = match burke(&self.psi) {
-                Ok((lambda, objf)) => (lambda, objf),
-                Err(err) => {
-                    //todo: write out report
-                    panic!("Error in IPM: {:?}", err);
-                }
-            };
-
-            self.optim_gamma();
-
-            // Increasing objf signals instability or model misspecification.
-            if self.last_objf > self.objf {
-                tracing::warn!(
-                    "Objective function decreased from {:.4} to {:.4} (delta = {})",
-                    -2.0 * self.last_objf,
-                    -2.0 * self.objf,
-                    -2.0 * self.last_objf - -2.0 * self.objf
-                );
-            }
-
-            self.w = self.lambda.clone();
-
-            // Perform checks for convergence or termination
-            let mut stop = false;
-            // Stop if objective function convergence is reached
-            if (self.last_objf - self.objf).abs() <= THETA_F {
-                tracing::info!("Objective function convergence reached");
-                self.converged = true;
-                stop = true;
-            }
-            // Stop if we have reached maximum number of cycles
-            if self.cycle >= self.settings.config.cycles {
-                tracing::warn!("Maximum number of cycles reached");
-                stop = true;
-            }
-
-            // Stop if stopfile exists
-            if std::path::Path::new("stop").exists() {
-                tracing::warn!("Stopfile detected - breaking");
-                stop = true;
-            }
-
-            // Create a new NPCycle state and log it
-            let state = NPCycle {
-                cycle: self.cycle,
-                objf: -2. * self.objf,
-                delta_objf: (self.last_objf - self.objf).abs(),
-                nspp: self.theta.shape()[0],
-                theta: self.theta.clone(),
-                gamlam: self.gamma,
-                converged: self.converged,
-            };
-
-            // Log relevant cycle information
-            tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
-            tracing::debug!("Support points: {}", self.theta.shape()[0]);
-            tracing::debug!("Gamma = {:.4}", self.gamma);
-
-            match &self.tx {
-                Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
-                None => (),
-            }
-
-            self.cycle_log.push(state);
-
-            if stop {
-                break;
-            }
-
-            // If no stop signal, add new point to theta based on the optimization of the D function
-            let pyl = self.psi.dot(&self.w);
-
-            // Add new point to theta based on the optimization of the D function
-            let sigma = ErrorModel::new(self.c, self.gamma, &self.error_type);
-
-            let mut candididate_points: Vec<Array1<f64>> = Vec::default();
-            for spp in self.theta.clone().rows() {
-                candididate_points.push(spp.to_owned());
-            }
-            candididate_points.par_iter_mut().for_each(|spp| {
-                let optimizer = SppOptimizer::new(&self.equation, &self.data, &sigma, &pyl);
-                let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
-                *spp = candidate_point;
-                // add spp to theta
-                // recalculate psi
-                // re-run ipm to re-calculate w
-                // re-calculate pyl
-                // re-define a new optimization
-            });
-            for cp in candididate_points {
-                prune(&mut self.theta, cp, &self.ranges, THETA_D);
-            }
-
-            // Increment the cycle count and prepare for the next cycle
-            self.cycle += 1;
-        }
-
-        Ok(self.to_npresult())
+    fn expansion(&mut self) -> Result<(), (Error, NPResult)> {
+        unimplemented!()
     }
 }
+
+// impl<E: Equation> NPOD<E> {
+//     /// Creates a new NPOD instance.
+//     ///
+//     /// # Parameters
+//     ///
+//     /// - `sim_eng`: An instance of the prediction engine.
+//     /// - `ranges`: A vector of value ranges for each parameter.
+//     /// - `theta`: An initial parameter matrix.
+//     /// - `scenarios`: A vector of scenarios.
+//     /// - `c`: A tuple containing coefficients for the error polynomial.
+//     /// - `tx`: An unbounded sender for communicating progress.
+//     /// - `settings`: Data settings and configurations.
+//     ///
+//     /// # Returns
+//     ///
+//     /// Returns a new `NPOD` instance.
+//     pub fn new(
+//         equation: E,
+//         ranges: Vec<(f64, f64)>,
+//         theta: Array2<f64>,
+//         data: Data,
+//         c: (f64, f64, f64, f64),
+//         tx: Option<UnboundedSender<Comm>>,
+//         settings: Settings,
+//     ) -> Self {
+//         Self {
+//             equation,
+//             ranges,
+//             psi: Array2::default((0, 0)),
+//             theta,
+//             lambda: Array1::default(0),
+//             w: Array1::default(0),
+//             last_objf: -1e30,
+//             objf: f64::NEG_INFINITY,
+//             cycle: 1,
+//             gamma_delta: 0.1,
+//             gamma: settings.error.value,
+//             error_type: settings.error.error_type(),
+//             converged: false,
+//             cycle_log: CycleLog::new(),
+//             tx,
+//             settings,
+//             data,
+//             c,
+//         }
+//     }
+
+//     fn optim_gamma(&mut self) {
+//         //Gam/Lam optimization
+//         // TODO: Move this to e.g. /evaluation/error.rs
+//         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
+//         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
+
+//         let psi_up = psi(
+//             &self.equation,
+//             &self.data,
+//             &self.theta,
+//             &ErrorModel::new(self.c, gamma_up, &self.error_type),
+//             false,
+//             true,
+//         );
+
+//         let psi_down = psi(
+//             &self.equation,
+//             &self.data,
+//             &self.theta,
+//             &ErrorModel::new(self.c, gamma_down, &self.error_type),
+//             false,
+//             true,
+//         );
+
+//         let (lambda_up, objf_up) = match burke(&psi_up) {
+//             Ok((lambda, objf)) => (lambda, objf),
+//             Err(err) => {
+//                 //todo: write out report
+//                 panic!("Error in IPM: {:?}", err);
+//             }
+//         };
+//         let (lambda_down, objf_down) = match burke(&psi_down) {
+//             Ok((lambda, objf)) => (lambda, objf),
+//             Err(err) => {
+//                 //todo: write out report
+//                 panic!("Error in IPM: {:?}", err);
+//             }
+//         };
+//         if objf_up > self.objf {
+//             self.gamma = gamma_up;
+//             self.objf = objf_up;
+//             self.gamma_delta *= 4.;
+//             self.lambda = lambda_up;
+//             self.psi = psi_up;
+//         }
+//         if objf_down > self.objf {
+//             self.gamma = gamma_down;
+//             self.objf = objf_down;
+//             self.gamma_delta *= 4.;
+//             self.lambda = lambda_down;
+//             self.psi = psi_down;
+//         }
+//         self.gamma_delta *= 0.5;
+//         if self.gamma_delta <= 0.01 {
+//             self.gamma_delta = 0.1;
+//         }
+//     }
+
+//     pub fn run(&mut self) -> Result<NPResult, (anyhow::Error, NPResult)> {
+//         // Setup the cache
+//         // let cache = match self.settings.config.cache {
+//         //     true => {
+//         //         tracing::debug!("Caching enabled");
+//         //         let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::new_unbounded();
+//         //         cache
+//         //     }
+//         //     false => {
+//         //         tracing::debug!("Caching disabled");
+//         //         let cache: Cache<u64, SubjectPredictions> = pharmsol::Cache::None;
+//         //         cache
+//         //     }
+//         // };
+//         loop {
+//             // Enter a span for each cycle, providing context for further errors
+//             let cycle_span = tracing::span!(tracing::Level::INFO, "Cycle", cycle = self.cycle);
+//             let _enter = cycle_span.enter();
+
+//             self.last_objf = self.objf;
+
+//             self.psi = psi(
+//                 &self.equation,
+//                 &self.data,
+//                 &self.theta,
+//                 &ErrorModel::new(self.c, self.gamma, &self.error_type),
+//                 self.cycle == 1,
+//                 self.cycle != 1,
+//             );
+
+//             (self.lambda, _) = match burke(&self.psi) {
+//                 Ok((lambda, objf)) => (lambda, objf),
+//                 Err(err) => {
+//                     //todo: write out report
+//                     panic!("Error in IPM: {:?}", err);
+//                 }
+//             };
+
+//             let mut keep = Vec::<usize>::new();
+//             for (index, lam) in self.lambda.iter().enumerate() {
+//                 if *lam > self.lambda.max().unwrap() / 1000_f64 {
+//                     keep.push(index);
+//                 }
+//             }
+
+//             let removed = self.theta.shape()[0] - keep.len();
+//             if removed > 0 {
+//                 tracing::debug!(
+//                     "Removed {} support point(s) with weight < 1/1000 of max",
+//                     removed
+//                 );
+//             }
+//             self.theta = self.theta.select(Axis(0), &keep);
+//             self.psi = self.psi.select(Axis(1), &keep);
+
+//             //Rank-Revealing Factorization
+//             let (r, perm) = qr::calculate_r(&self.psi);
+
+//             let mut keep = Vec::<usize>::new();
+//             //The minimum between the number of subjects and the actual number of support points
+//             let lim_loop = self.psi.nrows().min(self.psi.ncols());
+//             for i in 0..lim_loop {
+//                 let test = norm_zero(&r.column(i).to_owned());
+//                 let ratio = r.get((i, i)).unwrap() / test;
+//                 if ratio.abs() >= 1e-8 {
+//                     keep.push(*perm.get(i).unwrap());
+//                 }
+//             }
+//             // If a support point is dropped, log it as a debug message
+//             if self.psi.ncols() != keep.len() {
+//                 tracing::debug!(
+//                     "QRD dropped {} support point(s)",
+//                     self.psi.ncols() - keep.len(),
+//                 );
+//             }
+//             self.theta = self.theta.select(Axis(0), &keep);
+//             self.psi = self.psi.select(Axis(1), &keep);
+
+//             (self.lambda, self.objf) = match burke(&self.psi) {
+//                 Ok((lambda, objf)) => (lambda, objf),
+//                 Err(err) => {
+//                     //todo: write out report
+//                     panic!("Error in IPM: {:?}", err);
+//                 }
+//             };
+
+//             self.optim_gamma();
+
+//             // Increasing objf signals instability or model misspecification.
+//             if self.last_objf > self.objf {
+//                 tracing::warn!(
+//                     "Objective function decreased from {:.4} to {:.4} (delta = {})",
+//                     -2.0 * self.last_objf,
+//                     -2.0 * self.objf,
+//                     -2.0 * self.last_objf - -2.0 * self.objf
+//                 );
+//             }
+
+//             self.w = self.lambda.clone();
+
+//             // Perform checks for convergence or termination
+//             let mut stop = false;
+//             // Stop if objective function convergence is reached
+//             if (self.last_objf - self.objf).abs() <= THETA_F {
+//                 tracing::info!("Objective function convergence reached");
+//                 self.converged = true;
+//                 stop = true;
+//             }
+//             // Stop if we have reached maximum number of cycles
+//             if self.cycle >= self.settings.config.cycles {
+//                 tracing::warn!("Maximum number of cycles reached");
+//                 stop = true;
+//             }
+
+//             // Stop if stopfile exists
+//             if std::path::Path::new("stop").exists() {
+//                 tracing::warn!("Stopfile detected - breaking");
+//                 stop = true;
+//             }
+
+//             // Create a new NPCycle state and log it
+//             let state = NPCycle {
+//                 cycle: self.cycle,
+//                 objf: -2. * self.objf,
+//                 delta_objf: (self.last_objf - self.objf).abs(),
+//                 nspp: self.theta.shape()[0],
+//                 theta: self.theta.clone(),
+//                 gamlam: self.gamma,
+//                 converged: self.converged,
+//             };
+
+//             // Log relevant cycle information
+//             tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
+//             tracing::debug!("Support points: {}", self.theta.shape()[0]);
+//             tracing::debug!("Gamma = {:.4}", self.gamma);
+
+//             match &self.tx {
+//                 Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
+//                 None => (),
+//             }
+
+//             self.cycle_log.push(state);
+
+//             if stop {
+//                 break;
+//             }
+
+//             // If no stop signal, add new point to theta based on the optimization of the D function
+//             let pyl = self.psi.dot(&self.w);
+
+//             // Add new point to theta based on the optimization of the D function
+//             let sigma = ErrorModel::new(self.c, self.gamma, &self.error_type);
+
+//             let mut candididate_points: Vec<Array1<f64>> = Vec::default();
+//             for spp in self.theta.clone().rows() {
+//                 candididate_points.push(spp.to_owned());
+//             }
+//             candididate_points.par_iter_mut().for_each(|spp| {
+//                 let optimizer = SppOptimizer::new(&self.equation, &self.data, &sigma, &pyl);
+//                 let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
+//                 *spp = candidate_point;
+//                 // add spp to theta
+//                 // recalculate psi
+//                 // re-run ipm to re-calculate w
+//                 // re-calculate pyl
+//                 // re-define a new optimization
+//             });
+//             for cp in candididate_points {
+//                 prune(&mut self.theta, cp, &self.ranges, THETA_D);
+//             }
+
+//             // Increment the cycle count and prepare for the next cycle
+//             self.cycle += 1;
+//         }
+
+//         Ok(self.clone().to_npresult())
+//     }
+// }
 fn norm_zero(a: &Array1<f64>) -> f64 {
     let zeros: Array1<f64> = Array::zeros(a.len());
     a.l2_dist(&zeros).unwrap()

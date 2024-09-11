@@ -1,8 +1,9 @@
-use crate::algorithms::initialize_algorithm;
 use crate::prelude::{output::NPResult, *};
 use crate::routines::settings::*;
 
+use algorithms::dispatch_algorithm;
 use anyhow::{bail, Context, Result};
+use ndarray::Array2;
 
 use std::thread::spawn;
 use std::time::Instant;
@@ -83,7 +84,7 @@ pub fn fit(equation: impl Equation, data: Data, settings: Settings) -> anyhow::R
 
     // Initialize algorithm
     let mut algorithm =
-        match initialize_algorithm(equation.clone(), settings.clone(), data, tx.clone()) {
+        match dispatch_algorithm::<_, Array2<f64>>(settings.clone(), equation.clone(), data) {
             Ok(algorithm) => algorithm,
             Err(err) => {
                 tracing::error!(
