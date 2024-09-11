@@ -240,7 +240,7 @@ impl<E: Equation> NPAG<E> {
                 &self.data,
                 &self.theta,
                 &ErrorModel::new(self.c, self.gamma, &self.error_type),
-                self.cycle == 1,
+                self.cycle <= self.settings.config.progress,
                 self.cycle != 1,
             );
 

@@ -80,6 +80,7 @@ pub struct Config {
     pub cycles: usize,
     /// Denotes the algorithm to use
     pub algorithm: String,
+    /// If true, display a text-based user interface
     pub tui: bool,
     /// If true (default), cache predicted values
     pub cache: bool,
@@ -87,6 +88,9 @@ pub struct Config {
     pub include: Option<Vec<String>>,
     /// Vector of IDs to exclude
     pub exclude: Option<Vec<String>>,
+    /// The maximum cycle number to display a progress bar for
+    /// If set to `0`, no progress bar will be displayed
+    pub progress: usize,
 }
 
 impl Default for Config {
@@ -95,9 +99,10 @@ impl Default for Config {
             cycles: 100,
             algorithm: "npag".to_string(),
             tui: false,
-            cache: false,
+            cache: true,
             include: None,
             exclude: None,
+            progress: 1,
         }
     }
 }
