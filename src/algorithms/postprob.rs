@@ -97,10 +97,10 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         self.theta = theta;
     }
 
-    fn inc_cycle(&mut self) {}
+    fn end_cycle(&mut self) {}
 
-    fn converge_criteria(&mut self) -> bool {
-        unimplemented!()
+    fn converged(&self) -> bool {
+        self.converged
     }
 
     fn evaluation(&mut self) -> Result<(), (Error, NPResult)> {

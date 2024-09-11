@@ -9,8 +9,8 @@ use crate::{
     routines::expansion::adaptative_grid::adaptative_grid,
     tui::ui::Comm,
 };
+use anyhow::Error;
 use anyhow::Result;
-use anyhow::{Context, Error};
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel, ErrorType},
@@ -120,13 +120,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         self.theta = theta;
     }
 
-    fn inc_cycle(&mut self) {
-        self.cycle += 1;
-    }
-
-    fn converge_criteria(&mut self) -> bool {
-        // Stop if we have reached convergence criteria
-        let mut stop = false;
+    fn end_cycle(&mut self) {
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
             self.eps /= 2.;
             if self.eps <= THETA_E {
@@ -135,7 +129,6 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.converged = true;
-                    stop = true;
                 } else {
                     self.f0 = self.f1;
                     self.eps = 0.2;
@@ -146,13 +139,13 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config.cycles {
             tracing::warn!("Maximum number of cycles reached");
-            stop = true;
+            self.converged = true;
         }
 
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
-            stop = true;
+            self.converged = true;
         }
 
         // Create state object
@@ -175,9 +168,11 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         // Write cycle log
         self.cycle_log.push(state);
         self.last_objf = self.objf;
+        self.cycle += 1;
+    }
 
-        // Break if stop criteria are met
-        stop
+    fn converged(&self) -> bool {
+        self.converged
     }
 
     fn evaluation(&mut self) -> Result<(), (Error, NPResult)> {

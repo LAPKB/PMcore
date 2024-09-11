@@ -35,7 +35,8 @@ pub trait Algorithm<E: Equation> {
     fn get_prior(&self) -> Self::Matrix;
     fn get_cycle(&self) -> usize;
     fn set_theta(&mut self, theta: Self::Matrix);
-    fn inc_cycle(&mut self);
+    fn end_cycle(&mut self);
+    fn converged(&self) -> bool;
     fn initialize(&mut self) -> Result<(), Error> {
         // If a stop file exists in the current directory, remove it
         if Path::new("stop").exists() {
@@ -45,7 +46,6 @@ pub trait Algorithm<E: Equation> {
         self.set_theta(self.get_prior());
         Ok(())
     }
-    fn converge_criteria(&mut self) -> bool;
     fn evaluation(&mut self) -> Result<(), (Error, NPResult)>;
     fn filter(&mut self) -> Result<(), (Error, NPResult)>;
     fn optimizations(&mut self) -> Result<(), (Error, NPResult)>;
@@ -54,17 +54,16 @@ pub trait Algorithm<E: Equation> {
     fn fit(&mut self) -> Result<NPResult, (Error, NPResult)> {
         self.initialize().unwrap();
         loop {
-            if self.get_cycle() > 1 {
-                if self.converge_criteria() {
-                    break;
-                }
-                self.expansion()?;
-            }
             self.evaluation()?;
             self.filter()?;
             self.optimizations()?;
             self.logs();
-            self.inc_cycle();
+
+            self.end_cycle();
+            if self.converged() {
+                break;
+            }
+            self.expansion()?;
         }
         Ok(self.to_npresult())
     }
