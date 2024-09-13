@@ -12,8 +12,7 @@ use output::NPResult;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use postprob::POSTPROB;
 use prelude::*;
-use settings::Config;
-use tokio::sync::mpsc::{self, UnboundedSender};
+use tokio::sync::mpsc::UnboundedSender;
 // use self::{data::Subject, simulator::Equation};
 
 pub mod npag;

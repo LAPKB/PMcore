@@ -1,6 +1,6 @@
 [config]
 cycles = 1000
-algorithm = "NPAG"
+algorithm = "NPOD"
 tui = false
 cache = true
 
@@ -17,7 +17,7 @@ poly = [0.02, 0.05, -2e-04, 0.0]
 
 [prior]
 sampler = "sobol"
-points = 2129
+points = 21290
 seed = 347
 
 [output]

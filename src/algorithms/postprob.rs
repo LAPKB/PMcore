@@ -2,7 +2,7 @@ use crate::{
     prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings},
     tui::ui::Comm,
 };
-use anyhow::{Context, Error};
+use anyhow::{Error, Result};
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
     simulator::{psi, Equation},
@@ -11,7 +11,7 @@ use pharmsol::prelude::{
 use ndarray::{Array1, Array2};
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::output::CycleLog;
+use super::{initialization, output::CycleLog};
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
@@ -40,7 +40,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         settings: Settings,
         equation: E,
         data: Data,
-        tx: Option<UnboundedSender<Comm>>,
+        _tx: Option<UnboundedSender<Comm>>,
     ) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
@@ -86,7 +86,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
     }
 
     fn get_prior(&self) -> Self::Matrix {
-        unimplemented!()
+        initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
     }
 
     fn get_cycle(&self) -> usize {
@@ -100,51 +100,32 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
     fn convergece_evaluation(&mut self) {}
 
     fn converged(&self) -> bool {
-        self.converged
+        true
     }
 
     fn evaluation(&mut self) -> Result<(), (Error, NPResult)> {
-        unimplemented!()
+        self.psi = psi(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            &ErrorModel::new(self.c, self.gamma, &self.error_type),
+            false,
+            false,
+        );
+        (self.w, self.objf) = burke(&self.psi).expect("Error in IPM");
+        Ok(())
     }
 
     fn filter(&mut self) -> Result<(), (Error, NPResult)> {
-        unimplemented!()
+        Ok(())
     }
     fn optimizations(&mut self) -> Result<(), (Error, NPResult)> {
-        unimplemented!()
+        Ok(())
     }
 
-    fn logs(&self) {
-        unimplemented!()
-    }
+    fn logs(&self) {}
 
     fn expansion(&mut self) -> Result<(), (Error, NPResult)> {
-        unimplemented!()
+        Ok(())
     }
 }
-
-// impl<E: Equation> POSTPROB<E> {
-//     pub fn run(self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
-//         self.psi = psi(
-//             &self.equation,
-//             &self.data,
-//             &self.theta,
-//             &ErrorModel::new(self.c, self.gamma, &self.error_type),
-//             false,
-//             false,
-//         );
-//         // let obs_pred = get_population_predictions(
-//         //     &self.equation,
-//         //     &self.data,
-//         //     &self.theta,
-//         //     false,
-//         //     self.cycle == 1,
-//         // );
-
-//         // self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
-//         let (w, objf) = burke(&self.psi).expect("Error in IPM");
-//         self.w = w;
-//         self.objf = objf;
-//         Ok(self.to_npresult())
-//     }
-// }
