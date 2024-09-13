@@ -104,7 +104,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         self.theta = theta;
     }
 
-    fn convergece_evaluation(&mut self) {
+    fn convergence_evaluation(&mut self) {
         if (self.last_objf - self.objf).abs() <= THETA_F {
             tracing::info!("Objective function convergence reached");
             self.converged = true;
