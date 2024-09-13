@@ -1,7 +1,4 @@
-use crate::{
-    prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings},
-    tui::ui::Comm,
-};
+use crate::prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings};
 use anyhow::{Error, Result};
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
@@ -9,7 +6,6 @@ use pharmsol::prelude::{
 };
 
 use ndarray::{Array1, Array2};
-use tokio::sync::mpsc::UnboundedSender;
 
 use super::{initialization, output::CycleLog};
 
@@ -28,7 +24,6 @@ pub struct POSTPROB<E: Equation> {
     data: Data,
     c: (f64, f64, f64, f64),
     #[allow(dead_code)]
-    tx: Option<UnboundedSender<Comm>>,
     settings: Settings,
     cyclelog: CycleLog,
 }
@@ -36,12 +31,7 @@ pub struct POSTPROB<E: Equation> {
 impl<E: Equation> Algorithm<E> for POSTPROB<E> {
     type Matrix = Array2<f64>;
 
-    fn new(
-        settings: Settings,
-        equation: E,
-        data: Data,
-        _tx: Option<UnboundedSender<Comm>>,
-    ) -> Result<Box<Self>, anyhow::Error> {
+    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
             psi: Array2::default((0, 0)),
@@ -57,7 +47,6 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
                 _ => panic!("Error type not supported"),
             },
             c: settings.error.poly,
-            tx: None,
             settings,
             data,
 
@@ -89,8 +78,8 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
     }
 
-    fn get_cycle(&self) -> usize {
-        self.cycle
+    fn inc_cycle(&mut self) -> usize {
+        0
     }
 
     fn set_theta(&mut self, theta: Self::Matrix) {
@@ -116,7 +105,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         Ok(())
     }
 
-    fn filter(&mut self) -> Result<(), (Error, NPResult)> {
+    fn condensation(&mut self) -> Result<(), (Error, NPResult)> {
         Ok(())
     }
     fn optimizations(&mut self) -> Result<(), (Error, NPResult)> {

@@ -7,7 +7,6 @@ use crate::{
         settings::Settings,
     },
     routines::expansion::adaptative_grid::adaptative_grid,
-    tui::ui::Comm,
 };
 use anyhow::Error;
 use anyhow::Result;
@@ -21,7 +20,6 @@ use pharmsol::{
 
 use ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
-use tokio::sync::mpsc::UnboundedSender;
 
 use super::initialization;
 
@@ -51,19 +49,13 @@ pub struct NPAG<E: Equation> {
     cycle_log: CycleLog,
     data: Data,
     c: (f64, f64, f64, f64),
-    tx: Option<UnboundedSender<Comm>>,
     settings: Settings,
 }
 
 impl<E: Equation> Algorithm<E> for NPAG<E> {
     type Matrix = Array2<f64>;
 
-    fn new(
-        settings: Settings,
-        equation: E,
-        data: Data,
-        tx: Option<UnboundedSender<Comm>>,
-    ) -> Result<Box<Self>, anyhow::Error> {
+    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
             ranges: settings.random.ranges(),
@@ -76,13 +68,12 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             objf: f64::NEG_INFINITY,
             f0: -1e30,
             f1: f64::default(),
-            cycle: 1,
+            cycle: 0,
             gamma_delta: 0.1,
             gamma: settings.error.value,
             error_type: settings.error.error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            tx,
             c: settings.error.poly,
             settings,
             data,
@@ -114,7 +105,8 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
     }
 
-    fn get_cycle(&self) -> usize {
+    fn inc_cycle(&mut self) -> usize {
+        self.cycle += 1;
         self.cycle
     }
     fn set_theta(&mut self, theta: Self::Matrix) {
@@ -160,16 +152,9 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             converged: self.converged,
         };
 
-        // Update TUI with current state
-        match &self.tx {
-            Some(tx) => tx.send(Comm::NPCycle(state.clone())).unwrap(),
-            None => (),
-        }
-
         // Write cycle log
         self.cycle_log.push(state);
         self.last_objf = self.objf;
-        self.cycle += 1;
     }
 
     fn converged(&self) -> bool {
@@ -202,7 +187,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         Ok(())
     }
 
-    fn filter(&mut self) -> Result<(), (Error, NPResult)> {
+    fn condensation(&mut self) -> Result<(), (Error, NPResult)> {
         let max_lambda = match self.lambda.max() {
             Ok(max_lambda) => max_lambda,
             Err(err) => return Err((anyhow::anyhow!(err), self.to_npresult())),
@@ -324,11 +309,9 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
 
     fn logs(&self) {
         // Log relevant cycle information
-        tracing::info!(
-            "|Cycle: {}|Objective function = {:.4}",
-            self.cycle,
-            -2.0 * self.objf
-        );
+        // let span = tracing::info_span!("", Cycle = self.cycle);
+        // let _enter = span.enter();
+        tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.shape()[0]);
         tracing::debug!("Gamma = {:.16}", self.gamma);
         tracing::debug!("EPS = {:.4}", self.eps);

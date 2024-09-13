@@ -12,7 +12,6 @@ use output::NPResult;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use postprob::POSTPROB;
 use prelude::*;
-use tokio::sync::mpsc::UnboundedSender;
 // use self::{data::Subject, simulator::Equation};
 
 pub mod npag;
@@ -21,18 +20,13 @@ pub mod postprob;
 
 pub trait Algorithm<E: Equation> {
     type Matrix;
-    fn new(
-        config: Settings,
-        equation: E,
-        data: Data,
-        tx: Option<UnboundedSender<Comm>>,
-    ) -> Result<Box<Self>, Error>
+    fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
     where
         Self: Sized;
     fn get_settings(&self) -> &Settings;
     fn get_data(&self) -> &Data;
     fn get_prior(&self) -> Self::Matrix;
-    fn get_cycle(&self) -> usize;
+    fn inc_cycle(&mut self) -> usize;
     fn set_theta(&mut self, theta: Self::Matrix);
     fn convergece_evaluation(&mut self);
     fn converged(&self) -> bool;
@@ -46,21 +40,22 @@ pub trait Algorithm<E: Equation> {
         Ok(())
     }
     fn evaluation(&mut self) -> Result<(), (Error, NPResult)>;
-    fn filter(&mut self) -> Result<(), (Error, NPResult)>;
+    fn condensation(&mut self) -> Result<(), (Error, NPResult)>;
     fn optimizations(&mut self) -> Result<(), (Error, NPResult)>;
     fn logs(&self);
     fn expansion(&mut self) -> Result<(), (Error, NPResult)>;
     fn next_cycle(&mut self) -> Result<bool, (Error, NPResult)> {
+        let span = tracing::info_span!("", Cycle = 1);
+        let _enter = span.enter();
+        if self.inc_cycle() > 1 {
+            self.expansion()?;
+        }
         self.evaluation()?;
-        self.filter()?;
+        self.condensation()?;
         self.optimizations()?;
         self.logs();
         self.convergece_evaluation();
-        let converged = self.converged();
-        if !converged {
-            self.expansion()?;
-        }
-        Ok(converged)
+        Ok(self.converged())
     }
     fn fit(&mut self) -> Result<NPResult, (Error, NPResult)> {
         self.initialize().unwrap();
@@ -74,12 +69,11 @@ pub fn dispatch_algorithm<E: Equation, M>(
     settings: Settings,
     equation: E,
     data: Data,
-    tx: Option<UnboundedSender<Comm>>,
 ) -> Result<Box<dyn Algorithm<E, Matrix = Array2<f64>>>, Error> {
     match settings.config.algorithm.as_str() {
-        "NPAG" => Ok(NPAG::new(settings, equation, data, tx)?),
-        "NPOD" => Ok(NPOD::new(settings, equation, data, tx)?),
-        "POSTPROB" => Ok(POSTPROB::new(settings, equation, data, tx)?),
+        "NPAG" => Ok(NPAG::new(settings, equation, data)?),
+        "NPOD" => Ok(NPOD::new(settings, equation, data)?),
+        "POSTPROB" => Ok(POSTPROB::new(settings, equation, data)?),
         alg => bail!("Algorithm {} not implemented", alg),
     }
 }

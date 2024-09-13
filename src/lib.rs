@@ -82,12 +82,8 @@ pub mod routines {
     }
 }
 
-/// Entry points for external use of the framework.
-pub mod entrypoints;
 /// Logger functionality for the framework using [tracing]
 pub mod logger;
-/// Terminal-based user interface components.
-pub mod tui;
 
 // Re-export commonly used items
 pub use anyhow::Result;
@@ -98,8 +94,6 @@ pub mod prelude {
     pub use super::HashMap;
     pub use super::Result;
     pub use crate::algorithms;
-    pub use crate::entrypoints::fit;
-    pub use crate::entrypoints::simulate;
     pub use crate::logger;
     pub use crate::prelude::evaluation::*;
     pub use crate::routines::condensation;
@@ -108,7 +102,6 @@ pub mod prelude {
     pub use crate::routines::optimization;
     // pub use crate::routines::settings::*;
     pub use crate::routines::*;
-    pub use crate::tui::ui::*;
     //Alma re-exports
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;

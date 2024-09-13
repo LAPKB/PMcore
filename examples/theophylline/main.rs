@@ -1,3 +1,5 @@
+use algorithms::dispatch_algorithm;
+use ndarray::Array2;
 use pmcore::prelude::{models::one_compartment_with_absorption, *};
 
 fn main() {
@@ -31,5 +33,10 @@ fn main() {
     );
     let settings = settings::read("examples/theophylline/config.toml").unwrap();
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
-    let _result = fit(eq, data, settings);
+    let mut algorithm = dispatch_algorithm::<_, Array2<f64>>(settings, eq.clone(), data).unwrap();
+    // let result = algorithm.fit().unwrap();
+    algorithm.initialize().unwrap();
+    while !algorithm.next_cycle().unwrap() {}
+    let result = algorithm.to_npresult();
+    result.write_outputs(&eq).unwrap();
 }
