@@ -111,7 +111,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         self.theta = theta;
     }
 
-    fn end_cycle(&mut self) {
+    fn convergece_evaluation(&mut self) {
         self.cycle += 1;
     }
 

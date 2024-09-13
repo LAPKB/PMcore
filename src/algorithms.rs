@@ -35,7 +35,7 @@ pub trait Algorithm<E: Equation> {
     fn get_prior(&self) -> Self::Matrix;
     fn get_cycle(&self) -> usize;
     fn set_theta(&mut self, theta: Self::Matrix);
-    fn end_cycle(&mut self);
+    fn convergece_evaluation(&mut self);
     fn converged(&self) -> bool;
     fn initialize(&mut self) -> Result<(), Error> {
         // If a stop file exists in the current directory, remove it
@@ -51,20 +51,21 @@ pub trait Algorithm<E: Equation> {
     fn optimizations(&mut self) -> Result<(), (Error, NPResult)>;
     fn logs(&self);
     fn expansion(&mut self) -> Result<(), (Error, NPResult)>;
-    fn fit(&mut self) -> Result<NPResult, (Error, NPResult)> {
-        self.initialize().unwrap();
-        loop {
-            self.evaluation()?;
-            self.filter()?;
-            self.optimizations()?;
-            self.logs();
-
-            self.end_cycle();
-            if self.converged() {
-                break;
-            }
+    fn next_cycle(&mut self) -> Result<bool, (Error, NPResult)> {
+        self.evaluation()?;
+        self.filter()?;
+        self.optimizations()?;
+        self.logs();
+        self.convergece_evaluation();
+        let converged = self.converged();
+        if !converged {
             self.expansion()?;
         }
+        Ok(converged)
+    }
+    fn fit(&mut self) -> Result<NPResult, (Error, NPResult)> {
+        self.initialize().unwrap();
+        while !self.next_cycle()? {}
         Ok(self.to_npresult())
     }
     fn to_npresult(&self) -> NPResult;

@@ -120,7 +120,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         self.theta = theta;
     }
 
-    fn end_cycle(&mut self) {
+    fn convergece_evaluation(&mut self) {
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
             self.eps /= 2.;
             if self.eps <= THETA_E {

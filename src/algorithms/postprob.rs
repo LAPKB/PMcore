@@ -97,7 +97,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         self.theta = theta;
     }
 
-    fn end_cycle(&mut self) {}
+    fn convergece_evaluation(&mut self) {}
 
     fn converged(&self) -> bool {
         self.converged
