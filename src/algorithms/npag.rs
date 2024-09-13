@@ -323,12 +323,16 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
 
     fn logs(&self) {
         // Log relevant cycle information
-        tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
+        tracing::info!(
+            "|Cycle: {}|Objective function = {:.4}",
+            self.cycle,
+            -2.0 * self.objf
+        );
         tracing::debug!("Support points: {}", self.theta.shape()[0]);
         tracing::debug!("Gamma = {:.16}", self.gamma);
         tracing::debug!("EPS = {:.4}", self.eps);
         // Increasing objf signals instability or model misspecification.
-        if self.last_objf > self.objf {
+        if self.last_objf > self.objf + 1e-4 {
             tracing::warn!(
                 "Objective function decreased from {:.4} to {:.4} (delta = {})",
                 -2.0 * self.last_objf,
