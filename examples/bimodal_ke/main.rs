@@ -1,7 +1,6 @@
 use algorithms::dispatch_algorithm;
 use ndarray::Array2;
 use pmcore::prelude::*;
-
 fn main() {
     let eq = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {

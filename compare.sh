@@ -37,9 +37,19 @@ function time_commit() {
 
     # Running the example N times
     echo "Running $EXAMPLE_NAME in release mode for $N times"
+
+    # Makes sure the target directory is clean
+    cargo clean -q
+
+     #compile the example
+    echo "Run $i: Compilating $COMMIT..."
+    cargo build --release -q --example $EXAMPLE_NAME    
+    echo "Run $i: Done compilating $COMMIT..."
     for i in $(seq 1 $N); do
+
+       
         echo "Run $i: executing 'cargo run' for commit $COMMIT..."
-        
+      
         # Capture both stdout and stderr to handle errors from cargo run
         RUN_TIME=$( { /usr/bin/time -f "%e" cargo run --release --example $EXAMPLE_NAME 2>&1 | grep -Eo '^[0-9]+\.[0-9]+$'; } 2>&1 )
 

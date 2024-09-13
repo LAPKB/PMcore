@@ -1,0 +1,7 @@
+Time comparison results
+Example: bimodal_ke
+===================================
+Average time for commit n_algorithm: 4.272s
+-----------------------------------
+Average time for commit main: 4.258s
+-----------------------------------
