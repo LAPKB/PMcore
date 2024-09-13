@@ -1,3 +1,5 @@
+use algorithms::dispatch_algorithm;
+use ndarray::Array2;
 use pmcore::prelude::*;
 
 fn main() {
@@ -31,5 +33,13 @@ fn main() {
 
     let settings = settings::read("examples/bimodal_ke/config.toml").unwrap();
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
-    let _result = fit(eq, data, settings);
+    let mut algorithm = dispatch_algorithm::<_, Array2<f64>>(settings, eq, data, None).unwrap();
+    // let result = algorithm.fit().unwrap();
+    algorithm.initialize().unwrap();
+    while !algorithm.next_cycle().unwrap() {
+        println!("Cycle: {}", algorithm.get_cycle());
+    }
+    let result = algorithm.to_npresult();
+    println!("{:?}", result);
+    // let _result = fit(eq, data, settings);
 }

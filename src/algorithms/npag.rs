@@ -30,6 +30,7 @@ const THETA_G: f64 = 1e-4; // Objective function convergence criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
+#[derive(Debug)]
 pub struct NPAG<E: Equation> {
     equation: E,
     ranges: Vec<(f64, f64)>,
