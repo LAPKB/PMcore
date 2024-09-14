@@ -68,3 +68,87 @@ pub fn adaptative_grid(
     }
     theta.to_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn test_adaptive_grid_1d() {
+        // Initial theta: [[0.5]]
+        let mut theta = array![[0.5]];
+        let eps = 0.1;
+        let ranges = [(0.0, 1.0)];
+        let min_dist = 0.05;
+
+        // Call adaptative_grid
+        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
+
+        // Expected theta: [[0.5], [0.6], [0.4]]
+        let expected_theta = array![[0.5], [0.6], [0.4]];
+
+        // Assert that new_theta matches expected_theta
+        assert_eq!(new_theta, expected_theta);
+    }
+
+    #[test]
+    fn test_adaptive_grid_2d() {
+        // Initial theta: [[0.5, 0.5]]
+        let mut theta = array![[0.5, 0.5]];
+        let eps = 0.1;
+        let ranges = [(0.0, 1.0), (0.0, 1.0)];
+        let min_dist = 0.05;
+
+        // Call adaptative_grid
+        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
+
+        // Expected new points are:
+        // For dimension 0: [0.6, 0.5], [0.4, 0.5]
+        // For dimension 1: [0.5, 0.6], [0.5, 0.4]
+        // So expected theta is [[0.5, 0.5], [0.6, 0.5], [0.4, 0.5], [0.5, 0.6], [0.5, 0.4]]
+        let expected_theta = array![[0.5, 0.5], [0.6, 0.5], [0.4, 0.5], [0.5, 0.6], [0.5, 0.4]];
+
+        // Assert that new_theta matches expected_theta
+        assert_eq!(new_theta, expected_theta);
+    }
+
+    #[test]
+    fn test_adaptive_grid_min_dist() {
+        // Initial theta: [[0.5]]
+        let mut theta = array![[0.5]];
+        let eps = 0.1;
+        let ranges = [(0.0, 1.0)];
+        let min_dist = 0.2;
+
+        // Call adaptative_grid
+        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
+
+        // Since min_dist is 0.2, the new points at 0.6 and 0.4 are too close to 0.5 (distance 0.1)
+        // So no new points should be added
+        let expected_theta = array![[0.5]];
+
+        // Assert that new_theta matches expected_theta
+        assert_eq!(new_theta, expected_theta);
+    }
+
+    #[test]
+    fn test_adaptive_grid_out_of_bounds() {
+        // Initial theta: [[0.95]]
+        let mut theta = array![[0.95]];
+        let eps = 0.1;
+        let ranges = [(0.0, 1.0)];
+        let min_dist = 0.05;
+
+        // Call adaptative_grid
+        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
+
+        // val + l = 0.95 + 0.1 = 1.05 > 1.0, so point at 1.05 is out of bounds and should not be added
+        // val - l = 0.95 - 0.1 = 0.85, which is within range
+        // So only [0.85] should be added
+        let expected_theta = array![[0.95], [0.85]];
+
+        // Assert that new_theta matches expected_theta
+        assert_eq!(new_theta, expected_theta);
+    }
+}
