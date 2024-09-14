@@ -33,7 +33,7 @@ function time_commit() {
     TOTAL_TIME=0
 
     echo "Checking out commit $COMMIT"
-    git checkout $COMMIT > /dev/null 2>&1
+    git checkout $COMMIT 
 
     # Running the example N times
     echo "Running $EXAMPLE_NAME in release mode for $N times"
@@ -76,7 +76,7 @@ time_commit $COMMIT1 $EXAMPLE_NAME $N
 time_commit $COMMIT2 $EXAMPLE_NAME $N
 
 # Switch back to the current branch
-git checkout - > /dev/null 2>&1
+git checkout - 
 
 # Output completion message
 echo "Timing complete. Results saved to $OUTPUT_FILE."
