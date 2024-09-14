@@ -164,7 +164,7 @@ impl NPResult {
         );
         Ok(())
     }
-    /// Writes theta, which containts the population support points and their associated probabilities
+    /// Writes theta, which contains the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) -> Result<()> {
         tracing::debug!("Writing population parameter distribution...");

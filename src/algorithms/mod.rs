@@ -28,7 +28,7 @@ pub trait Algorithm<E: Equation> {
     fn get_prior(&self) -> Self::Matrix;
     fn inc_cycle(&mut self) -> usize;
     fn set_theta(&mut self, theta: Self::Matrix);
-    fn convergece_evaluation(&mut self);
+    fn convergence_evaluation(&mut self);
     fn converged(&self) -> bool;
     fn initialize(&mut self) -> Result<(), Error> {
         // If a stop file exists in the current directory, remove it
@@ -54,7 +54,7 @@ pub trait Algorithm<E: Equation> {
         self.condensation()?;
         self.optimizations()?;
         self.logs();
-        self.convergece_evaluation();
+        self.convergence_evaluation();
         Ok(self.converged())
     }
     fn fit(&mut self) -> Result<NPResult, (Error, NPResult)> {

@@ -16,7 +16,7 @@ Rust library with the building blocks to create and implement new non-parametric
 * Powerful simulation engine 
 * Informative Terminal User Interface (TUI)
 
-## Available algoritms
+## Available algorithms
 
 This project aims to implement several algorithms for non-parametric population pharmacokinetic modelling.
 

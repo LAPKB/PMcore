@@ -251,7 +251,7 @@ impl Error {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Advanced {
-    /// The minimum distance required between a candiate point and the existing grid (THETA_D)
+    /// The minimum distance required between a candidate point and the existing grid (THETA_D)
     ///
     /// This is general for all non-parametric algorithms
     pub min_distance: f64,
