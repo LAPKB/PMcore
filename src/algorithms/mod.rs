@@ -28,6 +28,7 @@ pub trait Algorithm<E: Equation> {
     fn get_prior(&self) -> Self::Matrix;
     fn inc_cycle(&mut self) -> usize;
     fn set_theta(&mut self, theta: Self::Matrix);
+    fn get_theta(&self) -> &Self::Matrix;
     fn convergence_evaluation(&mut self);
     fn converged(&self) -> bool;
     fn initialize(&mut self) -> Result<(), Error> {

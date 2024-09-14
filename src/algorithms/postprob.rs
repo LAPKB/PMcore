@@ -86,6 +86,10 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         self.theta = theta;
     }
 
+    fn get_theta(&self) -> &Self::Matrix {
+        &self.theta
+    }
+
     fn convergence_evaluation(&mut self) {}
 
     fn converged(&self) -> bool {

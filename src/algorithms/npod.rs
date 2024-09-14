@@ -104,6 +104,10 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         self.theta = theta;
     }
 
+    fn get_theta(&self) -> &Self::Matrix {
+        &self.theta
+    }
+
     fn convergence_evaluation(&mut self) {
         if (self.last_objf - self.objf).abs() <= THETA_F {
             tracing::info!("Objective function convergence reached");
