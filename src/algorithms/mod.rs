@@ -29,8 +29,24 @@ pub trait Algorithm<E: Equation> {
     fn inc_cycle(&mut self);
     fn set_theta(&mut self, theta: Array2<f64>);
     fn get_theta(&self) -> &Array2<f64>;
-    fn convergence_evaluation(&mut self);
-    fn converged(&self) -> bool;
+    // Has the algorithm converged?
+    fn convergence(&mut self) -> bool;
+    /// Should the algorithm stop?
+    fn stop(&mut self) -> bool {
+        // Stop if we have reached maximum number of cycles
+        if self.get_cycle() >= self.get_settings().config.cycles {
+            tracing::warn!("Maximum number of cycles reached - program will sotp");
+            return true;
+        }
+
+        // Stop if stopfile exists
+        if std::path::Path::new("stop").exists() {
+            tracing::warn!("Stopfile detected - program will stop");
+            return true;
+        } else {
+            return false;
+        }
+    }
     fn initialize(&mut self) -> Result<(), Error> {
         // If a stop file exists in the current directory, remove it
         if Path::new("stop").exists() {
@@ -43,7 +59,7 @@ pub trait Algorithm<E: Equation> {
     fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)>;
     fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)>;
     fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn logs(&self);
+    fn logs(&mut self);
     fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)>;
     fn next_cycle(&mut self) -> Result<bool, (Error, NPResult<E>)> {
         self.inc_cycle();
@@ -56,8 +72,9 @@ pub trait Algorithm<E: Equation> {
         self.condensation()?;
         self.optimizations()?;
         self.logs();
-        self.convergence_evaluation();
-        Ok(self.converged())
+        let converged = self.convergence();
+        let stop = self.stop();
+        Ok(converged || stop)
     }
     fn fit(&mut self) -> Result<NPResult<E>, (Error, NPResult<E>)> {
         self.initialize().unwrap();
