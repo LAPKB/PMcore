@@ -77,9 +77,11 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
     }
 
-    fn inc_cycle(&mut self) -> usize {
+    fn get_cycle(&mut self) -> usize {
         0
     }
+
+    fn inc_cycle(&mut self) {}
 
     fn set_theta(&mut self, theta: Array2<f64>) {
         self.theta = theta;
