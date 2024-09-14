@@ -40,12 +40,12 @@ pub trait Algorithm<E: Equation> {
         self.set_theta(self.get_prior());
         Ok(())
     }
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult)>;
-    fn condensation(&mut self) -> Result<(), (Error, NPResult)>;
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult)>;
+    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)>;
+    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)>;
+    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)>;
     fn logs(&self);
-    fn expansion(&mut self) -> Result<(), (Error, NPResult)>;
-    fn next_cycle(&mut self) -> Result<bool, (Error, NPResult)> {
+    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)>;
+    fn next_cycle(&mut self) -> Result<bool, (Error, NPResult<E>)> {
         let span = tracing::info_span!("", Cycle = 1);
         let _enter = span.enter();
         if self.inc_cycle() > 1 {
@@ -58,12 +58,12 @@ pub trait Algorithm<E: Equation> {
         self.convergence_evaluation();
         Ok(self.converged())
     }
-    fn fit(&mut self) -> Result<NPResult, (Error, NPResult)> {
+    fn fit(&mut self) -> Result<NPResult<E>, (Error, NPResult<E>)> {
         self.initialize().unwrap();
         while !self.next_cycle()? {}
-        Ok(self.to_npresult())
+        Ok(self.into_npresult())
     }
-    fn to_npresult(&self) -> NPResult;
+    fn into_npresult(&self) -> NPResult<E>;
 }
 
 pub fn dispatch_algorithm<E: Equation, M>(

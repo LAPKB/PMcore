@@ -12,22 +12,24 @@ use std::path::{Path, PathBuf};
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 #[derive(Debug)]
-pub struct NPResult {
-    pub data: Data,
-    pub theta: Array2<f64>,
-    pub psi: Array2<f64>,
-    pub w: Array1<f64>,
-    pub objf: f64,
-    pub cycles: usize,
-    pub converged: bool,
-    pub par_names: Vec<String>,
-    pub settings: Settings,
-    pub cyclelog: CycleLog,
+pub struct NPResult<E: Equation> {
+    equation: E,
+    data: Data,
+    theta: Array2<f64>,
+    psi: Array2<f64>,
+    w: Array1<f64>,
+    objf: f64,
+    cycles: usize,
+    converged: bool,
+    par_names: Vec<String>,
+    settings: Settings,
+    cyclelog: CycleLog,
 }
 
-impl NPResult {
+impl<E: Equation> NPResult<E> {
     /// Create a new NPResult object
     pub fn new(
+        equation: E,
         data: Data,
         theta: Array2<f64>,
         psi: Array2<f64>,
@@ -43,6 +45,7 @@ impl NPResult {
         let par_names = settings.random.names();
 
         Self {
+            equation,
             data,
             theta,
             psi,
@@ -56,25 +59,25 @@ impl NPResult {
         }
     }
 
-    pub fn write_outputs(&self, equation: &impl Equation) -> Result<()> {
+    pub fn write_outputs(&self) -> Result<()> {
         if self.settings.output.write {
             let idelta: f64 = self.settings.predictions.idelta;
             let tad = self.settings.predictions.tad;
             self.cyclelog.write(&self.settings)?;
             self.write_obs().context("Failed to write observations")?;
-            self.write_obspred(equation)
+            self.write_obspred()
                 .context("Failed to write observed-predicted file")?;
             self.write_theta().context("Failed to write theta")?;
             self.write_posterior()
                 .context("Failed to write posterior")?;
-            self.write_pred(equation, idelta, tad)
+            self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
         }
         Ok(())
     }
 
     /// Writes the observations and predictions to a single file
-    pub fn write_obspred(&self, equation: &impl Equation) -> Result<()> {
+    pub fn write_obspred(&self) -> Result<()> {
         tracing::debug!("Writing observations and predictions...");
 
         let theta: Array2<f64> = self.theta.clone();
@@ -111,12 +114,14 @@ impl NPResult {
 
         for (i, subject) in subjects.iter().enumerate() {
             // Population predictions
-            let pop_mean_pred = equation
+            let pop_mean_pred = self
+                .equation
                 .simulate_subject(subject, &pop_mean.to_vec(), None)
                 .0
                 .get_predictions()
                 .clone();
-            let pop_median_pred = equation
+            let pop_median_pred = self
+                .equation
                 .simulate_subject(subject, &pop_median.to_vec(), None)
                 .0
                 .get_predictions()
@@ -124,13 +129,15 @@ impl NPResult {
 
             // Posterior predictions
             let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
-            let post_mean_pred = equation
+            let post_mean_pred = self
+                .equation
                 .simulate_subject(subject, &post_mean_spp, None)
                 .0
                 .get_predictions()
                 .clone();
             let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
-            let post_median_pred = equation
+            let post_median_pred = self
+                .equation
                 .simulate_subject(subject, &post_median_spp, None)
                 .0
                 .get_predictions()
@@ -277,7 +284,7 @@ impl NPResult {
     }
 
     /// Writes the predictions
-    pub fn write_pred(&self, equation: &impl Equation, idelta: f64, tad: f64) -> Result<()> {
+    pub fn write_pred(&self, idelta: f64, tad: f64) -> Result<()> {
         tracing::debug!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
 
@@ -314,12 +321,14 @@ impl NPResult {
 
         for (i, subject) in subjects.iter().enumerate() {
             // Population predictions
-            let pop_mean_pred = equation
+            let pop_mean_pred = self
+                .equation
                 .simulate_subject(subject, &pop_mean.to_vec(), None)
                 .0
                 .get_predictions()
                 .clone();
-            let pop_median_pred = equation
+            let pop_median_pred = self
+                .equation
                 .simulate_subject(subject, &pop_median.to_vec(), None)
                 .0
                 .get_predictions()
@@ -327,13 +336,15 @@ impl NPResult {
 
             // Posterior predictions
             let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
-            let post_mean_pred = equation
+            let post_mean_pred = self
+                .equation
                 .simulate_subject(subject, &post_mean_spp, None)
                 .0
                 .get_predictions()
                 .clone();
             let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
-            let post_median_pred = equation
+            let post_median_pred = self
+                .equation
                 .simulate_subject(subject, &post_median_spp, None)
                 .0
                 .get_predictions()

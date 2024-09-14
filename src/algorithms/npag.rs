@@ -79,8 +79,9 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             data,
         }))
     }
-    fn to_npresult(&self) -> NPResult {
+    fn into_npresult(&self) -> NPResult<E> {
         NPResult::new(
+            self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
             self.psi.clone(),
@@ -165,7 +166,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         self.converged
     }
 
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult)> {
+    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
         self.psi = psi(
             &self.equation,
             &self.data,
@@ -176,7 +177,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         );
 
         if let Err(err) = self.validate_psi() {
-            return Err((err, self.to_npresult()));
+            return Err((err, self.into_npresult()));
         }
 
         (self.lambda, _) = match burke(&self.psi) {
@@ -184,17 +185,17 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             Err(err) => {
                 return Err((
                     anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.to_npresult(),
+                    self.into_npresult(),
                 ));
             }
         };
         Ok(())
     }
 
-    fn condensation(&mut self) -> Result<(), (Error, NPResult)> {
+    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)> {
         let max_lambda = match self.lambda.max() {
             Ok(max_lambda) => max_lambda,
-            Err(err) => return Err((anyhow::anyhow!(err), self.to_npresult())),
+            Err(err) => return Err((anyhow::anyhow!(err), self.into_npresult())),
         };
 
         let mut keep = Vec::<usize>::new();
@@ -243,7 +244,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             Err(err) => {
                 return Err((
                     anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.to_npresult(),
+                    self.into_npresult(),
                 ));
             }
         };
@@ -251,7 +252,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         Ok(())
     }
 
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult)> {
+    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
         // Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
@@ -330,7 +331,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         }
     }
 
-    fn expansion(&mut self) -> Result<(), (Error, NPResult)> {
+    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
         adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
         Ok(())
     }

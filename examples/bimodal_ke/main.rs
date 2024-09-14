@@ -34,12 +34,12 @@ fn main() {
     let settings = settings::read("examples/bimodal_ke/config.toml").unwrap();
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
-    let mut algorithm = dispatch_algorithm::<_, Array2<f64>>(settings, eq.clone(), data).unwrap();
+    let mut algorithm = dispatch_algorithm::<_, Array2<f64>>(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}
-    let result = algorithm.to_npresult();
-    result.write_outputs(&eq).unwrap();
+    let result = algorithm.into_npresult();
+    result.write_outputs().unwrap();
     // println!("{:?}", result);
     // let _result = fit(eq, data, settings);
 }

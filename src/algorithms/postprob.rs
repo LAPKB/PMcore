@@ -53,8 +53,9 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
             cyclelog: CycleLog::new(),
         }))
     }
-    fn to_npresult(&self) -> NPResult {
+    fn into_npresult(&self) -> NPResult<E> {
         NPResult::new(
+            self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
             self.psi.clone(),
@@ -96,7 +97,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         true
     }
 
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult)> {
+    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
         self.psi = psi(
             &self.equation,
             &self.data,
@@ -109,16 +110,16 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         Ok(())
     }
 
-    fn condensation(&mut self) -> Result<(), (Error, NPResult)> {
+    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)> {
         Ok(())
     }
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult)> {
+    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
         Ok(())
     }
 
     fn logs(&self) {}
 
-    fn expansion(&mut self) -> Result<(), (Error, NPResult)> {
+    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
         Ok(())
     }
 }

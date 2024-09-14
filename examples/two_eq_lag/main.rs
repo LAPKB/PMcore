@@ -46,10 +46,10 @@ fn main() {
 
     let settings = settings::read("examples/two_eq_lag/config.toml").unwrap();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
-    let mut algorithm = dispatch_algorithm::<_, Array2<f64>>(settings, eq.clone(), data).unwrap();
+    let mut algorithm = dispatch_algorithm::<_, Array2<f64>>(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}
-    let result = algorithm.to_npresult();
-    result.write_outputs(&eq).unwrap();
+    let result = algorithm.into_npresult();
+    result.write_outputs().unwrap();
 }
