@@ -19,16 +19,15 @@ pub mod npod;
 pub mod postprob;
 
 pub trait Algorithm<E: Equation> {
-    type Matrix;
     fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
     where
         Self: Sized;
     fn get_settings(&self) -> &Settings;
     fn get_data(&self) -> &Data;
-    fn get_prior(&self) -> Self::Matrix;
+    fn get_prior(&self) -> Array2<f64>;
     fn inc_cycle(&mut self) -> usize;
-    fn set_theta(&mut self, theta: Self::Matrix);
-    fn get_theta(&self) -> &Self::Matrix;
+    fn set_theta(&mut self, theta: Array2<f64>);
+    fn get_theta(&self) -> &Array2<f64>;
     fn convergence_evaluation(&mut self);
     fn converged(&self) -> bool;
     fn initialize(&mut self) -> Result<(), Error> {
@@ -66,11 +65,11 @@ pub trait Algorithm<E: Equation> {
     fn into_npresult(&self) -> NPResult<E>;
 }
 
-pub fn dispatch_algorithm<E: Equation, M>(
+pub fn dispatch_algorithm<E: Equation>(
     settings: Settings,
     equation: E,
     data: Data,
-) -> Result<Box<dyn Algorithm<E, Matrix = Array2<f64>>>, Error> {
+) -> Result<Box<dyn Algorithm<E>>, Error> {
     match settings.config.algorithm.as_str() {
         "NPAG" => Ok(NPAG::new(settings, equation, data)?),
         "NPOD" => Ok(NPOD::new(settings, equation, data)?),

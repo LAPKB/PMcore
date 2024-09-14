@@ -53,8 +53,6 @@ pub struct NPAG<E: Equation> {
 }
 
 impl<E: Equation> Algorithm<E> for NPAG<E> {
-    type Matrix = Array2<f64>;
-
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
@@ -102,7 +100,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         &self.data
     }
 
-    fn get_prior(&self) -> Self::Matrix {
+    fn get_prior(&self) -> Array2<f64> {
         initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
     }
 
@@ -110,11 +108,11 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         self.cycle += 1;
         self.cycle
     }
-    fn set_theta(&mut self, theta: Self::Matrix) {
+    fn set_theta(&mut self, theta: Array2<f64>) {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Self::Matrix {
+    fn get_theta(&self) -> &Array2<f64> {
         &self.theta
     }
 

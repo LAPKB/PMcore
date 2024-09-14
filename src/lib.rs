@@ -100,6 +100,7 @@ pub mod prelude {
     pub use crate::routines::expansion::*;
     pub use crate::routines::initialization::*;
     pub use crate::routines::optimization;
+    pub use algorithms::dispatch_algorithm;
     // pub use crate::routines::settings::*;
     pub use crate::routines::*;
     //Alma re-exports

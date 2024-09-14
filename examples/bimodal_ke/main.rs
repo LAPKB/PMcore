@@ -1,6 +1,4 @@
-use algorithms::dispatch_algorithm;
 use logger::setup_log;
-use ndarray::Array2;
 use pmcore::prelude::*;
 fn main() {
     let eq = equation::ODE::new(
@@ -34,7 +32,7 @@ fn main() {
     let settings = settings::read("examples/bimodal_ke/config.toml").unwrap();
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
-    let mut algorithm = dispatch_algorithm::<_, Array2<f64>>(settings, eq, data).unwrap();
+    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}

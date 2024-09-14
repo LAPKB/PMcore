@@ -1,5 +1,3 @@
-use algorithms::dispatch_algorithm;
-use ndarray::Array2;
 use pmcore::prelude::*;
 fn main() {
     let sde = equation::SDE::new(
@@ -32,7 +30,7 @@ fn main() {
 
     let settings = settings::read("examples/iov/config.toml".to_string()).unwrap();
     let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
-    let mut algorithm = dispatch_algorithm::<_, Array2<f64>>(settings, sde, data).unwrap();
+    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}
     let result = algorithm.into_npresult();

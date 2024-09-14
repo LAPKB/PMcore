@@ -1,11 +1,8 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
-use std::path::Path;
 
-use algorithms::dispatch_algorithm;
-use ndarray::Array2;
-use pmcore::prelude::{models::one_compartment, simulator::Equation, *};
+use pmcore::prelude::*;
 
 fn main() {
     let eq = equation::ODE::new(
@@ -36,7 +33,7 @@ fn main() {
     );
     let settings = settings::read("examples/meta/config.toml").unwrap();
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
-    let mut algorithm = dispatch_algorithm::<_, Array2<f64>>(settings, eq, data).unwrap();
+    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}
