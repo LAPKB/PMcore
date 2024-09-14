@@ -57,7 +57,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             w: Array1::default(0),
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
-            cycle: 1,
+            cycle: 0,
             gamma_delta: 0.1,
             gamma: settings.error.value,
             error_type: settings.error.error_type(),
