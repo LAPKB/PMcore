@@ -38,13 +38,13 @@ function time_commit() {
     # Running the example N times
     echo "Running $EXAMPLE_NAME in release mode for $N times"
 
-    # Makes sure the target directory is clean
-    cargo clean -q
+    # # Makes sure the target directory is clean
+    # cargo clean -q
 
      #compile the example
-    echo "Run $i: Compilating $COMMIT..."
+    echo "Compilating $COMMIT..."
     cargo build --release -q --example $EXAMPLE_NAME    
-    echo "Run $i: Done compilating $COMMIT..."
+    echo "Done compilating $COMMIT..."
     for i in $(seq 1 $N); do
 
        
