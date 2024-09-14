@@ -1,7 +1,6 @@
 [config]
 cycles = 1024
 algorithm = "NPAG"
-tui = false
 cache = true
 
 [random]

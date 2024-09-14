@@ -80,7 +80,6 @@ pub struct Config {
     pub cycles: usize,
     /// Denotes the algorithm to use
     pub algorithm: String,
-    pub tui: bool,
     /// If true (default), cache predicted values
     pub cache: bool,
     /// Vector of IDs to include
@@ -94,7 +93,6 @@ impl Default for Config {
         Config {
             cycles: 100,
             algorithm: "npag".to_string(),
-            tui: false,
             cache: false,
             include: None,
             exclude: None,

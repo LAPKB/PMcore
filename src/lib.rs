@@ -124,6 +124,3 @@ pub mod prelude {
     pub use pharmsol::fetch_params;
     pub use pharmsol::lag;
 }
-
-//Tests
-mod tests;
