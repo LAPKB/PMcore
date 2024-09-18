@@ -37,16 +37,11 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
         .with_timer(CompactTimestamp);
 
     // Define layer for stdout
-    let stdout_layer = if settings.config.tui {
-        None
-    } else {
-        let layer = fmt::layer()
-            .with_writer(std::io::stdout)
-            .with_ansi(true)
-            .with_target(false)
-            .with_timer(CompactTimestamp);
-        Some(layer)
-    };
+    let stdout_layer = fmt::layer()
+        .with_writer(std::io::stdout)
+        .with_ansi(true)
+        .with_target(false)
+        .with_timer(CompactTimestamp);
 
     // Combine layers with subscriber
     subscriber.with(file_layer).with(stdout_layer).init();

@@ -1,7 +1,7 @@
 [config]
 cycles = 1000
 algorithm = "NPOD"
-tui = false
+
 cache = true
 
 [random]

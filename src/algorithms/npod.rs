@@ -95,10 +95,14 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
     }
 
-    fn inc_cycle(&mut self) -> usize {
-        self.cycle += 1;
+    fn get_cycle(&mut self) -> usize {
         self.cycle
     }
+
+    fn inc_cycle(&mut self) {
+        self.cycle += 1;
+    }
+
     fn set_theta(&mut self, theta: Array2<f64>) {
         self.theta = theta;
     }

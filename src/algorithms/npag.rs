@@ -104,10 +104,14 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
     }
 
-    fn inc_cycle(&mut self) -> usize {
-        self.cycle += 1;
+    fn get_cycle(&mut self) -> usize {
         self.cycle
     }
+
+    fn inc_cycle(&mut self) {
+        self.cycle += 1;
+    }
+
     fn set_theta(&mut self, theta: Array2<f64>) {
         self.theta = theta;
     }
@@ -330,7 +334,9 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
     }
 
     fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
-        adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
+        if self.cycle > 1 {
+            adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
+        }
         Ok(())
     }
 }
