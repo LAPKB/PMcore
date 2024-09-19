@@ -1,8 +1,8 @@
-name: Rust Example
+name: Benchmark PMcore
 on:
   push:
     branches:
-      - master
+      - main
 
 permissions:
   contents: write
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   benchmark:
-    name: Run Rust benchmark example
+    name: Run Rust benchmark PMcore
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
