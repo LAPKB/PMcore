@@ -1,0 +1,25 @@
+
+running 17 tests
+test routines::initialization::latin::tests::test_generate_lhs ... ignored
+test routines::initialization::sobol::basic_sobol ... ignored
+test routines::initialization::sobol::scaled_sobol ... ignored
+test routines::output::tests::test_median_even ... ignored
+test routines::output::tests::test_median_odd ... ignored
+test routines::output::tests::test_median_single ... ignored
+test routines::output::tests::test_median_sorted ... ignored
+test routines::output::tests::test_median_unsorted ... ignored
+test routines::output::tests::test_median_with_duplicates ... ignored
+test routines::output::tests::test_weighted_median_all_same_elements ... ignored
+test routines::output::tests::test_weighted_median_even_weights ... ignored
+test routines::output::tests::test_weighted_median_mismatched_lengths - should panic ... ignored
+test routines::output::tests::test_weighted_median_negative_weights - should panic ... ignored
+test routines::output::tests::test_weighted_median_simple ... ignored
+test routines::output::tests::test_weighted_median_single_element ... ignored
+test routines::output::tests::test_weighted_median_unsorted_data ... ignored
+test routines::output::tests::test_weighted_median_with_zero_weights ... ignored
+
+test result: ok. 0 passed; 0 failed; 17 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+╭────────────────┬──────┬───────────┬───────────┬───────────┬───────────╮
+│ benchmark      │ args │   fastest │    median │      mean │    stddev │
+├────────────────┼──────┼───────────┼───────────┼───────────┼───────────┤
