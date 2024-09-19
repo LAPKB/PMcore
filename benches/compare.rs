@@ -6,7 +6,7 @@ use toml::Table;
 
 fn main() -> std::io::Result<()> {
     let mut bench = Bench::new(BenchConfig::from_args()?);
-    bench.register_many(list![analytical_bke, ode_bke], [1]);
+    bench.register_many(list![ode_tel, analytical_tel, ode_bke, analytical_bke], [1]);
     bench.run()?;
     Ok(())
 }
@@ -62,6 +62,134 @@ pub fn ode_bke(bencher: Bencher, len: usize) {
     });
 }
 
+fn analytical_tel(bencher: Bencher, len: usize) {
+    let eq = equation::Analytical::new(
+        one_compartment_with_absorption,
+        |_p, _t, _cov| {},
+        |p| {
+            fetch_params!(p, _ka, _ke, tlag, _v);
+            lag! {0=>tlag}
+        },
+        |_p| fa! {},
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _ka, _ke, _tlag, v);
+            y[0] = x[1] / v;
+        },
+        (2, 1),
+    );
+    let settings = tel_settings();
+    let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
+    bencher.bench(|| {
+        for _ in 0..len {
+            let result = black_box(fit(eq.clone(), data.clone(), settings.clone()).unwrap());
+            assert!(result.cycles == 686);
+            assert!(result.objf == 432.95499351489167);
+        }
+    });
+}
+
+fn ode_tel(bencher: Bencher, len: usize) {
+    let eq = equation::ODE::new(
+        |x, p, _t, dx, _rateiv, _cov| {
+            fetch_cov!(cov, t,);
+            fetch_params!(p, ka, ke, _tlag, _v);
+            dx[0] = -ka * x[0];
+            dx[1] = ka * x[0] - ke * x[1];
+        },
+        |p| {
+            fetch_params!(p, _ka, _ke, tlag, _v);
+            lag! {0=>tlag}
+        },
+        |_p| fa! {},
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _ka, _ke, _tlag, v);
+            y[0] = x[1] / v;
+        },
+        (2, 1),
+    );
+    let settings = tel_settings();
+    let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
+    bencher.bench(|| {
+        for _ in 0..len {
+            let result = black_box(fit(eq.clone(), data.clone(), settings.clone()).unwrap());
+            assert!(result.cycles == 707);
+            assert!(result.objf == 432.9542531584738);
+        }
+    });
+}
+
+fn tel_settings() -> Settings {
+    let settings = Settings {
+        config: Config {
+            cycles: 1000,
+            algorithm: "NPAG".to_string(),
+            tui: false,
+            cache: true,
+            ..Default::default()
+        },
+        predictions: settings::Predictions::default(),
+        log: Log {
+            level: "warn".to_string(),
+            file: "".to_string(),
+            write: false,
+        },
+        prior: Prior {
+            file: None,
+            sampler: "sobol".to_string(),
+            points: 2129,
+            seed: 347,
+        },
+        output: Output {
+            write: false,
+            ..Default::default()
+        },
+        convergence: Default::default(),
+        advanced: Default::default(),
+        random: Random {
+            parameters: Table::from(
+                [
+                    (
+                        "Ka".to_string(),
+                        toml::Value::Array(vec![toml::Value::Float(0.1), toml::Value::Float(0.9)]),
+                    ),
+                    (
+                        "Ke".to_string(),
+                        toml::Value::Array(vec![
+                            toml::Value::Float(0.001),
+                            toml::Value::Float(0.1),
+                        ]),
+                    ),
+                    (
+                        "Tlag1".to_string(),
+                        toml::Value::Array(vec![toml::Value::Float(0.0), toml::Value::Float(4.0)]),
+                    ),
+                    (
+                        "V".to_string(),
+                        toml::Value::Array(vec![
+                            toml::Value::Float(30.0),
+                            toml::Value::Float(120.0),
+                        ]),
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
+            ),
+        },
+        fixed: None,
+        constant: None,
+        error: Error {
+            value: 5.0,
+            class: "proportional".to_string(),
+            poly: (0.02, 0.05, -2e-04, 0.0),
+        },
+    };
+    settings.validate().unwrap();
+    settings
+}
+
 fn bke_settings() -> Settings {
     let settings = Settings {
         config: Config {
@@ -82,7 +210,7 @@ fn bke_settings() -> Settings {
             file: None,
             points: settings::Prior::default().points,
             sampler: "sobol".to_string(),
-            ..settings::Prior::default()
+            ..Default::default()
         },
         output: Output {
             write: false,
