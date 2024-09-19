@@ -1,0 +1,34 @@
+
+running 21 tests
+test routines::expansion::adaptative_grid::tests::test_adaptive_grid_1d ... ignored
+test routines::expansion::adaptative_grid::tests::test_adaptive_grid_2d ... ignored
+test routines::expansion::adaptative_grid::tests::test_adaptive_grid_min_dist ... ignored
+test routines::expansion::adaptative_grid::tests::test_adaptive_grid_out_of_bounds ... ignored
+test routines::initialization::latin::tests::test_generate_lhs ... ignored
+test routines::initialization::sobol::basic_sobol ... ignored
+test routines::initialization::sobol::scaled_sobol ... ignored
+test routines::output::tests::test_median_even ... ignored
+test routines::output::tests::test_median_odd ... ignored
+test routines::output::tests::test_median_single ... ignored
+test routines::output::tests::test_median_sorted ... ignored
+test routines::output::tests::test_median_unsorted ... ignored
+test routines::output::tests::test_median_with_duplicates ... ignored
+test routines::output::tests::test_weighted_median_all_same_elements ... ignored
+test routines::output::tests::test_weighted_median_even_weights ... ignored
+test routines::output::tests::test_weighted_median_mismatched_lengths - should panic ... ignored
+test routines::output::tests::test_weighted_median_negative_weights - should panic ... ignored
+test routines::output::tests::test_weighted_median_simple ... ignored
+test routines::output::tests::test_weighted_median_single_element ... ignored
+test routines::output::tests::test_weighted_median_unsorted_data ... ignored
+test routines::output::tests::test_weighted_median_with_zero_weights ... ignored
+
+test result: ok. 0 passed; 0 failed; 21 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+╭────────────────┬──────┬───────────┬───────────┬───────────┬───────────╮
+│ benchmark      │ args │   fastest │    median │      mean │    stddev │
+├────────────────┼──────┼───────────┼───────────┼───────────┼───────────┤
+│ ode_tel        │    1 │  22.08  s │  22.08  s │  22.08  s │     -     │
+│ analytical_tel │    1 │   5.84  s │   5.84  s │   5.84  s │     -     │
+│ ode_bke        │    1 │   6.25  s │   6.25  s │   6.25  s │     -     │
+│ analytical_bke │    1 │   3.78  s │   3.78  s │   3.78  s │     -     │
+╰────────────────┴──────┴───────────┴───────────┴───────────┴───────────╯
