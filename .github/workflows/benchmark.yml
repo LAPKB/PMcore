@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup update
       - name: Run benchmark
-        run: cd PMcore && cargo bench | tee output.txt
+        run: cd PMcore/PMcore && cargo bench | tee output.txt
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
