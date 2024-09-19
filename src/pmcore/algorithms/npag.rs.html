@@ -645,7 +645,7 @@
                 <span class="kw-2">&amp;</span><span class="self">self</span>.data,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.theta,
                 <span class="kw-2">&amp;</span>ErrorModel::new(<span class="self">self</span>.c, <span class="self">self</span>.gamma, <span class="kw-2">&amp;</span><span class="self">self</span>.error_type),
-                <span class="self">self</span>.cycle == <span class="number">1</span>,
+                <span class="self">self</span>.cycle == <span class="number">1 </span>&amp;&amp; <span class="self">self</span>.settings.log.write,
                 <span class="self">self</span>.cycle != <span class="number">1</span>,
             );
 
