@@ -1,10 +1,16 @@
 use pmcore::prelude::*;
 
-use diol::prelude::*;
+use diol::{
+    config::{ItersPerSample, SampleCount},
+    prelude::*,
+};
 use settings::*;
 use toml::Table;
 
 fn main() -> std::io::Result<()> {
+    let mut bench_config = BenchConfig::new();
+    bench_config.sample_count = SampleCount(1);
+    bench_config.iter_count = ItersPerSample::Manual(1);
     let mut bench = Bench::new(BenchConfig::from_args()?);
     bench.register_many(list![ode_tel, analytical_tel, ode_bke, analytical_bke], [1]);
     bench.run()?;
