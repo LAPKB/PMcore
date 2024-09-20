@@ -121,7 +121,6 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
     }
 
     fn convergence(&mut self) -> bool {
-        let mut stop = false;
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
             self.eps /= 2.;
             if self.eps <= THETA_E {
@@ -130,14 +129,14 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.converged = true;
-                    stop = true;
+                    return true;
                 } else {
                     self.f0 = self.f1;
                     self.eps = 0.2;
                 }
             }
         }
-        stop
+        return false;
     }
 
     fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
