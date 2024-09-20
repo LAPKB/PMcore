@@ -67,7 +67,6 @@ pub trait Algorithm<E: Equation> {
         if self.get_cycle() > 1 {
             self.expansion()?;
         }
-        self.expansion()?;
         self.evaluation()?;
         self.condensation()?;
         self.optimizations()?;
