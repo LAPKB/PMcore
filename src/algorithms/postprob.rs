@@ -91,10 +91,8 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         &self.theta
     }
 
-    fn convergence_evaluation(&mut self) {}
-
-    fn converged(&self) -> bool {
-        true
+    fn convergence(&mut self) -> bool {
+        false
     }
 
     fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
@@ -117,7 +115,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         Ok(())
     }
 
-    fn logs(&self) {}
+    fn logs(&mut self) {}
 
     fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
         Ok(())

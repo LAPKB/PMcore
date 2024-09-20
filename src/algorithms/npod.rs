@@ -111,42 +111,14 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         &self.theta
     }
 
-    fn convergence_evaluation(&mut self) {
+    fn convergence(&mut self) -> bool {
         if (self.last_objf - self.objf).abs() <= THETA_F {
-            tracing::info!("Objective function convergence reached");
+            tracing::info!("The model converged");
             self.converged = true;
+            true
+        } else {
+            false
         }
-
-        // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config.cycles {
-            tracing::warn!("Maximum number of cycles reached");
-            self.converged = true;
-        }
-
-        // Stop if stopfile exists
-        if std::path::Path::new("stop").exists() {
-            tracing::warn!("Stopfile detected - breaking");
-            self.converged = true;
-        }
-
-        // Create state object
-        let state = NPCycle {
-            cycle: self.cycle,
-            objf: -2. * self.objf,
-            delta_objf: (self.last_objf - self.objf).abs(),
-            nspp: self.theta.shape()[0],
-            theta: self.theta.clone(),
-            gamlam: self.gamma,
-            converged: self.converged,
-        };
-
-        // Write cycle log
-        self.cycle_log.push(state);
-        self.last_objf = self.objf;
-    }
-
-    fn converged(&self) -> bool {
-        self.converged
     }
 
     fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
@@ -295,7 +267,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         Ok(())
     }
 
-    fn logs(&self) {
+    fn logs(&mut self) {
         // Log relevant cycle information
         // let span = tracing::info_span!("", Cycle = self.cycle);
         // let _enter = span.enter();
@@ -311,6 +283,21 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
                 -2.0 * self.last_objf - -2.0 * self.objf
             );
         }
+
+        // Create state object
+        let state = NPCycle {
+            cycle: self.cycle,
+            objf: -2. * self.objf,
+            delta_objf: (self.last_objf - self.objf).abs(),
+            nspp: self.theta.shape()[0],
+            theta: self.theta.clone(),
+            gamlam: self.gamma,
+            converged: self.converged,
+        };
+
+        // Write cycle log
+        self.cycle_log.push(state);
+        self.last_objf = self.objf;
     }
 
     fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
