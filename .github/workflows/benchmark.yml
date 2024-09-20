@@ -1,12 +1,17 @@
 name: Benchmark PMcore
+
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
-  contents: write
-  deployments: write
+  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
   benchmark:
@@ -14,36 +19,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup update
-      - name: Run benchmark
-        run: cd PMcore/PMcore && cargo bench | tee output.txt
 
-      - name: Store benchmark result
+      - name: Set up Rust
+        run: rustup update
+
+      - name: Run benchmark
+        run: cargo bench | tee output.txt
+
+      - name: Post benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: Rust Benchmark
+          name: 'Rust Benchmark'
           tool: 'cargo'
           output-file-path: output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          # Show alert with commit comment on detecting possible performance regression
+          # Always post the benchmark result as a comment
+          comment-always: true
+          # Alert on performance regression beyond threshold
           alert-threshold: '110%'
           comment-on-alert: true
           fail-on-alert: true
-          alert-comment-cc-users: '@siel'
-
-      - name: Store benchmark result - separate results repo
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Rust Benchmark
-          tool: 'cargo'
-          output-file-path: output.txt
-          github-token: ${{ secrets.GITHUB_TOKEN  }}
-          auto-push: true
-          # Show alert with commit comment on detecting possible performance regression
-          alert-threshold: '110%'
-          summary-always: true
-          comment-on-alert: true
-          fail-on-alert: true
-          alert-comment-cc-users: '@siel'
-          gh-repository: 'github.com/benchmark-action/github-action-benchmark-results'
