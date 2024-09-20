@@ -18,9 +18,9 @@ pub struct NPResult<E: Equation> {
     theta: Array2<f64>,
     psi: Array2<f64>,
     w: Array1<f64>,
-    _objf: f64,
-    _cycles: usize,
-    _converged: bool,
+    objf: f64,
+    cycles: usize,
+    converged: bool,
     par_names: Vec<String>,
     settings: Settings,
     cyclelog: CycleLog,
@@ -50,13 +50,25 @@ impl<E: Equation> NPResult<E> {
             theta,
             psi,
             w,
-            _objf: objf,
-            _cycles: cycles,
-            _converged: converged,
+            objf,
+            cycles,
+            converged,
             par_names,
             settings,
             cyclelog,
         }
+    }
+
+    pub fn cycles(&self) -> usize {
+        self.cycles
+    }
+
+    pub fn objf(&self) -> f64 {
+        self.objf
+    }
+
+    pub fn converged(&self) -> bool {
+        self.converged
     }
 
     pub fn write_outputs(&self) -> Result<()> {

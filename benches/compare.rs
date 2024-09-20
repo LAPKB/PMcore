@@ -29,7 +29,9 @@ pub fn analytical_bke(bencher: Bencher, len: usize) {
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(algorithm.fit().unwrap());
+            let result = black_box(algorithm.fit().unwrap());
+            assert!(result.cycles() == 96);
+            assert!(result.objf() == -344.64028277953844);
         }
     });
 }
@@ -55,7 +57,9 @@ pub fn ode_bke(bencher: Bencher, len: usize) {
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(algorithm.fit().unwrap());
+            let result = black_box(algorithm.fit().unwrap());
+            assert!(result.cycles() == 104);
+            assert!(result.objf() == -348.69505647385495);
         }
     });
 }
@@ -81,7 +85,9 @@ fn analytical_tel(bencher: Bencher, len: usize) {
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(algorithm.fit().unwrap());
+            let result = black_box(algorithm.fit().unwrap());
+            assert!(result.cycles() == 686);
+            assert!(result.objf() == 432.95499351489167);
         }
     });
 }
@@ -111,7 +117,9 @@ fn ode_tel(bencher: Bencher, len: usize) {
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     bencher.bench(|| {
         for _ in 0..len {
-            black_box(algorithm.fit().unwrap());
+            let result = black_box(algorithm.fit().unwrap());
+            assert!(result.cycles() == 707);
+            assert!(result.objf() == 432.9542531584738);
         }
     });
 }
