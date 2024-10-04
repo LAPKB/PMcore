@@ -107,6 +107,14 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         &self.theta
     }
 
+    fn psi(&self) -> &Array2<f64> {
+        &self.psi
+    }
+
+    fn likelihood(&self) -> f64 {
+        self.objf
+    }
+
     fn convergence_evaluation(&mut self) {
         if (self.last_objf - self.objf).abs() <= THETA_F {
             tracing::info!("Objective function convergence reached");

@@ -77,6 +77,10 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
     }
 
+    fn likelihood(&self) -> f64 {
+        self.objf
+    }
+
     fn inc_cycle(&mut self) -> usize {
         0
     }
@@ -87,6 +91,10 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
 
     fn get_theta(&self) -> &Array2<f64> {
         &self.theta
+    }
+
+    fn psi(&self) -> &Array2<f64> {
+        &self.psi
     }
 
     fn convergence_evaluation(&mut self) {}

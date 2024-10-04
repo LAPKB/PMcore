@@ -710,7 +710,7 @@ pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<
     writer.write_record(&["id", "block", "time", "out", "outeq"])?;
     for subject in data.get_subjects() {
         for occasion in subject.occasions() {
-            for event in occasion.get_events(None, None, false) {
+            for event in occasion.get_events(&None, &None, false) {
                 match event {
                     Event::Observation(obs) => {
                         // Write each field individually

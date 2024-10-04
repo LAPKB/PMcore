@@ -1,7 +1,7 @@
 use pmcore::prelude::*;
 
 use diol::prelude::*;
-use settings::*;
+use settings::{Log, *};
 use toml::Table;
 
 fn main() -> std::io::Result<()> {

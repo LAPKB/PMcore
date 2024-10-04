@@ -17,7 +17,7 @@ level = "info"
 
 [prior]
 sampler = "sobol"
-file = "examples/bimodal_ke/prior.csv"
+#file = "examples/bimodal_ke/prior.csv"
 
 [output]
 write = true

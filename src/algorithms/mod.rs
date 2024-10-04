@@ -28,6 +28,29 @@ pub trait Algorithm<E: Equation> {
     fn inc_cycle(&mut self) -> usize;
     fn set_theta(&mut self, theta: Array2<f64>);
     fn get_theta(&self) -> &Array2<f64>;
+    fn psi(&self) -> &Array2<f64>;
+    fn write_psi(&self, path: &str) {
+        // write psi to csv file
+        let psi = self.psi();
+        let mut wtr = csv::Writer::from_path(path).unwrap();
+        for row in psi.rows() {
+            wtr.write_record(row.iter().map(|x| x.to_string())).unwrap();
+        }
+        wtr.flush().unwrap();
+    }
+    fn write_theta(&self, path: &str) {
+        // write theta to csv file
+        let theta = self.get_theta();
+        let mut wtr = csv::Writer::from_path(path).unwrap();
+        for row in theta.rows() {
+            wtr.write_record(row.iter().map(|x| x.to_string())).unwrap();
+        }
+        wtr.flush().unwrap();
+    }
+    fn likelihood(&self) -> f64;
+    fn n2ll(&self) -> f64 {
+        -2.0 * self.likelihood()
+    }
     fn convergence_evaluation(&mut self);
     fn converged(&self) -> bool;
     fn initialize(&mut self) -> Result<(), Error> {
