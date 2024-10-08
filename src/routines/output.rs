@@ -77,13 +77,16 @@ impl<E: Equation> NPResult<E> {
             let tad = self.settings.predictions.tad;
             self.cyclelog.write(&self.settings)?;
             self.write_obs().context("Failed to write observations")?;
+            self.write_theta().context("Failed to write theta")?;
             self.write_obspred()
                 .context("Failed to write observed-predicted file")?;
-            self.write_theta().context("Failed to write theta")?;
-            self.write_posterior()
-                .context("Failed to write posterior")?;
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
+            if self.w.len() > 0 {
+                //TODO: find a better way to indicate that the run failed
+                self.write_posterior()
+                    .context("Failed to write posterior")?;
+            }
         }
         Ok(())
     }
@@ -104,7 +107,11 @@ impl<E: Equation> NPResult<E> {
 
         let subjects = self.data.get_subjects();
         if subjects.len() != post_mean.nrows() {
-            bail!("Number of subjects and number of posterior means do not match");
+            bail!(
+                "Number of subjects: {} and number of posterior means: {} do not match",
+                subjects.len(),
+                post_mean.nrows()
+            );
         }
 
         let outputfile = OutputFile::new(&self.settings.output.path, "op.csv")?;
@@ -550,7 +557,8 @@ fn weighted_median(data: &Array1<f64>, weights: &Array1<f64>) -> f64 {
     );
     assert!(
         weights.iter().all(|&x| x >= 0.0),
-        "Weights must be non-negative"
+        "Weights must be non-negative, weights: {:?}",
+        weights
     );
 
     // Create a vector of tuples (data, weight)
@@ -589,6 +597,12 @@ pub fn population_mean_median(
     theta: &Array2<f64>,
     w: &Array1<f64>,
 ) -> Result<(Array1<f64>, Array1<f64>)> {
+    let w = if w.len() == 0 {
+        tracing::warn!("w.len() == 0, setting all weights to 1/n");
+        Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
+    } else {
+        w.clone()
+    };
     // Check for compatible sizes
     if theta.nrows() != w.len() {
         bail!(
@@ -610,9 +624,9 @@ pub fn population_mean_median(
         let ct = theta.column(i);
         let mut params = vec![];
         let mut weights = vec![];
-        for (ti, wi) in ct.iter().zip(w) {
+        for (ti, wi) in ct.iter().zip(w.clone()) {
             params.push(*ti);
-            weights.push(*wi);
+            weights.push(wi);
         }
 
         *mdn = weighted_median(&Array::from(params), &Array::from(weights));
@@ -629,25 +643,41 @@ pub fn posterior_mean_median(
     let mut mean = Array2::zeros((0, theta.ncols()));
     let mut median = Array2::zeros((0, theta.ncols()));
 
+    let w = if w.len() == 0 {
+        tracing::warn!("w.len() == 0, setting all weights to 1/n");
+        Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
+    } else {
+        w.clone()
+    };
+
     // Check for compatible sizes
     if theta.nrows() != w.len() || theta.nrows() != psi.ncols() || psi.ncols() != w.len() {
-        bail!("Number of parameters and number of weights do not match");
+        bail!("Number of parameters and number of weights do not match, theta.nrows(): {}, w.len(): {}, psi.ncols(): {}", theta.nrows(), w.len(), psi.ncols());
     }
 
     // Normalize psi to get probabilities of each spp for each id
     let mut psi_norm: Array2<f64> = Array2::zeros((0, psi.ncols()));
-    for row in psi.axis_iter(Axis(0)) {
+    for (i, row) in psi.axis_iter(Axis(0)).enumerate() {
         let row_w = row.to_owned() * w.to_owned();
         let row_sum = row_w.sum();
-        let row_norm = &row_w / row_sum;
+        let row_norm = if row_sum == 0.0 {
+            tracing::warn!("Sum of row {} of psi is 0.0, setting that row to 1/n", i);
+            Array1::from_elem(psi.ncols(), 1.0 / psi.ncols() as f64)
+        } else {
+            &row_w / row_sum
+        };
         psi_norm.push_row(row_norm.view())?;
     }
+    if psi_norm.iter().any(|&x| x.is_nan()) {
+        dbg!(&psi);
+        bail!("NaN values found in psi_norm");
+    };
 
     // Transpose normalized psi to get ID (col) by prob (row)
-    let psi_norm_transposed = psi_norm.t();
+    // let psi_norm_transposed = psi_norm.t();
 
     // For each subject..
-    for probs in psi_norm_transposed.axis_iter(Axis(1)) {
+    for probs in psi_norm.axis_iter(Axis(0)) {
         let mut post_mean: Vec<f64> = Vec::new();
         let mut post_median: Vec<f64> = Vec::new();
 

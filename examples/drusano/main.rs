@@ -6,15 +6,16 @@ use argmin::{
 use logger::setup_log;
 use pmcore::prelude::*;
 use std::process::exit;
-
+#[allow(unused_variables)]
 fn main() {
     let eq = equation::ODE::new(
-        |x, p, _t, dx, rateiv, _cov| {
+        |x, p, t, dx, rateiv, _cov| {
             fetch_params!(
                 p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
-                e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_3, init_4, init_5, h1s, h2s,
-                h1r1, h2r2
+                e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1,
+                h2r2
             );
+
             let e50_2r1 = e50_2s;
             let e50_1r2 = e50_1s;
             let h2r1 = h2s;
@@ -54,8 +55,8 @@ fn main() {
         |p, t, cov, x| {
             fetch_params!(
                 p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
-                e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_3, init_4, init_5, h1s, h2s,
-                h1r1, h2r2
+                e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1,
+                h2r2
             );
             fetch_cov!(cov, t, ic_t);
             x[0] = 0.0;
@@ -67,8 +68,8 @@ fn main() {
         |x, p, _t, _cov, y| {
             fetch_params!(
                 p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
-                e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_3, init_4, init_5, h1s, h2s,
-                h1r1, h2r2
+                e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1,
+                h2r2
             );
             y[0] = x[0] / v1;
             y[1] = x[1] / v2;
@@ -76,13 +77,23 @@ fn main() {
             y[3] = x[3].log10();
             y[4] = x[4].log10();
         },
-        (1, 1),
+        (5, 5),
     );
     let settings = settings::read("examples/drusano/config.toml").unwrap();
     let _ = setup_log(&settings);
-    let data = data::read_pmetrics("examples/drusano/drusano.csv").unwrap();
+    let data = data::read_pmetrics("examples/drusano/data.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
-    let result = algorithm.fit().unwrap();
+    algorithm.initialize().unwrap();
+    while !match algorithm.next_cycle() {
+        Ok(converged) => converged,
+        Err((e, result)) => {
+            eprintln!("{}", e);
+            result.write_outputs().unwrap();
+            panic!("Error during cycle");
+        }
+    } {}
+    // while !algorithm.next_cycle().unwrap() {}
+    let result = algorithm.into_npresult();
     result.write_outputs().unwrap();
 }
 

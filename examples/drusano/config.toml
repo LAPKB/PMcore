@@ -1,6 +1,6 @@
 [config]
 cycles = 1024
-engine = "NPAG"
+algorithm = "NPAG"
 cache = true
 
 [random]
@@ -22,7 +22,6 @@ kgr2 = [0.004, 0.3]
 kkr2 = [0.1, 0.5]
 e50_2r2 = [5.0, 8.0]
 alpha_r2 = [-5.0, 5.0]
-init_3 = [0.0, 0.0]
 init_4 = [-1.0, 4.0]
 init_5 = [-1.0, 3.0]
 h1s = [0.5, 8.0]
@@ -37,6 +36,7 @@ poly = [0.1, 0.1, 0.0, 0.0]
 
 [log]
 level = "info"
+write = true
 
 [prior]
 sampler = "sobol"
@@ -47,6 +47,4 @@ seed = 347
 write = true
 path = "examples/drusano/output"
 
-init_points = 2129
-seed = 347
 

@@ -43,7 +43,6 @@ pub fn sample_space(settings: &Settings, data: &Data, eqn: &impl Equation) -> Re
             );
         }
     };
-
     Ok(prior)
 }
 
