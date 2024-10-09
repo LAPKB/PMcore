@@ -40,7 +40,7 @@ write = true
 
 [prior]
 sampler = "sobol"
-points = 2129
+points = 212900
 seed = 347
 
 [output]
