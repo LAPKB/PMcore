@@ -318,7 +318,7 @@ impl<E: Equation> NPResult<E> {
             .context("Failed to calculate posterior mean and median")?;
 
         let (pop_mean, pop_median) = population_mean_median(&theta, &w)
-            .context("Failed to calculate posterior mean and median")?;
+            .context("Failed to calculate population mean and median")?;
 
         let subjects = data.get_subjects();
         if subjects.len() != post_mean.nrows() {
@@ -330,66 +330,76 @@ impl<E: Equation> NPResult<E> {
             .has_headers(true)
             .from_writer(&outputfile.file);
 
-        // Create the headers
-        writer.write_record([
-            "id",
-            "time",
-            "outeq",
-            "popMean",
-            "popMedian",
-            "postMean",
-            "postMedian",
-        ])?;
+        #[derive(Debug, Clone, Serialize)]
+        struct Row {
+            id: String,
+            time: f64,
+            outeq: usize,
+            block: usize,
+            pop_mean: f64,
+            pop_median: f64,
+            post_mean: f64,
+            post_median: f64,
+        }
 
         for (i, subject) in subjects.iter().enumerate() {
-            // Population predictions
-            let pop_mean_pred = self
-                .equation
-                .simulate_subject(subject, &pop_mean.to_vec(), None)
-                .0
-                .get_predictions()
-                .clone();
-            let pop_median_pred = self
-                .equation
-                .simulate_subject(subject, &pop_median.to_vec(), None)
-                .0
-                .get_predictions()
-                .clone();
+            for occasion in subject.occasions() {
+                let id = subject.id();
+                let block = occasion.index();
 
-            // Posterior predictions
-            let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
-            let post_mean_pred = self
-                .equation
-                .simulate_subject(subject, &post_mean_spp, None)
-                .0
-                .get_predictions()
-                .clone();
-            let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
-            let post_median_pred = self
-                .equation
-                .simulate_subject(subject, &post_median_spp, None)
-                .0
-                .get_predictions()
-                .clone();
+                // Create a new subject with only the current occasion
+                let subject = Subject::from_occasions(id.clone(), vec![occasion.clone()]);
 
-            pop_mean_pred
-                .iter()
-                .zip(pop_median_pred.iter())
-                .zip(post_mean_pred.iter())
-                .zip(post_median_pred.iter())
-                .for_each(|(((pop_mean, pop_median), post_mean), post_median)| {
-                    writer
-                        .write_record([
-                            subject.id(),
-                            &format!("{:.3}", pop_mean.time()),
-                            &format!("{}", pop_mean.outeq()),
-                            &format!("{:.4}", pop_mean.prediction()),
-                            &format!("{:.4}", pop_median.prediction()),
-                            &format!("{:.4}", post_mean.prediction()),
-                            &format!("{:.4}", post_median.prediction()),
-                        ])
-                        .expect("Failed to write record");
-                });
+                // Population predictions
+                let pop_mean_pred = self
+                    .equation
+                    .simulate_subject(&subject, &pop_mean.to_vec(), None)
+                    .0
+                    .get_predictions()
+                    .clone();
+                let pop_median_pred = self
+                    .equation
+                    .simulate_subject(&subject, &pop_median.to_vec(), None)
+                    .0
+                    .get_predictions()
+                    .clone();
+
+                // Posterior predictions
+                let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
+                let post_mean_pred = self
+                    .equation
+                    .simulate_subject(&subject, &post_mean_spp, None)
+                    .0
+                    .get_predictions()
+                    .clone();
+                let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
+                let post_median_pred = self
+                    .equation
+                    .simulate_subject(&subject, &post_median_spp, None)
+                    .0
+                    .get_predictions()
+                    .clone();
+
+                // Write predictions for each time point
+                for (((pop_mean, pop_median), post_mean), post_median) in pop_mean_pred
+                    .iter()
+                    .zip(pop_median_pred.iter())
+                    .zip(post_mean_pred.iter())
+                    .zip(post_median_pred.iter())
+                {
+                    let row = Row {
+                        id: id.clone(),
+                        time: pop_mean.time(),
+                        outeq: pop_mean.outeq(),
+                        block,
+                        pop_mean: pop_mean.prediction(),
+                        pop_median: pop_median.prediction(),
+                        post_mean: post_mean.prediction(),
+                        post_median: post_median.prediction(),
+                    };
+                    writer.serialize(row)?;
+                }
+            }
         }
         writer.flush()?;
         tracing::info!(
