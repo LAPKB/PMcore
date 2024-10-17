@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
-use std::path::Path;
 
-use pmcore::prelude::{models::one_compartment, simulator::Equation, *};
+use logger::setup_log;
+use pmcore::prelude::*;
 
 fn main() {
     let eq = equation::ODE::new(
@@ -33,6 +33,12 @@ fn main() {
         (2, 2),
     );
     let settings = settings::read("examples/meta/config.toml").unwrap();
+    setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
-    let _result = fit(eq, data, settings);
+    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
+    // let result = algorithm.fit().unwrap();
+    algorithm.initialize().unwrap();
+    while !algorithm.next_cycle().unwrap() {}
+    let result = algorithm.into_npresult();
+    result.write_outputs().unwrap();
 }

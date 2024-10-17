@@ -30,6 +30,9 @@ fn main() {
 
     let settings = settings::read("examples/iov/config.toml".to_string()).unwrap();
     let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
-    let _result = fit(sde, data, settings);
-    // let _result = fit(ode, data, settings);
+    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
+    algorithm.initialize().unwrap();
+    while !algorithm.next_cycle().unwrap() {}
+    let result = algorithm.into_npresult();
+    result.write_outputs().unwrap();
 }

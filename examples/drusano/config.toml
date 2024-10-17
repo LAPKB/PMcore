@@ -1,15 +1,6 @@
-[paths]
-data = "examples/data/bimodal_ke.csv"
-log_out = "log/bimodal_ke.log"
-#prior_dist = "theta_bimodal_ke.csv"
-
 [config]
 cycles = 1024
-engine = "NPAG"
-init_points = 2129
-seed = 347
-tui = true
-pmetrics_outputs = true
+algorithm = "NPAG"
 cache = true
 
 [random]
@@ -31,7 +22,6 @@ kgr2 = [0.004, 0.3]
 kkr2 = [0.1, 0.5]
 e50_2r2 = [5.0, 8.0]
 alpha_r2 = [-5.0, 5.0]
-init_3 = [0.0, 0.0]
 init_4 = [-1.0, 4.0]
 init_5 = [-1.0, 3.0]
 h1s = [0.5, 8.0]
@@ -43,3 +33,18 @@ h2r2 = [10.0, 22.0]
 value = 1.0
 class = "proportional"
 poly = [0.1, 0.1, 0.0, 0.0]
+
+[log]
+level = "info"
+write = true
+
+[prior]
+sampler = "sobol"
+points = 212900
+seed = 347
+
+[output]
+write = true
+path = "examples/drusano/output"
+
+

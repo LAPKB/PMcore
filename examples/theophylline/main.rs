@@ -31,5 +31,10 @@ fn main() {
     );
     let settings = settings::read("examples/theophylline/config.toml").unwrap();
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
-    let _result = fit(eq, data, settings);
+    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
+    // let result = algorithm.fit().unwrap();
+    algorithm.initialize().unwrap();
+    while !algorithm.next_cycle().unwrap() {}
+    let result = algorithm.into_npresult();
+    result.write_outputs().unwrap();
 }

@@ -1,7 +1,7 @@
 use pmcore::prelude::*;
 
 use diol::prelude::*;
-use settings::*;
+use settings::{Log, *};
 use toml::Table;
 
 fn main() -> std::io::Result<()> {
@@ -26,11 +26,12 @@ pub fn analytical_bke(bencher: Bencher, len: usize) {
     );
     let settings = bke_settings();
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
+    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     bencher.bench(|| {
         for _ in 0..len {
-            let result = black_box(fit(eq.clone(), data.clone(), settings.clone()).unwrap());
-            assert!(result.cycles == 96);
-            assert!(result.objf == -344.64028277953844);
+            let result = black_box(algorithm.fit().unwrap());
+            assert!(result.cycles() == 96);
+            assert!(result.objf() == -344.64028277953844);
         }
     });
 }
@@ -53,11 +54,12 @@ pub fn ode_bke(bencher: Bencher, len: usize) {
     );
     let settings = bke_settings();
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
+    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     bencher.bench(|| {
         for _ in 0..len {
-            let result = black_box(fit(eq.clone(), data.clone(), settings.clone()).unwrap());
-            assert!(result.cycles == 104);
-            assert!(result.objf == -348.69505647385495);
+            let result = black_box(algorithm.fit().unwrap());
+            assert!(result.cycles() == 104);
+            assert!(result.objf() == -348.69505647385495);
         }
     });
 }
@@ -80,11 +82,12 @@ fn analytical_tel(bencher: Bencher, len: usize) {
     );
     let settings = tel_settings();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
+    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     bencher.bench(|| {
         for _ in 0..len {
-            let result = black_box(fit(eq.clone(), data.clone(), settings.clone()).unwrap());
-            assert!(result.cycles == 686);
-            assert!(result.objf == 432.95499351489167);
+            let result = black_box(algorithm.fit().unwrap());
+            assert!(result.cycles() == 686);
+            assert!(result.objf() == 432.95499351489167);
         }
     });
 }
@@ -111,11 +114,12 @@ fn ode_tel(bencher: Bencher, len: usize) {
     );
     let settings = tel_settings();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
+    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     bencher.bench(|| {
         for _ in 0..len {
-            let result = black_box(fit(eq.clone(), data.clone(), settings.clone()).unwrap());
-            assert!(result.cycles == 707);
-            assert!(result.objf == 432.9542531584738);
+            let result = black_box(algorithm.fit().unwrap());
+            assert!(result.cycles() == 707);
+            assert!(result.objf() == 432.9542531584738);
         }
     });
 }
@@ -125,7 +129,6 @@ fn tel_settings() -> Settings {
         config: Config {
             cycles: 1000,
             algorithm: "NPAG".to_string(),
-            tui: false,
             cache: true,
             ..Default::default()
         },
@@ -195,7 +198,6 @@ fn bke_settings() -> Settings {
         config: Config {
             cycles: 1024,
             algorithm: "NPAG".to_string(),
-            tui: false,
             cache: true,
             include: None,
             exclude: None,

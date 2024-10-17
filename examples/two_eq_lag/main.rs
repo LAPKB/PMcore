@@ -4,6 +4,8 @@
 use std::path::Path;
 
 use data::read_pmetrics;
+use logger::setup_log;
+use ndarray::Array2;
 use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
 
 fn main() {
@@ -41,8 +43,41 @@ fn main() {
     //     },
     //     (2, 1),
     // );
+    // let eq = equation::ODENet::new(
+    //     vec![
+    //         dmatrix![
+    //             -1.0,0.;
+    //             1.,0.
+    //         ],
+    //         dmatrix![
+    //             0.,0.;
+    //             0.,-1.
+    //         ],
+    //         dmatrix![
+    //             0.0,0.0;
+    //             0.0,0.0
+    //         ],
+    //         dmatrix![
+    //             0.0,0.0;
+    //             0.0,0.0
+    //         ],
+    //     ],
+    //     vec![],
+    //     vec![],
+    //     vec![Lag::new(0, Op::Equal(P(2)))],
+    //     vec![],
+    //     vec![],
+    //     vec![OutEq::new(0, Op::Div(X(1), P(3)))],
+    //     (2, 1),
+    // );
 
     let settings = settings::read("examples/two_eq_lag/config.toml").unwrap();
+    setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
-    let _result = fit(eq, data, settings);
+    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
+    let result = algorithm.fit().unwrap();
+    // algorithm.initialize().unwrap();
+    // while !algorithm.next_cycle().unwrap() {}
+    // let result = algorithm.into_npresult();
+    result.write_outputs().unwrap();
 }

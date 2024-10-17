@@ -1,17 +1,13 @@
+use crate::prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings};
+use anyhow::{Error, Result};
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
     simulator::{psi, Equation},
 };
 
-use crate::{
-    prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings},
-    tui::ui::Comm,
-};
-
 use ndarray::{Array1, Array2};
-use tokio::sync::mpsc::UnboundedSender;
 
-use super::output::CycleLog;
+use super::{initialization, output::CycleLog};
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
@@ -28,17 +24,36 @@ pub struct POSTPROB<E: Equation> {
     data: Data,
     c: (f64, f64, f64, f64),
     #[allow(dead_code)]
-    tx: Option<UnboundedSender<Comm>>,
     settings: Settings,
     cyclelog: CycleLog,
 }
 
-impl<E: Equation> Algorithm for POSTPROB<E> {
-    fn fit(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
-        self.run()
+impl<E: Equation> Algorithm<E> for POSTPROB<E> {
+    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
+        Ok(Box::new(Self {
+            equation,
+            psi: Array2::default((0, 0)),
+            theta: Array2::default((0, 0)),
+            w: Array1::default(0),
+            objf: f64::INFINITY,
+            cycle: 0,
+            converged: false,
+            gamma: settings.error.value,
+            error_type: match settings.error.class.as_str() {
+                "additive" => ErrorType::Add,
+                "proportional" => ErrorType::Prop,
+                _ => panic!("Error type not supported"),
+            },
+            c: settings.error.poly,
+            settings,
+            data,
+
+            cyclelog: CycleLog::new(),
+        }))
     }
-    fn to_npresult(&self) -> NPResult {
+    fn into_npresult(&self) -> NPResult<E> {
         NPResult::new(
+            self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
             self.psi.clone(),
@@ -50,40 +65,49 @@ impl<E: Equation> Algorithm for POSTPROB<E> {
             self.cyclelog.clone(),
         )
     }
-}
-
-impl<E: Equation> POSTPROB<E> {
-    pub fn new(
-        equation: E,
-        theta: Array2<f64>,
-        data: Data,
-        c: (f64, f64, f64, f64),
-        tx: Option<UnboundedSender<Comm>>,
-        settings: Settings,
-    ) -> Self {
-        Self {
-            equation,
-            psi: Array2::default((0, 0)),
-            theta,
-            w: Array1::default(0),
-            objf: f64::INFINITY,
-            cycle: 0,
-            converged: false,
-            gamma: settings.error.value,
-            error_type: match settings.error.class.as_str() {
-                "additive" => ErrorType::Add,
-                "proportional" => ErrorType::Prop,
-                _ => panic!("Error type not supported"),
-            },
-            tx,
-            settings,
-            data,
-            c,
-            cyclelog: CycleLog::new(),
-        }
+    fn get_settings(&self) -> &Settings {
+        &self.settings
     }
 
-    pub fn run(&mut self) -> anyhow::Result<NPResult, (anyhow::Error, NPResult)> {
+    fn get_data(&self) -> &Data {
+        &self.data
+    }
+
+    fn get_prior(&self) -> Array2<f64> {
+        initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
+    }
+
+    fn likelihood(&self) -> f64 {
+        self.objf
+    }
+
+    fn inc_cycle(&mut self) -> usize {
+        0
+    }
+
+    fn get_cycle(&self) -> usize {
+        0
+    }
+
+    fn set_theta(&mut self, theta: Array2<f64>) {
+        self.theta = theta;
+    }
+
+    fn get_theta(&self) -> &Array2<f64> {
+        &self.theta
+    }
+
+    fn psi(&self) -> &Array2<f64> {
+        &self.psi
+    }
+
+    fn convergence_evaluation(&mut self) {}
+
+    fn converged(&self) -> bool {
+        true
+    }
+
+    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
         self.psi = psi(
             &self.equation,
             &self.data,
@@ -92,18 +116,20 @@ impl<E: Equation> POSTPROB<E> {
             false,
             false,
         );
-        // let obs_pred = get_population_predictions(
-        //     &self.equation,
-        //     &self.data,
-        //     &self.theta,
-        //     false,
-        //     self.cycle == 1,
-        // );
+        (self.w, self.objf) = burke(&self.psi).expect("Error in IPM");
+        Ok(())
+    }
 
-        // self.psi = obs_pred.get_psi(&ErrorModel::new(self.c, self.gamma, &self.error_type));
-        let (w, objf) = burke(&self.psi).expect("Error in IPM");
-        self.w = w;
-        self.objf = objf;
-        Ok(self.to_npresult())
+    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+        Ok(())
+    }
+    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
+        Ok(())
+    }
+
+    fn logs(&self) {}
+
+    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
+        Ok(())
     }
 }

@@ -80,7 +80,6 @@ pub struct Config {
     pub cycles: usize,
     /// Denotes the algorithm to use
     pub algorithm: String,
-    pub tui: bool,
     /// If true (default), cache predicted values
     pub cache: bool,
     /// Vector of IDs to include
@@ -94,7 +93,6 @@ impl Default for Config {
         Config {
             cycles: 100,
             algorithm: "npag".to_string(),
-            tui: false,
             cache: false,
             include: None,
             exclude: None,
@@ -251,7 +249,7 @@ impl Error {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Advanced {
-    /// The minimum distance required between a candiate point and the existing grid (THETA_D)
+    /// The minimum distance required between a candidate point and the existing grid (THETA_D)
     ///
     /// This is general for all non-parametric algorithms
     pub min_distance: f64,
