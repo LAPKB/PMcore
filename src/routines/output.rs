@@ -5,6 +5,7 @@ use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
+use serde::Serialize;
 // use pharmsol::Cache;
 use settings::Settings;
 use std::fs::{create_dir_all, File, OpenOptions};
@@ -95,6 +96,19 @@ impl<E: Equation> NPResult<E> {
     pub fn write_obspred(&self) -> Result<()> {
         tracing::debug!("Writing observations and predictions...");
 
+        #[derive(Debug, Clone, Serialize)]
+        struct Row {
+            id: String,
+            time: f64,
+            outeq: usize,
+            block: usize,
+            obs: f64,
+            pop_mean: f64,
+            pop_median: f64,
+            post_mean: f64,
+            post_median: f64,
+        }
+
         let theta: Array2<f64> = self.theta.clone();
         let w: Array1<f64> = self.w.clone();
         let psi: Array2<f64> = self.psi.clone();
@@ -119,69 +133,56 @@ impl<E: Equation> NPResult<E> {
             .has_headers(true)
             .from_writer(&outputfile.file);
 
-        // Create the headers
-        writer.write_record([
-            "id",
-            "time",
-            "outeq",
-            "obs",
-            "popMean",
-            "popMedian",
-            "postMean",
-            "postMedian",
-        ])?;
-
         for (i, subject) in subjects.iter().enumerate() {
-            // Population predictions
-            let pop_mean_pred = self
-                .equation
-                .simulate_subject(subject, &pop_mean.to_vec(), None)
-                .0
-                .get_predictions()
-                .clone();
-            let pop_median_pred = self
-                .equation
-                .simulate_subject(subject, &pop_median.to_vec(), None)
-                .0
-                .get_predictions()
-                .clone();
+            for occasion in subject.occasions() {
+                let id = subject.id();
+                let occ = occasion.index();
 
-            // Posterior predictions
-            let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
-            let post_mean_pred = self
-                .equation
-                .simulate_subject(subject, &post_mean_spp, None)
-                .0
-                .get_predictions()
-                .clone();
-            let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
-            let post_median_pred = self
-                .equation
-                .simulate_subject(subject, &post_median_spp, None)
-                .0
-                .get_predictions()
-                .clone();
+                let subject = Subject::from_occasions(id.clone(), vec![occasion.clone()]);
 
-            // Write the records
-            pop_mean_pred
-                .iter()
-                .zip(pop_median_pred.iter())
-                .zip(post_mean_pred.iter())
-                .zip(post_median_pred.iter())
-                .for_each(|(((pop_mean, pop_median), post_mean), post_median)| {
-                    writer
-                        .write_record([
-                            subject.id(),
-                            &format!("{:.3}", pop_mean.time()),
-                            &format!("{}", pop_mean.outeq()),
-                            &format!("{:.4}", pop_mean.observation()),
-                            &format!("{:.4}", pop_mean.prediction()),
-                            &format!("{:.4}", pop_median.prediction()),
-                            &format!("{:.4}", post_mean.prediction()),
-                            &format!("{:.4}", post_median.prediction()),
-                        ])
-                        .expect("Failed to write record");
-                });
+                // Population predictions
+                let pop_mean_pred = self
+                    .equation
+                    .simulate_subject(&subject, &pop_mean.to_vec(), None)
+                    .0
+                    .get_predictions()
+                    .clone();
+                let pop_median_pred = self
+                    .equation
+                    .simulate_subject(&subject, &pop_median.to_vec(), None)
+                    .0
+                    .get_predictions()
+                    .clone();
+
+                // Posterior predictions
+                let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
+                let post_mean_pred = self
+                    .equation
+                    .simulate_subject(&subject, &post_mean_spp, None)
+                    .0
+                    .get_predictions()
+                    .clone();
+                let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
+                let post_median_pred = self
+                    .equation
+                    .simulate_subject(&subject, &post_median_spp, None)
+                    .0
+                    .get_predictions()
+                    .clone();
+
+                let row = Row {
+                    id: id.clone(),
+                    time: pop_mean_pred[0].time(),
+                    outeq: pop_mean_pred[0].outeq(),
+                    block: occ,
+                    obs: pop_mean_pred[0].observation(),
+                    pop_mean: pop_mean_pred[0].prediction(),
+                    pop_median: pop_median_pred[0].prediction(),
+                    post_mean: post_mean_pred[0].prediction(),
+                    post_median: post_median_pred[0].prediction(),
+                };
+                writer.serialize(row)?;
+            }
         }
         writer.flush()?;
         tracing::info!(
@@ -190,6 +191,7 @@ impl<E: Equation> NPResult<E> {
         );
         Ok(())
     }
+
     /// Writes theta, which contains the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     pub fn write_theta(&self) -> Result<()> {

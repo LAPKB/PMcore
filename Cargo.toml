@@ -27,15 +27,16 @@ tokio = { version = "1.32.0", features = ["sync", "rt"] }
 argmin = { version = "0.10.0", features = [] }
 argmin-math = { version = "0.4.0", features = ["ndarray_v0_15-nolinalg"] }
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt", "time"] }
+tracing-subscriber = { version = "0.3.17", features = [
+    "env-filter",
+    "fmt",
+    "time",
+] }
 chrono = "0.4"
-config = {version = "0.14", features=["preserve_order"]}
+config = { version = "0.14", features = ["preserve_order"] }
 faer = "0.19.3"
-faer-ext = {version = "0.2.0", features = ["nalgebra", "ndarray"]}
-pharmsol = "0.7.0"
-# pharmsol = {path = "../pharmsol"}
-# pharmsol = {git ="https://github.com/LAPKB/pharmsol", branch="net"}
-# pharmsol = {git ="https://github.com/LAPKB/pharmsol", branch="main"}
+faer-ext = { version = "0.2.0", features = ["nalgebra", "ndarray"] }
+pharmsol = "0.7.1"
 toml = "0.8.14" #REMOVE
 rand = "0.8.5"
 anyhow = "1.0.86"
