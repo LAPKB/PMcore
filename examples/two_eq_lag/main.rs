@@ -43,33 +43,33 @@ fn main() {
     //     },
     //     (2, 1),
     // );
-    let eq = equation::ODENet::new(
-        vec![
-            dmatrix![
-                -1.0,0.;
-                1.,0.
-            ],
-            dmatrix![
-                0.,0.;
-                0.,-1.
-            ],
-            dmatrix![
-                0.0,0.0;
-                0.0,0.0
-            ],
-            dmatrix![
-                0.0,0.0;
-                0.0,0.0
-            ],
-        ],
-        vec![],
-        vec![],
-        vec![Lag::new(0, Op::Equal(P(2)))],
-        vec![],
-        vec![],
-        vec![OutEq::new(0, Op::Div(X(1), P(3)))],
-        (2, 1),
-    );
+    // let eq = equation::ODENet::new(
+    //     vec![
+    //         dmatrix![
+    //             -1.0,0.;
+    //             1.,0.
+    //         ],
+    //         dmatrix![
+    //             0.,0.;
+    //             0.,-1.
+    //         ],
+    //         dmatrix![
+    //             0.0,0.0;
+    //             0.0,0.0
+    //         ],
+    //         dmatrix![
+    //             0.0,0.0;
+    //             0.0,0.0
+    //         ],
+    //     ],
+    //     vec![],
+    //     vec![],
+    //     vec![Lag::new(0, Op::Equal(P(2)))],
+    //     vec![],
+    //     vec![],
+    //     vec![OutEq::new(0, Op::Div(X(1), P(3)))],
+    //     (2, 1),
+    // );
 
     let settings = settings::read("examples/two_eq_lag/config.toml").unwrap();
     setup_log(&settings).unwrap();

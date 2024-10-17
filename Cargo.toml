@@ -1,6 +1,6 @@
 [package]
 name = "pmcore"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 authors = [
     "Julián D. Otálvaro <juliandavid347@gmail.com>",
@@ -32,8 +32,8 @@ chrono = "0.4"
 config = {version = "0.14", features=["preserve_order"]}
 faer = "0.19.3"
 faer-ext = {version = "0.2.0", features = ["nalgebra", "ndarray"]}
-# pharmsol = "0.6.2"
-pharmsol = {path = "../pharmsol"}
+pharmsol = "0.7.0"
+# pharmsol = {path = "../pharmsol"}
 # pharmsol = {git ="https://github.com/LAPKB/pharmsol", branch="net"}
 # pharmsol = {git ="https://github.com/LAPKB/pharmsol", branch="main"}
 toml = "0.8.14" #REMOVE
