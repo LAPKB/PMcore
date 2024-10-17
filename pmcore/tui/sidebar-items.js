@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["AppReturn"],"mod":["actions","components","inputs","state","ui"],"struct":["App"]};

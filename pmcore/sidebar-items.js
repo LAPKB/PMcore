@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["algorithms","entrypoints","logger","prelude","routines","tui"],"struct":["HashMap"],"type":["Result"]};
+window.SIDEBAR_ITEMS = {"mod":["algorithms","logger","prelude","routines"],"struct":["HashMap"],"type":["Result"]};

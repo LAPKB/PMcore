@@ -495,8 +495,6 @@
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span><span class="kw">super</span>::output::OutputFile;
@@ -579,7 +577,6 @@
     </span><span class="kw">pub </span>cycles: usize,
     <span class="doccomment">/// Denotes the algorithm to use
     </span><span class="kw">pub </span>algorithm: String,
-    <span class="kw">pub </span>tui: bool,
     <span class="doccomment">/// If true (default), cache predicted values
     </span><span class="kw">pub </span>cache: bool,
     <span class="doccomment">/// Vector of IDs to include
@@ -593,7 +590,6 @@
         Config {
             cycles: <span class="number">100</span>,
             algorithm: <span class="string">"npag"</span>.to_string(),
-            tui: <span class="bool-val">false</span>,
             cache: <span class="bool-val">false</span>,
             include: <span class="prelude-val">None</span>,
             exclude: <span class="prelude-val">None</span>,
@@ -750,7 +746,7 @@
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 </span><span class="kw">pub struct </span>Advanced {
-    <span class="doccomment">/// The minimum distance required between a candiate point and the existing grid (THETA_D)
+    <span class="doccomment">/// The minimum distance required between a candidate point and the existing grid (THETA_D)
     ///
     /// This is general for all non-parametric algorithms
     </span><span class="kw">pub </span>min_distance: f64,

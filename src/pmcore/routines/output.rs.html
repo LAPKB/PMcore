@@ -808,6 +808,59 @@
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>csv::WriterBuilder;
@@ -822,22 +875,24 @@
 <span class="doccomment">/// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>NPResult {
-    <span class="kw">pub </span>data: Data,
-    <span class="kw">pub </span>theta: Array2&lt;f64&gt;,
-    <span class="kw">pub </span>psi: Array2&lt;f64&gt;,
-    <span class="kw">pub </span>w: Array1&lt;f64&gt;,
-    <span class="kw">pub </span>objf: f64,
-    <span class="kw">pub </span>cycles: usize,
-    <span class="kw">pub </span>converged: bool,
-    <span class="kw">pub </span>par_names: Vec&lt;String&gt;,
-    <span class="kw">pub </span>settings: Settings,
-    <span class="kw">pub </span>cyclelog: CycleLog,
+</span><span class="kw">pub struct </span>NPResult&lt;E: Equation&gt; {
+    equation: E,
+    data: Data,
+    theta: Array2&lt;f64&gt;,
+    psi: Array2&lt;f64&gt;,
+    w: Array1&lt;f64&gt;,
+    objf: f64,
+    cycles: usize,
+    converged: bool,
+    par_names: Vec&lt;String&gt;,
+    settings: Settings,
+    cyclelog: CycleLog,
 }
 
-<span class="kw">impl </span>NPResult {
+<span class="kw">impl</span>&lt;E: Equation&gt; NPResult&lt;E&gt; {
     <span class="doccomment">/// Create a new NPResult object
     </span><span class="kw">pub fn </span>new(
+        equation: E,
         data: Data,
         theta: Array2&lt;f64&gt;,
         psi: Array2&lt;f64&gt;,
@@ -853,6 +908,7 @@
         </span><span class="kw">let </span>par_names = settings.random.names();
 
         <span class="self">Self </span>{
+            equation,
             data,
             theta,
             psi,
@@ -866,25 +922,40 @@
         }
     }
 
-    <span class="kw">pub fn </span>write_outputs(<span class="kw-2">&amp;</span><span class="self">self</span>, equation: <span class="kw-2">&amp;</span><span class="kw">impl </span>Equation) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">pub fn </span>cycles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.cycles
+    }
+
+    <span class="kw">pub fn </span>objf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; f64 {
+        <span class="self">self</span>.objf
+    }
+
+    <span class="kw">pub fn </span>converged(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.converged
+    }
+
+    <span class="kw">pub fn </span>write_outputs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.settings.output.write {
             <span class="kw">let </span>idelta: f64 = <span class="self">self</span>.settings.predictions.idelta;
             <span class="kw">let </span>tad = <span class="self">self</span>.settings.predictions.tad;
             <span class="self">self</span>.cyclelog.write(<span class="kw-2">&amp;</span><span class="self">self</span>.settings)<span class="question-mark">?</span>;
             <span class="self">self</span>.write_obs().context(<span class="string">"Failed to write observations"</span>)<span class="question-mark">?</span>;
-            <span class="self">self</span>.write_obspred(equation)
-                .context(<span class="string">"Failed to write observed-predicted file"</span>)<span class="question-mark">?</span>;
             <span class="self">self</span>.write_theta().context(<span class="string">"Failed to write theta"</span>)<span class="question-mark">?</span>;
-            <span class="self">self</span>.write_posterior()
-                .context(<span class="string">"Failed to write posterior"</span>)<span class="question-mark">?</span>;
-            <span class="self">self</span>.write_pred(equation, idelta, tad)
+            <span class="self">self</span>.write_obspred()
+                .context(<span class="string">"Failed to write observed-predicted file"</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.write_pred(idelta, tad)
                 .context(<span class="string">"Failed to write predictions"</span>)<span class="question-mark">?</span>;
+            <span class="kw">if </span><span class="self">self</span>.w.len() &gt; <span class="number">0 </span>{
+                <span class="comment">//TODO: find a better way to indicate that the run failed
+                </span><span class="self">self</span>.write_posterior()
+                    .context(<span class="string">"Failed to write posterior"</span>)<span class="question-mark">?</span>;
+            }
         }
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Writes the observations and predictions to a single file
-    </span><span class="kw">pub fn </span>write_obspred(<span class="kw-2">&amp;</span><span class="self">self</span>, equation: <span class="kw-2">&amp;</span><span class="kw">impl </span>Equation) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub fn </span>write_obspred(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::debug!</span>(<span class="string">"Writing observations and predictions..."</span>);
 
         <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
@@ -899,7 +970,11 @@
 
         <span class="kw">let </span>subjects = <span class="self">self</span>.data.get_subjects();
         <span class="kw">if </span>subjects.len() != post_mean.nrows() {
-            <span class="macro">bail!</span>(<span class="string">"Number of subjects and number of posterior means do not match"</span>);
+            <span class="macro">bail!</span>(
+                <span class="string">"Number of subjects: {} and number of posterior means: {} do not match"</span>,
+                subjects.len(),
+                post_mean.nrows()
+            );
         }
 
         <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"op.csv"</span>)<span class="question-mark">?</span>;
@@ -921,12 +996,14 @@
 
         <span class="kw">for </span>(i, subject) <span class="kw">in </span>subjects.iter().enumerate() {
             <span class="comment">// Population predictions
-            </span><span class="kw">let </span>pop_mean_pred = equation
+            </span><span class="kw">let </span>pop_mean_pred = <span class="self">self
+                </span>.equation
                 .simulate_subject(subject, <span class="kw-2">&amp;</span>pop_mean.to_vec(), <span class="prelude-val">None</span>)
                 .<span class="number">0
                 </span>.get_predictions()
                 .clone();
-            <span class="kw">let </span>pop_median_pred = equation
+            <span class="kw">let </span>pop_median_pred = <span class="self">self
+                </span>.equation
                 .simulate_subject(subject, <span class="kw-2">&amp;</span>pop_median.to_vec(), <span class="prelude-val">None</span>)
                 .<span class="number">0
                 </span>.get_predictions()
@@ -934,13 +1011,15 @@
 
             <span class="comment">// Posterior predictions
             </span><span class="kw">let </span>post_mean_spp: Vec&lt;f64&gt; = post_mean.row(i).to_vec();
-            <span class="kw">let </span>post_mean_pred = equation
+            <span class="kw">let </span>post_mean_pred = <span class="self">self
+                </span>.equation
                 .simulate_subject(subject, <span class="kw-2">&amp;</span>post_mean_spp, <span class="prelude-val">None</span>)
                 .<span class="number">0
                 </span>.get_predictions()
                 .clone();
             <span class="kw">let </span>post_median_spp: Vec&lt;f64&gt; = post_median.row(i).to_vec();
-            <span class="kw">let </span>post_median_pred = equation
+            <span class="kw">let </span>post_median_pred = <span class="self">self
+                </span>.equation
                 .simulate_subject(subject, <span class="kw-2">&amp;</span>post_median_spp, <span class="prelude-val">None</span>)
                 .<span class="number">0
                 </span>.get_predictions()
@@ -974,7 +1053,7 @@
         );
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="doccomment">/// Writes theta, which containts the population support points and their associated probabilities
+    <span class="doccomment">/// Writes theta, which contains the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     </span><span class="kw">pub fn </span>write_theta(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::debug!</span>(<span class="string">"Writing population parameter distribution..."</span>);
@@ -1087,7 +1166,7 @@
     }
 
     <span class="doccomment">/// Writes the predictions
-    </span><span class="kw">pub fn </span>write_pred(<span class="kw-2">&amp;</span><span class="self">self</span>, equation: <span class="kw-2">&amp;</span><span class="kw">impl </span>Equation, idelta: f64, tad: f64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub fn </span>write_pred(<span class="kw-2">&amp;</span><span class="self">self</span>, idelta: f64, tad: f64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::debug!</span>(<span class="string">"Writing predictions..."</span>);
         <span class="kw">let </span>data = <span class="self">self</span>.data.expand(idelta, tad);
 
@@ -1124,12 +1203,14 @@
 
         <span class="kw">for </span>(i, subject) <span class="kw">in </span>subjects.iter().enumerate() {
             <span class="comment">// Population predictions
-            </span><span class="kw">let </span>pop_mean_pred = equation
+            </span><span class="kw">let </span>pop_mean_pred = <span class="self">self
+                </span>.equation
                 .simulate_subject(subject, <span class="kw-2">&amp;</span>pop_mean.to_vec(), <span class="prelude-val">None</span>)
                 .<span class="number">0
                 </span>.get_predictions()
                 .clone();
-            <span class="kw">let </span>pop_median_pred = equation
+            <span class="kw">let </span>pop_median_pred = <span class="self">self
+                </span>.equation
                 .simulate_subject(subject, <span class="kw-2">&amp;</span>pop_median.to_vec(), <span class="prelude-val">None</span>)
                 .<span class="number">0
                 </span>.get_predictions()
@@ -1137,13 +1218,15 @@
 
             <span class="comment">// Posterior predictions
             </span><span class="kw">let </span>post_mean_spp: Vec&lt;f64&gt; = post_mean.row(i).to_vec();
-            <span class="kw">let </span>post_mean_pred = equation
+            <span class="kw">let </span>post_mean_pred = <span class="self">self
+                </span>.equation
                 .simulate_subject(subject, <span class="kw-2">&amp;</span>post_mean_spp, <span class="prelude-val">None</span>)
                 .<span class="number">0
                 </span>.get_predictions()
                 .clone();
             <span class="kw">let </span>post_median_spp: Vec&lt;f64&gt; = post_median.row(i).to_vec();
-            <span class="kw">let </span>post_median_pred = equation
+            <span class="kw">let </span>post_median_pred = <span class="self">self
+                </span>.equation
                 .simulate_subject(subject, <span class="kw-2">&amp;</span>post_median_spp, <span class="prelude-val">None</span>)
                 .<span class="number">0
                 </span>.get_predictions()
@@ -1337,8 +1420,9 @@
     </span>);
     <span class="macro">assert!</span>(
         weights.iter().all(|<span class="kw-2">&amp;</span>x| x &gt;= <span class="number">0.0</span>),
-        <span class="string">"Weights must be non-negative"
-    </span>);
+        <span class="string">"Weights must be non-negative, weights: {:?}"</span>,
+        weights
+    );
 
     <span class="comment">// Create a vector of tuples (data, weight)
     </span><span class="kw">let </span><span class="kw-2">mut </span>weighted_data: Vec&lt;(f64, f64)&gt; = data
@@ -1376,6 +1460,12 @@
     theta: <span class="kw-2">&amp;</span>Array2&lt;f64&gt;,
     w: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Array1&lt;f64&gt;, Array1&lt;f64&gt;)&gt; {
+    <span class="kw">let </span>w = <span class="kw">if </span>w.len() == <span class="number">0 </span>{
+        <span class="macro">tracing::warn!</span>(<span class="string">"w.len() == 0, setting all weights to 1/n"</span>);
+        Array1::from_elem(theta.nrows(), <span class="number">1.0 </span>/ theta.nrows() <span class="kw">as </span>f64)
+    } <span class="kw">else </span>{
+        w.clone()
+    };
     <span class="comment">// Check for compatible sizes
     </span><span class="kw">if </span>theta.nrows() != w.len() {
         <span class="macro">bail!</span>(
@@ -1397,9 +1487,9 @@
         </span><span class="kw">let </span>ct = theta.column(i);
         <span class="kw">let </span><span class="kw-2">mut </span>params = <span class="macro">vec!</span>[];
         <span class="kw">let </span><span class="kw-2">mut </span>weights = <span class="macro">vec!</span>[];
-        <span class="kw">for </span>(ti, wi) <span class="kw">in </span>ct.iter().zip(w) {
+        <span class="kw">for </span>(ti, wi) <span class="kw">in </span>ct.iter().zip(w.clone()) {
             params.push(<span class="kw-2">*</span>ti);
-            weights.push(<span class="kw-2">*</span>wi);
+            weights.push(wi);
         }
 
         <span class="kw-2">*</span>mdn = weighted_median(<span class="kw-2">&amp;</span>Array::from(params), <span class="kw-2">&amp;</span>Array::from(weights));
@@ -1416,25 +1506,41 @@
     <span class="kw">let </span><span class="kw-2">mut </span>mean = Array2::zeros((<span class="number">0</span>, theta.ncols()));
     <span class="kw">let </span><span class="kw-2">mut </span>median = Array2::zeros((<span class="number">0</span>, theta.ncols()));
 
+    <span class="kw">let </span>w = <span class="kw">if </span>w.len() == <span class="number">0 </span>{
+        <span class="macro">tracing::warn!</span>(<span class="string">"w.len() == 0, setting all weights to 1/n"</span>);
+        Array1::from_elem(theta.nrows(), <span class="number">1.0 </span>/ theta.nrows() <span class="kw">as </span>f64)
+    } <span class="kw">else </span>{
+        w.clone()
+    };
+
     <span class="comment">// Check for compatible sizes
     </span><span class="kw">if </span>theta.nrows() != w.len() || theta.nrows() != psi.ncols() || psi.ncols() != w.len() {
-        <span class="macro">bail!</span>(<span class="string">"Number of parameters and number of weights do not match"</span>);
+        <span class="macro">bail!</span>(<span class="string">"Number of parameters and number of weights do not match, theta.nrows(): {}, w.len(): {}, psi.ncols(): {}"</span>, theta.nrows(), w.len(), psi.ncols());
     }
 
     <span class="comment">// Normalize psi to get probabilities of each spp for each id
     </span><span class="kw">let </span><span class="kw-2">mut </span>psi_norm: Array2&lt;f64&gt; = Array2::zeros((<span class="number">0</span>, psi.ncols()));
-    <span class="kw">for </span>row <span class="kw">in </span>psi.axis_iter(Axis(<span class="number">0</span>)) {
+    <span class="kw">for </span>(i, row) <span class="kw">in </span>psi.axis_iter(Axis(<span class="number">0</span>)).enumerate() {
         <span class="kw">let </span>row_w = row.to_owned() * w.to_owned();
         <span class="kw">let </span>row_sum = row_w.sum();
-        <span class="kw">let </span>row_norm = <span class="kw-2">&amp;</span>row_w / row_sum;
+        <span class="kw">let </span>row_norm = <span class="kw">if </span>row_sum == <span class="number">0.0 </span>{
+            <span class="macro">tracing::warn!</span>(<span class="string">"Sum of row {} of psi is 0.0, setting that row to 1/n"</span>, i);
+            Array1::from_elem(psi.ncols(), <span class="number">1.0 </span>/ psi.ncols() <span class="kw">as </span>f64)
+        } <span class="kw">else </span>{
+            <span class="kw-2">&amp;</span>row_w / row_sum
+        };
         psi_norm.push_row(row_norm.view())<span class="question-mark">?</span>;
     }
+    <span class="kw">if </span>psi_norm.iter().any(|<span class="kw-2">&amp;</span>x| x.is_nan()) {
+        <span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>psi);
+        <span class="macro">bail!</span>(<span class="string">"NaN values found in psi_norm"</span>);
+    };
 
     <span class="comment">// Transpose normalized psi to get ID (col) by prob (row)
-    </span><span class="kw">let </span>psi_norm_transposed = psi_norm.t();
+    // let psi_norm_transposed = psi_norm.t();
 
-    <span class="comment">// For each subject..
-    </span><span class="kw">for </span>probs <span class="kw">in </span>psi_norm_transposed.axis_iter(Axis(<span class="number">1</span>)) {
+    // For each subject..
+    </span><span class="kw">for </span>probs <span class="kw">in </span>psi_norm.axis_iter(Axis(<span class="number">0</span>)) {
         <span class="kw">let </span><span class="kw-2">mut </span>post_mean: Vec&lt;f64&gt; = Vec::new();
         <span class="kw">let </span><span class="kw-2">mut </span>post_median: Vec&lt;f64&gt; = Vec::new();
 
@@ -1497,7 +1603,7 @@
     writer.write_record(<span class="kw-2">&amp;</span>[<span class="string">"id"</span>, <span class="string">"block"</span>, <span class="string">"time"</span>, <span class="string">"out"</span>, <span class="string">"outeq"</span>])<span class="question-mark">?</span>;
     <span class="kw">for </span>subject <span class="kw">in </span>data.get_subjects() {
         <span class="kw">for </span>occasion <span class="kw">in </span>subject.occasions() {
-            <span class="kw">for </span>event <span class="kw">in </span>occasion.get_events(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>) {
+            <span class="kw">for </span>event <span class="kw">in </span>occasion.get_events(<span class="kw-2">&amp;</span><span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>, <span class="bool-val">false</span>) {
                 <span class="kw">match </span>event {
                     Event::Observation(obs) =&gt; {
                         <span class="comment">// Write each field individually

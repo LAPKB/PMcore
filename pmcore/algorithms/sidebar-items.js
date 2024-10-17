@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["initialize_algorithm"],"mod":["npag","npod","postprob"],"trait":["Algorithm"]};
+window.SIDEBAR_ITEMS = {"fn":["dispatch_algorithm"],"mod":["npag","npod","postprob"],"trait":["Algorithm"]};

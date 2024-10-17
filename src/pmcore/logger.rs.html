@@ -73,53 +73,11 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::output::OutputFile;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Instant;
+
+<span class="kw">use </span><span class="kw">crate</span>::prelude::output::OutputFile;
 <span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
-<span class="kw">use </span><span class="kw">crate</span>::tui::ui::Comm;
 <span class="kw">use </span>anyhow::Result;
-<span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
-<span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
 <span class="kw">use </span>tracing_subscriber::fmt::time::FormatTime;
 <span class="kw">use </span>tracing_subscriber::fmt::{<span class="self">self</span>};
 <span class="kw">use </span>tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
@@ -138,10 +96,14 @@
 /// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
 ///
 /// If not, the log messages are written to stdout.
-</span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings, ui_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+</span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Use the log level defined in configuration file
     </span><span class="kw">let </span>log_level = settings.log.level.as_str();
     <span class="kw">let </span>env_filter = EnvFilter::new(log_level);
+
+    <span class="kw">let </span>timestamper = CompactTimestamp {
+        start: Instant::now(),
+    };
 
     <span class="comment">// Define a registry with that level as an environment filter
     </span><span class="kw">let </span>subscriber = Registry::default().with(env_filter);
@@ -153,81 +115,37 @@
     </span><span class="kw">let </span>file_layer = fmt::layer()
         .with_writer(outputfile.file)
         .with_ansi(<span class="bool-val">false</span>)
-        .with_timer(CompactTimestamp);
+        .with_timer(timestamper.clone());
 
     <span class="comment">// Define layer for stdout
-    </span><span class="kw">let </span>stdout_layer = <span class="kw">match </span>settings.config.tui {
-        <span class="bool-val">false </span>=&gt; {
-            <span class="kw">let </span>layer = fmt::layer()
-                .with_writer(std::io::stdout)
-                .with_ansi(<span class="bool-val">true</span>)
-                .with_target(<span class="bool-val">false</span>)
-                .with_timer(CompactTimestamp);
-            <span class="prelude-val">Some</span>(layer)
-        }
-        <span class="bool-val">true </span>=&gt; <span class="prelude-val">None</span>,
-    };
-
-    <span class="comment">// Check if ui_tx is Some and clone it for use in the closure
-    </span><span class="kw">let </span>tui_layer = <span class="kw">if </span>settings.config.tui {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(ui_tx) = ui_tx.clone() {
-            <span class="comment">// Clone the sender outside the closure
-            </span><span class="kw">let </span>tui_writer_closure = <span class="kw">move </span>|| TuiWriter {
-                <span class="comment">// Use move to capture the cloned sender
-                </span>ui_tx: ui_tx.clone(), <span class="comment">// Clone the sender for each closure invocation
-            </span>};
-            <span class="kw">let </span>layer = fmt::layer()
-                .with_writer(tui_writer_closure)
-                .with_ansi(<span class="bool-val">false</span>)
-                .with_target(<span class="bool-val">false</span>)
-                .with_timer(CompactTimestamp);
-            <span class="prelude-val">Some</span>(layer)
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>}
-    } <span class="kw">else </span>{
-        <span class="prelude-val">None
-    </span>};
+    </span><span class="kw">let </span>stdout_layer = fmt::layer()
+        .with_writer(std::io::stdout)
+        .with_ansi(<span class="bool-val">true</span>)
+        .with_target(<span class="bool-val">false</span>)
+        .with_timer(timestamper.clone());
 
     <span class="comment">// Combine layers with subscriber
-    </span>subscriber
-        .with(file_layer)
-        .with(stdout_layer)
-        .with(tui_layer)
-        .init();
+    </span>subscriber.with(file_layer).with(stdout_layer).init();
 
     <span class="prelude-val">Ok</span>(())
 }
 
 <span class="attr">#[derive(Clone)]
-</span><span class="kw">struct </span>CompactTimestamp;
+</span><span class="kw">struct </span>CompactTimestamp {
+    start: Instant,
+}
 
 <span class="kw">impl </span>FormatTime <span class="kw">for </span>CompactTimestamp {
     <span class="kw">fn </span>format_time(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         w: <span class="kw-2">&amp;mut </span>tracing_subscriber::fmt::format::Writer&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::fmt::Error&gt; {
-        <span class="macro">write!</span>(w, <span class="string">"{}"</span>, chrono::Local::now().format(<span class="string">"%H:%M:%S"</span>))
-    }
-}
+        <span class="kw">let </span>elapsed = <span class="self">self</span>.start.elapsed();
+        <span class="kw">let </span>hours = elapsed.as_secs() / <span class="number">3600</span>;
+        <span class="kw">let </span>minutes = (elapsed.as_secs() % <span class="number">3600</span>) / <span class="number">60</span>;
+        <span class="kw">let </span>seconds = elapsed.as_secs() % <span class="number">60</span>;
 
-<span class="kw">struct </span>TuiWriter {
-    ui_tx: UnboundedSender&lt;Comm&gt;,
-}
-
-<span class="kw">impl </span>Write <span class="kw">for </span>TuiWriter {
-    <span class="kw">fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;usize&gt; {
-        <span class="kw">let </span>msg = String::from_utf8_lossy(buf);
-        <span class="comment">// Send the message through the channel
-        </span><span class="self">self</span>.ui_tx
-            .send(Comm::LogMessage(msg.to_string()))
-            .map_err(|<span class="kw">_</span>| io::Error::new(io::ErrorKind::Other, <span class="string">"Failed to send log message"</span>))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(buf.len())
-    }
-
-    <span class="kw">fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt; {
-        <span class="comment">// Flushing is not required for this use case
-        </span><span class="prelude-val">Ok</span>(())
+        <span class="macro">write!</span>(w, <span class="string">"{:02}h {:02}m {:02}s"</span>, hours, minutes, seconds)
     }
 }
 </code></pre></div></section></main></body></html>

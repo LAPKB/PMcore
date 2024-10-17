@@ -398,21 +398,7 @@
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
-<span class="kw">use </span>pharmsol::{
-    prelude::{
-        data::{Data, ErrorModel, ErrorType},
-        simulator::{psi, Equation},
-    },
-    Subject,
-};
-
-<span class="kw">use crate</span>::{
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     prelude::{
         algorithms::Algorithm,
         ipm::burke,
@@ -421,19 +407,29 @@
         settings::Settings,
     },
     routines::expansion::adaptative_grid::adaptative_grid,
-    tui::ui::Comm,
+};
+<span class="kw">use </span>anyhow::Error;
+<span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>pharmsol::{
+    prelude::{
+        data::{Data, ErrorModel, ErrorType},
+        simulator::{psi, Equation},
+    },
+    Subject,
 };
 
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
-<span class="kw">use </span>tokio::sync::mpsc::UnboundedSender;
+
+<span class="kw">use </span><span class="kw">super</span>::initialization;
 
 <span class="kw">const </span>THETA_E: f64 = <span class="number">1e-4</span>; <span class="comment">// Convergence criteria
 </span><span class="kw">const </span>THETA_G: f64 = <span class="number">1e-4</span>; <span class="comment">// Objective function convergence criteria
 </span><span class="kw">const </span>THETA_F: f64 = <span class="number">1e-2</span>;
 <span class="kw">const </span>THETA_D: f64 = <span class="number">1e-4</span>;
 
-<span class="kw">pub struct </span>NPAG&lt;E: Equation&gt; {
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>NPAG&lt;E: Equation&gt; {
     equation: E,
     ranges: Vec&lt;(f64, f64)&gt;,
     psi: Array2&lt;f64&gt;,
@@ -453,16 +449,37 @@
     cycle_log: CycleLog,
     data: Data,
     c: (f64, f64, f64, f64),
-    tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
     settings: Settings,
 }
 
-<span class="kw">impl</span>&lt;E: Equation&gt; Algorithm <span class="kw">for </span>NPAG&lt;E&gt; {
-    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; anyhow::Result&lt;NPResult, (anyhow::Error, NPResult)&gt; {
-        <span class="self">self</span>.run()
+<span class="kw">impl</span>&lt;E: Equation&gt; Algorithm&lt;E&gt; <span class="kw">for </span>NPAG&lt;E&gt; {
+    <span class="kw">fn </span>new(settings: Settings, equation: E, data: Data) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="self">Self</span>&gt;, anyhow::Error&gt; {
+        <span class="prelude-val">Ok</span>(Box::new(<span class="self">Self </span>{
+            equation,
+            ranges: settings.random.ranges(),
+            psi: Array2::default((<span class="number">0</span>, <span class="number">0</span>)),
+            theta: Array2::zeros((<span class="number">0</span>, <span class="number">0</span>)),
+            lambda: Array1::default(<span class="number">0</span>),
+            w: Array1::default(<span class="number">0</span>),
+            eps: <span class="number">0.2</span>,
+            last_objf: -<span class="number">1e30</span>,
+            objf: f64::NEG_INFINITY,
+            f0: -<span class="number">1e30</span>,
+            f1: f64::default(),
+            cycle: <span class="number">0</span>,
+            gamma_delta: <span class="number">0.1</span>,
+            gamma: settings.error.value,
+            error_type: settings.error.error_type(),
+            converged: <span class="bool-val">false</span>,
+            cycle_log: CycleLog::new(),
+            c: settings.error.poly,
+            settings,
+            data,
+        }))
     }
-    <span class="kw">fn </span>to_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult {
+    <span class="kw">fn </span>into_npresult(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NPResult&lt;E&gt; {
         NPResult::new(
+            <span class="self">self</span>.equation.clone(),
             <span class="self">self</span>.data.clone(),
             <span class="self">self</span>.theta.clone(),
             <span class="self">self</span>.psi.clone(),
@@ -474,105 +491,180 @@
             <span class="self">self</span>.cycle_log.clone(),
         )
     }
-}
 
-<span class="kw">impl</span>&lt;E: Equation&gt; NPAG&lt;E&gt; {
-    <span class="doccomment">/// Creates a new NPAG instance.
-    ///
-    /// # Parameters
-    ///
-    /// - `sim_eng`: An instance of the prediction engine.
-    /// - `ranges`: A vector of value ranges for each parameter.
-    /// - `theta`: An initial parameter matrix.
-    /// - `scenarios`: A vector of scenarios.
-    /// - `c`: A tuple containing coefficients for the error polynomial.
-    /// - `tx`: An unbounded sender for communicating progress.
-    /// - `settings`: Data settings and configurations.
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `NPAG` instance.
-    </span><span class="kw">pub fn </span>new(
-        equation: E,
-        ranges: Vec&lt;(f64, f64)&gt;,
-        theta: Array2&lt;f64&gt;,
-        data: Data,
-        c: (f64, f64, f64, f64),
-        tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;Comm&gt;&gt;,
-        settings: Settings,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            equation,
-            ranges,
-            psi: Array2::default((<span class="number">0</span>, <span class="number">0</span>)),
-            theta,
-            lambda: Array1::default(<span class="number">0</span>),
-            w: Array1::default(<span class="number">0</span>),
-            eps: <span class="number">0.2</span>,
-            last_objf: -<span class="number">1e30</span>,
-            objf: f64::NEG_INFINITY,
-            f0: -<span class="number">1e30</span>,
-            f1: f64::default(),
-            cycle: <span class="number">1</span>,
-            gamma_delta: <span class="number">0.1</span>,
-            gamma: settings.error.value,
-            error_type: settings.error.error_type(),
-            converged: <span class="bool-val">false</span>,
-            cycle_log: CycleLog::new(),
-            tx,
-            settings,
-            data,
-            c,
-        }
+    <span class="kw">fn </span>get_settings(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Settings {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.settings
     }
 
-    <span class="kw">fn </span>validate_psi(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="comment">// First coerce all NaN and infinite in psi to 0.0
-        </span><span class="kw">if </span><span class="self">self</span>.psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
-            <span class="macro">tracing::warn!</span>(<span class="string">"Psi contains NaN or Inf values, coercing to 0.0"</span>);
-            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.psi.nrows() {
-                <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.psi.ncols() {
-                    <span class="kw">let </span>val = <span class="self">self</span>.psi.get_mut((i, j)).unwrap();
-                    <span class="kw">if </span>val.is_nan() || val.is_infinite() {
-                        <span class="kw-2">*</span>val = <span class="number">0.0</span>;
-                    }
+    <span class="kw">fn </span>get_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Data {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.data
+    }
+
+    <span class="kw">fn </span>get_prior(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Array2&lt;f64&gt; {
+        initialization::sample_space(<span class="kw-2">&amp;</span><span class="self">self</span>.settings, <span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span><span class="self">self</span>.equation).unwrap()
+    }
+
+    <span class="kw">fn </span>likelihood(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; f64 {
+        <span class="self">self</span>.objf
+    }
+
+    <span class="kw">fn </span>inc_cycle(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.cycle += <span class="number">1</span>;
+        <span class="self">self</span>.cycle
+    }
+
+    <span class="kw">fn </span>get_cycle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.cycle
+    }
+
+    <span class="kw">fn </span>set_theta(<span class="kw-2">&amp;mut </span><span class="self">self</span>, theta: Array2&lt;f64&gt;) {
+        <span class="self">self</span>.theta = theta;
+    }
+
+    <span class="kw">fn </span>get_theta(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Array2&lt;f64&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.theta
+    }
+
+    <span class="kw">fn </span>psi(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Array2&lt;f64&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.psi
+    }
+
+    <span class="kw">fn </span>convergence_evaluation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_G &amp;&amp; <span class="self">self</span>.eps &gt; THETA_E {
+            <span class="self">self</span>.eps /= <span class="number">2.</span>;
+            <span class="kw">if </span><span class="self">self</span>.eps &lt;= THETA_E {
+                <span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
+                <span class="self">self</span>.f1 = pyl.mapv(|x| x.ln()).sum();
+                <span class="kw">if </span>(<span class="self">self</span>.f1 - <span class="self">self</span>.f0).abs() &lt;= THETA_F {
+                    <span class="macro">tracing::info!</span>(<span class="string">"The model converged after {} cycles"</span>, <span class="self">self</span>.cycle,);
+                    <span class="self">self</span>.converged = <span class="bool-val">true</span>;
+                } <span class="kw">else </span>{
+                    <span class="self">self</span>.f0 = <span class="self">self</span>.f1;
+                    <span class="self">self</span>.eps = <span class="number">0.2</span>;
                 }
             }
         }
 
-        <span class="kw">let </span>psi = <span class="self">self</span>.psi.clone();
-
-        <span class="comment">// Calculate the sum of each column in psi
-        </span><span class="kw">let </span>(<span class="kw">_</span>, col) = psi.dim();
-        <span class="kw">let </span>ecol: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt; = Array::ones(col);
-        <span class="kw">let </span>plam = psi.dot(<span class="kw-2">&amp;</span>ecol);
-        <span class="kw">let </span>w = <span class="number">1. </span>/ <span class="kw-2">&amp;</span>plam;
-
-        <span class="comment">// Get the index of each element in `w` that is NaN or infinite
-        </span><span class="kw">let </span>indices: Vec&lt;usize&gt; = w
-            .iter()
-            .enumerate()
-            .filter(|(<span class="kw">_</span>, x)| x.is_nan() || x.is_infinite())
-            .map(|(i, <span class="kw">_</span>)| i)
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-
-        <span class="comment">// If any elements in `w` are NaN or infinite, return the subject IDs for each index
-        </span><span class="kw">if </span>!indices.is_empty() {
-            <span class="kw">let </span>subject: Vec&lt;<span class="kw-2">&amp;</span>Subject&gt; = <span class="self">self</span>.data.get_subjects();
-            <span class="kw">let </span>zero_probability_subjects: Vec&lt;<span class="kw-2">&amp;</span>String&gt; =
-                indices.iter().map(|<span class="kw-2">&amp;</span>i| subject[i].id()).collect();
-
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">"The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}"</span>, zero_probability_subjects
-            ));
+        <span class="comment">// Stop if we have reached maximum number of cycles
+        </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.config.cycles {
+            <span class="macro">tracing::warn!</span>(<span class="string">"Maximum number of cycles reached"</span>);
+            <span class="self">self</span>.converged = <span class="bool-val">true</span>;
         }
 
+        <span class="comment">// Stop if stopfile exists
+        </span><span class="kw">if </span>std::path::Path::new(<span class="string">"stop"</span>).exists() {
+            <span class="macro">tracing::warn!</span>(<span class="string">"Stopfile detected - breaking"</span>);
+            <span class="self">self</span>.converged = <span class="bool-val">true</span>;
+        }
+
+        <span class="comment">// Create state object
+        </span><span class="kw">let </span>state = NPCycle {
+            cycle: <span class="self">self</span>.cycle,
+            objf: -<span class="number">2. </span>* <span class="self">self</span>.objf,
+            delta_objf: (<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs(),
+            nspp: <span class="self">self</span>.theta.shape()[<span class="number">0</span>],
+            theta: <span class="self">self</span>.theta.clone(),
+            gamlam: <span class="self">self</span>.gamma,
+            converged: <span class="self">self</span>.converged,
+        };
+
+        <span class="comment">// Write cycle log
+        </span><span class="self">self</span>.cycle_log.push(state);
+        <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
+    }
+
+    <span class="kw">fn </span>converged(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.converged
+    }
+
+    <span class="kw">fn </span>evaluation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt; {
+        <span class="self">self</span>.psi = psi(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.equation,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.data,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.theta,
+            <span class="kw-2">&amp;</span>ErrorModel::new(<span class="self">self</span>.c, <span class="self">self</span>.gamma, <span class="kw-2">&amp;</span><span class="self">self</span>.error_type),
+            <span class="self">self</span>.cycle == <span class="number">1 </span>&amp;&amp; <span class="self">self</span>.settings.log.write,
+            <span class="self">self</span>.cycle != <span class="number">1</span>,
+        );
+
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.validate_psi() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>((err, <span class="self">self</span>.into_npresult()));
+        }
+
+        (<span class="self">self</span>.lambda, <span class="kw">_</span>) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
+            <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>((
+                    <span class="macro">anyhow::anyhow!</span>(<span class="string">"Error in IPM: {:?}"</span>, err),
+                    <span class="self">self</span>.into_npresult(),
+                ));
+            }
+        };
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="comment">// fn optim_gamma(&amp;mut self, cache: Cache&lt;u64, f64&gt;) {
-    </span><span class="kw">fn </span>optim_gamma(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="comment">//Gam/Lam optimization
+    <span class="kw">fn </span>condensation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt; {
+        <span class="kw">let </span>max_lambda = <span class="kw">match </span><span class="self">self</span>.lambda.max() {
+            <span class="prelude-val">Ok</span>(max_lambda) =&gt; max_lambda,
+            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((<span class="macro">anyhow::anyhow!</span>(err), <span class="self">self</span>.into_npresult())),
+        };
+
+        <span class="kw">let </span><span class="kw-2">mut </span>keep = Vec::&lt;usize&gt;::new();
+        <span class="kw">for </span>(index, lam) <span class="kw">in </span><span class="self">self</span>.lambda.iter().enumerate() {
+            <span class="kw">if </span><span class="kw-2">*</span>lam &gt; max_lambda / <span class="number">1000_f64 </span>{
+                keep.push(index);
+            }
+        }
+        <span class="kw">if </span><span class="self">self</span>.psi.ncols() != keep.len() {
+            <span class="macro">tracing::debug!</span>(
+                <span class="string">"1) Lambda (max/1000) dropped {} support point(s)"</span>,
+                <span class="self">self</span>.psi.ncols() - keep.len(),
+            );
+        }
+
+        <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
+        <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
+
+        <span class="comment">//Rank-Revealing Factorization
+        </span><span class="kw">let </span>(r, perm) = qr::calculate_r(<span class="kw-2">&amp;</span><span class="self">self</span>.psi);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>keep = Vec::&lt;usize&gt;::new();
+        <span class="comment">//The minimum between the number of subjects and the actual number of support points
+        </span><span class="kw">let </span>lim_loop = <span class="self">self</span>.psi.nrows().min(<span class="self">self</span>.psi.ncols());
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..lim_loop {
+            <span class="kw">let </span>test = norm_zero(<span class="kw-2">&amp;</span>r.column(i).to_owned());
+            <span class="kw">let </span>ratio = r.get((i, i)).unwrap() / test;
+            <span class="kw">if </span>ratio.abs() &gt;= <span class="number">1e-8 </span>{
+                keep.push(<span class="kw-2">*</span>perm.get(i).unwrap());
+            }
+        }
+
+        <span class="comment">// If a support point is dropped, log it as a debug message
+        </span><span class="kw">if </span><span class="self">self</span>.psi.ncols() != keep.len() {
+            <span class="macro">tracing::debug!</span>(
+                <span class="string">"2)QR decomposition dropped {} support point(s)"</span>,
+                <span class="self">self</span>.psi.ncols() - keep.len(),
+            );
+        }
+
+        <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
+        <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
+
+        (<span class="self">self</span>.lambda, <span class="self">self</span>.objf) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
+            <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>((
+                    <span class="macro">anyhow::anyhow!</span>(<span class="string">"Error in IPM: {:?}"</span>, err),
+                    <span class="self">self</span>.into_npresult(),
+                ));
+            }
+        };
+        <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>optimizations(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt; {
+        <span class="comment">// Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
         </span><span class="kw">let </span>gamma_up = <span class="self">self</span>.gamma * (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
         <span class="kw">let </span>gamma_down = <span class="self">self</span>.gamma / (<span class="number">1.0 </span>+ <span class="self">self</span>.gamma_delta);
@@ -628,182 +720,80 @@
         <span class="kw">if </span><span class="self">self</span>.gamma_delta &lt;= <span class="number">0.01 </span>{
             <span class="self">self</span>.gamma_delta = <span class="number">0.1</span>;
         }
+        <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>adaptative_grid(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        adaptative_grid(<span class="kw-2">&amp;mut </span><span class="self">self</span>.theta, <span class="self">self</span>.eps, <span class="kw-2">&amp;</span><span class="self">self</span>.ranges, THETA_D);
-    }
-
-    <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult, (anyhow::Error, NPResult)&gt; {
-        <span class="kw">loop </span>{
-            <span class="comment">// Enter a span for each cycle, providing context for further errors
-            </span><span class="kw">let </span>cycle_span = <span class="macro">tracing::span!</span>(tracing::Level::INFO, <span class="string">"Cycle"</span>, cycle = <span class="self">self</span>.cycle);
-            <span class="kw">let </span>_enter = cycle_span.enter();
-
-            <span class="self">self</span>.psi = psi(
-                <span class="kw-2">&amp;</span><span class="self">self</span>.equation,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.data,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.theta,
-                <span class="kw-2">&amp;</span>ErrorModel::new(<span class="self">self</span>.c, <span class="self">self</span>.gamma, <span class="kw-2">&amp;</span><span class="self">self</span>.error_type),
-                <span class="self">self</span>.cycle == <span class="number">1 </span>&amp;&amp; <span class="self">self</span>.settings.log.write,
-                <span class="self">self</span>.cycle != <span class="number">1</span>,
+    <span class="kw">fn </span>logs(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="comment">// Log relevant cycle information
+        // let span = tracing::info_span!("", Cycle = self.cycle);
+        // let _enter = span.enter();
+        </span><span class="macro">tracing::info!</span>(<span class="string">"Objective function = {:.4}"</span>, -<span class="number">2.0 </span>* <span class="self">self</span>.objf);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Support points: {}"</span>, <span class="self">self</span>.theta.shape()[<span class="number">0</span>]);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Gamma = {:.16}"</span>, <span class="self">self</span>.gamma);
+        <span class="macro">tracing::debug!</span>(<span class="string">"EPS = {:.4}"</span>, <span class="self">self</span>.eps);
+        <span class="comment">// Increasing objf signals instability or model misspecification.
+        </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf + <span class="number">1e-4 </span>{
+            <span class="macro">tracing::warn!</span>(
+                <span class="string">"Objective function decreased from {:.4} to {:.4} (delta = {})"</span>,
+                -<span class="number">2.0 </span>* <span class="self">self</span>.last_objf,
+                -<span class="number">2.0 </span>* <span class="self">self</span>.objf,
+                -<span class="number">2.0 </span>* <span class="self">self</span>.last_objf - -<span class="number">2.0 </span>* <span class="self">self</span>.objf
             );
+        }
+    }
 
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.validate_psi() {
-                <span class="kw">return </span><span class="prelude-val">Err</span>((err, <span class="self">self</span>.to_npresult()));
-            }
+    <span class="kw">fn </span>expansion(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt; {
+        adaptative_grid(<span class="kw-2">&amp;mut </span><span class="self">self</span>.theta, <span class="self">self</span>.eps, <span class="kw-2">&amp;</span><span class="self">self</span>.ranges, THETA_D);
+        <span class="prelude-val">Ok</span>(())
+    }
+}
 
-            (<span class="self">self</span>.lambda, <span class="kw">_</span>) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
-                <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>((
-                        <span class="macro">anyhow::anyhow!</span>(<span class="string">"Error in IPM: {:?}"</span>, err),
-                        <span class="self">self</span>.to_npresult(),
-                    ));
-                }
-            };
-
-            <span class="kw">let </span>max_lambda = <span class="kw">match </span><span class="self">self</span>.lambda.max() {
-                <span class="prelude-val">Ok</span>(max_lambda) =&gt; max_lambda,
-                <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((<span class="macro">anyhow::anyhow!</span>(err), <span class="self">self</span>.to_npresult())),
-            };
-
-            <span class="kw">let </span><span class="kw-2">mut </span>keep = Vec::&lt;usize&gt;::new();
-            <span class="kw">for </span>(index, lam) <span class="kw">in </span><span class="self">self</span>.lambda.iter().enumerate() {
-                <span class="kw">if </span><span class="kw-2">*</span>lam &gt; max_lambda / <span class="number">1000_f64 </span>{
-                    keep.push(index);
-                }
-            }
-            <span class="kw">if </span><span class="self">self</span>.psi.ncols() != keep.len() {
-                <span class="macro">tracing::debug!</span>(
-                    <span class="string">"1) Lambda (max/1000) dropped {} support point(s)"</span>,
-                    <span class="self">self</span>.psi.ncols() - keep.len(),
-                );
-            }
-
-            <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
-            <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
-
-            <span class="comment">//Rank-Revealing Factorization
-            </span><span class="kw">let </span>(r, perm) = qr::calculate_r(<span class="kw-2">&amp;</span><span class="self">self</span>.psi);
-
-            <span class="kw">let </span><span class="kw-2">mut </span>keep = Vec::&lt;usize&gt;::new();
-            <span class="comment">//The minimum between the number of subjects and the actual number of support points
-            </span><span class="kw">let </span>lim_loop = <span class="self">self</span>.psi.nrows().min(<span class="self">self</span>.psi.ncols());
-            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..lim_loop {
-                <span class="kw">let </span>test = norm_zero(<span class="kw-2">&amp;</span>r.column(i).to_owned());
-                <span class="kw">let </span>ratio = r.get((i, i)).unwrap() / test;
-                <span class="kw">if </span>ratio.abs() &gt;= <span class="number">1e-8 </span>{
-                    keep.push(<span class="kw-2">*</span>perm.get(i).unwrap());
-                }
-            }
-
-            <span class="comment">// If a support point is dropped, log it as a debug message
-            </span><span class="kw">if </span><span class="self">self</span>.psi.ncols() != keep.len() {
-                <span class="macro">tracing::debug!</span>(
-                    <span class="string">"2)QR decomposition dropped {} support point(s)"</span>,
-                    <span class="self">self</span>.psi.ncols() - keep.len(),
-                );
-            }
-
-            <span class="self">self</span>.theta = <span class="self">self</span>.theta.select(Axis(<span class="number">0</span>), <span class="kw-2">&amp;</span>keep);
-            <span class="self">self</span>.psi = <span class="self">self</span>.psi.select(Axis(<span class="number">1</span>), <span class="kw-2">&amp;</span>keep);
-
-            (<span class="self">self</span>.lambda, <span class="self">self</span>.objf) = <span class="kw">match </span>burke(<span class="kw-2">&amp;</span><span class="self">self</span>.psi) {
-                <span class="prelude-val">Ok</span>((lambda, objf)) =&gt; (lambda, objf),
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>((
-                        <span class="macro">anyhow::anyhow!</span>(<span class="string">"Error in IPM: {:?}"</span>, err),
-                        <span class="self">self</span>.to_npresult(),
-                    ));
-                }
-            };
-
-            <span class="comment">// self.optim_gamma(cache.clone());
-            </span><span class="self">self</span>.optim_gamma();
-
-            <span class="comment">// Log relevant cycle information
-            </span><span class="macro">tracing::info!</span>(<span class="string">"Objective function = {:.4}"</span>, -<span class="number">2.0 </span>* <span class="self">self</span>.objf);
-            <span class="macro">tracing::debug!</span>(<span class="string">"Support points: {}"</span>, <span class="self">self</span>.theta.shape()[<span class="number">0</span>]);
-            <span class="macro">tracing::debug!</span>(<span class="string">"Gamma = {:.16}"</span>, <span class="self">self</span>.gamma);
-            <span class="macro">tracing::debug!</span>(<span class="string">"EPS = {:.4}"</span>, <span class="self">self</span>.eps);
-
-            <span class="comment">// Increasing objf signals instability or model misspecification.
-            </span><span class="kw">if </span><span class="self">self</span>.last_objf &gt; <span class="self">self</span>.objf {
-                <span class="macro">tracing::warn!</span>(
-                    <span class="string">"Objective function decreased from {:.4} to {:.4} (delta = {})"</span>,
-                    -<span class="number">2.0 </span>* <span class="self">self</span>.last_objf,
-                    -<span class="number">2.0 </span>* <span class="self">self</span>.objf,
-                    -<span class="number">2.0 </span>* <span class="self">self</span>.last_objf - -<span class="number">2.0 </span>* <span class="self">self</span>.objf
-                );
-            }
-
-            <span class="self">self</span>.w = <span class="self">self</span>.lambda.clone();
-            <span class="kw">let </span>pyl = <span class="self">self</span>.psi.dot(<span class="kw-2">&amp;</span><span class="self">self</span>.w);
-
-            <span class="comment">// Stop if we have reached convergence criteria
-            </span><span class="kw">let </span><span class="kw-2">mut </span>stop = <span class="bool-val">false</span>;
-            <span class="kw">if </span>(<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs() &lt;= THETA_G &amp;&amp; <span class="self">self</span>.eps &gt; THETA_E {
-                <span class="self">self</span>.eps /= <span class="number">2.</span>;
-                <span class="kw">if </span><span class="self">self</span>.eps &lt;= THETA_E {
-                    <span class="self">self</span>.f1 = pyl.mapv(|x| x.ln()).sum();
-                    <span class="kw">if </span>(<span class="self">self</span>.f1 - <span class="self">self</span>.f0).abs() &lt;= THETA_F {
-                        <span class="macro">tracing::info!</span>(<span class="string">"The model converged after {} cycles"</span>, <span class="self">self</span>.cycle,);
-                        <span class="self">self</span>.converged = <span class="bool-val">true</span>;
-                        stop = <span class="bool-val">true</span>;
-                    } <span class="kw">else </span>{
-                        <span class="self">self</span>.f0 = <span class="self">self</span>.f1;
-                        <span class="self">self</span>.eps = <span class="number">0.2</span>;
+<span class="kw">impl</span>&lt;E: Equation&gt; NPAG&lt;E&gt; {
+    <span class="kw">fn </span>validate_psi(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="comment">// First coerce all NaN and infinite in psi to 0.0
+        </span><span class="kw">if </span><span class="self">self</span>.psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
+            <span class="macro">tracing::warn!</span>(<span class="string">"Psi contains NaN or Inf values, coercing to 0.0"</span>);
+            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.psi.nrows() {
+                <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.psi.ncols() {
+                    <span class="kw">let </span>val = <span class="self">self</span>.psi.get_mut((i, j)).unwrap();
+                    <span class="kw">if </span>val.is_nan() || val.is_infinite() {
+                        <span class="kw-2">*</span>val = <span class="number">0.0</span>;
                     }
                 }
             }
-
-            <span class="comment">// Stop if we have reached maximum number of cycles
-            </span><span class="kw">if </span><span class="self">self</span>.cycle &gt;= <span class="self">self</span>.settings.config.cycles {
-                <span class="macro">tracing::warn!</span>(<span class="string">"Maximum number of cycles reached"</span>);
-                stop = <span class="bool-val">true</span>;
-            }
-
-            <span class="comment">// Stop if stopfile exists
-            </span><span class="kw">if </span>std::path::Path::new(<span class="string">"stop"</span>).exists() {
-                <span class="macro">tracing::warn!</span>(<span class="string">"Stopfile detected - breaking"</span>);
-                stop = <span class="bool-val">true</span>;
-            }
-
-            <span class="comment">// Create state object
-            </span><span class="kw">let </span>state = NPCycle {
-                cycle: <span class="self">self</span>.cycle,
-                objf: -<span class="number">2. </span>* <span class="self">self</span>.objf,
-                delta_objf: (<span class="self">self</span>.last_objf - <span class="self">self</span>.objf).abs(),
-                nspp: <span class="self">self</span>.theta.shape()[<span class="number">0</span>],
-                theta: <span class="self">self</span>.theta.clone(),
-                gamlam: <span class="self">self</span>.gamma,
-                converged: <span class="self">self</span>.converged,
-            };
-
-            <span class="comment">// Update TUI with current state
-            </span><span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.tx {
-                <span class="prelude-val">Some</span>(tx) =&gt; tx.send(Comm::NPCycle(state.clone())).unwrap(),
-                <span class="prelude-val">None </span>=&gt; (),
-            }
-
-            <span class="comment">// Write cycle log
-            </span><span class="self">self</span>.cycle_log.push(state);
-
-            <span class="comment">// Break if stop criteria are met
-            </span><span class="kw">if </span>stop {
-                <span class="kw">break</span>;
-            }
-
-            <span class="comment">// If we have not reached convergence or otherwise stopped, expand grid and prepare for new cycle
-            </span><span class="self">self</span>.adaptative_grid();
-            <span class="self">self</span>.cycle += <span class="number">1</span>;
-            <span class="self">self</span>.last_objf = <span class="self">self</span>.objf;
         }
 
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.to_npresult())
+        <span class="kw">let </span>psi = <span class="self">self</span>.psi.clone();
+
+        <span class="comment">// Calculate the sum of each column in psi
+        </span><span class="kw">let </span>(<span class="kw">_</span>, col) = psi.dim();
+        <span class="kw">let </span>ecol: ArrayBase&lt;OwnedRepr&lt;f64&gt;, Dim&lt;[usize; <span class="number">1</span>]&gt;&gt; = Array::ones(col);
+        <span class="kw">let </span>plam = psi.dot(<span class="kw-2">&amp;</span>ecol);
+        <span class="kw">let </span>w = <span class="number">1. </span>/ <span class="kw-2">&amp;</span>plam;
+
+        <span class="comment">// Get the index of each element in `w` that is NaN or infinite
+        </span><span class="kw">let </span>indices: Vec&lt;usize&gt; = w
+            .iter()
+            .enumerate()
+            .filter(|(<span class="kw">_</span>, x)| x.is_nan() || x.is_infinite())
+            .map(|(i, <span class="kw">_</span>)| i)
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+        <span class="comment">// If any elements in `w` are NaN or infinite, return the subject IDs for each index
+        </span><span class="kw">if </span>!indices.is_empty() {
+            <span class="kw">let </span>subject: Vec&lt;<span class="kw-2">&amp;</span>Subject&gt; = <span class="self">self</span>.data.get_subjects();
+            <span class="kw">let </span>zero_probability_subjects: Vec&lt;<span class="kw-2">&amp;</span>String&gt; =
+                indices.iter().map(|<span class="kw-2">&amp;</span>i| subject[i].id()).collect();
+
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">"The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}"</span>, zero_probability_subjects
+            ));
+        }
+
+        <span class="prelude-val">Ok</span>(())
     }
 }
+
 <span class="kw">fn </span>norm_zero(a: <span class="kw-2">&amp;</span>Array1&lt;f64&gt;) -&gt; f64 {
     <span class="kw">let </span>zeros: Array1&lt;f64&gt; = Array::zeros(a.len());
     a.l2_dist(<span class="kw-2">&amp;</span>zeros).unwrap()

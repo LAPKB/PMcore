@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Comm"],"fn":["draw","initialize_panic_handler","start_ui"]};
