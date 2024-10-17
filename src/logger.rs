@@ -24,7 +24,7 @@ use tracing_subscriber::EnvFilter;
 pub fn setup_log(settings: &Settings) -> Result<()> {
     // Use the log level defined in configuration file
     let log_level = settings.log.level.as_str();
-    let env_filter = EnvFilter::new(log_level);
+    let env_filter = EnvFilter::new(log_level).add_directive("always=trace".parse().unwrap());
 
     let timestamper = CompactTimestamp {
         start: Instant::now(),
@@ -72,4 +72,9 @@ impl FormatTime for CompactTimestamp {
 
         write!(w, "{:02}h {:02}m {:02}s", hours, minutes, seconds)
     }
+}
+
+/// This is a simple logging function that logs a message at the INFO level, but will always log the message, regardless of the log level.
+pub fn log(message: &str) {
+    tracing::event!(target: "always", tracing::Level::INFO, message);
 }
