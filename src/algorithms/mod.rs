@@ -26,6 +26,7 @@ pub trait Algorithm<E: Equation> {
     fn get_data(&self) -> &Data;
     fn get_prior(&self) -> Array2<f64>;
     fn inc_cycle(&mut self) -> usize;
+    fn get_cycle(&self) -> usize;
     fn set_theta(&mut self, theta: Array2<f64>);
     fn get_theta(&self) -> &Array2<f64>;
     fn psi(&self) -> &Array2<f64>;
@@ -68,11 +69,11 @@ pub trait Algorithm<E: Equation> {
     fn logs(&self);
     fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)>;
     fn next_cycle(&mut self) -> Result<bool, (Error, NPResult<E>)> {
-        let span = tracing::info_span!("", Cycle = 1);
-        let _enter = span.enter();
         if self.inc_cycle() > 1 {
             self.expansion()?;
         }
+        let span = tracing::info_span!("", Cycle = self.get_cycle());
+        let _enter = span.enter();
         self.evaluation()?;
         self.condensation()?;
         self.optimizations()?;

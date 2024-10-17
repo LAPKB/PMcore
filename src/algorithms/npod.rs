@@ -99,6 +99,11 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         self.cycle += 1;
         self.cycle
     }
+
+    fn get_cycle(&self) -> usize {
+        self.cycle
+    }
+
     fn set_theta(&mut self, theta: Array2<f64>) {
         self.theta = theta;
     }

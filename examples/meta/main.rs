@@ -2,6 +2,7 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
+use logger::setup_log;
 use pmcore::prelude::*;
 
 fn main() {
@@ -32,6 +33,7 @@ fn main() {
         (2, 2),
     );
     let settings = settings::read("examples/meta/config.toml").unwrap();
+    setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();

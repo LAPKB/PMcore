@@ -85,6 +85,10 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         0
     }
 
+    fn get_cycle(&self) -> usize {
+        0
+    }
+
     fn set_theta(&mut self, theta: Array2<f64>) {
         self.theta = theta;
     }
