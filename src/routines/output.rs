@@ -83,6 +83,7 @@ impl<E: Equation> NPResult<E> {
                 .context("Failed to write observed-predicted file")?;
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
+            self.write_covs().context("Failed to write covariates")?;
             if self.w.len() > 0 {
                 //TODO: find a better way to indicate that the run failed
                 self.write_posterior()
@@ -393,6 +394,58 @@ impl<E: Equation> NPResult<E> {
         writer.flush()?;
         tracing::info!(
             "Predictions written to {:?}",
+            &outputfile.get_relative_path()
+        );
+        Ok(())
+    }
+
+    /// Writes the covariates
+    pub fn write_covs(&self) -> Result<()> {
+        tracing::debug!("Writing covariates...");
+        let outputfile = OutputFile::new(&self.settings.output.path, "covs.csv")?;
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(&outputfile.file);
+
+        #[derive(Debug, Serialize)]
+        struct Row {
+            id: String,
+            time: f64,
+            block: usize,
+            cov: String,
+            value: f64,
+        }
+
+        for subject in self.data.get_subjects() {
+            for occasion in subject.occasions() {
+                if let Some(cov) = occasion.get_covariates() {
+                    let covmap = cov.covariates();
+
+                    for event in occasion.get_events(&None, &None, false) {
+                        let time = match event {
+                            Event::Bolus(bolus) => bolus.time(),
+                            Event::Infusion(infusion) => infusion.time(),
+                            Event::Observation(observation) => observation.time(),
+                        };
+
+                        for cov in &covmap {
+                            let value = cov.1.interpolate(time).unwrap();
+                            let row = Row {
+                                id: subject.id().clone(),
+                                time,
+                                block: occasion.index(),
+                                cov: cov.0.clone(),
+                                value,
+                            };
+                            writer.serialize(row)?;
+                        }
+                    }
+                }
+            }
+        }
+        writer.flush()?;
+        tracing::info!(
+            "Covariates written to {:?}",
             &outputfile.get_relative_path()
         );
         Ok(())
