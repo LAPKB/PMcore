@@ -407,15 +407,27 @@ impl<E: Equation> NPResult<E> {
             .has_headers(true)
             .from_writer(&outputfile.file);
 
-        #[derive(Debug, Serialize)]
-        struct Row {
-            id: String,
-            time: f64,
-            block: usize,
-            cov: String,
-            value: f64,
+        // Collect all unique covariate names
+        let mut covariate_names = std::collections::HashSet::new();
+        for subject in self.data.get_subjects() {
+            for occasion in subject.occasions() {
+                if let Some(cov) = occasion.get_covariates() {
+                    let covmap = cov.covariates();
+                    for (cov_name, _) in &covmap {
+                        covariate_names.insert(cov_name.clone());
+                    }
+                }
+            }
         }
+        let mut covariate_names: Vec<String> = covariate_names.into_iter().collect();
+        covariate_names.sort(); // Ensure consistent order
 
+        // Write the header row: id, time, block, covariate names
+        let mut headers = vec!["id", "time", "block"];
+        headers.extend(covariate_names.iter().map(|s| s.as_str()));
+        writer.write_record(&headers)?;
+
+        // Write the data rows
         for subject in self.data.get_subjects() {
             for occasion in subject.occasions() {
                 if let Some(cov) = occasion.get_covariates() {
@@ -428,21 +440,30 @@ impl<E: Equation> NPResult<E> {
                             Event::Observation(observation) => observation.time(),
                         };
 
-                        for cov in &covmap {
-                            let value = cov.1.interpolate(time).unwrap();
-                            let row = Row {
-                                id: subject.id().clone(),
-                                time,
-                                block: occasion.index(),
-                                cov: cov.0.clone(),
-                                value,
-                            };
-                            writer.serialize(row)?;
+                        let mut row: Vec<String> = Vec::new();
+                        row.push(subject.id().clone());
+                        row.push(time.to_string());
+                        row.push(occasion.index().to_string());
+
+                        // Add covariate values to the row
+                        for cov_name in &covariate_names {
+                            if let Some(cov) = covmap.get(cov_name) {
+                                if let Some(value) = cov.interpolate(time) {
+                                    row.push(value.to_string());
+                                } else {
+                                    row.push(String::new());
+                                }
+                            } else {
+                                row.push(String::new());
+                            }
                         }
+
+                        writer.write_record(&row)?;
                     }
                 }
             }
         }
+
         writer.flush()?;
         tracing::info!(
             "Covariates written to {:?}",
