@@ -1,7 +1,7 @@
 use crate::prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings};
 use anyhow::{Error, Result};
 use pharmsol::prelude::{
-    data::{Data, ErrorModel, ErrorType},
+    data::{Data, ErrorModel},
     simulator::{psi, Equation},
 };
 
@@ -19,10 +19,8 @@ pub struct POSTPROB<E: Equation> {
     objf: f64,
     cycle: usize,
     converged: bool,
-    gamma: f64,
-    error_type: ErrorType,
+    process_error: ErrorModel,
     data: Data,
-    c: (f64, f64, f64, f64),
     #[allow(dead_code)]
     settings: Settings,
     cyclelog: CycleLog,
@@ -38,13 +36,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
-            gamma: settings.error.value,
-            error_type: match settings.error.class.as_str() {
-                "additive" => ErrorType::Add,
-                "proportional" => ErrorType::Prop,
-                _ => panic!("Error type not supported"),
-            },
-            c: settings.error.poly,
+            process_error: settings.error.process.clone(),
             settings,
             data,
 
@@ -112,7 +104,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
+            &self.process_error,
             false,
             false,
         );

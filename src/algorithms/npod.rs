@@ -9,7 +9,7 @@ use anyhow::Error;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
-        data::{Data, ErrorModel, ErrorType},
+        data::{Data, ErrorModel},
         simulator::{psi, Equation},
     },
     Subject,
@@ -37,12 +37,10 @@ pub struct NPOD<E: Equation> {
     objf: f64,
     cycle: usize,
     gamma_delta: f64,
-    gamma: f64,
-    error_type: ErrorType,
+    process_error: ErrorModel,
     converged: bool,
     cycle_log: CycleLog,
     data: Data,
-    c: (f64, f64, f64, f64),
     settings: Settings,
 }
 
@@ -59,11 +57,9 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             objf: f64::NEG_INFINITY,
             cycle: 0,
             gamma_delta: 0.1,
-            gamma: settings.error.value,
-            error_type: settings.error.error_type(),
+            process_error: settings.error.process.clone(),
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error.poly,
             settings,
             data,
         }))
@@ -145,7 +141,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             delta_objf: (self.last_objf - self.objf).abs(),
             nspp: self.theta.shape()[0],
             theta: self.theta.clone(),
-            gamlam: self.gamma,
+            gamlam: self.process_error.get_scalar(),
             converged: self.converged,
         };
 
@@ -163,7 +159,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
+            &self.process_error,
             self.cycle == 1,
             self.cycle != 1,
         );
@@ -247,14 +243,19 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
     fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
         // Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
-        let gamma_up = self.gamma * (1.0 + self.gamma_delta);
-        let gamma_down = self.gamma / (1.0 + self.gamma_delta);
+        let gamma_up = self.process_error.get_scalar() * (1.0 + self.gamma_delta);
+        let gamma_down = self.process_error.get_scalar() / (1.0 + self.gamma_delta);
+
+        let mut err_up = self.process_error.clone();
+        let mut err_down = err_up.clone();
+        err_up.set_scalar(gamma_up);
+        err_down.set_scalar(gamma_down);
 
         let psi_up = psi(
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_up, &self.error_type),
+            &err_up,
             false,
             true,
         );
@@ -262,7 +263,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_down, &self.error_type),
+            &err_down,
             false,
             true,
         );
@@ -284,14 +285,14 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             }
         };
         if objf_up > self.objf {
-            self.gamma = gamma_up;
+            self.process_error = err_up;
             self.objf = objf_up;
             self.gamma_delta *= 4.;
             self.lambda = lambda_up;
             self.psi = psi_up;
         }
         if objf_down > self.objf {
-            self.gamma = gamma_down;
+            self.process_error = err_down;
             self.objf = objf_down;
             self.gamma_delta *= 4.;
             self.lambda = lambda_down;
@@ -310,7 +311,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         // let _enter = span.enter();
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.shape()[0]);
-        tracing::debug!("Gamma = {:.16}", self.gamma);
+        tracing::debug!("Gamma = {:.16}", self.process_error.get_scalar());
         // Increasing objf signals instability or model misspecification.
         if self.last_objf > self.objf + 1e-4 {
             tracing::warn!(
@@ -327,7 +328,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         let pyl = self.psi.dot(&self.w);
 
         // Add new point to theta based on the optimization of the D function
-        let sigma = ErrorModel::new(self.c, self.gamma, &self.error_type);
+        let sigma = self.process_error.clone();
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
         for spp in self.theta.clone().rows() {

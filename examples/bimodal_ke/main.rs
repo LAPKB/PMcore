@@ -41,7 +41,9 @@ fn main() {
 
     let settings = settings::read("examples/bimodal_ke/config.toml").unwrap();
     setup_log(&settings).unwrap();
-    let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
+    let mut data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
+    data.set_errorpoly(&settings.error.errormap(), false)
+        .unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     let result = algorithm.fit().unwrap();
     // algorithm.initialize().unwrap();

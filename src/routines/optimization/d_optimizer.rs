@@ -12,7 +12,7 @@ use pharmsol::prelude::{
 pub struct SppOptimizer<'a, E: Equation> {
     equation: &'a E,
     data: &'a Data,
-    sig: &'a ErrorModel<'a>,
+    sig: &'a ErrorModel,
     pyl: &'a Array1<f64>,
 }
 

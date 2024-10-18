@@ -3,7 +3,7 @@
 use super::output::OutputFile;
 use anyhow::{bail, Result};
 use config::Config as eConfig;
-use pharmsol::prelude::data::ErrorType;
+use pharmsol::ErrorModel;
 use serde::Deserialize;
 use serde_derive::Serialize;
 use serde_json;
@@ -204,44 +204,41 @@ impl Default for Constant {
 }
 
 /// Defines the error model and polynomial to be used
-#[derive(Debug, Deserialize, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Error {
-    /// The initial value of `gamma` or `lambda`
-    pub value: f64,
-    /// The error class, either `additive` or `proportional`
-    pub class: String,
+    /// The error model, including the value and type of error model
+    pub process: ErrorModel,
     /// The assay error polynomial
-    pub poly: (f64, f64, f64, f64),
+    pub assay: Vec<(usize, f64, f64, f64, f64)>,
 }
 
 impl Default for Error {
     fn default() -> Self {
         Error {
-            value: 0.0,
-            class: "additive".to_string(),
-            poly: (0.0, 0.1, 0.0, 0.0),
+            process: ErrorModel::Additive(5.0),
+            assay: vec![],
         }
     }
 }
 
 impl Error {
     pub fn validate(&self) -> Result<()> {
-        if self.value < 0.0 {
+        if self.process.get_scalar() < 0.0 {
             bail!(format!(
                 "Error value must be non-negative, got {}",
-                self.value
+                self.process.get_scalar()
             ));
         }
         Ok(())
     }
 
-    pub fn error_type(&self) -> ErrorType {
-        match self.class.to_lowercase().as_str() {
-            "additive" | "l" | "lambda"  => ErrorType::Add,
-            "proportional" | "g" | "gamma"  => ErrorType::Prop,
-            _ => panic!("Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)", self.class),
+    pub fn errormap(&self) -> pharmsol::ErrorMap {
+        let mut errormap = pharmsol::ErrorMap::new();
+        for (outeq, c0, c1, c2, c3) in &self.assay {
+            errormap.insert(*outeq, pharmsol::AssayPolynomial::new(*c0, *c1, *c2, *c3));
         }
+        errormap
     }
 }
 

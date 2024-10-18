@@ -184,9 +184,8 @@ fn tel_settings() -> Settings {
         fixed: None,
         constant: None,
         error: Error {
-            value: 5.0,
-            class: "proportional".to_string(),
-            poly: (0.02, 0.05, -2e-04, 0.0),
+            process: ErrorModel::Proportional(5.0),
+            assay: vec![(0, 0.0, 0.05, 0.0, 0.0)],
         },
     };
     settings.validate().unwrap();
@@ -246,9 +245,8 @@ fn bke_settings() -> Settings {
         fixed: None,
         constant: None,
         error: Error {
-            value: 0.0,
-            class: "additive".to_string(),
-            poly: (0.0, 0.05, 0.0, 0.0),
+            process: ErrorModel::Additive(0.0),
+            assay: vec![(0, 0.0, 0.05, 0.0, 0.0)],
         },
     };
     settings.validate().unwrap();
