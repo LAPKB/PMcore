@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/output.rs`."><title>output.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/routines/output.rs`."><title>output.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pmcore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -861,6 +861,92 @@
 <a href="#861" id="861">861</a>
 <a href="#862" id="862">862</a>
 <a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>csv::WriterBuilder;
@@ -868,6 +954,7 @@
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, Axis};
 <span class="kw">use </span>pharmsol::prelude::data::<span class="kw-2">*</span>;
 <span class="kw">use </span>pharmsol::prelude::simulator::Equation;
+<span class="kw">use </span>serde::Serialize;
 <span class="comment">// use pharmsol::Cache;
 </span><span class="kw">use </span>settings::Settings;
 <span class="kw">use </span>std::fs::{create_dir_all, File, OpenOptions};
@@ -945,6 +1032,7 @@
                 .context(<span class="string">"Failed to write observed-predicted file"</span>)<span class="question-mark">?</span>;
             <span class="self">self</span>.write_pred(idelta, tad)
                 .context(<span class="string">"Failed to write predictions"</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.write_covs().context(<span class="string">"Failed to write covariates"</span>)<span class="question-mark">?</span>;
             <span class="kw">if </span><span class="self">self</span>.w.len() &gt; <span class="number">0 </span>{
                 <span class="comment">//TODO: find a better way to indicate that the run failed
                 </span><span class="self">self</span>.write_posterior()
@@ -957,6 +1045,19 @@
     <span class="doccomment">/// Writes the observations and predictions to a single file
     </span><span class="kw">pub fn </span>write_obspred(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::debug!</span>(<span class="string">"Writing observations and predictions..."</span>);
+
+        <span class="attr">#[derive(Debug, Clone, Serialize)]
+        </span><span class="kw">struct </span>Row {
+            id: String,
+            time: f64,
+            outeq: usize,
+            block: usize,
+            obs: f64,
+            pop_mean: f64,
+            pop_median: f64,
+            post_mean: f64,
+            post_median: f64,
+        }
 
         <span class="kw">let </span>theta: Array2&lt;f64&gt; = <span class="self">self</span>.theta.clone();
         <span class="kw">let </span>w: Array1&lt;f64&gt; = <span class="self">self</span>.w.clone();
@@ -982,69 +1083,56 @@
             .has_headers(<span class="bool-val">true</span>)
             .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
 
-        <span class="comment">// Create the headers
-        </span>writer.write_record([
-            <span class="string">"id"</span>,
-            <span class="string">"time"</span>,
-            <span class="string">"outeq"</span>,
-            <span class="string">"obs"</span>,
-            <span class="string">"popMean"</span>,
-            <span class="string">"popMedian"</span>,
-            <span class="string">"postMean"</span>,
-            <span class="string">"postMedian"</span>,
-        ])<span class="question-mark">?</span>;
-
         <span class="kw">for </span>(i, subject) <span class="kw">in </span>subjects.iter().enumerate() {
-            <span class="comment">// Population predictions
-            </span><span class="kw">let </span>pop_mean_pred = <span class="self">self
-                </span>.equation
-                .simulate_subject(subject, <span class="kw-2">&amp;</span>pop_mean.to_vec(), <span class="prelude-val">None</span>)
-                .<span class="number">0
-                </span>.get_predictions()
-                .clone();
-            <span class="kw">let </span>pop_median_pred = <span class="self">self
-                </span>.equation
-                .simulate_subject(subject, <span class="kw-2">&amp;</span>pop_median.to_vec(), <span class="prelude-val">None</span>)
-                .<span class="number">0
-                </span>.get_predictions()
-                .clone();
+            <span class="kw">for </span>occasion <span class="kw">in </span>subject.occasions() {
+                <span class="kw">let </span>id = subject.id();
+                <span class="kw">let </span>occ = occasion.index();
 
-            <span class="comment">// Posterior predictions
-            </span><span class="kw">let </span>post_mean_spp: Vec&lt;f64&gt; = post_mean.row(i).to_vec();
-            <span class="kw">let </span>post_mean_pred = <span class="self">self
-                </span>.equation
-                .simulate_subject(subject, <span class="kw-2">&amp;</span>post_mean_spp, <span class="prelude-val">None</span>)
-                .<span class="number">0
-                </span>.get_predictions()
-                .clone();
-            <span class="kw">let </span>post_median_spp: Vec&lt;f64&gt; = post_median.row(i).to_vec();
-            <span class="kw">let </span>post_median_pred = <span class="self">self
-                </span>.equation
-                .simulate_subject(subject, <span class="kw-2">&amp;</span>post_median_spp, <span class="prelude-val">None</span>)
-                .<span class="number">0
-                </span>.get_predictions()
-                .clone();
+                <span class="kw">let </span>subject = Subject::from_occasions(id.clone(), <span class="macro">vec!</span>[occasion.clone()]);
 
-            <span class="comment">// Write the records
-            </span>pop_mean_pred
-                .iter()
-                .zip(pop_median_pred.iter())
-                .zip(post_mean_pred.iter())
-                .zip(post_median_pred.iter())
-                .for_each(|(((pop_mean, pop_median), post_mean), post_median)| {
-                    writer
-                        .write_record([
-                            subject.id(),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.3}"</span>, pop_mean.time()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, pop_mean.outeq()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, pop_mean.observation()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, pop_mean.prediction()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, pop_median.prediction()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_mean.prediction()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_median.prediction()),
-                        ])
-                        .expect(<span class="string">"Failed to write record"</span>);
-                });
+                <span class="comment">// Population predictions
+                </span><span class="kw">let </span>pop_mean_pred = <span class="self">self
+                    </span>.equation
+                    .simulate_subject(<span class="kw-2">&amp;</span>subject, <span class="kw-2">&amp;</span>pop_mean.to_vec(), <span class="prelude-val">None</span>)
+                    .<span class="number">0
+                    </span>.get_predictions()
+                    .clone();
+                <span class="kw">let </span>pop_median_pred = <span class="self">self
+                    </span>.equation
+                    .simulate_subject(<span class="kw-2">&amp;</span>subject, <span class="kw-2">&amp;</span>pop_median.to_vec(), <span class="prelude-val">None</span>)
+                    .<span class="number">0
+                    </span>.get_predictions()
+                    .clone();
+
+                <span class="comment">// Posterior predictions
+                </span><span class="kw">let </span>post_mean_spp: Vec&lt;f64&gt; = post_mean.row(i).to_vec();
+                <span class="kw">let </span>post_mean_pred = <span class="self">self
+                    </span>.equation
+                    .simulate_subject(<span class="kw-2">&amp;</span>subject, <span class="kw-2">&amp;</span>post_mean_spp, <span class="prelude-val">None</span>)
+                    .<span class="number">0
+                    </span>.get_predictions()
+                    .clone();
+                <span class="kw">let </span>post_median_spp: Vec&lt;f64&gt; = post_median.row(i).to_vec();
+                <span class="kw">let </span>post_median_pred = <span class="self">self
+                    </span>.equation
+                    .simulate_subject(<span class="kw-2">&amp;</span>subject, <span class="kw-2">&amp;</span>post_median_spp, <span class="prelude-val">None</span>)
+                    .<span class="number">0
+                    </span>.get_predictions()
+                    .clone();
+
+                <span class="kw">let </span>row = Row {
+                    id: id.clone(),
+                    time: pop_mean_pred[<span class="number">0</span>].time(),
+                    outeq: pop_mean_pred[<span class="number">0</span>].outeq(),
+                    block: occ,
+                    obs: pop_mean_pred[<span class="number">0</span>].observation(),
+                    pop_mean: pop_mean_pred[<span class="number">0</span>].prediction(),
+                    pop_median: pop_median_pred[<span class="number">0</span>].prediction(),
+                    post_mean: post_mean_pred[<span class="number">0</span>].prediction(),
+                    post_median: post_median_pred[<span class="number">0</span>].prediction(),
+                };
+                writer.serialize(row)<span class="question-mark">?</span>;
+            }
         }
         writer.flush()<span class="question-mark">?</span>;
         <span class="macro">tracing::info!</span>(
@@ -1053,6 +1141,7 @@
         );
         <span class="prelude-val">Ok</span>(())
     }
+
     <span class="doccomment">/// Writes theta, which contains the population support points and their associated probabilities
     /// Each row is one support point, the last column being probability
     </span><span class="kw">pub fn </span>write_theta(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1178,7 +1267,7 @@
             .context(<span class="string">"Failed to calculate posterior mean and median"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(pop_mean, pop_median) = population_mean_median(<span class="kw-2">&amp;</span>theta, <span class="kw-2">&amp;</span>w)
-            .context(<span class="string">"Failed to calculate posterior mean and median"</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Failed to calculate population mean and median"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>subjects = data.get_subjects();
         <span class="kw">if </span>subjects.len() != post_mean.nrows() {
@@ -1190,70 +1279,153 @@
             .has_headers(<span class="bool-val">true</span>)
             .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
 
-        <span class="comment">// Create the headers
-        </span>writer.write_record([
-            <span class="string">"id"</span>,
-            <span class="string">"time"</span>,
-            <span class="string">"outeq"</span>,
-            <span class="string">"popMean"</span>,
-            <span class="string">"popMedian"</span>,
-            <span class="string">"postMean"</span>,
-            <span class="string">"postMedian"</span>,
-        ])<span class="question-mark">?</span>;
+        <span class="attr">#[derive(Debug, Clone, Serialize)]
+        </span><span class="kw">struct </span>Row {
+            id: String,
+            time: f64,
+            outeq: usize,
+            block: usize,
+            pop_mean: f64,
+            pop_median: f64,
+            post_mean: f64,
+            post_median: f64,
+        }
 
         <span class="kw">for </span>(i, subject) <span class="kw">in </span>subjects.iter().enumerate() {
-            <span class="comment">// Population predictions
-            </span><span class="kw">let </span>pop_mean_pred = <span class="self">self
-                </span>.equation
-                .simulate_subject(subject, <span class="kw-2">&amp;</span>pop_mean.to_vec(), <span class="prelude-val">None</span>)
-                .<span class="number">0
-                </span>.get_predictions()
-                .clone();
-            <span class="kw">let </span>pop_median_pred = <span class="self">self
-                </span>.equation
-                .simulate_subject(subject, <span class="kw-2">&amp;</span>pop_median.to_vec(), <span class="prelude-val">None</span>)
-                .<span class="number">0
-                </span>.get_predictions()
-                .clone();
+            <span class="kw">for </span>occasion <span class="kw">in </span>subject.occasions() {
+                <span class="kw">let </span>id = subject.id();
+                <span class="kw">let </span>block = occasion.index();
 
-            <span class="comment">// Posterior predictions
-            </span><span class="kw">let </span>post_mean_spp: Vec&lt;f64&gt; = post_mean.row(i).to_vec();
-            <span class="kw">let </span>post_mean_pred = <span class="self">self
-                </span>.equation
-                .simulate_subject(subject, <span class="kw-2">&amp;</span>post_mean_spp, <span class="prelude-val">None</span>)
-                .<span class="number">0
-                </span>.get_predictions()
-                .clone();
-            <span class="kw">let </span>post_median_spp: Vec&lt;f64&gt; = post_median.row(i).to_vec();
-            <span class="kw">let </span>post_median_pred = <span class="self">self
-                </span>.equation
-                .simulate_subject(subject, <span class="kw-2">&amp;</span>post_median_spp, <span class="prelude-val">None</span>)
-                .<span class="number">0
-                </span>.get_predictions()
-                .clone();
+                <span class="comment">// Create a new subject with only the current occasion
+                </span><span class="kw">let </span>subject = Subject::from_occasions(id.clone(), <span class="macro">vec!</span>[occasion.clone()]);
 
-            pop_mean_pred
-                .iter()
-                .zip(pop_median_pred.iter())
-                .zip(post_mean_pred.iter())
-                .zip(post_median_pred.iter())
-                .for_each(|(((pop_mean, pop_median), post_mean), post_median)| {
-                    writer
-                        .write_record([
-                            subject.id(),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.3}"</span>, pop_mean.time()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, pop_mean.outeq()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, pop_mean.prediction()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, pop_median.prediction()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_mean.prediction()),
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:.4}"</span>, post_median.prediction()),
-                        ])
-                        .expect(<span class="string">"Failed to write record"</span>);
-                });
+                <span class="comment">// Population predictions
+                </span><span class="kw">let </span>pop_mean_pred = <span class="self">self
+                    </span>.equation
+                    .simulate_subject(<span class="kw-2">&amp;</span>subject, <span class="kw-2">&amp;</span>pop_mean.to_vec(), <span class="prelude-val">None</span>)
+                    .<span class="number">0
+                    </span>.get_predictions()
+                    .clone();
+                <span class="kw">let </span>pop_median_pred = <span class="self">self
+                    </span>.equation
+                    .simulate_subject(<span class="kw-2">&amp;</span>subject, <span class="kw-2">&amp;</span>pop_median.to_vec(), <span class="prelude-val">None</span>)
+                    .<span class="number">0
+                    </span>.get_predictions()
+                    .clone();
+
+                <span class="comment">// Posterior predictions
+                </span><span class="kw">let </span>post_mean_spp: Vec&lt;f64&gt; = post_mean.row(i).to_vec();
+                <span class="kw">let </span>post_mean_pred = <span class="self">self
+                    </span>.equation
+                    .simulate_subject(<span class="kw-2">&amp;</span>subject, <span class="kw-2">&amp;</span>post_mean_spp, <span class="prelude-val">None</span>)
+                    .<span class="number">0
+                    </span>.get_predictions()
+                    .clone();
+                <span class="kw">let </span>post_median_spp: Vec&lt;f64&gt; = post_median.row(i).to_vec();
+                <span class="kw">let </span>post_median_pred = <span class="self">self
+                    </span>.equation
+                    .simulate_subject(<span class="kw-2">&amp;</span>subject, <span class="kw-2">&amp;</span>post_median_spp, <span class="prelude-val">None</span>)
+                    .<span class="number">0
+                    </span>.get_predictions()
+                    .clone();
+
+                <span class="comment">// Write predictions for each time point
+                </span><span class="kw">for </span>(((pop_mean, pop_median), post_mean), post_median) <span class="kw">in </span>pop_mean_pred
+                    .iter()
+                    .zip(pop_median_pred.iter())
+                    .zip(post_mean_pred.iter())
+                    .zip(post_median_pred.iter())
+                {
+                    <span class="kw">let </span>row = Row {
+                        id: id.clone(),
+                        time: pop_mean.time(),
+                        outeq: pop_mean.outeq(),
+                        block,
+                        pop_mean: pop_mean.prediction(),
+                        pop_median: pop_median.prediction(),
+                        post_mean: post_mean.prediction(),
+                        post_median: post_median.prediction(),
+                    };
+                    writer.serialize(row)<span class="question-mark">?</span>;
+                }
+            }
         }
         writer.flush()<span class="question-mark">?</span>;
         <span class="macro">tracing::info!</span>(
             <span class="string">"Predictions written to {:?}"</span>,
+            <span class="kw-2">&amp;</span>outputfile.get_relative_path()
+        );
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Writes the covariates
+    </span><span class="kw">pub fn </span>write_covs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="macro">tracing::debug!</span>(<span class="string">"Writing covariates..."</span>);
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"covs.csv"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
+            .has_headers(<span class="bool-val">true</span>)
+            .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
+
+        <span class="comment">// Collect all unique covariate names
+        </span><span class="kw">let </span><span class="kw-2">mut </span>covariate_names = std::collections::HashSet::new();
+        <span class="kw">for </span>subject <span class="kw">in </span><span class="self">self</span>.data.get_subjects() {
+            <span class="kw">for </span>occasion <span class="kw">in </span>subject.occasions() {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(cov) = occasion.get_covariates() {
+                    <span class="kw">let </span>covmap = cov.covariates();
+                    <span class="kw">for </span>(cov_name, <span class="kw">_</span>) <span class="kw">in </span><span class="kw-2">&amp;</span>covmap {
+                        covariate_names.insert(cov_name.clone());
+                    }
+                }
+            }
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>covariate_names: Vec&lt;String&gt; = covariate_names.into_iter().collect();
+        covariate_names.sort(); <span class="comment">// Ensure consistent order
+
+        // Write the header row: id, time, block, covariate names
+        </span><span class="kw">let </span><span class="kw-2">mut </span>headers = <span class="macro">vec!</span>[<span class="string">"id"</span>, <span class="string">"time"</span>, <span class="string">"block"</span>];
+        headers.extend(covariate_names.iter().map(|s| s.as_str()));
+        writer.write_record(<span class="kw-2">&amp;</span>headers)<span class="question-mark">?</span>;
+
+        <span class="comment">// Write the data rows
+        </span><span class="kw">for </span>subject <span class="kw">in </span><span class="self">self</span>.data.get_subjects() {
+            <span class="kw">for </span>occasion <span class="kw">in </span>subject.occasions() {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(cov) = occasion.get_covariates() {
+                    <span class="kw">let </span>covmap = cov.covariates();
+
+                    <span class="kw">for </span>event <span class="kw">in </span>occasion.get_events(<span class="kw-2">&amp;</span><span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>, <span class="bool-val">false</span>) {
+                        <span class="kw">let </span>time = <span class="kw">match </span>event {
+                            Event::Bolus(bolus) =&gt; bolus.time(),
+                            Event::Infusion(infusion) =&gt; infusion.time(),
+                            Event::Observation(observation) =&gt; observation.time(),
+                        };
+
+                        <span class="kw">let </span><span class="kw-2">mut </span>row: Vec&lt;String&gt; = Vec::new();
+                        row.push(subject.id().clone());
+                        row.push(time.to_string());
+                        row.push(occasion.index().to_string());
+
+                        <span class="comment">// Add covariate values to the row
+                        </span><span class="kw">for </span>cov_name <span class="kw">in </span><span class="kw-2">&amp;</span>covariate_names {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(cov) = covmap.get(cov_name) {
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(value) = cov.interpolate(time) {
+                                    row.push(value.to_string());
+                                } <span class="kw">else </span>{
+                                    row.push(String::new());
+                                }
+                            } <span class="kw">else </span>{
+                                row.push(String::new());
+                            }
+                        }
+
+                        writer.write_record(<span class="kw-2">&amp;</span>row)<span class="question-mark">?</span>;
+                    }
+                }
+            }
+        }
+
+        writer.flush()<span class="question-mark">?</span>;
+        <span class="macro">tracing::info!</span>(
+            <span class="string">"Covariates written to {:?}"</span>,
             <span class="kw-2">&amp;</span>outputfile.get_relative_path()
         );
         <span class="prelude-val">Ok</span>(())
