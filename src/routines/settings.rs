@@ -139,6 +139,12 @@ impl Random {
             })
     }
 
+    /// Add a random parameter to the hashmap
+    pub fn add(&mut self, key: &str, lower: f64, upper: f64) {
+        self.parameters
+            .insert(key.to_string(), vec![lower, upper].into());
+    }
+
     /// Returns a vector of the names of the random parameters
     pub fn names(&self) -> Vec<String> {
         self.parameters.keys().cloned().collect()

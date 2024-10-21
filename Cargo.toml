@@ -48,8 +48,8 @@ codegen-units = 1
 opt-level = 3
 
 [dev-dependencies]
-diol = "0.8.2"
+criterion = "0.5.1"
 
 [[bench]]
 harness = false
-name = "compare"
+name = "main"
