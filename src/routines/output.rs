@@ -72,6 +72,18 @@ impl<E: Equation> NPResult<E> {
         self.converged
     }
 
+    pub fn get_theta(&self) -> &Array2<f64> {
+        &self.theta
+    }
+
+    pub fn get_psi(&self) -> &Array2<f64> {
+        &self.psi
+    }
+
+    pub fn get_w(&self) -> &Array1<f64> {
+        &self.w
+    }
+
     pub fn write_outputs(&self) -> Result<()> {
         if self.settings.output.write {
             let idelta: f64 = self.settings.predictions.idelta;
