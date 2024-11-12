@@ -1,3 +1,4 @@
+use logger::setup_log;
 use pmcore::prelude::*;
 fn main() {
     let sde = equation::SDE::new(
@@ -29,6 +30,7 @@ fn main() {
     );
 
     let settings = settings::read("examples/iov/config.toml".to_string()).unwrap();
+    setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();
