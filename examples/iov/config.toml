@@ -1,22 +1,23 @@
 [config]
-cycles = 100000
+cycles = 1000
 algorithm = "NPAG"
 cache = true
 
 [random]
-ke0 = [0.001, 2.0]
+ke0 = [0.0001, 2.4]
+ske = [0.0001, 0.2]
 
 [error]
-value = 0.0000757575757576
+value = 1.0
 class = "additive"
-poly = [0.0, 0.00, 0.0, 0.0]
+poly = [-0.00119, 0.44379, -0.45864, 0.16537]
 
 [log]
 level = "debug"
 
 [prior]
 sampler = "sobol"
-points = 100
+points = 1000
 seed = 347
 
 [output]

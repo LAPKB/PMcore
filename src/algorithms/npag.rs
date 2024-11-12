@@ -1,3 +1,5 @@
+use std::process::abort;
+
 use crate::{
     prelude::{
         algorithms::Algorithm,
@@ -14,8 +16,7 @@ use pharmsol::{
     prelude::{
         data::{Data, ErrorModel, ErrorType},
         simulator::{psi, Equation},
-    },
-    Subject,
+    }, Predictions, Subject
 };
 
 use ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
@@ -144,6 +145,12 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
                 }
             }
         }
+        let subjects = self.data.get_subjects();
+        let first_subject = subjects.first().unwrap();
+        let first_spp = self.theta.row(0);
+        let pred = self.equation.estimate_predictions(first_subject, &first_spp.to_vec());
+        dbg!(pred.get_predictions());
+        abort();
 
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config.cycles {
