@@ -48,42 +48,12 @@
 //! - `simple_covariates`: A simple example with a single subject and a single dose event, with covariates.
 
 /// Provides the various algorithms used within the framework
+// pub mod algorithms;
 pub mod algorithms;
-
-/// Routines for the crate
-pub mod routines {
-
-    /// Routines for initializing the grid
-    pub mod initialization;
-    pub mod optimization {
-        pub mod d_optimizer;
-        pub mod optim;
-    }
-
-    /// Routines for writing results to file, such as predicted values
-    pub mod output;
-    /// Routines for condensing grids
-    pub mod condensation {
-        pub mod prune;
-    }
-    /// Routines for expanding grids
-    pub mod expansion {
-        pub mod adaptative_grid;
-    }
-
-    /// Provides routines for reading and parsing settings
-    pub mod settings;
-    pub mod evaluation {
-
-        /// Interior point method for solving the optimization problem
-        pub mod ipm;
-        pub mod ipm_faer;
-        pub mod qr;
-    }
-}
-
 /// Logger functionality for the framework using [tracing]
 pub mod logger;
+
+pub mod simulator;
 
 // Re-export commonly used items
 pub use anyhow::Result;
@@ -94,15 +64,15 @@ pub mod prelude {
     pub use super::HashMap;
     pub use super::Result;
     pub use crate::algorithms;
+    pub use crate::algorithms::dispatch_algorithm;
+    pub use crate::algorithms::routines::condensation;
+    pub use crate::algorithms::routines::expansion::*;
+    pub use crate::algorithms::routines::initialization::*;
+    pub use crate::algorithms::routines::optimization;
     pub use crate::logger;
     pub use crate::prelude::evaluation::*;
-    pub use crate::routines::condensation;
-    pub use crate::routines::expansion::*;
-    pub use crate::routines::initialization::*;
-    pub use crate::routines::optimization;
-    pub use algorithms::dispatch_algorithm;
-    // pub use crate::routines::settings::*;
-    pub use crate::routines::*;
+    // pub use crate::algorithms::routines::settings::*;
+    pub use crate::algorithms::routines::*;
     //Alma re-exports
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;
