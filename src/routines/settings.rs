@@ -8,7 +8,6 @@ use serde::Deserialize;
 use serde_derive::Serialize;
 use serde_json;
 use std::collections::HashMap;
-use toml::Table;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -115,13 +114,13 @@ impl Default for Config {
 #[serde(default)]
 pub struct Random {
     #[serde(flatten)]
-    pub parameters: Table,
+    pub parameters: HashMap<String, (f64, f64)>,
 }
 
 impl Default for Random {
     fn default() -> Self {
         Random {
-            parameters: Table::new(),
+            parameters: HashMap::new(),
         }
     }
 }
@@ -129,14 +128,11 @@ impl Default for Random {
 impl Random {
     /// Get the upper and lower bounds of a random parameter from its key
     pub fn get(&self, key: &str) -> Option<(f64, f64)> {
-        self.parameters
-            .get(key)
-            .and_then(|v| v.as_array())
-            .map(|v| {
-                let lower = v[0].as_float().unwrap();
-                let upper = v[1].as_float().unwrap();
-                (lower, upper)
-            })
+        self.parameters.get(key).map(|v| {
+            let lower = v.0;
+            let upper = v.1;
+            (lower, upper)
+        })
     }
 
     /// Returns a vector of the names of the random parameters
@@ -149,8 +145,8 @@ impl Random {
         self.parameters
             .values()
             .map(|v| {
-                let lower = v.as_array().unwrap()[0].as_float().unwrap();
-                let upper = v.as_array().unwrap()[1].as_float().unwrap();
+                let lower = v.0;
+                let upper = v.1;
                 (lower, upper)
             })
             .collect()
@@ -159,9 +155,7 @@ impl Random {
     /// Validate the boundaries of the random parameters
     pub fn validate(&self) -> Result<()> {
         for (key, range) in &self.parameters {
-            let range = range.as_array().unwrap();
-            let lower = range[0].as_float().unwrap();
-            let upper = range[1].as_float().unwrap();
+            let (lower, upper) = *range;
             if lower >= upper {
                 bail!(format!(
                     "In key '{}', lower bound ({}) is not less than upper bound ({})",

@@ -2,7 +2,6 @@ use pmcore::prelude::*;
 
 use diol::prelude::*;
 use settings::{Log, *};
-use toml::Table;
 
 fn main() -> std::io::Result<()> {
     let mut bench = Bench::new(BenchConfig::from_args()?);
@@ -151,35 +150,7 @@ fn tel_settings() -> Settings {
         convergence: Default::default(),
         advanced: Default::default(),
         random: Random {
-            parameters: Table::from(
-                [
-                    (
-                        "Ka".to_string(),
-                        toml::Value::Array(vec![toml::Value::Float(0.1), toml::Value::Float(0.9)]),
-                    ),
-                    (
-                        "Ke".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(0.001),
-                            toml::Value::Float(0.1),
-                        ]),
-                    ),
-                    (
-                        "Tlag1".to_string(),
-                        toml::Value::Array(vec![toml::Value::Float(0.0), toml::Value::Float(4.0)]),
-                    ),
-                    (
-                        "V".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(30.0),
-                            toml::Value::Float(120.0),
-                        ]),
-                    ),
-                ]
-                .iter()
-                .cloned()
-                .collect(),
-            ),
+            parameters: HashMap::new(),
         },
         fixed: None,
         constant: None,
@@ -220,28 +191,13 @@ fn bke_settings() -> Settings {
         },
         convergence: Convergence::default(),
         advanced: Advanced::default(),
+        // Ke 0.001, 3.0
+        // V 25.0, 250.0
         random: Random {
-            parameters: Table::from(
-                [
-                    (
-                        "Ke".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(0.001),
-                            toml::Value::Float(3.0),
-                        ]),
-                    ),
-                    (
-                        "V".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(25.0),
-                            toml::Value::Float(250.0),
-                        ]),
-                    ),
-                ]
-                .iter()
-                .cloned()
-                .collect(),
-            ),
+            parameters: HashMap::from([
+                (String::from("Ke"), (0.001, 3.0)),
+                (String::from("V"), (25.0, 250.0)),
+            ]),
         },
         fixed: None,
         constant: None,
