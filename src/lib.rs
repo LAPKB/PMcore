@@ -53,8 +53,6 @@ pub mod algorithms;
 /// Logger functionality for the framework using [tracing]
 pub mod logger;
 
-pub mod simulator;
-
 // Re-export commonly used items
 pub use anyhow::Result;
 pub use std::collections::HashMap;

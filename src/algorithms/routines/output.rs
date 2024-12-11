@@ -160,6 +160,7 @@ impl<E: Equation> NPResult<E> {
                     .0
                     .get_predictions()
                     .clone();
+
                 let pop_median_pred = self
                     .equation
                     .simulate_subject(&subject, &pop_median.to_vec(), None)
@@ -182,19 +183,44 @@ impl<E: Equation> NPResult<E> {
                     .0
                     .get_predictions()
                     .clone();
+                assert_eq!(
+                    pop_mean_pred.len(),
+                    pop_median_pred.len(),
+                    "The number of predictions do not match (pop_mean vs pop_median)"
+                );
 
-                let row = Row {
-                    id: id.clone(),
-                    time: pop_mean_pred[0].time(),
-                    outeq: pop_mean_pred[0].outeq(),
-                    block: occ,
-                    obs: pop_mean_pred[0].observation(),
-                    pop_mean: pop_mean_pred[0].prediction(),
-                    pop_median: pop_median_pred[0].prediction(),
-                    post_mean: post_mean_pred[0].prediction(),
-                    post_median: post_median_pred[0].prediction(),
-                };
-                writer.serialize(row)?;
+                assert_eq!(
+                    post_mean_pred.len(),
+                    post_median_pred.len(),
+                    "The number of predictions do not match (post_mean vs post_median)"
+                );
+
+                assert_eq!(
+                    pop_mean_pred.len(),
+                    post_mean_pred.len(),
+                    "The number of predictions do not match (pop_mean vs post_mean)"
+                );
+
+                for (((pop_mean_pred, pop_median_pred), post_mean_pred), post_median_pred) in
+                    pop_mean_pred
+                        .iter()
+                        .zip(pop_median_pred.iter())
+                        .zip(post_mean_pred.iter())
+                        .zip(post_median_pred.iter())
+                {
+                    let row = Row {
+                        id: id.clone(),
+                        time: pop_mean_pred.time(),
+                        outeq: pop_mean_pred.outeq(),
+                        block: occ,
+                        obs: pop_mean_pred.observation(),
+                        pop_mean: pop_mean_pred.prediction(),
+                        pop_median: pop_median_pred.prediction(),
+                        post_mean: post_mean_pred.prediction(),
+                        post_median: post_median_pred.prediction(),
+                    };
+                    writer.serialize(row)?;
+                }
             }
         }
         writer.flush()?;
