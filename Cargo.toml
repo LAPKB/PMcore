@@ -41,6 +41,7 @@ toml = "0.8.14" #REMOVE
 rand = "0.8.5"
 anyhow = "1.0.86"
 nalgebra = "0.33.0"
+rand_distr = "0.4.3"
 
 
 [profile.release]

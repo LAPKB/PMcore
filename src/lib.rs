@@ -80,6 +80,11 @@ pub mod routines {
         pub mod ipm_faer;
         pub mod qr;
     }
+
+    /// Routines for simulating data
+    pub mod simulation {
+        pub mod draw;
+    }
 }
 
 /// Logger functionality for the framework using [tracing]
