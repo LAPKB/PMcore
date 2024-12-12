@@ -153,30 +153,39 @@ impl<E: Equation> NPResult<E> {
 
                 let subject = Subject::from_occasions(id.clone(), vec![occasion.clone()]);
 
+                let pop_mean_spp =
+                    SupportPoint::from_vec(pop_mean.to_vec(), self.par_names.clone());
+                let pop_median_spp =
+                    SupportPoint::from_vec(pop_median.to_vec(), self.par_names.clone());
+                let post_mean_spp =
+                    SupportPoint::from_vec(post_mean.row(i).to_vec(), self.par_names.clone());
+                let post_median_spp =
+                    SupportPoint::from_vec(post_median.row(i).to_vec(), self.par_names.clone());
+
                 // Population predictions
                 let pop_mean_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_mean.to_vec(), None)
+                    .simulate_subject(&subject, &pop_mean_spp, None)
                     .0
                     .get_predictions()
                     .clone();
 
                 let pop_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_median.to_vec(), None)
+                    .simulate_subject(&subject, &pop_median_spp, None)
                     .0
                     .get_predictions()
                     .clone();
 
                 // Posterior predictions
-                let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
+                // let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
                 let post_mean_pred = self
                     .equation
                     .simulate_subject(&subject, &post_mean_spp, None)
                     .0
                     .get_predictions()
                     .clone();
-                let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
+                // let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
                 let post_median_pred = self
                     .equation
                     .simulate_subject(&subject, &post_median_spp, None)
@@ -388,29 +397,38 @@ impl<E: Equation> NPResult<E> {
                 // Create a new subject with only the current occasion
                 let subject = Subject::from_occasions(id.clone(), vec![occasion.clone()]);
 
+                let pop_mean_spp =
+                    SupportPoint::from_vec(pop_mean.to_vec(), self.par_names.clone());
+                let pop_median_spp =
+                    SupportPoint::from_vec(pop_median.to_vec(), self.par_names.clone());
+                let post_mean_spp =
+                    SupportPoint::from_vec(post_mean.row(i).to_vec(), self.par_names.clone());
+                let post_median_spp =
+                    SupportPoint::from_vec(post_median.row(i).to_vec(), self.par_names.clone());
+
                 // Population predictions
                 let pop_mean_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_mean.to_vec(), None)
+                    .simulate_subject(&subject, &pop_mean_spp, None)
                     .0
                     .get_predictions()
                     .clone();
                 let pop_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_median.to_vec(), None)
+                    .simulate_subject(&subject, &pop_median_spp, None)
                     .0
                     .get_predictions()
                     .clone();
 
                 // Posterior predictions
-                let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
+                // let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
                 let post_mean_pred = self
                     .equation
                     .simulate_subject(&subject, &post_mean_spp, None)
                     .0
                     .get_predictions()
                     .clone();
-                let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
+                // let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
                 let post_median_pred = self
                     .equation
                     .simulate_subject(&subject, &post_median_spp, None)

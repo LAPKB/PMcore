@@ -3,8 +3,8 @@ use std::fs::File;
 use crate::prelude::data::Data;
 use crate::prelude::simulator::Equation;
 use anyhow::{bail, Context, Result};
-use ndarray::{Array1, Array2};
-use pharmsol::prelude::EstimateTheta;
+use ndarray::Array2;
+use pharmsol::{prelude::EstimateTheta, SupportPoint};
 
 use crate::prelude::settings::Settings;
 
@@ -15,6 +15,7 @@ pub mod sobol;
 pub fn sample_space(settings: &Settings, data: &Data, eqn: &impl Equation) -> Result<Array2<f64>> {
     // Get the ranges of the random parameters
     let ranges = settings.random.ranges();
+    let parameters = settings.random.names();
 
     // If a prior file is provided, read it and return
     if settings.prior.file.is_some() {
@@ -34,7 +35,8 @@ pub fn sample_space(settings: &Settings, data: &Data, eqn: &impl Equation) -> Re
             for range in ranges {
                 point.push((range.1 - range.0) / 2.0);
             }
-            data.estimate_theta(eqn, &Array1::from_vec(point))
+            let spp = SupportPoint::from_vec(point, parameters);
+            data.estimate_theta(eqn, &spp)
         }
         _ => {
             bail!(

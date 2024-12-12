@@ -1,8 +1,11 @@
 use crate::prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings};
 use anyhow::{Error, Result};
-use pharmsol::prelude::{
-    data::{Data, ErrorModel, ErrorType},
-    simulator::{psi, Equation},
+use pharmsol::{
+    prelude::{
+        data::{Data, ErrorModel, ErrorType},
+        simulator::{psi, Equation},
+    },
+    Theta,
 };
 
 use ndarray::{Array1, Array2};
@@ -108,10 +111,11 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
     }
 
     fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
         self.psi = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, self.gamma, &self.error_type),
             false,
             false,

@@ -12,7 +12,7 @@ use pharmsol::{
         data::{Data, ErrorModel, ErrorType},
         simulator::{psi, Equation},
     },
-    Subject,
+    Subject, Theta,
 };
 
 use ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
@@ -175,10 +175,12 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
     }
 
     fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+
         self.psi = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, self.gamma, &self.error_type),
             self.cycle == 1 && self.settings.log.write,
             self.cycle != 1,
@@ -266,10 +268,12 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
+        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+
         let psi_up = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, gamma_up, &self.error_type),
             false,
             true,
@@ -277,7 +281,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         let psi_down = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, gamma_down, &self.error_type),
             false,
             true,

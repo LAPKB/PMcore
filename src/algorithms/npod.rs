@@ -12,7 +12,7 @@ use pharmsol::{
         data::{Data, ErrorModel, ErrorType},
         simulator::{psi, Equation},
     },
-    Subject,
+    Subject, Theta,
 };
 
 use ndarray::{
@@ -159,10 +159,12 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
     }
 
     fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+
         self.psi = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, self.gamma, &self.error_type),
             self.cycle == 1,
             self.cycle != 1,
@@ -249,11 +251,12 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
+        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
 
         let psi_up = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, gamma_up, &self.error_type),
             false,
             true,
@@ -261,7 +264,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         let psi_down = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, gamma_down, &self.error_type),
             false,
             true,
@@ -334,7 +337,13 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             candididate_points.push(spp.to_owned());
         }
         candididate_points.par_iter_mut().for_each(|spp| {
-            let optimizer = SppOptimizer::new(&self.equation, &self.data, &sigma, &pyl);
+            let optimizer = SppOptimizer::new(
+                &self.equation,
+                &self.data,
+                &sigma,
+                &pyl,
+                self.settings.random.names(),
+            );
             let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
             *spp = candidate_point;
             // add spp to theta

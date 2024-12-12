@@ -1,4 +1,3 @@
-use ndarray::array;
 use pmcore::prelude::{data::read_pmetrics, *};
 
 fn main() {
@@ -18,6 +17,7 @@ fn main() {
     );
 
     let data = read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
-    let theta = data.estimate_theta(&eq, &array![1.5, 125.0]);
+    let spp = support_point!("ke" => 1.5, "v" => 125.0);
+    let theta = data.estimate_theta(&eq, &spp);
     dbg!(theta);
 }
