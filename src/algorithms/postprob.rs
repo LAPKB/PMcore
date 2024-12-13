@@ -1,5 +1,5 @@
 use crate::prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings};
-use anyhow::{Error, Result};
+use anyhow::Result;
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel, ErrorType},
@@ -110,7 +110,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         true
     }
 
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn evaluation(&mut self) -> Result<()> {
         let theta = Theta::new(self.theta.clone(), self.settings.random.names());
         self.psi = psi(
             &self.equation,
@@ -124,16 +124,16 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
         Ok(())
     }
 
-    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn condensation(&mut self) -> Result<()> {
         Ok(())
     }
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn optimizations(&mut self) -> Result<()> {
         Ok(())
     }
 
     fn logs(&self) {}
 
-    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn expansion(&mut self) -> Result<()> {
         Ok(())
     }
 }

@@ -86,9 +86,8 @@ fn main() {
     algorithm.initialize().unwrap();
     while !match algorithm.next_cycle() {
         Ok(converged) => converged,
-        Err((e, result)) => {
+        Err(e) => {
             eprintln!("{}", e);
-            result.write_outputs().unwrap();
             panic!("Error during cycle");
         }
     } {}

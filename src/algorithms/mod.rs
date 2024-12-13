@@ -55,7 +55,7 @@ pub trait Algorithm<E: Equation> {
     }
     fn convergence_evaluation(&mut self);
     fn converged(&self) -> bool;
-    fn initialize(&mut self) -> Result<(), Error> {
+    fn initialize(&mut self) -> Result<()> {
         // If a stop file exists in the current directory, remove it
         if Path::new("stop").exists() {
             tracing::info!("Removing existing stop file prior to run");
@@ -64,12 +64,12 @@ pub trait Algorithm<E: Equation> {
         self.set_theta(self.get_prior());
         Ok(())
     }
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)>;
+    fn evaluation(&mut self) -> Result<()>;
+    fn condensation(&mut self) -> Result<()>;
+    fn optimizations(&mut self) -> Result<()>;
     fn logs(&self);
-    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn next_cycle(&mut self) -> Result<bool, (Error, NPResult<E>)> {
+    fn expansion(&mut self) -> Result<()>;
+    fn next_cycle(&mut self) -> Result<bool> {
         if self.inc_cycle() > 1 {
             self.expansion()?;
         }
@@ -82,9 +82,16 @@ pub trait Algorithm<E: Equation> {
         self.convergence_evaluation();
         Ok(self.converged())
     }
-    fn fit(&mut self) -> Result<NPResult<E>, (Error, NPResult<E>)> {
-        self.initialize().unwrap();
-        while !self.next_cycle()? {}
+    fn fit(&mut self) -> Result<NPResult<E>> {
+        self.initialize()?;
+        while !match self.next_cycle() {
+            Ok(b) => b,
+            Err(err) => {
+                tracing::error!("Error: {:?}", err);
+                //TODO: Potentially write outputs and a debug dump of the NPResult
+                return Err(err);
+            }
+        } {}
         Ok(self.into_npresult())
     }
     fn into_npresult(&self) -> NPResult<E>;

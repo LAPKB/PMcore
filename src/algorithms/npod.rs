@@ -5,7 +5,7 @@ use crate::prelude::{
     qr,
     settings::Settings,
 };
-use anyhow::Error;
+use anyhow::bail;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
@@ -158,7 +158,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         self.converged
     }
 
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn evaluation(&mut self) -> Result<()> {
         let theta = Theta::new(self.theta.clone(), self.settings.random.names());
 
         self.psi = psi(
@@ -171,25 +171,22 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         );
 
         if let Err(err) = self.validate_psi() {
-            return Err((err, self.into_npresult()));
+            bail!(err);
         }
 
         (self.lambda, _) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                return Err((
-                    anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.into_npresult(),
-                ));
+                bail!("Error in IPM: {:?}", err);
             }
         };
         Ok(())
     }
 
-    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn condensation(&mut self) -> Result<()> {
         let max_lambda = match self.lambda.max() {
             Ok(max_lambda) => max_lambda,
-            Err(err) => return Err((anyhow::anyhow!(err), self.into_npresult())),
+            Err(err) => bail!(err),
         };
 
         let mut keep = Vec::<usize>::new();
@@ -236,17 +233,14 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                return Err((
-                    anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.into_npresult(),
-                ));
+                bail!(err);
             }
         };
         self.w = self.lambda.clone();
         Ok(())
     }
 
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn optimizations(&mut self) -> Result<()> {
         // Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
@@ -325,7 +319,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         }
     }
 
-    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn expansion(&mut self) -> Result<()> {
         // If no stop signal, add new point to theta based on the optimization of the D function
         let pyl = self.psi.dot(&self.w);
 
