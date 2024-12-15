@@ -91,6 +91,10 @@ impl Default for Config {
     }
 }
 
+/// Defines a parameter to be estimated
+///
+/// In non-parametric algorithms, parameters must be bounded. The lower and upper bounds are defined by the `lower` and `upper` fields, respectively.
+/// Fixed parameters are unknown, but common among all subjects.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Parameter {
     name: String,
@@ -100,6 +104,7 @@ pub struct Parameter {
 }
 
 impl Parameter {
+    /// Create a new parameter
     pub fn new(name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Result<Self> {
         if lower >= upper {
             bail!(format!(
@@ -119,18 +124,21 @@ impl Parameter {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+/// This structure contains information on all [Parameter]s to be estimated
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Parameters {
     parameters: Vec<Parameter>,
 }
 
 impl Parameters {
+    /// Create a new set of parameters
     pub fn new() -> Self {
         Parameters {
             parameters: Vec::new(),
         }
     }
 
+    /// Add a parameter to the set
     pub fn add(
         &mut self,
         name: impl Into<String>,
@@ -143,10 +151,12 @@ impl Parameters {
         Ok(self)
     }
 
+    /// Get the names of the parameters
     pub fn names(&self) -> Vec<String> {
         self.parameters.iter().map(|p| p.name.clone()).collect()
     }
 
+    /// Get the ranges of the parameters
     pub fn ranges(&self) -> Vec<(f64, f64)> {
         self.parameters.iter().map(|p| (p.lower, p.upper)).collect()
     }
