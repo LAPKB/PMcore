@@ -1,6 +1,8 @@
+use anyhow::Result;
 use logger::setup_log;
 use pmcore::prelude::*;
-fn main() {
+use settings::Parameters;
+fn main() -> Result<()> {
     let eq = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
             // fetch_cov!(cov, t, wt);
@@ -39,7 +41,12 @@ fn main() {
     //     (1, 1),
     // );
 
-    let settings = settings::read("examples/bimodal_ke/config.toml").unwrap();
+    let mut settings = settings::read("examples/bimodal_ke/config.toml").unwrap();
+    let parameters = Parameters::new()
+        .add("ke", 0.001, 3.0, false)?
+        .add("v", 25.0, 250.0, false)?
+        .to_owned();
+    settings.parameters = parameters;
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
@@ -50,4 +57,5 @@ fn main() {
     result.write_outputs().unwrap();
     // println!("{:?}", result);
     // let _result = fit(eq, data, settings);
+    Ok(())
 }

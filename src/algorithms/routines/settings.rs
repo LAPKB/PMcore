@@ -7,8 +7,6 @@ use pharmsol::prelude::data::ErrorType;
 use serde::Deserialize;
 use serde_derive::Serialize;
 use serde_json;
-use std::collections::HashMap;
-use toml::Table;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -16,12 +14,8 @@ use toml::Table;
 pub struct Settings {
     /// General configuration settings
     pub config: Config,
-    /// Random parameters to be estimated
-    pub random: Random,
-    /// Parameters which are estimated, but fixed for the population
-    pub fixed: Option<Fixed>,
-    /// Parameters which are held constant
-    pub constant: Option<Constant>,
+    /// Parameters to be estimated
+    pub parameters: Parameters,
     /// Defines the error model and polynomial to be used
     pub error: Error,
     /// Configuration for predictions
@@ -44,9 +38,7 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             config: Config::default(),
-            random: Random::default(),
-            fixed: None,
-            constant: None,
+            parameters: Parameters::new(),
             error: Error::default(),
             predictions: Predictions::default(),
             log: Log::default(),
@@ -61,7 +53,6 @@ impl Default for Settings {
 impl Settings {
     /// Validate the settings
     pub fn validate(&self) -> Result<()> {
-        self.random.validate()?;
         self.error.validate()?;
         self.predictions.validate()?;
         Ok(())
@@ -100,106 +91,64 @@ impl Default for Config {
     }
 }
 
-/// Random parameters to be estimated
-///
-/// This struct contains the random parameters to be estimated. The parameters are specified as a hashmap, where the key is the name of the parameter, and the value is a tuple containing the upper and lower bounds of the parameter.
-///
-/// # Example
-///
-/// ```toml
-/// [random]
-/// alpha = [0.0, 1.0]
-/// beta = [0.0, 1.0]
-/// ```
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(default)]
-pub struct Random {
-    #[serde(flatten)]
-    pub parameters: Table,
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Parameter {
+    name: String,
+    lower: f64,
+    upper: f64,
+    fixed: bool,
 }
 
-impl Default for Random {
-    fn default() -> Self {
-        Random {
-            parameters: Table::new(),
+impl Parameter {
+    pub fn new(name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Result<Self> {
+        if lower >= upper {
+            bail!(format!(
+                "In key '{}', lower bound ({}) is not less than upper bound ({})",
+                name.into(),
+                lower,
+                upper
+            ));
+        }
+
+        Ok(Self {
+            name: name.into(),
+            lower,
+            upper,
+            fixed,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Parameters {
+    parameters: Vec<Parameter>,
+}
+
+impl Parameters {
+    pub fn new() -> Self {
+        Parameters {
+            parameters: Vec::new(),
         }
     }
-}
 
-impl Random {
-    /// Get the upper and lower bounds of a random parameter from its key
-    pub fn get(&self, key: &str) -> Option<(f64, f64)> {
-        self.parameters
-            .get(key)
-            .and_then(|v| v.as_array())
-            .map(|v| {
-                let lower = v[0].as_float().unwrap();
-                let upper = v[1].as_float().unwrap();
-                (lower, upper)
-            })
+    pub fn add(
+        &mut self,
+        name: impl Into<String>,
+        lower: f64,
+        upper: f64,
+        fixed: bool,
+    ) -> Result<&mut Self> {
+        let parameter = Parameter::new(name, lower, upper, fixed)?;
+        self.parameters.push(parameter);
+        Ok(self)
     }
 
-    /// Returns a vector of the names of the random parameters
     pub fn names(&self) -> Vec<String> {
-        self.parameters.keys().cloned().collect()
+        self.parameters.iter().map(|p| p.name.clone()).collect()
     }
 
-    /// Returns a vector of the upper and lower bounds of the random parameters
     pub fn ranges(&self) -> Vec<(f64, f64)> {
-        self.parameters
-            .values()
-            .map(|v| {
-                let lower = v.as_array().unwrap()[0].as_float().unwrap();
-                let upper = v.as_array().unwrap()[1].as_float().unwrap();
-                (lower, upper)
-            })
-            .collect()
-    }
-
-    /// Validate the boundaries of the random parameters
-    pub fn validate(&self) -> Result<()> {
-        for (key, range) in &self.parameters {
-            let range = range.as_array().unwrap();
-            let lower = range[0].as_float().unwrap();
-            let upper = range[1].as_float().unwrap();
-            if lower >= upper {
-                bail!(format!(
-                    "In key '{}', lower bound ({}) is not less than upper bound ({})",
-                    key, lower, upper
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-
-/// Parameters which are estimated, but fixed for the population
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct Fixed {
-    #[serde(flatten)]
-    pub parameters: HashMap<String, f64>,
-}
-
-impl Default for Fixed {
-    fn default() -> Self {
-        Fixed {
-            parameters: HashMap::new(),
-        }
-    }
-}
-
-/// Parameters which are held constant
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct Constant {
-    #[serde(flatten)]
-    pub parameters: HashMap<String, f64>,
-}
-
-impl Default for Constant {
-    fn default() -> Self {
-        Constant {
-            parameters: HashMap::new(),
-        }
+        self.parameters.iter().map(|p| (p.lower, p.upper)).collect()
     }
 }
 

@@ -2,7 +2,6 @@ use pmcore::prelude::*;
 
 use diol::prelude::*;
 use settings::{Log, *};
-use toml::Table;
 
 fn main() -> std::io::Result<()> {
     let mut bench = Bench::new(BenchConfig::from_args()?);
@@ -150,43 +149,22 @@ fn tel_settings() -> Settings {
         },
         convergence: Default::default(),
         advanced: Default::default(),
-        random: Random {
-            parameters: Table::from(
-                [
-                    (
-                        "Ka".to_string(),
-                        toml::Value::Array(vec![toml::Value::Float(0.1), toml::Value::Float(0.9)]),
-                    ),
-                    (
-                        "Ke".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(0.001),
-                            toml::Value::Float(0.1),
-                        ]),
-                    ),
-                    (
-                        "Tlag1".to_string(),
-                        toml::Value::Array(vec![toml::Value::Float(0.0), toml::Value::Float(4.0)]),
-                    ),
-                    (
-                        "V".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(30.0),
-                            toml::Value::Float(120.0),
-                        ]),
-                    ),
-                ]
-                .iter()
-                .cloned()
-                .collect(),
-            ),
-        },
-        fixed: None,
-        constant: None,
         error: Error {
             value: 5.0,
             class: "proportional".to_string(),
             poly: (0.02, 0.05, -2e-04, 0.0),
+        },
+        parameters: {
+            Parameters::new()
+                .add("Ka".to_string(), 0.1, 0.3, false)
+                .unwrap()
+                .add("Ke".to_string(), 0.001, 0.1, false)
+                .unwrap()
+                .add("Tlag1".to_string(), 0.0, 4.00, false)
+                .unwrap()
+                .add("V".to_string(), 30.0, 120.0, false)
+                .unwrap()
+                .to_owned()
         },
     };
     settings.validate().unwrap();
@@ -220,35 +198,18 @@ fn bke_settings() -> Settings {
         },
         convergence: Convergence::default(),
         advanced: Advanced::default(),
-        random: Random {
-            parameters: Table::from(
-                [
-                    (
-                        "Ke".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(0.001),
-                            toml::Value::Float(3.0),
-                        ]),
-                    ),
-                    (
-                        "V".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(25.0),
-                            toml::Value::Float(250.0),
-                        ]),
-                    ),
-                ]
-                .iter()
-                .cloned()
-                .collect(),
-            ),
-        },
-        fixed: None,
-        constant: None,
         error: Error {
             value: 0.0,
             class: "additive".to_string(),
             poly: (0.0, 0.05, 0.0, 0.0),
+        },
+        parameters: {
+            Parameters::new()
+                .add("Ke".to_string(), 0.001, 0.1, false)
+                .unwrap()
+                .add("V".to_string(), 25.0, 250.0, false)
+                .unwrap()
+                .to_owned()
         },
     };
     settings.validate().unwrap();

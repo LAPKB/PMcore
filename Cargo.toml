@@ -38,8 +38,6 @@ faer = "0.19.3"
 faer-ext = { version = "0.2.0", features = ["nalgebra", "ndarray"] }
 # pharmsol = "0.7.1"
 pharmsol = {path="../pharmsol"}
-# pharmsol = { git = "https://github.com/LAPKB/pharmsol.git", branch = "dev"}
-toml = "0.8.14" #REMOVE
 rand = "0.8.5"
 anyhow = "1.0.86"
 nalgebra = "0.33.0"
