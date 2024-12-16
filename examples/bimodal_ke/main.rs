@@ -44,8 +44,7 @@ fn main() -> Result<()> {
     let mut settings = settings::read("examples/bimodal_ke/config.toml").unwrap();
     let parameters = Parameters::new()
         .add("ke", 0.001, 3.0, false)?
-        .add("v", 25.0, 250.0, false)?
-        .to_owned();
+        .add("v", 25.0, 250.0, false)?;
     settings.parameters = parameters;
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();

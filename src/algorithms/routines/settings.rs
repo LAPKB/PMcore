@@ -140,12 +140,12 @@ impl Parameters {
 
     /// Add a parameter to the set
     pub fn add(
-        &mut self,
+        mut self,
         name: impl Into<String>,
         lower: f64,
         upper: f64,
         fixed: bool,
-    ) -> Result<&mut Self> {
+    ) -> Result<Self> {
         let parameter = Parameter::new(name, lower, upper, fixed)?;
         self.parameters.push(parameter);
         Ok(self)
