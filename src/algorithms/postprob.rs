@@ -111,7 +111,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters.names());
         self.psi = psi(
             &self.equation,
             &self.data,

@@ -28,7 +28,6 @@ const THETA_D: f64 = 1e-4;
 
 pub struct NPOD<E: Equation> {
     equation: E,
-    ranges: Vec<(f64, f64)>,
     psi: Array2<f64>,
     theta: Array2<f64>,
     lambda: Array1<f64>,
@@ -50,7 +49,6 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            ranges: settings.random.ranges(),
             psi: Array2::default((0, 0)),
             theta: Array2::zeros((0, 0)),
             lambda: Array1::default(0),
@@ -159,7 +157,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters.names());
 
         self.psi = psi(
             &self.equation,
@@ -245,7 +243,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
-        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters.names());
 
         let psi_up = psi(
             &self.equation,
@@ -336,7 +334,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
                 &self.data,
                 &sigma,
                 &pyl,
-                self.settings.random.names(),
+                self.settings.parameters.names(),
             );
             let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
             *spp = candidate_point;
@@ -347,7 +345,12 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             // re-define a new optimization
         });
         for cp in candididate_points {
-            prune(&mut self.theta, cp, &self.ranges, THETA_D);
+            prune(
+                &mut self.theta,
+                cp,
+                &self.settings.parameters.ranges(),
+                THETA_D,
+            );
         }
         Ok(())
     }

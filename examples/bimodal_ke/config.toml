@@ -3,10 +3,6 @@ cycles = 1024
 algorithm = "NPAG"
 cache = true
 
-[random]
-ke = [0.001, 3.0]
-v = [25.0, 250.0]
-
 [error]
 value = 0.0
 class = "additive"

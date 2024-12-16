@@ -43,7 +43,7 @@ impl<E: Equation> NPResult<E> {
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
 
-        let par_names = settings.random.names();
+        let par_names = settings.parameters.names();
 
         Self {
             equation,
@@ -622,7 +622,7 @@ impl CycleLog {
         writer.write_field("gamlam")?;
         writer.write_field("nspp")?;
 
-        let parameter_names = settings.random.names();
+        let parameter_names = settings.parameters.names();
         for param_name in &parameter_names {
             writer.write_field(format!("{}.mean", param_name))?;
             writer.write_field(format!("{}.median", param_name))?;
