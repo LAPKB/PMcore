@@ -145,12 +145,13 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
                 }
             }
         }
-        let subjects = self.data.get_subjects();
-        let first_subject = subjects.first().unwrap();
-        let first_spp = self.theta.row(0);
-        let pred = self.equation.estimate_predictions(first_subject, &first_spp.to_vec());
-        dbg!(pred.get_predictions());
-        abort();
+        // Working w/Julian .... decided we can't do this:
+        // let subjects = self.data.get_subjects();
+        // let first_subject = subjects.first().unwrap();
+        // let first_spp = self.theta.row(0);
+        // let pred = self.equation.estimate_predictions(first_subject, &first_spp.to_vec());
+        // dbg!(pred.get_predictions());
+        // abort();
 
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config.cycles {

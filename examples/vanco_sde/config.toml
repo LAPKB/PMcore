@@ -1,0 +1,29 @@
+[config]
+cycles = 10
+algorithm = "NPAG"
+cache = true
+
+[random]
+# ka, ke0, kcp, kpc, _vol, _ske
+ka = [0.0001, 2.4]
+ke0 = [0.0001, 2.7]
+kcp = [0.0001, 2.4]
+kpc = [0.0001, 2.4]
+vol = [0.2, 1.2]
+ske = [0.0001, 0.2]
+
+[error]
+value = 1.0
+class = "additive"
+poly = [0.00119, 0.20, 0.0, 0.0]
+
+[log]
+level = "debug"
+
+[prior]
+sampler = "sobol"
+points = 10000
+seed = 347
+
+[output]
+write = true
