@@ -4,9 +4,12 @@ use argmin::{
 };
 use ndarray::{Array1, Axis};
 
-use pharmsol::prelude::{
-    data::{Data, ErrorModel},
-    simulator::{psi, Equation},
+use pharmsol::{
+    prelude::{
+        data::{Data, ErrorModel},
+        simulator::{psi, Equation},
+    },
+    Theta,
 };
 
 pub struct SppOptimizer<'a, E: Equation> {
@@ -14,6 +17,7 @@ pub struct SppOptimizer<'a, E: Equation> {
     data: &'a Data,
     sig: &'a ErrorModel<'a>,
     pyl: &'a Array1<f64>,
+    parameters: Vec<String>,
 }
 
 impl<'a, E: Equation> CostFunction for SppOptimizer<'a, E> {
@@ -21,7 +25,7 @@ impl<'a, E: Equation> CostFunction for SppOptimizer<'a, E> {
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = spp.to_owned().insert_axis(Axis(0));
-
+        let theta = Theta::new(theta, self.parameters.clone());
         let psi = psi(self.equation, self.data, &theta, self.sig, false, false);
 
         if psi.ncols() > 1 {
@@ -44,12 +48,19 @@ impl<'a, E: Equation> CostFunction for SppOptimizer<'a, E> {
 }
 
 impl<'a, E: Equation> SppOptimizer<'a, E> {
-    pub fn new(equation: &'a E, data: &'a Data, sig: &'a ErrorModel, pyl: &'a Array1<f64>) -> Self {
+    pub fn new(
+        equation: &'a E,
+        data: &'a Data,
+        sig: &'a ErrorModel,
+        pyl: &'a Array1<f64>,
+        parameters: Vec<String>,
+    ) -> Self {
         Self {
             equation,
             data,
             sig,
             pyl,
+            parameters,
         }
     }
     pub fn optimize_point(self, spp: Array1<f64>) -> Result<Array1<f64>, Error> {

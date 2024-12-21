@@ -5,14 +5,14 @@ use crate::prelude::{
     qr,
     settings::Settings,
 };
-use anyhow::Error;
+use anyhow::bail;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel, ErrorType},
         simulator::{psi, Equation},
     },
-    Subject,
+    Subject, Theta,
 };
 
 use ndarray::{
@@ -158,36 +158,35 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         self.converged
     }
 
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn evaluation(&mut self) -> Result<()> {
+        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+
         self.psi = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, self.gamma, &self.error_type),
             self.cycle == 1,
             self.cycle != 1,
         );
 
         if let Err(err) = self.validate_psi() {
-            return Err((err, self.into_npresult()));
+            bail!(err);
         }
 
         (self.lambda, _) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                return Err((
-                    anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.into_npresult(),
-                ));
+                bail!("Error in IPM: {:?}", err);
             }
         };
         Ok(())
     }
 
-    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn condensation(&mut self) -> Result<()> {
         let max_lambda = match self.lambda.max() {
             Ok(max_lambda) => max_lambda,
-            Err(err) => return Err((anyhow::anyhow!(err), self.into_npresult())),
+            Err(err) => bail!(err),
         };
 
         let mut keep = Vec::<usize>::new();
@@ -234,26 +233,24 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                return Err((
-                    anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.into_npresult(),
-                ));
+                bail!(err);
             }
         };
         self.w = self.lambda.clone();
         Ok(())
     }
 
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn optimizations(&mut self) -> Result<()> {
         // Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
+        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
 
         let psi_up = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, gamma_up, &self.error_type),
             false,
             true,
@@ -261,7 +258,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         let psi_down = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &theta,
             &ErrorModel::new(self.c, gamma_down, &self.error_type),
             false,
             true,
@@ -322,7 +319,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         }
     }
 
-    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn expansion(&mut self) -> Result<()> {
         // If no stop signal, add new point to theta based on the optimization of the D function
         let pyl = self.psi.dot(&self.w);
 
@@ -334,7 +331,13 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             candididate_points.push(spp.to_owned());
         }
         candididate_points.par_iter_mut().for_each(|spp| {
-            let optimizer = SppOptimizer::new(&self.equation, &self.data, &sigma, &pyl);
+            let optimizer = SppOptimizer::new(
+                &self.equation,
+                &self.data,
+                &sigma,
+                &pyl,
+                self.settings.random.names(),
+            );
             let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
             *spp = candidate_point;
             // add spp to theta

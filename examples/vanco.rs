@@ -37,7 +37,9 @@ fn main() {
         .repeat(1000, 0.01)
         .build();
 
-    let op = eq.simulate_subject(&subject, &vec![0.3, 0.2, 0.5], None).0;
+    let spp = support_point!("ke" => 0.3, "kcp" => 0.2, "kpc" => 0.5);
+
+    let op = eq.simulate_subject(&subject, &spp, None).0;
 
     let times = op.flat_time();
     let pred = op.flat_predictions();
