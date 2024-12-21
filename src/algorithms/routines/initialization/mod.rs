@@ -14,14 +14,14 @@ pub mod sobol;
 /// This function generates the grid of support points according to the sampler specified in the [Settings]
 pub fn sample_space(settings: &Settings, data: &Data, eqn: &impl Equation) -> Result<Array2<f64>> {
     // Get the ranges of the random parameters
-    let ranges = settings.random.ranges();
-    let parameters = settings.random.names();
+    let ranges = settings.parameters.ranges();
+    let parameters = settings.parameters.names();
 
     // If a prior file is provided, read it and return
     if settings.prior.file.is_some() {
         let prior = parse_prior(
             settings.prior.file.as_ref().unwrap(),
-            &settings.random.names(),
+            &settings.parameters.names(),
         )?;
         return Ok(prior);
     }
