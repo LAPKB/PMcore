@@ -19,8 +19,6 @@ pub struct Settings {
     /// Defines the error model and polynomial to be used
     pub error: Error,
     /// Configuration for predictions
-    ///
-    /// This struct contains the interval at which to generate predictions, and the time after dose to generate predictions to
     pub predictions: Predictions,
     /// Configuration for logging
     pub log: Log,
@@ -84,7 +82,7 @@ impl Default for Config {
         Config {
             cycles: 100,
             algorithm: "NPAG".to_string(),
-            cache: false,
+            cache: true,
             include: None,
             exclude: None,
         }
@@ -149,6 +147,12 @@ impl Parameters {
         let parameter = Parameter::new(name, lower, upper, fixed)?;
         self.parameters.push(parameter);
         Ok(self)
+    }
+
+    // Get a parameter by name
+    pub fn get(&self, name: impl Into<String>) -> Option<&Parameter> {
+        let name = name.into();
+        self.parameters.iter().find(|p| p.name == name)
     }
 
     /// Get the names of the parameters
