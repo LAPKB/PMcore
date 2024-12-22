@@ -1,12 +1,14 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
+use core::panic;
 use std::path::Path;
 
 use data::read_pmetrics;
 use logger::setup_log;
 use ndarray::Array2;
 use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
+use settings::Parameters;
 
 fn main() {
     let eq = equation::ODE::new(
@@ -71,7 +73,17 @@ fn main() {
     //     (2, 1),
     // );
 
-    let settings = settings::read("examples/two_eq_lag/config.toml").unwrap();
+    let mut settings = settings::read("examples/two_eq_lag/config.toml").unwrap();
+    settings.parameters = Parameters::new()
+        .add("ka", 0.1, 0.9, false)
+        .unwrap()
+        .add("ke", 0.001, 0.1, false)
+        .unwrap()
+        .add("tlag", 0.0, 4.0, false)
+        .unwrap()
+        .add("v", 30.0, 120.0, false)
+        .unwrap();
+
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();

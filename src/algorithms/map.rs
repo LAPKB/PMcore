@@ -14,7 +14,7 @@ use super::{initialization, output::CycleLog};
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
-pub struct POSTPROB<E: Equation> {
+pub struct MAP<E: Equation> {
     equation: E,
     psi: Array2<f64>,
     theta: Array2<f64>,
@@ -31,7 +31,7 @@ pub struct POSTPROB<E: Equation> {
     cyclelog: CycleLog,
 }
 
-impl<E: Equation> Algorithm<E> for POSTPROB<E> {
+impl<E: Equation> Algorithm<E> for MAP<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,

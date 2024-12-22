@@ -1,3 +1,4 @@
+use algorithms::AlgorithmType;
 use pmcore::prelude::*;
 
 use diol::prelude::*;
@@ -127,7 +128,7 @@ fn tel_settings() -> Settings {
     let settings = Settings {
         config: Config {
             cycles: 1000,
-            algorithm: "NPAG".to_string(),
+            algorithm: AlgorithmType::NPAG,
             cache: true,
             ..Default::default()
         },
@@ -175,7 +176,7 @@ fn bke_settings() -> Settings {
     let settings = Settings {
         config: Config {
             cycles: 1024,
-            algorithm: "NPAG".to_string(),
+            algorithm: AlgorithmType::NPAG,
             cache: true,
             include: None,
             exclude: None,

@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::algorithms::AlgorithmType;
+
 use super::output::OutputFile;
 use anyhow::{bail, Result};
 use config::Config as eConfig;
@@ -68,7 +70,7 @@ pub struct Config {
     /// Maximum number of cycles to run
     pub cycles: usize,
     /// Denotes the algorithm to use
-    pub algorithm: String,
+    pub algorithm: AlgorithmType,
     /// If true (default), cache predicted values
     pub cache: bool,
     /// Vector of IDs to include
@@ -81,7 +83,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             cycles: 100,
-            algorithm: "NPAG".to_string(),
+            algorithm: AlgorithmType::NPAG,
             cache: true,
             include: None,
             exclude: None,
