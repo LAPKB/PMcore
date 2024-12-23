@@ -1,14 +1,13 @@
 #![allow(dead_code)]
-
-use crate::algorithms::AlgorithmType;
-
 use super::output::OutputFile;
+use crate::algorithms::AlgorithmType;
 use anyhow::{bail, Result};
 use config::Config as eConfig;
 use pharmsol::prelude::data::ErrorType;
 use serde::Deserialize;
 use serde_derive::Serialize;
 use serde_json;
+use std::collections::BTreeMap;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -200,14 +199,14 @@ impl Parameter {
 /// This structure contains information on all [Parameter]s to be estimated
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Parameters {
-    parameters: Vec<Parameter>,
+    parameters: BTreeMap<String, Parameter>,
 }
 
 impl Parameters {
     /// Create a new set of parameters
     pub fn new() -> Self {
         Parameters {
-            parameters: Vec::new(),
+            parameters: BTreeMap::new(),
         }
     }
 
@@ -220,24 +219,37 @@ impl Parameters {
         fixed: bool,
     ) -> Result<Self> {
         let parameter = Parameter::new(name, lower, upper, fixed)?;
-        self.parameters.push(parameter);
+        self.parameters.insert(parameter.name.clone(), parameter);
         Ok(self)
     }
 
     // Get a parameter by name
     pub fn get(&self, name: impl Into<String>) -> Option<&Parameter> {
-        let name = name.into();
-        self.parameters.iter().find(|p| p.name == name)
+        self.parameters.get(name.into().as_str())
     }
 
     /// Get the names of the parameters
     pub fn names(&self) -> Vec<String> {
-        self.parameters.iter().map(|p| p.name.clone()).collect()
+        self.parameters.keys().cloned().collect()
     }
 
     /// Get the ranges of the parameters
+    ///
+    /// Returns a vector of tuples, where each tuple contains the lower and upper bounds of the parameter
     pub fn ranges(&self) -> Vec<(f64, f64)> {
-        self.parameters.iter().map(|p| (p.lower, p.upper)).collect()
+        self.parameters
+            .values()
+            .map(|p| (p.lower, p.upper))
+            .collect()
+    }
+}
+
+impl IntoIterator for Parameters {
+    type Item = (String, Parameter);
+    type IntoIter = std::collections::btree_map::IntoIter<String, Parameter>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.parameters.into_iter()
     }
 }
 
