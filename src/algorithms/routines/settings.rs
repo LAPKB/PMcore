@@ -4,10 +4,10 @@ use crate::algorithms::AlgorithmType;
 use anyhow::{bail, Result};
 use config::Config as eConfig;
 use pharmsol::prelude::data::ErrorType;
-use serde::Deserialize;
-use serde_derive::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::BTreeMap;
+use std::fmt::Display;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -132,6 +132,90 @@ impl Settings {
 
     pub fn advanced(&self) -> &Advanced {
         &self.advanced
+    }
+
+    pub fn set_cycles(&mut self, cycles: usize) {
+        self.config.cycles = cycles;
+    }
+
+    pub fn set_algorithm(&mut self, algorithm: AlgorithmType) {
+        self.config.algorithm = algorithm;
+    }
+
+    pub fn set_cache(&mut self, cache: bool) {
+        self.config.cache = cache;
+    }
+
+    pub fn set_include(&mut self, include: Option<Vec<String>>) {
+        self.config.include = include;
+    }
+
+    pub fn set_exclude(&mut self, exclude: Option<Vec<String>>) {
+        self.config.exclude = exclude;
+    }
+
+    pub fn set_gamlam(&mut self, value: f64) {
+        self.error.value = value;
+    }
+
+    pub fn set_error_type(&mut self, class: ErrorType) {
+        self.error.class = class;
+    }
+
+    pub fn set_error_poly(&mut self, poly: (f64, f64, f64, f64)) {
+        self.error.poly = poly;
+    }
+
+    pub fn set_idelta(&mut self, idelta: f64) {
+        self.predictions.idelta = idelta;
+    }
+
+    pub fn set_tad(&mut self, tad: f64) {
+        self.predictions.tad = tad;
+    }
+
+    pub fn set_log_level(&mut self, level: LogLevel) {
+        self.log.level = level;
+    }
+
+    pub fn set_log_file(&mut self, file: String) {
+        self.log.file = file;
+    }
+
+    pub fn set_prior_sampler(&mut self, sampler: String) {
+        self.prior.sampler = sampler;
+    }
+
+    pub fn set_prior_points(&mut self, points: usize) {
+        self.prior.points = points;
+    }
+
+    pub fn set_prior_seed(&mut self, seed: usize) {
+        self.prior.seed = seed;
+    }
+
+    pub fn set_prior_file(&mut self, file: Option<String>) {
+        self.prior.file = file;
+    }
+
+    pub fn set_output_write(&mut self, write: bool) {
+        self.output.write = write;
+    }
+
+    pub fn set_output_path(&mut self, path: String) {
+        self.output.path = path;
+    }
+
+    /// Writes a copy of the parsed settings to file
+    /// The is written to output folder specified in the [Output] and is named `settings.json`.
+    pub fn write(&self) -> Result<()> {
+        let serialized = serde_json::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+        let outputfile = OutputFile::new(self.output.path.as_str(), "settings.json")?;
+        let mut file = outputfile.file;
+        std::io::Write::write_all(&mut file, serialized.as_bytes())?;
+        Ok(())
     }
 }
 
@@ -260,7 +344,7 @@ pub struct Error {
     /// The initial value of `gamma` or `lambda`
     pub value: f64,
     /// The error class, either `additive` or `proportional`
-    pub class: String,
+    pub class: ErrorType,
     /// The assay error polynomial
     pub poly: (f64, f64, f64, f64),
 }
@@ -269,7 +353,7 @@ impl Default for Error {
     fn default() -> Self {
         Error {
             value: 0.0,
-            class: "additive".to_string(),
+            class: ErrorType::Additive,
             poly: (0.0, 0.1, 0.0, 0.0),
         }
     }
@@ -287,11 +371,7 @@ impl Error {
     }
 
     pub fn error_type(&self) -> ErrorType {
-        match self.class.to_lowercase().as_str() {
-            "additive" | "l" | "lambda"  => ErrorType::Add,
-            "proportional" | "g" | "gamma"  => ErrorType::Prop,
-            _ => panic!("Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)", self.class),
-        }
+        self.class
     }
 }
 
@@ -389,6 +469,59 @@ impl Predictions {
     }
 }
 
+/// The log level, which can be one of the following:
+/// - `TRACE`
+/// - `DEBUG`
+/// - `INFO`
+/// - `WARN`
+/// - `ERROR`
+///
+/// The default log level is `info`
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub enum LogLevel {
+    TRACE,
+    DEBUG,
+    INFO,
+    WARN,
+    ERROR,
+}
+
+impl Into<tracing::Level> for LogLevel {
+    fn into(self) -> tracing::Level {
+        match self {
+            LogLevel::TRACE => tracing::Level::TRACE,
+            LogLevel::DEBUG => tracing::Level::DEBUG,
+            LogLevel::INFO => tracing::Level::INFO,
+            LogLevel::WARN => tracing::Level::WARN,
+            LogLevel::ERROR => tracing::Level::ERROR,
+        }
+    }
+}
+
+impl AsRef<str> for LogLevel {
+    fn as_ref(&self) -> &str {
+        match self {
+            LogLevel::TRACE => "trace",
+            LogLevel::DEBUG => "debug",
+            LogLevel::INFO => "info",
+            LogLevel::WARN => "warn",
+            LogLevel::ERROR => "error",
+        }
+    }
+}
+
+impl Display for LogLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
+    }
+}
+
+impl Default for LogLevel {
+    fn default() -> Self {
+        LogLevel::INFO
+    }
+}
+
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Log {
@@ -400,7 +533,7 @@ pub struct Log {
     /// - `info`
     /// - `warn`
     /// - `error`
-    pub level: String,
+    pub level: LogLevel,
     /// The file to write the log to
     pub file: String,
     /// Whether to write logs
@@ -413,7 +546,7 @@ pub struct Log {
 impl Default for Log {
     fn default() -> Self {
         Log {
-            level: String::from("info"),
+            level: LogLevel::INFO,
             file: String::from("log.txt"),
             write: true,
         }
@@ -524,24 +657,10 @@ pub fn read(path: impl Into<String>) -> Result<Settings, anyhow::Error> {
 
     // Write a copy of the settings to file if output is enabled
     if settings.output.write {
-        if let Err(error) = write_settings_to_file(&settings) {
+        if let Err(error) = settings.write() {
             bail!("Could not write settings to file: {}", error);
         }
     }
 
     Ok(settings) // Return the settings wrapped in Ok
-}
-
-/// Writes a copy of the parsed settings to file
-///
-/// This function writes a copy of the parsed settings to file.
-/// The file is written to output folder specified in the [settings](crate::routines::settings::Settings::paths), and is named `settings.json`.
-pub fn write_settings_to_file(settings: &Settings) -> Result<()> {
-    let serialized = serde_json::to_string_pretty(settings)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-
-    let outputfile = OutputFile::new(settings.output.path.as_str(), "settings.json")?;
-    let mut file = outputfile.file;
-    std::io::Write::write_all(&mut file, serialized.as_bytes())?;
-    Ok(())
 }

@@ -23,7 +23,7 @@ use tracing_subscriber::EnvFilter;
 /// If not, the log messages are written to stdout.
 pub fn setup_log(settings: &Settings) -> Result<()> {
     // Use the log level defined in configuration file
-    let log_level = settings.log().level.as_str();
+    let log_level: String = settings.log().level.to_string();
     let env_filter = EnvFilter::new(log_level);
 
     let timestamper = CompactTimestamp {
