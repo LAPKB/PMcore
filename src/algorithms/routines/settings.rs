@@ -119,18 +119,16 @@ impl Settings {
         &self.output
     }
 
-    pub fn set_convergence(mut self, convergence: Convergence) -> Self {
+    pub fn set_convergence(mut self, convergence: Convergence) {
         self.convergence = convergence;
-        self
     }
 
     pub fn convergence(&self) -> &Convergence {
         &self.convergence
     }
 
-    pub fn set_advanced(mut self, advanced: Advanced) -> Self {
+    pub fn set_advanced(mut self, advanced: Advanced) {
         self.advanced = advanced;
-        self
     }
 
     pub fn advanced(&self) -> &Advanced {
