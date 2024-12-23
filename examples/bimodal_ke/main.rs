@@ -50,11 +50,11 @@ fn main() -> Result<()> {
     settings.output.write = true;
     settings.output.path = "examples/bimodal_ke/output".to_string();
 
-    setup_log(&settings).unwrap();
-    let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
-    let result = algorithm.fit().unwrap();
-    result.write_outputs().unwrap();
+    setup_log(&settings)?;
+    let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
+    let mut algorithm = dispatch_algorithm(settings, eq, data)?;
+    let result = algorithm.fit()?;
+    result.write_outputs()?;
 
     Ok(())
 }
