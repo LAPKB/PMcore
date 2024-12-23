@@ -18,7 +18,7 @@ use pharmsol::{
 use ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 
-use super::{adaptative_grid::adaptative_grid, initialization};
+use super::{adaptive_grid::adaptive_grid, initialization};
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
@@ -336,7 +336,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
     }
 
     fn expansion(&mut self) -> Result<()> {
-        adaptative_grid(
+        adaptive_grid(
             &mut self.theta,
             self.eps,
             &self.settings.parameters().ranges(),

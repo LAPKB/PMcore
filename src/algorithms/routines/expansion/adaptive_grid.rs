@@ -19,7 +19,7 @@ use crate::algorithms::routines::condensation::prune::prune;
 ///
 /// A 2D array containing the updated support points after the adaptive grid expansion.
 ///
-pub fn adaptative_grid(
+pub fn adaptive_grid(
     theta: &mut Array2<f64>,
     eps: f64,
     ranges: &[(f64, f64)],
@@ -82,8 +82,8 @@ mod tests {
         let ranges = [(0.0, 1.0)];
         let min_dist = 0.05;
 
-        // Call adaptative_grid
-        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
+        // Call adaptive_grid
+        let new_theta = adaptive_grid(&mut theta, eps, &ranges, min_dist);
 
         // Expected theta: [[0.5], [0.6], [0.4]]
         let expected_theta = array![[0.5], [0.6], [0.4]];
@@ -100,8 +100,8 @@ mod tests {
         let ranges = [(0.0, 1.0), (0.0, 1.0)];
         let min_dist = 0.05;
 
-        // Call adaptative_grid
-        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
+        // Call adaptive_grid
+        let new_theta = adaptive_grid(&mut theta, eps, &ranges, min_dist);
 
         // Expected new points are:
         // For dimension 0: [0.6, 0.5], [0.4, 0.5]
@@ -121,8 +121,8 @@ mod tests {
         let ranges = [(0.0, 1.0)];
         let min_dist = 0.2;
 
-        // Call adaptative_grid
-        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
+        // Call adaptive_grid
+        let new_theta = adaptive_grid(&mut theta, eps, &ranges, min_dist);
 
         // Since min_dist is 0.2, the new points at 0.6 and 0.4 are too close to 0.5 (distance 0.1)
         // So no new points should be added
@@ -140,8 +140,8 @@ mod tests {
         let ranges = [(0.0, 1.0)];
         let min_dist = 0.05;
 
-        // Call adaptative_grid
-        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
+        // Call adaptive_grid
+        let new_theta = adaptive_grid(&mut theta, eps, &ranges, min_dist);
 
         // val + l = 0.95 + 0.1 = 1.05 > 1.0, so point at 1.05 is out of bounds and should not be added
         // val - l = 0.95 - 0.1 = 0.85, which is within range
