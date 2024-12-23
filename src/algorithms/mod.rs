@@ -3,21 +3,29 @@ use std::path::Path;
 
 use crate::prelude::{self, settings::Settings};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use anyhow::{Context, Error};
+use map::MAP;
 use ndarray::Array2;
 use npag::*;
 use npod::NPOD;
 use output::NPResult;
 use pharmsol::prelude::{data::Data, simulator::Equation};
-use postprob::POSTPROB;
 use prelude::*;
+use serde::{Deserialize, Serialize};
 // use self::{data::Subject, simulator::Equation};
 
+pub mod map;
 pub mod npag;
 pub mod npod;
-pub mod postprob;
 pub mod routines;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AlgorithmType {
+    NPAG,
+    NPOD,
+    MAP,
+}
 
 pub trait Algorithm<E: Equation> {
     fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
@@ -102,10 +110,9 @@ pub fn dispatch_algorithm<E: Equation>(
     equation: E,
     data: Data,
 ) -> Result<Box<dyn Algorithm<E>>, Error> {
-    match settings.config.algorithm.as_str() {
-        "NPAG" => Ok(NPAG::new(settings, equation, data)?),
-        "NPOD" => Ok(NPOD::new(settings, equation, data)?),
-        "POSTPROB" => Ok(POSTPROB::new(settings, equation, data)?),
-        alg => bail!("Algorithm {} not implemented", alg),
+    match settings.config().algorithm {
+        AlgorithmType::NPAG => Ok(NPAG::new(settings, equation, data)?),
+        AlgorithmType::NPOD => Ok(NPOD::new(settings, equation, data)?),
+        AlgorithmType::MAP => Ok(MAP::new(settings, equation, data)?),
     }
 }

@@ -12,9 +12,10 @@ use ndarray::{Array1, Array2};
 
 use super::{initialization, output::CycleLog};
 
-/// Posterior probability algorithm
-/// Reweights the prior probabilities to the observed data and error model
-pub struct POSTPROB<E: Equation> {
+/// Maximim a posteriori (MAP) estimation
+///
+/// Calculate the MAP estimate of the parameters of the model given the data.
+pub struct MAP<E: Equation> {
     equation: E,
     psi: Array2<f64>,
     theta: Array2<f64>,
@@ -31,7 +32,7 @@ pub struct POSTPROB<E: Equation> {
     cyclelog: CycleLog,
 }
 
-impl<E: Equation> Algorithm<E> for POSTPROB<E> {
+impl<E: Equation> Algorithm<E> for MAP<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
@@ -41,13 +42,9 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
-            gamma: settings.error.value,
-            error_type: match settings.error.class.as_str() {
-                "additive" => ErrorType::Add,
-                "proportional" => ErrorType::Prop,
-                _ => panic!("Error type not supported"),
-            },
-            c: settings.error.poly,
+            gamma: settings.error().value,
+            error_type: settings.error().error_type(),
+            c: settings.error().poly,
             settings,
             data,
 
@@ -111,7 +108,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters().names());
         self.psi = psi(
             &self.equation,
             &self.data,
