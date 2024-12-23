@@ -157,7 +157,7 @@ fn find_m0(ufinal: f64, v: f64, alpha: f64, h1: f64, h2: f64) -> f64 {
         let b3 = alpha * v * u * hh / xm.powf(hh + 1.0);
         let xmp = top / (b1 + b2 + b3);
 
-        xm = xm + xmp * delu;
+        xm += xmp * delu;
 
         if xm <= 0.0 {
             return -1.0; // Greco equation is not solvable

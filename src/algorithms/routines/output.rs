@@ -27,6 +27,7 @@ pub struct NPResult<E: Equation> {
     cyclelog: CycleLog,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl<E: Equation> NPResult<E> {
     /// Create a new NPResult object
     pub fn new(
@@ -889,18 +890,15 @@ pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<
     for subject in data.get_subjects() {
         for occasion in subject.occasions() {
             for event in occasion.get_events(&None, &None, false) {
-                match event {
-                    Event::Observation(obs) => {
-                        // Write each field individually
-                        writer.write_record([
-                            subject.id(),
-                            &occasion.index().to_string(),
-                            &obs.time().to_string(),
-                            &obs.value().to_string(),
-                            &obs.outeq().to_string(),
-                        ])?;
-                    }
-                    _ => {}
+                if let Event::Observation(obs) = event {
+                    // Write each field individually
+                    writer.write_record([
+                        subject.id(),
+                        &occasion.index().to_string(),
+                        &obs.time().to_string(),
+                        &obs.value().to_string(),
+                        &obs.outeq().to_string(),
+                    ])?;
                 }
             }
         }

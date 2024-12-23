@@ -50,7 +50,7 @@ mod tests {
 
     #[test]
     fn test_generate_lhs() {
-        let result = generate(5, &vec![(0., 1.), (0., 100.), (0., 1000.)], 42).unwrap();
+        let result = generate(5, &[(0., 1.), (0., 100.), (0., 1000.)], 42).unwrap();
         assert_eq!(result.shape(), &[5, 3]);
         assert_eq!(
             result,
