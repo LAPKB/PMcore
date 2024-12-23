@@ -96,7 +96,7 @@ impl<E: Equation> NPResult<E> {
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
             self.write_covs().context("Failed to write covariates")?;
-            if self.w.len() > 0 {
+            if !self.w.is_empty() {
                 //TODO: find a better way to indicate that the run failed
                 self.write_posterior()
                     .context("Failed to write posterior")?;
@@ -322,12 +322,12 @@ impl<E: Equation> NPResult<E> {
         let subjects = self.data.get_subjects();
         for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
             for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                writer.write_field(&subjects.get(sub).unwrap().id())?;
+                writer.write_field(subjects.get(sub).unwrap().id())?;
                 writer.write_field(format!("{}", spp))?;
                 for param in theta.row(spp) {
-                    writer.write_field(&format!("{param}"))?;
+                    writer.write_field(format!("{param}"))?;
                 }
-                writer.write_field(&format!("{elem:.10}"))?;
+                writer.write_field(format!("{elem:.10}"))?;
                 writer.write_record(None::<&[u8]>)?;
             }
         }
@@ -479,7 +479,7 @@ impl<E: Equation> NPResult<E> {
             for occasion in subject.occasions() {
                 if let Some(cov) = occasion.get_covariates() {
                     let covmap = cov.covariates();
-                    for (cov_name, _) in &covmap {
+                    for cov_name in covmap.keys() {
                         covariate_names.insert(cov_name.clone());
                     }
                 }
@@ -657,6 +657,12 @@ impl CycleLog {
     }
 }
 
+impl Default for CycleLog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Result<Array2<f64>> {
     let py = psi.dot(w);
     let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
@@ -739,7 +745,7 @@ pub fn population_mean_median(
     theta: &Array2<f64>,
     w: &Array1<f64>,
 ) -> Result<(Array1<f64>, Array1<f64>)> {
-    let w = if w.len() == 0 {
+    let w = if w.is_empty() {
         tracing::warn!("w.len() == 0, setting all weights to 1/n");
         Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
     } else {
@@ -785,7 +791,7 @@ pub fn posterior_mean_median(
     let mut mean = Array2::zeros((0, theta.ncols()));
     let mut median = Array2::zeros((0, theta.ncols()));
 
-    let w = if w.len() == 0 {
+    let w = if w.is_empty() {
         tracing::warn!("w.len() == 0, setting all weights to 1/n");
         Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
     } else {
@@ -879,15 +885,15 @@ impl OutputFile {
 pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<()> {
     let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-    writer.write_record(&["id", "block", "time", "out", "outeq"])?;
+    writer.write_record(["id", "block", "time", "out", "outeq"])?;
     for subject in data.get_subjects() {
         for occasion in subject.occasions() {
             for event in occasion.get_events(&None, &None, false) {
                 match event {
                     Event::Observation(obs) => {
                         // Write each field individually
-                        writer.write_record(&[
-                            &subject.id(),
+                        writer.write_record([
+                            subject.id(),
                             &occasion.index().to_string(),
                             &obs.time().to_string(),
                             &obs.value().to_string(),

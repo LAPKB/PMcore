@@ -23,7 +23,7 @@ use rand::SeedableRng;
 ///
 pub fn generate(
     n_points: usize,
-    range_params: &Vec<(f64, f64)>,
+    range_params: &[(f64, f64)],
     seed: usize,
 ) -> Result<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>> {
     let n_params = range_params.len();

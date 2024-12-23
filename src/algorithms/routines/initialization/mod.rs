@@ -49,7 +49,7 @@ pub fn sample_space(settings: &Settings, data: &Data, eqn: &impl Equation) -> Re
 }
 
 /// This function reads the prior distribution from a file
-pub fn parse_prior(path: &String, names: &Vec<String>) -> Result<Array2<f64>> {
+pub fn parse_prior(path: &String, names: &[String]) -> Result<Array2<f64>> {
     tracing::info!("Reading prior from {}", path);
     let file = File::open(path).context(format!("Unable to open the prior file '{}'", path))?;
     let mut reader = csv::ReaderBuilder::new()
@@ -69,7 +69,7 @@ pub fn parse_prior(path: &String, names: &Vec<String>) -> Result<Array2<f64>> {
     }
 
     // Check and reorder parameters to match names in settings.parsed.random
-    let random_names: Vec<String> = names.clone();
+    let random_names: Vec<String> = names.to_owned();
 
     let mut reordered_indices: Vec<usize> = Vec::new();
     for random_name in &random_names {

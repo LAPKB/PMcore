@@ -108,6 +108,7 @@ pub trait NonParametric<E: Equation> {
         } {}
         Ok(self.into_npresult())
     }
+    #[allow(clippy::wrong_self_convention)]
     fn into_npresult(&self) -> NPResult<E>;
 }
 

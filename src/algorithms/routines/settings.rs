@@ -477,18 +477,19 @@ impl Predictions {
 /// - `ERROR`
 ///
 /// The default log level is `INFO`
-#[derive(Debug, Deserialize, Clone, Serialize)]
+#[derive(Debug, Deserialize, Clone, Serialize, Default)]
 pub enum LogLevel {
     TRACE,
     DEBUG,
+    #[default]
     INFO,
     WARN,
     ERROR,
 }
 
-impl Into<tracing::Level> for LogLevel {
-    fn into(self) -> tracing::Level {
-        match self {
+impl From<LogLevel> for tracing::Level {
+    fn from(log_level: LogLevel) -> tracing::Level {
+        match log_level {
             LogLevel::TRACE => tracing::Level::TRACE,
             LogLevel::DEBUG => tracing::Level::DEBUG,
             LogLevel::INFO => tracing::Level::INFO,
@@ -513,12 +514,6 @@ impl AsRef<str> for LogLevel {
 impl Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_ref())
-    }
-}
-
-impl Default for LogLevel {
-    fn default() -> Self {
-        LogLevel::INFO
     }
 }
 
@@ -605,7 +600,7 @@ impl Output {
     ////
     /// If a `#` symbol is found, it will automatically increment the number by one.
     pub fn parse_output_folder(&mut self) -> Result<()> {
-        if self.path.is_empty() || self.path == "" {
+        if self.path.is_empty() || self.path.is_empty() {
             // Set a default path if none is provided
             self.path = Output::default().path;
         }
