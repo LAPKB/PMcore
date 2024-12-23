@@ -79,7 +79,7 @@ impl Settings {
         &self.parameters
     }
 
-    pub fn set_error(mut self, error: Error) {
+    pub fn set_error(&mut self, error: Error) {
         self.error = error;
     }
 
@@ -87,7 +87,7 @@ impl Settings {
         &self.error
     }
 
-    pub fn set_predictions(mut self, predictions: Predictions) {
+    pub fn set_predictions(&mut self, predictions: Predictions) {
         self.predictions = predictions;
     }
 
@@ -95,7 +95,7 @@ impl Settings {
         &self.predictions
     }
 
-    pub fn set_log(mut self, log: Log) {
+    pub fn set_log(&mut self, log: Log) {
         self.log = log;
     }
 
@@ -103,7 +103,7 @@ impl Settings {
         &self.log
     }
 
-    pub fn set_prior(mut self, prior: Prior) {
+    pub fn set_prior(&mut self, prior: Prior) {
         self.prior = prior;
     }
 
@@ -111,7 +111,7 @@ impl Settings {
         &self.prior
     }
 
-    pub fn set_output(mut self, output: Output) {
+    pub fn set_output(&mut self, output: Output) {
         self.output = output;
     }
 
@@ -119,7 +119,7 @@ impl Settings {
         &self.output
     }
 
-    pub fn set_convergence(mut self, convergence: Convergence) {
+    pub fn set_convergence(&mut self, convergence: Convergence) {
         self.convergence = convergence;
     }
 
@@ -127,7 +127,7 @@ impl Settings {
         &self.convergence
     }
 
-    pub fn set_advanced(mut self, advanced: Advanced) {
+    pub fn set_advanced(&mut self, advanced: Advanced) {
         self.advanced = advanced;
     }
 

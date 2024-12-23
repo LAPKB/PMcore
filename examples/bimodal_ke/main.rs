@@ -1,4 +1,3 @@
-use algorithms::AlgorithmType;
 use anyhow::Result;
 use logger::setup_log;
 use pmcore::prelude::*;
@@ -51,8 +50,6 @@ fn main() -> Result<()> {
     settings.set_parameters(params);
     settings.set_config(Config {
         cycles: 1000,
-        algorithm: AlgorithmType::NPAG,
-        cache: true,
         ..Default::default()
     });
 
