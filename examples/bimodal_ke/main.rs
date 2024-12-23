@@ -1,7 +1,7 @@
 use anyhow::Result;
 use logger::setup_log;
 use pmcore::prelude::*;
-use settings::{Config, Parameters, Settings};
+use settings::{Parameters, Settings};
 fn main() -> Result<()> {
     let eq = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
@@ -48,10 +48,10 @@ fn main() -> Result<()> {
         .add("v", 25.0, 250.0, true)?;
 
     settings.set_parameters(params);
-    settings.set_config(Config {
-        cycles: 1000,
-        ..Default::default()
-    });
+    settings.set_cycles(1000);
+    settings.set_error_poly((0.0, 0.5, 0.0, 0.0));
+    settings.set_error_type(ErrorType::Additive);
+    settings.set_output_path("examples/bimodal_ke/output");
 
     setup_log(&settings)?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;

@@ -150,7 +150,7 @@ fn tel_settings() -> Settings {
     });
     settings.set_error(Error {
         value: 5.0,
-        class: "proportional".to_string(),
+        class: ErrorType::Proportional,
         poly: (0.02, 0.05, -2e-04, 0.0),
     });
 
@@ -179,7 +179,7 @@ fn bke_settings() -> Settings {
     });
     settings.set_error(Error {
         value: 0.0,
-        class: "additive".to_string(),
+        class: ErrorType::Additive,
         poly: (0.00, 0.05, 0.0, 0.0),
     });
 

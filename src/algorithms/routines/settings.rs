@@ -202,8 +202,8 @@ impl Settings {
         self.output.write = write;
     }
 
-    pub fn set_output_path(&mut self, path: String) {
-        self.output.path = path;
+    pub fn set_output_path(&mut self, path: impl Into<String>) {
+        self.output.path = path.into();
     }
 
     /// Writes a copy of the parsed settings to file
