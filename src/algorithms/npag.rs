@@ -8,7 +8,7 @@ use anyhow::bail;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
-        data::{Data, ErrorModel, ErrorType},
+        data::{Data, ErrorModel},
         simulator::{psi, Equation},
     },
     Subject, Theta,
@@ -39,11 +39,9 @@ pub struct NPAG<E: Equation> {
     cycle: usize,
     gamma_delta: f64,
     gamma: f64,
-    error_type: ErrorType,
     converged: bool,
     cycle_log: CycleLog,
     data: Data,
-    c: (f64, f64, f64, f64),
     settings: Settings,
 }
 
@@ -63,10 +61,8 @@ impl<E: Equation> NonParametric<E> for NPAG<E> {
             cycle: 0,
             gamma_delta: 0.1,
             gamma: settings.error().value,
-            error_type: settings.error().error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error().poly,
             settings,
             data,
         }))
@@ -178,7 +174,11 @@ impl<E: Equation> NonParametric<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().class,
+            ),
             self.cycle == 1 && self.settings.log().write,
             self.cycle != 1,
         );
@@ -265,7 +265,11 @@ impl<E: Equation> NonParametric<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &theta,
-            &ErrorModel::new(self.c, gamma_up, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                gamma_up,
+                &self.settings.error().class,
+            ),
             false,
             true,
         );
@@ -273,7 +277,11 @@ impl<E: Equation> NonParametric<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &theta,
-            &ErrorModel::new(self.c, gamma_down, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                gamma_down,
+                &self.settings.error().class,
+            ),
             false,
             true,
         );
