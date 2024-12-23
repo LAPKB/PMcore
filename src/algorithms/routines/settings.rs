@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use super::output::OutputFile;
-use crate::algorithms::AlgorithmType;
+use crate::algorithms::Algorithm;
 use anyhow::{bail, Result};
 use config::Config as eConfig;
 use pharmsol::prelude::data::ErrorType;
@@ -138,7 +138,7 @@ impl Settings {
         self.config.cycles = cycles;
     }
 
-    pub fn set_algorithm(&mut self, algorithm: AlgorithmType) {
+    pub fn set_algorithm(&mut self, algorithm: Algorithm) {
         self.config.algorithm = algorithm;
     }
 
@@ -226,7 +226,7 @@ pub struct Config {
     /// Maximum number of cycles to run
     pub cycles: usize,
     /// Denotes the algorithm to use
-    pub algorithm: AlgorithmType,
+    pub algorithm: Algorithm,
     /// If true (default), cache predicted values
     pub cache: bool,
     /// Vector of IDs to include
@@ -239,7 +239,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             cycles: 100,
-            algorithm: AlgorithmType::NPAG,
+            algorithm: Algorithm::NPAG,
             cache: true,
             include: None,
             exclude: None,
@@ -476,7 +476,7 @@ impl Predictions {
 /// - `WARN`
 /// - `ERROR`
 ///
-/// The default log level is `info`
+/// The default log level is `INFO`
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub enum LogLevel {
     TRACE,

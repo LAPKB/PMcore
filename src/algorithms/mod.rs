@@ -20,14 +20,20 @@ pub mod npag;
 pub mod npod;
 pub mod routines;
 
+/// Supported algorithms by `PMcore`
+///
+/// - `NPAG`: Non-Parametric Adaptive Grid
+/// - `NPOD`: Non-Parametric Optimal Design
+/// - `MAP`: Maximum A Posteriori
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum AlgorithmType {
+pub enum Algorithm {
     NPAG,
     NPOD,
     MAP,
 }
 
-pub trait Algorithm<E: Equation> {
+/// This traint defines the methods for non-parametric (NP) algorithms
+pub trait NonParametric<E: Equation> {
     fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
     where
         Self: Sized;
@@ -109,10 +115,10 @@ pub fn dispatch_algorithm<E: Equation>(
     settings: Settings,
     equation: E,
     data: Data,
-) -> Result<Box<dyn Algorithm<E>>, Error> {
+) -> Result<Box<dyn NonParametric<E>>, Error> {
     match settings.config().algorithm {
-        AlgorithmType::NPAG => Ok(NPAG::new(settings, equation, data)?),
-        AlgorithmType::NPOD => Ok(NPOD::new(settings, equation, data)?),
-        AlgorithmType::MAP => Ok(MAP::new(settings, equation, data)?),
+        Algorithm::NPAG => Ok(NPAG::new(settings, equation, data)?),
+        Algorithm::NPOD => Ok(NPOD::new(settings, equation, data)?),
+        Algorithm::MAP => Ok(MAP::new(settings, equation, data)?),
     }
 }

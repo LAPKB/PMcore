@@ -1,5 +1,4 @@
 use crate::prelude::{
-    algorithms::Algorithm,
     ipm::burke,
     output::{CycleLog, NPCycle, NPResult},
     qr,
@@ -21,7 +20,10 @@ use ndarray::{
 };
 use ndarray_stats::{DeviationExt, QuantileExt};
 
-use super::{condensation::prune::prune, initialization, optimization::d_optimizer::SppOptimizer};
+use super::{
+    condensation::prune::prune, initialization, optimization::d_optimizer::SppOptimizer,
+    NonParametric,
+};
 
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
@@ -45,7 +47,7 @@ pub struct NPOD<E: Equation> {
     settings: Settings,
 }
 
-impl<E: Equation> Algorithm<E> for NPOD<E> {
+impl<E: Equation> NonParametric<E> for NPOD<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,

@@ -1,4 +1,4 @@
-use crate::prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings};
+use crate::prelude::{ipm::burke, output::NPResult, settings::Settings};
 use anyhow::Result;
 use pharmsol::{
     prelude::{
@@ -10,7 +10,7 @@ use pharmsol::{
 
 use ndarray::{Array1, Array2};
 
-use super::{initialization, output::CycleLog};
+use super::{initialization, output::CycleLog, NonParametric};
 
 /// Maximim a posteriori (MAP) estimation
 ///
@@ -32,7 +32,7 @@ pub struct MAP<E: Equation> {
     cyclelog: CycleLog,
 }
 
-impl<E: Equation> Algorithm<E> for MAP<E> {
+impl<E: Equation> NonParametric<E> for MAP<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,

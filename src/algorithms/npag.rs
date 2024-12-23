@@ -1,5 +1,4 @@
 use crate::prelude::{
-    algorithms::Algorithm,
     ipm::burke,
     output::{CycleLog, NPCycle, NPResult},
     qr,
@@ -18,7 +17,7 @@ use pharmsol::{
 use ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 
-use super::{adaptive_grid::adaptive_grid, initialization};
+use super::{adaptive_grid::adaptive_grid, initialization, NonParametric};
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
@@ -48,7 +47,7 @@ pub struct NPAG<E: Equation> {
     settings: Settings,
 }
 
-impl<E: Equation> Algorithm<E> for NPAG<E> {
+impl<E: Equation> NonParametric<E> for NPAG<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
