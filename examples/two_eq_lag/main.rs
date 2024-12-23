@@ -73,16 +73,7 @@ fn main() {
     //     (2, 1),
     // );
 
-    let mut settings = settings::read("examples/two_eq_lag/config.toml").unwrap();
-    settings.parameters = Parameters::new()
-        .add("ka", 0.1, 0.9, false)
-        .unwrap()
-        .add("ke", 0.001, 0.1, false)
-        .unwrap()
-        .add("tlag", 0.0, 4.0, false)
-        .unwrap()
-        .add("v", 30.0, 120.0, false)
-        .unwrap();
+    let settings = settings::read("examples/two_eq_lag/config.toml").unwrap();
 
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();

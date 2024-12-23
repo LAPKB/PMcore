@@ -110,7 +110,7 @@ pub fn dispatch_algorithm<E: Equation>(
     equation: E,
     data: Data,
 ) -> Result<Box<dyn Algorithm<E>>, Error> {
-    match settings.config.algorithm {
+    match settings.config().algorithm {
         AlgorithmType::NPAG => Ok(NPAG::new(settings, equation, data)?),
         AlgorithmType::NPOD => Ok(NPOD::new(settings, equation, data)?),
         AlgorithmType::MAP => Ok(MAP::new(settings, equation, data)?),

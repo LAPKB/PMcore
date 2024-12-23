@@ -57,11 +57,11 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             objf: f64::NEG_INFINITY,
             cycle: 0,
             gamma_delta: 0.1,
-            gamma: settings.error.value,
-            error_type: settings.error.error_type(),
+            gamma: settings.error().value,
+            error_type: settings.error().error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error.poly,
+            c: settings.error().poly,
             settings,
             data,
         }))
@@ -125,7 +125,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         }
 
         // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config.cycles {
+        if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
         }
@@ -157,7 +157,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        let theta = Theta::new(self.theta.clone(), self.settings.parameters.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters().names());
 
         self.psi = psi(
             &self.equation,
@@ -243,7 +243,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
-        let theta = Theta::new(self.theta.clone(), self.settings.parameters.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters().names());
 
         let psi_up = psi(
             &self.equation,
@@ -334,7 +334,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
                 &self.data,
                 &sigma,
                 &pyl,
-                self.settings.parameters.names(),
+                self.settings.parameters().names(),
             );
             let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
             *spp = candidate_point;
@@ -348,7 +348,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             prune(
                 &mut self.theta,
                 cp,
-                &self.settings.parameters.ranges(),
+                &self.settings.parameters().ranges(),
                 THETA_D,
             );
         }

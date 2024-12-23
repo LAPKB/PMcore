@@ -1,7 +1,8 @@
+use algorithms::AlgorithmType;
 use anyhow::Result;
 use logger::setup_log;
 use pmcore::prelude::*;
-use settings::{Parameters, Settings};
+use settings::{Config, Parameters, Settings};
 fn main() -> Result<()> {
     let eq = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
@@ -42,13 +43,18 @@ fn main() -> Result<()> {
     // );
 
     let mut settings = Settings::new();
-    settings.parameters = Parameters::new()
-        .add("ke", 0.001, 3.0, false)?
-        .add("v", 25.0, 250.0, false)?;
-    settings.config.cycles = 1024;
-    settings.error.poly = (0.0, 0.05, 0.0, 0.0);
-    settings.output.write = true;
-    settings.output.path = "examples/bimodal_ke/output".to_string();
+
+    let params = Parameters::new()
+        .add("ke", 0.001, 3.0, true)?
+        .add("v", 25.0, 250.0, true)?;
+
+    settings.set_parameters(params);
+    settings.set_config(Config {
+        cycles: 1000,
+        algorithm: AlgorithmType::NPAG,
+        cache: true,
+        ..Default::default()
+    });
 
     setup_log(&settings)?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;

@@ -15,23 +15,23 @@ use serde_json;
 #[serde(deny_unknown_fields, default)]
 pub struct Settings {
     /// General configuration settings
-    pub config: Config,
+    config: Config,
     /// Parameters to be estimated
-    pub parameters: Parameters,
+    parameters: Parameters,
     /// Defines the error model and polynomial to be used
-    pub error: Error,
+    error: Error,
     /// Configuration for predictions
-    pub predictions: Predictions,
+    predictions: Predictions,
     /// Configuration for logging
-    pub log: Log,
+    log: Log,
     /// Configuration for (optional) prior
-    pub prior: Prior,
+    prior: Prior,
     /// Configuration for the output files
-    pub output: Output,
+    output: Output,
     /// Configuration for the convergence criteria
-    pub convergence: Convergence,
+    convergence: Convergence,
     /// Advanced options, mostly hyperparameters, for the algorithm(s)
-    pub advanced: Advanced,
+    advanced: Advanced,
 }
 
 impl Default for Settings {
@@ -58,8 +58,83 @@ impl Settings {
         Ok(())
     }
 
+    /// Create a new settings object with default values
     pub fn new() -> Self {
         Settings::default()
+    }
+
+    pub fn set_config(&mut self, config: Config) {
+        self.config = config;
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    pub fn set_parameters(&mut self, parameters: Parameters) {
+        self.parameters = parameters;
+    }
+
+    pub fn parameters(&self) -> &Parameters {
+        &self.parameters
+    }
+
+    pub fn set_error(mut self, error: Error) {
+        self.error = error;
+    }
+
+    pub fn error(&self) -> &Error {
+        &self.error
+    }
+
+    pub fn set_predictions(mut self, predictions: Predictions) {
+        self.predictions = predictions;
+    }
+
+    pub fn predictions(&self) -> &Predictions {
+        &self.predictions
+    }
+
+    pub fn set_log(mut self, log: Log) {
+        self.log = log;
+    }
+
+    pub fn log(&self) -> &Log {
+        &self.log
+    }
+
+    pub fn set_prior(mut self, prior: Prior) {
+        self.prior = prior;
+    }
+
+    pub fn prior(&self) -> &Prior {
+        &self.prior
+    }
+
+    pub fn set_output(mut self, output: Output) {
+        self.output = output;
+    }
+
+    pub fn output(&self) -> &Output {
+        &self.output
+    }
+
+    pub fn set_convergence(mut self, convergence: Convergence) -> Self {
+        self.convergence = convergence;
+        self
+    }
+
+    pub fn convergence(&self) -> &Convergence {
+        &self.convergence
+    }
+
+    pub fn set_advanced(mut self, advanced: Advanced) -> Self {
+        self.advanced = advanced;
+        self
+    }
+
+    pub fn advanced(&self) -> &Advanced {
+        &self.advanced
     }
 }
 

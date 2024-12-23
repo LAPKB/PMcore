@@ -63,11 +63,11 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             f1: f64::default(),
             cycle: 0,
             gamma_delta: 0.1,
-            gamma: settings.error.value,
-            error_type: settings.error.error_type(),
+            gamma: settings.error().value,
+            error_type: settings.error().error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error.poly,
+            c: settings.error().poly,
             settings,
             data,
         }))
@@ -141,7 +141,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         }
 
         // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config.cycles {
+        if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
         }
@@ -173,14 +173,14 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        let theta = Theta::new(self.theta.clone(), self.settings.parameters.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters().names());
 
         self.psi = psi(
             &self.equation,
             &self.data,
             &theta,
             &ErrorModel::new(self.c, self.gamma, &self.error_type),
-            self.cycle == 1 && self.settings.log.write,
+            self.cycle == 1 && self.settings.log().write,
             self.cycle != 1,
         );
 
@@ -260,7 +260,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
-        let theta = Theta::new(self.theta.clone(), self.settings.parameters.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters().names());
 
         let psi_up = psi(
             &self.equation,
@@ -339,7 +339,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         adaptative_grid(
             &mut self.theta,
             self.eps,
-            &self.settings.parameters.ranges(),
+            &self.settings.parameters().ranges(),
             THETA_D,
         );
         Ok(())

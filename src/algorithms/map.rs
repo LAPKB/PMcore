@@ -41,13 +41,13 @@ impl<E: Equation> Algorithm<E> for MAP<E> {
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
-            gamma: settings.error.value,
-            error_type: match settings.error.class.as_str() {
+            gamma: settings.error().value,
+            error_type: match settings.error().class.as_str() {
                 "additive" => ErrorType::Add,
                 "proportional" => ErrorType::Prop,
                 _ => panic!("Error type not supported"),
             },
-            c: settings.error.poly,
+            c: settings.error().poly,
             settings,
             data,
 
@@ -111,7 +111,7 @@ impl<E: Equation> Algorithm<E> for MAP<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        let theta = Theta::new(self.theta.clone(), self.settings.parameters.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters().names());
         self.psi = psi(
             &self.equation,
             &self.data,
