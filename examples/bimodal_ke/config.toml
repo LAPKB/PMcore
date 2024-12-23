@@ -1,3 +1,5 @@
+# Currently not in use - settings are defined in main.rs
+
 [config]
 cycles = 1024
 algorithm = "NPAG"
