@@ -15,6 +15,7 @@ use super::{initialization, output::CycleLog, NonParametricAlgorithm};
 /// Maximum a posteriori (MAP) estimation
 ///
 /// Calculate the MAP estimate of the parameters of the model given the data.
+#[derive(Debug, Clone)]
 pub struct MAP<E: Equation> {
     equation: E,
     psi: Array2<f64>,
