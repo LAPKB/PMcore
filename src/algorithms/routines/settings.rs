@@ -146,14 +146,6 @@ impl Settings {
         self.config.cache = cache;
     }
 
-    pub fn set_include(&mut self, include: Option<Vec<String>>) {
-        self.config.include = include;
-    }
-
-    pub fn set_exclude(&mut self, exclude: Option<Vec<String>>) {
-        self.config.exclude = exclude;
-    }
-
     pub fn set_gamlam(&mut self, value: f64) {
         self.error.value = value;
     }
@@ -229,10 +221,6 @@ pub struct Config {
     pub algorithm: Algorithm,
     /// If true (default), cache predicted values
     pub cache: bool,
-    /// Vector of IDs to include
-    pub include: Option<Vec<String>>,
-    /// Vector of IDs to exclude
-    pub exclude: Option<Vec<String>>,
 }
 
 impl Default for Config {
@@ -241,8 +229,6 @@ impl Default for Config {
             cycles: 100,
             algorithm: Algorithm::NonParametric(crate::algorithms::NonParametric::NPAG),
             cache: true,
-            include: None,
-            exclude: None,
         }
     }
 }
