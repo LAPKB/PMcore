@@ -22,7 +22,7 @@ use ndarray_stats::{DeviationExt, QuantileExt};
 
 use super::{
     condensation::prune::prune, initialization, optimization::d_optimizer::SppOptimizer,
-    NonParametric,
+    NonParametricAlgorithm,
 };
 
 const THETA_F: f64 = 1e-2;
@@ -45,7 +45,7 @@ pub struct NPOD<E: Equation> {
     settings: Settings,
 }
 
-impl<E: Equation> NonParametric<E> for NPOD<E> {
+impl<E: Equation> NonParametricAlgorithm<E> for NPOD<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,

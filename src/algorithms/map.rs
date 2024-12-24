@@ -10,7 +10,7 @@ use pharmsol::{
 
 use ndarray::{Array1, Array2};
 
-use super::{initialization, output::CycleLog, NonParametric};
+use super::{initialization, output::CycleLog, NonParametricAlgorithm};
 
 /// Maximum a posteriori (MAP) estimation
 ///
@@ -32,7 +32,7 @@ pub struct MAP<E: Equation> {
     cyclelog: CycleLog,
 }
 
-impl<E: Equation> NonParametric<E> for MAP<E> {
+impl<E: Equation> NonParametricAlgorithm<E> for MAP<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,

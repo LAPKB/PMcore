@@ -239,7 +239,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             cycles: 100,
-            algorithm: Algorithm::NPAG,
+            algorithm: Algorithm::NonParametric(crate::algorithms::NonParametric::NPAG),
             cache: true,
             include: None,
             exclude: None,
@@ -658,4 +658,179 @@ pub fn read(path: impl Into<String>) -> Result<Settings, anyhow::Error> {
     }
 
     Ok(settings) // Return the settings wrapped in Ok
+}
+
+pub struct SettingsBuilder<State> {
+    config: Option<Config>,
+    parameters: Option<Parameters>,
+    error: Option<Error>,
+    predictions: Option<Predictions>,
+    log: Option<Log>,
+    prior: Option<Prior>,
+    output: Option<Output>,
+    convergence: Option<Convergence>,
+    advanced: Option<Advanced>,
+    _marker: std::marker::PhantomData<State>,
+}
+
+// Marker traits for builder states
+pub trait AlgorithmDefined {}
+pub trait ParametersDefined {}
+pub trait ErrorModelDefined {}
+
+// Implement marker traits for PhantomData states
+pub struct InitialState;
+pub struct AlgorithmSet;
+pub struct ParametersSet;
+pub struct ErrorSet;
+
+// Initial state: no algorithm set yet
+impl SettingsBuilder<InitialState> {
+    pub fn new() -> Self {
+        SettingsBuilder {
+            config: None,
+            parameters: None,
+            error: None,
+            predictions: None,
+            log: None,
+            prior: None,
+            output: None,
+            convergence: None,
+            advanced: None,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    pub fn set_algorithm(self, algorithm: Algorithm) -> SettingsBuilder<AlgorithmSet> {
+        SettingsBuilder {
+            config: Some(Config {
+                algorithm,
+                ..Config::default()
+            }),
+            parameters: self.parameters,
+            error: self.error,
+            predictions: self.predictions,
+            log: self.log,
+            prior: self.prior,
+            output: self.output,
+            convergence: self.convergence,
+            advanced: self.advanced,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+// Algorithm is set, move to defining parameters
+impl SettingsBuilder<AlgorithmSet> {
+    pub fn set_parameters(self, parameters: Parameters) -> SettingsBuilder<ParametersSet> {
+        SettingsBuilder {
+            config: self.config,
+            parameters: Some(parameters),
+            error: self.error,
+            predictions: self.predictions,
+            log: self.log,
+            prior: self.prior,
+            output: self.output,
+            convergence: self.convergence,
+            advanced: self.advanced,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+// Parameters are set, move to defining error model
+impl SettingsBuilder<ParametersSet> {
+    pub fn set_error_model(self, error: Error) -> SettingsBuilder<ErrorSet> {
+        SettingsBuilder {
+            config: self.config,
+            parameters: self.parameters,
+            error: Some(error),
+            predictions: self.predictions,
+            log: self.log,
+            prior: self.prior,
+            output: self.output,
+            convergence: self.convergence,
+            advanced: self.advanced,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+// Error model is set, allow optional settings and final build
+impl SettingsBuilder<ErrorSet> {
+    pub fn set_predictions(mut self, predictions: Predictions) -> Self {
+        self.predictions = Some(predictions);
+        self
+    }
+
+    pub fn set_log(mut self, log: Log) -> Self {
+        self.log = Some(log);
+        self
+    }
+
+    pub fn set_prior(mut self, prior: Prior) -> Self {
+        self.prior = Some(prior);
+        self
+    }
+
+    pub fn set_output(mut self, output: Output) -> Self {
+        self.output = Some(output);
+        self
+    }
+
+    pub fn set_convergence(mut self, convergence: Convergence) -> Self {
+        self.convergence = Some(convergence);
+        self
+    }
+
+    pub fn set_advanced(mut self, advanced: Advanced) -> Self {
+        self.advanced = Some(advanced);
+        self
+    }
+
+    pub fn build(self) -> Settings {
+        Settings {
+            config: self.config.unwrap(),
+            parameters: self.parameters.unwrap(),
+            error: self.error.unwrap(),
+            predictions: self.predictions.unwrap_or_default(),
+            log: self.log.unwrap_or_default(),
+            prior: self.prior.unwrap_or_default(),
+            output: self.output.unwrap_or_default(),
+            convergence: self.convergence.unwrap_or_default(),
+            advanced: self.advanced.unwrap_or_default(),
+        }
+    }
+}
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+    use crate::algorithms::{Algorithm, NonParametric};
+    use pharmsol::prelude::data::ErrorType;
+
+    #[test]
+    fn test_builder() {
+        let parameters = Parameters::new()
+            .add("Ke", 0.0, 5.0, false)
+            .unwrap()
+            .add("V", 10.0, 200.0, true)
+            .unwrap();
+
+        let settings = SettingsBuilder::new()
+            .set_algorithm(Algorithm::NonParametric(NonParametric::NPAG)) // Step 1: Define algorithm
+            .set_parameters(parameters) // Step 2: Define parameters
+            .set_error_model(Error {
+                value: 0.1,
+                class: ErrorType::Additive,
+                poly: (0.0, 0.1, 0.0, 0.0),
+            }) // Step 3: Define error model
+            .build(); // Final step
+
+        assert_eq!(
+            settings.config.algorithm,
+            Algorithm::NonParametric(NonParametric::NPAG,)
+        );
+    }
 }
