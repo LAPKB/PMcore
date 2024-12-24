@@ -227,7 +227,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             cycles: 100,
-            algorithm: Algorithm::NonParametric(crate::algorithms::NonParametric::NPAG),
+            algorithm: Algorithm::NPAG,
             cache: true,
         }
     }
@@ -793,7 +793,7 @@ impl SettingsBuilder<ErrorSet> {
 
 mod tests {
     use super::*;
-    use crate::algorithms::{Algorithm, NonParametric};
+    use crate::algorithms::Algorithm;
     use pharmsol::prelude::data::ErrorType;
 
     #[test]
@@ -805,7 +805,7 @@ mod tests {
             .unwrap();
 
         let settings = SettingsBuilder::new()
-            .set_algorithm(Algorithm::NonParametric(NonParametric::NPAG)) // Step 1: Define algorithm
+            .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm
             .set_parameters(parameters) // Step 2: Define parameters
             .set_error_model(Error {
                 value: 0.1,
@@ -814,9 +814,6 @@ mod tests {
             }) // Step 3: Define error model
             .build(); // Final step
 
-        assert_eq!(
-            settings.config.algorithm,
-            Algorithm::NonParametric(NonParametric::NPAG,)
-        );
+        assert_eq!(settings.config.algorithm, Algorithm::NPAG);
     }
 }
