@@ -12,7 +12,7 @@ use ndarray::{Array1, Array2};
 
 use super::{initialization, output::CycleLog, NonParametric};
 
-/// Maximim a posteriori (MAP) estimation
+/// Maximum a posteriori (MAP) estimation
 ///
 /// Calculate the MAP estimate of the parameters of the model given the data.
 pub struct MAP<E: Equation> {
