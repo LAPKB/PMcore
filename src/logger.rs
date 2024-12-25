@@ -26,9 +26,7 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
     let log_level: String = settings.log().level.to_string();
     let env_filter = EnvFilter::new(log_level);
 
-    let timestamper = CompactTimestamp {
-        start: Instant::now(),
-    };
+    let timestamper = CompactTimestamp::new();
 
     // Define a registry with that level as an environment filter
     let subscriber = Registry::default().with(env_filter);
@@ -58,6 +56,14 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
 #[derive(Clone)]
 struct CompactTimestamp {
     start: Instant,
+}
+
+impl CompactTimestamp {
+    fn new() -> Self {
+        Self {
+            start: Instant::now(),
+        }
+    }
 }
 
 impl FormatTime for CompactTimestamp {
