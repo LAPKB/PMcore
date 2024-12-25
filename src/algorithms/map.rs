@@ -2,7 +2,7 @@ use crate::prelude::{ipm::burke, output::NPResult, settings::Settings};
 use anyhow::Result;
 use pharmsol::{
     prelude::{
-        data::{Data, ErrorModel, ErrorType},
+        data::{Data, ErrorModel},
         simulator::{psi, Equation},
     },
     Theta,
@@ -25,10 +25,7 @@ pub struct MAP<E: Equation> {
     cycle: usize,
     converged: bool,
     gamma: f64,
-    error_type: ErrorType,
     data: Data,
-    c: (f64, f64, f64, f64),
-    #[allow(dead_code)]
     settings: Settings,
     cyclelog: CycleLog,
 }
@@ -44,8 +41,6 @@ impl<E: Equation> NonParametricAlgorithm<E> for MAP<E> {
             cycle: 0,
             converged: false,
             gamma: settings.error().value,
-            error_type: settings.error().error_type(),
-            c: settings.error().poly,
             settings,
             data,
 
@@ -114,7 +109,11 @@ impl<E: Equation> NonParametricAlgorithm<E> for MAP<E> {
             &self.equation,
             &self.data,
             &theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().error_type(),
+            ),
             false,
             false,
         );
