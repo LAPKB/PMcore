@@ -28,6 +28,7 @@ use super::{
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
+/// Non-parametric optimal design (NPOD) algorithm
 #[derive(Debug, Clone)]
 pub struct NPOD<E: Equation> {
     equation: E,

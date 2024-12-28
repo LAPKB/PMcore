@@ -23,11 +23,12 @@ pub mod routines;
 /// Supported algorithms by `PMcore`
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum Algorithm {
-    // Non-parametric algorithms
+    /// Non-parametric adaptive grid (NPAG), see [NPAG]
     NPAG,
+    /// Non-parametric adaptive grid (NPAG), see [NPOD]
     NPOD,
+    /// Maximum a posteriori estimation, see [MAP]
     MAP,
-    // Parametric algorithms
 }
 
 /// This trait defines the methods for non-parametric (NP) algorithms
