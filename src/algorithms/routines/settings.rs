@@ -828,8 +828,13 @@ mod tests {
                 class: ErrorType::Additive,
                 poly: (0.0, 0.1, 0.0, 0.0),
             }) // Step 3: Define error model
+            .set_cycles(100) // Optional: Set cycles
+            .set_cache(true) // Optional: Set cache
             .build(); // Final step
 
         assert_eq!(settings.config.algorithm, Algorithm::NPAG);
+        assert_eq!(settings.config.cycles, 100);
+        assert_eq!(settings.config.cache, true);
+        assert_eq!(settings.parameters().names(), vec!["Ke", "V"]);
     }
 }
