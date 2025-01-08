@@ -744,6 +744,16 @@ impl SettingsBuilder<ParametersSet> {
 
 // Error model is set, allow optional settings and final build
 impl SettingsBuilder<ErrorSet> {
+    pub fn set_cycles(mut self, cycles: usize) -> Self {
+        self.config.as_mut().unwrap().cycles = cycles;
+        self
+    }
+
+    pub fn set_cache(mut self, cache: bool) -> Self {
+        self.config.as_mut().unwrap().cache = cache;
+        self
+    }
+
     pub fn set_predictions(mut self, predictions: Predictions) -> Self {
         self.predictions = Some(predictions);
         self
