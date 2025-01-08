@@ -706,6 +706,12 @@ impl SettingsBuilder<InitialState> {
     }
 }
 
+impl Default for SettingsBuilder<InitialState> {
+    fn default() -> Self {
+        SettingsBuilder::new()
+    }
+}
+
 // Algorithm is set, move to defining parameters
 impl SettingsBuilder<AlgorithmSet> {
     pub fn set_parameters(self, parameters: Parameters) -> SettingsBuilder<ParametersSet> {
