@@ -312,6 +312,18 @@ impl Parameters {
             .map(|p| (p.lower, p.upper))
             .collect()
     }
+
+    pub fn len(&self) -> usize {
+        self.parameters.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.parameters.is_empty()
+    }
+
+    pub fn iter(&self) -> std::collections::btree_map::Iter<String, Parameter> {
+        self.parameters.iter()
+    }
 }
 
 impl IntoIterator for Parameters {
