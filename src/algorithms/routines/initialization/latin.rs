@@ -23,7 +23,7 @@ use rand::SeedableRng;
 ///
 pub fn generate(
     n_points: usize,
-    range_params: &Vec<(f64, f64)>,
+    range_params: &[(f64, f64)],
     seed: usize,
 ) -> Result<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>> {
     let n_params = range_params.len();
@@ -50,7 +50,7 @@ mod tests {
 
     #[test]
     fn test_generate_lhs() {
-        let result = generate(5, &vec![(0., 1.), (0., 100.), (0., 1000.)], 42).unwrap();
+        let result = generate(5, &[(0., 1.), (0., 100.), (0., 1000.)], 42).unwrap();
         assert_eq!(result.shape(), &[5, 3]);
         assert_eq!(
             result,

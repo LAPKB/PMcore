@@ -1,14 +1,7 @@
 [config]
 cycles = 1000
 algorithm = "NPAG"
-
 cache = true
-
-[random]
-Ka = [0.1, 0.9]
-Ke = [0.001, 0.1]
-Tlag1 = [0.0, 4.0]
-V = [30.0, 120.0]
 
 [error]
 value = 5

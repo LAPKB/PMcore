@@ -1,8 +1,8 @@
-use crate::prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings};
+use crate::prelude::{ipm::burke, output::NPResult, settings::Settings};
 use anyhow::Result;
 use pharmsol::{
     prelude::{
-        data::{Data, ErrorModel, ErrorType},
+        data::{Data, ErrorModel},
         simulator::{psi, Equation},
     },
     Theta,
@@ -10,11 +10,13 @@ use pharmsol::{
 
 use ndarray::{Array1, Array2};
 
-use super::{initialization, output::CycleLog};
+use super::{initialization, output::CycleLog, NonParametricAlgorithm};
 
-/// Posterior probability algorithm
-/// Reweights the prior probabilities to the observed data and error model
-pub struct POSTPROB<E: Equation> {
+/// Maximum a posteriori (MAP) estimation
+///
+/// Calculate the MAP estimate of the parameters of the model given the data.
+#[derive(Debug, Clone)]
+pub struct MAP<E: Equation> {
     equation: E,
     psi: Array2<f64>,
     theta: Array2<f64>,
@@ -23,15 +25,12 @@ pub struct POSTPROB<E: Equation> {
     cycle: usize,
     converged: bool,
     gamma: f64,
-    error_type: ErrorType,
     data: Data,
-    c: (f64, f64, f64, f64),
-    #[allow(dead_code)]
     settings: Settings,
     cyclelog: CycleLog,
 }
 
-impl<E: Equation> Algorithm<E> for POSTPROB<E> {
+impl<E: Equation> NonParametricAlgorithm<E> for MAP<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
@@ -41,13 +40,7 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
-            gamma: settings.error.value,
-            error_type: match settings.error.class.as_str() {
-                "additive" => ErrorType::Add,
-                "proportional" => ErrorType::Prop,
-                _ => panic!("Error type not supported"),
-            },
-            c: settings.error.poly,
+            gamma: settings.error().value,
             settings,
             data,
 
@@ -111,12 +104,16 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters().names());
         self.psi = psi(
             &self.equation,
             &self.data,
             &theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().error_type(),
+            ),
             false,
             false,
         );

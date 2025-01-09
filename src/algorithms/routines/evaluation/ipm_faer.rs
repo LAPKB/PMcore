@@ -94,7 +94,7 @@ pub fn burke(
         let inner = zipped!(lam.as_ref(), y.as_ref()).map(|unzipped!(lam_i, y_i)| *lam_i / *y_i);
         let w_plam =
             zipped!(plam.as_ref(), w.as_ref()).map(|unzipped!(plam_i, w_i)| *plam_i / *w_i);
-        let h = (&psi * inner.as_ref().col(0).column_vector_as_diagonal()) * &psi.transpose();
+        let h = (&psi * inner.as_ref().col(0).column_vector_as_diagonal()) * psi.transpose();
         let mut aux: Mat<f64> = Mat::zeros(row, row);
         for i in 0..row {
             let diag = aux.get_mut(i, i);

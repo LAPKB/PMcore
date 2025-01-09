@@ -27,6 +27,7 @@ pub struct NPResult<E: Equation> {
     cyclelog: CycleLog,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl<E: Equation> NPResult<E> {
     /// Create a new NPResult object
     pub fn new(
@@ -43,7 +44,7 @@ impl<E: Equation> NPResult<E> {
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
 
-        let par_names = settings.random.names();
+        let par_names = settings.parameters().names();
 
         Self {
             equation,
@@ -85,9 +86,9 @@ impl<E: Equation> NPResult<E> {
     }
 
     pub fn write_outputs(&self) -> Result<()> {
-        if self.settings.output.write {
-            let idelta: f64 = self.settings.predictions.idelta;
-            let tad = self.settings.predictions.tad;
+        if self.settings.output().write {
+            let idelta: f64 = self.settings.predictions().idelta;
+            let tad = self.settings.predictions().tad;
             self.cyclelog.write(&self.settings)?;
             self.write_obs().context("Failed to write observations")?;
             self.write_theta().context("Failed to write theta")?;
@@ -96,7 +97,7 @@ impl<E: Equation> NPResult<E> {
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
             self.write_covs().context("Failed to write covariates")?;
-            if self.w.len() > 0 {
+            if !self.w.is_empty() {
                 //TODO: find a better way to indicate that the run failed
                 self.write_posterior()
                     .context("Failed to write posterior")?;
@@ -141,7 +142,7 @@ impl<E: Equation> NPResult<E> {
             );
         }
 
-        let outputfile = OutputFile::new(&self.settings.output.path, "op.csv")?;
+        let outputfile = OutputFile::new(&self.settings.output().path, "op.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
@@ -253,7 +254,7 @@ impl<E: Equation> NPResult<E> {
             self.w.clone()
         };
 
-        let outputfile = OutputFile::new(&self.settings.output.path, "theta.csv")
+        let outputfile = OutputFile::new(&self.settings.output().path, "theta.csv")
             .context("Failed to create output file for theta")?;
 
         let mut writer = WriterBuilder::new()
@@ -297,7 +298,7 @@ impl<E: Equation> NPResult<E> {
         };
 
         // Create the output folder if it doesn't exist
-        let outputfile = match OutputFile::new(&self.settings.output.path, "posterior.csv") {
+        let outputfile = match OutputFile::new(&self.settings.output().path, "posterior.csv") {
             Ok(of) => of,
             Err(e) => {
                 tracing::error!("Failed to create output file: {}", e);
@@ -322,12 +323,12 @@ impl<E: Equation> NPResult<E> {
         let subjects = self.data.get_subjects();
         for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
             for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                writer.write_field(&subjects.get(sub).unwrap().id())?;
+                writer.write_field(subjects.get(sub).unwrap().id())?;
                 writer.write_field(format!("{}", spp))?;
                 for param in theta.row(spp) {
-                    writer.write_field(&format!("{param}"))?;
+                    writer.write_field(format!("{param}"))?;
                 }
-                writer.write_field(&format!("{elem:.10}"))?;
+                writer.write_field(format!("{elem:.10}"))?;
                 writer.write_record(None::<&[u8]>)?;
             }
         }
@@ -343,7 +344,7 @@ impl<E: Equation> NPResult<E> {
     /// Write the observations, which is the reformatted input data
     pub fn write_obs(&self) -> Result<()> {
         tracing::debug!("Writing observations...");
-        let outputfile = OutputFile::new(&self.settings.output.path, "obs.csv")?;
+        let outputfile = OutputFile::new(&self.settings.output().path, "obs.csv")?;
         write_pmetrics_observations(&self.data, &outputfile.file)?;
         tracing::info!(
             "Observations written to {:?}",
@@ -372,7 +373,7 @@ impl<E: Equation> NPResult<E> {
             bail!("Number of subjects and number of posterior means do not match");
         }
 
-        let outputfile = OutputFile::new(&self.settings.output.path, "pred.csv")?;
+        let outputfile = OutputFile::new(&self.settings.output().path, "pred.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
@@ -468,7 +469,7 @@ impl<E: Equation> NPResult<E> {
     /// Writes the covariates
     pub fn write_covs(&self) -> Result<()> {
         tracing::debug!("Writing covariates...");
-        let outputfile = OutputFile::new(&self.settings.output.path, "covs.csv")?;
+        let outputfile = OutputFile::new(&self.settings.output().path, "covs.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
@@ -479,7 +480,7 @@ impl<E: Equation> NPResult<E> {
             for occasion in subject.occasions() {
                 if let Some(cov) = occasion.get_covariates() {
                     let covmap = cov.covariates();
-                    for (cov_name, _) in &covmap {
+                    for cov_name in covmap.keys() {
                         covariate_names.insert(cov_name.clone());
                     }
                 }
@@ -610,7 +611,7 @@ impl CycleLog {
 
     pub fn write(&self, settings: &Settings) -> Result<()> {
         tracing::debug!("Writing cycles...");
-        let outputfile = OutputFile::new(&settings.output.path, "cycles.csv")?;
+        let outputfile = OutputFile::new(&settings.output().path, "cycles.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(false)
             .from_writer(&outputfile.file);
@@ -622,7 +623,7 @@ impl CycleLog {
         writer.write_field("gamlam")?;
         writer.write_field("nspp")?;
 
-        let parameter_names = settings.random.names();
+        let parameter_names = settings.parameters().names();
         for param_name in &parameter_names {
             writer.write_field(format!("{}.mean", param_name))?;
             writer.write_field(format!("{}.median", param_name))?;
@@ -654,6 +655,12 @@ impl CycleLog {
         writer.flush()?;
         tracing::info!("Cycles written to {:?}", &outputfile.get_relative_path());
         Ok(())
+    }
+}
+
+impl Default for CycleLog {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -739,7 +746,7 @@ pub fn population_mean_median(
     theta: &Array2<f64>,
     w: &Array1<f64>,
 ) -> Result<(Array1<f64>, Array1<f64>)> {
-    let w = if w.len() == 0 {
+    let w = if w.is_empty() {
         tracing::warn!("w.len() == 0, setting all weights to 1/n");
         Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
     } else {
@@ -785,7 +792,7 @@ pub fn posterior_mean_median(
     let mut mean = Array2::zeros((0, theta.ncols()));
     let mut median = Array2::zeros((0, theta.ncols()));
 
-    let w = if w.len() == 0 {
+    let w = if w.is_empty() {
         tracing::warn!("w.len() == 0, setting all weights to 1/n");
         Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
     } else {
@@ -879,22 +886,19 @@ impl OutputFile {
 pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<()> {
     let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-    writer.write_record(&["id", "block", "time", "out", "outeq"])?;
+    writer.write_record(["id", "block", "time", "out", "outeq"])?;
     for subject in data.get_subjects() {
         for occasion in subject.occasions() {
             for event in occasion.get_events(&None, &None, false) {
-                match event {
-                    Event::Observation(obs) => {
-                        // Write each field individually
-                        writer.write_record(&[
-                            &subject.id(),
-                            &occasion.index().to_string(),
-                            &obs.time().to_string(),
-                            &obs.value().to_string(),
-                            &obs.outeq().to_string(),
-                        ])?;
-                    }
-                    _ => {}
+                if let Event::Observation(obs) = event {
+                    // Write each field individually
+                    writer.write_record([
+                        subject.id(),
+                        &occasion.index().to_string(),
+                        &obs.time().to_string(),
+                        &obs.value().to_string(),
+                        &obs.outeq().to_string(),
+                    ])?;
                 }
             }
         }

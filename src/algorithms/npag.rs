@@ -1,5 +1,4 @@
 use crate::prelude::{
-    algorithms::Algorithm,
     ipm::burke,
     output::{CycleLog, NPCycle, NPResult},
     qr,
@@ -9,7 +8,7 @@ use anyhow::bail;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
-        data::{Data, ErrorModel, ErrorType},
+        data::{Data, ErrorModel},
         simulator::{psi, Equation},
     },
     Subject, Theta,
@@ -18,17 +17,17 @@ use pharmsol::{
 use ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 
-use super::{adaptative_grid::adaptative_grid, initialization};
+use super::{adaptive_grid::adaptive_grid, initialization, NonParametricAlgorithm};
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-#[derive(Debug)]
+/// Non-parametric adaptive grid (NPAG) algorithm
+#[derive(Debug, Clone)]
 pub struct NPAG<E: Equation> {
     equation: E,
-    ranges: Vec<(f64, f64)>,
     psi: Array2<f64>,
     theta: Array2<f64>,
     lambda: Array1<f64>,
@@ -41,19 +40,16 @@ pub struct NPAG<E: Equation> {
     cycle: usize,
     gamma_delta: f64,
     gamma: f64,
-    error_type: ErrorType,
     converged: bool,
     cycle_log: CycleLog,
     data: Data,
-    c: (f64, f64, f64, f64),
     settings: Settings,
 }
 
-impl<E: Equation> Algorithm<E> for NPAG<E> {
+impl<E: Equation> NonParametricAlgorithm<E> for NPAG<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            ranges: settings.random.ranges(),
             psi: Array2::default((0, 0)),
             theta: Array2::zeros((0, 0)),
             lambda: Array1::default(0),
@@ -65,11 +61,9 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             f1: f64::default(),
             cycle: 0,
             gamma_delta: 0.1,
-            gamma: settings.error.value,
-            error_type: settings.error.error_type(),
+            gamma: settings.error().value,
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error.poly,
             settings,
             data,
         }))
@@ -143,7 +137,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         }
 
         // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config.cycles {
+        if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
         }
@@ -175,14 +169,18 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters().names());
 
         self.psi = psi(
             &self.equation,
             &self.data,
             &theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
-            self.cycle == 1 && self.settings.log.write,
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().class,
+            ),
+            self.cycle == 1 && self.settings.log().write,
             self.cycle != 1,
         );
 
@@ -262,13 +260,17 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
-        let theta = Theta::new(self.theta.clone(), self.settings.random.names());
+        let theta = Theta::new(self.theta.clone(), self.settings.parameters().names());
 
         let psi_up = psi(
             &self.equation,
             &self.data,
             &theta,
-            &ErrorModel::new(self.c, gamma_up, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                gamma_up,
+                &self.settings.error().class,
+            ),
             false,
             true,
         );
@@ -276,7 +278,11 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &theta,
-            &ErrorModel::new(self.c, gamma_down, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                gamma_down,
+                &self.settings.error().class,
+            ),
             false,
             true,
         );
@@ -338,7 +344,12 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
     }
 
     fn expansion(&mut self) -> Result<()> {
-        adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
+        adaptive_grid(
+            &mut self.theta,
+            self.eps,
+            &self.settings.parameters().ranges(),
+            THETA_D,
+        );
         Ok(())
     }
 }

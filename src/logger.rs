@@ -23,18 +23,16 @@ use tracing_subscriber::EnvFilter;
 /// If not, the log messages are written to stdout.
 pub fn setup_log(settings: &Settings) -> Result<()> {
     // Use the log level defined in configuration file
-    let log_level = settings.log.level.as_str();
+    let log_level: String = settings.log().level.to_string();
     let env_filter = EnvFilter::new(log_level);
 
-    let timestamper = CompactTimestamp {
-        start: Instant::now(),
-    };
+    let timestamper = CompactTimestamp::new();
 
     // Define a registry with that level as an environment filter
     let subscriber = Registry::default().with(env_filter);
 
     // Define outputfile
-    let outputfile = OutputFile::new(&settings.output.path, &settings.log.file)?;
+    let outputfile = OutputFile::new(&settings.output().path, &settings.log().file)?;
 
     // Define layer for file
     let file_layer = fmt::layer()
@@ -58,6 +56,14 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
 #[derive(Clone)]
 struct CompactTimestamp {
     start: Instant,
+}
+
+impl CompactTimestamp {
+    fn new() -> Self {
+        Self {
+            start: Instant::now(),
+        }
+    }
 }
 
 impl FormatTime for CompactTimestamp {

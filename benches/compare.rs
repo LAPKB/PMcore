@@ -1,8 +1,7 @@
 use pmcore::prelude::*;
 
 use diol::prelude::*;
-use settings::{Log, *};
-use toml::Table;
+use settings::*;
 
 fn main() -> std::io::Result<()> {
     let mut bench = Bench::new(BenchConfig::from_args()?);
@@ -125,132 +124,65 @@ fn ode_tel(bencher: Bencher, len: usize) {
 }
 
 fn tel_settings() -> Settings {
-    let settings = Settings {
-        config: Config {
-            cycles: 1000,
-            algorithm: "NPAG".to_string(),
-            cache: true,
-            ..Default::default()
-        },
-        predictions: settings::Predictions::default(),
-        log: Log {
-            level: "warn".to_string(),
-            file: "".to_string(),
-            write: false,
-        },
-        prior: Prior {
-            file: None,
-            sampler: "sobol".to_string(),
-            points: 2129,
-            seed: 347,
-        },
-        output: Output {
-            write: false,
-            ..Default::default()
-        },
-        convergence: Default::default(),
-        advanced: Default::default(),
-        random: Random {
-            parameters: Table::from(
-                [
-                    (
-                        "Ka".to_string(),
-                        toml::Value::Array(vec![toml::Value::Float(0.1), toml::Value::Float(0.9)]),
-                    ),
-                    (
-                        "Ke".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(0.001),
-                            toml::Value::Float(0.1),
-                        ]),
-                    ),
-                    (
-                        "Tlag1".to_string(),
-                        toml::Value::Array(vec![toml::Value::Float(0.0), toml::Value::Float(4.0)]),
-                    ),
-                    (
-                        "V".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(30.0),
-                            toml::Value::Float(120.0),
-                        ]),
-                    ),
-                ]
-                .iter()
-                .cloned()
-                .collect(),
-            ),
-        },
-        fixed: None,
-        constant: None,
-        error: Error {
-            value: 5.0,
-            class: "proportional".to_string(),
-            poly: (0.02, 0.05, -2e-04, 0.0),
-        },
-    };
+    let mut settings = Settings::new();
+
+    let parameters = Parameters::new()
+        .add("Ka", 0.1, 0.3, false)
+        .unwrap()
+        .add("Ke", 0.001, 0.1, false)
+        .unwrap()
+        .add("Tlag1", 0.0, 4.00, false)
+        .unwrap()
+        .add("V", 30.0, 120.0, false)
+        .unwrap()
+        .to_owned();
+
+    settings.set_parameters(parameters);
+    settings.set_config(Config {
+        cycles: 1000,
+        ..Default::default()
+    });
+    settings.set_prior(Prior {
+        file: None,
+        sampler: "sobol".to_string(),
+        points: 2129,
+        seed: 347,
+    });
+    settings.set_error(Error {
+        value: 5.0,
+        class: ErrorType::Proportional,
+        poly: (0.02, 0.05, -2e-04, 0.0),
+    });
+
     settings.validate().unwrap();
     settings
 }
 
 fn bke_settings() -> Settings {
-    let settings = Settings {
-        config: Config {
-            cycles: 1024,
-            algorithm: "NPAG".to_string(),
-            cache: true,
-            include: None,
-            exclude: None,
-        },
-        predictions: settings::Predictions::default(),
-        log: Log {
-            level: "warn".to_string(),
-            file: "".to_string(),
-            write: false,
-        },
-        prior: Prior {
-            file: None,
-            points: settings::Prior::default().points,
-            sampler: "sobol".to_string(),
-            ..Default::default()
-        },
-        output: Output {
-            write: false,
-            path: "output".to_string(),
-        },
-        convergence: Convergence::default(),
-        advanced: Advanced::default(),
-        random: Random {
-            parameters: Table::from(
-                [
-                    (
-                        "Ke".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(0.001),
-                            toml::Value::Float(3.0),
-                        ]),
-                    ),
-                    (
-                        "V".to_string(),
-                        toml::Value::Array(vec![
-                            toml::Value::Float(25.0),
-                            toml::Value::Float(250.0),
-                        ]),
-                    ),
-                ]
-                .iter()
-                .cloned()
-                .collect(),
-            ),
-        },
-        fixed: None,
-        constant: None,
-        error: Error {
-            value: 0.0,
-            class: "additive".to_string(),
-            poly: (0.0, 0.05, 0.0, 0.0),
-        },
-    };
+    let mut settings = Settings::new();
+
+    let parameters = Parameters::new()
+        .add("ke", 0.001, 3.0, true)
+        .unwrap()
+        .add("v", 25.0, 250.0, true)
+        .unwrap()
+        .to_owned();
+
+    settings.set_parameters(parameters);
+    settings.set_config(Config {
+        cycles: 1000,
+        ..Default::default()
+    });
+    settings.set_output(Output {
+        write: false,
+        path: "".to_string(),
+    });
+    settings.set_error(Error {
+        value: 0.0,
+        class: ErrorType::Additive,
+        poly: (0.00, 0.05, 0.0, 0.0),
+    });
+
     settings.validate().unwrap();
     settings
 }

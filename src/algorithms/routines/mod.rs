@@ -13,7 +13,7 @@ pub mod condensation {
 }
 /// Routines for expanding grids
 pub mod expansion {
-    pub mod adaptative_grid;
+    pub mod adaptive_grid;
 }
 
 /// Provides routines for reading and parsing settings
