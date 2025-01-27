@@ -12,21 +12,22 @@ fn main() {
     let eq = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
             fetch_cov!(cov, t,);
-            fetch_params!(p, ka, ke, _tlag, _v);
+            fetch_params!(p, ka, ke);
+            dbg!(&x);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1];
         },
         |p| {
-            fetch_params!(p, _ka, _ke, tlag, _v);
+            fetch_params!(p, tlag);
             lag! {0=>tlag}
         },
         |_p| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
-            fetch_params!(p, _ka, _ke, _tlag, v);
+            fetch_params!(p, v);
             y[0] = x[1] / v;
         },
-        (2, 1),
+        (3, 1),
     );
     // let eq = Equation::new_analytical(
     //     one_compartment_with_absorption,
