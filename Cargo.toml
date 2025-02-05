@@ -32,7 +32,7 @@ tracing-subscriber = { version = "0.3.17", features = [
     "time",
 ] }
 config = { version = "0.14", features = ["preserve_order"] }
-faer = "0.19.3"
+faer = "0.21.3"
 faer-ext = { version = "0.2.0", features = ["nalgebra", "ndarray"] }
 pharmsol = "0.7.2"
 toml = "0.8.14" #REMOVE
