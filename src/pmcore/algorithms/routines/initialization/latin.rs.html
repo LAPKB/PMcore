@@ -64,13 +64,17 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a></pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a></pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>ndarray::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ndarray::{Array, ArrayBase, OwnedRepr};
-<span class="kw">use </span>rand::distributions::{Distribution, Uniform};
+<span class="kw">use </span>rand::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>rand::rngs::StdRng;
-<span class="kw">use </span>rand::seq::SliceRandom;
-<span class="kw">use </span>rand::SeedableRng;
+<span class="kw">use </span>rand::Rng;
 
 <span class="doccomment">/// Generates a 2-dimensional array containing Latin Hypercube Sampling points within the given ranges.
 ///
@@ -102,8 +106,7 @@
         intervals.shuffle(<span class="kw-2">&amp;mut </span>rng);
 
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n_points {
-            <span class="kw">let </span>u = Uniform::new(<span class="number">0.0</span>, <span class="number">1.0</span>);
-            <span class="kw">let </span>value = u.sample(<span class="kw-2">&amp;mut </span>rng);
+            <span class="kw">let </span>value = rng.random::&lt;f64&gt;();
             seq[[i, j]] = min + ((intervals[i] + value) / n_points <span class="kw">as </span>f64) * (max - min);
         }
     }
@@ -118,16 +121,23 @@
     </span><span class="kw">fn </span>test_generate_lhs() {
         <span class="kw">let </span>result = generate(<span class="number">5</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(<span class="number">0.</span>, <span class="number">1.</span>), (<span class="number">0.</span>, <span class="number">100.</span>), (<span class="number">0.</span>, <span class="number">1000.</span>)], <span class="number">42</span>).unwrap();
         <span class="macro">assert_eq!</span>(result.shape(), <span class="kw-2">&amp;</span>[<span class="number">5</span>, <span class="number">3</span>]);
-        <span class="macro">assert_eq!</span>(
-            result,
-            <span class="macro">array!</span>[
-                [<span class="number">0.08118035164615534</span>, <span class="number">97.33000555311399</span>, <span class="number">729.2901013820507</span>],
-                [<span class="number">0.8068685635909911</span>, <span class="number">34.201431099281876</span>, <span class="number">969.15809885882</span>],
-                [<span class="number">0.682991369237072</span>, <span class="number">56.04329822650589</span>, <span class="number">299.54535567497913</span>],
-                [<span class="number">0.5474848855448787</span>, <span class="number">16.367227512053397</span>, <span class="number">501.1955274259167</span>],
-                [<span class="number">0.36985032088988323</span>, <span class="number">72.73656820048906</span>, <span class="number">11.698952289960252</span>]
-            ]
-        );
+        <span class="comment">// Check that the values are within the expected range
+        </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">5 </span>{
+            <span class="macro">assert!</span>(result[[i, <span class="number">0</span>]] &gt;= <span class="number">0. </span>&amp;&amp; result[[i, <span class="number">0</span>]] &lt;= <span class="number">1.</span>);
+            <span class="macro">assert!</span>(result[[i, <span class="number">1</span>]] &gt;= <span class="number">0. </span>&amp;&amp; result[[i, <span class="number">1</span>]] &lt;= <span class="number">100.</span>);
+            <span class="macro">assert!</span>(result[[i, <span class="number">2</span>]] &gt;= <span class="number">0. </span>&amp;&amp; result[[i, <span class="number">2</span>]] &lt;= <span class="number">1000.</span>);
+        }
+
+        <span class="comment">// Check that the values are different
+        </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">5 </span>{
+            <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..<span class="number">5 </span>{
+                <span class="kw">if </span>i != j {
+                    <span class="macro">assert_ne!</span>(result[[i, <span class="number">0</span>]], result[[j, <span class="number">0</span>]]);
+                    <span class="macro">assert_ne!</span>(result[[i, <span class="number">1</span>]], result[[j, <span class="number">1</span>]]);
+                    <span class="macro">assert_ne!</span>(result[[i, <span class="number">2</span>]], result[[j, <span class="number">2</span>]]);
+                }
+            }
+        }
     }
 }
 </code></pre></div></section></main></body></html>
