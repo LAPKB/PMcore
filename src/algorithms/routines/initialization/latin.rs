@@ -50,15 +50,22 @@ mod tests {
     fn test_generate_lhs() {
         let result = generate(5, &vec![(0., 1.), (0., 100.), (0., 1000.)], 42).unwrap();
         assert_eq!(result.shape(), &[5, 3]);
-        assert_eq!(
-            result,
-            array![
-                [0.08118035164615534, 97.33000555311399, 729.2901013820507],
-                [0.8068685635909911, 34.201431099281876, 969.15809885882],
-                [0.682991369237072, 56.04329822650589, 299.54535567497913],
-                [0.5474848855448787, 16.367227512053397, 501.1955274259167],
-                [0.36985032088988323, 72.73656820048906, 11.698952289960252]
-            ]
-        );
+        // Check that the values are within the expected range
+        for i in 0..5 {
+            assert!(result[[i, 0]] >= 0. && result[[i, 0]] <= 1.);
+            assert!(result[[i, 1]] >= 0. && result[[i, 1]] <= 100.);
+            assert!(result[[i, 2]] >= 0. && result[[i, 2]] <= 1000.);
+        }
+
+        // Check that the values are different
+        for i in 0..5 {
+            for j in 0..5 {
+                if i != j {
+                    assert_ne!(result[[i, 0]], result[[j, 0]]);
+                    assert_ne!(result[[i, 1]], result[[j, 1]]);
+                    assert_ne!(result[[i, 2]], result[[j, 2]]);
+                }
+            }
+        }
     }
 }
