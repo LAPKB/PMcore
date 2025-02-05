@@ -92,7 +92,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             cycles: 100,
-            algorithm: "npag".to_string(),
+            algorithm: "NPAG".to_string(),
             cache: false,
             include: None,
             exclude: None,

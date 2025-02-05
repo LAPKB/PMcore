@@ -17,6 +17,7 @@ use prelude::*;
 pub mod npag;
 pub mod npod;
 pub mod postprob;
+pub mod routines;
 
 pub trait Algorithm<E: Equation> {
     fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
