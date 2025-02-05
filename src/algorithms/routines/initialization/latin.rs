@@ -1,10 +1,9 @@
 use anyhow::Result;
 use ndarray::prelude::*;
 use ndarray::{Array, ArrayBase, OwnedRepr};
-use rand::distributions::{Distribution, Uniform};
+use rand::prelude::*;
 use rand::rngs::StdRng;
-use rand::seq::SliceRandom;
-use rand::SeedableRng;
+use rand::Rng;
 
 /// Generates a 2-dimensional array containing Latin Hypercube Sampling points within the given ranges.
 ///
@@ -36,8 +35,7 @@ pub fn generate(
         intervals.shuffle(&mut rng);
 
         for i in 0..n_points {
-            let u = Uniform::new(0.0, 1.0);
-            let value = u.sample(&mut rng);
+            let value = rng.random::<f64>();
             seq[[i, j]] = min + ((intervals[i] + value) / n_points as f64) * (max - min);
         }
     }
