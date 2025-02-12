@@ -45,8 +45,8 @@ codegen-units = 1
 opt-level = 3
 
 [dev-dependencies]
-diol = "0.8.2"
+criterion = { version = "0.5" }
 
 [[bench]]
+name = "fibonacci"
 harness = false
-name = "compare"
