@@ -9,7 +9,7 @@ Rust library with the building blocks to create and implement new non-parametric
 
 ## Implemented functionality
 
-* Solver for ODE-based population pharmacokinetic models
+* Integrated with [`pharmsol`](https://github.com/LAPKB/pharmsol), a powerful solver for population pharmacokinetic models
 * Supports the Pmetrics data format for seamless integration
 * Covariate support, carry-forward or linear interpolation
 * Option to cache results for improved speed
