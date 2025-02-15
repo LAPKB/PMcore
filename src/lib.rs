@@ -50,8 +50,9 @@
 /// Provides the various algorithms used within the framework
 // pub mod algorithms;
 pub mod algorithms;
-/// Logger functionality for the framework using [tracing]
-pub mod logger;
+
+/// Routines
+pub mod routines;
 
 // Re-export commonly used items
 pub use anyhow::Result;
@@ -63,14 +64,8 @@ pub mod prelude {
     pub use super::Result;
     pub use crate::algorithms;
     pub use crate::algorithms::dispatch_algorithm;
-    pub use crate::algorithms::routines::condensation;
-    pub use crate::algorithms::routines::expansion::*;
-    pub use crate::algorithms::routines::initialization::*;
-    pub use crate::algorithms::routines::optimization;
-    pub use crate::logger;
-    pub use crate::prelude::evaluation::*;
-    // pub use crate::algorithms::routines::settings::*;
-    pub use crate::algorithms::routines::*;
+    pub use crate::routines;
+
     //Alma re-exports
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;

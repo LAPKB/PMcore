@@ -1,5 +1,8 @@
 use logger::setup_log;
-use pmcore::prelude::*;
+use pmcore::{
+    prelude::*,
+    routines::{logger, settings},
+};
 fn main() {
     let eq = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {

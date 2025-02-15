@@ -7,7 +7,7 @@ use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
 use serde::Serialize;
 // use pharmsol::Cache;
-use settings::Settings;
+use crate::routines::settings::Settings;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 /// Defines the result objects from an NPAG run

@@ -1,4 +1,4 @@
-use pmcore::prelude::*;
+use pmcore::routines::settings;
 
 fn main() {
     let path = "examples/bimodal_ke/config.toml".to_string();

@@ -1,9 +1,9 @@
 use crate::prelude::{
     algorithms::Algorithm,
-    ipm::burke,
-    output::{CycleLog, NPCycle, NPResult},
-    qr,
-    settings::Settings,
+    routines::evaluation::ipm::burke,
+    routines::evaluation::qr,
+    routines::output::{CycleLog, NPCycle, NPResult},
+    routines::settings::Settings,
 };
 use anyhow::Error;
 use anyhow::Result;
@@ -21,7 +21,7 @@ use ndarray::{
 };
 use ndarray_stats::{DeviationExt, QuantileExt};
 
-use super::{condensation::prune::prune, initialization, optimization::d_optimizer::SppOptimizer};
+use crate::routines::{condensation::prune, initialization, optimization::SppOptimizer};
 
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;

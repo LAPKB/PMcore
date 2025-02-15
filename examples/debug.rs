@@ -1,7 +1,10 @@
 use algorithms::{npag::NPAG, Algorithm};
 use ipm::burke;
 use logger::setup_log;
-use pmcore::prelude::*;
+use pmcore::{
+    prelude::*,
+    routines::{evaluation::ipm, logger, settings},
+};
 fn main() {
     let ode = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
