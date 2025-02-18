@@ -21,9 +21,11 @@ fn main() -> Result<()> {
 
     let mut settings = Settings::new();
 
-    let params = Parameters::new()
-        .add("ke", 0.001, 3.0, true)?
-        .add("v", 25.0, 250.0, true)?;
+    let params = Parameters::builder()
+        .add("ke", 0.001, 3.0, true)
+        .add("v", 25.0, 250.0, true)
+        .build()
+        .unwrap();
 
     settings.set_parameters(params);
     settings.set_cycles(1000);

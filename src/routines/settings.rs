@@ -5,7 +5,6 @@ use config::Config as eConfig;
 use pharmsol::prelude::data::ErrorType;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::collections::BTreeMap;
 use std::fmt::Display;
 
 /// Contains all settings for PMcore
@@ -268,38 +267,37 @@ impl Parameter {
 /// This structure contains information on all [Parameter]s to be estimated
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Parameters {
-    parameters: BTreeMap<String, Parameter>,
+    parameters: Vec<(String, Parameter)>,
 }
 
 impl Parameters {
     /// Create a new set of parameters
     pub fn new() -> Self {
         Parameters {
-            parameters: BTreeMap::new(),
+            parameters: Vec::new(),
         }
     }
 
-    /// Add a parameter to the set
-    pub fn add(
-        mut self,
-        name: impl Into<String>,
-        lower: f64,
-        upper: f64,
-        fixed: bool,
-    ) -> Result<Self> {
-        let parameter = Parameter::new(name, lower, upper, fixed)?;
-        self.parameters.insert(parameter.name.clone(), parameter);
-        Ok(self)
+    /// Create a new builder for parameters
+    pub fn builder() -> ParametersBuilder {
+        ParametersBuilder::new()
     }
 
     // Get a parameter by name
     pub fn get(&self, name: impl Into<String>) -> Option<&Parameter> {
-        self.parameters.get(name.into().as_str())
+        let name = name.into();
+        self.parameters
+            .iter()
+            .find(|(n, _)| n == &name)
+            .map(|(_, p)| p)
     }
 
     /// Get the names of the parameters
     pub fn names(&self) -> Vec<String> {
-        self.parameters.keys().cloned().collect()
+        self.parameters
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect()
     }
 
     /// Get the ranges of the parameters
@@ -307,8 +305,8 @@ impl Parameters {
     /// Returns a vector of tuples, where each tuple contains the lower and upper bounds of the parameter
     pub fn ranges(&self) -> Vec<(f64, f64)> {
         self.parameters
-            .values()
-            .map(|p| (p.lower, p.upper))
+            .iter()
+            .map(|(_, p)| (p.lower, p.upper))
             .collect()
     }
 
@@ -320,17 +318,44 @@ impl Parameters {
         self.parameters.is_empty()
     }
 
-    pub fn iter(&self) -> std::collections::btree_map::Iter<String, Parameter> {
+    pub fn iter(&self) -> std::slice::Iter<'_, (String, Parameter)> {
         self.parameters.iter()
     }
 }
 
 impl IntoIterator for Parameters {
     type Item = (String, Parameter);
-    type IntoIter = std::collections::btree_map::IntoIter<String, Parameter>;
+    type IntoIter = std::vec::IntoIter<(String, Parameter)>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.parameters.into_iter()
+    }
+}
+
+/// Builder for creating a set of parameters
+pub struct ParametersBuilder {
+    parameters: Vec<(String, Parameter)>,
+}
+
+impl ParametersBuilder {
+    pub fn new() -> Self {
+        Self {
+            parameters: Vec::new(),
+        }
+    }
+
+    pub fn add(mut self, name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Self {
+        let name_string = name.into();
+        if let Ok(parameter) = Parameter::new(&name_string, lower, upper, fixed) {
+            self.parameters.push((name_string, parameter));
+        }
+        self
+    }
+
+    pub fn build(self) -> Result<Parameters> {
+        Ok(Parameters {
+            parameters: self.parameters,
+        })
     }
 }
 
@@ -826,10 +851,10 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        let parameters = Parameters::new()
+        let parameters = Parameters::builder()
             .add("Ke", 0.0, 5.0, false)
-            .unwrap()
             .add("V", 10.0, 200.0, true)
+            .build()
             .unwrap();
 
         let settings = SettingsBuilder::new()
