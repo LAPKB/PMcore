@@ -374,9 +374,9 @@ impl<E: Equation> NPAG<E> {
             let zero_probability_subjects: Vec<&String> =
                 indices.iter().map(|&i| subject[i].id()).collect();
 
-            dbg!(&self.theta);
+            // dbg!(&self.theta);
 
-            dbg!(&psi);
+            // dbg!(&psi);
 
             return Err(anyhow::anyhow!(
                 "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects

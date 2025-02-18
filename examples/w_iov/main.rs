@@ -1,4 +1,7 @@
-use pmcore::{logger::setup_log, prelude::*};
+use pmcore::prelude::{
+    settings::{Parameters, Prior, Settings},
+    *,
+};
 
 fn main() {
     let sde = equation::SDE::new(
@@ -29,7 +32,28 @@ fn main() {
         11,
     );
 
-    let settings = settings::read("examples/w_iov/config.toml".to_string()).unwrap();
+    let mut settings = Settings::new();
+
+    let params = Parameters::builder()
+        .add("ke0", 0.0001, 2.4, false)
+        .add("ske", 0.0001, 0.2, false)
+        .build()
+        .unwrap();
+
+    settings.set_parameters(params);
+    settings.set_cycles(1000);
+    settings.set_cache(true);
+    settings.set_error_poly((-0.00119, 0.44379, -0.45864, 0.16537));
+    settings.set_error_type(ErrorType::Add);
+    settings.set_output_path("examples/w_iov/output");
+    settings.set_prior(Prior {
+        sampler: "sobol".to_string(),
+        points: 100,
+        seed: 347,
+        file: None,
+    });
+    settings.set_output_write(true);
+    settings.set_log_level(settings::LogLevel::DEBUG);
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/w_iov/test.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();

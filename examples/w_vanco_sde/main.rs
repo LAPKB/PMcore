@@ -1,5 +1,8 @@
-use pmcore::{logger::setup_log, prelude::*};
-use std::io::Write;
+use pmcore::prelude::{
+    settings::{Parameters, Prior, Settings},
+    *,
+};
+
 fn main() {
     //% cp ~/Documents/CHLA/IOV2024/vanco_PICU.csv ./test.csv
     //% cargo run --release --example vanco_sde
@@ -27,14 +30,40 @@ fn main() {
         },
         |x, p, t, cov, y| {
             fetch_params!(p, _ka, _ke0, _kcp, _kpc, vol, _ske);
-            fetch_cov!(cov, t, wt, ht, male);
+            fetch_cov!(cov, t, wt);
             y[0] = x[1] / (vol * wt);
         },
         (4, 1), // (input equations, output equations)
         11,
     );
 
-    let settings = settings::read("examples/w_vanco_sde/config.toml".to_string()).unwrap();
+    let mut settings = Settings::new();
+
+    let params = Parameters::builder()
+        .add("ka", 0.0001, 2.4, false)
+        .add("ke0", 0.0001, 2.7, false)
+        .add("kcp", 0.0001, 2.4, false)
+        .add("kpc", 0.0001, 2.4, false)
+        .add("vol", 0.2, 1.2, false)
+        .add("ske", 0.0001, 0.2, false)
+        .build()
+        .unwrap();
+
+    settings.set_parameters(params);
+    settings.set_cycles(10);
+    settings.set_cache(true);
+    settings.set_error_poly((0.00119, 0.20, 0.0, 0.0));
+    settings.set_error_value(1.0);
+    settings.set_error_type(ErrorType::Add);
+    settings.set_output_path("examples/w_vanco_sde/output");
+    settings.set_prior(Prior {
+        sampler: "sobol".to_string(),
+        points: 10000,
+        seed: 347,
+        file: None,
+    });
+    settings.set_output_write(true);
+    settings.set_log_level(settings::LogLevel::DEBUG);
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/w_vanco_sde/test.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
