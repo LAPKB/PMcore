@@ -495,55 +495,428 @@
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a></pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
-
-</span><span class="kw">use </span><span class="kw">super</span>::output::OutputFile;
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::output::OutputFile;
+<span class="kw">use </span><span class="kw">crate</span>::algorithms::Algorithm;
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>config::Config <span class="kw">as </span>eConfig;
 <span class="kw">use </span>pharmsol::prelude::data::ErrorType;
-<span class="kw">use </span>serde::Deserialize;
-<span class="kw">use </span>serde_derive::Serialize;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>serde_json;
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>toml::Table;
+<span class="kw">use </span>std::fmt::Display;
 
 <span class="doccomment">/// Contains all settings for PMcore
 </span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 </span><span class="kw">pub struct </span>Settings {
     <span class="doccomment">/// General configuration settings
-    </span><span class="kw">pub </span>config: Config,
-    <span class="doccomment">/// Random parameters to be estimated
-    </span><span class="kw">pub </span>random: Random,
-    <span class="doccomment">/// Parameters which are estimated, but fixed for the population
-    </span><span class="kw">pub </span>fixed: <span class="prelude-ty">Option</span>&lt;Fixed&gt;,
-    <span class="doccomment">/// Parameters which are held constant
-    </span><span class="kw">pub </span>constant: <span class="prelude-ty">Option</span>&lt;Constant&gt;,
+    </span>config: Config,
+    <span class="doccomment">/// Parameters to be estimated
+    </span>parameters: Parameters,
     <span class="doccomment">/// Defines the error model and polynomial to be used
-    </span><span class="kw">pub </span>error: Error,
+    </span>error: Error,
     <span class="doccomment">/// Configuration for predictions
-    ///
-    /// This struct contains the interval at which to generate predictions, and the time after dose to generate predictions to
-    </span><span class="kw">pub </span>predictions: Predictions,
+    </span>predictions: Predictions,
     <span class="doccomment">/// Configuration for logging
-    </span><span class="kw">pub </span>log: Log,
+    </span>log: Log,
     <span class="doccomment">/// Configuration for (optional) prior
-    </span><span class="kw">pub </span>prior: Prior,
+    </span>prior: Prior,
     <span class="doccomment">/// Configuration for the output files
-    </span><span class="kw">pub </span>output: Output,
+    </span>output: Output,
     <span class="doccomment">/// Configuration for the convergence criteria
-    </span><span class="kw">pub </span>convergence: Convergence,
+    </span>convergence: Convergence,
     <span class="doccomment">/// Advanced options, mostly hyperparameters, for the algorithm(s)
-    </span><span class="kw">pub </span>advanced: Advanced,
+    </span>advanced: Advanced,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>Settings {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         Settings {
             config: Config::default(),
-            random: Random::default(),
-            fixed: <span class="prelude-val">None</span>,
-            constant: <span class="prelude-val">None</span>,
+            parameters: Parameters::new(),
             error: Error::default(),
             predictions: Predictions::default(),
             log: Log::default(),
@@ -558,14 +931,162 @@
 <span class="kw">impl </span>Settings {
     <span class="doccomment">/// Validate the settings
     </span><span class="kw">pub fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.random.validate()<span class="question-mark">?</span>;
         <span class="self">self</span>.error.validate()<span class="question-mark">?</span>;
         <span class="self">self</span>.predictions.validate()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Create a new settings object with default values
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         Settings::default()
+    }
+
+    <span class="kw">pub fn </span>set_config(<span class="kw-2">&amp;mut </span><span class="self">self</span>, config: Config) {
+        <span class="self">self</span>.config = config;
+    }
+
+    <span class="kw">pub fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Config {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.config
+    }
+
+    <span class="kw">pub fn </span>set_parameters(<span class="kw-2">&amp;mut </span><span class="self">self</span>, parameters: Parameters) {
+        <span class="self">self</span>.parameters = parameters;
+    }
+
+    <span class="kw">pub fn </span>parameters(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Parameters {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.parameters
+    }
+
+    <span class="kw">pub fn </span>set_error(<span class="kw-2">&amp;mut </span><span class="self">self</span>, error: Error) {
+        <span class="self">self</span>.error = error;
+    }
+
+    <span class="kw">pub fn </span>error(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Error {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.error
+    }
+
+    <span class="kw">pub fn </span>set_predictions(<span class="kw-2">&amp;mut </span><span class="self">self</span>, predictions: Predictions) {
+        <span class="self">self</span>.predictions = predictions;
+    }
+
+    <span class="kw">pub fn </span>predictions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Predictions {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.predictions
+    }
+
+    <span class="kw">pub fn </span>set_log(<span class="kw-2">&amp;mut </span><span class="self">self</span>, log: Log) {
+        <span class="self">self</span>.log = log;
+    }
+
+    <span class="kw">pub fn </span>log(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Log {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.log
+    }
+
+    <span class="kw">pub fn </span>set_prior(<span class="kw-2">&amp;mut </span><span class="self">self</span>, prior: Prior) {
+        <span class="self">self</span>.prior = prior;
+    }
+
+    <span class="kw">pub fn </span>prior(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Prior {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.prior
+    }
+
+    <span class="kw">pub fn </span>set_output(<span class="kw-2">&amp;mut </span><span class="self">self</span>, output: Output) {
+        <span class="self">self</span>.output = output;
+    }
+
+    <span class="kw">pub fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Output {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.output
+    }
+
+    <span class="kw">pub fn </span>set_convergence(<span class="kw-2">&amp;mut </span><span class="self">self</span>, convergence: Convergence) {
+        <span class="self">self</span>.convergence = convergence;
+    }
+
+    <span class="kw">pub fn </span>convergence(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Convergence {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.convergence
+    }
+
+    <span class="kw">pub fn </span>set_advanced(<span class="kw-2">&amp;mut </span><span class="self">self</span>, advanced: Advanced) {
+        <span class="self">self</span>.advanced = advanced;
+    }
+
+    <span class="kw">pub fn </span>advanced(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Advanced {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.advanced
+    }
+
+    <span class="kw">pub fn </span>set_cycles(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cycles: usize) {
+        <span class="self">self</span>.config.cycles = cycles;
+    }
+
+    <span class="kw">pub fn </span>set_algorithm(<span class="kw-2">&amp;mut </span><span class="self">self</span>, algorithm: Algorithm) {
+        <span class="self">self</span>.config.algorithm = algorithm;
+    }
+
+    <span class="kw">pub fn </span>set_cache(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cache: bool) {
+        <span class="self">self</span>.config.cache = cache;
+    }
+
+    <span class="kw">pub fn </span>set_gamlam(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: f64) {
+        <span class="self">self</span>.error.value = value;
+    }
+
+    <span class="kw">pub fn </span>set_error_type(<span class="kw-2">&amp;mut </span><span class="self">self</span>, class: ErrorType) {
+        <span class="self">self</span>.error.class = class;
+    }
+
+    <span class="kw">pub fn </span>set_error_poly(<span class="kw-2">&amp;mut </span><span class="self">self</span>, poly: (f64, f64, f64, f64)) {
+        <span class="self">self</span>.error.poly = poly;
+    }
+
+    <span class="kw">pub fn </span>set_idelta(<span class="kw-2">&amp;mut </span><span class="self">self</span>, idelta: f64) {
+        <span class="self">self</span>.predictions.idelta = idelta;
+    }
+
+    <span class="kw">pub fn </span>set_tad(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tad: f64) {
+        <span class="self">self</span>.predictions.tad = tad;
+    }
+
+    <span class="kw">pub fn </span>set_log_level(<span class="kw-2">&amp;mut </span><span class="self">self</span>, level: LogLevel) {
+        <span class="self">self</span>.log.level = level;
+    }
+
+    <span class="kw">pub fn </span>set_log_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file: String) {
+        <span class="self">self</span>.log.file = file;
+    }
+
+    <span class="kw">pub fn </span>set_prior_sampler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sampler: String) {
+        <span class="self">self</span>.prior.sampler = sampler;
+    }
+
+    <span class="kw">pub fn </span>set_prior_points(<span class="kw-2">&amp;mut </span><span class="self">self</span>, points: usize) {
+        <span class="self">self</span>.prior.points = points;
+    }
+
+    <span class="kw">pub fn </span>set_prior_seed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, seed: usize) {
+        <span class="self">self</span>.prior.seed = seed;
+    }
+
+    <span class="kw">pub fn </span>set_prior_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file: <span class="prelude-ty">Option</span>&lt;String&gt;) {
+        <span class="self">self</span>.prior.file = file;
+    }
+
+    <span class="kw">pub fn </span>set_output_write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, write: bool) {
+        <span class="self">self</span>.output.write = write;
+    }
+
+    <span class="kw">pub fn </span>set_output_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw">impl </span>Into&lt;String&gt;) {
+        <span class="self">self</span>.output.path = path.into();
+    }
+
+    <span class="doccomment">/// Writes a copy of the parsed settings to file
+    /// The is written to output folder specified in the [Output] and is named `settings.json`.
+    </span><span class="kw">pub fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>serialized = serde_json::to_string_pretty(<span class="self">self</span>)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="self">self</span>.output.path.as_str(), <span class="string">"settings.json"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>file = outputfile.file;
+        std::io::Write::write_all(<span class="kw-2">&amp;mut </span>file, serialized.as_bytes())<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -576,127 +1097,146 @@
     <span class="doccomment">/// Maximum number of cycles to run
     </span><span class="kw">pub </span>cycles: usize,
     <span class="doccomment">/// Denotes the algorithm to use
-    </span><span class="kw">pub </span>algorithm: String,
+    </span><span class="kw">pub </span>algorithm: Algorithm,
     <span class="doccomment">/// If true (default), cache predicted values
     </span><span class="kw">pub </span>cache: bool,
-    <span class="doccomment">/// Vector of IDs to include
-    </span><span class="kw">pub </span>include: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
-    <span class="doccomment">/// Vector of IDs to exclude
-    </span><span class="kw">pub </span>exclude: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>Config {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         Config {
             cycles: <span class="number">100</span>,
-            algorithm: <span class="string">"NPAG"</span>.to_string(),
-            cache: <span class="bool-val">false</span>,
-            include: <span class="prelude-val">None</span>,
-            exclude: <span class="prelude-val">None</span>,
+            algorithm: Algorithm::NPAG,
+            cache: <span class="bool-val">true</span>,
         }
     }
 }
 
-<span class="doccomment">/// Random parameters to be estimated
+<span class="doccomment">/// Defines a parameter to be estimated
 ///
-/// This struct contains the random parameters to be estimated. The parameters are specified as a hashmap, where the key is the name of the parameter, and the value is a tuple containing the upper and lower bounds of the parameter.
-///
-/// # Example
-///
-/// ```toml
-/// [random]
-/// alpha = [0.0, 1.0]
-/// beta = [0.0, 1.0]
-/// ```
-</span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(default)]
-</span><span class="kw">pub struct </span>Random {
-    <span class="attr">#[serde(flatten)]
-    </span><span class="kw">pub </span>parameters: Table,
+/// In non-parametric algorithms, parameters must be bounded. The lower and upper bounds are defined by the `lower` and `upper` fields, respectively.
+/// Fixed parameters are unknown, but common among all subjects.
+</span><span class="attr">#[derive(Debug, Clone, Deserialize, Serialize)]
+</span><span class="kw">pub struct </span>Parameter {
+    name: String,
+    lower: f64,
+    upper: f64,
+    fixed: bool,
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>Random {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        Random {
-            parameters: Table::new(),
+<span class="kw">impl </span>Parameter {
+    <span class="doccomment">/// Create a new parameter
+    </span><span class="kw">pub fn </span>new(name: <span class="kw">impl </span>Into&lt;String&gt;, lower: f64, upper: f64, fixed: bool) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">if </span>lower &gt;= upper {
+            <span class="macro">bail!</span>(<span class="macro">format!</span>(
+                <span class="string">"In key '{}', lower bound ({}) is not less than upper bound ({})"</span>,
+                name.into(),
+                lower,
+                upper
+            ));
         }
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            name: name.into(),
+            lower,
+            upper,
+            fixed,
+        })
     }
 }
 
-<span class="kw">impl </span>Random {
-    <span class="doccomment">/// Get the upper and lower bounds of a random parameter from its key
-    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;(f64, f64)&gt; {
+<span class="doccomment">/// This structure contains information on all [Parameter]s to be estimated
+</span><span class="attr">#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+</span><span class="kw">pub struct </span>Parameters {
+    parameters: Vec&lt;(String, Parameter)&gt;,
+}
+
+<span class="kw">impl </span>Parameters {
+    <span class="doccomment">/// Create a new set of parameters
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        Parameters {
+            parameters: Vec::new(),
+        }
+    }
+
+    <span class="doccomment">/// Create a new builder for parameters
+    </span><span class="kw">pub fn </span>builder() -&gt; ParametersBuilder {
+        ParametersBuilder::new()
+    }
+
+    <span class="comment">// Get a parameter by name
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Parameter&gt; {
+        <span class="kw">let </span>name = name.into();
         <span class="self">self</span>.parameters
-            .get(key)
-            .and_then(|v| v.as_array())
-            .map(|v| {
-                <span class="kw">let </span>lower = v[<span class="number">0</span>].as_float().unwrap();
-                <span class="kw">let </span>upper = v[<span class="number">1</span>].as_float().unwrap();
-                (lower, upper)
-            })
+            .iter()
+            .find(|(n, <span class="kw">_</span>)| n == <span class="kw-2">&amp;</span>name)
+            .map(|(<span class="kw">_</span>, p)| p)
     }
 
-    <span class="doccomment">/// Returns a vector of the names of the random parameters
+    <span class="doccomment">/// Get the names of the parameters
     </span><span class="kw">pub fn </span>names(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {
-        <span class="self">self</span>.parameters.keys().cloned().collect()
-    }
-
-    <span class="doccomment">/// Returns a vector of the upper and lower bounds of the random parameters
-    </span><span class="kw">pub fn </span>ranges(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(f64, f64)&gt; {
         <span class="self">self</span>.parameters
-            .values()
-            .map(|v| {
-                <span class="kw">let </span>lower = v.as_array().unwrap()[<span class="number">0</span>].as_float().unwrap();
-                <span class="kw">let </span>upper = v.as_array().unwrap()[<span class="number">1</span>].as_float().unwrap();
-                (lower, upper)
-            })
+            .iter()
+            .map(|(name, <span class="kw">_</span>)| name.clone())
             .collect()
     }
 
-    <span class="doccomment">/// Validate the boundaries of the random parameters
-    </span><span class="kw">pub fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">for </span>(key, range) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.parameters {
-            <span class="kw">let </span>range = range.as_array().unwrap();
-            <span class="kw">let </span>lower = range[<span class="number">0</span>].as_float().unwrap();
-            <span class="kw">let </span>upper = range[<span class="number">1</span>].as_float().unwrap();
-            <span class="kw">if </span>lower &gt;= upper {
-                <span class="macro">bail!</span>(<span class="macro">format!</span>(
-                    <span class="string">"In key '{}', lower bound ({}) is not less than upper bound ({})"</span>,
-                    key, lower, upper
-                ));
-            }
-        }
-        <span class="prelude-val">Ok</span>(())
+    <span class="doccomment">/// Get the ranges of the parameters
+    ///
+    /// Returns a vector of tuples, where each tuple contains the lower and upper bounds of the parameter
+    </span><span class="kw">pub fn </span>ranges(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(f64, f64)&gt; {
+        <span class="self">self</span>.parameters
+            .iter()
+            .map(|(<span class="kw">_</span>, p)| (p.lower, p.upper))
+            .collect()
+    }
+
+    <span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.parameters.len()
+    }
+
+    <span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.parameters.is_empty()
+    }
+
+    <span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::slice::Iter&lt;<span class="lifetime">'_</span>, (String, Parameter)&gt; {
+        <span class="self">self</span>.parameters.iter()
     }
 }
 
-<span class="doccomment">/// Parameters which are estimated, but fixed for the population
-</span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
-</span><span class="kw">pub struct </span>Fixed {
-    <span class="attr">#[serde(flatten)]
-    </span><span class="kw">pub </span>parameters: HashMap&lt;String, f64&gt;,
-}
+<span class="kw">impl </span>IntoIterator <span class="kw">for </span>Parameters {
+    <span class="kw">type </span>Item = (String, Parameter);
+    <span class="kw">type </span>IntoIter = std::vec::IntoIter&lt;(String, Parameter)&gt;;
 
-<span class="kw">impl </span>Default <span class="kw">for </span>Fixed {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        Fixed {
-            parameters: HashMap::new(),
-        }
+    <span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::IntoIter {
+        <span class="self">self</span>.parameters.into_iter()
     }
 }
 
-<span class="doccomment">/// Parameters which are held constant
-</span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
-</span><span class="kw">pub struct </span>Constant {
-    <span class="attr">#[serde(flatten)]
-    </span><span class="kw">pub </span>parameters: HashMap&lt;String, f64&gt;,
+<span class="doccomment">/// Builder for creating a set of parameters
+</span><span class="kw">pub struct </span>ParametersBuilder {
+    parameters: Vec&lt;(String, Parameter)&gt;,
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>Constant {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        Constant {
-            parameters: HashMap::new(),
+<span class="kw">impl </span>ParametersBuilder {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            parameters: Vec::new(),
         }
+    }
+
+    <span class="kw">pub fn </span>add(<span class="kw-2">mut </span><span class="self">self</span>, name: <span class="kw">impl </span>Into&lt;String&gt;, lower: f64, upper: f64, fixed: bool) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>name_string = name.into();
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(parameter) = Parameter::new(<span class="kw-2">&amp;</span>name_string, lower, upper, fixed) {
+            <span class="self">self</span>.parameters.push((name_string, parameter));
+        }
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Parameters&gt; {
+        <span class="prelude-val">Ok</span>(Parameters {
+            parameters: <span class="self">self</span>.parameters,
+        })
     }
 }
 
@@ -707,7 +1247,8 @@
     <span class="doccomment">/// The initial value of `gamma` or `lambda`
     </span><span class="kw">pub </span>value: f64,
     <span class="doccomment">/// The error class, either `additive` or `proportional`
-    </span><span class="kw">pub </span>class: String,
+    </span><span class="attr">#[serde(skip)]
+    </span><span class="kw">pub </span>class: ErrorType,
     <span class="doccomment">/// The assay error polynomial
     </span><span class="kw">pub </span>poly: (f64, f64, f64, f64),
 }
@@ -716,13 +1257,17 @@
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         Error {
             value: <span class="number">0.0</span>,
-            class: <span class="string">"additive"</span>.to_string(),
+            class: ErrorType::Add,
             poly: (<span class="number">0.0</span>, <span class="number">0.1</span>, <span class="number">0.0</span>, <span class="number">0.0</span>),
         }
     }
 }
 
 <span class="kw">impl </span>Error {
+    <span class="kw">pub fn </span>new(value: f64, class: ErrorType, poly: (f64, f64, f64, f64)) -&gt; <span class="self">Self </span>{
+        Error { value, class, poly }
+    }
+
     <span class="kw">pub fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.value &lt; <span class="number">0.0 </span>{
             <span class="macro">bail!</span>(<span class="macro">format!</span>(
@@ -734,11 +1279,7 @@
     }
 
     <span class="kw">pub fn </span>error_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ErrorType {
-        <span class="kw">match </span><span class="self">self</span>.class.to_lowercase().as_str() {
-            <span class="string">"additive" </span>| <span class="string">"l" </span>| <span class="string">"lambda"  </span>=&gt; ErrorType::Add,
-            <span class="string">"proportional" </span>| <span class="string">"g" </span>| <span class="string">"gamma"  </span>=&gt; ErrorType::Prop,
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)"</span>, <span class="self">self</span>.class),
-        }
+        <span class="self">self</span>.class.clone()
     }
 }
 
@@ -836,6 +1377,54 @@
     }
 }
 
+<span class="doccomment">/// The log level, which can be one of the following:
+/// - `TRACE`
+/// - `DEBUG`
+/// - `INFO`
+/// - `WARN`
+/// - `ERROR`
+///
+/// The default log level is `INFO`
+</span><span class="attr">#[derive(Debug, Deserialize, Clone, Serialize, Default)]
+</span><span class="kw">pub enum </span>LogLevel {
+    TRACE,
+    DEBUG,
+    <span class="attr">#[default]
+    </span>INFO,
+    WARN,
+    ERROR,
+}
+
+<span class="kw">impl </span>From&lt;LogLevel&gt; <span class="kw">for </span>tracing::Level {
+    <span class="kw">fn </span>from(log_level: LogLevel) -&gt; tracing::Level {
+        <span class="kw">match </span>log_level {
+            LogLevel::TRACE =&gt; tracing::Level::TRACE,
+            LogLevel::DEBUG =&gt; tracing::Level::DEBUG,
+            LogLevel::INFO =&gt; tracing::Level::INFO,
+            LogLevel::WARN =&gt; tracing::Level::WARN,
+            LogLevel::ERROR =&gt; tracing::Level::ERROR,
+        }
+    }
+}
+
+<span class="kw">impl </span>AsRef&lt;str&gt; <span class="kw">for </span>LogLevel {
+    <span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="kw">match </span><span class="self">self </span>{
+            LogLevel::TRACE =&gt; <span class="string">"trace"</span>,
+            LogLevel::DEBUG =&gt; <span class="string">"debug"</span>,
+            LogLevel::INFO =&gt; <span class="string">"info"</span>,
+            LogLevel::WARN =&gt; <span class="string">"warn"</span>,
+            LogLevel::ERROR =&gt; <span class="string">"error"</span>,
+        }
+    }
+}
+
+<span class="kw">impl </span>Display <span class="kw">for </span>LogLevel {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.as_ref())
+    }
+}
+
 <span class="attr">#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 </span><span class="kw">pub struct </span>Log {
@@ -847,7 +1436,7 @@
     /// - `info`
     /// - `warn`
     /// - `error`
-    </span><span class="kw">pub </span>level: String,
+    </span><span class="kw">pub </span>level: LogLevel,
     <span class="doccomment">/// The file to write the log to
     </span><span class="kw">pub </span>file: String,
     <span class="doccomment">/// Whether to write logs
@@ -860,7 +1449,7 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>Log {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         Log {
-            level: String::from(<span class="string">"info"</span>),
+            level: LogLevel::INFO,
             file: String::from(<span class="string">"log.txt"</span>),
             write: <span class="bool-val">true</span>,
         }
@@ -919,7 +1508,7 @@
     </span><span class="comment">////
     </span><span class="doccomment">/// If a `#` symbol is found, it will automatically increment the number by one.
     </span><span class="kw">pub fn </span>parse_output_folder(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">if </span><span class="self">self</span>.path.is_empty() || <span class="self">self</span>.path == <span class="string">"" </span>{
+        <span class="kw">if </span><span class="self">self</span>.path.is_empty() || <span class="self">self</span>.path.is_empty() {
             <span class="comment">// Set a default path if none is provided
             </span><span class="self">self</span>.path = Output::default().path;
         }
@@ -971,7 +1560,7 @@
 
     <span class="comment">// Write a copy of the settings to file if output is enabled
     </span><span class="kw">if </span>settings.output.write {
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = write_settings_to_file(<span class="kw-2">&amp;</span>settings) {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = settings.write() {
             <span class="macro">bail!</span>(<span class="string">"Could not write settings to file: {}"</span>, error);
         }
     }
@@ -979,17 +1568,196 @@
     <span class="prelude-val">Ok</span>(settings) <span class="comment">// Return the settings wrapped in Ok
 </span>}
 
-<span class="doccomment">/// Writes a copy of the parsed settings to file
-///
-/// This function writes a copy of the parsed settings to file.
-/// The file is written to output folder specified in the [settings](crate::routines::settings::Settings::paths), and is named `settings.json`.
-</span><span class="kw">pub fn </span>write_settings_to_file(settings: <span class="kw-2">&amp;</span>Settings) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    <span class="kw">let </span>serialized = serde_json::to_string_pretty(settings)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))<span class="question-mark">?</span>;
+<span class="kw">pub struct </span>SettingsBuilder&lt;State&gt; {
+    config: <span class="prelude-ty">Option</span>&lt;Config&gt;,
+    parameters: <span class="prelude-ty">Option</span>&lt;Parameters&gt;,
+    error: <span class="prelude-ty">Option</span>&lt;Error&gt;,
+    predictions: <span class="prelude-ty">Option</span>&lt;Predictions&gt;,
+    log: <span class="prelude-ty">Option</span>&lt;Log&gt;,
+    prior: <span class="prelude-ty">Option</span>&lt;Prior&gt;,
+    output: <span class="prelude-ty">Option</span>&lt;Output&gt;,
+    convergence: <span class="prelude-ty">Option</span>&lt;Convergence&gt;,
+    advanced: <span class="prelude-ty">Option</span>&lt;Advanced&gt;,
+    _marker: std::marker::PhantomData&lt;State&gt;,
+}
 
-    <span class="kw">let </span>outputfile = OutputFile::new(settings.output.path.as_str(), <span class="string">"settings.json"</span>)<span class="question-mark">?</span>;
-    <span class="kw">let </span><span class="kw-2">mut </span>file = outputfile.file;
-    std::io::Write::write_all(<span class="kw-2">&amp;mut </span>file, serialized.as_bytes())<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(())
+<span class="comment">// Marker traits for builder states
+</span><span class="kw">pub trait </span>AlgorithmDefined {}
+<span class="kw">pub trait </span>ParametersDefined {}
+<span class="kw">pub trait </span>ErrorModelDefined {}
+
+<span class="comment">// Implement marker traits for PhantomData states
+</span><span class="kw">pub struct </span>InitialState;
+<span class="kw">pub struct </span>AlgorithmSet;
+<span class="kw">pub struct </span>ParametersSet;
+<span class="kw">pub struct </span>ErrorSet;
+
+<span class="comment">// Initial state: no algorithm set yet
+</span><span class="kw">impl </span>SettingsBuilder&lt;InitialState&gt; {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        SettingsBuilder {
+            config: <span class="prelude-val">None</span>,
+            parameters: <span class="prelude-val">None</span>,
+            error: <span class="prelude-val">None</span>,
+            predictions: <span class="prelude-val">None</span>,
+            log: <span class="prelude-val">None</span>,
+            prior: <span class="prelude-val">None</span>,
+            output: <span class="prelude-val">None</span>,
+            convergence: <span class="prelude-val">None</span>,
+            advanced: <span class="prelude-val">None</span>,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    <span class="kw">pub fn </span>set_algorithm(<span class="self">self</span>, algorithm: Algorithm) -&gt; SettingsBuilder&lt;AlgorithmSet&gt; {
+        SettingsBuilder {
+            config: <span class="prelude-val">Some</span>(Config {
+                algorithm,
+                ..Config::default()
+            }),
+            parameters: <span class="self">self</span>.parameters,
+            error: <span class="self">self</span>.error,
+            predictions: <span class="self">self</span>.predictions,
+            log: <span class="self">self</span>.log,
+            prior: <span class="self">self</span>.prior,
+            output: <span class="self">self</span>.output,
+            convergence: <span class="self">self</span>.convergence,
+            advanced: <span class="self">self</span>.advanced,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>SettingsBuilder&lt;InitialState&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        SettingsBuilder::new()
+    }
+}
+
+<span class="comment">// Algorithm is set, move to defining parameters
+</span><span class="kw">impl </span>SettingsBuilder&lt;AlgorithmSet&gt; {
+    <span class="kw">pub fn </span>set_parameters(<span class="self">self</span>, parameters: Parameters) -&gt; SettingsBuilder&lt;ParametersSet&gt; {
+        SettingsBuilder {
+            config: <span class="self">self</span>.config,
+            parameters: <span class="prelude-val">Some</span>(parameters),
+            error: <span class="self">self</span>.error,
+            predictions: <span class="self">self</span>.predictions,
+            log: <span class="self">self</span>.log,
+            prior: <span class="self">self</span>.prior,
+            output: <span class="self">self</span>.output,
+            convergence: <span class="self">self</span>.convergence,
+            advanced: <span class="self">self</span>.advanced,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+<span class="comment">// Parameters are set, move to defining error model
+</span><span class="kw">impl </span>SettingsBuilder&lt;ParametersSet&gt; {
+    <span class="kw">pub fn </span>set_error_model(<span class="self">self</span>, error: Error) -&gt; SettingsBuilder&lt;ErrorSet&gt; {
+        SettingsBuilder {
+            config: <span class="self">self</span>.config,
+            parameters: <span class="self">self</span>.parameters,
+            error: <span class="prelude-val">Some</span>(error),
+            predictions: <span class="self">self</span>.predictions,
+            log: <span class="self">self</span>.log,
+            prior: <span class="self">self</span>.prior,
+            output: <span class="self">self</span>.output,
+            convergence: <span class="self">self</span>.convergence,
+            advanced: <span class="self">self</span>.advanced,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+<span class="comment">// Error model is set, allow optional settings and final build
+</span><span class="kw">impl </span>SettingsBuilder&lt;ErrorSet&gt; {
+    <span class="kw">pub fn </span>set_cycles(<span class="kw-2">mut </span><span class="self">self</span>, cycles: usize) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.config.as_mut().unwrap().cycles = cycles;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_cache(<span class="kw-2">mut </span><span class="self">self</span>, cache: bool) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.config.as_mut().unwrap().cache = cache;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_predictions(<span class="kw-2">mut </span><span class="self">self</span>, predictions: Predictions) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.predictions = <span class="prelude-val">Some</span>(predictions);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_log(<span class="kw-2">mut </span><span class="self">self</span>, log: Log) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.log = <span class="prelude-val">Some</span>(log);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_prior(<span class="kw-2">mut </span><span class="self">self</span>, prior: Prior) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.prior = <span class="prelude-val">Some</span>(prior);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_output(<span class="kw-2">mut </span><span class="self">self</span>, output: Output) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.output = <span class="prelude-val">Some</span>(output);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_convergence(<span class="kw-2">mut </span><span class="self">self</span>, convergence: Convergence) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.convergence = <span class="prelude-val">Some</span>(convergence);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_advanced(<span class="kw-2">mut </span><span class="self">self</span>, advanced: Advanced) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.advanced = <span class="prelude-val">Some</span>(advanced);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; Settings {
+        Settings {
+            config: <span class="self">self</span>.config.unwrap(),
+            parameters: <span class="self">self</span>.parameters.unwrap(),
+            error: <span class="self">self</span>.error.unwrap(),
+            predictions: <span class="self">self</span>.predictions.unwrap_or_default(),
+            log: <span class="self">self</span>.log.unwrap_or_default(),
+            prior: <span class="self">self</span>.prior.unwrap_or_default(),
+            output: <span class="self">self</span>.output.unwrap_or_default(),
+            convergence: <span class="self">self</span>.convergence.unwrap_or_default(),
+            advanced: <span class="self">self</span>.advanced.unwrap_or_default(),
+        }
+    }
+}
+
+<span class="attr">#[cfg(test)]
+
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::algorithms::Algorithm;
+    <span class="kw">use </span>pharmsol::prelude::data::ErrorType;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_builder() {
+        <span class="kw">let </span>parameters = Parameters::builder()
+            .add(<span class="string">"Ke"</span>, <span class="number">0.0</span>, <span class="number">5.0</span>, <span class="bool-val">false</span>)
+            .add(<span class="string">"V"</span>, <span class="number">10.0</span>, <span class="number">200.0</span>, <span class="bool-val">true</span>)
+            .build()
+            .unwrap();
+
+        <span class="kw">let </span>settings = SettingsBuilder::new()
+            .set_algorithm(Algorithm::NPAG) <span class="comment">// Step 1: Define algorithm
+            </span>.set_parameters(parameters) <span class="comment">// Step 2: Define parameters
+            </span>.set_error_model(Error {
+                value: <span class="number">0.1</span>,
+                class: ErrorType::Add,
+                poly: (<span class="number">0.0</span>, <span class="number">0.1</span>, <span class="number">0.0</span>, <span class="number">0.0</span>),
+            }) <span class="comment">// Step 3: Define error model
+            </span>.set_cycles(<span class="number">100</span>) <span class="comment">// Optional: Set cycles
+            </span>.set_cache(<span class="bool-val">true</span>) <span class="comment">// Optional: Set cache
+            </span>.build(); <span class="comment">// Final step
+
+        </span><span class="macro">assert_eq!</span>(settings.config.algorithm, Algorithm::NPAG);
+        <span class="macro">assert_eq!</span>(settings.config.cycles, <span class="number">100</span>);
+        <span class="macro">assert_eq!</span>(settings.config.cache, <span class="bool-val">true</span>);
+        <span class="macro">assert_eq!</span>(settings.parameters().names(), <span class="macro">vec!</span>[<span class="string">"Ke"</span>, <span class="string">"V"</span>]);
+    }
 }
 </code></pre></div></section></main></body></html>

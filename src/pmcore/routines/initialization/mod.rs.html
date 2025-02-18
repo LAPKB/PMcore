@@ -125,21 +125,21 @@
 <span class="doccomment">/// This function generates the grid of support points according to the sampler specified in the [Settings]
 </span><span class="kw">pub fn </span>sample_space(settings: <span class="kw-2">&amp;</span>Settings, data: <span class="kw-2">&amp;</span>Data, eqn: <span class="kw-2">&amp;</span><span class="kw">impl </span>Equation) -&gt; <span class="prelude-ty">Result</span>&lt;Array2&lt;f64&gt;&gt; {
     <span class="comment">// Get the ranges of the random parameters
-    </span><span class="kw">let </span>ranges = settings.random.ranges();
+    </span><span class="kw">let </span>ranges = settings.parameters().ranges();
 
     <span class="comment">// If a prior file is provided, read it and return
-    </span><span class="kw">if </span>settings.prior.file.is_some() {
+    </span><span class="kw">if </span>settings.prior().file.is_some() {
         <span class="kw">let </span>prior = parse_prior(
-            settings.prior.file.as_ref().unwrap(),
-            <span class="kw-2">&amp;</span>settings.random.names(),
+            settings.prior().file.as_ref().unwrap(),
+            <span class="kw-2">&amp;</span>settings.parameters().names(),
         )<span class="question-mark">?</span>;
         <span class="kw">return </span><span class="prelude-val">Ok</span>(prior);
     }
 
     <span class="comment">// Otherwise, parse the sampler type and generate the grid
-    </span><span class="kw">let </span>prior = <span class="kw">match </span>settings.prior.sampler.as_str() {
-        <span class="string">"sobol" </span>=&gt; sobol::generate(settings.prior.points, <span class="kw-2">&amp;</span>ranges, settings.prior.seed)<span class="question-mark">?</span>,
-        <span class="string">"latin" </span>=&gt; latin::generate(settings.prior.points, <span class="kw-2">&amp;</span>ranges, settings.prior.seed)<span class="question-mark">?</span>,
+    </span><span class="kw">let </span>prior = <span class="kw">match </span>settings.prior().sampler.as_str() {
+        <span class="string">"sobol" </span>=&gt; sobol::generate(settings.prior().points, <span class="kw-2">&amp;</span>ranges, settings.prior().seed)<span class="question-mark">?</span>,
+        <span class="string">"latin" </span>=&gt; latin::generate(settings.prior().points, <span class="kw-2">&amp;</span>ranges, settings.prior().seed)<span class="question-mark">?</span>,
         <span class="string">"osat" </span>=&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>point = <span class="macro">vec!</span>[];
             <span class="kw">for </span>range <span class="kw">in </span>ranges {
@@ -150,7 +150,7 @@
         <span class="kw">_ </span>=&gt; {
             <span class="macro">bail!</span>(
                 <span class="string">"Unknown sampler specified in settings: {}"</span>,
-                settings.prior.sampler
+                settings.prior().sampler
             );
         }
     };

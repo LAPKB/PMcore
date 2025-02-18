@@ -132,15 +132,10 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::algorithms::Algorithm;
-<span class="kw">use </span>anyhow::{Error, <span class="prelude-ty">Result</span>};
+<a href="#134" id="134">134</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::algorithms::Algorithms;
+<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>pharmsol::prelude::{
-    data::{Data, ErrorModel, ErrorType},
+    data::{Data, ErrorModel},
     simulator::{psi, Equation},
 };
 
@@ -163,15 +158,12 @@
     cycle: usize,
     converged: bool,
     gamma: f64,
-    error_type: ErrorType,
     data: Data,
-    c: (f64, f64, f64, f64),
-    <span class="attr">#[allow(dead_code)]
-    </span>settings: Settings,
+    settings: Settings,
     cyclelog: CycleLog,
 }
 
-<span class="kw">impl</span>&lt;E: Equation&gt; Algorithm&lt;E&gt; <span class="kw">for </span>POSTPROB&lt;E&gt; {
+<span class="kw">impl</span>&lt;E: Equation&gt; Algorithms&lt;E&gt; <span class="kw">for </span>POSTPROB&lt;E&gt; {
     <span class="kw">fn </span>new(settings: Settings, equation: E, data: Data) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="self">Self</span>&gt;, anyhow::Error&gt; {
         <span class="prelude-val">Ok</span>(Box::new(<span class="self">Self </span>{
             equation,
@@ -181,13 +173,7 @@
             objf: f64::INFINITY,
             cycle: <span class="number">0</span>,
             converged: <span class="bool-val">false</span>,
-            gamma: settings.error.value,
-            error_type: <span class="kw">match </span>settings.error.class.as_str() {
-                <span class="string">"additive" </span>=&gt; ErrorType::Add,
-                <span class="string">"proportional" </span>=&gt; ErrorType::Prop,
-                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Error type not supported"</span>),
-            },
-            c: settings.error.poly,
+            gamma: settings.error().value,
             settings,
             data,
 
@@ -250,12 +236,16 @@
         <span class="bool-val">true
     </span>}
 
-    <span class="kw">fn </span>evaluation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt; {
+    <span class="kw">fn </span>evaluation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="self">self</span>.psi = psi(
             <span class="kw-2">&amp;</span><span class="self">self</span>.equation,
             <span class="kw-2">&amp;</span><span class="self">self</span>.data,
             <span class="kw-2">&amp;</span><span class="self">self</span>.theta,
-            <span class="kw-2">&amp;</span>ErrorModel::new(<span class="self">self</span>.c, <span class="self">self</span>.gamma, <span class="kw-2">&amp;</span><span class="self">self</span>.error_type),
+            <span class="kw-2">&amp;</span>ErrorModel::new(
+                <span class="self">self</span>.settings.error().poly,
+                <span class="self">self</span>.gamma,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.settings.error().error_type(),
+            ),
             <span class="bool-val">false</span>,
             <span class="bool-val">false</span>,
         );
@@ -263,16 +253,16 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>condensation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt; {
+    <span class="kw">fn </span>condensation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn </span>optimizations(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt; {
+    <span class="kw">fn </span>optimizations(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>logs(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
 
-    <span class="kw">fn </span>expansion(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt; {
+    <span class="kw">fn </span>expansion(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 }

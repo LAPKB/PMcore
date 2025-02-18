@@ -1030,7 +1030,7 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="comment">// TODO: Add support for fixed and constant parameters
 
-        </span><span class="kw">let </span>par_names = settings.random.names();
+        </span><span class="kw">let </span>par_names = settings.parameters().names();
 
         <span class="self">Self </span>{
             equation,
@@ -1072,9 +1072,9 @@
     }
 
     <span class="kw">pub fn </span>write_outputs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">if </span><span class="self">self</span>.settings.output.write {
-            <span class="kw">let </span>idelta: f64 = <span class="self">self</span>.settings.predictions.idelta;
-            <span class="kw">let </span>tad = <span class="self">self</span>.settings.predictions.tad;
+        <span class="kw">if </span><span class="self">self</span>.settings.output().write {
+            <span class="kw">let </span>idelta: f64 = <span class="self">self</span>.settings.predictions().idelta;
+            <span class="kw">let </span>tad = <span class="self">self</span>.settings.predictions().tad;
             <span class="self">self</span>.cyclelog.write(<span class="kw-2">&amp;</span><span class="self">self</span>.settings)<span class="question-mark">?</span>;
             <span class="self">self</span>.write_obs().context(<span class="string">"Failed to write observations"</span>)<span class="question-mark">?</span>;
             <span class="self">self</span>.write_theta().context(<span class="string">"Failed to write theta"</span>)<span class="question-mark">?</span>;
@@ -1128,7 +1128,7 @@
             );
         }
 
-        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"op.csv"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output().path, <span class="string">"op.csv"</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
             .has_headers(<span class="bool-val">true</span>)
             .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
@@ -1231,7 +1231,7 @@
             <span class="self">self</span>.w.clone()
         };
 
-        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"theta.csv"</span>)
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output().path, <span class="string">"theta.csv"</span>)
             .context(<span class="string">"Failed to create output file for theta"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
@@ -1275,7 +1275,7 @@
         };
 
         <span class="comment">// Create the output folder if it doesn't exist
-        </span><span class="kw">let </span>outputfile = <span class="kw">match </span>OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"posterior.csv"</span>) {
+        </span><span class="kw">let </span>outputfile = <span class="kw">match </span>OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output().path, <span class="string">"posterior.csv"</span>) {
             <span class="prelude-val">Ok</span>(of) =&gt; of,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">tracing::error!</span>(<span class="string">"Failed to create output file: {}"</span>, e);
@@ -1321,7 +1321,7 @@
     <span class="doccomment">/// Write the observations, which is the reformatted input data
     </span><span class="kw">pub fn </span>write_obs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::debug!</span>(<span class="string">"Writing observations..."</span>);
-        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"obs.csv"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output().path, <span class="string">"obs.csv"</span>)<span class="question-mark">?</span>;
         write_pmetrics_observations(<span class="kw-2">&amp;</span><span class="self">self</span>.data, <span class="kw-2">&amp;</span>outputfile.file)<span class="question-mark">?</span>;
         <span class="macro">tracing::info!</span>(
             <span class="string">"Observations written to {:?}"</span>,
@@ -1350,7 +1350,7 @@
             <span class="macro">bail!</span>(<span class="string">"Number of subjects and number of posterior means do not match"</span>);
         }
 
-        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"pred.csv"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output().path, <span class="string">"pred.csv"</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
             .has_headers(<span class="bool-val">true</span>)
             .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
@@ -1437,7 +1437,7 @@
     <span class="doccomment">/// Writes the covariates
     </span><span class="kw">pub fn </span>write_covs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::debug!</span>(<span class="string">"Writing covariates..."</span>);
-        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output.path, <span class="string">"covs.csv"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span><span class="self">self</span>.settings.output().path, <span class="string">"covs.csv"</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
             .has_headers(<span class="bool-val">true</span>)
             .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
@@ -1579,7 +1579,7 @@
 
     <span class="kw">pub fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>, settings: <span class="kw-2">&amp;</span>Settings) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::debug!</span>(<span class="string">"Writing cycles..."</span>);
-        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span>settings.output.path, <span class="string">"cycles.csv"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span>settings.output().path, <span class="string">"cycles.csv"</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>writer = WriterBuilder::new()
             .has_headers(<span class="bool-val">false</span>)
             .from_writer(<span class="kw-2">&amp;</span>outputfile.file);
@@ -1591,7 +1591,7 @@
         writer.write_field(<span class="string">"gamlam"</span>)<span class="question-mark">?</span>;
         writer.write_field(<span class="string">"nspp"</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>parameter_names = settings.random.names();
+        <span class="kw">let </span>parameter_names = settings.parameters().names();
         <span class="kw">for </span>param_name <span class="kw">in </span><span class="kw-2">&amp;</span>parameter_names {
             writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.mean"</span>, param_name))<span class="question-mark">?</span>;
             writer.write_field(<span class="macro">format!</span>(<span class="string">"{}.median"</span>, param_name))<span class="question-mark">?</span>;

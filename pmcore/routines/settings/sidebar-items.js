@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["read","write_settings_to_file"],"struct":["Advanced","Config","Constant","Convergence","Error","Fixed","Log","Output","Predictions","Prior","Random","Settings"]};
+window.SIDEBAR_ITEMS = {"enum":["LogLevel"],"fn":["read"],"struct":["Advanced","AlgorithmSet","Config","Convergence","Error","ErrorSet","InitialState","Log","Output","Parameter","Parameters","ParametersBuilder","ParametersSet","Predictions","Prior","Settings","SettingsBuilder"],"trait":["AlgorithmDefined","ErrorModelDefined","ParametersDefined"]};

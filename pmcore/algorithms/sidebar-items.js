@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["dispatch_algorithm"],"mod":["npag","npod","postprob"],"trait":["Algorithm"]};
+window.SIDEBAR_ITEMS = {"enum":["Algorithm"],"fn":["dispatch_algorithm"],"mod":["npag","npod","postprob"],"trait":["Algorithms"]};

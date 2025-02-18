@@ -100,18 +100,26 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::path::Path;
 
 <span class="kw">use </span><span class="kw">crate</span>::routines::output::NPResult;
 <span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
-<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>ndarray::Array2;
 <span class="kw">use </span>npag::<span class="kw-2">*</span>;
 <span class="kw">use </span>npod::NPOD;
 <span class="kw">use </span>pharmsol::prelude::{data::Data, simulator::Equation};
 <span class="kw">use </span>postprob::POSTPROB;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="comment">// use self::{data::Subject, simulator::Equation};
 
@@ -119,7 +127,14 @@
 <span class="kw">pub mod </span>npod;
 <span class="kw">pub mod </span>postprob;
 
-<span class="kw">pub trait </span>Algorithm&lt;E: Equation&gt; {
+<span class="attr">#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+</span><span class="kw">pub enum </span>Algorithm {
+    NPAG,
+    NPOD,
+    POSTPROB,
+}
+
+<span class="kw">pub trait </span>Algorithms&lt;E: Equation&gt; {
     <span class="kw">fn </span>new(config: Settings, equation: E, data: Data) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="self">Self</span>&gt;, Error&gt;
     <span class="kw">where
         </span><span class="self">Self</span>: Sized;
@@ -164,12 +179,12 @@
         <span class="self">self</span>.set_theta(<span class="self">self</span>.get_prior());
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn </span>evaluation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt;;
-    <span class="kw">fn </span>condensation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt;;
-    <span class="kw">fn </span>optimizations(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt;;
+    <span class="kw">fn </span>evaluation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="kw">fn </span>condensation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="kw">fn </span>optimizations(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="kw">fn </span>logs(<span class="kw-2">&amp;</span><span class="self">self</span>);
-    <span class="kw">fn </span>expansion(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), (Error, NPResult&lt;E&gt;)&gt;;
-    <span class="kw">fn </span>next_cycle(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool, (Error, NPResult&lt;E&gt;)&gt; {
+    <span class="kw">fn </span>expansion(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="kw">fn </span>next_cycle(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
         <span class="kw">if </span><span class="self">self</span>.inc_cycle() &gt; <span class="number">1 </span>{
             <span class="self">self</span>.expansion()<span class="question-mark">?</span>;
         }
@@ -182,7 +197,7 @@
         <span class="self">self</span>.convergence_evaluation();
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.converged())
     }
-    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&lt;E&gt;, (Error, NPResult&lt;E&gt;)&gt; {
+    <span class="kw">fn </span>fit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NPResult&lt;E&gt;&gt; {
         <span class="self">self</span>.initialize().unwrap();
         <span class="kw">while </span>!<span class="self">self</span>.next_cycle()<span class="question-mark">? </span>{}
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.into_npresult())
@@ -194,12 +209,11 @@
     settings: Settings,
     equation: E,
     data: Data,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>Algorithm&lt;E&gt;&gt;, Error&gt; {
-    <span class="kw">match </span>settings.config.algorithm.as_str() {
-        <span class="string">"NPAG" </span>=&gt; <span class="prelude-val">Ok</span>(NPAG::new(settings, equation, data)<span class="question-mark">?</span>),
-        <span class="string">"NPOD" </span>=&gt; <span class="prelude-val">Ok</span>(NPOD::new(settings, equation, data)<span class="question-mark">?</span>),
-        <span class="string">"POSTPROB" </span>=&gt; <span class="prelude-val">Ok</span>(POSTPROB::new(settings, equation, data)<span class="question-mark">?</span>),
-        alg =&gt; <span class="macro">bail!</span>(<span class="string">"Algorithm {} not implemented"</span>, alg),
+) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>Algorithms&lt;E&gt;&gt;, Error&gt; {
+    <span class="kw">match </span>settings.config().algorithm {
+        Algorithm::NPAG =&gt; <span class="prelude-val">Ok</span>(NPAG::new(settings, equation, data)<span class="question-mark">?</span>),
+        Algorithm::NPOD =&gt; <span class="prelude-val">Ok</span>(NPOD::new(settings, equation, data)<span class="question-mark">?</span>),
+        Algorithm::POSTPROB =&gt; <span class="prelude-val">Ok</span>(POSTPROB::new(settings, equation, data)<span class="question-mark">?</span>),
     }
 }
 </code></pre></div></section></main></body></html>

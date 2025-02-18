@@ -71,9 +71,7 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Instant;
+<a href="#73" id="73">73</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Instant;
 
 <span class="kw">use </span><span class="kw">crate</span>::routines::output::OutputFile;
 <span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
@@ -93,12 +91,10 @@
 ///
 /// If `log_out` is specifified in the configuration file, a log file is created with the specified name.
 ///
-/// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
-///
 /// If not, the log messages are written to stdout.
 </span><span class="kw">pub fn </span>setup_log(settings: <span class="kw-2">&amp;</span>Settings) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Use the log level defined in configuration file
-    </span><span class="kw">let </span>log_level = settings.log.level.as_str();
+    </span><span class="kw">let </span>log_level = settings.log().level.clone();
     <span class="kw">let </span>env_filter = EnvFilter::new(log_level);
 
     <span class="kw">let </span>timestamper = CompactTimestamp {
@@ -109,7 +105,7 @@
     </span><span class="kw">let </span>subscriber = Registry::default().with(env_filter);
 
     <span class="comment">// Define outputfile
-    </span><span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span>settings.output.path, <span class="kw-2">&amp;</span>settings.log.file)<span class="question-mark">?</span>;
+    </span><span class="kw">let </span>outputfile = OutputFile::new(<span class="kw-2">&amp;</span>settings.output().path, <span class="kw-2">&amp;</span>settings.log().file)<span class="question-mark">?</span>;
 
     <span class="comment">// Define layer for file
     </span><span class="kw">let </span>file_layer = fmt::layer()
