@@ -383,6 +383,10 @@ impl Default for Error {
 }
 
 impl Error {
+    pub fn new(value: f64, class: ErrorType, poly: (f64, f64, f64, f64)) -> Self {
+        Error { value, class, poly }
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.value < 0.0 {
             bail!(format!(

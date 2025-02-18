@@ -64,6 +64,7 @@ pub mod prelude {
     pub use super::Result;
     pub use crate::algorithms;
     pub use crate::algorithms::dispatch_algorithm;
+    pub use crate::algorithms::Algorithm;
     pub use crate::routines;
     pub use crate::routines::logger;
     pub use crate::routines::logger::setup_log;
