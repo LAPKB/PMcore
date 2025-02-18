@@ -65,6 +65,9 @@ pub mod prelude {
     pub use crate::algorithms;
     pub use crate::algorithms::dispatch_algorithm;
     pub use crate::routines;
+    pub use crate::routines::logger;
+    pub use crate::routines::logger::setup_log;
+    pub use crate::routines::settings;
 
     //Alma re-exports
     pub mod simulator {
