@@ -1,15 +1,15 @@
 use crate::prelude::{
-    algorithms::Algorithm,
-    ipm::burke,
-    output::{CycleLog, NPCycle, NPResult},
-    qr,
-    settings::Settings,
+    algorithms::Algorithms,
+    routines::evaluation::ipm::burke,
+    routines::evaluation::qr,
+    routines::output::{CycleLog, NPCycle, NPResult},
+    routines::settings::Settings,
 };
-use anyhow::Error;
+use anyhow::bail;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
-        data::{Data, ErrorModel, ErrorType},
+        data::{Data, ErrorModel},
         simulator::{psi, Equation},
     },
     Subject,
@@ -21,7 +21,7 @@ use ndarray::{
 };
 use ndarray_stats::{DeviationExt, QuantileExt};
 
-use super::{condensation::prune::prune, initialization, optimization::d_optimizer::SppOptimizer};
+use crate::routines::{condensation::prune, initialization, optimization::SppOptimizer};
 
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
@@ -38,19 +38,17 @@ pub struct NPOD<E: Equation> {
     cycle: usize,
     gamma_delta: f64,
     gamma: f64,
-    error_type: ErrorType,
     converged: bool,
     cycle_log: CycleLog,
     data: Data,
-    c: (f64, f64, f64, f64),
     settings: Settings,
 }
 
-impl<E: Equation> Algorithm<E> for NPOD<E> {
+impl<E: Equation> Algorithms<E> for NPOD<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            ranges: settings.random.ranges(),
+            ranges: settings.parameters().ranges(),
             psi: Array2::default((0, 0)),
             theta: Array2::zeros((0, 0)),
             lambda: Array1::default(0),
@@ -59,11 +57,9 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             objf: f64::NEG_INFINITY,
             cycle: 0,
             gamma_delta: 0.1,
-            gamma: settings.error.value,
-            error_type: settings.error.error_type(),
+            gamma: settings.error().value,
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error.poly,
             settings,
             data,
         }))
@@ -127,7 +123,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         }
 
         // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config.cycles {
+        if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
         }
@@ -158,36 +154,37 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         self.converged
     }
 
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn evaluation(&mut self) -> Result<()> {
         self.psi = psi(
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().error_type(),
+            ),
             self.cycle == 1,
             self.cycle != 1,
         );
 
         if let Err(err) = self.validate_psi() {
-            return Err((err, self.into_npresult()));
+            bail!(err);
         }
 
         (self.lambda, _) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                return Err((
-                    anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.into_npresult(),
-                ));
+                bail!(err);
             }
         };
         Ok(())
     }
 
-    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn condensation(&mut self) -> Result<()> {
         let max_lambda = match self.lambda.max() {
             Ok(max_lambda) => max_lambda,
-            Err(err) => return Err((anyhow::anyhow!(err), self.into_npresult())),
+            Err(err) => bail!(err),
         };
 
         let mut keep = Vec::<usize>::new();
@@ -198,7 +195,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         }
         if self.psi.ncols() != keep.len() {
             tracing::debug!(
-                "1) Lambda (max/1000) dropped {} support point(s)",
+                "Lambda (max/1000) dropped {} support point(s)",
                 self.psi.ncols() - keep.len(),
             );
         }
@@ -223,7 +220,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         // If a support point is dropped, log it as a debug message
         if self.psi.ncols() != keep.len() {
             tracing::debug!(
-                "2)QR decomposition dropped {} support point(s)",
+                "QR decomposition dropped {} support point(s)",
                 self.psi.ncols() - keep.len(),
             );
         }
@@ -234,17 +231,14 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                return Err((
-                    anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.into_npresult(),
-                ));
+                bail!(err);
             }
         };
         self.w = self.lambda.clone();
         Ok(())
     }
 
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn optimizations(&mut self) -> Result<()> {
         // Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
@@ -254,7 +248,11 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_up, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().error_type(),
+            ),
             false,
             true,
         );
@@ -262,7 +260,11 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_down, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().error_type(),
+            ),
             false,
             true,
         );
@@ -270,15 +272,12 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                //todo: write out report
                 panic!("Error in IPM: {:?}", err);
             }
         };
         let (lambda_down, objf_down) = match burke(&psi_down) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                //todo: write out report
-                //panic!("Error in IPM: {:?}", err);
                 tracing::warn!("Error in IPM: {:?}. Trying to recover.", err);
                 (Array1::zeros(1), f64::NEG_INFINITY)
             }
@@ -305,9 +304,6 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
     }
 
     fn logs(&self) {
-        // Log relevant cycle information
-        // let span = tracing::info_span!("", Cycle = self.cycle);
-        // let _enter = span.enter();
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.shape()[0]);
         tracing::debug!("Gamma = {:.16}", self.gamma);
@@ -322,12 +318,13 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         }
     }
 
-    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn expansion(&mut self) -> Result<()> {
         // If no stop signal, add new point to theta based on the optimization of the D function
         let pyl = self.psi.dot(&self.w);
 
         // Add new point to theta based on the optimization of the D function
-        let sigma = ErrorModel::new(self.c, self.gamma, &self.error_type);
+        let error_type = self.settings.error().error_type();
+        let sigma = &ErrorModel::new(self.settings.error().poly, self.gamma, &error_type);
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
         for spp in self.theta.clone().rows() {

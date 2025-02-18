@@ -18,7 +18,6 @@ exclude = [".github/*", ".vscode/*"]
 csv = "1.2.1"
 ndarray = { version = "0.15.6", features = ["rayon"] }
 serde = "1.0.188"
-serde_derive = "1.0.188"
 serde_json = "1.0.66"
 sobol_burley = "0.5.0"
 ndarray-stats = "0.5.1"
@@ -35,7 +34,6 @@ config = { version = "0.15", features = ["preserve_order"] }
 faer = "0.19.3"
 faer-ext = { version = "0.2.0", features = ["nalgebra", "ndarray"] }
 pharmsol = "0.7.2"
-toml = "0.8.14" #REMOVE
 rand = "0.9.0"
 anyhow = "1.0.86"
 
@@ -49,4 +47,8 @@ criterion = { version = "0.5" }
 
 [[bench]]
 name = "fibonacci"
+harness = false
+
+[[bench]]
+name = "bimodal_ke"
 harness = false

@@ -1,12 +1,8 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
-use std::path::Path;
 
-use data::read_pmetrics;
-use logger::setup_log;
-use ndarray::Array2;
-use pmcore::prelude::{models::one_compartment_with_absorption, simulator::Equation, *};
+use pmcore::prelude::*;
 
 fn main() {
     let eq = equation::ODE::new(
