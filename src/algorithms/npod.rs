@@ -9,7 +9,7 @@ use anyhow::bail;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
-        data::{Data, ErrorModel, ErrorType},
+        data::{Data, ErrorModel},
         simulator::{psi, Equation},
     },
     Subject,
@@ -38,11 +38,9 @@ pub struct NPOD<E: Equation> {
     cycle: usize,
     gamma_delta: f64,
     gamma: f64,
-    error_type: ErrorType,
     converged: bool,
     cycle_log: CycleLog,
     data: Data,
-    c: (f64, f64, f64, f64),
     settings: Settings,
 }
 
@@ -60,10 +58,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             cycle: 0,
             gamma_delta: 0.1,
             gamma: settings.error().value,
-            error_type: settings.error().error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error().poly,
             settings,
             data,
         }))
@@ -163,7 +159,11 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().error_type(),
+            ),
             self.cycle == 1,
             self.cycle != 1,
         );
@@ -248,7 +248,11 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_up, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().error_type(),
+            ),
             false,
             true,
         );
@@ -256,7 +260,11 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_down, &self.error_type),
+            &ErrorModel::new(
+                self.settings.error().poly,
+                self.gamma,
+                &self.settings.error().error_type(),
+            ),
             false,
             true,
         );
@@ -321,7 +329,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let pyl = self.psi.dot(&self.w);
 
         // Add new point to theta based on the optimization of the D function
-        let sigma = ErrorModel::new(self.c, self.gamma, &self.error_type);
+        let error_type = self.settings.error().error_type();
+        let sigma = &ErrorModel::new(self.settings.error().poly, self.gamma, &error_type);
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
         for spp in self.theta.clone().rows() {
