@@ -18,8 +18,6 @@ use tracing_subscriber::EnvFilter;
 ///
 /// If `log_out` is specifified in the configuration file, a log file is created with the specified name.
 ///
-/// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
-///
 /// If not, the log messages are written to stdout.
 pub fn setup_log(settings: &Settings) -> Result<()> {
     // Use the log level defined in configuration file
