@@ -1,4 +1,4 @@
-use algorithms::{npag::NPAG, Algorithm};
+use algorithms::{npag::NPAG, Algorithms};
 use ipm::burke;
 use logger::setup_log;
 use pmcore::{

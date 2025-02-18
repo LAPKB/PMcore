@@ -3,13 +3,14 @@ use std::path::Path;
 
 use crate::routines::output::NPResult;
 use crate::routines::settings::Settings;
-use anyhow::{bail, Result};
+use anyhow::Result;
 use anyhow::{Context, Error};
 use ndarray::Array2;
 use npag::*;
 use npod::NPOD;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use postprob::POSTPROB;
+use serde::{Deserialize, Serialize};
 
 // use self::{data::Subject, simulator::Equation};
 
@@ -17,7 +18,14 @@ pub mod npag;
 pub mod npod;
 pub mod postprob;
 
-pub trait Algorithm<E: Equation> {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum Algorithm {
+    NPAG,
+    NPOD,
+    POSTPROB,
+}
+
+pub trait Algorithms<E: Equation> {
     fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
     where
         Self: Sized;
@@ -92,11 +100,10 @@ pub fn dispatch_algorithm<E: Equation>(
     settings: Settings,
     equation: E,
     data: Data,
-) -> Result<Box<dyn Algorithm<E>>, Error> {
-    match settings.config.algorithm.as_str() {
-        "NPAG" => Ok(NPAG::new(settings, equation, data)?),
-        "NPOD" => Ok(NPOD::new(settings, equation, data)?),
-        "POSTPROB" => Ok(POSTPROB::new(settings, equation, data)?),
-        alg => bail!("Algorithm {} not implemented", alg),
+) -> Result<Box<dyn Algorithms<E>>, Error> {
+    match settings.config().algorithm {
+        Algorithm::NPAG => Ok(NPAG::new(settings, equation, data)?),
+        Algorithm::NPOD => Ok(NPOD::new(settings, equation, data)?),
+        Algorithm::POSTPROB => Ok(POSTPROB::new(settings, equation, data)?),
     }
 }

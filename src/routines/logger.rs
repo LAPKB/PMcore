@@ -23,7 +23,7 @@ use tracing_subscriber::EnvFilter;
 /// If not, the log messages are written to stdout.
 pub fn setup_log(settings: &Settings) -> Result<()> {
     // Use the log level defined in configuration file
-    let log_level = settings.log.level.as_str();
+    let log_level = settings.log().level.clone();
     let env_filter = EnvFilter::new(log_level);
 
     let timestamper = CompactTimestamp {
@@ -34,7 +34,7 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
     let subscriber = Registry::default().with(env_filter);
 
     // Define outputfile
-    let outputfile = OutputFile::new(&settings.output.path, &settings.log.file)?;
+    let outputfile = OutputFile::new(&settings.output().path, &settings.log().file)?;
 
     // Define layer for file
     let file_layer = fmt::layer()

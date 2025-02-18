@@ -1,5 +1,5 @@
 use crate::prelude::{
-    algorithms::Algorithm,
+    algorithms::Algorithms,
     routines::evaluation::ipm::burke,
     routines::evaluation::qr,
     routines::output::{CycleLog, NPCycle, NPResult},
@@ -46,11 +46,11 @@ pub struct NPOD<E: Equation> {
     settings: Settings,
 }
 
-impl<E: Equation> Algorithm<E> for NPOD<E> {
+impl<E: Equation> Algorithms<E> for NPOD<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            ranges: settings.random.ranges(),
+            ranges: settings.parameters().ranges(),
             psi: Array2::default((0, 0)),
             theta: Array2::zeros((0, 0)),
             lambda: Array1::default(0),
@@ -59,11 +59,11 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
             objf: f64::NEG_INFINITY,
             cycle: 0,
             gamma_delta: 0.1,
-            gamma: settings.error.value,
-            error_type: settings.error.error_type(),
+            gamma: settings.error().value,
+            error_type: settings.error().error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error.poly,
+            c: settings.error().poly,
             settings,
             data,
         }))
@@ -127,7 +127,7 @@ impl<E: Equation> Algorithm<E> for NPOD<E> {
         }
 
         // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config.cycles {
+        if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
         }

@@ -1,4 +1,4 @@
-use crate::prelude::algorithms::Algorithm;
+use crate::prelude::algorithms::Algorithms;
 use anyhow::{Error, Result};
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
@@ -32,7 +32,7 @@ pub struct POSTPROB<E: Equation> {
     cyclelog: CycleLog,
 }
 
-impl<E: Equation> Algorithm<E> for POSTPROB<E> {
+impl<E: Equation> Algorithms<E> for POSTPROB<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
@@ -42,13 +42,9 @@ impl<E: Equation> Algorithm<E> for POSTPROB<E> {
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
-            gamma: settings.error.value,
-            error_type: match settings.error.class.as_str() {
-                "additive" => ErrorType::Add,
-                "proportional" => ErrorType::Prop,
-                _ => panic!("Error type not supported"),
-            },
-            c: settings.error.poly,
+            gamma: settings.error().value,
+            error_type: settings.error().class.clone(),
+            c: settings.error().poly,
             settings,
             data,
 

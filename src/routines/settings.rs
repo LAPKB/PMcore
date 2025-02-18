@@ -1,52 +1,42 @@
-#![allow(dead_code)]
-
 use super::output::OutputFile;
+use crate::algorithms::Algorithm;
 use anyhow::{bail, Result};
 use config::Config as eConfig;
 use pharmsol::prelude::data::ErrorType;
-use serde::Deserialize;
-use serde_derive::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json;
-use std::collections::HashMap;
-use toml::Table;
+use std::collections::BTreeMap;
+use std::fmt::Display;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Settings {
     /// General configuration settings
-    pub config: Config,
-    /// Random parameters to be estimated
-    pub random: Random,
-    /// Parameters which are estimated, but fixed for the population
-    pub fixed: Option<Fixed>,
-    /// Parameters which are held constant
-    pub constant: Option<Constant>,
+    config: Config,
+    /// Parameters to be estimated
+    parameters: Parameters,
     /// Defines the error model and polynomial to be used
-    pub error: Error,
+    error: Error,
     /// Configuration for predictions
-    ///
-    /// This struct contains the interval at which to generate predictions, and the time after dose to generate predictions to
-    pub predictions: Predictions,
+    predictions: Predictions,
     /// Configuration for logging
-    pub log: Log,
+    log: Log,
     /// Configuration for (optional) prior
-    pub prior: Prior,
+    prior: Prior,
     /// Configuration for the output files
-    pub output: Output,
+    output: Output,
     /// Configuration for the convergence criteria
-    pub convergence: Convergence,
+    convergence: Convergence,
     /// Advanced options, mostly hyperparameters, for the algorithm(s)
-    pub advanced: Advanced,
+    advanced: Advanced,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Settings {
             config: Config::default(),
-            random: Random::default(),
-            fixed: None,
-            constant: None,
+            parameters: Parameters::new(),
             error: Error::default(),
             predictions: Predictions::default(),
             log: Log::default(),
@@ -61,14 +51,162 @@ impl Default for Settings {
 impl Settings {
     /// Validate the settings
     pub fn validate(&self) -> Result<()> {
-        self.random.validate()?;
         self.error.validate()?;
         self.predictions.validate()?;
         Ok(())
     }
 
+    /// Create a new settings object with default values
     pub fn new() -> Self {
         Settings::default()
+    }
+
+    pub fn set_config(&mut self, config: Config) {
+        self.config = config;
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    pub fn set_parameters(&mut self, parameters: Parameters) {
+        self.parameters = parameters;
+    }
+
+    pub fn parameters(&self) -> &Parameters {
+        &self.parameters
+    }
+
+    pub fn set_error(&mut self, error: Error) {
+        self.error = error;
+    }
+
+    pub fn error(&self) -> &Error {
+        &self.error
+    }
+
+    pub fn set_predictions(&mut self, predictions: Predictions) {
+        self.predictions = predictions;
+    }
+
+    pub fn predictions(&self) -> &Predictions {
+        &self.predictions
+    }
+
+    pub fn set_log(&mut self, log: Log) {
+        self.log = log;
+    }
+
+    pub fn log(&self) -> &Log {
+        &self.log
+    }
+
+    pub fn set_prior(&mut self, prior: Prior) {
+        self.prior = prior;
+    }
+
+    pub fn prior(&self) -> &Prior {
+        &self.prior
+    }
+
+    pub fn set_output(&mut self, output: Output) {
+        self.output = output;
+    }
+
+    pub fn output(&self) -> &Output {
+        &self.output
+    }
+
+    pub fn set_convergence(&mut self, convergence: Convergence) {
+        self.convergence = convergence;
+    }
+
+    pub fn convergence(&self) -> &Convergence {
+        &self.convergence
+    }
+
+    pub fn set_advanced(&mut self, advanced: Advanced) {
+        self.advanced = advanced;
+    }
+
+    pub fn advanced(&self) -> &Advanced {
+        &self.advanced
+    }
+
+    pub fn set_cycles(&mut self, cycles: usize) {
+        self.config.cycles = cycles;
+    }
+
+    pub fn set_algorithm(&mut self, algorithm: Algorithm) {
+        self.config.algorithm = algorithm;
+    }
+
+    pub fn set_cache(&mut self, cache: bool) {
+        self.config.cache = cache;
+    }
+
+    pub fn set_gamlam(&mut self, value: f64) {
+        self.error.value = value;
+    }
+
+    pub fn set_error_type(&mut self, class: ErrorType) {
+        self.error.class = class;
+    }
+
+    pub fn set_error_poly(&mut self, poly: (f64, f64, f64, f64)) {
+        self.error.poly = poly;
+    }
+
+    pub fn set_idelta(&mut self, idelta: f64) {
+        self.predictions.idelta = idelta;
+    }
+
+    pub fn set_tad(&mut self, tad: f64) {
+        self.predictions.tad = tad;
+    }
+
+    pub fn set_log_level(&mut self, level: LogLevel) {
+        self.log.level = level;
+    }
+
+    pub fn set_log_file(&mut self, file: String) {
+        self.log.file = file;
+    }
+
+    pub fn set_prior_sampler(&mut self, sampler: String) {
+        self.prior.sampler = sampler;
+    }
+
+    pub fn set_prior_points(&mut self, points: usize) {
+        self.prior.points = points;
+    }
+
+    pub fn set_prior_seed(&mut self, seed: usize) {
+        self.prior.seed = seed;
+    }
+
+    pub fn set_prior_file(&mut self, file: Option<String>) {
+        self.prior.file = file;
+    }
+
+    pub fn set_output_write(&mut self, write: bool) {
+        self.output.write = write;
+    }
+
+    pub fn set_output_path(&mut self, path: impl Into<String>) {
+        self.output.path = path.into();
+    }
+
+    /// Writes a copy of the parsed settings to file
+    /// The is written to output folder specified in the [Output] and is named `settings.json`.
+    pub fn write(&self) -> Result<()> {
+        let serialized = serde_json::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+        let outputfile = OutputFile::new(self.output.path.as_str(), "settings.json")?;
+        let mut file = outputfile.file;
+        std::io::Write::write_all(&mut file, serialized.as_bytes())?;
+        Ok(())
     }
 }
 
@@ -79,127 +217,120 @@ pub struct Config {
     /// Maximum number of cycles to run
     pub cycles: usize,
     /// Denotes the algorithm to use
-    pub algorithm: String,
+    pub algorithm: Algorithm,
     /// If true (default), cache predicted values
     pub cache: bool,
-    /// Vector of IDs to include
-    pub include: Option<Vec<String>>,
-    /// Vector of IDs to exclude
-    pub exclude: Option<Vec<String>>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
             cycles: 100,
-            algorithm: "NPAG".to_string(),
-            cache: false,
-            include: None,
-            exclude: None,
+            algorithm: Algorithm::NPAG,
+            cache: true,
         }
     }
 }
 
-/// Random parameters to be estimated
+/// Defines a parameter to be estimated
 ///
-/// This struct contains the random parameters to be estimated. The parameters are specified as a hashmap, where the key is the name of the parameter, and the value is a tuple containing the upper and lower bounds of the parameter.
-///
-/// # Example
-///
-/// ```toml
-/// [random]
-/// alpha = [0.0, 1.0]
-/// beta = [0.0, 1.0]
-/// ```
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(default)]
-pub struct Random {
-    #[serde(flatten)]
-    pub parameters: Table,
+/// In non-parametric algorithms, parameters must be bounded. The lower and upper bounds are defined by the `lower` and `upper` fields, respectively.
+/// Fixed parameters are unknown, but common among all subjects.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Parameter {
+    name: String,
+    lower: f64,
+    upper: f64,
+    fixed: bool,
 }
 
-impl Default for Random {
-    fn default() -> Self {
-        Random {
-            parameters: Table::new(),
+impl Parameter {
+    /// Create a new parameter
+    pub fn new(name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Result<Self> {
+        if lower >= upper {
+            bail!(format!(
+                "In key '{}', lower bound ({}) is not less than upper bound ({})",
+                name.into(),
+                lower,
+                upper
+            ));
+        }
+
+        Ok(Self {
+            name: name.into(),
+            lower,
+            upper,
+            fixed,
+        })
+    }
+}
+
+/// This structure contains information on all [Parameter]s to be estimated
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct Parameters {
+    parameters: BTreeMap<String, Parameter>,
+}
+
+impl Parameters {
+    /// Create a new set of parameters
+    pub fn new() -> Self {
+        Parameters {
+            parameters: BTreeMap::new(),
         }
     }
-}
 
-impl Random {
-    /// Get the upper and lower bounds of a random parameter from its key
-    pub fn get(&self, key: &str) -> Option<(f64, f64)> {
-        self.parameters
-            .get(key)
-            .and_then(|v| v.as_array())
-            .map(|v| {
-                let lower = v[0].as_float().unwrap();
-                let upper = v[1].as_float().unwrap();
-                (lower, upper)
-            })
+    /// Add a parameter to the set
+    pub fn add(
+        mut self,
+        name: impl Into<String>,
+        lower: f64,
+        upper: f64,
+        fixed: bool,
+    ) -> Result<Self> {
+        let parameter = Parameter::new(name, lower, upper, fixed)?;
+        self.parameters.insert(parameter.name.clone(), parameter);
+        Ok(self)
     }
 
-    /// Returns a vector of the names of the random parameters
+    // Get a parameter by name
+    pub fn get(&self, name: impl Into<String>) -> Option<&Parameter> {
+        self.parameters.get(name.into().as_str())
+    }
+
+    /// Get the names of the parameters
     pub fn names(&self) -> Vec<String> {
         self.parameters.keys().cloned().collect()
     }
 
-    /// Returns a vector of the upper and lower bounds of the random parameters
+    /// Get the ranges of the parameters
+    ///
+    /// Returns a vector of tuples, where each tuple contains the lower and upper bounds of the parameter
     pub fn ranges(&self) -> Vec<(f64, f64)> {
         self.parameters
             .values()
-            .map(|v| {
-                let lower = v.as_array().unwrap()[0].as_float().unwrap();
-                let upper = v.as_array().unwrap()[1].as_float().unwrap();
-                (lower, upper)
-            })
+            .map(|p| (p.lower, p.upper))
             .collect()
     }
 
-    /// Validate the boundaries of the random parameters
-    pub fn validate(&self) -> Result<()> {
-        for (key, range) in &self.parameters {
-            let range = range.as_array().unwrap();
-            let lower = range[0].as_float().unwrap();
-            let upper = range[1].as_float().unwrap();
-            if lower >= upper {
-                bail!(format!(
-                    "In key '{}', lower bound ({}) is not less than upper bound ({})",
-                    key, lower, upper
-                ));
-            }
-        }
-        Ok(())
+    pub fn len(&self) -> usize {
+        self.parameters.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.parameters.is_empty()
+    }
+
+    pub fn iter(&self) -> std::collections::btree_map::Iter<String, Parameter> {
+        self.parameters.iter()
     }
 }
 
-/// Parameters which are estimated, but fixed for the population
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct Fixed {
-    #[serde(flatten)]
-    pub parameters: HashMap<String, f64>,
-}
+impl IntoIterator for Parameters {
+    type Item = (String, Parameter);
+    type IntoIter = std::collections::btree_map::IntoIter<String, Parameter>;
 
-impl Default for Fixed {
-    fn default() -> Self {
-        Fixed {
-            parameters: HashMap::new(),
-        }
-    }
-}
-
-/// Parameters which are held constant
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct Constant {
-    #[serde(flatten)]
-    pub parameters: HashMap<String, f64>,
-}
-
-impl Default for Constant {
-    fn default() -> Self {
-        Constant {
-            parameters: HashMap::new(),
-        }
+    fn into_iter(self) -> Self::IntoIter {
+        self.parameters.into_iter()
     }
 }
 
@@ -210,7 +341,8 @@ pub struct Error {
     /// The initial value of `gamma` or `lambda`
     pub value: f64,
     /// The error class, either `additive` or `proportional`
-    pub class: String,
+    #[serde(skip)]
+    pub class: ErrorType,
     /// The assay error polynomial
     pub poly: (f64, f64, f64, f64),
 }
@@ -219,7 +351,7 @@ impl Default for Error {
     fn default() -> Self {
         Error {
             value: 0.0,
-            class: "additive".to_string(),
+            class: ErrorType::Add,
             poly: (0.0, 0.1, 0.0, 0.0),
         }
     }
@@ -237,11 +369,7 @@ impl Error {
     }
 
     pub fn error_type(&self) -> ErrorType {
-        match self.class.to_lowercase().as_str() {
-            "additive" | "l" | "lambda"  => ErrorType::Add,
-            "proportional" | "g" | "gamma"  => ErrorType::Prop,
-            _ => panic!("Error class '{}' not supported. Possible classes are 'gamma' (proportional) or 'lambda' (additive)", self.class),
-        }
+        self.class.clone()
     }
 }
 
@@ -339,6 +467,54 @@ impl Predictions {
     }
 }
 
+/// The log level, which can be one of the following:
+/// - `TRACE`
+/// - `DEBUG`
+/// - `INFO`
+/// - `WARN`
+/// - `ERROR`
+///
+/// The default log level is `INFO`
+#[derive(Debug, Deserialize, Clone, Serialize, Default)]
+pub enum LogLevel {
+    TRACE,
+    DEBUG,
+    #[default]
+    INFO,
+    WARN,
+    ERROR,
+}
+
+impl From<LogLevel> for tracing::Level {
+    fn from(log_level: LogLevel) -> tracing::Level {
+        match log_level {
+            LogLevel::TRACE => tracing::Level::TRACE,
+            LogLevel::DEBUG => tracing::Level::DEBUG,
+            LogLevel::INFO => tracing::Level::INFO,
+            LogLevel::WARN => tracing::Level::WARN,
+            LogLevel::ERROR => tracing::Level::ERROR,
+        }
+    }
+}
+
+impl AsRef<str> for LogLevel {
+    fn as_ref(&self) -> &str {
+        match self {
+            LogLevel::TRACE => "trace",
+            LogLevel::DEBUG => "debug",
+            LogLevel::INFO => "info",
+            LogLevel::WARN => "warn",
+            LogLevel::ERROR => "error",
+        }
+    }
+}
+
+impl Display for LogLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
+    }
+}
+
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Log {
@@ -350,7 +526,7 @@ pub struct Log {
     /// - `info`
     /// - `warn`
     /// - `error`
-    pub level: String,
+    pub level: LogLevel,
     /// The file to write the log to
     pub file: String,
     /// Whether to write logs
@@ -363,7 +539,7 @@ pub struct Log {
 impl Default for Log {
     fn default() -> Self {
         Log {
-            level: String::from("info"),
+            level: LogLevel::INFO,
             file: String::from("log.txt"),
             write: true,
         }
@@ -422,7 +598,7 @@ impl Output {
     ////
     /// If a `#` symbol is found, it will automatically increment the number by one.
     pub fn parse_output_folder(&mut self) -> Result<()> {
-        if self.path.is_empty() || self.path == "" {
+        if self.path.is_empty() || self.path.is_empty() {
             // Set a default path if none is provided
             self.path = Output::default().path;
         }
@@ -474,7 +650,7 @@ pub fn read(path: impl Into<String>) -> Result<Settings, anyhow::Error> {
 
     // Write a copy of the settings to file if output is enabled
     if settings.output.write {
-        if let Err(error) = write_settings_to_file(&settings) {
+        if let Err(error) = settings.write() {
             bail!("Could not write settings to file: {}", error);
         }
     }
@@ -482,16 +658,195 @@ pub fn read(path: impl Into<String>) -> Result<Settings, anyhow::Error> {
     Ok(settings) // Return the settings wrapped in Ok
 }
 
-/// Writes a copy of the parsed settings to file
-///
-/// This function writes a copy of the parsed settings to file.
-/// The file is written to output folder specified in the [settings](crate::routines::settings::Settings::paths), and is named `settings.json`.
-pub fn write_settings_to_file(settings: &Settings) -> Result<()> {
-    let serialized = serde_json::to_string_pretty(settings)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+pub struct SettingsBuilder<State> {
+    config: Option<Config>,
+    parameters: Option<Parameters>,
+    error: Option<Error>,
+    predictions: Option<Predictions>,
+    log: Option<Log>,
+    prior: Option<Prior>,
+    output: Option<Output>,
+    convergence: Option<Convergence>,
+    advanced: Option<Advanced>,
+    _marker: std::marker::PhantomData<State>,
+}
 
-    let outputfile = OutputFile::new(settings.output.path.as_str(), "settings.json")?;
-    let mut file = outputfile.file;
-    std::io::Write::write_all(&mut file, serialized.as_bytes())?;
-    Ok(())
+// Marker traits for builder states
+pub trait AlgorithmDefined {}
+pub trait ParametersDefined {}
+pub trait ErrorModelDefined {}
+
+// Implement marker traits for PhantomData states
+pub struct InitialState;
+pub struct AlgorithmSet;
+pub struct ParametersSet;
+pub struct ErrorSet;
+
+// Initial state: no algorithm set yet
+impl SettingsBuilder<InitialState> {
+    pub fn new() -> Self {
+        SettingsBuilder {
+            config: None,
+            parameters: None,
+            error: None,
+            predictions: None,
+            log: None,
+            prior: None,
+            output: None,
+            convergence: None,
+            advanced: None,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    pub fn set_algorithm(self, algorithm: Algorithm) -> SettingsBuilder<AlgorithmSet> {
+        SettingsBuilder {
+            config: Some(Config {
+                algorithm,
+                ..Config::default()
+            }),
+            parameters: self.parameters,
+            error: self.error,
+            predictions: self.predictions,
+            log: self.log,
+            prior: self.prior,
+            output: self.output,
+            convergence: self.convergence,
+            advanced: self.advanced,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl Default for SettingsBuilder<InitialState> {
+    fn default() -> Self {
+        SettingsBuilder::new()
+    }
+}
+
+// Algorithm is set, move to defining parameters
+impl SettingsBuilder<AlgorithmSet> {
+    pub fn set_parameters(self, parameters: Parameters) -> SettingsBuilder<ParametersSet> {
+        SettingsBuilder {
+            config: self.config,
+            parameters: Some(parameters),
+            error: self.error,
+            predictions: self.predictions,
+            log: self.log,
+            prior: self.prior,
+            output: self.output,
+            convergence: self.convergence,
+            advanced: self.advanced,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+// Parameters are set, move to defining error model
+impl SettingsBuilder<ParametersSet> {
+    pub fn set_error_model(self, error: Error) -> SettingsBuilder<ErrorSet> {
+        SettingsBuilder {
+            config: self.config,
+            parameters: self.parameters,
+            error: Some(error),
+            predictions: self.predictions,
+            log: self.log,
+            prior: self.prior,
+            output: self.output,
+            convergence: self.convergence,
+            advanced: self.advanced,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+// Error model is set, allow optional settings and final build
+impl SettingsBuilder<ErrorSet> {
+    pub fn set_cycles(mut self, cycles: usize) -> Self {
+        self.config.as_mut().unwrap().cycles = cycles;
+        self
+    }
+
+    pub fn set_cache(mut self, cache: bool) -> Self {
+        self.config.as_mut().unwrap().cache = cache;
+        self
+    }
+
+    pub fn set_predictions(mut self, predictions: Predictions) -> Self {
+        self.predictions = Some(predictions);
+        self
+    }
+
+    pub fn set_log(mut self, log: Log) -> Self {
+        self.log = Some(log);
+        self
+    }
+
+    pub fn set_prior(mut self, prior: Prior) -> Self {
+        self.prior = Some(prior);
+        self
+    }
+
+    pub fn set_output(mut self, output: Output) -> Self {
+        self.output = Some(output);
+        self
+    }
+
+    pub fn set_convergence(mut self, convergence: Convergence) -> Self {
+        self.convergence = Some(convergence);
+        self
+    }
+
+    pub fn set_advanced(mut self, advanced: Advanced) -> Self {
+        self.advanced = Some(advanced);
+        self
+    }
+
+    pub fn build(self) -> Settings {
+        Settings {
+            config: self.config.unwrap(),
+            parameters: self.parameters.unwrap(),
+            error: self.error.unwrap(),
+            predictions: self.predictions.unwrap_or_default(),
+            log: self.log.unwrap_or_default(),
+            prior: self.prior.unwrap_or_default(),
+            output: self.output.unwrap_or_default(),
+            convergence: self.convergence.unwrap_or_default(),
+            advanced: self.advanced.unwrap_or_default(),
+        }
+    }
+}
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+    use crate::algorithms::Algorithm;
+    use pharmsol::prelude::data::ErrorType;
+
+    #[test]
+    fn test_builder() {
+        let parameters = Parameters::new()
+            .add("Ke", 0.0, 5.0, false)
+            .unwrap()
+            .add("V", 10.0, 200.0, true)
+            .unwrap();
+
+        let settings = SettingsBuilder::new()
+            .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm
+            .set_parameters(parameters) // Step 2: Define parameters
+            .set_error_model(Error {
+                value: 0.1,
+                class: ErrorType::Add,
+                poly: (0.0, 0.1, 0.0, 0.0),
+            }) // Step 3: Define error model
+            .set_cycles(100) // Optional: Set cycles
+            .set_cache(true) // Optional: Set cache
+            .build(); // Final step
+
+        assert_eq!(settings.config.algorithm, Algorithm::NPAG);
+        assert_eq!(settings.config.cycles, 100);
+        assert_eq!(settings.config.cache, true);
+        assert_eq!(settings.parameters().names(), vec!["Ke", "V"]);
+    }
 }

@@ -1,4 +1,4 @@
-use crate::prelude::algorithms::Algorithm;
+use crate::prelude::algorithms::Algorithms;
 
 pub use crate::routines::evaluation::ipm::burke;
 pub use crate::routines::evaluation::qr;
@@ -48,15 +48,14 @@ pub struct NPAG<E: Equation> {
     converged: bool,
     cycle_log: CycleLog,
     data: Data,
-    c: (f64, f64, f64, f64),
     settings: Settings,
 }
 
-impl<E: Equation> Algorithm<E> for NPAG<E> {
+impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            ranges: settings.random.ranges(),
+            ranges: settings.parameters().ranges(),
             psi: Array2::default((0, 0)),
             theta: Array2::zeros((0, 0)),
             lambda: Array1::default(0),
@@ -68,11 +67,10 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             f1: f64::default(),
             cycle: 0,
             gamma_delta: 0.1,
-            gamma: settings.error.value,
-            error_type: settings.error.error_type(),
+            gamma: settings.error().value,
+            error_type: settings.error().error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error.poly,
             settings,
             data,
         }))
@@ -146,7 +144,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         }
 
         // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config.cycles {
+        if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
         }
@@ -182,8 +180,8 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
-            self.cycle == 1 && self.settings.log.write,
+            &ErrorModel::new(self.settings.error().poly, self.gamma, &self.error_type),
+            self.cycle == 1 && self.settings.log().write,
             self.cycle != 1,
         );
 
@@ -273,7 +271,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_up, &self.error_type),
+            &ErrorModel::new(self.settings.error().poly, gamma_up, &self.error_type),
             false,
             true,
         );
@@ -281,7 +279,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_down, &self.error_type),
+            &ErrorModel::new(self.settings.error().poly, gamma_down, &self.error_type),
             false,
             true,
         );
