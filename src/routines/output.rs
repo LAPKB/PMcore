@@ -43,7 +43,7 @@ impl<E: Equation> NPResult<E> {
     ) -> Self {
         // TODO: Add support for fixed and constant parameters
 
-        let par_names = settings.random.names();
+        let par_names = settings.parameters().names();
 
         Self {
             equation,
@@ -85,9 +85,9 @@ impl<E: Equation> NPResult<E> {
     }
 
     pub fn write_outputs(&self) -> Result<()> {
-        if self.settings.output.write {
-            let idelta: f64 = self.settings.predictions.idelta;
-            let tad = self.settings.predictions.tad;
+        if self.settings.output().write {
+            let idelta: f64 = self.settings.predictions().idelta;
+            let tad = self.settings.predictions().tad;
             self.cyclelog.write(&self.settings)?;
             self.write_obs().context("Failed to write observations")?;
             self.write_theta().context("Failed to write theta")?;
@@ -141,7 +141,7 @@ impl<E: Equation> NPResult<E> {
             );
         }
 
-        let outputfile = OutputFile::new(&self.settings.output.path, "op.csv")?;
+        let outputfile = OutputFile::new(&self.settings.output().path, "op.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
@@ -244,7 +244,7 @@ impl<E: Equation> NPResult<E> {
             self.w.clone()
         };
 
-        let outputfile = OutputFile::new(&self.settings.output.path, "theta.csv")
+        let outputfile = OutputFile::new(&self.settings.output().path, "theta.csv")
             .context("Failed to create output file for theta")?;
 
         let mut writer = WriterBuilder::new()
@@ -288,7 +288,7 @@ impl<E: Equation> NPResult<E> {
         };
 
         // Create the output folder if it doesn't exist
-        let outputfile = match OutputFile::new(&self.settings.output.path, "posterior.csv") {
+        let outputfile = match OutputFile::new(&self.settings.output().path, "posterior.csv") {
             Ok(of) => of,
             Err(e) => {
                 tracing::error!("Failed to create output file: {}", e);
@@ -334,7 +334,7 @@ impl<E: Equation> NPResult<E> {
     /// Write the observations, which is the reformatted input data
     pub fn write_obs(&self) -> Result<()> {
         tracing::debug!("Writing observations...");
-        let outputfile = OutputFile::new(&self.settings.output.path, "obs.csv")?;
+        let outputfile = OutputFile::new(&self.settings.output().path, "obs.csv")?;
         write_pmetrics_observations(&self.data, &outputfile.file)?;
         tracing::info!(
             "Observations written to {:?}",
@@ -363,7 +363,7 @@ impl<E: Equation> NPResult<E> {
             bail!("Number of subjects and number of posterior means do not match");
         }
 
-        let outputfile = OutputFile::new(&self.settings.output.path, "pred.csv")?;
+        let outputfile = OutputFile::new(&self.settings.output().path, "pred.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
@@ -450,7 +450,7 @@ impl<E: Equation> NPResult<E> {
     /// Writes the covariates
     pub fn write_covs(&self) -> Result<()> {
         tracing::debug!("Writing covariates...");
-        let outputfile = OutputFile::new(&self.settings.output.path, "covs.csv")?;
+        let outputfile = OutputFile::new(&self.settings.output().path, "covs.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
@@ -592,7 +592,7 @@ impl CycleLog {
 
     pub fn write(&self, settings: &Settings) -> Result<()> {
         tracing::debug!("Writing cycles...");
-        let outputfile = OutputFile::new(&settings.output.path, "cycles.csv")?;
+        let outputfile = OutputFile::new(&settings.output().path, "cycles.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(false)
             .from_writer(&outputfile.file);
@@ -604,7 +604,7 @@ impl CycleLog {
         writer.write_field("gamlam")?;
         writer.write_field("nspp")?;
 
-        let parameter_names = settings.random.names();
+        let parameter_names = settings.parameters().names();
         for param_name in &parameter_names {
             writer.write_field(format!("{}.mean", param_name))?;
             writer.write_field(format!("{}.median", param_name))?;

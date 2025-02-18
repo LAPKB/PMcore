@@ -3,13 +3,14 @@ use std::path::Path;
 
 use crate::routines::output::NPResult;
 use crate::routines::settings::Settings;
-use anyhow::{bail, Result};
+use anyhow::Result;
 use anyhow::{Context, Error};
 use ndarray::Array2;
 use npag::*;
 use npod::NPOD;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use postprob::POSTPROB;
+use serde::{Deserialize, Serialize};
 
 // use self::{data::Subject, simulator::Equation};
 
@@ -17,7 +18,14 @@ pub mod npag;
 pub mod npod;
 pub mod postprob;
 
-pub trait Algorithm<E: Equation> {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum Algorithm {
+    NPAG,
+    NPOD,
+    POSTPROB,
+}
+
+pub trait Algorithms<E: Equation> {
     fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
     where
         Self: Sized;
@@ -62,12 +70,12 @@ pub trait Algorithm<E: Equation> {
         self.set_theta(self.get_prior());
         Ok(())
     }
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)>;
+    fn evaluation(&mut self) -> Result<()>;
+    fn condensation(&mut self) -> Result<()>;
+    fn optimizations(&mut self) -> Result<()>;
     fn logs(&self);
-    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn next_cycle(&mut self) -> Result<bool, (Error, NPResult<E>)> {
+    fn expansion(&mut self) -> Result<()>;
+    fn next_cycle(&mut self) -> Result<bool> {
         if self.inc_cycle() > 1 {
             self.expansion()?;
         }
@@ -80,7 +88,7 @@ pub trait Algorithm<E: Equation> {
         self.convergence_evaluation();
         Ok(self.converged())
     }
-    fn fit(&mut self) -> Result<NPResult<E>, (Error, NPResult<E>)> {
+    fn fit(&mut self) -> Result<NPResult<E>> {
         self.initialize().unwrap();
         while !self.next_cycle()? {}
         Ok(self.into_npresult())
@@ -92,11 +100,10 @@ pub fn dispatch_algorithm<E: Equation>(
     settings: Settings,
     equation: E,
     data: Data,
-) -> Result<Box<dyn Algorithm<E>>, Error> {
-    match settings.config.algorithm.as_str() {
-        "NPAG" => Ok(NPAG::new(settings, equation, data)?),
-        "NPOD" => Ok(NPOD::new(settings, equation, data)?),
-        "POSTPROB" => Ok(POSTPROB::new(settings, equation, data)?),
-        alg => bail!("Algorithm {} not implemented", alg),
+) -> Result<Box<dyn Algorithms<E>>, Error> {
+    match settings.config().algorithm {
+        Algorithm::NPAG => Ok(NPAG::new(settings, equation, data)?),
+        Algorithm::NPOD => Ok(NPOD::new(settings, equation, data)?),
+        Algorithm::POSTPROB => Ok(POSTPROB::new(settings, equation, data)?),
     }
 }

@@ -1,4 +1,4 @@
-use crate::prelude::algorithms::Algorithm;
+use crate::prelude::algorithms::Algorithms;
 
 pub use crate::routines::evaluation::ipm::burke;
 pub use crate::routines::evaluation::qr;
@@ -6,7 +6,7 @@ use crate::routines::settings::Settings;
 
 use crate::routines::output::{CycleLog, NPCycle, NPResult};
 
-use anyhow::Error;
+use anyhow::bail;
 use anyhow::Result;
 use pharmsol::{
     prelude::{
@@ -48,15 +48,14 @@ pub struct NPAG<E: Equation> {
     converged: bool,
     cycle_log: CycleLog,
     data: Data,
-    c: (f64, f64, f64, f64),
     settings: Settings,
 }
 
-impl<E: Equation> Algorithm<E> for NPAG<E> {
+impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            ranges: settings.random.ranges(),
+            ranges: settings.parameters().ranges(),
             psi: Array2::default((0, 0)),
             theta: Array2::zeros((0, 0)),
             lambda: Array1::default(0),
@@ -68,11 +67,10 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             f1: f64::default(),
             cycle: 0,
             gamma_delta: 0.1,
-            gamma: settings.error.value,
-            error_type: settings.error.error_type(),
+            gamma: settings.error().value,
+            error_type: settings.error().error_type(),
             converged: false,
             cycle_log: CycleLog::new(),
-            c: settings.error.poly,
             settings,
             data,
         }))
@@ -146,7 +144,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         }
 
         // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config.cycles {
+        if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
         }
@@ -177,36 +175,33 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         self.converged
     }
 
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn evaluation(&mut self) -> Result<()> {
         self.psi = psi(
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, self.gamma, &self.error_type),
-            self.cycle == 1 && self.settings.log.write,
+            &ErrorModel::new(self.settings.error().poly, self.gamma, &self.error_type),
+            self.cycle == 1 && self.settings.log().write,
             self.cycle != 1,
         );
 
         if let Err(err) = self.validate_psi() {
-            return Err((err, self.into_npresult()));
+            bail!(err);
         }
 
         (self.lambda, _) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                return Err((
-                    anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.into_npresult(),
-                ));
+                bail!("Error in IPM: {:?}", err);
             }
         };
         Ok(())
     }
 
-    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn condensation(&mut self) -> Result<()> {
         let max_lambda = match self.lambda.max() {
             Ok(max_lambda) => max_lambda,
-            Err(err) => return Err((anyhow::anyhow!(err), self.into_npresult())),
+            Err(err) => bail!("Error in IPM: {:?}", err),
         };
 
         let mut keep = Vec::<usize>::new();
@@ -217,7 +212,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         }
         if self.psi.ncols() != keep.len() {
             tracing::debug!(
-                "1) Lambda (max/1000) dropped {} support point(s)",
+                "Lambda (max/1000) dropped {} support point(s)",
                 self.psi.ncols() - keep.len(),
             );
         }
@@ -242,7 +237,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         // If a support point is dropped, log it as a debug message
         if self.psi.ncols() != keep.len() {
             tracing::debug!(
-                "2)QR decomposition dropped {} support point(s)",
+                "QR decomposition dropped {} support point(s)",
                 self.psi.ncols() - keep.len(),
             );
         }
@@ -253,17 +248,14 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                return Err((
-                    anyhow::anyhow!("Error in IPM: {:?}", err),
-                    self.into_npresult(),
-                ));
+                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
             }
         };
         self.w = self.lambda.clone();
         Ok(())
     }
 
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn optimizations(&mut self) -> Result<()> {
         // Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
@@ -273,7 +265,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_up, &self.error_type),
+            &ErrorModel::new(self.settings.error().poly, gamma_up, &self.error_type),
             false,
             true,
         );
@@ -281,7 +273,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.c, gamma_down, &self.error_type),
+            &ErrorModel::new(self.settings.error().poly, gamma_down, &self.error_type),
             false,
             true,
         );
@@ -324,9 +316,6 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
     }
 
     fn logs(&self) {
-        // Log relevant cycle information
-        // let span = tracing::info_span!("", Cycle = self.cycle);
-        // let _enter = span.enter();
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.shape()[0]);
         tracing::debug!("Gamma = {:.16}", self.gamma);
@@ -342,7 +331,7 @@ impl<E: Equation> Algorithm<E> for NPAG<E> {
         }
     }
 
-    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn expansion(&mut self) -> Result<()> {
         adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
         Ok(())
     }
@@ -384,6 +373,10 @@ impl<E: Equation> NPAG<E> {
             let subject: Vec<&Subject> = self.data.get_subjects();
             let zero_probability_subjects: Vec<&String> =
                 indices.iter().map(|&i| subject[i].id()).collect();
+
+            dbg!(&self.theta);
+
+            dbg!(&psi);
 
             return Err(anyhow::anyhow!(
                 "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects
