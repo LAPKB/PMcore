@@ -195,7 +195,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         }
         if self.psi.ncols() != keep.len() {
             tracing::debug!(
-                "1) Lambda (max/1000) dropped {} support point(s)",
+                "Lambda (max/1000) dropped {} support point(s)",
                 self.psi.ncols() - keep.len(),
             );
         }
@@ -220,7 +220,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         // If a support point is dropped, log it as a debug message
         if self.psi.ncols() != keep.len() {
             tracing::debug!(
-                "2)QR decomposition dropped {} support point(s)",
+                "QR decomposition dropped {} support point(s)",
                 self.psi.ncols() - keep.len(),
             );
         }
@@ -272,15 +272,12 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                //todo: write out report
                 panic!("Error in IPM: {:?}", err);
             }
         };
         let (lambda_down, objf_down) = match burke(&psi_down) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                //todo: write out report
-                //panic!("Error in IPM: {:?}", err);
                 tracing::warn!("Error in IPM: {:?}. Trying to recover.", err);
                 (Array1::zeros(1), f64::NEG_INFINITY)
             }
@@ -307,9 +304,6 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn logs(&self) {
-        // Log relevant cycle information
-        // let span = tracing::info_span!("", Cycle = self.cycle);
-        // let _enter = span.enter();
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.shape()[0]);
         tracing::debug!("Gamma = {:.16}", self.gamma);

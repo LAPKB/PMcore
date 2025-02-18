@@ -212,7 +212,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         }
         if self.psi.ncols() != keep.len() {
             tracing::debug!(
-                "1) Lambda (max/1000) dropped {} support point(s)",
+                "Lambda (max/1000) dropped {} support point(s)",
                 self.psi.ncols() - keep.len(),
             );
         }
@@ -237,7 +237,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         // If a support point is dropped, log it as a debug message
         if self.psi.ncols() != keep.len() {
             tracing::debug!(
-                "2)QR decomposition dropped {} support point(s)",
+                "QR decomposition dropped {} support point(s)",
                 self.psi.ncols() - keep.len(),
             );
         }
@@ -316,9 +316,6 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn logs(&self) {
-        // Log relevant cycle information
-        // let span = tracing::info_span!("", Cycle = self.cycle);
-        // let _enter = span.enter();
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.shape()[0]);
         tracing::debug!("Gamma = {:.16}", self.gamma);
