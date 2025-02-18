@@ -70,12 +70,12 @@ pub trait Algorithms<E: Equation> {
         self.set_theta(self.get_prior());
         Ok(())
     }
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)>;
+    fn evaluation(&mut self) -> Result<()>;
+    fn condensation(&mut self) -> Result<()>;
+    fn optimizations(&mut self) -> Result<()>;
     fn logs(&self);
-    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)>;
-    fn next_cycle(&mut self) -> Result<bool, (Error, NPResult<E>)> {
+    fn expansion(&mut self) -> Result<()>;
+    fn next_cycle(&mut self) -> Result<bool> {
         if self.inc_cycle() > 1 {
             self.expansion()?;
         }
@@ -88,7 +88,7 @@ pub trait Algorithms<E: Equation> {
         self.convergence_evaluation();
         Ok(self.converged())
     }
-    fn fit(&mut self) -> Result<NPResult<E>, (Error, NPResult<E>)> {
+    fn fit(&mut self) -> Result<NPResult<E>> {
         self.initialize().unwrap();
         while !self.next_cycle()? {}
         Ok(self.into_npresult())

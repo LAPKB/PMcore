@@ -1,5 +1,5 @@
 use crate::prelude::algorithms::Algorithms;
-use anyhow::{Error, Result};
+use anyhow::Result;
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
     simulator::{psi, Equation},
@@ -107,7 +107,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         true
     }
 
-    fn evaluation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn evaluation(&mut self) -> Result<()> {
         self.psi = psi(
             &self.equation,
             &self.data,
@@ -120,16 +120,16 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         Ok(())
     }
 
-    fn condensation(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn condensation(&mut self) -> Result<()> {
         Ok(())
     }
-    fn optimizations(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn optimizations(&mut self) -> Result<()> {
         Ok(())
     }
 
     fn logs(&self) {}
 
-    fn expansion(&mut self) -> Result<(), (Error, NPResult<E>)> {
+    fn expansion(&mut self) -> Result<()> {
         Ok(())
     }
 }

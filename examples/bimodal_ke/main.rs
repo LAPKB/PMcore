@@ -18,28 +18,6 @@ fn main() -> Result<()> {
         },
         (1, 1),
     );
-    // let eq = equation::Analytical::new(
-    //     one_compartment,
-    //     |_p, _t, _cov| {},
-    //     |_p| lag! {},
-    //     |_p| fa! {},
-    //     |_p, _t, _cov, _x| {},
-    //     |x, p, _t, _cov, y| {
-    //         fetch_params!(p, _ke, v);
-    //         y[0] = x[0] / v;
-    //     },
-    //     (1, 1),
-    // );
-    // let eq = equation::ODENet::new(
-    //     vec![dmatrix![-1.0], dmatrix![0.0]],
-    //     vec![],
-    //     vec![],
-    //     vec![],
-    //     vec![],
-    //     vec![],
-    //     vec![OutEq::new(0, Div(X(0), P(1)))],
-    //     (1, 1),
-    // );
 
     let mut settings = Settings::new();
 
