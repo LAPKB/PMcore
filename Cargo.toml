@@ -45,9 +45,6 @@ opt-level = 3
 [dev-dependencies]
 criterion = { version = "0.5" }
 
-[[bench]]
-name = "fibonacci"
-harness = false
 
 [[bench]]
 name = "bimodal_ke"
