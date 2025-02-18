@@ -402,10 +402,10 @@
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{
     algorithms::Algorithm,
-    ipm::burke,
-    output::{CycleLog, NPCycle, NPResult},
-    qr,
-    settings::Settings,
+    routines::evaluation::ipm::burke,
+    routines::evaluation::qr,
+    routines::output::{CycleLog, NPCycle, NPResult},
+    routines::settings::Settings,
 };
 <span class="kw">use </span>anyhow::Error;
 <span class="kw">use </span>anyhow::Result;
@@ -423,7 +423,7 @@
 };
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 
-<span class="kw">use super</span>::{condensation::prune::prune, initialization, optimization::d_optimizer::SppOptimizer};
+<span class="kw">use </span><span class="kw">crate</span>::routines::{condensation::prune, initialization, optimization::SppOptimizer};
 
 <span class="kw">const </span>THETA_F: f64 = <span class="number">1e-2</span>;
 <span class="kw">const </span>THETA_D: f64 = <span class="number">1e-4</span>;

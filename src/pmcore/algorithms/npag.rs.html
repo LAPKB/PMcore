@@ -395,13 +395,17 @@
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{
-    algorithms::Algorithm,
-    ipm::burke,
-    output::{CycleLog, NPCycle, NPResult},
-    qr,
-    settings::Settings,
-};
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::algorithms::Algorithm;
+
+<span class="kw">pub use </span><span class="kw">crate</span>::routines::evaluation::ipm::burke;
+<span class="kw">pub use </span><span class="kw">crate</span>::routines::evaluation::qr;
+<span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
+
+<span class="kw">use </span><span class="kw">crate</span>::routines::output::{CycleLog, NPCycle, NPResult};
+
 <span class="kw">use </span>anyhow::Error;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>pharmsol::{
@@ -412,10 +416,12 @@
     Subject,
 };
 
+<span class="kw">use </span><span class="kw">crate</span>::routines::initialization;
+
 <span class="kw">use </span>ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 <span class="kw">use </span>ndarray_stats::{DeviationExt, QuantileExt};
 
-<span class="kw">use super</span>::{adaptative_grid::adaptative_grid, initialization};
+<span class="kw">use </span><span class="kw">crate</span>::routines::expansion::adaptative_grid::adaptative_grid;
 
 <span class="kw">const </span>THETA_E: f64 = <span class="number">1e-4</span>; <span class="comment">// Convergence criteria
 </span><span class="kw">const </span>THETA_G: f64 = <span class="number">1e-4</span>; <span class="comment">// Objective function convergence criteria

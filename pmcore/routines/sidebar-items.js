@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["condensation","evaluation","expansion","initialization","logger","optimization","output","settings"]};

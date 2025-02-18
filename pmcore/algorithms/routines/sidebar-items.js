@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["condensation","evaluation","expansion","initialization","optimization","output","settings"]};

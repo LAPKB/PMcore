@@ -1,3 +1,3 @@
-var srcIndex = new Map(JSON.parse('[["pmcore",["",[["algorithms",[["routines",[["condensation",[],["prune.rs"]],["evaluation",[],["ipm.rs","ipm_faer.rs","qr.rs"]],["expansion",[],["adaptative_grid.rs"]],["initialization",[],["latin.rs","mod.rs","sobol.rs"]],["optimization",[],["d_optimizer.rs","optim.rs"]]],["mod.rs","output.rs","settings.rs"]]],["mod.rs","npag.rs","npod.rs","postprob.rs"]]],["lib.rs","logger.rs"]]]]'));
+var srcIndex = new Map(JSON.parse('[["pmcore",["",[["algorithms",[],["mod.rs","npag.rs","npod.rs","postprob.rs"]],["routines",[["condensation",[],["mod.rs"]],["evaluation",[],["ipm.rs","mod.rs","qr.rs"]],["expansion",[],["adaptative_grid.rs","mod.rs"]],["initialization",[],["latin.rs","mod.rs","sobol.rs"]],["optimization",[],["mod.rs"]]],["logger.rs","mod.rs","output.rs","settings.rs"]]],["lib.rs"]]]]'));
 createSrcSidebar();
-//{"start":36,"fragment_lengths":[383]}
+//{"start":36,"fragment_lengths":[367]}

@@ -100,28 +100,24 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
+<a href="#102" id="102">102</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::path::Path;
 
-<span class="kw">use </span><span class="kw">crate</span>::prelude::{<span class="self">self</span>, settings::Settings};
-
+<span class="kw">use </span><span class="kw">crate</span>::routines::output::NPResult;
+<span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>ndarray::Array2;
 <span class="kw">use </span>npag::<span class="kw-2">*</span>;
 <span class="kw">use </span>npod::NPOD;
-<span class="kw">use </span>output::NPResult;
 <span class="kw">use </span>pharmsol::prelude::{data::Data, simulator::Equation};
 <span class="kw">use </span>postprob::POSTPROB;
-<span class="kw">use </span>prelude::<span class="kw-2">*</span>;
+
 <span class="comment">// use self::{data::Subject, simulator::Equation};
 
 </span><span class="kw">pub mod </span>npag;
 <span class="kw">pub mod </span>npod;
 <span class="kw">pub mod </span>postprob;
-<span class="kw">pub mod </span>routines;
 
 <span class="kw">pub trait </span>Algorithm&lt;E: Equation&gt; {
     <span class="kw">fn </span>new(config: Settings, equation: E, data: Data) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="self">Self</span>&gt;, Error&gt;

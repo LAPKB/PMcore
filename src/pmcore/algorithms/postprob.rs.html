@@ -133,7 +133,11 @@
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings};
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::prelude::algorithms::Algorithm;
 <span class="kw">use </span>anyhow::{Error, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
@@ -142,7 +146,11 @@
 
 <span class="kw">use </span>ndarray::{Array1, Array2};
 
-<span class="kw">use super</span>::{initialization, output::CycleLog};
+<span class="kw">use </span><span class="kw">crate</span>::routines::evaluation::ipm::burke;
+<span class="kw">use </span><span class="kw">crate</span>::routines::initialization;
+<span class="kw">use </span><span class="kw">crate</span>::routines::output::CycleLog;
+<span class="kw">use </span><span class="kw">crate</span>::routines::output::NPResult;
+<span class="kw">use </span><span class="kw">crate</span>::routines::settings::Settings;
 
 <span class="doccomment">/// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
