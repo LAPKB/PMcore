@@ -1,4 +1,7 @@
-use pmcore::prelude::{models::one_compartment_with_absorption, *};
+use pmcore::{
+    prelude::{models::one_compartment_with_absorption, *},
+    routines::settings,
+};
 
 fn main() {
     // let eq = Equation::new_ode(

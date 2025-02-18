@@ -1,23 +1,21 @@
 use std::fs;
 use std::path::Path;
 
-use crate::prelude::{self, settings::Settings};
-
+use crate::routines::output::NPResult;
+use crate::routines::settings::Settings;
 use anyhow::{bail, Result};
 use anyhow::{Context, Error};
 use ndarray::Array2;
 use npag::*;
 use npod::NPOD;
-use output::NPResult;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use postprob::POSTPROB;
-use prelude::*;
+
 // use self::{data::Subject, simulator::Equation};
 
 pub mod npag;
 pub mod npod;
 pub mod postprob;
-pub mod routines;
 
 pub trait Algorithm<E: Equation> {
     fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>

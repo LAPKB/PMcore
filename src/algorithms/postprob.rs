@@ -1,4 +1,4 @@
-use crate::prelude::{algorithms::Algorithm, ipm::burke, output::NPResult, settings::Settings};
+use crate::prelude::algorithms::Algorithm;
 use anyhow::{Error, Result};
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
@@ -7,7 +7,11 @@ use pharmsol::prelude::{
 
 use ndarray::{Array1, Array2};
 
-use super::{initialization, output::CycleLog};
+use crate::routines::evaluation::ipm::burke;
+use crate::routines::initialization;
+use crate::routines::output::CycleLog;
+use crate::routines::output::NPResult;
+use crate::routines::settings::Settings;
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model

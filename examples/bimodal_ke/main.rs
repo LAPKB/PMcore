@@ -1,4 +1,3 @@
-use logger::setup_log;
 use pmcore::prelude::*;
 fn main() {
     let eq = equation::ODE::new(

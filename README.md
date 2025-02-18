@@ -1,7 +1,7 @@
 # PMcore
-![Build](https://github.com/LAPKB/PMcore/actions/workflows/rust.yml/badge.svg)
+[![Build](https://github.com/LAPKB/PMcore/actions/workflows/rust.yml/badge.svg)](https://github.com/LAPKB/PMcore/actions/workflows/rust.yml)
 [![Documentation](https://github.com/LAPKB/PMcore/actions/workflows/docs.yml/badge.svg)](https://lapkb.github.io/PMcore/pmcore/)
-![Security Audit](https://github.com/LAPKB/PMcore/actions/workflows/security_audit.yml/badge.svg)
+[![Security Audit](https://github.com/LAPKB/PMcore/actions/workflows/security_audit.yml/badge.svg)](https://github.com/LAPKB/PMcore/actions/workflows/security_audit.yml)
 [![crates.io](https://img.shields.io/crates/v/pmcore.svg)](https://crates.io/crates/pmcore)
 
 

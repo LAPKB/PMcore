@@ -6,7 +6,7 @@ use anyhow::{bail, Context, Result};
 use ndarray::{Array1, Array2};
 use pharmsol::prelude::EstimateTheta;
 
-use crate::prelude::settings::Settings;
+use crate::routines::settings::Settings;
 
 pub mod latin;
 pub mod sobol;

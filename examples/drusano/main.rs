@@ -4,7 +4,10 @@ use argmin::{
     solver::neldermead::NelderMead,
 };
 use logger::setup_log;
-use pmcore::prelude::*;
+use pmcore::{
+    prelude::*,
+    routines::{logger, settings},
+};
 use std::process::exit;
 #[allow(unused_variables)]
 fn main() {

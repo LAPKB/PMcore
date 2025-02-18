@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use crate::algorithms::routines::settings::Settings;
-use crate::prelude::output::OutputFile;
+use crate::routines::output::OutputFile;
+use crate::routines::settings::Settings;
 use anyhow::Result;
 use tracing_subscriber::fmt::time::FormatTime;
 use tracing_subscriber::fmt::{self};
