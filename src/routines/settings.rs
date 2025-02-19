@@ -246,28 +246,31 @@ pub struct Parameter {
 impl Parameter {
     /// Create a new parameter
     pub fn new(name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Result<Self> {
+        let name = name.into();
         if lower >= upper {
             bail!(format!(
                 "In key '{}', lower bound ({}) is not less than upper bound ({})",
-                name.into(),
-                lower,
-                upper
+                name, lower, upper
             ));
         }
 
         Ok(Self {
-            name: name.into(),
+            name,
             lower,
             upper,
             fixed,
         })
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
 
 /// This structure contains information on all [Parameter]s to be estimated
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Parameters {
-    parameters: Vec<(String, Parameter)>,
+    parameters: Vec<Parameter>,
 }
 
 impl Parameters {
@@ -284,30 +287,21 @@ impl Parameters {
     }
 
     // Get a parameter by name
-    pub fn get(&self, name: impl Into<String>) -> Option<&Parameter> {
-        let name = name.into();
-        self.parameters
-            .iter()
-            .find(|(n, _)| n == &name)
-            .map(|(_, p)| p)
+    pub fn get(&self, name: impl AsRef<str>) -> Option<&Parameter> {
+        let name = name.as_ref();
+        self.parameters.iter().find(|p| p.name == name)
     }
 
     /// Get the names of the parameters
     pub fn names(&self) -> Vec<String> {
-        self.parameters
-            .iter()
-            .map(|(name, _)| name.clone())
-            .collect()
+        self.parameters.iter().map(|p| p.name.clone()).collect()
     }
 
     /// Get the ranges of the parameters
     ///
     /// Returns a vector of tuples, where each tuple contains the lower and upper bounds of the parameter
     pub fn ranges(&self) -> Vec<(f64, f64)> {
-        self.parameters
-            .iter()
-            .map(|(_, p)| (p.lower, p.upper))
-            .collect()
+        self.parameters.iter().map(|p| (p.lower, p.upper)).collect()
     }
 
     pub fn len(&self) -> usize {
@@ -318,14 +312,14 @@ impl Parameters {
         self.parameters.is_empty()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, (String, Parameter)> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Parameter> {
         self.parameters.iter()
     }
 }
 
 impl IntoIterator for Parameters {
-    type Item = (String, Parameter);
-    type IntoIter = std::vec::IntoIter<(String, Parameter)>;
+    type Item = Parameter;
+    type IntoIter = std::vec::IntoIter<Parameter>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.parameters.into_iter()
@@ -334,7 +328,7 @@ impl IntoIterator for Parameters {
 
 /// Builder for creating a set of parameters
 pub struct ParametersBuilder {
-    parameters: Vec<(String, Parameter)>,
+    parameters: Vec<Parameter>,
 }
 
 impl ParametersBuilder {
@@ -345,9 +339,8 @@ impl ParametersBuilder {
     }
 
     pub fn add(mut self, name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Self {
-        let name_string = name.into();
-        if let Ok(parameter) = Parameter::new(&name_string, lower, upper, fixed) {
-            self.parameters.push((name_string, parameter));
+        if let Ok(parameter) = Parameter::new(name, lower, upper, fixed) {
+            self.parameters.push(parameter);
         }
         self
     }
