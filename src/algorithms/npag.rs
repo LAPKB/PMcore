@@ -8,17 +8,14 @@ use crate::routines::output::{CycleLog, NPCycle, NPResult};
 
 use anyhow::bail;
 use anyhow::Result;
-use pharmsol::{
-    prelude::{
-        data::{Data, ErrorModel, ErrorType},
-        simulator::{psi, Equation},
-    },
-    Subject,
+use pharmsol::prelude::{
+    data::{Data, ErrorModel, ErrorType},
+    simulator::{psi, Equation},
 };
 
 use crate::routines::initialization;
 
-use ndarray::{Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr};
+use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 
 use crate::routines::expansion::adaptative_grid::adaptative_grid;
@@ -74,6 +71,10 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             settings,
             data,
         }))
+    }
+
+    fn equation(&self) -> &E {
+        &self.equation
     }
     fn into_npresult(&self) -> NPResult<E> {
         NPResult::new(
@@ -333,56 +334,6 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
 
     fn expansion(&mut self) -> Result<()> {
         adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
-        Ok(())
-    }
-}
-
-impl<E: Equation> NPAG<E> {
-    fn validate_psi(&mut self) -> Result<()> {
-        // First coerce all NaN and infinite in psi to 0.0
-        if self.psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
-            tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
-            for i in 0..self.psi.nrows() {
-                for j in 0..self.psi.ncols() {
-                    let val = self.psi.get_mut((i, j)).unwrap();
-                    if val.is_nan() || val.is_infinite() {
-                        *val = 0.0;
-                    }
-                }
-            }
-        }
-
-        let psi = self.psi.clone();
-
-        // Calculate the sum of each column in psi
-        let (_, col) = psi.dim();
-        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-        let plam = psi.dot(&ecol);
-        let w = 1. / &plam;
-
-        // Get the index of each element in `w` that is NaN or infinite
-        let indices: Vec<usize> = w
-            .iter()
-            .enumerate()
-            .filter(|(_, x)| x.is_nan() || x.is_infinite())
-            .map(|(i, _)| i)
-            .collect::<Vec<_>>();
-
-        // If any elements in `w` are NaN or infinite, return the subject IDs for each index
-        if !indices.is_empty() {
-            let subject: Vec<&Subject> = self.data.get_subjects();
-            let zero_probability_subjects: Vec<&String> =
-                indices.iter().map(|&i| subject[i].id()).collect();
-
-            // dbg!(&self.theta);
-
-            // dbg!(&psi);
-
-            return Err(anyhow::anyhow!(
-                "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects
-            ));
-        }
-
         Ok(())
     }
 }

@@ -79,6 +79,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         )
     }
 
+    fn equation(&self) -> &E {
+        &self.equation
+    }
+
     fn get_settings(&self) -> &Settings {
         &self.settings
     }
