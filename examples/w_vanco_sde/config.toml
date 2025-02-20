@@ -18,7 +18,7 @@ class = "additive"
 poly = [0.00119, 0.20, 0.0, 0.0]
 
 [log]
-level = "debug"
+level = "warn"
 
 [prior]
 sampler = "sobol"

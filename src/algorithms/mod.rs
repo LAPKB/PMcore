@@ -31,11 +31,10 @@ pub trait Algorithms<E: Equation>: Sync {
     fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
     where
         Self: Sized;
-    fn validate_psi(&self) -> Result<()> {
+    fn validate_psi(&mut self) -> Result<()> {
         // Count problematic values in psi
         let mut nan_count = 0;
         let mut inf_count = 0;
-        let mut zero_count = 0;
 
         // First coerce all NaN and infinite in psi to 0.0
         for i in 0..self.psi().nrows() {
@@ -47,18 +46,16 @@ pub trait Algorithms<E: Equation>: Sync {
                 } else if val.is_infinite() {
                     inf_count += 1;
                     // *val = 0.0;
-                } else if *val == 0.0 {
-                    zero_count += 1;
                 }
             }
         }
 
-        if nan_count + inf_count + zero_count > 0 {
+        if nan_count + inf_count > 0 {
             tracing::warn!(
-                "Psi matrix contains {} NaN, {} Infinite, and {} Zero values",
+                "Psi matrix contains {} NaN, {} Infinite values of {} total values",
                 nan_count,
                 inf_count,
-                zero_count
+                self.psi().ncols() * self.psi().nrows()
             );
         }
 
@@ -82,13 +79,14 @@ pub trait Algorithms<E: Equation>: Sync {
                 indices.iter().map(|&i| subject[i].id()).collect();
 
             tracing::error!(
-                "{} subjects have zero probability given the model",
-                indices.len()
+                "{}/{} subjects have zero probability given the model",
+                indices.len(),
+                self.psi().nrows()
             );
 
             // For each problematic subject
             for index in &indices {
-                println!("\nSubject with zero probability: {}", subject[*index].id());
+                tracing::debug!("Subject with zero probability: {}", subject[*index].id());
 
                 let e_type = self.get_settings().error().error_type();
 
@@ -138,33 +136,33 @@ pub trait Algorithms<E: Equation>: Sync {
                     }
                 }
 
-                println!(
-                    "\nLikelihood analysis for subject {} ({} support points):",
+                tracing::debug!(
+                    "\tLikelihood analysis for subject {} ({} support points):",
                     subject[*index].id(),
                     spp_results.len()
                 );
-                println!(
-                    "  NaN likelihoods: {} ({:.1}%)",
+                tracing::debug!(
+                    "\tNaN likelihoods: {} ({:.1}%)",
                     nan_ll,
                     100.0 * nan_ll as f64 / spp_results.len() as f64
                 );
-                println!(
-                    "  +Inf likelihoods: {} ({:.1}%)",
+                tracing::debug!(
+                    "\t+Inf likelihoods: {} ({:.1}%)",
                     inf_pos_ll,
                     100.0 * inf_pos_ll as f64 / spp_results.len() as f64
                 );
-                println!(
-                    "  -Inf likelihoods: {} ({:.1}%)",
+                tracing::debug!(
+                    "\t-Inf likelihoods: {} ({:.1}%)",
                     inf_neg_ll,
                     100.0 * inf_neg_ll as f64 / spp_results.len() as f64
                 );
-                println!(
-                    "  Zero likelihoods: {} ({:.1}%)",
+                tracing::debug!(
+                    "\tZero likelihoods: {} ({:.1}%)",
                     zero_ll,
                     100.0 * zero_ll as f64 / spp_results.len() as f64
                 );
-                println!(
-                    "  Valid likelihoods: {} ({:.1}%)",
+                tracing::debug!(
+                    "\tValid likelihoods: {} ({:.1}%)",
                     valid_ll,
                     100.0 * valid_ll as f64 / spp_results.len() as f64
                 );
@@ -178,10 +176,10 @@ pub trait Algorithms<E: Equation>: Sync {
                 });
                 let take = 3;
 
-                println!("\nTop {} most likely support points:", take);
+                tracing::debug!("Top {} most likely support points:", take);
                 for (i, support_point, preds, ll) in sorted_results.iter().take(take) {
-                    println!("\nSupport point #{}: {:?}", i, support_point);
-                    println!("Log-likelihood: {:?}", ll);
+                    tracing::debug!("\tSupport point #{}: {:?}", i, support_point);
+                    tracing::debug!("\t\tLog-likelihood: {:?}", ll);
 
                     let times = preds.iter().map(|x| x.time()).collect::<Vec<f64>>();
                     let observations = preds.iter().map(|x| x.observation()).collect::<Vec<f64>>();
@@ -192,13 +190,13 @@ pub trait Algorithms<E: Equation>: Sync {
                         .map(|x| x.state().clone())
                         .collect::<Vec<Vec<f64>>>();
 
-                    println!("Times: {:?}", times);
-                    println!("Observations: {:?}", observations);
-                    println!("Predictions: {:?}", predictions);
-                    println!("Outeqs: {:?}", outeqs);
-                    println!("States: {:?}", states);
+                    tracing::debug!("\t\tTimes: {:?}", times);
+                    tracing::debug!("\t\tObservations: {:?}", observations);
+                    tracing::debug!("\t\tPredictions: {:?}", predictions);
+                    tracing::debug!("\t\tOuteqs: {:?}", outeqs);
+                    tracing::debug!("\t\tStates: {:?}", states);
                 }
-                println!("=====================");
+                tracing::debug!("=====================");
             }
 
             return Err(anyhow::anyhow!(

@@ -9,9 +9,10 @@ fn main() {
 
     let sde = equation::SDE::new(
         |x, p, _t, dx, _rateiv, _cov| {
-            fetch_params!(p, ka, ke0, kcp, kpc, _vol, _ske);
+            fetch_params!(p, ka, ke0, kcp, kpc, _vol);
             dx[3] = -x[3] + ke0;
-            let ke = x[3]; // ke is a mean-reverting stochastic parameter
+            let ke = x[3];
+            // dbg!(x[3], ke0, dx[3]);
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - (ke + kcp) * x[1] + kpc * x[2];
             dx[2] = kcp * x[1] - kpc * x[2];
@@ -20,22 +21,38 @@ fn main() {
             fetch_params!(p, _ka, _ke0, _kcp, _kpc, _vol, ske);
             d[3] = ske;
         },
-        |_p| lag! {}, // remember println!() .. it's a macro ... {} empty function
+        |_p| lag! {},
         |_p| fa! {},
         |p, _t, _cov, x| {
-            fetch_params!(p, _ka, ke0, _kcp, _kpc, _vol, _ske);
-            //    x[0] = 0.0; // spot check suggests all subjects have a 0-dose at time 0
-            //    x[1] = 0.0;
+            fetch_params!(p, _ka, ke0, _kcp, _kpc, _vol);
             x[3] = ke0;
         },
         |x, p, t, cov, y| {
-            fetch_params!(p, _ka, _ke0, _kcp, _kpc, vol, _ske);
+            fetch_params!(p, _ka, _ke0, _kcp, _kpc, vol);
             fetch_cov!(cov, t, wt);
             y[0] = x[1] / (vol * wt);
         },
-        (4, 1), // (input equations, output equations)
+        (4, 1),
         11,
     );
+
+    // let ode = equation::ODE::new(
+    //     |x, p, _t, dx, _rateiv, _cov| {
+    //         fetch_params!(p, ka, ke0, kcp, kpc, _vol);
+    //         dx[0] = -ka * x[0];
+    //         dx[1] = ka * x[0] - (ke0 + kcp) * x[1] + kpc * x[2];
+    //         dx[2] = kcp * x[1] - kpc * x[2];
+    //     },
+    //     |_p| lag! {},
+    //     |_p| fa! {},
+    //     |_p, _t, _cov, _x| {},
+    //     |x, p, t, cov, y| {
+    //         fetch_params!(p, _ka, _ke0, _kcp, _kpc, vol);
+    //         fetch_cov!(cov, t, wt);
+    //         y[0] = x[1] / (vol);
+    //     },
+    //     (3, 1),
+    // );
 
     let mut settings = Settings::new();
 
@@ -44,7 +61,7 @@ fn main() {
         .add("ke0", 0.0001, 2.7, false)
         .add("kcp", 0.0001, 2.4, false)
         .add("kpc", 0.0001, 2.4, false)
-        .add("vol", 0.2, 1.2, false)
+        .add("vol", 0.2, 12.0, false)
         .add("ske", 0.0001, 0.2, false)
         .build()
         .unwrap();
@@ -66,6 +83,12 @@ fn main() {
     settings.set_log_level(settings::LogLevel::DEBUG);
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/w_vanco_sde/test.csv").unwrap();
+    // let data = data.filter_exclude(vec![
+    //     "113", "13", "135", "146", "159", "169", "178", "186", "191", "193", "195", "209", "219",
+    //     "23", "242", "244", "250", "251", "261", "284", "287", "289", "291", "293", "302", "304",
+    //     "305", "308", "312", "314", "36", "51", "66", "7", "73", "78", "84", "89", "97", "175",
+    //     "225", "25",
+    // ]);
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}
