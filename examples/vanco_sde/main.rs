@@ -4,7 +4,6 @@ use pmcore::prelude::{
 };
 
 fn main() {
-
     let sde = equation::SDE::new(
         |x, p, _t, dx, _rateiv, _cov| {
             fetch_params!(p, ka, ke0, kcp, kpc, _vol);
@@ -70,7 +69,7 @@ fn main() {
     settings.set_error_poly((0.00119, 0.20, 0.0, 0.0));
     settings.set_error_value(2.5516439936509987);
     settings.set_error_type(ErrorType::Add);
-    settings.set_output_path("examples/w_vanco_sde/output");
+    settings.set_output_path("examples/vanco_sde/output");
     settings.set_prior(Prior {
         sampler: "sobol".to_string(),
         points: 100,
@@ -80,7 +79,7 @@ fn main() {
     settings.set_output_write(true);
     settings.set_log_level(settings::LogLevel::DEBUG);
     setup_log(&settings).unwrap();
-    let data = data::read_pmetrics("examples/w_vanco_sde/vanco_clean.csv").unwrap();
+    let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
 
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();

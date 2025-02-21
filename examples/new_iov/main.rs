@@ -45,7 +45,7 @@ fn main() {
     settings.set_cache(true);
     settings.set_error_poly((-0.00119, 0.44379, -0.45864, 0.16537));
     settings.set_error_type(ErrorType::Add);
-    settings.set_output_path("examples/w_iov/output");
+    settings.set_output_path("examples/new_iov/output");
     settings.set_prior(Prior {
         sampler: "sobol".to_string(),
         points: 100,
@@ -55,7 +55,7 @@ fn main() {
     settings.set_output_write(true);
     settings.set_log_level(settings::LogLevel::DEBUG);
     setup_log(&settings).unwrap();
-    let data = data::read_pmetrics("examples/w_iov/test.csv").unwrap();
+    let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}
