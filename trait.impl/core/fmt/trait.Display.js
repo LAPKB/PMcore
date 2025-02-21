@@ -1,5 +1,5 @@
 (function() {
-    var implementors = Object.fromEntries([["pmcore",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.84.1/core/fmt/trait.Display.html\" title=\"trait core::fmt::Display\">Display</a> for <a class=\"enum\" href=\"pmcore/routines/settings/enum.LogLevel.html\" title=\"enum pmcore::routines::settings::LogLevel\">LogLevel</a>"]]]]);
+    var implementors = Object.fromEntries([["pmcore",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.85.0/core/fmt/trait.Display.html\" title=\"trait core::fmt::Display\">Display</a> for <a class=\"enum\" href=\"pmcore/routines/settings/enum.LogLevel.html\" title=\"enum pmcore::routines::settings::LogLevel\">LogLevel</a>"]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
