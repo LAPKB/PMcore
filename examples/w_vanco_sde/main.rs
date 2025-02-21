@@ -4,8 +4,6 @@ use pmcore::prelude::{
 };
 
 fn main() {
-    //% cp ~/Documents/CHLA/IOV2024/vanco_PICU.csv ./test.csv
-    //% cargo run --release --example vanco_sde
 
     let sde = equation::SDE::new(
         |x, p, _t, dx, _rateiv, _cov| {
@@ -83,12 +81,7 @@ fn main() {
     settings.set_log_level(settings::LogLevel::DEBUG);
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/w_vanco_sde/vanco_clean.csv").unwrap();
-    // let data = data.filter_exclude(vec![
-    //     "113", "13", "135", "146", "159", "169", "178", "186", "191", "193", "195", "209", "219",
-    //     "23", "242", "244", "250", "251", "261", "284", "287", "289", "291", "293", "302", "304",
-    //     "305", "308", "312", "314", "36", "51", "66", "7", "73", "78", "84", "89", "97", "175",
-    //     "225", "25",
-    // ]);
+
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}
