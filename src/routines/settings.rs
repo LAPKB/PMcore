@@ -156,6 +156,10 @@ impl Settings {
         self.error.poly = poly;
     }
 
+    pub fn set_error_value(&mut self, value: f64) {
+        self.error.value = value;
+    }
+
     pub fn set_idelta(&mut self, idelta: f64) {
         self.predictions.idelta = idelta;
     }

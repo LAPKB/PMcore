@@ -64,6 +64,10 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         &self.settings
     }
 
+    fn equation(&self) -> &E {
+        &self.equation
+    }
+
     fn get_data(&self) -> &Data {
         &self.data
     }
