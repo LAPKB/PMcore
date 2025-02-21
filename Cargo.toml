@@ -33,8 +33,7 @@ tracing-subscriber = { version = "0.3.17", features = [
 config = { version = "0.15", features = ["preserve_order"] }
 faer = "0.19.3"
 faer-ext = { version = "0.2.0", features = ["nalgebra", "ndarray"] }
-# pharmsol = "0.7.4"
-pharmsol = { path = "../pharmsol" }
+pharmsol = "0.7.6"
 rand = "0.9.0"
 anyhow = "1.0.86"
 

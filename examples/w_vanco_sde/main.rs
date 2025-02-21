@@ -33,7 +33,7 @@ fn main() {
             y[0] = x[1] / (vol * wt);
         },
         (4, 1),
-        11,
+        100,
     );
 
     // let ode = equation::ODE::new(
@@ -67,15 +67,15 @@ fn main() {
         .unwrap();
 
     settings.set_parameters(params);
-    settings.set_cycles(10);
+    settings.set_cycles(usize::MAX);
     settings.set_cache(true);
     settings.set_error_poly((0.00119, 0.20, 0.0, 0.0));
-    settings.set_error_value(1.0);
+    settings.set_error_value(2.5516439936509987);
     settings.set_error_type(ErrorType::Add);
     settings.set_output_path("examples/w_vanco_sde/output");
     settings.set_prior(Prior {
         sampler: "sobol".to_string(),
-        points: 10000,
+        points: 100,
         seed: 347,
         file: None,
     });
