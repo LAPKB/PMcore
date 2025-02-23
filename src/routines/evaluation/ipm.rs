@@ -97,7 +97,7 @@ pub fn burke(
         let uph = uph.t();
         let smuyinv = smu * (&ecol / &y);
         let rhsdw = &erow / &w - (psi.dot(&smuyinv));
-        let a = rhsdw.clone().into_shape((rhsdw.len(), 1))?;
+        let a = rhsdw.clone().into_shape_with_order((rhsdw.len(), 1))?;
 
         let x = uph
             .t()
