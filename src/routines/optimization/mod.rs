@@ -17,10 +17,10 @@ pub struct SppOptimizer<'a, E: Equation> {
 }
 
 impl<'a, E: Equation> CostFunction for SppOptimizer<'a, E> {
-    type Param = Array1<f64>;
+    type Param = Vec<f64>;
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
-        let theta = spp.to_owned().insert_axis(Axis(0));
+        let theta = Array1::from(spp.clone()).insert_axis(Axis(0));
 
         let psi = psi(self.equation, self.data, &theta, self.sig, false, false);
 
@@ -53,17 +53,17 @@ impl<'a, E: Equation> SppOptimizer<'a, E> {
         }
     }
     pub fn optimize_point(self, spp: Array1<f64>) -> Result<Array1<f64>, Error> {
-        let simplex = create_initial_simplex(&spp);
+        let simplex = create_initial_simplex(&spp.to_vec());
         let solver = NelderMead::new(simplex).with_sd_tolerance(1e-2)?;
         let res = Executor::new(self, solver)
             .configure(|state| state.max_iters(5))
             // .add_observer(SlogLogger::term(), ObserverMode::Always)
             .run()?;
-        Ok(res.state.best_param.unwrap())
+        Ok(Array1::from(res.state.best_param.unwrap()))
     }
 }
 
-fn create_initial_simplex(initial_point: &Array1<f64>) -> Vec<Array1<f64>> {
+fn create_initial_simplex(initial_point: &[f64]) -> Vec<Vec<f64>> {
     let num_dimensions = initial_point.len();
     let perturbation_percentage = 0.008;
 
@@ -71,7 +71,7 @@ fn create_initial_simplex(initial_point: &Array1<f64>) -> Vec<Array1<f64>> {
     let mut vertices = Vec::new();
 
     // Add the initial point to the vertices
-    vertices.push(initial_point.to_owned());
+    vertices.push(initial_point.to_vec());
 
     // Calculate perturbation values for each component
     for i in 0..num_dimensions {
