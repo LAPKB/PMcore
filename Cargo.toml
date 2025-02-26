@@ -1,6 +1,6 @@
 [package]
 name = "pmcore"
-version = "0.7.2"
+version = "0.7.6"
 edition = "2021"
 authors = [
     "Julián D. Otálvaro <juliandavid347@gmail.com>",
@@ -16,12 +16,11 @@ exclude = [".github/*", ".vscode/*"]
 
 [dependencies]
 csv = "1.2.1"
-ndarray = { version = "0.15.6", features = ["rayon"] }
+ndarray = { version = "0.16.1", features = ["rayon"] }
 serde = "1.0.188"
-serde_derive = "1.0.188"
 serde_json = "1.0.66"
 sobol_burley = "0.5.0"
-ndarray-stats = "0.5.1"
+ndarray-stats = "0.6.0"
 linfa-linalg = "0.2.0"
 argmin = { version = "0.10.0", features = [] }
 argmin-math = { version = "0.4.0", features = ["ndarray_v0_15-nolinalg"] }
@@ -32,10 +31,9 @@ tracing-subscriber = { version = "0.3.17", features = [
     "time",
 ] }
 config = { version = "0.15", features = ["preserve_order"] }
-faer = "0.19.3"
-faer-ext = { version = "0.2.0", features = ["nalgebra", "ndarray"] }
-pharmsol = "0.7.2"
-toml = "0.8.14" #REMOVE
+faer = "0.20.2"
+faer-ext = { version = "0.4.1", features = ["nalgebra", "ndarray"] }
+pharmsol = "0.7.6"
 rand = "0.9.0"
 anyhow = "1.0.86"
 
@@ -45,8 +43,9 @@ codegen-units = 1
 opt-level = 3
 
 [dev-dependencies]
-diol = "0.8.2"
+criterion = { version = "0.5" }
+
 
 [[bench]]
+name = "bimodal_ke"
 harness = false
-name = "compare"

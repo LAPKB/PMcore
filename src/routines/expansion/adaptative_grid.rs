@@ -1,6 +1,6 @@
 use ndarray::{Array, Array2};
 
-use crate::algorithms::routines::condensation::prune::prune;
+use crate::routines::condensation::prune;
 
 /// Implements the adaptive grid algorithm for support point expansion.
 ///

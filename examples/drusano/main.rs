@@ -4,7 +4,10 @@ use argmin::{
     solver::neldermead::NelderMead,
 };
 use logger::setup_log;
-use pmcore::prelude::*;
+use pmcore::{
+    prelude::*,
+    routines::{logger, settings},
+};
 use std::process::exit;
 #[allow(unused_variables)]
 fn main() {
@@ -84,14 +87,7 @@ fn main() {
     let data = data::read_pmetrics("examples/drusano/data.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     algorithm.initialize().unwrap();
-    while !match algorithm.next_cycle() {
-        Ok(converged) => converged,
-        Err((e, result)) => {
-            eprintln!("{}", e);
-            result.write_outputs().unwrap();
-            panic!("Error during cycle");
-        }
-    } {}
+    algorithm.fit().unwrap();
     // while !algorithm.next_cycle().unwrap() {}
     let result = algorithm.into_npresult();
     result.write_outputs().unwrap();

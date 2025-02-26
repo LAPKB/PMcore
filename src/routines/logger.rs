@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use crate::algorithms::routines::settings::Settings;
-use crate::prelude::output::OutputFile;
+use crate::routines::output::OutputFile;
+use crate::routines::settings::Settings;
 use anyhow::Result;
 use tracing_subscriber::fmt::time::FormatTime;
 use tracing_subscriber::fmt::{self};
@@ -18,12 +18,10 @@ use tracing_subscriber::EnvFilter;
 ///
 /// If `log_out` is specifified in the configuration file, a log file is created with the specified name.
 ///
-/// Additionally, if the `tui` option is set to `true`, the log messages are also written to the TUI.
-///
 /// If not, the log messages are written to stdout.
 pub fn setup_log(settings: &Settings) -> Result<()> {
     // Use the log level defined in configuration file
-    let log_level = settings.log.level.as_str();
+    let log_level = settings.log().level.clone();
     let env_filter = EnvFilter::new(log_level);
 
     let timestamper = CompactTimestamp {
@@ -34,7 +32,7 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
     let subscriber = Registry::default().with(env_filter);
 
     // Define outputfile
-    let outputfile = OutputFile::new(&settings.output.path, &settings.log.file)?;
+    let outputfile = OutputFile::new(&settings.output().path, &settings.log().file)?;
 
     // Define layer for file
     let file_layer = fmt::layer()
