@@ -36,6 +36,8 @@ faer-ext = { version = "0.2.0", features = ["nalgebra", "ndarray"] }
 pharmsol = "0.7.6"
 rand = "0.9.0"
 anyhow = "1.0.86"
+plotly = "0.12.1"
+rand_distr = "0.5.1"
 
 
 [profile.release]

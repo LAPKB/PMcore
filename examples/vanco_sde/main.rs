@@ -1,5 +1,5 @@
 use pmcore::prelude::{
-    settings::{Parameters, Prior, Settings},
+    settings::{Convergence, Parameters, Prior, Settings},
     *,
 };
 

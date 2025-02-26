@@ -47,10 +47,24 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
         .with_target(false)
         .with_timer(timestamper.clone());
 
-    // Combine layers with subscriber
-    subscriber.with(file_layer).with(stdout_layer).init();
+    // Try to set the subscriber
+    let result = subscriber.with(file_layer).with(stdout_layer).try_init();
+
+    if result.is_err() {
+        // If there's already a subscriber, ignore the error
+        tracing::warn!("Logger was already initialized");
+    }
 
     Ok(())
+}
+
+/// Cleanup logging setup
+///
+/// This function removes the global logging subscriber that was set up by `setup_log`.
+/// It's recommended to call this function when shutting down the application to ensure
+/// proper cleanup of logging resources.
+pub fn unsubscribe_log() {
+    let _ = tracing::subscriber::set_global_default(tracing::subscriber::NoSubscriber::default());
 }
 
 #[derive(Clone)]
