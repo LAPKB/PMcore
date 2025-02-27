@@ -1,4 +1,5 @@
-use ndarray::{Array1, Array2};
+use faer::Mat;
+use faer::Row;
 
 /// Prunes the `theta` array based on the `candidate` array and `limits`.
 ///
@@ -14,26 +15,35 @@ use ndarray::{Array1, Array2};
 /// * `candidate` - Candidate support point.
 /// * `limits` - (min, max) limits for each dimension.
 /// * `min_dist` - The minimum allowed distance between the candidate and the current support points.
-pub fn prune(
-    theta: &mut Array2<f64>,
-    candidate: Array1<f64>,
-    limits: &[(f64, f64)],
-    min_dist: f64,
-) {
-    for spp in theta.rows() {
+pub fn prune(theta: &mut Mat<f64>, candidate: Row<f64>, limits: &[(f64, f64)], min_dist: f64) {
+    for spp in theta.row_iter() {
         let mut dist: f64 = 0.;
-        for (i, val) in candidate.clone().into_iter().enumerate() {
-            dist += (val - spp.get(i).unwrap()).abs() / (limits[i].1 - limits[i].0);
+        for (i, val) in candidate.clone().iter().enumerate() {
+            dist += (val - spp.get(i)).abs() / (limits[i].1 - limits[i].0);
         }
         if dist <= min_dist {
-            // panic!("point discarded");
-            // tracing::debug!(
-            //     "Prune: Rejected point:{}. Too close to existing support points dist:{}.",
-            //     candidate,
-            //     dist
-            // );
+            tracing::debug!(
+                 "Prune rejected point {:#?} for being too close to an existing support points (distance {} >= {}.",
+                 candidate,
+                 dist,
+                    min_dist
+            );
             return;
         }
     }
-    theta.push_row(candidate.view()).unwrap();
+
+    // Convert the candidate Row to a 1xN matrix
+    let row = candidate;
+
+    // Create a new matrix by vertical concatenation
+    let new_theta = Mat::<f64>::from_fn(theta.nrows() + 1, theta.ncols(), |i, j| {
+        if i < theta.nrows() {
+            *theta.get(i, j)
+        } else {
+            *row.get(j)
+        }
+    });
+
+    // Update the original matrix with the new concatenated matrix
+    *theta = new_theta;
 }
