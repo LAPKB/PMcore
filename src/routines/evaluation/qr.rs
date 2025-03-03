@@ -3,7 +3,6 @@ use ndarray::parallel::prelude::*;
 use ndarray::{Array2, Axis};
 
 use faer::linalg::solvers::ColPivQr;
-use faer::perm::PermRef;
 use faer::MatRef;
 
 pub fn calculate_r(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
@@ -24,7 +23,6 @@ pub fn calculate_r(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
     let r = r_mat.as_ref().into_ndarray().to_owned();
 
     // Get the permutation information
-    let perm: PermRef<'_, usize> = qr.P();
-    let perm_vec: Vec<usize> = perm.as_ref().into();
+    let perm = qr.P().arrays().0.to_vec();
     (r, perm)
 }
