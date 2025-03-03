@@ -31,8 +31,8 @@ tracing-subscriber = { version = "0.3.17", features = [
     "time",
 ] }
 config = { version = "0.15", features = ["preserve_order"] }
-faer = "0.20.2"
-faer-ext = { version = "0.4.1", features = ["nalgebra", "ndarray"] }
+faer = "0.21.5"
+faer-ext = { version = "0.5.0", features = ["nalgebra", "ndarray"] }
 pharmsol = "0.7.6"
 rand = "0.9.0"
 anyhow = "1.0.86"
