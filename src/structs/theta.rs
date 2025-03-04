@@ -5,7 +5,7 @@ use ndarray::{Array2, ArrayView2};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Theta {
-    matrix: Mat<f64>,
+    matrix: Mat<f64>, 
 }
 
 impl Theta {
