@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-use pmcore::prelude::*;
+use pmcore::{prelude::*, routines::settings};
 
 fn main() {
     let eq = equation::ODE::new(
@@ -31,7 +31,24 @@ fn main() {
         },
         (2, 2),
     );
-    let settings = settings::read("examples/meta/config.toml").unwrap();
+
+    let params = Parameters::builder()
+        .add("cls", 0.1, 10.0, true)
+        .add("fm", 0.0, 1.0, true)
+        .add("k20", 0.01, 1.0, true)
+        .add("relv", 0.1, 1.0, true)
+        .add("theta1", 0.1, 10.0, true)
+        .add("theta2", 0.1, 10.0, true)
+        .add("vs", 1.0, 10.0, true)
+        .build()
+        .unwrap();
+
+    let settings = Settings::builder()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_model(ErrorModel::Proportional, 5.0, (1.0, 0.1, 0.0, 0.0))
+        .build();
+
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();

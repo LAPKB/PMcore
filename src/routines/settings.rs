@@ -1,7 +1,6 @@
 use super::output::OutputFile;
 use crate::algorithms::Algorithm;
 use anyhow::{bail, Result};
-use config::Config as eConfig;
 use pharmsol::prelude::data::ErrorType;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -9,7 +8,7 @@ use std::fmt::Display;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(deny_unknown_fields, default)]
+#[serde(deny_unknown_fields)]
 pub struct Settings {
     /// General configuration settings
     config: Config,
@@ -31,33 +30,17 @@ pub struct Settings {
     advanced: Advanced,
 }
 
-impl Default for Settings {
-    fn default() -> Self {
-        Settings {
-            config: Config::default(),
-            parameters: Parameters::new(),
-            error: Error::default(),
-            predictions: Predictions::default(),
-            log: Log::default(),
-            prior: Prior::default(),
-            convergence: Convergence::default(),
-            output: Output::default(),
-            advanced: Advanced::default(),
-        }
-    }
-}
-
 impl Settings {
+    /// Create a new [SettingsBuilder]
+    pub fn builder() -> SettingsBuilder<InitialState> {
+        SettingsBuilder::new()
+    }
+
     /// Validate the settings
     pub fn validate(&self) -> Result<()> {
         self.error.validate()?;
         self.predictions.validate()?;
         Ok(())
-    }
-
-    /// Create a new settings object with default values
-    pub fn new() -> Self {
-        Settings::default()
     }
 
     pub fn set_config(&mut self, config: Config) {
@@ -142,22 +125,6 @@ impl Settings {
 
     pub fn set_cache(&mut self, cache: bool) {
         self.config.cache = cache;
-    }
-
-    pub fn set_gamlam(&mut self, value: f64) {
-        self.error.value = value;
-    }
-
-    pub fn set_error_type(&mut self, class: ErrorType) {
-        self.error.class = class;
-    }
-
-    pub fn set_error_poly(&mut self, poly: (f64, f64, f64, f64)) {
-        self.error.poly = poly;
-    }
-
-    pub fn set_error_value(&mut self, value: f64) {
-        self.error.value = value;
     }
 
     pub fn set_idelta(&mut self, idelta: f64) {
@@ -271,7 +238,7 @@ impl Parameter {
 /// This structure contains information on all [Parameter]s to be estimated
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Parameters {
-    parameters: Vec<(String, Parameter)>,
+    parameters: Vec<Parameter>,
 }
 
 impl Parameters {
@@ -290,30 +257,19 @@ impl Parameters {
     // Get a parameter by name
     pub fn get(&self, name: impl Into<String>) -> Option<&Parameter> {
         let name = name.into();
-        self.parameters
-            .iter()
-            .find(|(n, _)| n == &name)
-            .map(|(_, p)| p)
+        self.parameters.iter().find(|p| p.name == name)
     }
 
     /// Get the names of the parameters
     pub fn names(&self) -> Vec<String> {
-        self.parameters
-            .iter()
-            .map(|(name, _)| name.clone())
-            .collect()
+        self.parameters.iter().map(|p| p.name.clone()).collect()
     }
-
     /// Get the ranges of the parameters
     ///
     /// Returns a vector of tuples, where each tuple contains the lower and upper bounds of the parameter
     pub fn ranges(&self) -> Vec<(f64, f64)> {
-        self.parameters
-            .iter()
-            .map(|(_, p)| (p.lower, p.upper))
-            .collect()
+        self.parameters.iter().map(|p| (p.lower, p.upper)).collect()
     }
-
     pub fn len(&self) -> usize {
         self.parameters.len()
     }
@@ -322,25 +278,23 @@ impl Parameters {
         self.parameters.is_empty()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, (String, Parameter)> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Parameter> {
         self.parameters.iter()
     }
 }
 
 impl IntoIterator for Parameters {
-    type Item = (String, Parameter);
-    type IntoIter = std::vec::IntoIter<(String, Parameter)>;
+    type Item = Parameter;
+    type IntoIter = std::vec::IntoIter<Parameter>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.parameters.into_iter()
     }
 }
-
 /// Builder for creating a set of parameters
 pub struct ParametersBuilder {
-    parameters: Vec<(String, Parameter)>,
+    parameters: Vec<Parameter>,
 }
-
 impl ParametersBuilder {
     pub fn new() -> Self {
         Self {
@@ -351,15 +305,29 @@ impl ParametersBuilder {
     pub fn add(mut self, name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Self {
         let name_string = name.into();
         if let Ok(parameter) = Parameter::new(&name_string, lower, upper, fixed) {
-            self.parameters.push((name_string, parameter));
+            self.parameters.push(parameter);
         }
         self
     }
-
     pub fn build(self) -> Result<Parameters> {
         Ok(Parameters {
             parameters: self.parameters,
         })
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub enum ErrorModel {
+    Additive,
+    Proportional,
+}
+
+impl From<ErrorModel> for ErrorType {
+    fn from(error_model: ErrorModel) -> ErrorType {
+        match error_model {
+            ErrorModel::Additive => ErrorType::Add,
+            ErrorModel::Proportional => ErrorType::Prop,
+        }
     }
 }
 
@@ -370,8 +338,7 @@ pub struct Error {
     /// The initial value of `gamma` or `lambda`
     pub value: f64,
     /// The error class, either `additive` or `proportional`
-    #[serde(skip)]
-    pub class: ErrorType,
+    pub model: ErrorModel,
     /// The assay error polynomial
     pub poly: (f64, f64, f64, f64),
 }
@@ -380,18 +347,18 @@ impl Default for Error {
     fn default() -> Self {
         Error {
             value: 0.0,
-            class: ErrorType::Add,
+            model: ErrorModel::Additive,
             poly: (0.0, 0.1, 0.0, 0.0),
         }
     }
 }
 
 impl Error {
-    pub fn new(value: f64, class: ErrorType, poly: (f64, f64, f64, f64)) -> Self {
-        Error { value, class, poly }
+    fn new(value: f64, model: ErrorModel, poly: (f64, f64, f64, f64)) -> Self {
+        Error { value, model, poly }
     }
 
-    pub fn validate(&self) -> Result<()> {
+    fn validate(&self) -> Result<()> {
         if self.value < 0.0 {
             bail!(format!(
                 "Error value must be non-negative, got {}",
@@ -401,8 +368,8 @@ impl Error {
         Ok(())
     }
 
-    pub fn error_type(&self) -> ErrorType {
-        self.class.clone()
+    pub fn error_model(&self) -> ErrorModel {
+        self.model.clone()
     }
 }
 
@@ -659,38 +626,6 @@ impl Output {
     }
 }
 
-/// Parses the settings from a TOML configuration file
-///
-/// This function parses the settings from a TOML configuration file. The settings are validated, and a copy of the settings is written to file.
-///
-/// Entries in the TOML file may be overridden by environment variables. The environment variables must be prefixed with `PMCORE_`, and the TOML entry must be in uppercase. For example, the TUI may be disabled by setting the environment variable `PMCORE_CONFIG_TUI=false` A single underscore, `_`, is used as the separator for nested entries.
-pub fn read(path: impl Into<String>) -> Result<Settings, anyhow::Error> {
-    let settings_path = path.into();
-
-    let parsed = eConfig::builder()
-        .add_source(config::File::with_name(&settings_path).format(config::FileFormat::Toml))
-        .add_source(config::Environment::with_prefix("PMCORE").separator("_"))
-        .build()?;
-
-    // Deserialize settings to the Settings struct
-    let mut settings: Settings = parsed.try_deserialize()?;
-
-    // Validate entries
-    settings.validate()?;
-
-    // Parse the output folder
-    settings.output.parse_output_folder()?;
-
-    // Write a copy of the settings to file if output is enabled
-    if settings.output.write {
-        if let Err(error) = settings.write() {
-            bail!("Could not write settings to file: {}", error);
-        }
-    }
-
-    Ok(settings) // Return the settings wrapped in Ok
-}
-
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
     parameters: Option<Parameters>,
@@ -777,7 +712,14 @@ impl SettingsBuilder<AlgorithmSet> {
 
 // Parameters are set, move to defining error model
 impl SettingsBuilder<ParametersSet> {
-    pub fn set_error_model(self, error: Error) -> SettingsBuilder<ErrorSet> {
+    pub fn set_error_model(
+        self,
+        model: ErrorModel,
+        value: f64,
+        poly: (f64, f64, f64, f64),
+    ) -> SettingsBuilder<ErrorSet> {
+        let error = Error::new(value, model, poly);
+
         SettingsBuilder {
             config: self.config,
             parameters: self.parameters,
@@ -795,46 +737,6 @@ impl SettingsBuilder<ParametersSet> {
 
 // Error model is set, allow optional settings and final build
 impl SettingsBuilder<ErrorSet> {
-    pub fn set_cycles(mut self, cycles: usize) -> Self {
-        self.config.as_mut().unwrap().cycles = cycles;
-        self
-    }
-
-    pub fn set_cache(mut self, cache: bool) -> Self {
-        self.config.as_mut().unwrap().cache = cache;
-        self
-    }
-
-    pub fn set_predictions(mut self, predictions: Predictions) -> Self {
-        self.predictions = Some(predictions);
-        self
-    }
-
-    pub fn set_log(mut self, log: Log) -> Self {
-        self.log = Some(log);
-        self
-    }
-
-    pub fn set_prior(mut self, prior: Prior) -> Self {
-        self.prior = Some(prior);
-        self
-    }
-
-    pub fn set_output(mut self, output: Output) -> Self {
-        self.output = Some(output);
-        self
-    }
-
-    pub fn set_convergence(mut self, convergence: Convergence) -> Self {
-        self.convergence = Some(convergence);
-        self
-    }
-
-    pub fn set_advanced(mut self, advanced: Advanced) -> Self {
-        self.advanced = Some(advanced);
-        self
-    }
-
     pub fn build(self) -> Settings {
         Settings {
             config: self.config.unwrap(),
@@ -855,7 +757,6 @@ impl SettingsBuilder<ErrorSet> {
 mod tests {
     use super::*;
     use crate::algorithms::Algorithm;
-    use pharmsol::prelude::data::ErrorType;
 
     #[test]
     fn test_builder() {
@@ -865,17 +766,13 @@ mod tests {
             .build()
             .unwrap();
 
-        let settings = SettingsBuilder::new()
+        let mut settings = SettingsBuilder::new()
             .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm
             .set_parameters(parameters) // Step 2: Define parameters
-            .set_error_model(Error {
-                value: 0.1,
-                class: ErrorType::Add,
-                poly: (0.0, 0.1, 0.0, 0.0),
-            }) // Step 3: Define error model
-            .set_cycles(100) // Optional: Set cycles
-            .set_cache(true) // Optional: Set cache
-            .build(); // Final step
+            .set_error_model(ErrorModel::Additive, 5.0, (0.0, 0.1, 0.0, 0.0))
+            .build();
+
+        settings.set_cycles(100);
 
         assert_eq!(settings.config.algorithm, Algorithm::NPAG);
         assert_eq!(settings.config.cycles, 100);
