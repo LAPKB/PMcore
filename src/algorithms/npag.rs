@@ -5,6 +5,7 @@ pub use crate::routines::evaluation::qr;
 use crate::routines::settings::Settings;
 
 use crate::routines::output::{CycleLog, NPCycle, NPResult};
+use crate::structs::theta::Theta;
 
 use anyhow::bail;
 use anyhow::Result;
@@ -30,7 +31,7 @@ pub struct NPAG<E: Equation> {
     equation: E,
     ranges: Vec<(f64, f64)>,
     psi: Array2<f64>,
-    theta: Array2<f64>,
+    theta: Theta,
     lambda: Array1<f64>,
     w: Array1<f64>,
     eps: f64,
@@ -54,7 +55,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             equation,
             ranges: settings.parameters().ranges(),
             psi: Array2::default((0, 0)),
-            theta: Array2::zeros((0, 0)),
+            theta: Theta::new(),
             lambda: Array1::default(0),
             w: Array1::default(0),
             eps: 0.2,
@@ -80,7 +81,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         NPResult::new(
             self.equation.clone(),
             self.data.clone(),
-            self.theta.clone(),
+            self.theta.matrix_ndarray().clone(),
             self.psi.clone(),
             self.w.clone(),
             -2. * self.objf,
@@ -99,8 +100,10 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         &self.data
     }
 
-    fn get_prior(&self) -> Array2<f64> {
-        initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
+    fn get_prior(&self) -> Theta {
+        initialization::sample_space(&self.settings, &self.data, &self.equation)
+            .unwrap()
+            .into()
     }
 
     fn likelihood(&self) -> f64 {
@@ -116,11 +119,11 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         self.cycle
     }
 
-    fn set_theta(&mut self, theta: Array2<f64>) {
+    fn set_theta(&mut self, theta: Theta) {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Array2<f64> {
+    fn get_theta(&self) -> &Theta {
         &self.theta
     }
 
@@ -161,8 +164,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             cycle: self.cycle,
             objf: -2. * self.objf,
             delta_objf: (self.last_objf - self.objf).abs(),
-            nspp: self.theta.shape()[0],
-            theta: self.theta.clone(),
+            nspp: self.theta.nspp(),
+            theta: self.theta.matrix_ndarray(),
             gamlam: self.gamma,
             converged: self.converged,
         };
@@ -180,7 +183,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         self.psi = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &self.theta.matrix_ndarray(),
             &ErrorModel::new(self.settings.error().poly, self.gamma, &self.error_type),
             self.cycle == 1 && self.settings.log().write,
             self.cycle != 1,
@@ -218,7 +221,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             );
         }
 
-        self.theta = self.theta.select(Axis(0), &keep);
+        self.theta = self.theta.matrix_ndarray().select(Axis(0), &keep).into();
         self.psi = self.psi.select(Axis(1), &keep);
 
         //Rank-Revealing Factorization
@@ -243,7 +246,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             );
         }
 
-        self.theta = self.theta.select(Axis(0), &keep);
+        self.theta = self.theta.matrix_ndarray().select(Axis(0), &keep).into();
         self.psi = self.psi.select(Axis(1), &keep);
 
         (self.lambda, self.objf) = match burke(&self.psi) {
@@ -265,7 +268,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         let psi_up = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &self.theta.matrix_ndarray(),
             &ErrorModel::new(self.settings.error().poly, gamma_up, &self.error_type),
             false,
             true,
@@ -273,7 +276,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         let psi_down = psi(
             &self.equation,
             &self.data,
-            &self.theta,
+            &self.theta.matrix_ndarray(),
             &ErrorModel::new(self.settings.error().poly, gamma_down, &self.error_type),
             false,
             true,
@@ -318,7 +321,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
 
     fn logs(&self) {
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
-        tracing::debug!("Support points: {}", self.theta.shape()[0]);
+        tracing::debug!("Support points: {}", self.theta.nspp());
         tracing::debug!("Gamma = {:.16}", self.gamma);
         tracing::debug!("EPS = {:.4}", self.eps);
         // Increasing objf signals instability or model misspecification.
@@ -333,7 +336,12 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn expansion(&mut self) -> Result<()> {
-        adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
+        adaptative_grid(
+            &mut self.theta.matrix_ndarray(),
+            self.eps,
+            &self.ranges,
+            THETA_D,
+        );
         Ok(())
     }
 }

@@ -55,9 +55,6 @@ fn main() {
     alg_ode.write_psi("examples/bimodal_ke/psi_ode.csv");
     alg_an.write_psi("examples/bimodal_ke/psi_an.csv");
 
-    alg_ode.write_theta("examples/bimodal_ke/theta_ode.csv");
-    alg_an.write_theta("examples/bimodal_ke/theta_an.csv");
-
     let psi_ode = alg_ode.psi().clone();
     let psi_an = alg_an.psi().clone();
 
