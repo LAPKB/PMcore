@@ -65,7 +65,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             cycle: 0,
             gamma_delta: 0.1,
             gamma: settings.error().value,
-            error_type: settings.error().error_type(),
+            error_type: settings.error().error_model().into(),
             converged: false,
             cycle_log: CycleLog::new(),
             settings,

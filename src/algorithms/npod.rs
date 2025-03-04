@@ -166,7 +166,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &ErrorModel::new(
                 self.settings.error().poly,
                 self.gamma,
-                &self.settings.error().error_type(),
+                &self.settings.error().error_model().into(),
             ),
             self.cycle == 1,
             self.cycle != 1,
@@ -255,7 +255,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &ErrorModel::new(
                 self.settings.error().poly,
                 self.gamma,
-                &self.settings.error().error_type(),
+                &self.settings.error().error_model().into(),
             ),
             false,
             true,
@@ -267,7 +267,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &ErrorModel::new(
                 self.settings.error().poly,
                 self.gamma,
-                &self.settings.error().error_type(),
+                &self.settings.error().error_model().into(),
             ),
             false,
             true,
@@ -327,7 +327,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let pyl = self.psi.dot(&self.w);
 
         // Add new point to theta based on the optimization of the D function
-        let error_type = self.settings.error().error_type();
+        let error_type = self.settings.error().error_model().into();
         let sigma = &ErrorModel::new(self.settings.error().poly, self.gamma, &error_type);
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();

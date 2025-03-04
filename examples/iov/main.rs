@@ -1,8 +1,5 @@
 use anyhow::Ok;
-use pmcore::prelude::{
-    settings::{Parameters, Prior, Settings},
-    *,
-};
+use pmcore::prelude::*;
 fn main() -> Result<()> {
     let sde = equation::SDE::new(
         |x, p, _t, dx, _rateiv, _cov| {
@@ -32,17 +29,22 @@ fn main() -> Result<()> {
         10000,
     );
 
-    let mut settings = Settings::new();
-
     let params = Parameters::builder()
         .add("ke0", 0.001, 2.0, false)
         .build()
         .unwrap();
-    settings.set_parameters(params);
+
+    let mut settings = Settings::builder()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_model(
+            ErrorModel::Additive,
+            0.0000757575757576,
+            (0.0, 0.0, 0.0, 0.0),
+        )
+        .build();
+
     settings.set_cycles(100000);
-    settings.set_error_poly((0.0, 0.0, 0.0, 0.0));
-    settings.set_error_type(ErrorType::Add);
-    settings.set_error_value(0.0000757575757576);
     settings.set_output_path("examples/iov/output");
     settings.set_prior(Prior {
         sampler: "sobol".to_string(),

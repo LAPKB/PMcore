@@ -88,7 +88,7 @@ pub trait Algorithms<E: Equation>: Sync {
             for index in &indices {
                 tracing::debug!("Subject with zero probability: {}", subject[*index].id());
 
-                let e_type = self.get_settings().error().error_type();
+                let e_type = self.get_settings().error().error_model().into();
 
                 let error_model = ErrorModel::new(
                     self.get_settings().error().poly,
