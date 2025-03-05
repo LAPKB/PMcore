@@ -20,8 +20,8 @@ fn main() -> Result<()> {
     );
 
     let params = Parameters::builder()
-        .add("ke", 0.001, 3.0, true)
-        .add("v", 25.0, 250.0, true)
+        .add("ke", 0.001, 3.0, false)
+        .add("v", 25.0, 250.0, false)
         .build()
         .unwrap();
 
@@ -33,6 +33,8 @@ fn main() -> Result<()> {
 
     settings.set_cycles(1000);
     settings.set_output_path("examples/bimodal_ke/output");
+
+    settings.write()?;
 
     setup_log(&settings)?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
