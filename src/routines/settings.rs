@@ -167,7 +167,7 @@ impl Settings {
         self.output.path = path.into();
     }
 
-    /// Writes a copy of the parsed settings to file
+    /// Writes a copy of the settings to file
     /// The is written to output folder specified in the [Output] and is named `settings.json`.
     pub fn write(&self) -> Result<()> {
         let serialized = serde_json::to_string_pretty(self)
@@ -470,11 +470,9 @@ impl Predictions {
 /// The log level, which can be one of the following:
 /// - `TRACE`
 /// - `DEBUG`
-/// - `INFO`
+/// - `INFO` (Default)
 /// - `WARN`
 /// - `ERROR`
-///
-/// The default log level is `INFO`
 #[derive(Debug, Deserialize, Clone, Serialize, Default)]
 pub enum LogLevel {
     TRACE,
@@ -518,14 +516,7 @@ impl Display for LogLevel {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Log {
-    /// The maximum log level to display
-    ///
-    /// The log level is defined as a string, and can be one of the following:
-    /// - `trace`
-    /// - `debug`
-    /// - `info`
-    /// - `warn`
-    /// - `error`
+    /// The maximum log level to display, as defined by [LogLevel]
     pub level: LogLevel,
     /// The file to write the log to
     pub file: String,
