@@ -216,22 +216,13 @@ pub struct Parameter {
 
 impl Parameter {
     /// Create a new parameter
-    pub fn new(name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Result<Self> {
-        if lower >= upper {
-            bail!(format!(
-                "In key '{}', lower bound ({}) is not less than upper bound ({})",
-                name.into(),
-                lower,
-                upper
-            ));
-        }
-
-        Ok(Self {
+    pub fn new(name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Self {
+        Self {
             name: name.into(),
             lower,
             upper,
             fixed,
-        })
+        }
     }
 }
 
@@ -242,16 +233,22 @@ pub struct Parameters {
 }
 
 impl Parameters {
-    /// Create a new set of parameters
     pub fn new() -> Self {
         Parameters {
             parameters: Vec::new(),
         }
     }
 
-    /// Create a new builder for parameters
-    pub fn builder() -> ParametersBuilder {
-        ParametersBuilder::new()
+    pub fn add(
+        mut self,
+        name: impl Into<String>,
+        lower: f64,
+        upper: f64,
+        fixed: bool,
+    ) -> Parameters {
+        let parameter = Parameter::new(name, lower, upper, fixed);
+        self.parameters.push(parameter);
+        self
     }
 
     // Get a parameter by name
@@ -289,30 +286,6 @@ impl IntoIterator for Parameters {
 
     fn into_iter(self) -> Self::IntoIter {
         self.parameters.into_iter()
-    }
-}
-/// Builder for creating a set of parameters
-pub struct ParametersBuilder {
-    parameters: Vec<Parameter>,
-}
-impl ParametersBuilder {
-    pub fn new() -> Self {
-        Self {
-            parameters: Vec::new(),
-        }
-    }
-
-    pub fn add(mut self, name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Self {
-        let name_string = name.into();
-        if let Ok(parameter) = Parameter::new(&name_string, lower, upper, fixed) {
-            self.parameters.push(parameter);
-        }
-        self
-    }
-    pub fn build(self) -> Result<Parameters> {
-        Ok(Parameters {
-            parameters: self.parameters,
-        })
     }
 }
 
@@ -751,11 +724,9 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        let parameters = Parameters::builder()
+        let parameters = Parameters::new()
             .add("Ke", 0.0, 5.0, false)
-            .add("V", 10.0, 200.0, true)
-            .build()
-            .unwrap();
+            .add("V", 10.0, 200.0, true);
 
         let mut settings = SettingsBuilder::new()
             .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm

@@ -20,10 +20,9 @@ fn create_equation() -> equation::ODE {
 }
 
 fn setup_simulation() -> Result<(Settings, equation::ODE, data::Data)> {
-    let params = Parameters::builder()
+    let params = Parameters::new()
         .add("ke", 0.001, 3.0, true)
-        .add("v", 25.0, 250.0, true)
-        .build()?;
+        .add("v", 25.0, 250.0, true);
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)

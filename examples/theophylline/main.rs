@@ -30,12 +30,10 @@ fn main() {
         (2, 1),
     );
 
-    let params = ParametersBuilder::new()
+    let params = Parameters::new()
         .add("ka", 0.001, 3.0, false)
         .add("ke", 0.001, 3.0, false)
-        .add("v", 0.001, 50.0, false)
-        .build()
-        .unwrap();
+        .add("v", 0.001, 50.0, false);
 
     let settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)

@@ -67,13 +67,11 @@ fn main() {
     //     (2, 1),
     // );
 
-    let params = Parameters::builder()
+    let params = Parameters::new()
         .add("ka", 0.1, 0.9, false)
         .add("ke", 0.001, 0.1, false)
         .add("tlag", 0.0, 4.0, false)
-        .add("v", 30.0, 120.0, false)
-        .build()
-        .unwrap();
+        .add("v", 30.0, 120.0, false);
 
     let settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)

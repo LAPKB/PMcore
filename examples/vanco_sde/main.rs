@@ -48,15 +48,13 @@ fn main() {
     //     (3, 1),
     // );
 
-    let params = Parameters::builder()
+    let params = Parameters::new()
         .add("ka", 0.0001, 2.4, false)
         .add("ke0", 0.0001, 2.7, false)
         .add("kcp", 0.0001, 2.4, false)
         .add("kpc", 0.0001, 2.4, false)
         .add("vol", 0.2, 12.0, false)
-        .add("ske", 0.0001, 0.2, false)
-        .build()
-        .unwrap();
+        .add("ske", 0.0001, 0.2, false);
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)

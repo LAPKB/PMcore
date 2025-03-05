@@ -81,7 +81,7 @@ fn main() -> Result<()> {
         (5, 5),
     );
 
-    let params = ParametersBuilder::new()
+    let params = Parameters::new()
         .add("v1", 5.0, 160.0, false)
         .add("cl1", 4.0, 9.0, false)
         .add("v2", 100.0, 200.0, false)
@@ -105,8 +105,7 @@ fn main() -> Result<()> {
         .add("h1s", 0.5, 8.0, false)
         .add("h2s", 0.1, 4.0, false)
         .add("h1r1", 5.0, 25.0, false)
-        .add("h2r2", 10.0, 22.0, false)
-        .build()?;
+        .add("h2r2", 10.0, 22.0, false);
 
     let mut settings = SettingsBuilder::new()
         .set_algorithm(Algorithm::NPAG)

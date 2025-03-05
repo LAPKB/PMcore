@@ -19,11 +19,9 @@ fn main() -> Result<()> {
         (1, 1),
     );
 
-    let params = Parameters::builder()
+    let params = Parameters::new()
         .add("ke", 0.001, 3.0, false)
-        .add("v", 25.0, 250.0, false)
-        .build()
-        .unwrap();
+        .add("v", 25.0, 250.0, false);
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)

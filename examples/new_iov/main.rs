@@ -29,11 +29,9 @@ fn main() {
         11,
     );
 
-    let params = Parameters::builder()
+    let params = Parameters::new()
         .add("ke0", 0.0001, 2.4, false)
-        .add("ske", 0.0001, 0.2, false)
-        .build()
-        .unwrap();
+        .add("ske", 0.0001, 0.2, false);
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
