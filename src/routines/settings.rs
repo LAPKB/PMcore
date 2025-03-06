@@ -5,6 +5,7 @@ use pharmsol::prelude::data::ErrorType;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fmt::Display;
+use std::path::PathBuf;
 
 /// Contains all settings for PMcore
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -43,16 +44,8 @@ impl Settings {
         Ok(())
     }
 
-    pub fn set_config(&mut self, config: Config) {
-        self.config = config;
-    }
-
     pub fn config(&self) -> &Config {
         &self.config
-    }
-
-    pub fn set_parameters(&mut self, parameters: Parameters) {
-        self.parameters = parameters;
     }
 
     pub fn parameters(&self) -> &Parameters {
@@ -67,16 +60,8 @@ impl Settings {
         &self.error
     }
 
-    pub fn set_predictions(&mut self, predictions: Predictions) {
-        self.predictions = predictions;
-    }
-
     pub fn predictions(&self) -> &Predictions {
         &self.predictions
-    }
-
-    pub fn set_log(&mut self, log: Log) {
-        self.log = log;
     }
 
     pub fn log(&self) -> &Log {
@@ -98,17 +83,8 @@ impl Settings {
     pub fn output(&self) -> &Output {
         &self.output
     }
-
-    pub fn set_convergence(&mut self, convergence: Convergence) {
-        self.convergence = convergence;
-    }
-
     pub fn convergence(&self) -> &Convergence {
         &self.convergence
-    }
-
-    pub fn set_advanced(&mut self, advanced: Advanced) {
-        self.advanced = advanced;
     }
 
     pub fn advanced(&self) -> &Advanced {
@@ -133,14 +109,6 @@ impl Settings {
 
     pub fn set_tad(&mut self, tad: f64) {
         self.predictions.tad = tad;
-    }
-
-    pub fn set_log_level(&mut self, level: LogLevel) {
-        self.log.level = level;
-    }
-
-    pub fn set_log_file(&mut self, file: String) {
-        self.log.file = file;
     }
 
     pub fn set_prior_sampler(&mut self, sampler: String) {
@@ -502,9 +470,11 @@ pub struct Log {
 
 impl Default for Log {
     fn default() -> Self {
+        let path = PathBuf::from("#/").to_string_lossy().to_string();
+
         Log {
             level: LogLevel::INFO,
-            file: String::from("log.txt"),
+            file: path,
             write: true,
         }
     }
@@ -550,9 +520,11 @@ pub struct Output {
 
 impl Default for Output {
     fn default() -> Self {
+        let path = PathBuf::from("outputs/").to_string_lossy().to_string();
+
         Output {
-            write: true,
-            path: String::from("outputs/"),
+            write: false,
+            path: path,
         }
     }
 }
@@ -561,32 +533,14 @@ impl Output {
     /// Parses the output folder location
     ////
     /// If a `#` symbol is found, it will automatically increment the number by one.
-    pub fn parse_output_folder(&mut self) -> Result<()> {
-        if self.path.is_empty() || self.path.is_empty() {
-            // Set a default path if none is provided
-            self.path = Output::default().path;
+    fn parse_output_folder(&mut self) -> String {
+        let mut path: String = self.path.clone().into();
+        let mut num = 1;
+        while std::path::Path::new(&path.replace("#", &num.to_string())).exists() {
+            num += 1;
         }
-
-        let folder = &self.path;
-
-        // Check for the `#` symbol to replace with an incremented number
-        let count = folder.matches('#').count();
-        match count {
-            0 => Ok(()),
-            1 => {
-                let mut folder = folder.clone();
-                let mut num = 1;
-                while std::path::Path::new(&folder.replace("#", &num.to_string())).exists() {
-                    num += 1;
-                }
-                folder = folder.replace("#", &num.to_string());
-                self.path = folder;
-                Ok(())
-            }
-            _ => {
-                bail!("Only one `#` symbol is allowed in the setting folder path. Rename the `output_folder` setting in the configuration file and re-run the program.")
-            }
-        }
+        path = path.replace("#", &num.to_string());
+        path
     }
 }
 
@@ -702,7 +656,7 @@ impl SettingsBuilder<ParametersSet> {
 // Error model is set, allow optional settings and final build
 impl SettingsBuilder<ErrorSet> {
     pub fn build(self) -> Settings {
-        Settings {
+        let settings = Settings {
             config: self.config.unwrap(),
             parameters: self.parameters.unwrap(),
             error: self.error.unwrap(),
@@ -712,7 +666,9 @@ impl SettingsBuilder<ErrorSet> {
             output: self.output.unwrap_or_default(),
             convergence: self.convergence.unwrap_or_default(),
             advanced: self.advanced.unwrap_or_default(),
-        }
+        };
+
+        settings
     }
 }
 
