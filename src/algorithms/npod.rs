@@ -7,7 +7,7 @@ use crate::{
             settings::Settings,
         },
     },
-    structs::theta::Theta,
+    structs::{psi::calculate_psi, theta::Theta},
 };
 use anyhow::bail;
 use anyhow::Result;
@@ -72,7 +72,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         NPResult::new(
             self.equation.clone(),
             self.data.clone(),
-            self.theta.matrix_ndarray(),
+            self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
             -2. * self.objf,
@@ -150,7 +150,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             objf: -2. * self.objf,
             delta_objf: (self.last_objf - self.objf).abs(),
             nspp: self.theta.nspp(),
-            theta: self.theta.matrix_ndarray(),
+            theta: self.theta.clone(),
             gamlam: self.gamma,
             converged: self.converged,
         };
@@ -165,10 +165,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        self.psi = psi(
+        self.psi = calculate_psi(
             &self.equation,
             &self.data,
-            &self.theta.matrix_ndarray(),
+            &self.theta,
             &ErrorModel::new(
                 self.settings.error().poly,
                 self.gamma,
@@ -210,7 +210,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             );
         }
 
-        self.theta = self.theta.matrix_ndarray().select(Axis(0), &keep).into();
+        self.theta.filter_indices(keep.as_slice());
         self.psi = self.psi.select(Axis(1), &keep);
 
         //Rank-Revealing Factorization
@@ -235,7 +235,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             );
         }
 
-        self.theta = self.theta.matrix_ndarray().select(Axis(0), &keep).into();
+        self.theta.filter_indices(keep.as_slice());
         self.psi = self.psi.select(Axis(1), &keep);
 
         (self.lambda, self.objf) = match burke(&self.psi) {
@@ -254,10 +254,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
-        let psi_up = psi(
+        let psi_up = calculate_psi(
             &self.equation,
             &self.data,
-            &self.theta.matrix_ndarray(),
+            &self.theta,
             &ErrorModel::new(
                 self.settings.error().poly,
                 self.gamma,
@@ -266,10 +266,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             false,
             true,
         );
-        let psi_down = psi(
+        let psi_down = calculate_psi(
             &self.equation,
             &self.data,
-            &self.theta.matrix_ndarray(),
+            &self.theta,
             &ErrorModel::new(
                 self.settings.error().poly,
                 self.gamma,

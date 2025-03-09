@@ -100,13 +100,13 @@ pub trait Algorithms<E: Equation>: Sync {
                 // Simulate all support points in parallel
                 let spp_results: Vec<_> = self
                     .get_theta()
-                    .matrix_ndarray()
-                    .outer_iter()
+                    .matrix()
+                    .row_iter()
                     .enumerate()
                     .collect::<Vec<_>>()
                     .into_par_iter()
                     .map(|(i, spp)| {
-                        let support_point = spp.to_vec();
+                        let support_point: Vec<f64> = spp.iter().copied().collect();
                         let (pred, ll) = self.equation().simulate_subject(
                             subject[*index],
                             &support_point,

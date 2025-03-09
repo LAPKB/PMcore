@@ -1,8 +1,11 @@
-use crate::{prelude::algorithms::Algorithms, structs::theta::Theta};
+use crate::{
+    prelude::algorithms::Algorithms,
+    structs::{psi::calculate_psi, theta::Theta},
+};
 use anyhow::Result;
 use pharmsol::prelude::{
     data::{Data, ErrorModel},
-    simulator::{psi, Equation},
+    simulator::Equation,
 };
 
 use ndarray::{Array1, Array2};
@@ -50,7 +53,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         NPResult::new(
             self.equation.clone(),
             self.data.clone(),
-            self.theta.matrix_ndarray(),
+            self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
             self.objf,
@@ -109,10 +112,10 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        self.psi = psi(
+        self.psi = calculate_psi(
             &self.equation,
             &self.data,
-            &self.theta.matrix_ndarray(),
+            &self.theta,
             &ErrorModel::new(
                 self.settings.error().poly,
                 self.gamma,

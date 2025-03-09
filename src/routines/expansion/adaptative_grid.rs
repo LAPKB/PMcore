@@ -1,6 +1,7 @@
+use faer_ext::IntoNdarray;
 use ndarray::{Array, Array2};
 
-use crate::routines::condensation::prune;
+use crate::{routines::condensation::prune, structs::theta::Theta};
 
 /// Implements the adaptive grid algorithm for support point expansion.
 ///
@@ -20,12 +21,14 @@ use crate::routines::condensation::prune;
 /// A 2D array containing the updated support points after the adaptive grid expansion.
 ///
 pub fn adaptative_grid(
-    theta: &mut Array2<f64>,
+    theta: &mut Theta,
     eps: f64,
     ranges: &[(f64, f64)],
     min_dist: f64,
 ) -> Array2<f64> {
-    let old_theta = theta.clone();
+    let old_theta = theta.matrix().clone().as_mut().into_ndarray().to_owned();
+    let mut theta = theta.matrix().clone().as_mut().into_ndarray().to_owned();
+
     for spp in old_theta.rows() {
         for (j, val) in spp.into_iter().enumerate() {
             let l = eps * (ranges[j].1 - ranges[j].0); //abs?
@@ -35,7 +38,7 @@ pub fn adaptative_grid(
                 let mut plus = Array::zeros(spp.len());
                 plus[j] = l;
                 plus = plus + spp;
-                prune(theta, plus, ranges, min_dist);
+                prune(&mut theta, plus, ranges, min_dist);
                 // (n_spp, _) = theta.dim();
             } else {
                 // tracing::debug!(
@@ -48,7 +51,7 @@ pub fn adaptative_grid(
                 let mut minus = Array::zeros(spp.len());
                 minus[j] = -l;
                 minus = minus + spp;
-                prune(theta, minus, ranges, min_dist);
+                prune(&mut theta, minus, ranges, min_dist);
                 // (n_spp, _) = theta.dim();
             } else {
                 // tracing::debug!(
@@ -72,12 +75,13 @@ pub fn adaptative_grid(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use faer::mat;
     use ndarray::array;
 
     #[test]
     fn test_adaptive_grid_1d() {
         // Initial theta: [[0.5]]
-        let mut theta = array![[0.5]];
+        let mut theta = Theta::from(mat![[0.5]]);
         let eps = 0.1;
         let ranges = [(0.0, 1.0)];
         let min_dist = 0.05;
@@ -95,7 +99,7 @@ mod tests {
     #[test]
     fn test_adaptive_grid_2d() {
         // Initial theta: [[0.5, 0.5]]
-        let mut theta = array![[0.5, 0.5]];
+        let mut theta = Theta::from(mat![[0.5, 0.5]]);
         let eps = 0.1;
         let ranges = [(0.0, 1.0), (0.0, 1.0)];
         let min_dist = 0.05;
@@ -116,7 +120,7 @@ mod tests {
     #[test]
     fn test_adaptive_grid_min_dist() {
         // Initial theta: [[0.5]]
-        let mut theta = array![[0.5]];
+        let mut theta = Theta::from(mat![[0.5]]);
         let eps = 0.1;
         let ranges = [(0.0, 1.0)];
         let min_dist = 0.2;
@@ -135,7 +139,7 @@ mod tests {
     #[test]
     fn test_adaptive_grid_out_of_bounds() {
         // Initial theta: [[0.95]]
-        let mut theta = array![[0.95]];
+        let mut theta = Theta::from(mat![[0.5]]);
         let eps = 0.1;
         let ranges = [(0.0, 1.0)];
         let min_dist = 0.05;

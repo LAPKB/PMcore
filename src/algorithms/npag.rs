@@ -5,6 +5,7 @@ pub use crate::routines::evaluation::qr;
 use crate::routines::settings::Settings;
 
 use crate::routines::output::{CycleLog, NPCycle, NPResult};
+use crate::structs::psi::calculate_psi;
 use crate::structs::theta::Theta;
 
 use anyhow::bail;
@@ -16,10 +17,10 @@ use pharmsol::prelude::{
 
 use crate::routines::initialization;
 
+use crate::routines::expansion::adaptative_grid::adaptative_grid;
+use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
-
-use crate::routines::expansion::adaptative_grid::adaptative_grid;
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
@@ -81,7 +82,13 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         NPResult::new(
             self.equation.clone(),
             self.data.clone(),
-            self.theta.matrix_ndarray().clone(),
+            self.theta
+                .matrix()
+                .clone()
+                .as_mut()
+                .into_ndarray()
+                .to_owned()
+                .into(),
             self.psi.clone(),
             self.w.clone(),
             -2. * self.objf,
@@ -165,7 +172,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             objf: -2. * self.objf,
             delta_objf: (self.last_objf - self.objf).abs(),
             nspp: self.theta.nspp(),
-            theta: self.theta.matrix_ndarray(),
+            theta: self.theta.clone(),
             gamlam: self.gamma,
             converged: self.converged,
         };
@@ -180,10 +187,10 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        self.psi = psi(
+        self.psi = calculate_psi(
             &self.equation,
             &self.data,
-            &self.theta.matrix_ndarray(),
+            &self.theta,
             &ErrorModel::new(self.settings.error().poly, self.gamma, &self.error_type),
             self.cycle == 1 && self.settings.log().write,
             self.cycle != 1,
@@ -221,7 +228,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             );
         }
 
-        self.theta = self.theta.matrix_ndarray().select(Axis(0), &keep).into();
+        let original_theta = self.theta.matrix().to_owned();
+
         self.psi = self.psi.select(Axis(1), &keep);
 
         //Rank-Revealing Factorization
@@ -246,7 +254,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             );
         }
 
-        self.theta = self.theta.matrix_ndarray().select(Axis(0), &keep).into();
+        self.theta.filter_indices(keep.as_slice());
         self.psi = self.psi.select(Axis(1), &keep);
 
         (self.lambda, self.objf) = match burke(&self.psi) {
@@ -265,18 +273,18 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
-        let psi_up = psi(
+        let psi_up = calculate_psi(
             &self.equation,
             &self.data,
-            &self.theta.matrix_ndarray(),
+            &self.theta,
             &ErrorModel::new(self.settings.error().poly, gamma_up, &self.error_type),
             false,
             true,
         );
-        let psi_down = psi(
+        let psi_down = calculate_psi(
             &self.equation,
             &self.data,
-            &self.theta.matrix_ndarray(),
+            &self.theta,
             &ErrorModel::new(self.settings.error().poly, gamma_down, &self.error_type),
             false,
             true,
@@ -336,12 +344,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn expansion(&mut self) -> Result<()> {
-        adaptative_grid(
-            &mut self.theta.matrix_ndarray(),
-            self.eps,
-            &self.ranges,
-            THETA_D,
-        );
+        adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
         Ok(())
     }
 }
