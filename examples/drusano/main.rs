@@ -114,7 +114,7 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_prior_sampler("sobol", 212900, 347);
-    settings.set_output_path("examples/drusano/output");
+    settings.enable_output_files("examples/drusano/output");
 
     let _ = setup_log(&settings);
     let data = data::read_pmetrics("examples/drusano/data.csv").unwrap();

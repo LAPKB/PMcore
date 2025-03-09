@@ -105,16 +105,27 @@ impl Settings {
         self.prior.seed = seed;
     }
 
-    pub fn set_prior_file(&mut self, file: Option<String>) {
-        self.prior.file = file;
+    /// Enable logging to the specified level
+    /// Optionally, write logs to a file
+    /// If no file is specified, the logs will be written to the output folder
+    /// The path should be relative to the current working directory
+    /// If the path contains a `#` symbol, it will be replaced by an incrementing number
+    pub fn enable_logs(&mut self, level: LogLevel, file: Option<impl Into<String>>) {
+        self.log.write = true;
+        self.log.level = level;
+        self.log.file = file.map(|f| f.into()).unwrap_or_default();
     }
 
-    pub fn set_output_write(&mut self, write: bool) {
-        self.output.write = write;
-    }
-
-    pub fn set_output_path(&mut self, path: impl Into<String>) {
+    /// Optionally enable output files to the specified path
+    ///
+    /// The path should be relative to the current working directory.
+    /// If the path contains a `#` symbol, it will be replaced by an incrementing number.
+    /// For example, if the path is `outputs/#`, and the folder `outputs/1` exists, the next folder will be `outputs/2`.
+    pub fn enable_output_files(&mut self, path: impl Into<String>) {
+        self.output.write = true;
         self.output.path = path.into();
+
+        self.output.parse_output_folder();
     }
 
     /// Writes a copy of the settings to file
@@ -452,12 +463,12 @@ pub struct Log {
 
 impl Default for Log {
     fn default() -> Self {
-        let path = PathBuf::from("#/").to_string_lossy().to_string();
+        let path = PathBuf::from(".").to_string_lossy().to_string();
 
         Log {
             level: LogLevel::INFO,
             file: path,
-            write: true,
+            write: false,
         }
     }
 }

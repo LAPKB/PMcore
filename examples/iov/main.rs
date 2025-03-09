@@ -42,10 +42,9 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_cycles(100000);
-    settings.set_output_path("examples/iov/output");
 
+    settings.enable_output_files("examples/iov/output");
     settings.set_prior_sampler("sobol", 100, 347);
-    settings.set_output_write(true);
 
     setup_log(&settings)?;
 

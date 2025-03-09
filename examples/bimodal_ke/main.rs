@@ -30,7 +30,7 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_cycles(1000);
-    settings.set_output_path("examples/bimodal_ke/output");
+    settings.enable_output_files("examples/bimodal_ke/output");
 
     settings.write()?;
 
