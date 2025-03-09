@@ -43,12 +43,8 @@ fn main() -> Result<()> {
 
     settings.set_cycles(100000);
     settings.set_output_path("examples/iov/output");
-    settings.set_prior(Prior {
-        sampler: "sobol".to_string(),
-        points: 100,
-        seed: 347,
-        file: None,
-    });
+
+    settings.set_prior_sampler("sobol", 100, 347);
     settings.set_output_write(true);
 
     setup_log(&settings)?;

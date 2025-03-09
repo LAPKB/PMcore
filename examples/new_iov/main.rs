@@ -46,12 +46,7 @@ fn main() {
     settings.set_cycles(1000);
     settings.set_cache(true);
     settings.set_output_path("examples/new_iov/output");
-    settings.set_prior(Prior {
-        sampler: "sobol".to_string(),
-        points: 100,
-        seed: 347,
-        file: None,
-    });
+    settings.set_prior_sampler("sobol", 100, 347);
     settings.set_output_write(true);
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();

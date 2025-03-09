@@ -65,12 +65,7 @@ fn main() {
     settings.set_cycles(usize::MAX);
     settings.set_cache(true);
     settings.set_output_path("examples/vanco_sde/output");
-    settings.set_prior(Prior {
-        sampler: "sobol".to_string(),
-        points: 100,
-        seed: 347,
-        file: None,
-    });
+    settings.set_prior_sampler("sobol", 100, 347);
     settings.set_output_write(true);
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();

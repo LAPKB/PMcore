@@ -52,10 +52,6 @@ impl Settings {
         &self.parameters
     }
 
-    pub fn set_error(&mut self, error: Error) {
-        self.error = error;
-    }
-
     pub fn error(&self) -> &Error {
         &self.error
     }
@@ -68,16 +64,8 @@ impl Settings {
         &self.log
     }
 
-    pub fn set_prior(&mut self, prior: Prior) {
-        self.prior = prior;
-    }
-
     pub fn prior(&self) -> &Prior {
         &self.prior
-    }
-
-    pub fn set_output(&mut self, output: Output) {
-        self.output = output;
     }
 
     pub fn output(&self) -> &Output {
@@ -111,15 +99,9 @@ impl Settings {
         self.predictions.tad = tad;
     }
 
-    pub fn set_prior_sampler(&mut self, sampler: String) {
-        self.prior.sampler = sampler;
-    }
-
-    pub fn set_prior_points(&mut self, points: usize) {
+    pub fn set_prior_sampler(&mut self, sampler: impl Into<String>, points: usize, seed: usize) {
+        self.prior.sampler = sampler.into();
         self.prior.points = points;
-    }
-
-    pub fn set_prior_seed(&mut self, seed: usize) {
         self.prior.seed = seed;
     }
 
