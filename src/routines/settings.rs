@@ -250,6 +250,12 @@ impl IntoIterator for Parameters {
     }
 }
 
+impl From<Vec<Parameter>> for Parameters {
+    fn from(parameters: Vec<Parameter>) -> Self {
+        Parameters { parameters }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub enum ErrorModel {
     Additive,
