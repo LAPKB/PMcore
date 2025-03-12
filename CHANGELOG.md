@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1](https://github.com/LAPKB/PMcore/compare/v0.8.0...v0.8.1) - 2025-03-12
+
+### Fixed
+
+- Parameters from Vec<Parameter> ([#106](https://github.com/LAPKB/PMcore/pull/106))
+
 ## [0.8.0](https://github.com/LAPKB/PMcore/compare/v0.7.6...v0.8.0) - 2025-03-12
 
 ### Added
