@@ -1,7 +1,4 @@
-use pmcore::{
-    prelude::{models::one_compartment_with_absorption, *},
-    routines::settings,
-};
+use pmcore::prelude::*;
 
 fn main() {
     // let eq = Equation::new_ode(
@@ -32,7 +29,18 @@ fn main() {
         },
         (2, 1),
     );
-    let settings = settings::read("examples/theophylline/config.toml").unwrap();
+
+    let params = Parameters::new()
+        .add("ka", 0.001, 3.0, false)
+        .add("ke", 0.001, 3.0, false)
+        .add("v", 0.001, 50.0, false);
+
+    let settings = Settings::builder()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_model(ErrorModel::Proportional, 10.0, (0.1, 0.1, 0.0, 0.0))
+        .build();
+
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();

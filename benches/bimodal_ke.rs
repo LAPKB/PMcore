@@ -1,7 +1,6 @@
 use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use pmcore::prelude::*;
-use settings::{Parameters, Settings};
 
 fn create_equation() -> equation::ODE {
     equation::ODE::new(
@@ -21,17 +20,18 @@ fn create_equation() -> equation::ODE {
 }
 
 fn setup_simulation() -> Result<(Settings, equation::ODE, data::Data)> {
-    let mut settings = Settings::new();
-    let params = Parameters::builder()
+    let params = Parameters::new()
         .add("ke", 0.001, 3.0, true)
-        .add("v", 25.0, 250.0, true)
-        .build()?;
+        .add("v", 25.0, 250.0, true);
 
-    settings.set_parameters(params);
+    let mut settings = Settings::builder()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_model(ErrorModel::Additive, 0.0, (0.0, 0.5, 0.0, 0.0))
+        .build();
+
     settings.set_cycles(1000);
-    settings.set_error_poly((0.0, 0.5, 0.0, 0.0));
-    settings.set_error_type(ErrorType::Add);
-    settings.set_output_path("examples/bimodal_ke/output");
+    settings.enable_output_files("examples/bimodal_ke/output");
 
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
     Ok((settings, create_equation(), data))

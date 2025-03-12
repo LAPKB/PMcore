@@ -1,16 +1,14 @@
-use anyhow::Error;
+use anyhow::Result;
+
 use argmin::{
     core::{CostFunction, Executor, TerminationReason, TerminationStatus},
     solver::neldermead::NelderMead,
 };
 use logger::setup_log;
-use pmcore::{
-    prelude::*,
-    routines::{logger, settings},
-};
+use pmcore::prelude::*;
 use std::process::exit;
 #[allow(unused_variables)]
-fn main() {
+fn main() -> Result<()> {
     let eq = equation::ODE::new(
         |x, p, t, dx, rateiv, _cov| {
             fetch_params!(
@@ -82,7 +80,42 @@ fn main() {
         },
         (5, 5),
     );
-    let settings = settings::read("examples/drusano/config.toml").unwrap();
+
+    let params = Parameters::new()
+        .add("v1", 5.0, 160.0, false)
+        .add("cl1", 4.0, 9.0, false)
+        .add("v2", 100.0, 200.0, false)
+        .add("cl2", 25.0, 35.0, false)
+        .add("popmax", 100000000.0, 100000000000.0, false)
+        .add("kgs", 0.01, 0.25, false)
+        .add("kks", 0.01, 0.5, false)
+        .add("e50_1s", 0.1, 2.5, false)
+        .add("e50_2s", 0.1, 10.0, false)
+        .add("alpha_s", -8.0, 5.0, false)
+        .add("kgr1", 0.004, 0.1, false)
+        .add("kkr1", 0.08, 0.4, false)
+        .add("e50_1r1", 8.0, 17.0, false)
+        .add("alpha_r1", -8.0, 5.0, false)
+        .add("kgr2", 0.004, 0.3, false)
+        .add("kkr2", 0.1, 0.5, false)
+        .add("e50_2r2", 5.0, 8.0, false)
+        .add("alpha_r2", -5.0, 5.0, false)
+        .add("init_4", -1.0, 4.0, false)
+        .add("init_5", -1.0, 3.0, false)
+        .add("h1s", 0.5, 8.0, false)
+        .add("h2s", 0.1, 4.0, false)
+        .add("h1r1", 5.0, 25.0, false)
+        .add("h2r2", 10.0, 22.0, false);
+
+    let mut settings = SettingsBuilder::new()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_model(ErrorModel::Proportional, 1.0, (0.1, 0.1, 0.0, 0.0))
+        .build();
+
+    settings.set_prior_sampler("sobol", 212900, 347);
+    settings.enable_output_files("examples/drusano/output");
+
     let _ = setup_log(&settings);
     let data = data::read_pmetrics("examples/drusano/data.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
@@ -91,6 +124,7 @@ fn main() {
     // while !algorithm.next_cycle().unwrap() {}
     let result = algorithm.into_npresult();
     result.write_outputs().unwrap();
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -106,7 +140,7 @@ struct BESTM0 {
 impl CostFunction for BESTM0 {
     type Param = f64;
     type Output = f64;
-    fn cost(&self, xm0: &Self::Param) -> Result<Self::Output, Error> {
+    fn cost(&self, xm0: &Self::Param) -> Result<Self::Output> {
         let t1 = self.u / xm0.powf(self.h1);
         let t2 = self.v / xm0.powf(self.h2);
         let t3 = self.w / xm0.powf(self.xx);
