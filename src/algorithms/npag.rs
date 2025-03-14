@@ -12,7 +12,7 @@ use anyhow::bail;
 use anyhow::Result;
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
-    simulator::{psi, Equation},
+    simulator::Equation,
 };
 
 use crate::routines::initialization;
@@ -228,8 +228,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             );
         }
 
-        let original_theta = self.theta.matrix().to_owned();
-
+        self.theta.filter_indices(keep.as_slice());
         self.psi = self.psi.select(Axis(1), &keep);
 
         //Rank-Revealing Factorization

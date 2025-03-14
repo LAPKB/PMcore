@@ -14,7 +14,7 @@ use anyhow::Result;
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel},
-        simulator::{psi, Equation},
+        simulator::Equation,
     },
     Subject,
 };
@@ -25,7 +25,7 @@ use ndarray::{
 };
 use ndarray_stats::{DeviationExt, QuantileExt};
 
-use crate::routines::{condensation::prune, initialization, optimization::SppOptimizer};
+use crate::routines::{initialization, optimization::SppOptimizer};
 
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
@@ -337,7 +337,9 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let sigma = &ErrorModel::new(self.settings.error().poly, self.gamma, &error_type);
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
-        for spp in self.theta.matrix_ndarray().rows() {
+        for spp in self.theta.matrix().row_iter() {
+            let candidate: Vec<f64> = spp.iter().cloned().collect();
+            let spp = Array1::from(candidate);
             candididate_points.push(spp.to_owned());
         }
         candididate_points.par_iter_mut().for_each(|spp| {
@@ -351,7 +353,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             // re-define a new optimization
         });
         for cp in candididate_points {
-            prune(&mut self.theta.matrix_ndarray(), cp, &self.ranges, THETA_D);
+            self.theta.suggest_point(cp.to_vec(), THETA_D, &self.ranges);
         }
         Ok(())
     }

@@ -1,6 +1,5 @@
-use faer::Mat;
+use faer::{Mat, Row};
 use faer_ext::IntoFaer;
-use faer_ext::IntoNdarray;
 use ndarray::{Array2, ArrayView2};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,7 +24,7 @@ impl Theta {
         self.matrix.nrows()
     }
 
-    pub fn filter_indices(&mut self, indices: &[usize]) {
+    pub(crate) fn filter_indices(&mut self, indices: &[usize]) {
         let matrix = self.matrix.to_owned();
 
         let new = Mat::from_fn(matrix.nrows(), matrix.ncols(), |r, c| {
@@ -33,6 +32,24 @@ impl Theta {
         });
 
         self.matrix = new;
+    }
+
+    pub(crate) fn add_point(&mut self, spp: Vec<f64>) {
+        self.matrix
+            .resize_with(self.matrix.nrows() + 1, self.matrix.ncols(), |_, i| spp[i]);
+    }
+
+    pub(crate) fn suggest_point(&mut self, spp: Vec<f64>, eps: f64, limits: &[(f64, f64)]) {
+        let mut dist: f64 = 0.;
+        for (i, val) in spp.iter().enumerate() {
+            dist += (val - self.matrix.get(self.matrix.nrows() - 1, i)).abs()
+                / (limits[i].1 - limits[i].0);
+        }
+        if dist <= eps {
+            return;
+        } else {
+            self.add_point(spp);
+        }
     }
 }
 
