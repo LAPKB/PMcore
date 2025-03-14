@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use crate::structs::theta::Theta;
-use anyhow::{bail, Context, Ok, Result};
+use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::*;
