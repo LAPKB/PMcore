@@ -1,4 +1,4 @@
-use faer::{Mat, Row};
+use faer::Mat;
 use faer_ext::IntoFaer;
 use ndarray::{Array2, ArrayView2};
 

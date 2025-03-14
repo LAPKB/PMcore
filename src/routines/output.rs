@@ -327,7 +327,7 @@ impl<E: Equation> NPResult<E> {
         let subjects = self.data.get_subjects();
         for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
             for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                writer.write_field(&subjects.get(sub).unwrap().id())?;
+                writer.write_field(&subjects[sub].id())?;
                 writer.write_field(format!("{}", spp))?;
                 for param in theta.row(spp) {
                     writer.write_field(&format!("{param}"))?;
