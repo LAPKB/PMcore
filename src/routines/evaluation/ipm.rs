@@ -63,7 +63,7 @@ pub fn burke(
     let mut w = 1. / &plam;
 
     let mut ptw = psi.t().dot(&w);
-    let shrink = 2. * *ptw.max().context("Failed to get max value")?;
+    let shrink = 2. * *ptw.max().context("Failed to get max value of the dot-product between psi and w. This is likely due to a zero-row in psi.")?;
     lam *= shrink;
     plam *= shrink;
     w /= shrink;

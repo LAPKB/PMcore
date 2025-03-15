@@ -1,6 +1,8 @@
 use crate::prelude::*;
+use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
+use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
@@ -16,7 +18,7 @@ use std::path::{Path, PathBuf};
 pub struct NPResult<E: Equation> {
     equation: E,
     data: Data,
-    theta: Array2<f64>,
+    theta: Theta,
     psi: Array2<f64>,
     w: Array1<f64>,
     objf: f64,
@@ -32,7 +34,7 @@ impl<E: Equation> NPResult<E> {
     pub fn new(
         equation: E,
         data: Data,
-        theta: Array2<f64>,
+        theta: Theta,
         psi: Array2<f64>,
         w: Array1<f64>,
         objf: f64,
@@ -72,7 +74,7 @@ impl<E: Equation> NPResult<E> {
         self.converged
     }
 
-    pub fn get_theta(&self) -> &Array2<f64> {
+    pub fn get_theta(&self) -> &Theta {
         &self.theta
     }
 
@@ -86,6 +88,7 @@ impl<E: Equation> NPResult<E> {
 
     pub fn write_outputs(&self) -> Result<()> {
         if self.settings.output().write {
+            self.settings.write()?;
             let idelta: f64 = self.settings.predictions().idelta;
             let tad = self.settings.predictions().tad;
             self.cyclelog.write(&self.settings)?;
@@ -122,7 +125,13 @@ impl<E: Equation> NPResult<E> {
             post_median: f64,
         }
 
-        let theta: Array2<f64> = self.theta.clone();
+        let theta: Array2<f64> = self
+            .theta
+            .matrix()
+            .clone()
+            .as_mut()
+            .into_ndarray()
+            .to_owned();
         let w: Array1<f64> = self.w.clone();
         let psi: Array2<f64> = self.psi.clone();
 
@@ -237,9 +246,9 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!("Writing population parameter distribution...");
 
         let theta = &self.theta;
-        let w = if self.w.len() != theta.nrows() {
+        let w = if self.w.len() != theta.matrix().nrows() {
             tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
-            Array1::zeros(theta.nrows())
+            Array1::zeros(theta.matrix().nrows())
         } else {
             self.w.clone()
         };
@@ -257,7 +266,7 @@ impl<E: Equation> NPResult<E> {
         writer.write_record(&theta_header)?;
 
         // Write contents
-        for (theta_row, &w_val) in theta.outer_iter().zip(w.iter()) {
+        for (theta_row, &w_val) in theta.matrix().row_iter().zip(w.iter()) {
             let mut row: Vec<String> = theta_row.iter().map(|&val| val.to_string()).collect();
             row.push(w_val.to_string());
             writer.write_record(&row)?;
@@ -273,7 +282,13 @@ impl<E: Equation> NPResult<E> {
     /// Writes the posterior support points for each individual
     pub fn write_posterior(&self) -> Result<()> {
         tracing::debug!("Writing posterior parameter probabilities...");
-        let theta: Array2<f64> = self.theta.clone();
+        let theta: Array2<f64> = self
+            .theta
+            .matrix()
+            .clone()
+            .as_mut()
+            .into_ndarray()
+            .to_owned();
         let w: Array1<f64> = self.w.clone();
         let psi: Array2<f64> = self.psi.clone();
         let par_names: Vec<String> = self.par_names.clone();
@@ -313,7 +328,7 @@ impl<E: Equation> NPResult<E> {
         let subjects = self.data.get_subjects();
         for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
             for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                writer.write_field(&subjects.get(sub).unwrap().id())?;
+                writer.write_field(&subjects[sub].id())?;
                 writer.write_field(format!("{}", spp))?;
                 for param in theta.row(spp) {
                     writer.write_field(&format!("{param}"))?;
@@ -348,7 +363,13 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
 
-        let theta: Array2<f64> = self.theta.clone();
+        let theta: Array2<f64> = self
+            .theta
+            .matrix()
+            .clone()
+            .as_mut()
+            .into_ndarray()
+            .to_owned();
         let w: Array1<f64> = self.w.clone();
         let psi: Array2<f64> = self.psi.clone();
 
@@ -535,7 +556,7 @@ pub struct NPCycle {
     pub cycle: usize,
     pub objf: f64,
     pub gamlam: f64,
-    pub theta: Array2<f64>,
+    pub theta: Theta,
     pub nspp: usize,
     pub delta_objf: f64,
     pub converged: bool,
@@ -546,7 +567,7 @@ impl NPCycle {
         cycle: usize,
         objf: f64,
         gamlam: f64,
-        theta: Array2<f64>,
+        theta: Theta,
         nspp: usize,
         delta_objf: f64,
         converged: bool,
@@ -567,7 +588,7 @@ impl NPCycle {
             cycle: 0,
             objf: 0.0,
             gamlam: 0.0,
-            theta: Array2::zeros((0, 0)),
+            theta: Theta::new(),
             nspp: 0,
             delta_objf: 0.0,
             converged: false,
@@ -619,20 +640,23 @@ impl CycleLog {
             writer.write_field(format!("{}", cycle.objf))?;
             writer.write_field(format!("{}", cycle.gamlam))?;
             writer
-                .write_field(format!("{}", cycle.theta.nrows()))
+                .write_field(format!("{}", cycle.theta.matrix().nrows()))
                 .unwrap();
 
-            for param in cycle.theta.axis_iter(Axis(1)) {
-                writer
-                    .write_field(format!("{}", param.mean().unwrap()))
-                    .unwrap();
-                writer.write_field(format!("{}", median(param.to_owned().to_vec())))?;
-                writer.write_field(format!("{}", param.std(1.)))?;
-            }
+            for param in cycle.theta.matrix().col_iter() {
+                let param_values: Vec<f64> = param.iter().cloned().collect();
 
+                let mean: f64 = param_values.iter().sum::<f64>() / param_values.len() as f64;
+                let median = median(param_values.clone());
+                let std = param_values.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                    / (param_values.len() as f64 - 1.0);
+
+                writer.write_field(format!("{}", mean))?;
+                writer.write_field(format!("{}", median))?;
+                writer.write_field(format!("{}", std))?;
+            }
             writer.write_record(None::<&[u8]>)?;
         }
-
         writer.flush()?;
         tracing::info!("Cycles written to {:?}", &outputfile.get_relative_path());
         Ok(())

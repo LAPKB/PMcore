@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::routines::output::NPResult;
 use crate::routines::settings::Settings;
+use crate::structs::theta::Theta;
 use anyhow::Result;
 use anyhow::{Context, Error};
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
@@ -99,12 +100,13 @@ pub trait Algorithms<E: Equation>: Sync {
                 // Simulate all support points in parallel
                 let spp_results: Vec<_> = self
                     .get_theta()
-                    .outer_iter()
+                    .matrix()
+                    .row_iter()
                     .enumerate()
                     .collect::<Vec<_>>()
                     .into_par_iter()
                     .map(|(i, spp)| {
-                        let support_point = spp.to_vec();
+                        let support_point: Vec<f64> = spp.iter().copied().collect();
                         let (pred, ll) = self.equation().simulate_subject(
                             subject[*index],
                             &support_point,
@@ -212,26 +214,17 @@ pub trait Algorithms<E: Equation>: Sync {
     fn get_settings(&self) -> &Settings;
     fn equation(&self) -> &E;
     fn get_data(&self) -> &Data;
-    fn get_prior(&self) -> Array2<f64>;
+    fn get_prior(&self) -> Theta;
     fn inc_cycle(&mut self) -> usize;
     fn get_cycle(&self) -> usize;
-    fn set_theta(&mut self, theta: Array2<f64>);
-    fn get_theta(&self) -> &Array2<f64>;
+    fn set_theta(&mut self, theta: Theta);
+    fn get_theta(&self) -> &Theta;
     fn psi(&self) -> &Array2<f64>;
     fn write_psi(&self, path: &str) {
         // write psi to csv file
         let psi = self.psi();
         let mut wtr = csv::Writer::from_path(path).unwrap();
         for row in psi.rows() {
-            wtr.write_record(row.iter().map(|x| x.to_string())).unwrap();
-        }
-        wtr.flush().unwrap();
-    }
-    fn write_theta(&self, path: &str) {
-        // write theta to csv file
-        let theta = self.get_theta();
-        let mut wtr = csv::Writer::from_path(path).unwrap();
-        for row in theta.rows() {
             wtr.write_record(row.iter().map(|x| x.to_string())).unwrap();
         }
         wtr.flush().unwrap();
@@ -260,7 +253,7 @@ pub trait Algorithms<E: Equation>: Sync {
         if self.inc_cycle() > 1 {
             self.expansion()?;
         }
-        let span = tracing::info_span!("", Cycle = self.get_cycle());
+        let span = tracing::info_span!("", "{}", format!("Cycle {}", self.get_cycle()));
         let _enter = span.enter();
         self.evaluation()?;
         self.condensation()?;

@@ -1,8 +1,11 @@
-use crate::prelude::algorithms::Algorithms;
+use crate::{
+    prelude::algorithms::Algorithms,
+    structs::{psi::calculate_psi, theta::Theta},
+};
 use anyhow::Result;
 use pharmsol::prelude::{
     data::{Data, ErrorModel},
-    simulator::{psi, Equation},
+    simulator::Equation,
 };
 
 use ndarray::{Array1, Array2};
@@ -18,7 +21,7 @@ use crate::routines::settings::Settings;
 pub struct POSTPROB<E: Equation> {
     equation: E,
     psi: Array2<f64>,
-    theta: Array2<f64>,
+    theta: Theta,
     w: Array1<f64>,
     objf: f64,
     cycle: usize,
@@ -34,7 +37,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         Ok(Box::new(Self {
             equation,
             psi: Array2::default((0, 0)),
-            theta: Array2::default((0, 0)),
+            theta: Theta::new(),
             w: Array1::default(0),
             objf: f64::INFINITY,
             cycle: 0,
@@ -72,8 +75,10 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         &self.data
     }
 
-    fn get_prior(&self) -> Array2<f64> {
-        initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
+    fn get_prior(&self) -> Theta {
+        initialization::sample_space(&self.settings, &self.data, &self.equation)
+            .unwrap()
+            .into()
     }
 
     fn likelihood(&self) -> f64 {
@@ -88,11 +93,11 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         0
     }
 
-    fn set_theta(&mut self, theta: Array2<f64>) {
+    fn set_theta(&mut self, theta: Theta) {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Array2<f64> {
+    fn get_theta(&self) -> &Theta {
         &self.theta
     }
 
@@ -107,7 +112,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        self.psi = psi(
+        self.psi = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
