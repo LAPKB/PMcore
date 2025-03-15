@@ -49,26 +49,31 @@ impl Theta {
     /// The point is only added if it is at least `min_dist` away from all existing support points
     /// and within the limits specified by `limits`
     pub(crate) fn suggest_point(&mut self, spp: Vec<f64>, min_dist: f64, limits: &[(f64, f64)]) {
-        let mut dist: f64 = 0.;
-        for (i, val) in spp.iter().enumerate() {
-            dist += (val - self.matrix.get(self.matrix.nrows() - 1, i)).abs()
-                / (limits[i].1 - limits[i].0);
-        }
-        if dist <= min_dist {
-            return;
-        } else {
+        if self.check_point(&spp, min_dist, limits) {
             self.add_point(spp);
         }
     }
 
     /// Check if a point is at least `min_dist` away from all existing support points
     pub(crate) fn check_point(&self, spp: &Vec<f64>, min_dist: f64, limits: &[(f64, f64)]) -> bool {
-        let mut dist: f64 = 0.;
-        for (i, val) in spp.iter().enumerate() {
-            dist += (val - self.matrix.get(self.matrix.nrows() - 1, i)).abs()
-                / (limits[i].1 - limits[i].0);
+        if self.matrix.nrows() == 0 {
+            return true;
         }
-        dist > min_dist
+
+        for row_idx in 0..self.matrix.nrows() {
+            let mut squared_dist = 0.0;
+            for (i, val) in spp.iter().enumerate() {
+                // Normalized squared difference for this dimension
+                let normalized_diff =
+                    (val - self.matrix.get(row_idx, i)) / (limits[i].1 - limits[i].0);
+                squared_dist += normalized_diff * normalized_diff;
+            }
+            let dist = squared_dist.sqrt();
+            if dist <= min_dist {
+                return false; // This point is too close to an existing point
+            }
+        }
+        true // Point is sufficiently distant from all existing points
     }
 
     /// Write the matrix to a CSV file
