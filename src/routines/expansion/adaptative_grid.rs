@@ -41,10 +41,22 @@ pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_d
         }
     }
 
-    // Now add all the points after the immutable borrow is released
-    for point in points_to_add {
-        theta.suggest_point(point, min_dist, ranges);
+    // Option 1: Check all points against the original theta, then add them
+    let keep = points_to_add
+        .iter()
+        .filter(|point| theta.check_point(point, min_dist, ranges))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for point in keep {
+        theta.add_point(point);
     }
+
+    // Option 2: Check and add points one by one
+    // Now add all the points after the immutable borrow is released
+    //for point in points_to_add {
+    //    theta.suggest_point(point, min_dist, ranges);
+    //}
 }
 
 #[cfg(test)]

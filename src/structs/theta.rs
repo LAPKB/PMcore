@@ -59,6 +59,16 @@ impl Theta {
         }
     }
 
+    /// Check if a point is at least `min_dist` away from all existing support points
+    pub(crate) fn check_point(&self, spp: &Vec<f64>, min_dist: f64, limits: &[(f64, f64)]) -> bool {
+        let mut dist: f64 = 0.;
+        for (i, val) in spp.iter().enumerate() {
+            dist += (val - self.matrix.get(self.matrix.nrows() - 1, i)).abs()
+                / (limits[i].1 - limits[i].0);
+        }
+        dist > min_dist
+    }
+
     /// Write the matrix to a CSV file
     pub fn write(&self, path: &str) {
         let mut writer = csv::Writer::from_path(path).unwrap();
