@@ -2,6 +2,8 @@ use faer::Mat;
 use faer_ext::IntoFaer;
 use ndarray::{Array2, ArrayView2};
 
+/// [Theta] is a structure that holds the support points
+/// These represent the joint population parameter distribution
 #[derive(Debug, Clone, PartialEq)]
 pub struct Theta {
     matrix: Mat<f64>,

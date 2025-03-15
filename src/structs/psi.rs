@@ -23,12 +23,12 @@ impl Psi {
         &self.matrix
     }
 
-    pub fn matrix_ndarray(&self) -> Array2<f64> {
-        self.matrix.clone().as_ref().into_ndarray().to_owned()
-    }
-
     pub fn nspp(&self) -> usize {
         self.matrix.nrows()
+    }
+
+    pub fn nsub(&self) -> usize {
+        self.matrix.ncols()
     }
 }
 

@@ -32,7 +32,6 @@ fn main() -> Result<()> {
     settings.set_error_poly((0.0, 0.5, 0.0, 0.0));
     settings.set_error_type(ErrorType::Add);
     settings.set_output_path("examples/bimodal_ke/output");
-    settings.set_log_level(settings::LogLevel::DEBUG);
 
     setup_log(&settings)?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
