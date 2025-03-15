@@ -1,10 +1,12 @@
+use std::fmt::Debug;
+
 use faer::Mat;
 use faer_ext::IntoFaer;
 use ndarray::{Array2, ArrayView2};
 
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Theta {
     matrix: Mat<f64>,
 }
@@ -77,6 +79,19 @@ impl Theta {
                 .write_record(row.iter().map(|x| x.to_string()))
                 .unwrap();
         }
+    }
+}
+
+impl Debug for Theta {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Write nspp and nsub
+        println!();
+        writeln!(f, "Theta contains {} support points\n", self.nspp())?;
+        // Write the matrix
+        self.matrix.row_iter().enumerate().for_each(|(index, row)| {
+            write!(f, "{index}\t{:?}\n", row).unwrap();
+        });
+        Ok(())
     }
 }
 
