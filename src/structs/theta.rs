@@ -24,6 +24,7 @@ impl Theta {
         self.matrix.nrows()
     }
 
+    /// Modify the [Theta::matrix] to only include the rows specified by `indices`
     pub(crate) fn filter_indices(&mut self, indices: &[usize]) {
         let matrix = self.matrix.to_owned();
 
@@ -34,11 +35,15 @@ impl Theta {
         self.matrix = new;
     }
 
+    /// Forcibly add a support point to the matrix
     pub(crate) fn add_point(&mut self, spp: Vec<f64>) {
         self.matrix
             .resize_with(self.matrix.nrows() + 1, self.matrix.ncols(), |_, i| spp[i]);
     }
 
+    /// Suggest a new support point to add to the matrix
+    /// The point is only added if it is at least `min_dist` away from all existing support points
+    /// and within the limits specified by `limits`
     pub(crate) fn suggest_point(&mut self, spp: Vec<f64>, min_dist: f64, limits: &[(f64, f64)]) {
         let mut dist: f64 = 0.;
         for (i, val) in spp.iter().enumerate() {
@@ -49,6 +54,16 @@ impl Theta {
             return;
         } else {
             self.add_point(spp);
+        }
+    }
+
+    /// Write the matrix to a CSV file
+    pub fn write(&self, path: &str) {
+        let mut writer = csv::Writer::from_path(path).unwrap();
+        for row in self.matrix.row_iter() {
+            writer
+                .write_record(row.iter().map(|x| x.to_string()))
+                .unwrap();
         }
     }
 }

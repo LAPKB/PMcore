@@ -256,6 +256,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         self.theta.filter_indices(keep.as_slice());
         self.psi = self.psi.select(Axis(1), &keep);
 
+        // TODO: Remove this when the code is stable
+        self.validate_psi()?;
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
