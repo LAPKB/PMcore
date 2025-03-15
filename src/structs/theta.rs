@@ -27,7 +27,7 @@ impl Theta {
     pub(crate) fn filter_indices(&mut self, indices: &[usize]) {
         let matrix = self.matrix.to_owned();
 
-        let new = Mat::from_fn(matrix.nrows(), matrix.ncols(), |r, c| {
+        let new = Mat::from_fn(indices.len(), matrix.ncols(), |r, c| {
             *matrix.get(indices[r], c)
         });
 
@@ -97,6 +97,19 @@ mod tests {
 
         // Expected result is a 4x2 matrix with the reordered rows
         let expected = mat![[1.0, 2.0], [7.0, 8.0]];
+
+        assert_eq!(theta.matrix, expected);
+    }
+
+    #[test]
+    fn test_add_point() {
+        let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+
+        let mut theta = Theta::from(matrix);
+
+        theta.add_point(vec![7.0, 8.0]);
+
+        let expected = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
 
         assert_eq!(theta.matrix, expected);
     }
