@@ -253,7 +253,7 @@ pub trait Algorithms<E: Equation>: Sync {
         if self.inc_cycle() > 1 {
             self.expansion()?;
         }
-        let span = tracing::info_span!("", Cycle = self.get_cycle());
+        let span = tracing::info_span!("", "{}", format!("Cycle {}", self.get_cycle()));
         let _enter = span.enter();
         self.evaluation()?;
         self.condensation()?;
