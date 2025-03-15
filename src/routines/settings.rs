@@ -333,7 +333,7 @@ pub struct Advanced {
 impl Default for Advanced {
     fn default() -> Self {
         Advanced {
-            min_distance: 0.12,
+            min_distance: 1e-4,
             nm_steps: 100,
             tolerance: 1e-6,
         }
