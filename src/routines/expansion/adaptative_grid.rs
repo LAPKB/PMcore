@@ -20,7 +20,7 @@ use crate::structs::theta::Theta;
 /// A 2D array containing the updated support points after the adaptive grid expansion.
 ///
 pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_dist: f64) {
-    let mut points_to_add = Vec::new();
+    let mut candidates = Vec::new();
 
     // Collect all points first to avoid borrowing conflicts
     for spp in theta.matrix().row_iter() {
@@ -30,19 +30,19 @@ pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_d
                 let mut plus = Row::zeros(spp.ncols());
                 plus[j] = l;
                 plus = plus + spp;
-                points_to_add.push(plus.iter().copied().collect());
+                candidates.push(plus.iter().copied().collect());
             }
             if val - l > ranges[j].0 {
                 let mut minus = Row::zeros(spp.ncols());
                 minus[j] = -l;
                 minus = minus + spp;
-                points_to_add.push(minus.iter().copied().collect());
+                candidates.push(minus.iter().copied().collect());
             }
         }
     }
 
     // Option 1: Check all points against the original theta, then add them
-    let keep = points_to_add
+    let keep = candidates
         .iter()
         .filter(|point| theta.check_point(point, min_dist, ranges))
         .cloned()
@@ -54,7 +54,7 @@ pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_d
 
     // Option 2: Check and add points one by one
     // Now add all the points after the immutable borrow is released
-    //for point in points_to_add {
+    //for point in candidates {
     //    theta.suggest_point(point, min_dist, ranges);
     //}
 }
