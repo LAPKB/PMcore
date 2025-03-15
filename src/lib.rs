@@ -71,7 +71,9 @@ pub mod prelude {
     pub use crate::routines;
     pub use crate::routines::logger;
     pub use crate::routines::logger::setup_log;
+
     pub use crate::routines::settings;
+    pub use crate::routines::settings::ErrorModel;
     pub use crate::structs::*;
 
     //Alma re-exports
@@ -86,8 +88,15 @@ pub mod prelude {
     }
 
     //traits
+    pub use pharmsol::data::*;
+    pub use pharmsol::equation::Equation;
+    pub use pharmsol::equation::EquationTypes;
+    pub use pharmsol::equation::Predictions;
+    pub use pharmsol::equation::*;
     pub use pharmsol::prelude::*;
-    pub use pharmsol::*;
+    pub use pharmsol::simulator::*;
+    pub use pharmsol::ODE;
+    pub use pharmsol::SDE;
 
     //macros
     pub use pharmsol::fa;

@@ -119,7 +119,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             &ErrorModel::new(
                 self.settings.error().poly,
                 self.gamma,
-                &self.settings.error().error_type(),
+                &self.settings.error().error_model().into(),
             ),
             false,
             false,

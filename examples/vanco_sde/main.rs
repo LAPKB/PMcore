@@ -1,7 +1,4 @@
-use pmcore::prelude::{
-    settings::{Parameters, Prior, Settings},
-    *,
-};
+use pmcore::prelude::*;
 
 fn main() {
     let sde = equation::SDE::new(
@@ -51,33 +48,24 @@ fn main() {
     //     (3, 1),
     // );
 
-    let mut settings = Settings::new();
-
-    let params = Parameters::builder()
+    let params = Parameters::new()
         .add("ka", 0.0001, 2.4, false)
         .add("ke0", 0.0001, 2.7, false)
         .add("kcp", 0.0001, 2.4, false)
         .add("kpc", 0.0001, 2.4, false)
         .add("vol", 0.2, 12.0, false)
-        .add("ske", 0.0001, 0.2, false)
-        .build()
-        .unwrap();
+        .add("ske", 0.0001, 0.2, false);
 
-    settings.set_parameters(params);
+    let mut settings = Settings::builder()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_model(ErrorModel::Additive, 0.0, (0.00119, 0.20, 0.0, 0.0))
+        .build();
+
     settings.set_cycles(usize::MAX);
     settings.set_cache(true);
-    settings.set_error_poly((0.00119, 0.20, 0.0, 0.0));
-    settings.set_error_value(2.5516439936509987);
-    settings.set_error_type(ErrorType::Add);
-    settings.set_output_path("examples/vanco_sde/output");
-    settings.set_prior(Prior {
-        sampler: "sobol".to_string(),
-        points: 100,
-        seed: 347,
-        file: None,
-    });
-    settings.set_output_write(true);
-    settings.set_log_level(settings::LogLevel::DEBUG);
+    settings.enable_output_files("examples/vanco_sde/output");
+    settings.set_prior_sampler("sobol", 100, 347);
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
 

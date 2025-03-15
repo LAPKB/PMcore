@@ -67,7 +67,22 @@ fn main() {
     //     (2, 1),
     // );
 
-    let settings = settings::read("examples/two_eq_lag/config.toml").unwrap();
+    let params = Parameters::new()
+        .add("ka", 0.1, 0.9, false)
+        .add("ke", 0.001, 0.1, false)
+        .add("tlag", 0.0, 4.0, false)
+        .add("v", 30.0, 120.0, false);
+
+    let settings = Settings::builder()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_model(
+            ErrorModel::Additive,
+            0.0,
+            (-0.00119, 0.44379, -0.45864, 0.16537),
+        )
+        .build();
+
     setup_log(&settings).unwrap();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
