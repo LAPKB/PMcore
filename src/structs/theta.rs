@@ -39,13 +39,13 @@ impl Theta {
             .resize_with(self.matrix.nrows() + 1, self.matrix.ncols(), |_, i| spp[i]);
     }
 
-    pub(crate) fn suggest_point(&mut self, spp: Vec<f64>, eps: f64, limits: &[(f64, f64)]) {
+    pub(crate) fn suggest_point(&mut self, spp: Vec<f64>, min_dist: f64, limits: &[(f64, f64)]) {
         let mut dist: f64 = 0.;
         for (i, val) in spp.iter().enumerate() {
             dist += (val - self.matrix.get(self.matrix.nrows() - 1, i)).abs()
                 / (limits[i].1 - limits[i].0);
         }
-        if dist <= eps {
+        if dist <= min_dist {
             return;
         } else {
             self.add_point(spp);

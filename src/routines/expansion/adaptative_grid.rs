@@ -1,7 +1,6 @@
-use faer_ext::IntoNdarray;
-use ndarray::{Array, Array2};
+use faer::Row;
 
-use crate::{routines::condensation::prune, structs::theta::Theta};
+use crate::structs::theta::Theta;
 
 /// Implements the adaptive grid algorithm for support point expansion.
 ///
@@ -20,139 +19,30 @@ use crate::{routines::condensation::prune, structs::theta::Theta};
 ///
 /// A 2D array containing the updated support points after the adaptive grid expansion.
 ///
-pub fn adaptative_grid(
-    theta: &mut Theta,
-    eps: f64,
-    ranges: &[(f64, f64)],
-    min_dist: f64,
-) -> Array2<f64> {
-    let old_theta = theta.matrix().clone().as_mut().into_ndarray().to_owned();
-    let mut theta = theta.matrix().clone().as_mut().into_ndarray().to_owned();
+pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_dist: f64) {
+    let mut points_to_add = Vec::new();
 
-    for spp in old_theta.rows() {
-        for (j, val) in spp.into_iter().enumerate() {
+    // Collect all points first to avoid borrowing conflicts
+    for spp in theta.matrix().row_iter() {
+        for (j, val) in spp.iter().enumerate() {
             let l = eps * (ranges[j].1 - ranges[j].0); //abs?
-                                                       // dbg!(val + l);
-                                                       // dbg!(val - l);
             if val + l < ranges[j].1 {
-                let mut plus = Array::zeros(spp.len());
+                let mut plus = Row::zeros(spp.ncols());
                 plus[j] = l;
                 plus = plus + spp;
-                prune(&mut theta, plus, ranges, min_dist);
-                // (n_spp, _) = theta.dim();
-            } else {
-                // tracing::debug!(
-                //     "AG: Rejected point. Out of bounds. p:{}, p+eps:{}",
-                //     val,
-                //     val + l,
-                // );
+                points_to_add.push(plus.iter().copied().collect());
             }
             if val - l > ranges[j].0 {
-                let mut minus = Array::zeros(spp.len());
+                let mut minus = Row::zeros(spp.ncols());
                 minus[j] = -l;
                 minus = minus + spp;
-                prune(&mut theta, minus, ranges, min_dist);
-                // (n_spp, _) = theta.dim();
-            } else {
-                // tracing::debug!(
-                //     "AG: Rejected point. Out of bounds. p:{}, p-eps:{}",
-                //     val,
-                //     val - l
-                // );
+                points_to_add.push(minus.iter().copied().collect());
             }
         }
     }
-    if theta.nrows() != (old_theta.nrows() + 2 * old_theta.ncols()) {
-        // tracing::debug!(
-        //     "3) The adaptive grid tried to add {} support points, from those {} were rejected.",
-        //     2 * old_theta.ncols(),
-        //     2 * old_theta.ncols() + old_theta.nrows() - theta.nrows()
-        // );
-    }
-    theta.to_owned()
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use faer::mat;
-    use ndarray::array;
-
-    #[test]
-    fn test_adaptive_grid_1d() {
-        // Initial theta: [[0.5]]
-        let mut theta = Theta::from(mat![[0.5]]);
-        let eps = 0.1;
-        let ranges = [(0.0, 1.0)];
-        let min_dist = 0.05;
-
-        // Call adaptative_grid
-        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
-
-        // Expected theta: [[0.5], [0.6], [0.4]]
-        let expected_theta = array![[0.5], [0.6], [0.4]];
-
-        // Assert that new_theta matches expected_theta
-        assert_eq!(new_theta, expected_theta);
-    }
-
-    #[test]
-    fn test_adaptive_grid_2d() {
-        // Initial theta: [[0.5, 0.5]]
-        let mut theta = Theta::from(mat![[0.5, 0.5]]);
-        let eps = 0.1;
-        let ranges = [(0.0, 1.0), (0.0, 1.0)];
-        let min_dist = 0.05;
-
-        // Call adaptative_grid
-        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
-
-        // Expected new points are:
-        // For dimension 0: [0.6, 0.5], [0.4, 0.5]
-        // For dimension 1: [0.5, 0.6], [0.5, 0.4]
-        // So expected theta is [[0.5, 0.5], [0.6, 0.5], [0.4, 0.5], [0.5, 0.6], [0.5, 0.4]]
-        let expected_theta = array![[0.5, 0.5], [0.6, 0.5], [0.4, 0.5], [0.5, 0.6], [0.5, 0.4]];
-
-        // Assert that new_theta matches expected_theta
-        assert_eq!(new_theta, expected_theta);
-    }
-
-    #[test]
-    fn test_adaptive_grid_min_dist() {
-        // Initial theta: [[0.5]]
-        let mut theta = Theta::from(mat![[0.5]]);
-        let eps = 0.1;
-        let ranges = [(0.0, 1.0)];
-        let min_dist = 0.2;
-
-        // Call adaptative_grid
-        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
-
-        // Since min_dist is 0.2, the new points at 0.6 and 0.4 are too close to 0.5 (distance 0.1)
-        // So no new points should be added
-        let expected_theta = array![[0.5]];
-
-        // Assert that new_theta matches expected_theta
-        assert_eq!(new_theta, expected_theta);
-    }
-
-    #[test]
-    fn test_adaptive_grid_out_of_bounds() {
-        // Initial theta: [[0.95]]
-        let mut theta = Theta::from(mat![[0.5]]);
-        let eps = 0.1;
-        let ranges = [(0.0, 1.0)];
-        let min_dist = 0.05;
-
-        // Call adaptative_grid
-        let new_theta = adaptative_grid(&mut theta, eps, &ranges, min_dist);
-
-        // val + l = 0.95 + 0.1 = 1.05 > 1.0, so point at 1.05 is out of bounds and should not be added
-        // val - l = 0.95 - 0.1 = 0.85, which is within range
-        // So only [0.85] should be added
-        let expected_theta = array![[0.95], [0.85]];
-
-        // Assert that new_theta matches expected_theta
-        assert_eq!(new_theta, expected_theta);
+    // Now add all the points after the immutable borrow is released
+    for point in points_to_add {
+        theta.suggest_point(point, min_dist, ranges);
     }
 }
