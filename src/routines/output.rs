@@ -88,6 +88,7 @@ impl<E: Equation> NPResult<E> {
 
     pub fn write_outputs(&self) -> Result<()> {
         if self.settings.output().write {
+            self.settings.write()?;
             let idelta: f64 = self.settings.predictions().idelta;
             let tad = self.settings.predictions().tad;
             self.cyclelog.write(&self.settings)?;

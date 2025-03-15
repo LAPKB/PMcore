@@ -30,9 +30,7 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_cycles(1000);
-    settings.enable_output_files("examples/bimodal_ke/output");
-
-    settings.write()?;
+    settings.enable_output_files("examples/bimodal_ke/output/");
 
     setup_log(&settings)?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;

@@ -125,7 +125,7 @@ impl Settings {
         self.output.write = true;
         self.output.path = path.into();
 
-        self.output.parse_output_folder();
+        //self.output.parse_output_folder();
     }
 
     /// Writes a copy of the settings to file
@@ -469,7 +469,7 @@ pub struct Log {
 
 impl Default for Log {
     fn default() -> Self {
-        let path = PathBuf::from(".").to_string_lossy().to_string();
+        let path = PathBuf::from("log.txt").to_string_lossy().to_string();
 
         Log {
             level: LogLevel::INFO,
@@ -528,7 +528,7 @@ impl Default for Output {
     }
 }
 
-impl Output {
+/* impl Output {
     /// Parses the output folder location
     ////
     /// If a `#` symbol is found, it will automatically increment the number by one.
@@ -541,7 +541,7 @@ impl Output {
         path = path.replace("#", &num.to_string());
         path
     }
-}
+} */
 
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
