@@ -109,10 +109,9 @@ mod tests {
 
         let mut theta = Theta::from(matrix);
 
-        // Reorder to have rows 2, 0, 3, 1
-        theta.filter_indices(&[1, 4]);
+        theta.filter_indices(&[0, 3]);
 
-        // Expected result is a 4x2 matrix with the reordered rows
+        // Expected result is a 2x2 matrix with filtered rows
         let expected = mat![[1.0, 2.0], [7.0, 8.0]];
 
         assert_eq!(theta.matrix, expected);

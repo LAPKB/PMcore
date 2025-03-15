@@ -46,3 +46,178 @@ pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_d
         theta.suggest_point(point, min_dist, ranges);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::structs::theta::Theta;
+    use faer::mat;
+
+    #[test]
+    fn test_expected() {
+        let original = Theta::from(mat![[1.0, 10.0]]);
+
+        let ranges = [(0.0, 1.0), (0.0, 10.0)];
+        let eps = 0.1;
+        let min_dist = 0.05;
+
+        let mut theta = original.clone();
+        adaptative_grid(&mut theta, eps, &ranges, min_dist);
+
+        let expected = mat![[1.0, 10.0], [0.9, 10.0], [1.0, 9.0]];
+
+        // Check that both matrices have the same number of rows
+        assert_eq!(
+            theta.matrix().nrows(),
+            expected.nrows(),
+            "Number of points in theta doesn't match expected"
+        );
+
+        // Check that all points in expected are in theta
+        for i in 0..expected.nrows() {
+            let expected_point = expected.row(i);
+            let mut found = false;
+
+            for j in 0..theta.matrix().nrows() {
+                let theta_point = theta.matrix().row(j);
+
+                // Check if points match (within small epsilon for floating-point comparison)
+                if (expected_point[0] - theta_point[0]).abs() < 1e-10
+                    && (expected_point[1] - theta_point[1]).abs() < 1e-10
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            assert!(
+                found,
+                "Expected point [{}, {}] not found in theta",
+                expected_point[0], expected_point[1]
+            );
+        }
+
+        // Check that all points in theta are in expected
+        for i in 0..theta.matrix().nrows() {
+            let theta_point = theta.matrix().row(i);
+            let mut found = false;
+
+            for j in 0..expected.nrows() {
+                let expected_point = expected.row(j);
+
+                // Check if points match (within small epsilon)
+                if (theta_point[0] - expected_point[0]).abs() < 1e-10
+                    && (theta_point[1] - expected_point[1]).abs() < 1e-10
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            assert!(
+                found,
+                "Point [{}, {}] in theta was not expected",
+                theta_point[0], theta_point[1]
+            );
+        }
+    }
+
+    #[test]
+    fn test_basic_expansion() {
+        // Create initial theta with a single point [0.5, 0.5]
+        let mut theta = Theta::from(mat![[0.5, 0.5]]);
+
+        // Define ranges for two dimensions
+        let ranges = [(0.0, 1.0), (0.0, 1.0)];
+
+        // Set expansion parameters
+        let eps = 0.1;
+        let min_dist = 0.05;
+
+        // Apply adaptive grid
+        adaptative_grid(&mut theta, eps, &ranges, min_dist);
+
+        // Should generate 4 new points around the original:
+        // [0.6, 0.5], [0.4, 0.5], [0.5, 0.6], [0.5, 0.4]
+        // Total 5 points including the original
+        assert_eq!(theta.matrix().nrows(), 5);
+
+        // Verify the original point is preserved
+        let matrix = theta.matrix();
+        let mut has_original = false;
+
+        for i in 0..matrix.nrows() {
+            let row = matrix.row(i);
+            if (row[0] - 0.5).abs() < 1e-10 && (row[1] - 0.5).abs() < 1e-10 {
+                has_original = true;
+                break;
+            }
+        }
+        assert!(has_original, "Original point should be preserved");
+
+        // Verify expansion points were created
+        let expected_points = vec![(0.6, 0.5), (0.4, 0.5), (0.5, 0.6), (0.5, 0.4)];
+        for (x, y) in expected_points {
+            let mut found = false;
+            for i in 0..matrix.nrows() {
+                let row = matrix.row(i);
+                if (row[0] - x).abs() < 1e-10 && (row[1] - y).abs() < 1e-10 {
+                    found = true;
+                    break;
+                }
+            }
+            assert!(found, "Expected point ({}, {}) not found", x, y);
+        }
+    }
+
+    #[test]
+    fn test_boundary_conditions() {
+        // Create initial theta with points near boundaries
+        let mut theta = Theta::from(mat![
+            [0.05, 0.5], // Near lower boundary in x
+            [0.95, 0.5], // Near upper boundary in x
+            [0.5, 0.05], // Near lower boundary in y
+            [0.5, 0.95], // Near upper boundary in y
+        ]);
+
+        let ranges = [(0.0, 1.0), (0.0, 1.0)];
+        let eps = 0.1;
+        let min_dist = 0.05;
+
+        // Store original count
+        let original_count = theta.matrix().nrows();
+
+        adaptative_grid(&mut theta, eps, &ranges, min_dist);
+
+        // Each point should generate fewer than 4 new points due to boundaries
+        assert!(theta.matrix().nrows() > original_count);
+        assert!(theta.matrix().nrows() < original_count + 4 * 4);
+
+        // Verify no points are outside the range
+        let matrix = theta.matrix();
+        for i in 0..matrix.nrows() {
+            let row = matrix.row(i);
+            assert!(row[0] >= ranges[0].0 && row[0] <= ranges[0].1);
+            assert!(row[1] >= ranges[1].0 && row[1] <= ranges[1].1);
+        }
+    }
+
+    #[test]
+    fn test_min_distance_constraint() {
+        // Create initial theta with close points
+        let mut theta = Theta::from(mat![
+            [0.5, 0.5],
+            [0.55, 0.5], // Close to first point
+        ]);
+
+        let ranges = [(0.0, 1.0), (0.0, 10.0)];
+        let eps = 0.1;
+        let min_dist = 0.15; // Large enough to prevent some points from being added
+
+        adaptative_grid(&mut theta, eps, &ranges, min_dist);
+
+        // We should have fewer points than the maximum possible expansion
+        // due to the minimum distance constraint
+        assert!(theta.matrix().nrows() < 2 + 2 * 4);
+    }
+}
