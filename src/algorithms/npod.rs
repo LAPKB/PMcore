@@ -221,18 +221,15 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let mut keep = Vec::<usize>::new();
 
         // The minimum between the number of subjects and the actual number of support points
-        self.psi
-            .matrix()
-            .col_iter()
-            .enumerate()
-            .for_each(|(i, col)| {
-                let test = col.norm_l2();
-                let r_diag_val = r.get(i, i);
-                let ratio = r_diag_val / test;
-                if ratio.abs() >= 1e-8 {
-                    keep.push(*perm.get(i).unwrap());
-                }
-            });
+        let keep_n = self.psi.matrix().ncols().min(self.psi.matrix().nrows());
+        for i in 0..keep_n {
+            let test = r.col(i).norm_l2();
+            let r_diag_val = r.get(i, i);
+            let ratio = r_diag_val / test;
+            if ratio.abs() >= 1e-8 {
+                keep.push(*perm.get(i).unwrap());
+            }
+        }
 
         // If a support point is dropped, log it as a debug message
         if self.psi.matrix().ncols() != keep.len() {
