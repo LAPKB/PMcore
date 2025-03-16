@@ -49,7 +49,7 @@ impl Theta {
     /// The point is only added if it is at least `min_dist` away from all existing support points
     /// and within the limits specified by `limits`
     pub(crate) fn suggest_point(&mut self, spp: &[f64], min_dist: f64, limits: &[(f64, f64)]) {
-        if self.check_point(&spp, min_dist, limits) {
+        if self.check_point(spp, min_dist, limits) {
             self.add_point(spp);
         }
     }

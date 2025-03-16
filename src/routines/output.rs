@@ -885,22 +885,18 @@ impl OutputFile {
 pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<()> {
     let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-    writer.write_record(&["id", "block", "time", "out", "outeq"])?;
+    writer.write_record(["id", "block", "time", "out", "outeq"])?;
     for subject in data.get_subjects() {
         for occasion in subject.occasions() {
             for event in occasion.get_events(&None, &None, false) {
-                match event {
-                    Event::Observation(obs) => {
-                        // Write each field individually
-                        writer.write_record(&[
-                            &subject.id(),
-                            &occasion.index().to_string(),
-                            &obs.time().to_string(),
-                            &obs.value().to_string(),
-                            &obs.outeq().to_string(),
-                        ])?;
-                    }
-                    _ => {}
+                if let Event::Observation(event) = event {
+                    writer.write_record([
+                        subject.id(),
+                        &occasion.index().to_string(),
+                        &event.time().to_string(),
+                        &event.value().to_string(),
+                        &event.outeq().to_string(),
+                    ])?;
                 }
             }
         }

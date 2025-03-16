@@ -29,13 +29,13 @@ pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_d
             if val + l < ranges[j].1 {
                 let mut plus = Row::zeros(spp.ncols());
                 plus[j] = l;
-                plus = plus + spp;
+                plus += spp;
                 candidates.push(plus.iter().copied().collect::<Vec<f64>>());
             }
             if val - l > ranges[j].0 {
                 let mut minus = Row::zeros(spp.ncols());
                 minus[j] = -l;
-                minus = minus + spp;
+                minus += spp;
                 candidates.push(minus.iter().copied().collect::<Vec<f64>>());
             }
         }
