@@ -76,5 +76,5 @@ pub(crate) fn calculate_psi(
         cache,
     );
 
-    psi.into()
+    psi
 }

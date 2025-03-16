@@ -40,7 +40,7 @@ impl Theta {
     }
 
     /// Forcibly add a support point to the matrix
-    pub(crate) fn add_point(&mut self, spp: Vec<f64>) {
+    pub(crate) fn add_point(&mut self, spp: &[f64]) {
         self.matrix
             .resize_with(self.matrix.nrows() + 1, self.matrix.ncols(), |_, i| spp[i]);
     }
@@ -48,14 +48,14 @@ impl Theta {
     /// Suggest a new support point to add to the matrix
     /// The point is only added if it is at least `min_dist` away from all existing support points
     /// and within the limits specified by `limits`
-    pub(crate) fn suggest_point(&mut self, spp: Vec<f64>, min_dist: f64, limits: &[(f64, f64)]) {
+    pub(crate) fn suggest_point(&mut self, spp: &[f64], min_dist: f64, limits: &[(f64, f64)]) {
         if self.check_point(&spp, min_dist, limits) {
             self.add_point(spp);
         }
     }
 
     /// Check if a point is at least `min_dist` away from all existing support points
-    pub(crate) fn check_point(&self, spp: &Vec<f64>, min_dist: f64, limits: &[(f64, f64)]) -> bool {
+    pub(crate) fn check_point(&self, spp: &[f64], min_dist: f64, limits: &[(f64, f64)]) -> bool {
         if self.matrix.nrows() == 0 {
             return true;
         }
@@ -90,11 +90,10 @@ impl Theta {
 impl Debug for Theta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Write nspp and nsub
-        println!();
-        writeln!(f, "Theta contains {} support points\n", self.nspp())?;
+        writeln!(f, "\nTheta contains {} support points\n", self.nspp())?;
         // Write the matrix
         self.matrix.row_iter().enumerate().for_each(|(index, row)| {
-            write!(f, "{index}\t{:?}\n", row).unwrap();
+            writeln!(f, "{index}\t{:?}", row).unwrap();
         });
         Ok(())
     }
@@ -153,7 +152,7 @@ mod tests {
 
         let mut theta = Theta::from(matrix);
 
-        theta.add_point(vec![7.0, 8.0]);
+        theta.add_point(&[7.0, 8.0]);
 
         let expected = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
 

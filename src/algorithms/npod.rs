@@ -343,7 +343,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             candididate_points.push(spp.to_owned());
         }
         candididate_points.par_iter_mut().for_each(|spp| {
-            let optimizer = SppOptimizer::new(&self.equation, &self.data, &sigma, &pyl);
+            let optimizer = SppOptimizer::new(&self.equation, &self.data, sigma, &pyl);
             let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
             *spp = candidate_point;
             // add spp to theta
@@ -353,7 +353,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             // re-define a new optimization
         });
         for cp in candididate_points {
-            self.theta.suggest_point(cp.to_vec(), THETA_D, &self.ranges);
+            self.theta
+                .suggest_point(cp.to_vec().as_slice(), THETA_D, &self.ranges);
         }
         Ok(())
     }

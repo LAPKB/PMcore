@@ -521,10 +521,7 @@ impl Default for Output {
     fn default() -> Self {
         let path = PathBuf::from("outputs/").to_string_lossy().to_string();
 
-        Output {
-            write: false,
-            path: path,
-        }
+        Output { write: false, path }
     }
 }
 
@@ -655,7 +652,7 @@ impl SettingsBuilder<ParametersSet> {
 // Error model is set, allow optional settings and final build
 impl SettingsBuilder<ErrorSet> {
     pub fn build(self) -> Settings {
-        let settings = Settings {
+        Settings {
             config: self.config.unwrap(),
             parameters: self.parameters.unwrap(),
             error: self.error.unwrap(),
@@ -665,9 +662,7 @@ impl SettingsBuilder<ErrorSet> {
             output: self.output.unwrap_or_default(),
             convergence: self.convergence.unwrap_or_default(),
             advanced: self.advanced.unwrap_or_default(),
-        };
-
-        settings
+        }
     }
 }
 

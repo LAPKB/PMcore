@@ -99,7 +99,7 @@ impl<E: Equation> NPResult<E> {
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
             self.write_covs().context("Failed to write covariates")?;
-            if self.w.len() > 0 {
+            if !self.w.is_empty() {
                 //TODO: find a better way to indicate that the run failed
                 self.write_posterior()
                     .context("Failed to write posterior")?;
@@ -328,12 +328,12 @@ impl<E: Equation> NPResult<E> {
         let subjects = self.data.get_subjects();
         for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
             for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                writer.write_field(&subjects[sub].id())?;
+                writer.write_field(subjects[sub].id())?;
                 writer.write_field(format!("{}", spp))?;
                 for param in theta.row(spp) {
-                    writer.write_field(&format!("{param}"))?;
+                    writer.write_field(format!("{param}"))?;
                 }
-                writer.write_field(&format!("{elem:.10}"))?;
+                writer.write_field(format!("{elem:.10}"))?;
                 writer.write_record(None::<&[u8]>)?;
             }
         }
@@ -745,7 +745,7 @@ pub fn population_mean_median(
     theta: &Array2<f64>,
     w: &Array1<f64>,
 ) -> Result<(Array1<f64>, Array1<f64>)> {
-    let w = if w.len() == 0 {
+    let w = if w.is_empty() {
         tracing::warn!("w.len() == 0, setting all weights to 1/n");
         Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
     } else {
@@ -791,8 +791,8 @@ pub fn posterior_mean_median(
     let mut mean = Array2::zeros((0, theta.ncols()));
     let mut median = Array2::zeros((0, theta.ncols()));
 
-    let w = if w.len() == 0 {
-        tracing::warn!("w.len() == 0, setting all weights to 1/n");
+    let w = if w.is_empty() {
+        tracing::warn!("w is empty, setting all weights to 1/n");
         Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
     } else {
         w.clone()
