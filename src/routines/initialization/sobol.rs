@@ -6,25 +6,22 @@ use sobol_burley::sample;
 
 use crate::prelude::Parameters;
 
-/// Generates a 2-dimensional array containing a Sobol sequence within the given ranges.
+/// Generates an instance of [Theta] from a Sobol sequence.
 ///
-/// This function samples the space using a Sobol sequence of `n_points` points. distributed along `range_params.len()` dimensions.
-///
-/// This function is used to initialize an optimization algorithm.
-/// The generated Sobol sequence provides the initial sampling of the step to be used in the first cycle of the optimization algorithm.
+/// The sequence samples [0, 1), and the values are scaled to the parameter ranges.
 ///
 /// # Arguments
 ///
-/// * `n_points` - The number of points in the Sobol sequence.
-/// * `range_params` - A vector of tuples, where each tuple represents the minimum and maximum value of a parameter.
+/// * `parameters` - The [Parameters] struct, which contains the parameters to be sampled.
+/// * `points` - The number of points to generate, i.e. the number of rows in the matrix.
 /// * `seed` - The seed for the Sobol sequence generator.
 ///
 /// # Returns
 ///
-/// A 2D array where each row is a point in the Sobol sequence, and each column corresponds to a parameter.
-/// The value of each parameter is scaled to be within the corresponding range.
+/// [Theta], a structure that holds the support point matrix
 ///
 pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<Theta> {
+    let seed = seed as u32;
     let params: Vec<(String, f64, f64, bool)> = parameters
         .iter()
         .map(|p| (p.name.clone(), p.lower, p.upper, p.fixed))
@@ -38,7 +35,7 @@ pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<T
         .collect();
 
     let rand_matrix = Mat::from_fn(points, random_params.len(), |i, j| {
-        let unscaled = sample((i).try_into().unwrap(), j.try_into().unwrap(), seed as u32) as f64;
+        let unscaled = sample((i).try_into().unwrap(), j.try_into().unwrap(), seed) as f64;
         let (_name, lower, upper) = random_params.get(j).unwrap();
         lower + unscaled * (upper - lower)
     });
