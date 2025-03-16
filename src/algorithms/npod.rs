@@ -96,9 +96,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        initialization::sample_space(&self.settings, &self.data, &self.equation)
-            .unwrap()
-            .into()
+        initialization::sample_space(&self.settings).unwrap().into()
     }
 
     fn inc_cycle(&mut self) -> usize {

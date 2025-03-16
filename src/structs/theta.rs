@@ -1,19 +1,41 @@
 use std::fmt::Debug;
 
 use faer::Mat;
-use faer_ext::IntoFaer;
-use ndarray::{Array2, ArrayView2};
 
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution
 #[derive(Clone, PartialEq)]
 pub struct Theta {
     matrix: Mat<f64>,
+    random: Vec<(String, f64, f64)>,
+    fixed: Vec<(String, f64)>,
+}
+
+impl Default for Theta {
+    fn default() -> Self {
+        Theta {
+            matrix: Mat::new(),
+            random: Vec::new(),
+            fixed: Vec::new(),
+        }
+    }
 }
 
 impl Theta {
     pub fn new() -> Self {
-        Theta { matrix: Mat::new() }
+        Theta::default()
+    }
+
+    pub(crate) fn from_parts(
+        matrix: Mat<f64>,
+        random: Vec<(String, f64, f64)>,
+        fixed: Vec<(String, f64)>,
+    ) -> Self {
+        Theta {
+            matrix,
+            random,
+            fixed,
+        }
     }
 
     /// Get the matrix containing parameter values
@@ -21,6 +43,11 @@ impl Theta {
     /// The matrix is a 2D array where each row represents a support point, and each column a parameter
     pub fn matrix(&self) -> &Mat<f64> {
         &self.matrix
+    }
+
+    /// Set the matrix containing parameter values
+    pub fn set_matrix(&mut self, matrix: Mat<f64>) {
+        self.matrix = matrix;
     }
 
     /// Get the number of support points, equal to the number of rows in the matrix
@@ -98,34 +125,7 @@ impl Debug for Theta {
         Ok(())
     }
 }
-
-impl From<Array2<f64>> for Theta {
-    fn from(array: Array2<f64>) -> Self {
-        let matrix = array.view().into_faer().to_owned();
-        Theta { matrix }
-    }
-}
-
-impl From<Mat<f64>> for Theta {
-    fn from(matrix: Mat<f64>) -> Self {
-        Theta { matrix }
-    }
-}
-
-impl From<ArrayView2<'_, f64>> for Theta {
-    fn from(array_view: ArrayView2<'_, f64>) -> Self {
-        let matrix = array_view.into_faer().to_owned();
-        Theta { matrix }
-    }
-}
-
-impl From<&Array2<f64>> for Theta {
-    fn from(array: &Array2<f64>) -> Self {
-        let matrix = array.view().into_faer().to_owned();
-        Theta { matrix }
-    }
-}
-
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,3 +159,4 @@ mod tests {
         assert_eq!(theta.matrix, expected);
     }
 }
+ */

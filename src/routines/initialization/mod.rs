@@ -1,10 +1,8 @@
 use std::fs::File;
 
-use crate::prelude::data::Data;
-use crate::prelude::simulator::Equation;
+use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
-use ndarray::{Array1, Array2};
-use pharmsol::prelude::EstimateTheta;
+use ndarray::Array2;
 
 use crate::routines::settings::Settings;
 
@@ -12,30 +10,19 @@ pub mod latin;
 pub mod sobol;
 
 /// This function generates the grid of support points according to the sampler specified in the [Settings]
-pub fn sample_space(settings: &Settings, data: &Data, eqn: &impl Equation) -> Result<Array2<f64>> {
-    // Get the ranges of the random parameters
-    let ranges = settings.parameters().ranges();
-
-    // If a prior file is provided, read it and return
-    if settings.prior().file.is_some() {
-        let prior = parse_prior(
-            settings.prior().file.as_ref().unwrap(),
-            &settings.parameters().names(),
-        )?;
-        return Ok(prior);
-    }
-
+pub fn sample_space(settings: &Settings) -> Result<Theta> {
     // Otherwise, parse the sampler type and generate the grid
     let prior = match settings.prior().sampler.as_str() {
-        "sobol" => sobol::generate(settings.prior().points, &ranges, settings.prior().seed)?,
-        "latin" => latin::generate(settings.prior().points, &ranges, settings.prior().seed)?,
-        "osat" => {
-            let mut point = vec![];
-            for range in ranges {
-                point.push((range.1 - range.0) / 2.0);
-            }
-            data.estimate_theta(eqn, &Array1::from_vec(point))
-        }
+        "sobol" => sobol::generate(
+            settings.parameters(),
+            settings.prior().points,
+            settings.prior().seed,
+        )?,
+        "latin" => latin::generate(
+            settings.parameters(),
+            settings.prior().points,
+            settings.prior().seed,
+        )?,
         _ => {
             bail!(
                 "Unknown sampler specified in settings: {}",

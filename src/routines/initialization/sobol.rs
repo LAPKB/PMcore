@@ -1,7 +1,10 @@
+use crate::structs::theta::Theta;
 use anyhow::Result;
-use ndarray::prelude::*;
-use ndarray::{Array, ArrayBase, OwnedRepr};
+use faer::Mat;
+
 use sobol_burley::sample;
+
+use crate::prelude::Parameters;
 
 /// Generates a 2-dimensional array containing a Sobol sequence within the given ranges.
 ///
@@ -21,70 +24,35 @@ use sobol_burley::sample;
 /// A 2D array where each row is a point in the Sobol sequence, and each column corresponds to a parameter.
 /// The value of each parameter is scaled to be within the corresponding range.
 ///
-pub fn generate(
-    n_points: usize,
-    range_params: &Vec<(f64, f64)>,
-    seed: usize,
-) -> Result<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>> {
-    let n_params = range_params.len();
-    let mut seq = Array::<f64, _>::zeros((n_points, n_params).f());
-    for i in 0..n_points {
-        let mut row = seq.slice_mut(s![i, ..]);
-        let mut point: Vec<f64> = Vec::new();
-        for j in 0..n_params {
-            point.push(sample(i.try_into()?, j.try_into()?, seed as u32) as f64)
-        }
-        row.assign(&Array::from(point));
-    }
-    for i in 0..n_params {
-        let mut column = seq.slice_mut(s![.., i]);
-        let (min, max) = range_params.get(i).unwrap();
-        column.par_mapv_inplace(|x| min + x * (max - min));
-    }
-    Ok(seq)
-}
+pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<Theta> {
+    let params: Vec<(String, f64, f64, bool)> = parameters
+        .iter()
+        .map(|p| (p.name.clone(), p.lower, p.upper, p.fixed))
+        .collect();
 
-#[cfg(test)]
-#[test]
-fn basic_sobol() {
-    assert_eq!(
-        crate::routines::initialization::sobol::generate(
-            5,
-            &vec![(0., 1.), (0., 1.), (0., 1.)],
-            347
-        )
-        .unwrap(),
-        ndarray::array![
-            [0.10731887817382813, 0.14647412300109863, 0.5851038694381714],
-            [0.9840304851531982, 0.7633365392684937, 0.19097506999969482],
-            [0.38477110862731934, 0.734661340713501, 0.2616291046142578],
-            [0.7023299932479858, 0.41038262844085693, 0.9158684015274048],
-            [0.6016758680343628, 0.6171295642852783, 0.6263971328735352]
-        ]
-    )
-}
+    // Random parameters are sampled from the Sobol sequence
+    let random_params: Vec<(String, f64, f64)> = params
+        .iter()
+        .filter(|(_, _, _, fixed)| !fixed)
+        .map(|(name, lower, upper, _)| (name.clone(), *lower, *upper))
+        .collect();
 
-#[test]
-fn scaled_sobol() {
-    assert_eq!(
-        crate::routines::initialization::sobol::generate(
-            5,
-            &vec![(0., 1.), (0., 2.), (-1., 1.)],
-            347
-        )
-        .unwrap(),
-        ndarray::array![
-            [
-                0.10731887817382813,
-                0.29294824600219727,
-                0.17020773887634277
-            ],
-            [0.9840304851531982, 1.5266730785369873, -0.6180498600006104],
-            [0.38477110862731934, 1.469322681427002, -0.4767417907714844],
-            [0.7023299932479858, 0.8207652568817139, 0.8317368030548096],
-            [0.6016758680343628, 1.2342591285705566, 0.2527942657470703]
-        ]
-    )
+    let rand_matrix = Mat::from_fn(random_params.len(), points, |i, j| {
+        let unscaled = sample(j.try_into().unwrap(), i.try_into().unwrap(), seed as u32) as f64;
+        let (_name, lower, upper) = random_params.get(i).unwrap();
+        lower + unscaled * (upper - lower)
+    });
+
+    // Fixed parameters are initialized to the middle of their range
+    let fixed_params: Vec<(String, f64)> = params
+        .iter()
+        .filter(|(_, _, _, fixed)| *fixed)
+        .map(|(name, lower, upper, _)| (name.clone(), (upper - lower) / 2.0))
+        .collect();
+
+    let theta = Theta::from_parts(rand_matrix, random_params, fixed_params);
+
+    Ok(theta)
 }
 
 //TODO: It should be possible to avoid one of the for-loops

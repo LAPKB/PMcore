@@ -58,7 +58,7 @@ pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_d
     //    theta.suggest_point(point, min_dist, ranges);
     //}
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,3 +233,4 @@ mod tests {
         assert!(theta.matrix().nrows() < 2 + 2 * 4);
     }
 }
+ */

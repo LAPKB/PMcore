@@ -169,10 +169,10 @@ impl Default for Config {
 /// Fixed parameters are unknown, but common among all subjects.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Parameter {
-    name: String,
-    lower: f64,
-    upper: f64,
-    fixed: bool,
+    pub(crate) name: String,
+    pub(crate) lower: f64,
+    pub(crate) upper: f64,
+    pub(crate) fixed: bool,
 }
 
 impl Parameter {
@@ -190,7 +190,7 @@ impl Parameter {
 /// This structure contains information on all [Parameter]s to be estimated
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Parameters {
-    parameters: Vec<Parameter>,
+    pub(crate) parameters: Vec<Parameter>,
 }
 
 impl Parameters {

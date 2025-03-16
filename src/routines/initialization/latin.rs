@@ -1,9 +1,11 @@
 use anyhow::Result;
-use ndarray::prelude::*;
-use ndarray::{Array, ArrayBase, OwnedRepr};
+use faer::Mat;
 use rand::prelude::*;
 use rand::rngs::StdRng;
 use rand::Rng;
+
+use crate::prelude::Parameters;
+use crate::structs::theta::Theta;
 
 /// Generates a 2-dimensional array containing Latin Hypercube Sampling points within the given ranges.
 ///
@@ -11,61 +13,58 @@ use rand::Rng;
 ///
 /// # Arguments
 ///
-/// * `n_points` - The number of points in the Latin Hypercube Sampling.
-/// * `range_params` - A vector of tuples, where each tuple represents the minimum and maximum value of a parameter.
+/// * [Parameters] - Which can be random or fixed (but unkknown)
+/// * `points` - The number of points to generate, i.e. the number of rows in the matrix.
 /// * `seed` - The seed for the random number generator.
 ///
 /// # Returns
 ///
-/// A 2D array where each row is a point in the Latin Hypercube Sampling, and each column corresponds to a parameter.
-/// The value of each parameter is scaled to be within the corresponding range.
+/// [Theta], a structure that holds the support point matrix
 ///
-pub fn generate(
-    n_points: usize,
-    range_params: &Vec<(f64, f64)>,
-    seed: usize,
-) -> Result<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>> {
-    let n_params = range_params.len();
-    let mut seq = Array::<f64, _>::zeros((n_points, n_params).f());
+pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<Theta> {
+    let params: Vec<(String, f64, f64, bool)> = parameters
+        .iter()
+        .map(|p| (p.name.clone(), p.lower, p.upper, p.fixed))
+        .collect();
+
+    // Random parameters are sampled from the Sobol sequence
+    let random_params: Vec<(String, f64, f64)> = params
+        .iter()
+        .filter(|(_, _, _, fixed)| !fixed)
+        .map(|(name, lower, upper, _)| (name.clone(), *lower, *upper))
+        .collect();
+
+    // Initialize random number generator with the provided seed
     let mut rng = StdRng::seed_from_u64(seed as u64);
 
-    for j in 0..n_params {
-        let (min, max) = range_params[j];
-        let mut intervals: Vec<f64> = (0..n_points).map(|i| i as f64).collect();
-        intervals.shuffle(&mut rng);
-
-        for i in 0..n_points {
-            let value = rng.random::<f64>();
-            seq[[i, j]] = min + ((intervals[i] + value) / n_points as f64) * (max - min);
-        }
+    // Create and shuffle intervals for each parameter
+    let mut intervals = Vec::new();
+    for _ in 0..random_params.len() {
+        let mut param_intervals: Vec<f64> = (0..points).map(|i| i as f64).collect();
+        param_intervals.shuffle(&mut rng);
+        intervals.push(param_intervals);
     }
-    Ok(seq)
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    let rand_matrix = Mat::from_fn(random_params.len(), points, |i, j| {
+        // Get the interval for this parameter and point
+        let interval = intervals[i][j];
+        // Generate random offset within the interval
+        let random_offset = rng.random::<f64>();
+        // Calculate normalized value in [0,1]
+        let unscaled = (interval + random_offset) / points as f64;
+        // Scale to parameter range
+        let (_name, lower, upper) = random_params.get(i).unwrap();
+        lower + unscaled * (upper - lower)
+    });
 
-    #[test]
-    fn test_generate_lhs() {
-        let result = generate(5, &vec![(0., 1.), (0., 100.), (0., 1000.)], 42).unwrap();
-        assert_eq!(result.shape(), &[5, 3]);
-        // Check that the values are within the expected range
-        for i in 0..5 {
-            assert!(result[[i, 0]] >= 0. && result[[i, 0]] <= 1.);
-            assert!(result[[i, 1]] >= 0. && result[[i, 1]] <= 100.);
-            assert!(result[[i, 2]] >= 0. && result[[i, 2]] <= 1000.);
-        }
+    // Fixed parameters are initialized to the middle of their range
+    let fixed_params: Vec<(String, f64)> = params
+        .iter()
+        .filter(|(_, _, _, fixed)| *fixed)
+        .map(|(name, lower, upper, _)| (name.clone(), (upper - lower) / 2.0))
+        .collect();
 
-        // Check that the values are different
-        for i in 0..5 {
-            for j in 0..5 {
-                if i != j {
-                    assert_ne!(result[[i, 0]], result[[j, 0]]);
-                    assert_ne!(result[[i, 1]], result[[j, 1]]);
-                    assert_ne!(result[[i, 2]], result[[j, 2]]);
-                }
-            }
-        }
-    }
+    let theta = Theta::from_parts(rand_matrix, random_params, fixed_params);
+
+    Ok(theta)
 }

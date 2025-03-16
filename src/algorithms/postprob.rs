@@ -76,9 +76,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        initialization::sample_space(&self.settings, &self.data, &self.equation)
-            .unwrap()
-            .into()
+        initialization::sample_space(&self.settings).unwrap()
     }
 
     fn likelihood(&self) -> f64 {

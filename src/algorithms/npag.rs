@@ -18,7 +18,6 @@ use pharmsol::prelude::{
 use crate::routines::initialization;
 
 use crate::routines::expansion::adaptative_grid::adaptative_grid;
-use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use ndarray_stats::{DeviationExt, QuantileExt};
 
@@ -82,13 +81,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         NPResult::new(
             self.equation.clone(),
             self.data.clone(),
-            self.theta
-                .matrix()
-                .clone()
-                .as_mut()
-                .into_ndarray()
-                .to_owned()
-                .into(),
+            self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
             -2. * self.objf,
@@ -108,9 +101,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        initialization::sample_space(&self.settings, &self.data, &self.equation)
-            .unwrap()
-            .into()
+        initialization::sample_space(&self.settings).unwrap().into()
     }
 
     fn likelihood(&self) -> f64 {
