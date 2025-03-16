@@ -7,15 +7,13 @@ use rand::Rng;
 use crate::prelude::Parameters;
 use crate::structs::theta::Theta;
 
-/// Generates a 2-dimensional array containing Latin Hypercube Sampling points within the given ranges.
-///
-/// This function samples the space using a Latin Hypercube Sampling of `n_points` points, distributed along `range_params.len()` dimensions.
+/// Generates an instance of [Theta] using Latin Hypercube Sampling.
 ///
 /// # Arguments
 ///
-/// * [Parameters] - Which can be random or fixed (but unkknown)
+/// * `parameters` - The [Parameters] struct, which contains the parameters to be sampled.
 /// * `points` - The number of points to generate, i.e. the number of rows in the matrix.
-/// * `seed` - The seed for the random number generator.
+/// * `seed` - The seed for the Sobol sequence generator.
 ///
 /// # Returns
 ///
@@ -47,13 +45,12 @@ pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<T
 
     let rand_matrix = Mat::from_fn(points, random_params.len(), |i, j| {
         // Get the interval for this parameter and point
-        let interval = intervals[i][j];
-        // Generate random offset within the interval
+        let interval = intervals[j][i];
         let random_offset = rng.random::<f64>();
         // Calculate normalized value in [0,1]
         let unscaled = (interval + random_offset) / points as f64;
         // Scale to parameter range
-        let (_name, lower, upper) = random_params.get(i).unwrap();
+        let (_name, lower, upper) = random_params.get(j).unwrap(); // Fixed: use j instead of i
         lower + unscaled * (upper - lower)
     });
 
