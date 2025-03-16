@@ -1,6 +1,9 @@
 use crate::{
     prelude::algorithms::Algorithms,
-    structs::{psi::calculate_psi, theta::Theta},
+    structs::{
+        psi::{calculate_psi, Psi},
+        theta::Theta,
+    },
 };
 use anyhow::Result;
 use pharmsol::prelude::{
@@ -8,7 +11,7 @@ use pharmsol::prelude::{
     simulator::Equation,
 };
 
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 
 use crate::routines::evaluation::ipm::burke;
 use crate::routines::initialization;
@@ -20,7 +23,7 @@ use crate::routines::settings::Settings;
 /// Reweights the prior probabilities to the observed data and error model
 pub struct POSTPROB<E: Equation> {
     equation: E,
-    psi: Array2<f64>,
+    psi: Psi,
     theta: Theta,
     w: Array1<f64>,
     objf: f64,
@@ -36,7 +39,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            psi: Array2::default((0, 0)),
+            psi: Psi::new(),
             theta: Theta::new(),
             w: Array1::default(0),
             objf: f64::INFINITY,
@@ -99,7 +102,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         &self.theta
     }
 
-    fn psi(&self) -> &Array2<f64> {
+    fn psi(&self) -> &Psi {
         &self.psi
     }
 

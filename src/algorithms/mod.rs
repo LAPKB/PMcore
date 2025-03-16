@@ -3,11 +3,13 @@ use std::path::Path;
 
 use crate::routines::output::NPResult;
 use crate::routines::settings::Settings;
+use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use anyhow::Result;
 use anyhow::{Context, Error};
+use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
-use ndarray::{Array, Array2, ArrayBase, Dim, OwnedRepr};
+use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 use npag::*;
 use npod::NPOD;
 use pharmsol::prelude::{data::Data, simulator::Equation};
@@ -37,10 +39,11 @@ pub trait Algorithms<E: Equation>: Sync {
         let mut nan_count = 0;
         let mut inf_count = 0;
 
+        let psi = self.psi().matrix().as_ref().into_ndarray();
         // First coerce all NaN and infinite in psi to 0.0
-        for i in 0..self.psi().nrows() {
-            for j in 0..self.psi().ncols() {
-                let val = self.psi().get((i, j)).unwrap();
+        for i in 0..psi.nrows() {
+            for j in 0..self.psi().matrix().ncols() {
+                let val = psi.get((i, j)).unwrap();
                 if val.is_nan() {
                     nan_count += 1;
                     // *val = 0.0;
@@ -56,11 +59,10 @@ pub trait Algorithms<E: Equation>: Sync {
                 "Psi matrix contains {} NaN, {} Infinite values of {} total values",
                 nan_count,
                 inf_count,
-                self.psi().ncols() * self.psi().nrows()
+                psi.ncols() * psi.nrows()
             );
         }
 
-        let psi = self.psi().clone();
         let (_, col) = psi.dim();
         let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
         let plam = psi.dot(&ecol);
@@ -82,7 +84,7 @@ pub trait Algorithms<E: Equation>: Sync {
             tracing::error!(
                 "{}/{} subjects have zero probability given the model",
                 indices.len(),
-                self.psi().nrows()
+                psi.nrows()
             );
 
             // For each problematic subject
@@ -204,7 +206,7 @@ pub trait Algorithms<E: Equation>: Sync {
             return Err(anyhow::anyhow!(
                     "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
                     indices.len(),
-                    self.psi().nrows(),
+                    self.psi().matrix().nrows(),
                     zero_probability_subjects
                 ));
         }
@@ -219,16 +221,7 @@ pub trait Algorithms<E: Equation>: Sync {
     fn get_cycle(&self) -> usize;
     fn set_theta(&mut self, theta: Theta);
     fn get_theta(&self) -> &Theta;
-    fn psi(&self) -> &Array2<f64>;
-    fn write_psi(&self, path: &str) {
-        // write psi to csv file
-        let psi = self.psi();
-        let mut wtr = csv::Writer::from_path(path).unwrap();
-        for row in psi.rows() {
-            wtr.write_record(row.iter().map(|x| x.to_string())).unwrap();
-        }
-        wtr.flush().unwrap();
-    }
+    fn psi(&self) -> &Psi;
     fn likelihood(&self) -> f64;
     fn n2ll(&self) -> f64 {
         -2.0 * self.likelihood()

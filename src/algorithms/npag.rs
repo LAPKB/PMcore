@@ -5,7 +5,7 @@ pub use crate::routines::evaluation::qr;
 use crate::routines::settings::Settings;
 
 use crate::routines::output::{CycleLog, NPCycle, NPResult};
-use crate::structs::psi::calculate_psi;
+use crate::structs::psi::{calculate_psi, Psi};
 use crate::structs::theta::Theta;
 
 use anyhow::bail;
@@ -18,8 +18,8 @@ use pharmsol::prelude::{
 use crate::routines::initialization;
 
 use crate::routines::expansion::adaptative_grid::adaptative_grid;
-use ndarray::{Array, Array1, Array2, Axis};
-use ndarray_stats::{DeviationExt, QuantileExt};
+use ndarray::Array1;
+use ndarray_stats::QuantileExt;
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
@@ -30,7 +30,7 @@ const THETA_D: f64 = 1e-4;
 pub struct NPAG<E: Equation> {
     equation: E,
     ranges: Vec<(f64, f64)>,
-    psi: Array2<f64>,
+    psi: Psi,
     theta: Theta,
     lambda: Array1<f64>,
     w: Array1<f64>,
@@ -54,7 +54,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         Ok(Box::new(Self {
             equation,
             ranges: settings.parameters().ranges(),
-            psi: Array2::default((0, 0)),
+            psi: Psi::new(),
             theta: Theta::new(),
             lambda: Array1::default(0),
             w: Array1::default(0),
@@ -125,15 +125,17 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         &self.theta
     }
 
-    fn psi(&self) -> &Array2<f64> {
+    fn psi(&self) -> &Psi {
         &self.psi
     }
 
     fn convergence_evaluation(&mut self) {
+        use faer_ext::IntoNdarray;
+        let psi = self.psi.matrix().as_ref().into_ndarray();
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
             self.eps /= 2.;
             if self.eps <= THETA_E {
-                let pyl = self.psi.dot(&self.w);
+                let pyl = psi.dot(&self.w);
                 self.f1 = pyl.mapv(|x| x.ln()).sum();
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
@@ -212,42 +214,48 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 keep.push(index);
             }
         }
-        if self.psi.ncols() != keep.len() {
+        if self.psi.matrix().ncols() != keep.len() {
             tracing::debug!(
                 "Lambda (max/1000) dropped {} support point(s)",
-                self.psi.ncols() - keep.len(),
+                self.psi.matrix().ncols() - keep.len(),
             );
         }
 
         self.theta.filter_indices(keep.as_slice());
-        self.psi = self.psi.select(Axis(1), &keep);
+        self.psi.filter_column_indices(keep.as_slice());
 
         //Rank-Revealing Factorization
         let (r, perm) = qr::calculate_r(&self.psi);
 
         let mut keep = Vec::<usize>::new();
-        //The minimum between the number of subjects and the actual number of support points
-        let lim_loop = self.psi.nrows().min(self.psi.ncols());
-        for i in 0..lim_loop {
-            let test = norm_zero(&r.column(i).to_owned());
-            let ratio = r.get((i, i)).unwrap() / test;
-            if ratio.abs() >= 1e-8 {
-                keep.push(*perm.get(i).unwrap());
-            }
-        }
+
+        // The minimum between the number of subjects and the actual number of support points
+        self.psi
+            .matrix()
+            .col_iter()
+            .enumerate()
+            .for_each(|(i, col)| {
+                let test = col.norm_l2();
+                let r_diag_val = r.get(i, i);
+                let ratio = r_diag_val / test;
+                if ratio.abs() >= 1e-8 {
+                    keep.push(*perm.get(i).unwrap());
+                }
+            });
 
         // If a support point is dropped, log it as a debug message
-        if self.psi.ncols() != keep.len() {
+        if self.psi.matrix().ncols() != keep.len() {
             tracing::debug!(
                 "QR decomposition dropped {} support point(s)",
-                self.psi.ncols() - keep.len(),
+                self.psi.matrix().ncols() - keep.len(),
             );
         }
 
+        // Filter to keep only the support points (rows) that are in the `keep` vector
         self.theta.filter_indices(keep.as_slice());
-        self.psi = self.psi.select(Axis(1), &keep);
+        // Filter to keep only the support points (columns) that are in the `keep` vector
+        self.psi.filter_column_indices(keep.as_slice());
 
-        // TODO: Remove this when the code is stable
         self.validate_psi()?;
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
@@ -339,9 +347,4 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
         Ok(())
     }
-}
-
-fn norm_zero(a: &Array1<f64>) -> f64 {
-    let zeros: Array1<f64> = Array::zeros(a.len());
-    a.l2_dist(&zeros).unwrap()
 }

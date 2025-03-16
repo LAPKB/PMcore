@@ -1,28 +1,29 @@
-use faer_ext::*;
-use ndarray::parallel::prelude::*;
-use ndarray::{Array2, Axis};
+use crate::structs::psi::Psi;
+use faer::{linalg::solvers::ColPivQr, Mat};
 
-use faer::linalg::solvers::ColPivQr;
-use faer::MatRef;
-
-pub fn calculate_r(x: &Array2<f64>) -> (Array2<f64>, Vec<usize>) {
-    // Normalize rows to sum to 1
+pub fn calculate_r(psi: &Psi) -> (Mat<f64>, Vec<usize>) {
+    /*     // Normalize rows to sum to 1
     let mut n_x = x.clone();
     n_x.axis_iter_mut(Axis(0))
         .into_par_iter()
-        .for_each(|mut row| row /= row.sum());
+        .for_each(|mut row| row /= row.sum()); */
 
-    // Convert to faer matrix format
-    let mat_x: MatRef<'_, f64> = n_x.view().into_faer();
+    // Clone the matrix, as we will modify it
+    let mut mat = psi.matrix().clone();
+
+    // Normalize the rows to sum to 1
+    mat.row_iter_mut().for_each(|row| {
+        let row_sum: f64 = row.as_ref().iter().sum();
+        row.iter_mut().for_each(|x| *x /= row_sum);
+    });
 
     // Perform column pivoted QR decomposition
-    let qr: ColPivQr<f64> = mat_x.col_piv_qr();
+    let qr: ColPivQr<f64> = mat.col_piv_qr();
 
     // Extract the R matrix
     let r_mat: faer::Mat<f64> = qr.R().to_owned();
-    let r = r_mat.as_ref().into_ndarray().to_owned();
 
     // Get the permutation information
     let perm = qr.P().arrays().0.to_vec();
-    (r, perm)
+    (r_mat, perm)
 }

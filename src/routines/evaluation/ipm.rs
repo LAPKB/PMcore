@@ -1,4 +1,6 @@
+use crate::structs::psi::Psi;
 use anyhow::{bail, Context};
+use faer_ext::IntoNdarray;
 use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
 use ndarray::{array, Array, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
@@ -44,10 +46,9 @@ type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 /// Note: This function applies the Interior Point Method (IPM) to iteratively update variables
 /// until convergence, solving the convex optimization problem.
 ///
-pub fn burke(
-    psi: &ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>,
-) -> anyhow::Result<(OneDimArray, f64)> {
-    let psi = psi.mapv(|x| x.abs());
+pub fn burke(psi: &Psi) -> anyhow::Result<(OneDimArray, f64)> {
+    let mut psi = psi.matrix().as_ref().into_ndarray().to_owned();
+    psi = psi.mapv(|x| x.abs());
     let (row, col) = psi.dim();
     if psi.min()? < &0.0 {
         bail!("Input matrix must have non-negative entries")

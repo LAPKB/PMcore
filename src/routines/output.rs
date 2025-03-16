@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
@@ -19,7 +20,7 @@ pub struct NPResult<E: Equation> {
     equation: E,
     data: Data,
     theta: Theta,
-    psi: Array2<f64>,
+    psi: Psi,
     w: Array1<f64>,
     objf: f64,
     cycles: usize,
@@ -35,7 +36,7 @@ impl<E: Equation> NPResult<E> {
         equation: E,
         data: Data,
         theta: Theta,
-        psi: Array2<f64>,
+        psi: Psi,
         w: Array1<f64>,
         objf: f64,
         cycles: usize,
@@ -78,7 +79,7 @@ impl<E: Equation> NPResult<E> {
         &self.theta
     }
 
-    pub fn get_psi(&self) -> &Array2<f64> {
+    pub fn get_psi(&self) -> &Psi {
         &self.psi
     }
 
@@ -133,7 +134,7 @@ impl<E: Equation> NPResult<E> {
             .into_ndarray()
             .to_owned();
         let w: Array1<f64> = self.w.clone();
-        let psi: Array2<f64> = self.psi.clone();
+        let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
 
         let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
             .context("Failed to calculate posterior mean and median")?;
@@ -290,7 +291,7 @@ impl<E: Equation> NPResult<E> {
             .into_ndarray()
             .to_owned();
         let w: Array1<f64> = self.w.clone();
-        let psi: Array2<f64> = self.psi.clone();
+        let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
         let par_names: Vec<String> = self.par_names.clone();
 
         // Calculate the posterior probabilities
@@ -371,7 +372,7 @@ impl<E: Equation> NPResult<E> {
             .into_ndarray()
             .to_owned();
         let w: Array1<f64> = self.w.clone();
-        let psi: Array2<f64> = self.psi.clone();
+        let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
 
         let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
             .context("Failed to calculate posterior mean and median")?;

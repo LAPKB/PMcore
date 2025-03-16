@@ -7,10 +7,14 @@ use crate::{
             settings::Settings,
         },
     },
-    structs::{psi::calculate_psi, theta::Theta},
+    structs::{
+        psi::{calculate_psi, Psi},
+        theta::Theta,
+    },
 };
 use anyhow::bail;
 use anyhow::Result;
+use faer_ext::IntoNdarray;
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel},
@@ -21,9 +25,9 @@ use pharmsol::{
 
 use ndarray::{
     parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
-    Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr,
+    Array, Array1, ArrayBase, Dim, OwnedRepr,
 };
-use ndarray_stats::{DeviationExt, QuantileExt};
+use ndarray_stats::QuantileExt;
 
 use crate::routines::{initialization, optimization::SppOptimizer};
 
@@ -33,7 +37,7 @@ const THETA_D: f64 = 1e-4;
 pub struct NPOD<E: Equation> {
     equation: E,
     ranges: Vec<(f64, f64)>,
-    psi: Array2<f64>,
+    psi: Psi,
     theta: Theta,
     lambda: Array1<f64>,
     w: Array1<f64>,
@@ -53,7 +57,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         Ok(Box::new(Self {
             equation,
             ranges: settings.parameters().ranges(),
-            psi: Array2::default((0, 0)),
+            psi: Psi::new(),
             theta: Theta::new(),
             lambda: Array1::default(0),
             w: Array1::default(0),
@@ -116,7 +120,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         &self.theta
     }
 
-    fn psi(&self) -> &Array2<f64> {
+    fn psi(&self) -> &Psi {
         &self.psi
     }
 
@@ -192,7 +196,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     fn condensation(&mut self) -> Result<()> {
         let max_lambda = match self.lambda.max() {
             Ok(max_lambda) => max_lambda,
-            Err(err) => bail!(err),
+            Err(err) => bail!("Error in IPM: {:?}", err),
         };
 
         let mut keep = Vec::<usize>::new();
@@ -201,45 +205,50 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
                 keep.push(index);
             }
         }
-        if self.psi.ncols() != keep.len() {
+        if self.psi.matrix().ncols() != keep.len() {
             tracing::debug!(
                 "Lambda (max/1000) dropped {} support point(s)",
-                self.psi.ncols() - keep.len(),
+                self.psi.matrix().ncols() - keep.len(),
             );
         }
 
         self.theta.filter_indices(keep.as_slice());
-        self.psi = self.psi.select(Axis(1), &keep);
+        self.psi.filter_column_indices(keep.as_slice());
 
         //Rank-Revealing Factorization
         let (r, perm) = qr::calculate_r(&self.psi);
 
         let mut keep = Vec::<usize>::new();
-        //The minimum between the number of subjects and the actual number of support points
-        let lim_loop = self.psi.nrows().min(self.psi.ncols());
-        for i in 0..lim_loop {
-            let test = norm_zero(&r.column(i).to_owned());
-            let ratio = r.get((i, i)).unwrap() / test;
-            if ratio.abs() >= 1e-8 {
-                keep.push(*perm.get(i).unwrap());
-            }
-        }
+
+        // The minimum between the number of subjects and the actual number of support points
+        self.psi
+            .matrix()
+            .col_iter()
+            .enumerate()
+            .for_each(|(i, col)| {
+                let test = col.norm_l2();
+                let r_diag_val = r.get(i, i);
+                let ratio = r_diag_val / test;
+                if ratio.abs() >= 1e-8 {
+                    keep.push(*perm.get(i).unwrap());
+                }
+            });
 
         // If a support point is dropped, log it as a debug message
-        if self.psi.ncols() != keep.len() {
+        if self.psi.matrix().ncols() != keep.len() {
             tracing::debug!(
                 "QR decomposition dropped {} support point(s)",
-                self.psi.ncols() - keep.len(),
+                self.psi.matrix().ncols() - keep.len(),
             );
         }
 
         self.theta.filter_indices(keep.as_slice());
-        self.psi = self.psi.select(Axis(1), &keep);
+        self.psi.filter_column_indices(keep.as_slice());
 
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                bail!(err);
+                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
             }
         };
         self.w = self.lambda.clone();
@@ -328,7 +337,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
 
     fn expansion(&mut self) -> Result<()> {
         // If no stop signal, add new point to theta based on the optimization of the D function
-        let pyl = self.psi.dot(&self.w);
+        let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
+        let pyl = psi.dot(&self.w);
 
         // Add new point to theta based on the optimization of the D function
         let error_type = self.settings.error().error_model().into();
@@ -360,20 +370,19 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
 
 impl<E: Equation> NPOD<E> {
     fn validate_psi(&mut self) -> Result<()> {
+        let mut psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
         // First coerce all NaN and infinite in psi to 0.0
-        if self.psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
+        if psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
             tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
-            for i in 0..self.psi.nrows() {
-                for j in 0..self.psi.ncols() {
-                    let val = self.psi.get_mut((i, j)).unwrap();
+            for i in 0..psi.nrows() {
+                for j in 0..psi.ncols() {
+                    let val = psi.get_mut((i, j)).unwrap();
                     if val.is_nan() || val.is_infinite() {
                         *val = 0.0;
                     }
                 }
             }
         }
-
-        let psi = self.psi.clone();
 
         // Calculate the sum of each column in psi
         let (_, col) = psi.dim();
@@ -402,9 +411,4 @@ impl<E: Equation> NPOD<E> {
 
         Ok(())
     }
-}
-
-fn norm_zero(a: &Array1<f64>) -> f64 {
-    let zeros: Array1<f64> = Array::zeros(a.len());
-    a.l2_dist(&zeros).unwrap()
 }

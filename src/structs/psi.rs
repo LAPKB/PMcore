@@ -30,6 +30,17 @@ impl Psi {
     pub fn nsub(&self) -> usize {
         self.matrix.ncols()
     }
+
+    /// Modify the [Psi::matrix] to only include the columns specified by `indices`
+    pub(crate) fn filter_column_indices(&mut self, indices: &[usize]) {
+        let matrix = self.matrix.to_owned();
+
+        let new = Mat::from_fn(matrix.nrows(), indices.len(), |r, c| {
+            *matrix.get(r, indices[c])
+        });
+
+        self.matrix = new;
+    }
 }
 
 impl From<Array2<f64>> for Psi {
@@ -66,8 +77,8 @@ pub(crate) fn calculate_psi(
     error_model: &ErrorModel,
     progress: bool,
     cache: bool,
-) -> Array2<f64> {
-    let psi = psi(
+) -> Psi {
+    let psi_ndarray = psi(
         equation,
         subjects,
         &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
@@ -76,5 +87,5 @@ pub(crate) fn calculate_psi(
         cache,
     );
 
-    psi
+    psi_ndarray.view().into()
 }
