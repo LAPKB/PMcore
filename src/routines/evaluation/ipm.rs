@@ -1,11 +1,10 @@
 use crate::structs::psi::Psi;
 use anyhow::{bail, Context};
-use faer::{Col, Row, Scale};
+use faer::{Col, Row};
 use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
 use ndarray::{array, Array, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 
-use faer::linalg::matmul::matmul;
 // use crate::logger::trace_memory;
 type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
@@ -101,11 +100,11 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(OneDimArray, f64)> {
     while mu > eps || norm_r > eps || gap > eps {
         // log::info!("IPM cycle");
         let smu = sig * mu;
-        let inner = &lam / &y;
+        let inner = Col::from_fn(lam.nrows(), |i| lam.get(i) / y.get(i));
 
-        let w_plam = &plam / &w;
+        let w_plam = Col::from_fn(plam.nrows(), |i| plam.get(i) / w.get(i));
 
-        let mut psi_inner: Array2<f64> = psi.clone();
+        let mut psi_inner: faer::Mat<f64> = psi.clone();
         for (mut col, inner_val) in psi_inner.axis_iter_mut(Axis(1)).zip(&inner) {
             col *= *inner_val;
         }
