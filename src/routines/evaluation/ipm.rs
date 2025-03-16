@@ -1,10 +1,11 @@
 use crate::structs::psi::Psi;
 use anyhow::{bail, Context};
-use faer_ext::IntoNdarray;
+use faer::{Col, Row, Scale};
 use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
 use ndarray::{array, Array, Array2, ArrayBase, Axis, Dim, OwnedRepr};
 use ndarray_stats::{DeviationExt, QuantileExt};
 
+use faer::linalg::matmul::matmul;
 // use crate::logger::trace_memory;
 type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 
@@ -47,37 +48,56 @@ type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 /// until convergence, solving the convex optimization problem.
 ///
 pub fn burke(psi: &Psi) -> anyhow::Result<(OneDimArray, f64)> {
-    let mut psi = psi.matrix().as_ref().into_ndarray().to_owned();
-    psi = psi.mapv(|x| x.abs());
-    let (row, col) = psi.dim();
-    if psi.min()? < &0.0 {
-        bail!("Input matrix must have non-negative entries")
-    }
-    let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-    let mut plam = psi.dot(&ecol);
-    let eps = 1e-8;
-    let mut sig = 0.;
-    let erow: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(row);
+    let mut psi = psi.matrix();
+
+    // Check if all elements are finite and make them non-negative
+    psi.row_iter_mut().try_for_each(|mut row| {
+        row.iter_mut().try_for_each(|x| {
+            // Check for finite value
+            if !x.is_finite() {
+                bail!("Input matrix must have finite entries")
+            } else {
+                // Coerce negative values to be non-negative
+                // TODO: This should probably be an error check, instead of coercion
+                *x = x.abs();
+                Ok(())
+            }
+        })
+    })?;
+
+    // Get the shape of the input matrix
+    let (row, col) = psi.shape();
+
+    let ecol: Col<f64> = Col::zeros(row);
+    let mut plam: Col<f64> = psi * &ecol;
+    let eps: f64 = 1e-8;
+    let mut sig: f64 = 0.0;
+    let erow: Row<f64> = Row::zeros(col);
 
     let mut lam = ecol.clone();
 
-    let mut w = 1. / &plam;
+    let mut w: Col<f64> = Col::from_fn(plam.nrows(), |i| 1.0 / plam.get(i));
 
-    let mut ptw = psi.t().dot(&w);
-    let shrink = 2. * *ptw.max().context("Failed to get max value of the dot-product between psi and w. This is likely due to a zero-row in psi.")?;
+    let mut ptw: Col<f64> = psi.transpose() * w;
+
+    let ptw_max = ptw.iter().fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
+
+    let shrink = 2. * ptw_max;
     lam *= shrink;
     plam *= shrink;
     w /= shrink;
     ptw /= shrink;
 
-    let mut y = &ecol - &ptw;
-    let mut r = &erow - &w * &plam;
+    let mut y: Col<f64> = &ecol - &ptw;
+    let mut r: Col<f64> = Col::from_fn(row, |i| erow.get(i) - w.get(i) * plam.get(i));
 
-    let mut norm_r = norm_inf(r);
+    let mut norm_r: f64 = r.norm_max();
 
-    let sum_log_plam = plam.mapv(|x: f64| x.ln()).sum();
-    let mut gap = (w.mapv(|x: f64| x.ln()).sum() + sum_log_plam).abs() / (1. + sum_log_plam);
-    let mut mu = lam.t().dot(&y) / col as f64;
+    let sum_log_plam: f64 = plam.iter().map(|x| x.ln()).sum();
+    let sum_log_w: f64 = w.iter().map(|x| x.ln()).sum();
+    let gap: f64 = sum_log_w + sum_log_plam.abs() / (1. + sum_log_plam);
+
+    let mut mu = lam.transpose() * &y / col as f64;
     while mu > eps || norm_r > eps || gap > eps {
         // log::info!("IPM cycle");
         let smu = sig * mu;
