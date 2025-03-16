@@ -37,9 +37,9 @@ pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<T
         .map(|(name, lower, upper, _)| (name.clone(), *lower, *upper))
         .collect();
 
-    let rand_matrix = Mat::from_fn(random_params.len(), points, |i, j| {
-        let unscaled = sample(j.try_into().unwrap(), i.try_into().unwrap(), seed as u32) as f64;
-        let (_name, lower, upper) = random_params.get(i).unwrap();
+    let rand_matrix = Mat::from_fn(points, random_params.len(), |i, j| {
+        let unscaled = sample((i).try_into().unwrap(), j.try_into().unwrap(), seed as u32) as f64;
+        let (_name, lower, upper) = random_params.get(j).unwrap();
         lower + unscaled * (upper - lower)
     });
 
@@ -51,12 +51,5 @@ pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<T
         .collect();
 
     let theta = Theta::from_parts(rand_matrix, random_params, fixed_params);
-
     Ok(theta)
 }
-
-//TODO: It should be possible to avoid one of the for-loops
-//this improvement should happen automatically if switching columns with rows.
-//theta0 = hcat([a .+ (b - a) .* Sobol.next!(s) for i = 1:n_theta0]...)
-
-//TODO: Implement alternative samplers, such as uniform and Normal distributions
