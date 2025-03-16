@@ -45,7 +45,7 @@ pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<T
         intervals.push(param_intervals);
     }
 
-    let rand_matrix = Mat::from_fn(random_params.len(), points, |i, j| {
+    let rand_matrix = Mat::from_fn(points, random_params.len(), |i, j| {
         // Get the interval for this parameter and point
         let interval = intervals[i][j];
         // Generate random offset within the interval
