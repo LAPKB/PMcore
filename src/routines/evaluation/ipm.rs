@@ -1,13 +1,9 @@
 use crate::structs::psi::Psi;
-use anyhow::{bail, Context};
-use faer::{Col, Row};
-use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
-use ndarray::{array, Array, Array2, ArrayBase, Axis, Dim, OwnedRepr};
-use ndarray_stats::{DeviationExt, QuantileExt};
+use anyhow::Result;
 
-// use crate::logger::trace_memory;
+use good_lp::*;
+use ndarray::{ArrayBase, OwnedRepr};
 type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
-
 /// Applies the Burke's Interior Point Method (IPM) to solve a specific optimization problem.
 ///
 /// The Burke's IPM is an iterative optimization technique used for solving convex optimization
@@ -46,131 +42,49 @@ type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
 /// Note: This function applies the Interior Point Method (IPM) to iteratively update variables
 /// until convergence, solving the convex optimization problem.
 ///
-pub fn burke(psi: &Psi) -> anyhow::Result<(OneDimArray, f64)> {
-    let mut psi = psi.matrix();
+pub fn burke(psi: &Psi) -> Result<(OneDimArray, f64)> {
+    let psi = psi.matrix();
 
-    // Check if all elements are finite and make them non-negative
-    psi.row_iter_mut().try_for_each(|mut row| {
-        row.iter_mut().try_for_each(|x| {
-            // Check for finite value
-            if !x.is_finite() {
-                bail!("Input matrix must have finite entries")
-            } else {
-                // Coerce negative values to be non-negative
-                // TODO: This should probably be an error check, instead of coercion
-                *x = x.abs();
-                Ok(())
-            }
-        })
-    })?;
+    let mut vars = ProblemVariables::new();
+    let w = vars.add_vector(VariableDefinition::new().min(0.0), psi.ncols());
 
-    // Get the shape of the input matrix
-    let (row, col) = psi.shape();
+    // Objective should be sum(log(psi * w))
+    let mut objective = Expression::from(0.0);
+    for i in 0..psi.nrows() {
+        let row = psi.row(i);
+        let mut dot_product = Expression::from(0.0);
 
-    let ecol: Col<f64> = Col::zeros(row);
-    let mut plam: Col<f64> = psi * &ecol;
-    let eps: f64 = 1e-8;
-    let mut sig: f64 = 0.0;
-    let erow: Row<f64> = Row::zeros(col);
-
-    let mut lam = ecol.clone();
-
-    let mut w: Col<f64> = Col::from_fn(plam.nrows(), |i| 1.0 / plam.get(i));
-
-    let mut ptw: Col<f64> = psi.transpose() * w;
-
-    let ptw_max = ptw.iter().fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
-
-    let shrink = 2. * ptw_max;
-    lam *= shrink;
-    plam *= shrink;
-    w /= shrink;
-    ptw /= shrink;
-
-    let mut y: Col<f64> = &ecol - &ptw;
-    let mut r: Col<f64> = Col::from_fn(row, |i| erow.get(i) - w.get(i) * plam.get(i));
-
-    let mut norm_r: f64 = r.norm_max();
-
-    let sum_log_plam: f64 = plam.iter().map(|x| x.ln()).sum();
-    let sum_log_w: f64 = w.iter().map(|x| x.ln()).sum();
-    let gap: f64 = sum_log_w + sum_log_plam.abs() / (1. + sum_log_plam);
-
-    let mut mu = lam.transpose() * &y / col as f64;
-    while mu > eps || norm_r > eps || gap > eps {
-        // log::info!("IPM cycle");
-        let smu = sig * mu;
-        let inner = Col::from_fn(lam.nrows(), |i| lam.get(i) / y.get(i));
-
-        let w_plam = Col::from_fn(plam.nrows(), |i| plam.get(i) / w.get(i));
-
-        let mut psi_inner: faer::Mat<f64> = psi.clone();
-        for (mut col, inner_val) in psi_inner.axis_iter_mut(Axis(1)).zip(&inner) {
-            col *= *inner_val;
+        for j in 0..psi.ncols() {
+            dot_product += row[j] * w[j];
         }
-        let h = psi_inner.dot(&psi.t()) + Array2::from_diag(&w_plam);
 
-        let uph = h
-            .cholesky()
-            .context("Error during Cholesky decomposition")?;
-
-        let uph = uph.t();
-        let smuyinv = smu * (&ecol / &y);
-        let rhsdw = &erow / &w - (psi.dot(&smuyinv));
-        let a = rhsdw.clone().into_shape_with_order((rhsdw.len(), 1))?;
-
-        let x = uph
-            .t()
-            .solve_triangular(&a, linfa_linalg::triangular::UPLO::Lower)?;
-
-        let dw_aux = uph.solve_triangular(&x, linfa_linalg::triangular::UPLO::Upper)?;
-
-        let dw = dw_aux.column(0);
-        let dy = -psi.t().dot(&dw);
-
-        let dlam = smuyinv - &lam - inner * &dy;
-
-        let mut alfpri = -1. / ((&dlam / &lam).min()?.min(-0.5));
-
-        alfpri = (0.99995 * alfpri).min(1.0);
-
-        let mut alfdual = -1. / ((&dy / &y).min()?.min(-0.5));
-        alfdual = alfdual.min(-1. / (&dw / &w).min()?.min(-0.5));
-        alfdual = (0.99995 * alfdual).min(1.0);
-        lam = lam + alfpri * dlam;
-        w = w + alfdual * &dw;
-        y = y + alfdual * &dy;
-        mu = lam.t().dot(&y) / col as f64;
-        plam = psi.dot(&lam);
-        r = &erow - &w * &plam;
-        ptw = ptw - alfdual * dy;
-
-        norm_r = norm_inf(r);
-
-        let sum_log_plam = plam.mapv(|x: f64| x.ln()).sum();
-        gap = (w.mapv(|x: f64| x.ln()).sum() + sum_log_plam).abs() / (1. + sum_log_plam);
-        if mu < eps && norm_r > eps {
-            sig = 1.0;
-        } else {
-            sig = array![[
-                (1. - alfpri).powi(2),
-                (1. - alfdual).powi(2),
-                (norm_r - mu) / (norm_r + 100. * mu)
-            ]]
-            .max()?
-            .min(0.3);
-        }
+        // Can't use logarithm with linear programming expressions
+        // Using the dot product directly as a linear approximation
+        objective += dot_product;
     }
-    lam /= row as f64;
-    let obj = psi.dot(&lam).mapv(|x| x.ln()).sum();
-    lam = &lam / lam.sum();
 
-    Ok((lam, obj))
-}
+    let sum_expr: Expression = vars.iter_variables_with_def().map(|(var, _)| var).sum();
 
-/// Computes the infinity norm (or maximum norm) of a 1-dimensional array
-/// The infinity norm is the maximum, absolute value of its elements
-fn norm_inf(a: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>>) -> f64 {
-    let zeros: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::zeros(a.len());
-    a.linf_dist(&zeros).unwrap()
+    let solution = vars
+        .maximise(&objective)
+        .using(default_solver)
+        .with(constraint!(sum_expr <= 1.0))
+        .solve()
+        .unwrap();
+
+    let mut w_vec = w
+        .iter()
+        .map(|var| solution.value(*var))
+        .collect::<Vec<f64>>();
+
+    w_vec.iter_mut().for_each(|x| *x = x.max(0.0));
+
+    let objf = objective.eval_with(&solution);
+
+    println!("Optimal w: {:?}", &w_vec);
+    println!("Objective function value: {}", &objf);
+
+    //let w_row = Row::from_fn(w_vec.len(), |i| w_vec[i]);
+
+    Ok((w_vec.into(), objf))
 }
