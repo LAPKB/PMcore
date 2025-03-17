@@ -469,7 +469,7 @@ pub struct Log {
 
 impl Default for Log {
     fn default() -> Self {
-        let path = PathBuf::from(".").to_string_lossy().to_string();
+        let path = PathBuf::from("log.txt").to_string_lossy().to_string();
 
         Log {
             level: LogLevel::INFO,
@@ -530,16 +530,25 @@ impl Default for Output {
 
 impl Output {
     /// Parses the output folder location
-    ////
+    ///
     /// If a `#` symbol is found, it will automatically increment the number by one.
     fn parse_output_folder(&mut self) -> String {
-        let mut path: String = self.path.clone().into();
+        let path = self.path.clone();
+
+        // If the path doesn't contain a "#", just return it as is
+        if !path.contains("#") {
+            return path;
+        }
+
+        // If it does contain "#", perform the incrementation logic
         let mut num = 1;
         while std::path::Path::new(&path.replace("#", &num.to_string())).exists() {
             num += 1;
         }
-        path = path.replace("#", &num.to_string());
-        path
+
+        let result = path.replace("#", &num.to_string());
+        self.path = result.clone(); // Update the internal path
+        result
     }
 }
 
