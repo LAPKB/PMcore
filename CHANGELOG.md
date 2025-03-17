@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2](https://github.com/LAPKB/PMcore/compare/v0.8.1...v0.8.2) - 2025-03-17
+
+### Fixed
+
+- Error in logic for output folder ([#109](https://github.com/LAPKB/PMcore/pull/109))
+
 ## [0.8.1](https://github.com/LAPKB/PMcore/compare/v0.8.0...v0.8.1) - 2025-03-12
 
 ### Fixed
