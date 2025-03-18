@@ -23,6 +23,8 @@ use pharmsol::{
     Subject,
 };
 
+use faer::Col;
+
 use ndarray::{
     parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
     Array, Array1, ArrayBase, Dim, OwnedRepr,
@@ -39,8 +41,8 @@ pub struct NPOD<E: Equation> {
     ranges: Vec<(f64, f64)>,
     psi: Psi,
     theta: Theta,
-    lambda: Array1<f64>,
-    w: Array1<f64>,
+    lambda: Col<f64>,
+    w: Col<f64>,
     last_objf: f64,
     objf: f64,
     cycle: usize,
@@ -59,8 +61,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             ranges: settings.parameters().ranges(),
             psi: Psi::new(),
             theta: Theta::new(),
-            lambda: Array1::default(0),
-            w: Array1::default(0),
+            lambda: Col::zeros(0),
+            w: Col::zeros(0),
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
             cycle: 0,
@@ -194,7 +196,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn condensation(&mut self) -> Result<()> {
-        let max_lambda = match self.lambda.max() {
+        let lambda: Array1<f64> = self.w.clone().iter().cloned().collect();
+        let max_lambda = match lambda.max() {
             Ok(max_lambda) => max_lambda,
             Err(err) => bail!("Error in IPM: {:?}", err),
         };
@@ -286,16 +289,16 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                panic!("Error in IPM: {:?}", err);
+                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
             }
         };
         let (lambda_down, objf_down) = match burke(&psi_down) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                tracing::warn!("Error in IPM: {:?}. Trying to recover.", err);
-                (Array1::zeros(1), f64::NEG_INFINITY)
+                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
             }
         };
+
         if objf_up > self.objf {
             self.gamma = gamma_up;
             self.objf = objf_up;
@@ -335,7 +338,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     fn expansion(&mut self) -> Result<()> {
         // If no stop signal, add new point to theta based on the optimization of the D function
         let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
-        let pyl = psi.dot(&self.w);
+        let w: Array1<f64> = self.w.clone().iter().cloned().collect();
+        let pyl = psi.dot(&w);
 
         // Add new point to theta based on the optimization of the D function
         let error_type = self.settings.error().error_model().into();

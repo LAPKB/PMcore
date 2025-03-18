@@ -6,12 +6,11 @@ use crate::{
     },
 };
 use anyhow::Result;
+use faer::Col;
 use pharmsol::prelude::{
     data::{Data, ErrorModel},
     simulator::Equation,
 };
-
-use ndarray::Array1;
 
 use crate::routines::evaluation::ipm::burke;
 use crate::routines::initialization;
@@ -25,7 +24,7 @@ pub struct POSTPROB<E: Equation> {
     equation: E,
     psi: Psi,
     theta: Theta,
-    w: Array1<f64>,
+    w: Col<f64>,
     objf: f64,
     cycle: usize,
     converged: bool,
@@ -41,7 +40,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             equation,
             psi: Psi::new(),
             theta: Theta::new(),
-            w: Array1::default(0),
+            w: Col::zeros(0),
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,

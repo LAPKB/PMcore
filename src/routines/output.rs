@@ -3,6 +3,7 @@ use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
+use faer::linalg::zip::IntoView;
 use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
@@ -11,6 +12,7 @@ use pharmsol::prelude::simulator::Equation;
 use serde::Serialize;
 // use pharmsol::Cache;
 use crate::routines::settings::Settings;
+use faer::Col;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 /// Defines the result objects from an NPAG run
@@ -21,7 +23,7 @@ pub struct NPResult<E: Equation> {
     data: Data,
     theta: Theta,
     psi: Psi,
-    w: Array1<f64>,
+    w: Col<f64>,
     objf: f64,
     cycles: usize,
     converged: bool,
@@ -37,7 +39,7 @@ impl<E: Equation> NPResult<E> {
         data: Data,
         theta: Theta,
         psi: Psi,
-        w: Array1<f64>,
+        w: Col<f64>,
         objf: f64,
         cycles: usize,
         converged: bool,
@@ -83,7 +85,7 @@ impl<E: Equation> NPResult<E> {
         &self.psi
     }
 
-    pub fn get_w(&self) -> &Array1<f64> {
+    pub fn get_w(&self) -> &Col<f64> {
         &self.w
     }
 
@@ -100,7 +102,7 @@ impl<E: Equation> NPResult<E> {
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
             self.write_covs().context("Failed to write covariates")?;
-            if !self.w.is_empty() {
+            if !self.w.nrows() == 0 {
                 //TODO: find a better way to indicate that the run failed
                 self.write_posterior()
                     .context("Failed to write posterior")?;
@@ -133,7 +135,7 @@ impl<E: Equation> NPResult<E> {
             .as_mut()
             .into_ndarray()
             .to_owned();
-        let w: Array1<f64> = self.w.clone();
+        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
         let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
 
         let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
@@ -247,13 +249,14 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!("Writing population parameter distribution...");
 
         let theta = &self.theta;
-        let w = if self.w.len() != theta.matrix().nrows() {
-            tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
-            Array1::zeros(theta.matrix().nrows())
-        } else {
-            self.w.clone()
-        };
-
+        let w: Vec<f64> = self.w.clone().into_view().iter().cloned().collect();
+        /* let w = if self.w.len() != theta.matrix().nrows() {
+                   tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
+                   Array1::zeros(theta.matrix().nrows())
+               } else {
+                   self.w.clone()
+               };
+        */
         let outputfile = OutputFile::new(&self.settings.output().path, "theta.csv")
             .context("Failed to create output file for theta")?;
 
@@ -290,7 +293,7 @@ impl<E: Equation> NPResult<E> {
             .as_mut()
             .into_ndarray()
             .to_owned();
-        let w: Array1<f64> = self.w.clone();
+        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
         let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
         let par_names: Vec<String> = self.par_names.clone();
 
@@ -371,7 +374,7 @@ impl<E: Equation> NPResult<E> {
             .as_mut()
             .into_ndarray()
             .to_owned();
-        let w: Array1<f64> = self.w.clone();
+        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
         let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
 
         let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)

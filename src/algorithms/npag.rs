@@ -10,10 +10,13 @@ use crate::structs::theta::Theta;
 
 use anyhow::bail;
 use anyhow::Result;
+use faer::linalg::zip::IntoView;
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
     simulator::Equation,
 };
+
+use faer::Col;
 
 use crate::routines::initialization;
 
@@ -32,8 +35,8 @@ pub struct NPAG<E: Equation> {
     ranges: Vec<(f64, f64)>,
     psi: Psi,
     theta: Theta,
-    lambda: Array1<f64>,
-    w: Array1<f64>,
+    lambda: Col<f64>,
+    w: Col<f64>,
     eps: f64,
     last_objf: f64,
     objf: f64,
@@ -56,8 +59,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             ranges: settings.parameters().ranges(),
             psi: Psi::new(),
             theta: Theta::new(),
-            lambda: Array1::default(0),
-            w: Array1::default(0),
+            lambda: Col::zeros(0),
+            w: Col::zeros(0),
             eps: 0.2,
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
@@ -132,10 +135,11 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn convergence_evaluation(&mut self) {
         use faer_ext::IntoNdarray;
         let psi = self.psi.matrix().as_ref().into_ndarray();
+        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
             self.eps /= 2.;
             if self.eps <= THETA_E {
-                let pyl = psi.dot(&self.w);
+                let pyl: Array1<f64> = psi.dot(&w);
                 self.f1 = pyl.mapv(|x| x.ln()).sum();
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
@@ -204,7 +208,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
 
     fn condensation(&mut self) -> Result<()> {
         // Filter out the support points with lambda < max(lambda)/1000
-        let max_lambda = match self.lambda.max() {
+        let lambda: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
+        let max_lambda = match lambda.max() {
             Ok(max_lambda) => max_lambda,
             Err(err) => bail!("Error in IPM: {:?}", err),
         };
@@ -292,7 +297,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 //todo: write out report
-                panic!("Error in IPM: {:?}", err);
+                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
             }
         };
         let (lambda_down, objf_down) = match burke(&psi_down) {
@@ -300,8 +305,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             Err(err) => {
                 //todo: write out report
                 //panic!("Error in IPM: {:?}", err);
-                tracing::warn!("Error in IPM: {:?}. Trying to recover.", err);
-                (Array1::zeros(1), f64::NEG_INFINITY)
+                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
+                //(Array1::zeros(1), f64::NEG_INFINITY)
             }
         };
         if objf_up > self.objf {
