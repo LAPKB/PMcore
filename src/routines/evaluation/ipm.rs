@@ -1,137 +1,210 @@
-use anyhow::Result;
-use clarabel::algebra::*;
-use clarabel::solver::*;
-use ndarray::{Array1, ArrayBase, OwnedRepr};
-
 use crate::structs::psi::Psi;
+use anyhow::{bail, Context};
+use faer::dyn_stack::MemStack;
+use faer::linalg::cholesky::llt::factor::cholesky_in_place;
+use faer::{Auto, Col, Mat, Row, Spec};
+use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
+use ndarray::{array, Array2, Axis};
+use ndarray_stats::{DeviationExt, QuantileExt};
 
-/// Alias for a one-dimensional array.
-type OneDimArray = ArrayBase<OwnedRepr<f64>, ndarray::Dim<[usize; 1]>>;
-
-/// Solves the problem
+/// Applies Burke's Interior Point Method (IPM) to solve a convex optimization problem.
 ///
-///   maximize    ∑₍ᵢ₌₁₎ⁿ log(∑₍ⱼ₌₁₎ᵐ ψ[i,j] * x[j])
-///   subject to  x ≥ 0  and  ∑₍ⱼ₌₁₎ᵐ x[j] = 1,
+/// The objective function to maximize is:
+///     f(x) = Σ(log(Σ(ψ_ij * x_j)))   for i = 1 to n_sub
 ///
-/// by reformulating it into conic form via an epigraph (exponential cone) approach.
-pub fn burke(psi: &Psi) -> Result<(OneDimArray, f64)> {
-    // Retrieve the psi matrix and its dimensions.
-    let psi_matrix = psi.matrix(); // shape (n, m)
-    let num_rows = psi_matrix.nrows();
-    let num_cols = psi_matrix.ncols();
-    let num_vars = num_cols + 2 * num_rows;
+/// subject to:
+///     1. x_j ≥ 0 for all j = 1 to n_point,
+///     2. Σ(x_j) = 1,
+///
+/// where ψ is an n_sub×n_point matrix with non-negative entries and x is a probability vector.
+///
+/// # Arguments
+///
+/// * `psi` - A reference to a Psi structure containing the input matrix.
+///
+/// # Returns
+///
+/// On success, returns a tuple `(lam, obj)` where:
+///   - `lam` is a faer::Col<f64> containing the computed probability vector,
+///   - `obj` is the value of the objective function at the solution.
+///
+/// # Errors
+///
+/// This function returns an error if any step in the optimization (e.g. Cholesky factorization)
+/// fails.
+pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
+    // Get the underlying matrix. (Assume psi.matrix() returns an ndarray-compatible matrix.)
+    let mut psi = psi.matrix();
 
-    // --- Objective ---
-    // We want to minimize sum(t) so that at optimum t_i = -log(z_i).
-    // Set q = [0 (for x); 1 (for t); 0 (for z)].
-    let mut q_vector = vec![0.0; num_vars];
-    for i in 0..num_rows {
-        q_vector[num_cols + i] = 1.0;
-    }
-    // P is zero (linear objective).
-    let p_matrix = CscMatrix::zeros((num_vars, num_vars));
-
-    // --- Constraint Group 1: Simplex constraint on x ---
-    let mut simplex_triplets = Vec::new();
-    for j in 0..num_cols {
-        simplex_triplets.push((0, j, 1.0));
-    }
-    let (i1, j1, v1) = convert_triplets(simplex_triplets);
-    let a1_matrix = CscMatrix::new_from_triplets(1, num_vars, i1, j1, v1);
-    let b1_vector = vec![1.0];
-
-    // --- Constraint Group 2: Linking x and z ---
-    let mut linking_triplets = Vec::new();
-    for i in 0..num_rows {
-        for j in 0..num_cols {
-            let value = -psi_matrix[(i, j)];
-            if value != 0.0 {
-                linking_triplets.push((i, j, value));
+    // Ensure all entries are finite and make them non-negative.
+    psi.row_iter_mut().try_for_each(|mut row| {
+        row.iter_mut().try_for_each(|x| {
+            if !x.is_finite() {
+                bail!("Input matrix must have finite entries")
+            } else {
+                // Coerce negatives to non-negative (could alternatively return an error)
+                *x = x.abs();
+                Ok(())
             }
+        })
+    })?;
+
+    // Let psi be of shape (n_sub, n_point)
+    let (n_sub, n_point) = psi.shape();
+
+    // Create unit vectors:
+    // ecol: ones vector of length n_point (used for sums over points)
+    // erow: ones row of length n_sub (used for sums over subproblems)
+    let ecol: Col<f64> = Col::from_fn(n_point, |_| 1.0);
+    let erow: Row<f64> = Row::from_fn(n_sub, |_| 1.0);
+
+    // Compute plam = psi · ecol. This gives a column vector of length n_sub.
+    let mut plam: Col<f64> = psi * &ecol;
+    let eps: f64 = 1e-8;
+    let mut sig: f64 = 0.0;
+
+    // Initialize lam (the variable we optimize) as a column vector of ones (length n_point).
+    let mut lam = ecol.clone();
+
+    // w = 1 ./ plam, elementwise.
+    let mut w: Col<f64> = Col::from_fn(plam.nrows(), |i| 1.0 / plam.get(i));
+
+    // ptw = ψᵀ · w, which will be a vector of length n_point.
+    let mut ptw: Col<f64> = psi.transpose() * &w;
+
+    // Use the maximum entry in ptw for scaling (the "shrink" factor).
+    let ptw_max = ptw.iter().fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
+    let shrink = 2.0 * ptw_max;
+    lam *= shrink;
+    plam *= shrink;
+    w /= shrink;
+    ptw /= shrink;
+
+    // y = ecol - ptw (a vector of length n_point).
+    let mut y: Col<f64> = &ecol - &ptw;
+    // r = erow - (w .* plam) (elementwise product; r has length n_sub).
+    let mut r: Col<f64> = Col::from_fn(n_sub, |i| erow.get(i) - w.get(i) * plam.get(i));
+    let mut norm_r: f64 = r.iter().fold(0.0, |max, &val| max.max(val.abs()));
+
+    // Compute the duality gap.
+    let sum_log_plam: f64 = plam.iter().map(|x| x.ln()).sum();
+    let sum_log_w: f64 = w.iter().map(|x| x.ln()).sum();
+    let mut gap: f64 = (sum_log_w + sum_log_plam).abs() / (1.0 + sum_log_plam);
+
+    // Compute the duality measure mu.
+    let mut mu = lam.transpose() * &y / n_point as f64;
+
+    while mu > eps || norm_r > eps || gap > eps {
+        let smu = sig * mu;
+        // inner = lam ./ y, elementwise.
+        let inner = Col::from_fn(lam.nrows(), |i| lam.get(i) / y.get(i));
+        // w_plam = plam ./ w, elementwise (length n_sub).
+        let w_plam = Col::from_fn(plam.nrows(), |i| plam.get(i) / w.get(i));
+
+        // Scale each column of psi by the corresponding element of 'inner'
+        let mut psi_inner: Mat<f64> = psi.clone();
+        psi_inner.col_iter_mut().map(|mut col| {
+            col.iter_mut()
+                .zip(inner.iter())
+                .for_each(|(x, &inner_val)| *x *= inner_val);
+        });
+        // for (mut col_vec, &inner_val) in psi_inner.axis_iter_mut(Axis(1)).zip(inner.iter()) {
+        //     col_vec *= inner_val;
+        // }
+        // Build a diagonal matrix from w_plam.
+        let diag_w_plam = Mat::from_fn(w_plam.nrows(), w_plam.ncols(), |i, j| {
+            if i == j {
+                *w_plam.get(i)
+            } else {
+                0.0
+            }
+        });
+
+        // Hessian approximation: h = (psi_inner * psiᵀ) + diag(w_plam)
+        let mut h = psi_inner * &psi.transpose() + diag_w_plam.to_owned();
+
+        // Create a buffer for MemStack
+
+        let uph = psi.lblt(faer::Side::Lower);
+        let uph = uph.L();
+        let uph = uph.transpose();
+
+        // smuyinv = smu * (ecol ./ y)
+        let smuyinv = smu * (&ecol / &y);
+        // rhsdw = (erow ./ w) - (psi · smuyinv)
+        let rhsdw = (&erow / &w) - psi * &smuyinv;
+        // Reshape rhsdw into a column vector.
+        let a = rhsdw
+            .into_shape((n_sub, 1))
+            .context("Failed to reshape rhsdw")?;
+
+        // Solve the triangular systems:
+        let x = uph
+            .transpose()
+            .solve_triangular(&a, linfa_linalg::triangular::UPLO::Lower)
+            .context("Error solving lower triangular system")?;
+        let dw_aux = uph
+            .solve_triangular(&x, linfa_linalg::triangular::UPLO::Upper)
+            .context("Error solving upper triangular system")?;
+        // Extract dw (a column vector) from the solution.
+        let dw = dw_aux.column(0);
+        // Compute dy = - (ψᵀ · dw)
+        let dy = -psi.transpose() * &dw;
+
+        // dlam = smuyinv - lam - (inner .* dy)
+        let dlam = &smuyinv - &lam - inner * &dy;
+
+        // Compute the primal step length alfpri.
+        let ratio_dlam_lam = &dlam / &lam;
+        let min_ratio_dlam = ratio_dlam_lam.iter().cloned().fold(f64::INFINITY, f64::min);
+        let mut alfpri: f64 = -1.0 / min_ratio_dlam.min(-0.5);
+        alfpri = (0.99995 * alfpri).min(1.0);
+
+        // Compute the dual step length alfdual.
+        let ratio_dy_y = &dy / &y;
+        let min_ratio_dy = ratio_dy_y.iter().cloned().fold(f64::INFINITY, f64::min);
+        let ratio_dw_w = &dw / &w;
+        let min_ratio_dw = ratio_dw_w.iter().cloned().fold(f64::INFINITY, f64::min);
+        let mut alfdual = -1.0 / min_ratio_dy.min(-0.5);
+        alfdual = alfdual.min(-1.0 / min_ratio_dw.min(-0.5));
+        alfdual = (0.99995 * alfdual as f64).min(1.0);
+
+        // Update the iterates.
+        lam = lam + alfpri * dlam;
+        w = w + alfdual * &dw;
+        y = y + alfdual * &dy;
+        mu = lam.dot(&y) / n_point as f64;
+        plam = psi.dot(&lam);
+        r = Col::from_fn(n_sub, |i| erow.get(i) - w.get(i) * plam.get(i));
+        ptw = ptw - alfdual * dy;
+
+        norm_r = norm_inf(&r);
+        let sum_log_plam: f64 = plam.iter().map(|x| x.ln()).sum();
+        let sum_log_w: f64 = w.iter().map(|x| x.ln()).sum();
+        gap = (sum_log_w + sum_log_plam).abs() / (1.0 + sum_log_plam);
+
+        // Adjust sigma.
+        if mu < eps && norm_r > eps {
+            sig = 1.0;
+        } else {
+            let candidate1 = (1.0 - alfpri).powi(2);
+            let candidate2 = (1.0 - alfdual).powi(2);
+            let candidate3 = (norm_r - mu) / (norm_r + 100.0 * mu);
+            sig = candidate1.max(candidate2).max(candidate3).min(0.3);
         }
-        linking_triplets.push((i, num_cols + num_rows + i, 1.0));
     }
-    let (i2, j2, v2) = convert_triplets(linking_triplets);
-    let a2_matrix = CscMatrix::new_from_triplets(num_rows, num_vars, i2, j2, v2);
-    let b2_vector = vec![0.0; num_rows];
+    // Scale lam.
+    lam = lam / (n_sub as f64);
+    // Compute the objective function value: sum(ln(psi·lam)).
+    let obj = (psi * &lam).iter().map(|x| x.ln()).sum();
+    // Normalize lam to sum to 1.
+    let lam_sum: f64 = lam.iter().sum();
+    lam = &lam / lam_sum;
 
-    // --- Constraint Group 3: Exponential cone constraints ---
-    let group3_rows = 3 * num_rows;
-    let mut exp_cone_triplets = Vec::new();
-    for i in 0..num_rows {
-        let base_row = 3 * i;
-        // Row for t_i.
-        exp_cone_triplets.push((base_row, num_cols + i, 1.0));
-        // Row for z_i.
-        exp_cone_triplets.push((base_row + 2, num_cols + num_rows + i, -1.0));
-    }
-    let (i3, j3, v3) = convert_triplets(exp_cone_triplets);
-    let a3_matrix = CscMatrix::new_from_triplets(group3_rows, num_vars, i3, j3, v3);
-    let mut b3_vector = Vec::with_capacity(group3_rows);
-    for _ in 0..num_rows {
-        b3_vector.push(0.0);
-        b3_vector.push(1.0);
-        b3_vector.push(0.0);
-    }
-
-    // --- Constraint Group 4: Nonnegativity of x ---
-    let mut nonneg_triplets = Vec::new();
-    for j in 0..num_cols {
-        nonneg_triplets.push((j, j, -1.0));
-    }
-    let (i4, j4, v4) = convert_triplets(nonneg_triplets);
-    let a4_matrix = CscMatrix::new_from_triplets(num_cols, num_vars, i4, j4, v4);
-    let b4_vector = vec![0.0; num_cols];
-
-    // --- Assemble the full constraint matrix and vector ---
-    let a_temp = CscMatrix::vcat(&a1_matrix, &a2_matrix)?;
-    let a_temp2 = CscMatrix::vcat(&a_temp, &a3_matrix)?;
-    let a_matrix = CscMatrix::vcat(&a_temp2, &a4_matrix)?;
-
-    let mut b_vector = Vec::new();
-    b_vector.extend(b1_vector);
-    b_vector.extend(b2_vector);
-    b_vector.extend(b3_vector);
-    b_vector.extend(b4_vector);
-
-    // --- Define cone specifications ---
-    let mut cones = Vec::new();
-    cones.push(ZeroConeT(1)); // Group 1
-    cones.push(ZeroConeT(num_rows)); // Group 2
-    cones.extend(std::iter::repeat_with(|| ExponentialConeT()).take(num_rows)); // Group 3
-    cones.push(NonnegativeConeT(num_cols)); // Group 4
-
-    // --- Solver Settings and solve ---
-    let settings = DefaultSettings::default();
-    let mut solver =
-        DefaultSolver::new(&p_matrix, &q_vector, &a_matrix, &b_vector, &cones, settings);
-    solver.solve();
-
-    if solver.solution.status != SolverStatus::Solved {
-        return Err(anyhow::anyhow!("Solver did not converge"));
-    }
-
-    // The solution vector is ordered as [x; t; z].
-    let solution = solver.solution.x;
-    let x_optimal = solution[0..num_cols].to_vec();
-
-    // Our conic objective is ∑ t_i; since at optimality t_i = -log(z_i),
-    // the original objective (sum of logarithms) is -∑ t_i.
-    let t_sum: f64 = solution[num_cols..num_cols + num_rows].iter().sum();
-    let original_obj = -t_sum;
-
-    Ok((Array1::from(x_optimal).into(), original_obj))
+    Ok((lam, obj))
 }
 
-/// Helper function to convert triplets to components
-fn convert_triplets(triplets: Vec<(usize, usize, f64)>) -> (Vec<usize>, Vec<usize>, Vec<f64>) {
-    let mut rows = Vec::new();
-    let mut cols = Vec::new();
-    let mut values = Vec::new();
-    for (i, j, v) in triplets {
-        rows.push(i);
-        cols.push(j);
-        values.push(v);
-    }
-    (rows, cols, values)
+/// Computes the infinity norm (maximum absolute value) of a column vector.
+fn norm_inf(a: &Col<f64>) -> f64 {
+    a.iter().fold(0.0, |max, &val| max.max(val.abs()))
 }
