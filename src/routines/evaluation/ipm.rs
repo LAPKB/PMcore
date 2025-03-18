@@ -1,11 +1,9 @@
 use crate::structs::psi::Psi;
 use anyhow::{bail, Context};
-use faer::dyn_stack::MemStack;
-use faer::linalg::cholesky::llt::factor::cholesky_in_place;
-use faer::{Auto, Col, Mat, Row, Spec};
-use linfa_linalg::{cholesky::Cholesky, triangular::SolveTriangular};
-use ndarray::{array, Array2, Axis};
-use ndarray_stats::{DeviationExt, QuantileExt};
+use faer::linalg::solvers::Llt;
+use faer::linalg::triangular_solve::solve_lower_triangular_in_place;
+use faer::linalg::triangular_solve::solve_upper_triangular_in_place;
+use faer::{Col, Mat, Row};
 
 /// Applies Burke's Interior Point Method (IPM) to solve a convex optimization problem.
 ///
@@ -34,10 +32,10 @@ use ndarray_stats::{DeviationExt, QuantileExt};
 /// fails.
 pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     // Get the underlying matrix. (Assume psi.matrix() returns an ndarray-compatible matrix.)
-    let mut psi = psi.matrix();
+    let mut psi = psi.matrix().to_owned();
 
     // Ensure all entries are finite and make them non-negative.
-    psi.row_iter_mut().try_for_each(|mut row| {
+    psi.row_iter_mut().try_for_each(|row| {
         row.iter_mut().try_for_each(|x| {
             if !x.is_finite() {
                 bail!("Input matrix must have finite entries")
@@ -49,6 +47,8 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         })
     })?;
 
+    let psi_clone = psi.clone();
+
     // Let psi be of shape (n_sub, n_point)
     let (n_sub, n_point) = psi.shape();
 
@@ -59,7 +59,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     let erow: Row<f64> = Row::from_fn(n_sub, |_| 1.0);
 
     // Compute plam = psi · ecol. This gives a column vector of length n_sub.
-    let mut plam: Col<f64> = psi * &ecol;
+    let mut plam: Col<f64> = psi.clone() * &ecol;
     let eps: f64 = 1e-8;
     let mut sig: f64 = 0.0;
 
@@ -70,7 +70,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     let mut w: Col<f64> = Col::from_fn(plam.nrows(), |i| 1.0 / plam.get(i));
 
     // ptw = ψᵀ · w, which will be a vector of length n_point.
-    let mut ptw: Col<f64> = psi.transpose() * &w;
+    let mut ptw: Col<f64> = psi_clone.clone().transpose() * &w;
 
     // Use the maximum entry in ptw for scaling (the "shrink" factor).
     let ptw_max = ptw.iter().fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
@@ -102,17 +102,17 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         let w_plam = Col::from_fn(plam.nrows(), |i| plam.get(i) / w.get(i));
 
         // Scale each column of psi by the corresponding element of 'inner'
-        let mut psi_inner: Mat<f64> = psi.clone();
-        psi_inner.col_iter_mut().map(|mut col| {
-            col.iter_mut()
-                .zip(inner.iter())
-                .for_each(|(x, &inner_val)| *x *= inner_val);
+
+        let mut psi_inner = psi.clone();
+        psi_inner.col_iter_mut().enumerate().for_each(|(i, col)| {
+            col.iter_mut().for_each(|x| *x *= inner.get(i));
         });
+
         // for (mut col_vec, &inner_val) in psi_inner.axis_iter_mut(Axis(1)).zip(inner.iter()) {
         //     col_vec *= inner_val;
         // }
         // Build a diagonal matrix from w_plam.
-        let diag_w_plam = Mat::from_fn(w_plam.nrows(), w_plam.ncols(), |i, j| {
+        let diag_w_plam = Mat::from_fn(w_plam.nrows(), w_plam.nrows(), |i, j| {
             if i == j {
                 *w_plam.get(i)
             } else {
@@ -120,65 +120,85 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
             }
         });
 
-        // Hessian approximation: h = (psi_inner * psiᵀ) + diag(w_plam)
-        let mut h = psi_inner * &psi.transpose() + diag_w_plam.to_owned();
+        let h = psi_inner * &psi.transpose() + diag_w_plam.to_owned();
 
         // Create a buffer for MemStack
 
-        let uph = psi.lblt(faer::Side::Lower);
-        let uph = uph.L();
-        let uph = uph.transpose();
+        let uph = h.lblt(faer::Side::Lower);
+        let uph = uph.L().transpose().to_owned();
 
         // smuyinv = smu * (ecol ./ y)
-        let smuyinv = smu * (&ecol / &y);
+        let smuyinv: Col<f64> = Col::from_fn(ecol.nrows(), |i| smu * (&ecol[i] / y[i]));
+
+        // let smuyinv = smu * (&ecol / &y);
         // rhsdw = (erow ./ w) - (psi · smuyinv)
-        let rhsdw = (&erow / &w) - psi * &smuyinv;
+        let psi_dot_muyinv: Col<f64> = psi.clone() * &smuyinv;
+        let rhsdw: Row<f64> = Row::from_fn(ecol.nrows(), |i| &erow[i] / w[i] - psi_dot_muyinv[i]);
+
+        //let rhsdw = (&erow / &w) - psi * &smuyinv;
         // Reshape rhsdw into a column vector.
-        let a = rhsdw
-            .into_shape((n_sub, 1))
-            .context("Failed to reshape rhsdw")?;
+        let mut a = Mat::from_fn(rhsdw.nrows(), 1, |_i, j| *rhsdw.get(j));
+        // let a = rhsdw
+        //     .into_shape((n_sub, 1))
+        //     .context("Failed to reshape rhsdw")?;
 
         // Solve the triangular systems:
-        let x = uph
-            .transpose()
-            .solve_triangular(&a, linfa_linalg::triangular::UPLO::Lower)
-            .context("Error solving lower triangular system")?;
-        let dw_aux = uph
-            .solve_triangular(&x, linfa_linalg::triangular::UPLO::Upper)
-            .context("Error solving upper triangular system")?;
+        let mut x = uph.clone();
+        pprint(&uph, "uph");
+        pprint(&a, "a");
+        solve_lower_triangular_in_place(x.as_ref(), a.as_mut(), faer::Par::Seq);
+
+        let dw_aux = uph.clone();
+        solve_upper_triangular_in_place(dw_aux.as_ref(), x.as_mut(), faer::Par::Seq);
+
+        let x: Llt<f64> = a.llt(faer::Side::Lower).context("Error during llt")?;
+
+        let dw_aux = x.L().llt(faer::Side::Upper).context("Error during llt")?;
+        /*            .solve_triangular(&x, linfa_linalg::triangular::UPLO::Upper)
+        .context("Error solving upper triangular system")?; */
         // Extract dw (a column vector) from the solution.
-        let dw = dw_aux.column(0);
+        let dw = dw_aux.L().get_c(0);
+        // let dw = dw_aux.column(0);
         // Compute dy = - (ψᵀ · dw)
-        let dy = -psi.transpose() * &dw;
+        let dy = -psi.clone().transpose() * &dw;
 
         // dlam = smuyinv - lam - (inner .* dy)
-        let dlam = &smuyinv - &lam - inner * &dy;
+        let inner_dot_dy = inner.transpose() * &dy;
+        let dlam: Row<f64> = Row::from_fn(ecol.nrows(), |i| &smuyinv[i] - lam[i] - inner_dot_dy);
+        // let dlam = &smuyinv - &lam - inner.transpose() * &dy;
 
         // Compute the primal step length alfpri.
-        let ratio_dlam_lam = &dlam / &lam;
+        let ratio_dlam_lam = Row::from_fn(lam.nrows(), |i| dlam[i] / lam[i]);
+        //let ratio_dlam_lam = &dlam / &lam;
         let min_ratio_dlam = ratio_dlam_lam.iter().cloned().fold(f64::INFINITY, f64::min);
         let mut alfpri: f64 = -1.0 / min_ratio_dlam.min(-0.5);
         alfpri = (0.99995 * alfpri).min(1.0);
 
         // Compute the dual step length alfdual.
-        let ratio_dy_y = &dy / &y;
+        let ratio_dy_y = Row::from_fn(y.nrows(), |i| dy[i] / y[i]);
+        // let ratio_dy_y = &dy / &y;
         let min_ratio_dy = ratio_dy_y.iter().cloned().fold(f64::INFINITY, f64::min);
-        let ratio_dw_w = &dw / &w;
+        let ratio_dw_w = Row::from_fn(dw.nrows(), |i| dw[i] / w[i]);
+        //let ratio_dw_w = &dw / &w;
         let min_ratio_dw = ratio_dw_w.iter().cloned().fold(f64::INFINITY, f64::min);
         let mut alfdual = -1.0 / min_ratio_dy.min(-0.5);
         alfdual = alfdual.min(-1.0 / min_ratio_dw.min(-0.5));
         alfdual = (0.99995 * alfdual as f64).min(1.0);
 
         // Update the iterates.
-        lam = lam + alfpri * dlam;
+        lam = lam + alfpri * dlam.transpose();
         w = w + alfdual * &dw;
         y = y + alfdual * &dy;
-        mu = lam.dot(&y) / n_point as f64;
-        plam = psi.dot(&lam);
+
+        mu = lam.transpose() * &y / n_point as f64;
+        plam = &psi * &lam;
+
+        // mu = lam.dot(&y) / n_point as f64;
+        // plam = psi.dot(&lam);
         r = Col::from_fn(n_sub, |i| erow.get(i) - w.get(i) * plam.get(i));
         ptw = ptw - alfdual * dy;
 
-        norm_r = norm_inf(&r);
+        norm_r = r.norm_max();
         let sum_log_plam: f64 = plam.iter().map(|x| x.ln()).sum();
         let sum_log_w: f64 = w.iter().map(|x| x.ln()).sum();
         gap = (sum_log_w + sum_log_plam).abs() / (1.0 + sum_log_plam);
@@ -204,7 +224,9 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     Ok((lam, obj))
 }
 
-/// Computes the infinity norm (maximum absolute value) of a column vector.
-fn norm_inf(a: &Col<f64>) -> f64 {
-    a.iter().fold(0.0, |max, &val| max.max(val.abs()))
+fn pprint(x: &Mat<f64>, name: &str) {
+    println!("Matrix: {}", name);
+    x.row_iter().for_each(|row| {
+        println!("{:?}", row);
+    });
 }

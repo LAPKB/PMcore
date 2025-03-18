@@ -88,6 +88,7 @@ pub fn burke(
         for (mut col, inner_val) in psi_inner.axis_iter_mut(Axis(1)).zip(&inner) {
             col *= *inner_val;
         }
+
         let h = psi_inner.dot(&psi.t()) + Array2::from_diag(&w_plam);
 
         let uph = h
@@ -98,6 +99,9 @@ pub fn burke(
         let smuyinv = smu * (&ecol / &y);
         let rhsdw = &erow / &w - (psi.dot(&smuyinv));
         let a = rhsdw.clone().into_shape_with_order((rhsdw.len(), 1))?;
+
+        dbg!(&uph);
+        dbg!(&a);
 
         let x = uph
             .t()
