@@ -5,14 +5,13 @@ use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use faer::linalg::zip::IntoView;
 use faer_ext::IntoNdarray;
-use ndarray::parallel::prelude::*;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
 use serde::Serialize;
 // use pharmsol::Cache;
 use crate::routines::settings::Settings;
-use faer::Col;
+use faer::{Col, Mat};
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 /// Defines the result objects from an NPAG run
@@ -286,25 +285,12 @@ impl<E: Equation> NPResult<E> {
     /// Writes the posterior support points for each individual
     pub fn write_posterior(&self) -> Result<()> {
         tracing::debug!("Writing posterior parameter probabilities...");
-        let theta: Array2<f64> = self
-            .theta
-            .matrix()
-            .clone()
-            .as_mut()
-            .into_ndarray()
-            .to_owned();
-        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
-        let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
-        let par_names: Vec<String> = self.par_names.clone();
+        let theta = &self.theta;
+        let w = &self.w;
+        let psi = &self.psi;
 
         // Calculate the posterior probabilities
-        let posterior = match posterior(&psi, &w) {
-            Ok(p) => p,
-            Err(e) => {
-                tracing::error!("Failed to calculate posterior: {}", e);
-                return Err(e.context("Failed to calculate posterior"));
-            }
-        };
+        let posterior = posterior(&psi, &w)?;
 
         // Create the output folder if it doesn't exist
         let outputfile = match OutputFile::new(&self.settings.output().path, "posterior.csv") {
@@ -314,6 +300,8 @@ impl<E: Equation> NPResult<E> {
                 return Err(e.context("Failed to create output file"));
             }
         };
+
+        // Create a new writer
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
@@ -321,26 +309,23 @@ impl<E: Equation> NPResult<E> {
         // Create the headers
         writer.write_field("id")?;
         writer.write_field("point")?;
-        for i in 0..theta.ncols() {
-            let param_name = par_names.get(i).unwrap();
-            writer.write_field(param_name)?;
-        }
+        theta.param_names().iter().for_each(|name| {
+            writer.write_field(name).unwrap();
+        });
         writer.write_field("prob")?;
         writer.write_record(None::<&[u8]>)?;
 
         // Write contents
         let subjects = self.data.get_subjects();
-        for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
-            for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                writer.write_field(subjects[sub].id())?;
-                writer.write_field(format!("{}", spp))?;
-                for param in theta.row(spp) {
-                    writer.write_field(format!("{param}"))?;
-                }
-                writer.write_field(format!("{elem:.10}"))?;
-                writer.write_record(None::<&[u8]>)?;
-            }
-        }
+        posterior.row_iter().enumerate().for_each(|(i, row)| {
+            let subject = subjects.get(i).unwrap();
+            let id = subject.id();
+            let mut row: Vec<String> = row.iter().map(|val| val.to_string()).collect();
+            row.insert(0, id.clone());
+            row.insert(1, i.to_string());
+            writer.write_record(&row).unwrap();
+        });
+
         writer.flush()?;
         tracing::info!(
             "Posterior parameters written to {:?}",
@@ -667,22 +652,23 @@ impl CycleLog {
     }
 }
 
-pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Result<Array2<f64>> {
-    let py = psi.dot(w);
-    let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
-    post.axis_iter_mut(Axis(0))
-        .into_par_iter()
-        .enumerate()
-        .for_each(|(i, mut row)| {
-            row.axis_iter_mut(Axis(0))
-                .into_par_iter()
-                .enumerate()
-                .for_each(|(j, mut element)| {
-                    let elem = psi.get((i, j)).unwrap() * w.get(j).unwrap() / py.get(i).unwrap();
-                    element.fill(elem);
-                });
-        });
-    Ok(post)
+pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Mat<f64>> {
+    if psi.matrix().nrows() != w.nrows() {
+        bail!(
+            "Number of rows in psi ({}) and number of weights ({}) do not match.",
+            psi.matrix().nrows(),
+            w.nrows()
+        );
+    }
+
+    let psi_matrix = psi.matrix();
+    let py = psi_matrix * w;
+
+    let posterior = Mat::from_fn(psi_matrix.nrows(), psi_matrix.ncols(), |i, j| {
+        psi_matrix.get(i, j) * w.get(j) / py.get(i)
+    });
+
+    Ok(posterior)
 }
 
 pub fn median(data: Vec<f64>) -> f64 {

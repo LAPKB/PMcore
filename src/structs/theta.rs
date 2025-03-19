@@ -57,6 +57,14 @@ impl Theta {
         self.matrix.nrows()
     }
 
+    /// Get the parameter names
+    pub fn param_names(&self) -> Vec<String> {
+        self.random
+            .iter()
+            .map(|(name, _, _)| name.clone())
+            .collect()
+    }
+
     /// Modify the [Theta::matrix] to only include the rows specified by `indices`
     pub(crate) fn filter_indices(&mut self, indices: &[usize]) {
         let matrix = self.matrix.to_owned();
