@@ -103,18 +103,15 @@ pub fn burke(
         let rhsdw = &erow / &w - (psi.dot(&smuyinv));
 
         let a = rhsdw.clone().into_shape_with_order((rhsdw.len(), 1))?;
-        dbg!(&uph);
-        dbg!(&a);
 
         let x = uph
             .t()
             .solve_triangular(&a, linfa_linalg::triangular::UPLO::Lower)?;
 
-        dbg!(&x);
-
         let dw_aux = uph.solve_triangular(&x, linfa_linalg::triangular::UPLO::Upper)?;
 
         let dw = dw_aux.column(0);
+        dbg!(&dw);
 
         let dy = -psi.t().dot(&dw);
 

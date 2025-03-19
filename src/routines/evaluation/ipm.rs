@@ -2,6 +2,7 @@ use std::process::abort;
 
 use crate::structs::psi::Psi;
 use anyhow::{bail, Context};
+use faer::linalg::cholesky::llt::solve::solve_in_place;
 use faer::linalg::solvers::Llt;
 use faer::linalg::triangular_solve::solve_lower_triangular_in_place;
 use faer::linalg::triangular_solve::solve_upper_triangular_in_place;
@@ -150,19 +151,15 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         //     .context("Failed to reshape rhsdw")?;
 
         // Solve the triangular systems:
-        pprint(&uph, "uph");
 
-        pprint(&dw, "a");
+        solve_lower_triangular_in_place(uph.transpose().as_ref(), dw.as_mut(), faer::Par::Seq);
 
         solve_upper_triangular_in_place(uph.as_ref(), dw.as_mut(), faer::Par::Seq);
-        pprint(&dw, "x");
-        abort();
-        solve_upper_triangular_in_place(uph.as_ref(), dw.as_mut(), faer::Par::Seq);
-        //pprint(&dw_aux, "dw_aux");
 
         // Extract dw (a column vector) from the solution.
         let dw = dw.col(0);
-        // dbg!(&dw);
+        dbg!(&dw);
+        abort();
         // let dw = dw_aux.column(0);
         // Compute dy = - (ψᵀ · dw)
         let dy = -psi.clone().transpose() * &dw;
