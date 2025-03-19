@@ -9,6 +9,7 @@ use pharmsol::ErrorModel;
 
 use super::theta::Theta;
 
+/// [Psi] is a structure that holds the likelihood for each subject (row), for each support point (column)
 #[derive(Debug, Clone, PartialEq)]
 pub struct Psi {
     matrix: Mat<f64>,

@@ -4,6 +4,8 @@ use faer::Mat;
 
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution
+///
+/// Each row represents a support points, and each column a parameter
 #[derive(Clone, PartialEq)]
 pub struct Theta {
     matrix: Mat<f64>,
