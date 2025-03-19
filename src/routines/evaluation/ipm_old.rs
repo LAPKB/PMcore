@@ -111,11 +111,12 @@ pub fn burke(
         let dw_aux = uph.solve_triangular(&x, linfa_linalg::triangular::UPLO::Upper)?;
 
         let dw = dw_aux.column(0);
-        dbg!(&dw);
 
         let dy = -psi.t().dot(&dw);
 
-        let dlam = smuyinv - &lam - inner * &dy;
+        let inner_times_dy = inner * &dy;
+
+        let dlam = smuyinv - &lam - &inner_times_dy;
 
         let mut alfpri = -1. / ((&dlam / &lam).min()?.min(-0.5));
 

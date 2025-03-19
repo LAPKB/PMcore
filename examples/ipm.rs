@@ -8,7 +8,6 @@ fn main() {
         [0.1, 0.4, 0.4, 0.1],
         [0.5, 0.3, 0.1, 0.1],
         [0.7, 0.1, 0.1, 0.1],
-        [0.25, 0.25, 0.25, 0.25],
     ]);
     eprintln!("Running old IPM");
     let a = ipm_old::burke(&psi).unwrap();
@@ -18,7 +17,6 @@ fn main() {
         [0.1, 0.4, 0.4, 0.1],
         [0.5, 0.3, 0.1, 0.1],
         [0.7, 0.1, 0.1, 0.1],
-        [0.25, 0.25, 0.25, 0.25]
     ];
     let psi = Psi::from(psi.clone());
     eprintln!("Running new IPM");

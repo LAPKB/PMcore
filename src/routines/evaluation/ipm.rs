@@ -1,9 +1,5 @@
-use std::process::abort;
-
 use crate::structs::psi::Psi;
-use anyhow::{bail, Context};
-use faer::linalg::cholesky::llt::solve::solve_in_place;
-use faer::linalg::solvers::Llt;
+use anyhow::bail;
 use faer::linalg::triangular_solve::solve_lower_triangular_in_place;
 use faer::linalg::triangular_solve::solve_upper_triangular_in_place;
 use faer::{Col, Mat, Row};
@@ -38,17 +34,19 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     let mut psi = psi.matrix().to_owned();
 
     // Ensure all entries are finite and make them non-negative.
-    psi.row_iter_mut().try_for_each(|row| {
-        row.iter_mut().try_for_each(|x| {
-            if !x.is_finite() {
-                bail!("Input matrix must have finite entries")
-            } else {
-                // Coerce negatives to non-negative (could alternatively return an error)
-                *x = x.abs();
-                Ok(())
-            }
+    psi.row_iter_mut()
+        .try_for_each(|row| {
+            row.iter_mut().try_for_each(|x| {
+                if !x.is_finite() {
+                    bail!("Input matrix must have finite entries")
+                } else {
+                    // Coerce negatives to non-negative (could alternatively return an error)
+                    *x = x.abs();
+                    Ok(())
+                }
+            })
         })
-    })?;
+        .unwrap();
 
     let psi_clone = psi.clone();
 
@@ -140,7 +138,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         // rhsdw = (erow ./ w) - (psi · smuyinv)
         let psi_dot_muyinv: Col<f64> = psi.clone() * &smuyinv;
 
-        let rhsdw: Row<f64> = Row::from_fn(ecol.nrows(), |i| &erow[i] / w[i] - psi_dot_muyinv[i]);
+        let rhsdw: Row<f64> = Row::from_fn(erow.ncols(), |i| &erow[i] / w[i] - psi_dot_muyinv[i]);
 
         //let rhsdw = (&erow / &w) - psi * &smuyinv;
         // Reshape rhsdw into a column vector.
@@ -148,7 +146,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
 
         // let a = rhsdw
         //     .into_shape((n_sub, 1))
-        //     .context("Failed to reshape rhsdw")?;
+        //     .context("Failed to reshape rhsdw").unwrap();
 
         // Solve the triangular systems:
 
@@ -158,16 +156,24 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
 
         // Extract dw (a column vector) from the solution.
         let dw = dw.col(0);
-        dbg!(&dw);
-        abort();
+
         // let dw = dw_aux.column(0);
         // Compute dy = - (ψᵀ · dw)
         let dy = -psi.clone().transpose() * &dw;
 
+        // ALL IS GOOD UNTIL HERE!
+
         // dlam = smuyinv - lam - (inner .* dy)
-        let inner_dot_dy = inner.transpose() * &dy;
-        let dlam: Row<f64> = Row::from_fn(ecol.nrows(), |i| &smuyinv[i] - lam[i] - inner_dot_dy);
+
+        let inner_times_dy = Col::from_fn(ecol.nrows(), |i| inner[i] * dy[i]);
+
+        // ALL IS GOOD UNTIL HERE!
+
+        let dlam: Row<f64> =
+            Row::from_fn(ecol.nrows(), |i| &smuyinv[i] - lam[i] - inner_times_dy[i]);
         // let dlam = &smuyinv - &lam - inner.transpose() * &dy;
+
+        // ALL IS GOOD UNTIL HERE!
 
         // Compute the primal step length alfpri.
         let ratio_dlam_lam = Row::from_fn(lam.nrows(), |i| dlam[i] / lam[i]);
@@ -226,9 +232,9 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     Ok((lam, obj))
 }
 
-fn pprint(x: &Mat<f64>, name: &str) {
-    println!("Matrix: {}", name);
-    x.row_iter().for_each(|row| {
-        println!("{:?}", row);
-    });
-}
+// fn pprint(x: &Mat<f64>, name: &str) {
+//     println!("Matrix: {}", name);
+//     x.row_iter().for_each(|row| {
+//         println!("{:.unwrap()}", row);
+//     });
+// }

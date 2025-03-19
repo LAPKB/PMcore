@@ -200,7 +200,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         (self.lambda, _) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                bail!("Error in IPM: {:?}", err);
+                bail!("Error in IPM during evaluation: {:?}", err);
             }
         };
         Ok(())
@@ -211,7 +211,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         let lambda: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
         let max_lambda = match lambda.max() {
             Ok(max_lambda) => max_lambda,
-            Err(err) => bail!("Error in IPM: {:?}", err),
+            Err(err) => bail!("Error in condensation: {:?}", err),
         };
 
         let mut keep = Vec::<usize>::new();
@@ -263,7 +263,10 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
+                return Err(anyhow::anyhow!(
+                    "Error in IPM during condensation: {:?}",
+                    err
+                ));
             }
         };
         self.w = self.lambda.clone();
@@ -297,7 +300,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 //todo: write out report
-                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
+                return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
             }
         };
         let (lambda_down, objf_down) = match burke(&psi_down) {
@@ -305,7 +308,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             Err(err) => {
                 //todo: write out report
                 //panic!("Error in IPM: {:?}", err);
-                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
+                return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
                 //(Array1::zeros(1), f64::NEG_INFINITY)
             }
         };
