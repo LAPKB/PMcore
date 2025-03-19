@@ -1,3 +1,5 @@
+use std::process::abort;
+
 use crate::structs::psi::Psi;
 use anyhow::{bail, Context};
 use faer::linalg::solvers::Llt;
@@ -122,9 +124,12 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
 
         let h = psi_inner * &psi.transpose() + diag_w_plam.to_owned();
 
-        // Create a buffer for MemStack
-
-        let uph = h.lblt(faer::Side::Lower);
+        let uph = match h.llt(faer::Side::Lower) {
+            Ok(llt) => llt,
+            Err(_) => {
+                bail!("Error during Cholesky decomposition")
+            }
+        };
         let uph = uph.L().transpose().to_owned();
 
         // smuyinv = smu * (ecol ./ y)
@@ -133,31 +138,31 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         // let smuyinv = smu * (&ecol / &y);
         // rhsdw = (erow ./ w) - (psi · smuyinv)
         let psi_dot_muyinv: Col<f64> = psi.clone() * &smuyinv;
+
         let rhsdw: Row<f64> = Row::from_fn(ecol.nrows(), |i| &erow[i] / w[i] - psi_dot_muyinv[i]);
 
         //let rhsdw = (&erow / &w) - psi * &smuyinv;
         // Reshape rhsdw into a column vector.
-        let mut a = Mat::from_fn(rhsdw.nrows(), 1, |_i, j| *rhsdw.get(j));
+        let mut dw = Mat::from_fn(rhsdw.ncols(), 1, |i, _j| *rhsdw.get(i));
+
         // let a = rhsdw
         //     .into_shape((n_sub, 1))
         //     .context("Failed to reshape rhsdw")?;
 
         // Solve the triangular systems:
-        let mut x = uph.clone();
         pprint(&uph, "uph");
-        pprint(&a, "a");
-        solve_lower_triangular_in_place(x.as_ref(), a.as_mut(), faer::Par::Seq);
 
-        let dw_aux = uph.clone();
-        solve_upper_triangular_in_place(dw_aux.as_ref(), x.as_mut(), faer::Par::Seq);
+        pprint(&dw, "a");
 
-        let x: Llt<f64> = a.llt(faer::Side::Lower).context("Error during llt")?;
+        solve_upper_triangular_in_place(uph.as_ref(), dw.as_mut(), faer::Par::Seq);
+        pprint(&dw, "x");
+        abort();
+        solve_upper_triangular_in_place(uph.as_ref(), dw.as_mut(), faer::Par::Seq);
+        //pprint(&dw_aux, "dw_aux");
 
-        let dw_aux = x.L().llt(faer::Side::Upper).context("Error during llt")?;
-        /*            .solve_triangular(&x, linfa_linalg::triangular::UPLO::Upper)
-        .context("Error solving upper triangular system")?; */
         // Extract dw (a column vector) from the solution.
-        let dw = dw_aux.L().get_c(0);
+        let dw = dw.col(0);
+        // dbg!(&dw);
         // let dw = dw_aux.column(0);
         // Compute dy = - (ψᵀ · dw)
         let dy = -psi.clone().transpose() * &dw;

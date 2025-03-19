@@ -63,6 +63,7 @@ pub fn burke(
     let mut w = 1. / &plam;
 
     let mut ptw = psi.t().dot(&w);
+
     let shrink = 2. * *ptw.max().context("Failed to get max value")?;
     lam *= shrink;
     plam *= shrink;
@@ -96,10 +97,12 @@ pub fn burke(
             .context("Error during Cholesky decomposition")?;
 
         let uph = uph.t();
-        let smuyinv = smu * (&ecol / &y);
-        let rhsdw = &erow / &w - (psi.dot(&smuyinv));
-        let a = rhsdw.clone().into_shape_with_order((rhsdw.len(), 1))?;
 
+        let smuyinv = smu * (&ecol / &y);
+
+        let rhsdw = &erow / &w - (psi.dot(&smuyinv));
+
+        let a = rhsdw.clone().into_shape_with_order((rhsdw.len(), 1))?;
         dbg!(&uph);
         dbg!(&a);
 
@@ -107,9 +110,12 @@ pub fn burke(
             .t()
             .solve_triangular(&a, linfa_linalg::triangular::UPLO::Lower)?;
 
+        dbg!(&x);
+
         let dw_aux = uph.solve_triangular(&x, linfa_linalg::triangular::UPLO::Upper)?;
 
         let dw = dw_aux.column(0);
+
         let dy = -psi.t().dot(&dw);
 
         let dlam = smuyinv - &lam - inner * &dy;
