@@ -208,7 +208,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
 
     fn condensation(&mut self) -> Result<()> {
         // Filter out the support points with lambda < max(lambda)/1000
-        let lambda: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
+        let lambda: Array1<f64> = self.lambda.clone().into_view().iter().cloned().collect();
         let max_lambda = match lambda.max() {
             Ok(max_lambda) => max_lambda,
             Err(err) => bail!("Error in condensation: {:?}", err),
