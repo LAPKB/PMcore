@@ -3,7 +3,7 @@ use anyhow::bail;
 use faer::linalg::triangular_solve::solve_lower_triangular_in_place;
 use faer::linalg::triangular_solve::solve_upper_triangular_in_place;
 use faer::{Col, Mat, Row};
-
+use rayon::prelude::*;
 /// Applies Burke's Interior Point Method (IPM) to solve a convex optimization problem.
 ///
 /// The objective function to maximize is:
@@ -48,8 +48,6 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         })
         .unwrap();
 
-    let psi_clone = psi.clone();
-
     // Let psi be of shape (n_sub, n_point)
     let (n_sub, n_point) = psi.shape();
 
@@ -60,7 +58,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     let erow: Row<f64> = Row::from_fn(n_sub, |_| 1.0);
 
     // Compute plam = psi · ecol. This gives a column vector of length n_sub.
-    let mut plam: Col<f64> = psi.clone() * &ecol;
+    let mut plam: Col<f64> = &psi * &ecol;
     let eps: f64 = 1e-8;
     let mut sig: f64 = 0.0;
 
@@ -71,7 +69,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     let mut w: Col<f64> = Col::from_fn(plam.nrows(), |i| 1.0 / plam.get(i));
 
     // ptw = ψᵀ · w, which will be a vector of length n_point.
-    let mut ptw: Col<f64> = psi_clone.clone().transpose() * &w;
+    let mut ptw: Col<f64> = psi.transpose() * &w;
 
     // Use the maximum entry in ptw for scaling (the "shrink" factor).
     let ptw_max = ptw.iter().fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
@@ -95,6 +93,16 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     // Compute the duality measure mu.
     let mut mu = lam.transpose() * &y / n_point as f64;
 
+    let mut psi_inner: Mat<f64> = Mat::zeros(psi.nrows(), psi.ncols());
+
+    let n_threads = faer::get_global_parallelism().degree();
+
+    let rows = psi.nrows();
+
+    let mut output: Vec<Mat<f64>> = (0..n_threads).map(|_| Mat::zeros(rows, rows)).collect();
+
+    let mut h: Mat<f64> = Mat::zeros(rows, rows);
+
     while mu > eps || norm_r > eps || gap > eps {
         let smu = sig * mu;
         // inner = lam ./ y, elementwise.
@@ -104,24 +112,72 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
 
         // Scale each column of psi by the corresponding element of 'inner'
 
-        let mut psi_inner = psi.clone();
-        psi_inner.col_iter_mut().enumerate().for_each(|(i, col)| {
-            col.iter_mut().for_each(|x| *x *= inner.get(i));
-        });
+        if psi.ncols() > n_threads * 128 {
+            psi_inner
+                .par_col_partition_mut(n_threads)
+                .zip(psi.par_col_partition(n_threads))
+                .zip(inner.par_partition(n_threads))
+                .zip(output.par_iter_mut())
+                .for_each(|(((mut psi_inner, psi), inner), output)| {
+                    psi_inner
+                        .as_mut()
+                        .col_iter_mut()
+                        .zip(psi.col_iter())
+                        .zip(inner.iter())
+                        .for_each(|((col, psi_col), inner_val)| {
+                            col.iter_mut().zip(psi_col.iter()).for_each(|(x, psi_val)| {
+                                *x = psi_val * inner_val;
+                            });
+                        });
+                    faer::linalg::matmul::triangular::matmul(
+                        output.as_mut(),
+                        faer::linalg::matmul::triangular::BlockStructure::TriangularLower,
+                        faer::Accum::Replace,
+                        &psi_inner,
+                        faer::linalg::matmul::triangular::BlockStructure::Rectangular,
+                        &psi.transpose(),
+                        faer::linalg::matmul::triangular::BlockStructure::Rectangular,
+                        1.0,
+                        faer::Par::Seq,
+                    );
+                });
 
-        // for (mut col_vec, &inner_val) in psi_inner.axis_iter_mut(Axis(1)).zip(inner.iter()) {
-        //     col_vec *= inner_val;
-        // }
-        // Build a diagonal matrix from w_plam.
-        let diag_w_plam = Mat::from_fn(w_plam.nrows(), w_plam.nrows(), |i, j| {
-            if i == j {
-                *w_plam.get(i)
-            } else {
-                0.0
+            let mut first_iter = true;
+            for output in &output {
+                if first_iter {
+                    h.copy_from(output);
+                    first_iter = false;
+                } else {
+                    h += output;
+                }
             }
-        });
+        } else {
+            psi_inner
+                .as_mut()
+                .col_iter_mut()
+                .zip(psi.col_iter())
+                .zip(inner.iter())
+                .for_each(|((col, psi_col), inner_val)| {
+                    col.iter_mut().zip(psi_col.iter()).for_each(|(x, psi_val)| {
+                        *x = psi_val * inner_val;
+                    });
+                });
+            faer::linalg::matmul::triangular::matmul(
+                h.as_mut(),
+                faer::linalg::matmul::triangular::BlockStructure::TriangularLower,
+                faer::Accum::Replace,
+                &psi_inner,
+                faer::linalg::matmul::triangular::BlockStructure::Rectangular,
+                &psi.transpose(),
+                faer::linalg::matmul::triangular::BlockStructure::Rectangular,
+                1.0,
+                faer::Par::Seq,
+            );
+        }
 
-        let h = psi_inner * &psi.transpose() + diag_w_plam.to_owned();
+        for i in 0..h.nrows() {
+            h[(i, i)] += w_plam[i];
+        }
 
         let uph = match h.llt(faer::Side::Lower) {
             Ok(llt) => llt,
@@ -136,7 +192,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
 
         // let smuyinv = smu * (&ecol / &y);
         // rhsdw = (erow ./ w) - (psi · smuyinv)
-        let psi_dot_muyinv: Col<f64> = psi.clone() * &smuyinv;
+        let psi_dot_muyinv: Col<f64> = &psi * &smuyinv;
 
         let rhsdw: Row<f64> = Row::from_fn(erow.ncols(), |i| &erow[i] / w[i] - psi_dot_muyinv[i]);
 
@@ -150,30 +206,22 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
 
         // Solve the triangular systems:
 
-        solve_lower_triangular_in_place(uph.transpose().as_ref(), dw.as_mut(), faer::Par::Seq);
+        solve_lower_triangular_in_place(uph.transpose().as_ref(), dw.as_mut(), faer::Par::rayon(0));
 
-        solve_upper_triangular_in_place(uph.as_ref(), dw.as_mut(), faer::Par::Seq);
+        solve_upper_triangular_in_place(uph.as_ref(), dw.as_mut(), faer::Par::rayon(0));
 
         // Extract dw (a column vector) from the solution.
         let dw = dw.col(0);
 
         // let dw = dw_aux.column(0);
         // Compute dy = - (ψᵀ · dw)
-        let dy = -psi.clone().transpose() * &dw;
-
-        // ALL IS GOOD UNTIL HERE!
-
-        // dlam = smuyinv - lam - (inner .* dy)
+        let dy = -(psi.transpose() * &dw);
 
         let inner_times_dy = Col::from_fn(ecol.nrows(), |i| inner[i] * dy[i]);
-
-        // ALL IS GOOD UNTIL HERE!
 
         let dlam: Row<f64> =
             Row::from_fn(ecol.nrows(), |i| &smuyinv[i] - lam[i] - inner_times_dy[i]);
         // let dlam = &smuyinv - &lam - inner.transpose() * &dy;
-
-        // ALL IS GOOD UNTIL HERE!
 
         // Compute the primal step length alfpri.
         let ratio_dlam_lam = Row::from_fn(lam.nrows(), |i| dlam[i] / lam[i]);

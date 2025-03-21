@@ -38,6 +38,7 @@ good_lp = { version = "1.12.0", features = [
     "clarabel",
 ], default-features = false }
 clarabel = "0.10.0"
+rayon = "1.10.0"
 
 
 [profile.release]
