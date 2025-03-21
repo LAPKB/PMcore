@@ -133,14 +133,13 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn convergence_evaluation(&mut self) {
-        use faer_ext::IntoNdarray;
-        let psi = self.psi.matrix().as_ref().into_ndarray();
-        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
+        let psi = self.psi.matrix();
+        let w = &self.w;
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
             self.eps /= 2.;
             if self.eps <= THETA_E {
-                let pyl: Array1<f64> = psi.dot(&w);
-                self.f1 = pyl.mapv(|x| x.ln()).sum();
+                let pyl = psi * w;
+                self.f1 = pyl.iter().map(|x| x.ln()).sum();
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.converged = true;
