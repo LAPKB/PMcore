@@ -196,7 +196,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn condensation(&mut self) -> Result<()> {
-        let lambda: Array1<f64> = self.w.clone().iter().cloned().collect();
+        let lambda: Array1<f64> = self.lambda.clone().iter().cloned().collect();
         let max_lambda = match lambda.max() {
             Ok(max_lambda) => max_lambda,
             Err(err) => bail!("Error in IPM: {:?}", err),
