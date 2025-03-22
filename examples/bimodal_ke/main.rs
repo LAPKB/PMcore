@@ -30,6 +30,7 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_cycles(1000);
+    settings.set_prior_sampler(Sampler::Sobol, 2048, 22);
     settings.enable_output_files("examples/bimodal_ke/output/");
 
     settings.write()?;
