@@ -72,6 +72,8 @@ pub mod prelude {
     pub use crate::routines::logger;
     pub use crate::routines::logger::setup_log;
 
+    pub use crate::routines::initialization::Sampler;
+
     pub use crate::routines::settings::ErrorModel;
     pub use crate::routines::settings::*;
     pub use crate::structs::*;

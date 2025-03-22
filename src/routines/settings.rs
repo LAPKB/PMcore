@@ -1,3 +1,4 @@
+use super::initialization::Sampler;
 use super::output::OutputFile;
 use crate::algorithms::Algorithm;
 use anyhow::{bail, Result};
@@ -99,8 +100,8 @@ impl Settings {
         self.predictions.tad = tad;
     }
 
-    pub fn set_prior_sampler(&mut self, sampler: impl Into<String>, points: usize, seed: usize) {
-        self.prior.sampler = sampler.into();
+    pub fn set_prior_sampler(&mut self, sampler: Sampler, points: usize, seed: usize) {
+        self.prior.sampler = sampler;
         self.prior.points = points;
         self.prior.seed = seed;
     }
@@ -484,7 +485,7 @@ impl Default for Log {
 #[serde(deny_unknown_fields, default)]
 pub struct Prior {
     /// The sampler to use for the prior if not supplied
-    pub sampler: String,
+    pub sampler: Sampler,
     /// The number of points to generate for the prior
     pub points: usize,
     /// The seed for the random number generator
@@ -499,7 +500,7 @@ pub struct Prior {
 impl Default for Prior {
     fn default() -> Self {
         Prior {
-            sampler: String::from("sobol"),
+            sampler: Sampler::Sobol,
             points: 2048,
             seed: 22,
             file: None,
