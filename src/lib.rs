@@ -54,6 +54,9 @@ pub mod algorithms;
 /// Routines
 pub mod routines;
 
+// Structures
+pub mod structs;
+
 // Re-export commonly used items
 pub use anyhow::Result;
 pub use std::collections::HashMap;
@@ -68,8 +71,12 @@ pub mod prelude {
     pub use crate::routines;
     pub use crate::routines::logger;
     pub use crate::routines::logger::setup_log;
+
+    pub use crate::routines::initialization::Sampler;
+
     pub use crate::routines::settings::ErrorModel;
     pub use crate::routines::settings::*;
+    pub use crate::structs::*;
 
     //Alma re-exports
     pub mod simulator {

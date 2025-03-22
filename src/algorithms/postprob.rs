@@ -1,11 +1,16 @@
-use crate::prelude::algorithms::Algorithms;
+use crate::{
+    prelude::algorithms::Algorithms,
+    structs::{
+        psi::{calculate_psi, Psi},
+        theta::Theta,
+    },
+};
 use anyhow::Result;
+use faer::Col;
 use pharmsol::prelude::{
     data::{Data, ErrorModel},
-    simulator::{psi, Equation},
+    simulator::Equation,
 };
-
-use ndarray::{Array1, Array2};
 
 use crate::routines::evaluation::ipm::burke;
 use crate::routines::initialization;
@@ -17,9 +22,9 @@ use crate::routines::settings::Settings;
 /// Reweights the prior probabilities to the observed data and error model
 pub struct POSTPROB<E: Equation> {
     equation: E,
-    psi: Array2<f64>,
-    theta: Array2<f64>,
-    w: Array1<f64>,
+    psi: Psi,
+    theta: Theta,
+    w: Col<f64>,
     objf: f64,
     cycle: usize,
     converged: bool,
@@ -33,9 +38,9 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            psi: Array2::default((0, 0)),
-            theta: Array2::default((0, 0)),
-            w: Array1::default(0),
+            psi: Psi::new(),
+            theta: Theta::new(),
+            w: Col::zeros(0),
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
@@ -72,8 +77,8 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         &self.data
     }
 
-    fn get_prior(&self) -> Array2<f64> {
-        initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
+    fn get_prior(&self) -> Theta {
+        initialization::sample_space(&self.settings).unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -88,15 +93,15 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         0
     }
 
-    fn set_theta(&mut self, theta: Array2<f64>) {
+    fn set_theta(&mut self, theta: Theta) {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Array2<f64> {
+    fn get_theta(&self) -> &Theta {
         &self.theta
     }
 
-    fn psi(&self) -> &Array2<f64> {
+    fn psi(&self) -> &Psi {
         &self.psi
     }
 
@@ -107,7 +112,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        self.psi = psi(
+        self.psi = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,

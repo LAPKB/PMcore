@@ -1,94 +1,130 @@
+use crate::structs::theta::Theta;
 use anyhow::Result;
-use ndarray::prelude::*;
-use ndarray::{Array, ArrayBase, OwnedRepr};
+use faer::Mat;
+
 use sobol_burley::sample;
 
-/// Generates a 2-dimensional array containing a Sobol sequence within the given ranges.
+use crate::prelude::Parameters;
+
+/// Generates an instance of [Theta] from a Sobol sequence.
 ///
-/// This function samples the space using a Sobol sequence of `n_points` points. distributed along `range_params.len()` dimensions.
-///
-/// This function is used to initialize an optimization algorithm.
-/// The generated Sobol sequence provides the initial sampling of the step to be used in the first cycle of the optimization algorithm.
+/// The sequence samples [0, 1), and the values are scaled to the parameter ranges.
 ///
 /// # Arguments
 ///
-/// * `n_points` - The number of points in the Sobol sequence.
-/// * `range_params` - A vector of tuples, where each tuple represents the minimum and maximum value of a parameter.
+/// * `parameters` - The [Parameters] struct, which contains the parameters to be sampled.
+/// * `points` - The number of points to generate, i.e. the number of rows in the matrix.
 /// * `seed` - The seed for the Sobol sequence generator.
 ///
 /// # Returns
 ///
-/// A 2D array where each row is a point in the Sobol sequence, and each column corresponds to a parameter.
-/// The value of each parameter is scaled to be within the corresponding range.
+/// [Theta], a structure that holds the support point matrix
 ///
-pub fn generate(
-    n_points: usize,
-    range_params: &Vec<(f64, f64)>,
-    seed: usize,
-) -> Result<ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>> {
-    let n_params = range_params.len();
-    let mut seq = Array::<f64, _>::zeros((n_points, n_params).f());
-    for i in 0..n_points {
-        let mut row = seq.slice_mut(s![i, ..]);
-        let mut point: Vec<f64> = Vec::new();
-        for j in 0..n_params {
-            point.push(sample(i.try_into()?, j.try_into()?, seed as u32) as f64)
-        }
-        row.assign(&Array::from(point));
-    }
-    for i in 0..n_params {
-        let mut column = seq.slice_mut(s![.., i]);
-        let (min, max) = range_params.get(i).unwrap();
-        column.par_mapv_inplace(|x| min + x * (max - min));
-    }
-    Ok(seq)
+pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<Theta> {
+    let seed = seed as u32;
+    let params: Vec<(String, f64, f64, bool)> = parameters
+        .iter()
+        .map(|p| (p.name.clone(), p.lower, p.upper, p.fixed))
+        .collect();
+
+    // Random parameters are sampled from the Sobol sequence
+    let random_params: Vec<(String, f64, f64)> = params
+        .iter()
+        .filter(|(_, _, _, fixed)| !fixed)
+        .map(|(name, lower, upper, _)| (name.clone(), *lower, *upper))
+        .collect();
+
+    let rand_matrix = Mat::from_fn(points, random_params.len(), |i, j| {
+        let unscaled = sample((i).try_into().unwrap(), j.try_into().unwrap(), seed) as f64;
+        let (_name, lower, upper) = random_params.get(j).unwrap();
+        lower + unscaled * (upper - lower)
+    });
+
+    // Fixed parameters are initialized to the middle of their range
+    let fixed_params: Vec<(String, f64)> = params
+        .iter()
+        .filter(|(_, _, _, fixed)| *fixed)
+        .map(|(name, lower, upper, _)| (name.clone(), (upper - lower) / 2.0))
+        .collect();
+
+    let theta = Theta::from_parts(rand_matrix, random_params, fixed_params);
+    Ok(theta)
 }
 
 #[cfg(test)]
-#[test]
-fn basic_sobol() {
-    assert_eq!(
-        crate::routines::initialization::sobol::generate(
-            5,
-            &vec![(0., 1.), (0., 1.), (0., 1.)],
-            347
-        )
-        .unwrap(),
-        ndarray::array![
-            [0.10731887817382813, 0.14647412300109863, 0.5851038694381714],
-            [0.9840304851531982, 0.7633365392684937, 0.19097506999969482],
-            [0.38477110862731934, 0.734661340713501, 0.2616291046142578],
-            [0.7023299932479858, 0.41038262844085693, 0.9158684015274048],
-            [0.6016758680343628, 0.6171295642852783, 0.6263971328735352]
-        ]
-    )
-}
+mod tests {
+    use super::*;
+    use crate::prelude::Parameters;
 
-#[test]
-fn scaled_sobol() {
-    assert_eq!(
-        crate::routines::initialization::sobol::generate(
-            5,
-            &vec![(0., 1.), (0., 2.), (-1., 1.)],
-            347
-        )
-        .unwrap(),
-        ndarray::array![
+    #[test]
+    fn test_sobol() {
+        let params = Parameters::new()
+            .add("a", 0.0, 1.0, false)
+            .add("b", 0.0, 1.0, false)
+            .add("c", 0.0, 1.0, false);
+
+        let theta = generate(&params, 10, 22).unwrap();
+
+        assert_eq!(theta.nspp(), 10);
+        assert_eq!(theta.matrix().ncols(), 3);
+    }
+
+    #[test]
+    fn test_sobol_with_fixed() {
+        let params = Parameters::new()
+            .add("a", 0.0, 1.0, false)
+            .add("b", 0.0, 1.0, false)
+            .add("c", 0.0, 1.0, true);
+
+        let theta = generate(&params, 10, 22).unwrap();
+
+        assert_eq!(theta.nspp(), 10);
+        assert_eq!(theta.matrix().ncols(), 2);
+    }
+
+    #[test]
+    fn test_sobol_ranges() {
+        let params = Parameters::new()
+            .add("a", 0.0, 1.0, false)
+            .add("b", 0.0, 1.0, false)
+            .add("c", 0.0, 1.0, false);
+
+        let theta = generate(&params, 10, 22).unwrap();
+
+        theta.matrix().row_iter().for_each(|row| {
+            row.iter().for_each(|&value| {
+                assert!(value >= 0.0 && value <= 1.0);
+            });
+        });
+    }
+
+    #[test]
+    fn test_sobol_values() {
+        use faer::mat;
+        let params = Parameters::new()
+            .add("a", 0.0, 1.0, false)
+            .add("b", 0.0, 1.0, false)
+            .add("c", 0.0, 1.0, false);
+
+        let theta = generate(&params, 10, 22).unwrap();
+
+        let expected = mat![
+            [0.05276215076446533, 0.609707236289978, 0.29471302032470703], //
+            [0.6993427276611328, 0.4142681360244751, 0.6447571516036987],  //
+            [0.860404372215271, 0.769607663154602, 0.1742185354232788],    //
+            [0.3863574266433716, 0.07018685340881348, 0.9825305938720703], //
+            [0.989533543586731, 0.19934570789337158, 0.4716176986694336],  //
+            [0.29962968826293945, 0.899970293045044, 0.5400241613388062],  //
+            [0.5577576160430908, 0.6990838050842285, 0.859503984451294],   //
             [
-                0.10731887817382813,
-                0.29294824600219727,
-                0.17020773887634277
-            ],
-            [0.9840304851531982, 1.5266730785369873, -0.6180498600006104],
-            [0.38477110862731934, 1.469322681427002, -0.4767417907714844],
-            [0.7023299932479858, 0.8207652568817139, 0.8317368030548096],
-            [0.6016758680343628, 1.2342591285705566, 0.2527942657470703]
-        ]
-    )
+                0.19194257259368896,
+                0.31645333766937256,
+                0.042426824569702150
+            ], //
+            [0.8874167203903198, 0.5214653015136719, 0.5899909734725952],  //
+            [0.35627472400665283, 0.4780532121658325, 0.42954015731811523]  //
+        ];
+
+        assert_eq!(theta.matrix().to_owned(), expected);
+    }
 }
-
-//TODO: It should be possible to avoid one of the for-loops
-//this improvement should happen automatically if switching columns with rows.
-//theta0 = hcat([a .+ (b - a) .* Sobol.next!(s) for i = 1:n_theta0]...)
-
-//TODO: Implement alternative samplers, such as uniform and Normal distributions
