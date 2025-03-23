@@ -104,7 +104,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        initialization::sample_space(&self.settings).unwrap().into()
+        initialization::sample_space(&self.settings).unwrap()
     }
 
     fn likelihood(&self) -> f64 {

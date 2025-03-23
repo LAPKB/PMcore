@@ -102,7 +102,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        initialization::sample_space(&self.settings).unwrap().into()
+        initialization::sample_space(&self.settings).unwrap()
     }
 
     fn inc_cycle(&mut self) -> usize {

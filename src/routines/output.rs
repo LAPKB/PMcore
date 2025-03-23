@@ -31,6 +31,7 @@ pub struct NPResult<E: Equation> {
     cyclelog: CycleLog,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl<E: Equation> NPResult<E> {
     /// Create a new NPResult object
     pub fn new(
@@ -290,7 +291,7 @@ impl<E: Equation> NPResult<E> {
         let psi = &self.psi;
 
         // Calculate the posterior probabilities
-        let posterior = posterior(&psi, &w)?;
+        let posterior = posterior(psi, w)?;
 
         // Create the output folder if it doesn't exist
         let outputfile = match OutputFile::new(&self.settings.output().path, "posterior.csv") {
@@ -471,7 +472,7 @@ impl<E: Equation> NPResult<E> {
             for occasion in subject.occasions() {
                 if let Some(cov) = occasion.get_covariates() {
                     let covmap = cov.covariates();
-                    for (cov_name, _) in &covmap {
+                    for cov_name in covmap.keys() {
                         covariate_names.insert(cov_name.clone());
                     }
                 }
@@ -649,6 +650,12 @@ impl CycleLog {
         writer.flush()?;
         tracing::info!("Cycles written to {:?}", &outputfile.get_relative_path());
         Ok(())
+    }
+}
+
+impl Default for CycleLog {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

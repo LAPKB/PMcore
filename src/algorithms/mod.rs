@@ -260,6 +260,7 @@ pub trait Algorithms<E: Equation>: Sync {
         while !self.next_cycle()? {}
         Ok(self.into_npresult())
     }
+
     fn into_npresult(&self) -> NPResult<E>;
 }
 

@@ -38,7 +38,7 @@ pub fn sample_space(settings: &Settings) -> Result<Theta> {
             settings.prior().points,
             settings.prior().seed,
         )?,
-        Sampler::File(ref path) => parse_prior(path, &settings)?,
+        Sampler::File(ref path) => parse_prior(path, settings)?,
     };
     Ok(prior)
 }

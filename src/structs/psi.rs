@@ -44,6 +44,12 @@ impl Psi {
     }
 }
 
+impl Default for Psi {
+    fn default() -> Self {
+        Psi::new()
+    }
+}
+
 impl From<Array2<f64>> for Psi {
     fn from(array: Array2<f64>) -> Self {
         let matrix = array.view().into_faer().to_owned();

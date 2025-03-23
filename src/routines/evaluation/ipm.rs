@@ -135,7 +135,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
                         faer::Accum::Replace,
                         &psi_inner,
                         faer::linalg::matmul::triangular::BlockStructure::Rectangular,
-                        &psi.transpose(),
+                        psi.transpose(),
                         faer::linalg::matmul::triangular::BlockStructure::Rectangular,
                         1.0,
                         faer::Par::Seq,
@@ -168,7 +168,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
                 faer::Accum::Replace,
                 &psi_inner,
                 faer::linalg::matmul::triangular::BlockStructure::Rectangular,
-                &psi.transpose(),
+                psi.transpose(),
                 faer::linalg::matmul::triangular::BlockStructure::Rectangular,
                 1.0,
                 faer::Par::Seq,
@@ -188,13 +188,13 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         let uph = uph.L().transpose().to_owned();
 
         // smuyinv = smu * (ecol ./ y)
-        let smuyinv: Col<f64> = Col::from_fn(ecol.nrows(), |i| smu * (&ecol[i] / y[i]));
+        let smuyinv: Col<f64> = Col::from_fn(ecol.nrows(), |i| smu * (ecol[i] / y[i]));
 
         // let smuyinv = smu * (&ecol / &y);
         // rhsdw = (erow ./ w) - (psi · smuyinv)
         let psi_dot_muyinv: Col<f64> = &psi * &smuyinv;
 
-        let rhsdw: Row<f64> = Row::from_fn(erow.ncols(), |i| &erow[i] / w[i] - psi_dot_muyinv[i]);
+        let rhsdw: Row<f64> = Row::from_fn(erow.ncols(), |i| erow[i] / w[i] - psi_dot_muyinv[i]);
 
         //let rhsdw = (&erow / &w) - psi * &smuyinv;
         // Reshape rhsdw into a column vector.
@@ -215,12 +215,12 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
 
         // let dw = dw_aux.column(0);
         // Compute dy = - (ψᵀ · dw)
-        let dy = -(psi.transpose() * &dw);
+        let dy = -(psi.transpose() * dw);
 
         let inner_times_dy = Col::from_fn(ecol.nrows(), |i| inner[i] * dy[i]);
 
         let dlam: Row<f64> =
-            Row::from_fn(ecol.nrows(), |i| &smuyinv[i] - lam[i] - inner_times_dy[i]);
+            Row::from_fn(ecol.nrows(), |i| smuyinv[i] - lam[i] - inner_times_dy[i]);
         // let dlam = &smuyinv - &lam - inner.transpose() * &dy;
 
         // Compute the primal step length alfpri.
@@ -239,12 +239,12 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         let min_ratio_dw = ratio_dw_w.iter().cloned().fold(f64::INFINITY, f64::min);
         let mut alfdual = -1.0 / min_ratio_dy.min(-0.5);
         alfdual = alfdual.min(-1.0 / min_ratio_dw.min(-0.5));
-        alfdual = (0.99995 * alfdual as f64).min(1.0);
+        alfdual = (0.99995 * alfdual).min(1.0);
 
         // Update the iterates.
-        lam = lam + alfpri * dlam.transpose();
-        w = w + alfdual * &dw;
-        y = y + alfdual * &dy;
+        lam += alfpri * dlam.transpose();
+        w += alfdual * dw;
+        y += alfdual * &dy;
 
         mu = lam.transpose() * &y / n_point as f64;
         plam = &psi * &lam;
@@ -252,7 +252,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         // mu = lam.dot(&y) / n_point as f64;
         // plam = psi.dot(&lam);
         r = Col::from_fn(n_sub, |i| erow.get(i) - w.get(i) * plam.get(i));
-        ptw = ptw - alfdual * dy;
+        ptw -= alfdual * dy;
 
         norm_r = r.norm_max();
         let sum_log_plam: f64 = plam.iter().map(|x| x.ln()).sum();
@@ -270,7 +270,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
         }
     }
     // Scale lam.
-    lam = lam / (n_sub as f64);
+    lam /= n_sub as f64;
     // Compute the objective function value: sum(ln(psi·lam)).
     let obj = (psi * &lam).iter().map(|x| x.ln()).sum();
     // Normalize lam to sum to 1.
