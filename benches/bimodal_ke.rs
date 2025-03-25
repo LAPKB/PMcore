@@ -21,8 +21,8 @@ fn create_equation() -> equation::ODE {
 
 fn setup_simulation() -> Result<(Settings, equation::ODE, data::Data)> {
     let params = Parameters::new()
-        .add("ke", 0.001, 3.0, true)
-        .add("v", 25.0, 250.0, true);
+        .add("ke", 0.001, 3.0, false)
+        .add("v", 25.0, 250.0, false);
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
@@ -31,6 +31,7 @@ fn setup_simulation() -> Result<(Settings, equation::ODE, data::Data)> {
         .build();
 
     settings.set_cycles(1000);
+    settings.set_prior_sampler(Sampler::Sobol, 2048, 22);
     settings.enable_output_files("examples/bimodal_ke/output");
 
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;

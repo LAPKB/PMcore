@@ -1,0 +1,71 @@
+use anyhow::Result;
+use pmcore::prelude::*;
+
+#[test]
+fn test_one_compartment() -> Result<()> {
+    // Create a simple one-compartment model
+    let eq = equation::ODE::new(
+        |x, p, _t, dx, _rateiv, _cov| {
+            fetch_params!(p, ke);
+            dx[0] = -ke * x[0];
+        },
+        |_p| lag! {},
+        |_p| fa! {},
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, v);
+            y[0] = x[0] / v;
+        },
+        (1, 1),
+    );
+
+    // Define parameters
+    let params = Parameters::new()
+        .add("ke", 0.1, 1.0, false)
+        .add("v", 1.0, 20.0, false);
+
+    // Create settings
+    let mut settings = Settings::builder()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_model(ErrorModel::Proportional, 2.0, (0.1, 0.25, 0.0, 0.0))
+        .build();
+
+    settings.set_prior_sampler(Sampler::Sobol, 64, 22);
+    settings.set_cycles(300);
+
+    // Let known support points
+    let spps: Vec<(f64, f64)> = vec![(0.85, 12.0), (0.52, 5.0), (0.15, 3.0)];
+
+    // Create data
+    let mut subjects: Vec<Subject> = Vec::new();
+    spps.iter().enumerate().for_each(|(index, spp)| {
+        let dose = 100.0;
+        let ke = spp.0;
+        let v = spp.1;
+        let subject = Subject::builder(index.to_string())
+            .bolus(0.0, 100.0, 0)
+            .observation(1.0, (dose * f64::exp(-ke * 1.0)) / v, 0)
+            .observation(2.0, (dose * f64::exp(-ke * 2.0)) / v, 0)
+            .observation(4.0, (dose * f64::exp(-ke * 4.0)) / v, 0)
+            .observation(8.0, (dose * f64::exp(-ke * 8.0)) / v, 0)
+            .build();
+
+        subjects.push(subject);
+    });
+
+    let data = data::Data::new(subjects);
+    data.get_subjects().iter().for_each(|subject| {
+        println!("{}", subject);
+    });
+
+    // Run the algorithm
+    let mut algorithm = dispatch_algorithm(settings, eq, data)?;
+    let result = algorithm.fit()?;
+
+    // Check the results
+    assert_eq!(result.cycles(), 32);
+    assert_eq!(result.objf(), 97.57533032670898);
+
+    Ok(())
+}

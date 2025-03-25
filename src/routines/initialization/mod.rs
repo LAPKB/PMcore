@@ -1,53 +1,50 @@
 use std::fs::File;
 
-use crate::prelude::data::Data;
-use crate::prelude::simulator::Equation;
+use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
-use ndarray::{Array1, Array2};
-use pharmsol::prelude::EstimateTheta;
+use faer::Mat;
+use serde::{Deserialize, Serialize};
 
 use crate::routines::settings::Settings;
 
 pub mod latin;
 pub mod sobol;
 
+/// The sampler used to generate the grid of support points
+///
+/// The sampler can be one of the following:
+///
+/// - `Sobol`: Generates a Sobol sequence
+/// - `Latin`: Generates a Latin hypercube
+/// - `File`: Reads the prior distribution from a CSV file
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub enum Sampler {
+    Sobol,
+    Latin,
+    File(String),
+}
+
 /// This function generates the grid of support points according to the sampler specified in the [Settings]
-pub fn sample_space(settings: &Settings, data: &Data, eqn: &impl Equation) -> Result<Array2<f64>> {
-    // Get the ranges of the random parameters
-    let ranges = settings.parameters().ranges();
-
-    // If a prior file is provided, read it and return
-    if settings.prior().file.is_some() {
-        let prior = parse_prior(
-            settings.prior().file.as_ref().unwrap(),
-            &settings.parameters().names(),
-        )?;
-        return Ok(prior);
-    }
-
+pub fn sample_space(settings: &Settings) -> Result<Theta> {
     // Otherwise, parse the sampler type and generate the grid
-    let prior = match settings.prior().sampler.as_str() {
-        "sobol" => sobol::generate(settings.prior().points, &ranges, settings.prior().seed)?,
-        "latin" => latin::generate(settings.prior().points, &ranges, settings.prior().seed)?,
-        "osat" => {
-            let mut point = vec![];
-            for range in ranges {
-                point.push((range.1 - range.0) / 2.0);
-            }
-            data.estimate_theta(eqn, &Array1::from_vec(point))
-        }
-        _ => {
-            bail!(
-                "Unknown sampler specified in settings: {}",
-                settings.prior().sampler
-            );
-        }
+    let prior = match settings.prior().sampler {
+        Sampler::Sobol => sobol::generate(
+            settings.parameters(),
+            settings.prior().points,
+            settings.prior().seed,
+        )?,
+        Sampler::Latin => latin::generate(
+            settings.parameters(),
+            settings.prior().points,
+            settings.prior().seed,
+        )?,
+        Sampler::File(ref path) => parse_prior(path, settings)?,
     };
     Ok(prior)
 }
 
 /// This function reads the prior distribution from a file
-pub fn parse_prior(path: &String, names: &Vec<String>) -> Result<Array2<f64>> {
+pub fn parse_prior(path: &String, settings: &Settings) -> Result<Theta> {
     tracing::info!("Reading prior from {}", path);
     let file = File::open(path).context(format!("Unable to open the prior file '{}'", path))?;
     let mut reader = csv::ReaderBuilder::new()
@@ -67,7 +64,7 @@ pub fn parse_prior(path: &String, names: &Vec<String>) -> Result<Array2<f64>> {
     }
 
     // Check and reorder parameters to match names in settings.parsed.random
-    let random_names: Vec<String> = names.clone();
+    let random_names: Vec<String> = settings.parameters().names();
 
     let mut reordered_indices: Vec<usize> = Vec::new();
     for random_name in &random_names {
@@ -107,5 +104,19 @@ pub fn parse_prior(path: &String, names: &Vec<String>) -> Result<Array2<f64>> {
     // Convert nested Vec into a single Vec
     let theta_values: Vec<f64> = theta_values.into_iter().flatten().collect();
 
-    Ok(Array2::from_shape_vec((n_points, n_params), theta_values)?)
+    let theta_matrix: Mat<f64> =
+        Mat::from_fn(n_points, n_params, |i, j| theta_values[i * n_params + j]);
+
+    let random = settings
+        .parameters()
+        .iter()
+        .filter(|p| !p.fixed)
+        .collect::<Vec<_>>()
+        .iter()
+        .map(|p| (p.name.clone(), p.lower, p.upper))
+        .collect();
+
+    let theta = Theta::from_parts(theta_matrix, random, Vec::new());
+
+    Ok(theta)
 }

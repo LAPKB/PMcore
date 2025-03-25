@@ -16,7 +16,7 @@ pub struct SppOptimizer<'a, E: Equation> {
     pyl: &'a Array1<f64>,
 }
 
-impl<'a, E: Equation> CostFunction for SppOptimizer<'a, E> {
+impl<E: Equation> CostFunction for SppOptimizer<'_, E> {
     type Param = Vec<f64>;
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {

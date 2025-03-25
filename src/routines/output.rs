@@ -1,13 +1,17 @@
 use crate::prelude::*;
+use crate::structs::psi::Psi;
+use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
-use ndarray::parallel::prelude::*;
+use faer::linalg::zip::IntoView;
+use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
 use serde::Serialize;
 // use pharmsol::Cache;
 use crate::routines::settings::Settings;
+use faer::{Col, Mat};
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 /// Defines the result objects from an NPAG run
@@ -16,9 +20,9 @@ use std::path::{Path, PathBuf};
 pub struct NPResult<E: Equation> {
     equation: E,
     data: Data,
-    theta: Array2<f64>,
-    psi: Array2<f64>,
-    w: Array1<f64>,
+    theta: Theta,
+    psi: Psi,
+    w: Col<f64>,
     objf: f64,
     cycles: usize,
     converged: bool,
@@ -27,14 +31,15 @@ pub struct NPResult<E: Equation> {
     cyclelog: CycleLog,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl<E: Equation> NPResult<E> {
     /// Create a new NPResult object
     pub fn new(
         equation: E,
         data: Data,
-        theta: Array2<f64>,
-        psi: Array2<f64>,
-        w: Array1<f64>,
+        theta: Theta,
+        psi: Psi,
+        w: Col<f64>,
         objf: f64,
         cycles: usize,
         converged: bool,
@@ -72,20 +77,21 @@ impl<E: Equation> NPResult<E> {
         self.converged
     }
 
-    pub fn get_theta(&self) -> &Array2<f64> {
+    pub fn get_theta(&self) -> &Theta {
         &self.theta
     }
 
-    pub fn get_psi(&self) -> &Array2<f64> {
+    pub fn get_psi(&self) -> &Psi {
         &self.psi
     }
 
-    pub fn get_w(&self) -> &Array1<f64> {
+    pub fn get_w(&self) -> &Col<f64> {
         &self.w
     }
 
     pub fn write_outputs(&self) -> Result<()> {
         if self.settings.output().write {
+            self.settings.write()?;
             let idelta: f64 = self.settings.predictions().idelta;
             let tad = self.settings.predictions().tad;
             self.cyclelog.write(&self.settings)?;
@@ -96,7 +102,7 @@ impl<E: Equation> NPResult<E> {
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
             self.write_covs().context("Failed to write covariates")?;
-            if self.w.len() > 0 {
+            if !self.w.nrows() == 0 {
                 //TODO: find a better way to indicate that the run failed
                 self.write_posterior()
                     .context("Failed to write posterior")?;
@@ -122,9 +128,15 @@ impl<E: Equation> NPResult<E> {
             post_median: f64,
         }
 
-        let theta: Array2<f64> = self.theta.clone();
-        let w: Array1<f64> = self.w.clone();
-        let psi: Array2<f64> = self.psi.clone();
+        let theta: Array2<f64> = self
+            .theta
+            .matrix()
+            .clone()
+            .as_mut()
+            .into_ndarray()
+            .to_owned();
+        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
+        let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
 
         let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
             .context("Failed to calculate posterior mean and median")?;
@@ -237,13 +249,14 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!("Writing population parameter distribution...");
 
         let theta = &self.theta;
-        let w = if self.w.len() != theta.nrows() {
-            tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
-            Array1::zeros(theta.nrows())
-        } else {
-            self.w.clone()
-        };
-
+        let w: Vec<f64> = self.w.clone().into_view().iter().cloned().collect();
+        /* let w = if self.w.len() != theta.matrix().nrows() {
+                   tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
+                   Array1::zeros(theta.matrix().nrows())
+               } else {
+                   self.w.clone()
+               };
+        */
         let outputfile = OutputFile::new(&self.settings.output().path, "theta.csv")
             .context("Failed to create output file for theta")?;
 
@@ -257,7 +270,7 @@ impl<E: Equation> NPResult<E> {
         writer.write_record(&theta_header)?;
 
         // Write contents
-        for (theta_row, &w_val) in theta.outer_iter().zip(w.iter()) {
+        for (theta_row, &w_val) in theta.matrix().row_iter().zip(w.iter()) {
             let mut row: Vec<String> = theta_row.iter().map(|&val| val.to_string()).collect();
             row.push(w_val.to_string());
             writer.write_record(&row)?;
@@ -273,19 +286,12 @@ impl<E: Equation> NPResult<E> {
     /// Writes the posterior support points for each individual
     pub fn write_posterior(&self) -> Result<()> {
         tracing::debug!("Writing posterior parameter probabilities...");
-        let theta: Array2<f64> = self.theta.clone();
-        let w: Array1<f64> = self.w.clone();
-        let psi: Array2<f64> = self.psi.clone();
-        let par_names: Vec<String> = self.par_names.clone();
+        let theta = &self.theta;
+        let w = &self.w;
+        let psi = &self.psi;
 
         // Calculate the posterior probabilities
-        let posterior = match posterior(&psi, &w) {
-            Ok(p) => p,
-            Err(e) => {
-                tracing::error!("Failed to calculate posterior: {}", e);
-                return Err(e.context("Failed to calculate posterior"));
-            }
-        };
+        let posterior = posterior(psi, w)?;
 
         // Create the output folder if it doesn't exist
         let outputfile = match OutputFile::new(&self.settings.output().path, "posterior.csv") {
@@ -295,6 +301,8 @@ impl<E: Equation> NPResult<E> {
                 return Err(e.context("Failed to create output file"));
             }
         };
+
+        // Create a new writer
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
@@ -302,26 +310,23 @@ impl<E: Equation> NPResult<E> {
         // Create the headers
         writer.write_field("id")?;
         writer.write_field("point")?;
-        for i in 0..theta.ncols() {
-            let param_name = par_names.get(i).unwrap();
-            writer.write_field(param_name)?;
-        }
+        theta.param_names().iter().for_each(|name| {
+            writer.write_field(name).unwrap();
+        });
         writer.write_field("prob")?;
         writer.write_record(None::<&[u8]>)?;
 
         // Write contents
         let subjects = self.data.get_subjects();
-        for (sub, row) in posterior.axis_iter(Axis(0)).enumerate() {
-            for (spp, elem) in row.axis_iter(Axis(0)).enumerate() {
-                writer.write_field(&subjects.get(sub).unwrap().id())?;
-                writer.write_field(format!("{}", spp))?;
-                for param in theta.row(spp) {
-                    writer.write_field(&format!("{param}"))?;
-                }
-                writer.write_field(&format!("{elem:.10}"))?;
-                writer.write_record(None::<&[u8]>)?;
-            }
-        }
+        posterior.row_iter().enumerate().for_each(|(i, row)| {
+            let subject = subjects.get(i).unwrap();
+            let id = subject.id();
+            let mut row: Vec<String> = row.iter().map(|val| val.to_string()).collect();
+            row.insert(0, id.clone());
+            row.insert(1, i.to_string());
+            writer.write_record(&row).unwrap();
+        });
+
         writer.flush()?;
         tracing::info!(
             "Posterior parameters written to {:?}",
@@ -348,9 +353,15 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
 
-        let theta: Array2<f64> = self.theta.clone();
-        let w: Array1<f64> = self.w.clone();
-        let psi: Array2<f64> = self.psi.clone();
+        let theta: Array2<f64> = self
+            .theta
+            .matrix()
+            .clone()
+            .as_mut()
+            .into_ndarray()
+            .to_owned();
+        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
+        let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
 
         let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
             .context("Failed to calculate posterior mean and median")?;
@@ -461,7 +472,7 @@ impl<E: Equation> NPResult<E> {
             for occasion in subject.occasions() {
                 if let Some(cov) = occasion.get_covariates() {
                     let covmap = cov.covariates();
-                    for (cov_name, _) in &covmap {
+                    for cov_name in covmap.keys() {
                         covariate_names.insert(cov_name.clone());
                     }
                 }
@@ -535,7 +546,7 @@ pub struct NPCycle {
     pub cycle: usize,
     pub objf: f64,
     pub gamlam: f64,
-    pub theta: Array2<f64>,
+    pub theta: Theta,
     pub nspp: usize,
     pub delta_objf: f64,
     pub converged: bool,
@@ -546,7 +557,7 @@ impl NPCycle {
         cycle: usize,
         objf: f64,
         gamlam: f64,
-        theta: Array2<f64>,
+        theta: Theta,
         nspp: usize,
         delta_objf: f64,
         converged: bool,
@@ -567,7 +578,7 @@ impl NPCycle {
             cycle: 0,
             objf: 0.0,
             gamlam: 0.0,
-            theta: Array2::zeros((0, 0)),
+            theta: Theta::new(),
             nspp: 0,
             delta_objf: 0.0,
             converged: false,
@@ -619,42 +630,52 @@ impl CycleLog {
             writer.write_field(format!("{}", cycle.objf))?;
             writer.write_field(format!("{}", cycle.gamlam))?;
             writer
-                .write_field(format!("{}", cycle.theta.nrows()))
+                .write_field(format!("{}", cycle.theta.matrix().nrows()))
                 .unwrap();
 
-            for param in cycle.theta.axis_iter(Axis(1)) {
-                writer
-                    .write_field(format!("{}", param.mean().unwrap()))
-                    .unwrap();
-                writer.write_field(format!("{}", median(param.to_owned().to_vec())))?;
-                writer.write_field(format!("{}", param.std(1.)))?;
-            }
+            for param in cycle.theta.matrix().col_iter() {
+                let param_values: Vec<f64> = param.iter().cloned().collect();
 
+                let mean: f64 = param_values.iter().sum::<f64>() / param_values.len() as f64;
+                let median = median(param_values.clone());
+                let std = param_values.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                    / (param_values.len() as f64 - 1.0);
+
+                writer.write_field(format!("{}", mean))?;
+                writer.write_field(format!("{}", median))?;
+                writer.write_field(format!("{}", std))?;
+            }
             writer.write_record(None::<&[u8]>)?;
         }
-
         writer.flush()?;
         tracing::info!("Cycles written to {:?}", &outputfile.get_relative_path());
         Ok(())
     }
 }
 
-pub fn posterior(psi: &Array2<f64>, w: &Array1<f64>) -> Result<Array2<f64>> {
-    let py = psi.dot(w);
-    let mut post: Array2<f64> = Array2::zeros((psi.nrows(), psi.ncols()));
-    post.axis_iter_mut(Axis(0))
-        .into_par_iter()
-        .enumerate()
-        .for_each(|(i, mut row)| {
-            row.axis_iter_mut(Axis(0))
-                .into_par_iter()
-                .enumerate()
-                .for_each(|(j, mut element)| {
-                    let elem = psi.get((i, j)).unwrap() * w.get(j).unwrap() / py.get(i).unwrap();
-                    element.fill(elem);
-                });
-        });
-    Ok(post)
+impl Default for CycleLog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Mat<f64>> {
+    if psi.matrix().nrows() != w.nrows() {
+        bail!(
+            "Number of rows in psi ({}) and number of weights ({}) do not match.",
+            psi.matrix().nrows(),
+            w.nrows()
+        );
+    }
+
+    let psi_matrix = psi.matrix();
+    let py = psi_matrix * w;
+
+    let posterior = Mat::from_fn(psi_matrix.nrows(), psi_matrix.ncols(), |i, j| {
+        psi_matrix.get(i, j) * w.get(j) / py.get(i)
+    });
+
+    Ok(posterior)
 }
 
 pub fn median(data: Vec<f64>) -> f64 {
@@ -721,7 +742,7 @@ pub fn population_mean_median(
     theta: &Array2<f64>,
     w: &Array1<f64>,
 ) -> Result<(Array1<f64>, Array1<f64>)> {
-    let w = if w.len() == 0 {
+    let w = if w.is_empty() {
         tracing::warn!("w.len() == 0, setting all weights to 1/n");
         Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
     } else {
@@ -767,8 +788,8 @@ pub fn posterior_mean_median(
     let mut mean = Array2::zeros((0, theta.ncols()));
     let mut median = Array2::zeros((0, theta.ncols()));
 
-    let w = if w.len() == 0 {
-        tracing::warn!("w.len() == 0, setting all weights to 1/n");
+    let w = if w.is_empty() {
+        tracing::warn!("w is empty, setting all weights to 1/n");
         Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)
     } else {
         w.clone()
@@ -861,22 +882,18 @@ impl OutputFile {
 pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<()> {
     let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-    writer.write_record(&["id", "block", "time", "out", "outeq"])?;
+    writer.write_record(["id", "block", "time", "out", "outeq"])?;
     for subject in data.get_subjects() {
         for occasion in subject.occasions() {
             for event in occasion.get_events(&None, &None, false) {
-                match event {
-                    Event::Observation(obs) => {
-                        // Write each field individually
-                        writer.write_record(&[
-                            &subject.id(),
-                            &occasion.index().to_string(),
-                            &obs.time().to_string(),
-                            &obs.value().to_string(),
-                            &obs.outeq().to_string(),
-                        ])?;
-                    }
-                    _ => {}
+                if let Event::Observation(event) = event {
+                    writer.write_record([
+                        subject.id(),
+                        &occasion.index().to_string(),
+                        &event.time().to_string(),
+                        &event.value().to_string(),
+                        &event.outeq().to_string(),
+                    ])?;
                 }
             }
         }

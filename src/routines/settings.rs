@@ -1,3 +1,4 @@
+use super::initialization::Sampler;
 use super::output::OutputFile;
 use crate::algorithms::Algorithm;
 use anyhow::{bail, Result};
@@ -99,8 +100,8 @@ impl Settings {
         self.predictions.tad = tad;
     }
 
-    pub fn set_prior_sampler(&mut self, sampler: impl Into<String>, points: usize, seed: usize) {
-        self.prior.sampler = sampler.into();
+    pub fn set_prior_sampler(&mut self, sampler: Sampler, points: usize, seed: usize) {
+        self.prior.sampler = sampler;
         self.prior.points = points;
         self.prior.seed = seed;
     }
@@ -125,7 +126,7 @@ impl Settings {
         self.output.write = true;
         self.output.path = path.into();
 
-        self.output.parse_output_folder();
+        //self.output.parse_output_folder();
     }
 
     /// Writes a copy of the settings to file
@@ -169,10 +170,10 @@ impl Default for Config {
 /// Fixed parameters are unknown, but common among all subjects.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Parameter {
-    name: String,
-    lower: f64,
-    upper: f64,
-    fixed: bool,
+    pub(crate) name: String,
+    pub(crate) lower: f64,
+    pub(crate) upper: f64,
+    pub(crate) fixed: bool,
 }
 
 impl Parameter {
@@ -190,7 +191,7 @@ impl Parameter {
 /// This structure contains information on all [Parameter]s to be estimated
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Parameters {
-    parameters: Vec<Parameter>,
+    pub(crate) parameters: Vec<Parameter>,
 }
 
 impl Parameters {
@@ -333,7 +334,7 @@ pub struct Advanced {
 impl Default for Advanced {
     fn default() -> Self {
         Advanced {
-            min_distance: 0.12,
+            min_distance: 1e-4,
             nm_steps: 100,
             tolerance: 1e-6,
         }
@@ -484,7 +485,7 @@ impl Default for Log {
 #[serde(deny_unknown_fields, default)]
 pub struct Prior {
     /// The sampler to use for the prior if not supplied
-    pub sampler: String,
+    pub sampler: Sampler,
     /// The number of points to generate for the prior
     pub points: usize,
     /// The seed for the random number generator
@@ -499,7 +500,7 @@ pub struct Prior {
 impl Default for Prior {
     fn default() -> Self {
         Prior {
-            sampler: String::from("sobol"),
+            sampler: Sampler::Sobol,
             points: 2048,
             seed: 22,
             file: None,
@@ -521,14 +522,11 @@ impl Default for Output {
     fn default() -> Self {
         let path = PathBuf::from("outputs/").to_string_lossy().to_string();
 
-        Output {
-            write: false,
-            path: path,
-        }
+        Output { write: false, path }
     }
 }
 
-impl Output {
+/* impl Output {
     /// Parses the output folder location
     ///
     /// If a `#` symbol is found, it will automatically increment the number by one.
@@ -550,7 +548,7 @@ impl Output {
         self.path = result.clone(); // Update the internal path
         result
     }
-}
+} */
 
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
@@ -664,7 +662,7 @@ impl SettingsBuilder<ParametersSet> {
 // Error model is set, allow optional settings and final build
 impl SettingsBuilder<ErrorSet> {
     pub fn build(self) -> Settings {
-        let settings = Settings {
+        Settings {
             config: self.config.unwrap(),
             parameters: self.parameters.unwrap(),
             error: self.error.unwrap(),
@@ -674,9 +672,7 @@ impl SettingsBuilder<ErrorSet> {
             output: self.output.unwrap_or_default(),
             convergence: self.convergence.unwrap_or_default(),
             advanced: self.advanced.unwrap_or_default(),
-        };
-
-        settings
+        }
     }
 }
 

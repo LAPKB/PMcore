@@ -1,27 +1,36 @@
-use crate::prelude::{
-    algorithms::Algorithms,
-    routines::evaluation::ipm::burke,
-    routines::evaluation::qr,
-    routines::output::{CycleLog, NPCycle, NPResult},
-    routines::settings::Settings,
+use crate::{
+    prelude::{
+        algorithms::Algorithms,
+        routines::{
+            evaluation::{ipm::burke, qr},
+            output::{CycleLog, NPCycle, NPResult},
+            settings::Settings,
+        },
+    },
+    structs::{
+        psi::{calculate_psi, Psi},
+        theta::Theta,
+    },
 };
 use anyhow::bail;
 use anyhow::Result;
+use faer_ext::IntoNdarray;
 use pharmsol::{
     prelude::{
         data::{Data, ErrorModel},
-        simulator::{psi, Equation},
+        simulator::Equation,
     },
     Subject,
 };
 
+use faer::Col;
+
 use ndarray::{
     parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
-    Array, Array1, Array2, ArrayBase, Axis, Dim, OwnedRepr,
+    Array, Array1, ArrayBase, Dim, OwnedRepr,
 };
-use ndarray_stats::{DeviationExt, QuantileExt};
 
-use crate::routines::{condensation::prune, initialization, optimization::SppOptimizer};
+use crate::routines::{initialization, optimization::SppOptimizer};
 
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
@@ -29,10 +38,10 @@ const THETA_D: f64 = 1e-4;
 pub struct NPOD<E: Equation> {
     equation: E,
     ranges: Vec<(f64, f64)>,
-    psi: Array2<f64>,
-    theta: Array2<f64>,
-    lambda: Array1<f64>,
-    w: Array1<f64>,
+    psi: Psi,
+    theta: Theta,
+    lambda: Col<f64>,
+    w: Col<f64>,
     last_objf: f64,
     objf: f64,
     cycle: usize,
@@ -49,10 +58,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         Ok(Box::new(Self {
             equation,
             ranges: settings.parameters().ranges(),
-            psi: Array2::default((0, 0)),
-            theta: Array2::zeros((0, 0)),
-            lambda: Array1::default(0),
-            w: Array1::default(0),
+            psi: Psi::new(),
+            theta: Theta::new(),
+            lambda: Col::zeros(0),
+            w: Col::zeros(0),
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
             cycle: 0,
@@ -91,8 +100,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         &self.data
     }
 
-    fn get_prior(&self) -> Array2<f64> {
-        initialization::sample_space(&self.settings, &self.data, &self.equation).unwrap()
+    fn get_prior(&self) -> Theta {
+        initialization::sample_space(&self.settings).unwrap()
     }
 
     fn inc_cycle(&mut self) -> usize {
@@ -104,15 +113,15 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         self.cycle
     }
 
-    fn set_theta(&mut self, theta: Array2<f64>) {
+    fn set_theta(&mut self, theta: Theta) {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Array2<f64> {
+    fn get_theta(&self) -> &Theta {
         &self.theta
     }
 
-    fn psi(&self) -> &Array2<f64> {
+    fn psi(&self) -> &Psi {
         &self.psi
     }
 
@@ -143,7 +152,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             cycle: self.cycle,
             objf: -2. * self.objf,
             delta_objf: (self.last_objf - self.objf).abs(),
-            nspp: self.theta.shape()[0],
+            nspp: self.theta.nspp(),
             theta: self.theta.clone(),
             gamlam: self.gamma,
             converged: self.converged,
@@ -159,7 +168,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        self.psi = psi(
+        self.psi = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
@@ -186,10 +195,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn condensation(&mut self) -> Result<()> {
-        let max_lambda = match self.lambda.max() {
-            Ok(max_lambda) => max_lambda,
-            Err(err) => bail!(err),
-        };
+        let max_lambda = self
+            .lambda
+            .iter()
+            .fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
 
         let mut keep = Vec::<usize>::new();
         for (index, lam) in self.lambda.iter().enumerate() {
@@ -197,45 +206,47 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
                 keep.push(index);
             }
         }
-        if self.psi.ncols() != keep.len() {
+        if self.psi.matrix().ncols() != keep.len() {
             tracing::debug!(
                 "Lambda (max/1000) dropped {} support point(s)",
-                self.psi.ncols() - keep.len(),
+                self.psi.matrix().ncols() - keep.len(),
             );
         }
 
-        self.theta = self.theta.select(Axis(0), &keep);
-        self.psi = self.psi.select(Axis(1), &keep);
+        self.theta.filter_indices(keep.as_slice());
+        self.psi.filter_column_indices(keep.as_slice());
 
         //Rank-Revealing Factorization
         let (r, perm) = qr::calculate_r(&self.psi);
 
         let mut keep = Vec::<usize>::new();
-        //The minimum between the number of subjects and the actual number of support points
-        let lim_loop = self.psi.nrows().min(self.psi.ncols());
-        for i in 0..lim_loop {
-            let test = norm_zero(&r.column(i).to_owned());
-            let ratio = r.get((i, i)).unwrap() / test;
+
+        // The minimum between the number of subjects and the actual number of support points
+        let keep_n = self.psi.matrix().ncols().min(self.psi.matrix().nrows());
+        for i in 0..keep_n {
+            let test = r.col(i).norm_l2();
+            let r_diag_val = r.get(i, i);
+            let ratio = r_diag_val / test;
             if ratio.abs() >= 1e-8 {
                 keep.push(*perm.get(i).unwrap());
             }
         }
 
         // If a support point is dropped, log it as a debug message
-        if self.psi.ncols() != keep.len() {
+        if self.psi.matrix().ncols() != keep.len() {
             tracing::debug!(
                 "QR decomposition dropped {} support point(s)",
-                self.psi.ncols() - keep.len(),
+                self.psi.matrix().ncols() - keep.len(),
             );
         }
 
-        self.theta = self.theta.select(Axis(0), &keep);
-        self.psi = self.psi.select(Axis(1), &keep);
+        self.theta.filter_indices(keep.as_slice());
+        self.psi.filter_column_indices(keep.as_slice());
 
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                bail!(err);
+                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
             }
         };
         self.w = self.lambda.clone();
@@ -248,7 +259,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
-        let psi_up = psi(
+        let psi_up = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
@@ -260,7 +271,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             false,
             true,
         );
-        let psi_down = psi(
+        let psi_down = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
@@ -276,16 +287,16 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                panic!("Error in IPM: {:?}", err);
+                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
             }
         };
         let (lambda_down, objf_down) = match burke(&psi_down) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
-                tracing::warn!("Error in IPM: {:?}. Trying to recover.", err);
-                (Array1::zeros(1), f64::NEG_INFINITY)
+                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
             }
         };
+
         if objf_up > self.objf {
             self.gamma = gamma_up;
             self.objf = objf_up;
@@ -309,7 +320,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
 
     fn logs(&self) {
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
-        tracing::debug!("Support points: {}", self.theta.shape()[0]);
+        tracing::debug!("Support points: {}", self.theta.nspp());
         tracing::debug!("Gamma = {:.16}", self.gamma);
         // Increasing objf signals instability or model misspecification.
         if self.last_objf > self.objf + 1e-4 {
@@ -324,18 +335,22 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
 
     fn expansion(&mut self) -> Result<()> {
         // If no stop signal, add new point to theta based on the optimization of the D function
-        let pyl = self.psi.dot(&self.w);
+        let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
+        let w: Array1<f64> = self.w.clone().iter().cloned().collect();
+        let pyl = psi.dot(&w);
 
         // Add new point to theta based on the optimization of the D function
         let error_type = self.settings.error().error_model().into();
         let sigma = &ErrorModel::new(self.settings.error().poly, self.gamma, &error_type);
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
-        for spp in self.theta.clone().rows() {
+        for spp in self.theta.matrix().row_iter() {
+            let candidate: Vec<f64> = spp.iter().cloned().collect();
+            let spp = Array1::from(candidate);
             candididate_points.push(spp.to_owned());
         }
         candididate_points.par_iter_mut().for_each(|spp| {
-            let optimizer = SppOptimizer::new(&self.equation, &self.data, &sigma, &pyl);
+            let optimizer = SppOptimizer::new(&self.equation, &self.data, sigma, &pyl);
             let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
             *spp = candidate_point;
             // add spp to theta
@@ -345,7 +360,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             // re-define a new optimization
         });
         for cp in candididate_points {
-            prune(&mut self.theta, cp, &self.ranges, THETA_D);
+            self.theta
+                .suggest_point(cp.to_vec().as_slice(), THETA_D, &self.ranges);
         }
         Ok(())
     }
@@ -353,20 +369,19 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
 
 impl<E: Equation> NPOD<E> {
     fn validate_psi(&mut self) -> Result<()> {
+        let mut psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
         // First coerce all NaN and infinite in psi to 0.0
-        if self.psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
+        if psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
             tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
-            for i in 0..self.psi.nrows() {
-                for j in 0..self.psi.ncols() {
-                    let val = self.psi.get_mut((i, j)).unwrap();
+            for i in 0..psi.nrows() {
+                for j in 0..psi.ncols() {
+                    let val = psi.get_mut((i, j)).unwrap();
                     if val.is_nan() || val.is_infinite() {
                         *val = 0.0;
                     }
                 }
             }
         }
-
-        let psi = self.psi.clone();
 
         // Calculate the sum of each column in psi
         let (_, col) = psi.dim();
@@ -395,9 +410,4 @@ impl<E: Equation> NPOD<E> {
 
         Ok(())
     }
-}
-
-fn norm_zero(a: &Array1<f64>) -> f64 {
-    let zeros: Array1<f64> = Array::zeros(a.len());
-    a.l2_dist(&zeros).unwrap()
 }
