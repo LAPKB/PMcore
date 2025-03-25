@@ -1,13 +1,8 @@
 use crate::structs::psi::Psi;
-use faer::{linalg::solvers::ColPivQr, Mat};
+use faer::linalg::solvers::ColPivQr;
+use faer::Mat;
 
 pub fn calculate_r(psi: &Psi) -> (Mat<f64>, Vec<usize>) {
-    /*     // Normalize rows to sum to 1
-    let mut n_x = x.clone();
-    n_x.axis_iter_mut(Axis(0))
-        .into_par_iter()
-        .for_each(|mut row| row /= row.sum()); */
-
     // Clone the matrix, as we will modify it
     let mut mat = psi.matrix().clone();
 
