@@ -10,7 +10,6 @@ use crate::structs::theta::Theta;
 
 use anyhow::bail;
 use anyhow::Result;
-use faer::linalg::zip::IntoView;
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
     simulator::Equation,
@@ -21,8 +20,6 @@ use faer::Col;
 use crate::routines::initialization;
 
 use crate::routines::expansion::adaptative_grid::adaptative_grid;
-use ndarray::Array1;
-use ndarray_stats::QuantileExt;
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
@@ -207,11 +204,11 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
 
     fn condensation(&mut self) -> Result<()> {
         // Filter out the support points with lambda < max(lambda)/1000
-        let lambda: Array1<f64> = self.lambda.clone().into_view().iter().cloned().collect();
-        let max_lambda = match lambda.max() {
-            Ok(max_lambda) => max_lambda,
-            Err(err) => bail!("Error in condensation: {:?}", err),
-        };
+
+        let max_lambda = self
+            .lambda
+            .iter()
+            .fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
 
         let mut keep = Vec::<usize>::new();
         for (index, lam) in self.lambda.iter().enumerate() {

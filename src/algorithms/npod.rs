@@ -29,7 +29,6 @@ use ndarray::{
     parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
     Array, Array1, ArrayBase, Dim, OwnedRepr,
 };
-use ndarray_stats::QuantileExt;
 
 use crate::routines::{initialization, optimization::SppOptimizer};
 
@@ -196,11 +195,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn condensation(&mut self) -> Result<()> {
-        let lambda: Array1<f64> = self.lambda.clone().iter().cloned().collect();
-        let max_lambda = match lambda.max() {
-            Ok(max_lambda) => max_lambda,
-            Err(err) => bail!("Error in IPM: {:?}", err),
-        };
+        let max_lambda = self
+            .lambda
+            .iter()
+            .fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
 
         let mut keep = Vec::<usize>::new();
         for (index, lam) in self.lambda.iter().enumerate() {
