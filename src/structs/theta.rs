@@ -135,7 +135,7 @@ impl Debug for Theta {
         Ok(())
     }
 }
-/*
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -146,7 +146,7 @@ mod tests {
         // Create a 4x2 matrix with recognizable values
         let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
 
-        let mut theta = Theta::from(matrix);
+        let mut theta = Theta::from_parts(matrix, vec![], vec![]);
 
         theta.filter_indices(&[0, 3]);
 
@@ -160,7 +160,7 @@ mod tests {
     fn test_add_point() {
         let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
 
-        let mut theta = Theta::from(matrix);
+        let mut theta = Theta::from_parts(matrix, vec![], vec![]);
 
         theta.add_point(&[7.0, 8.0]);
 
@@ -169,4 +169,3 @@ mod tests {
         assert_eq!(theta.matrix, expected);
     }
 }
- */
