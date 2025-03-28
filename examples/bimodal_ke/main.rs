@@ -29,14 +29,13 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_cycles(1000);
-
     settings.set_prior(Prior::sobol(2028, 22));
-
     settings.set_output_path("examples/bimodal_ke/output/");
-    settings.set_log(LogLevel::INFO, true, true, true);
+    settings.set_write_logs(true);
 
     settings.write()?;
 
+    // settings.enable_logs(stdout: bool, )
     settings.initialize_logs()?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
     let mut algorithm = dispatch_algorithm(settings, eq, data)?;

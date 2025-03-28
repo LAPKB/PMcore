@@ -114,21 +114,24 @@ impl Settings {
         self.output.path = parse_output_folder(path.into());
     }
 
-    pub fn initialize_logs(&mut self) -> Result<()> {
-        crate::routines::logger::setup_log(self)
+    pub fn set_log_stdout(&mut self, stdout: bool) {
+        self.log.stdout = stdout;
     }
 
-    /// Define at which level logs should be captured, and to where
-    ///
-    /// The [LogLevel] is a wrapper for `tracing::Level`, and can be used to set the log level for the logger.
-    /// The `file` and `stdout` parameters define whether the logs should be written to a file or to stdout, respectively.
-    /// The `progress` parameter defines whether a progress bar should be displayed for the first cycle.
-    /// The progress bar is not written to logs, but is written to stdout. It incurs a minor performance penalty.
-    pub fn set_log(&mut self, level: LogLevel, file: bool, stdout: bool, progress: bool) {
+    pub fn set_write_logs(&mut self, write: bool) {
+        self.log.write = write;
+    }
+
+    pub fn set_log_level(&mut self, level: LogLevel) {
         self.log.level = level;
-        self.log.file = file;
-        self.log.stdout = stdout;
-        self.log.progress = progress;
+    }
+
+    pub fn set_progress(&mut self, progress: bool) {
+        self.config.progress = progress;
+    }
+
+    pub fn initialize_logs(&mut self) -> Result<()> {
+        crate::routines::logger::setup_log(self)
     }
 
     /// Writes a copy of the settings to file
@@ -154,6 +157,10 @@ pub struct Config {
     pub algorithm: Algorithm,
     /// If true (default), cache predicted values
     pub cache: bool,
+    /// Should a progress bar be displayed for the first cycle
+    ///
+    /// The progress bar is not written to logs, but is written to stdout. It incurs a minor performance penalty.
+    pub progress: bool,
 }
 
 impl Default for Config {
@@ -162,6 +169,7 @@ impl Default for Config {
             cycles: 100,
             algorithm: Algorithm::NPAG,
             cache: true,
+            progress: true,
         }
     }
 }
@@ -465,23 +473,18 @@ pub struct Log {
     pub level: LogLevel,
     /// Should the logs be written to a file
     ///
-    /// If true, a file will be created in the output folder with the name `log.txt`
-    pub file: bool,
+    /// If true, a file will be created in the output folder with the name `log.txt`, or, if [Output::write] is false, in the current directory.
+    pub write: bool,
     /// Define if logs should be written to stdout
     pub stdout: bool,
-    /// Should a progress bar be displayed for the first cycle
-    ///
-    /// The progress bar is not written to logs, but is written to stdout. It incurs a minor performance penalty.
-    pub progress: bool,
 }
 
 impl Default for Log {
     fn default() -> Self {
         Log {
             level: LogLevel::INFO,
-            file: false,
+            write: false,
             stdout: true,
-            progress: true,
         }
     }
 }

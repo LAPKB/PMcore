@@ -21,7 +21,7 @@ use tracing_subscriber::EnvFilter;
 /// If not, the log messages are written to stdout.
 pub(crate) fn setup_log(settings: &mut Settings) -> Result<()> {
     // If neither `stdout` nor `file` are specified, return without setting the subscriber
-    if !settings.log().stdout && !settings.log().file {
+    if !settings.log().stdout && !settings.log().write {
         return Ok(());
     }
 
@@ -45,7 +45,7 @@ pub(crate) fn setup_log(settings: &mut Settings) -> Result<()> {
     };
 
     // Define layer for file
-    let file_layer = match settings.log().file {
+    let file_layer = match settings.log().write {
         true => {
             let layer = fmt::layer()
                 .with_writer(outputfile.file)
