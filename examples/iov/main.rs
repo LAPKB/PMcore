@@ -44,7 +44,7 @@ fn main() -> Result<()> {
     settings.set_cycles(100000);
 
     settings.set_output_path("examples/iov/output");
-    settings.set_prior_sampler(Sampler::Sobol, 100, 347);
+    settings.set_prior(Prior::sobol(100, 347));
 
     settings.initialize_logs()?;
 

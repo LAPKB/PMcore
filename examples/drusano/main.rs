@@ -112,7 +112,7 @@ fn main() -> Result<()> {
         .set_error_model(ErrorModel::Proportional, 1.0, (0.1, 0.1, 0.0, 0.0))
         .build();
 
-    settings.set_prior_sampler(Sampler::Sobol, 212900, 347);
+    settings.set_prior(Prior::sobol(212900, 347));
     settings.set_output_path("examples/drusano/output");
 
     settings.initialize_logs()?;

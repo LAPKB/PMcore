@@ -1,6 +1,6 @@
-use super::initialization::Sampler;
-use super::output::OutputFile;
 use crate::algorithms::Algorithm;
+use crate::routines::initialization::Prior;
+use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
 use pharmsol::prelude::data::ErrorType;
 use serde::{Deserialize, Serialize};
@@ -102,10 +102,8 @@ impl Settings {
         self.predictions.tad = tad;
     }
 
-    pub fn set_prior_sampler(&mut self, sampler: Sampler, points: usize, seed: usize) {
-        self.prior.sampler = sampler;
-        self.prior.points = points;
-        self.prior.seed = seed;
+    pub fn set_prior(&mut self, prior: Prior) {
+        self.prior = prior;
     }
 
     pub fn disable_output(&mut self) {
@@ -484,34 +482,6 @@ impl Default for Log {
             file: false,
             stdout: true,
             progress: true,
-        }
-    }
-}
-
-/// Configuration for the prior
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(deny_unknown_fields, default)]
-pub struct Prior {
-    /// The sampler to use for the prior if not supplied
-    pub sampler: Sampler,
-    /// The number of points to generate for the prior
-    pub points: usize,
-    /// The seed for the random number generator
-    pub seed: usize,
-    /// Optionally, the path to a file containing the prior in a CSV-format
-    ///
-    /// The file should contain the prior in a CSV format, with the first row containing the parameter names, and the subsequent rows containing the values for each parameter.
-    /// The `prob` column is optional, and will if present be ignored
-    pub file: Option<String>,
-}
-
-impl Default for Prior {
-    fn default() -> Self {
-        Prior {
-            sampler: Sampler::Sobol,
-            points: 2048,
-            seed: 22,
-            file: None,
         }
     }
 }

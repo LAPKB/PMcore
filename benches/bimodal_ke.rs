@@ -31,7 +31,7 @@ fn setup_simulation() -> Result<(Settings, equation::ODE, data::Data)> {
         .build();
 
     settings.set_cycles(1000);
-    settings.set_prior_sampler(Sampler::Sobol, 2048, 22);
+    settings.set_prior(Prior::sobol(2048, 22));
     settings.set_output_path("examples/bimodal_ke/output");
 
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;

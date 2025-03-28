@@ -29,7 +29,9 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_cycles(1000);
-    settings.set_prior_sampler(Sampler::Sobol, 2048, 22);
+
+    settings.set_prior(Prior::sobol(2028, 22));
+
     settings.set_output_path("examples/bimodal_ke/output/");
     settings.set_log(LogLevel::INFO, true, true, true);
 

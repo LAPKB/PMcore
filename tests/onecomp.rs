@@ -31,7 +31,7 @@ fn test_one_compartment() -> Result<()> {
         .set_error_model(ErrorModel::Proportional, 2.0, (0.1, 0.25, 0.0, 0.0))
         .build();
 
-    settings.set_prior_sampler(Sampler::Sobol, 64, 22);
+    settings.set_prior(Prior::sobol(64, 22));
     settings.set_cycles(300);
 
     // Let known support points
