@@ -1,0 +1,72 @@
+{
+  "model": {
+    "name": "Name",
+    "version": 1.0,
+    "description": "Description",
+    "bibliography": [
+      {
+        "ref": "Ref1"
+      },
+      {
+        "ref": "Ref2"
+      },
+      {
+        "ref": "Ref3"
+      }
+    ],
+    "par": [ "Ka", "Vmax", "Km", "Vol", "Kcp", "Kpc", "Fa1" ],
+    "nvar": 7,
+    "iran": "1           1           1           1           1           1           1 ",
+    "nofix": 0,
+    "valfix": null,
+    "inputs": 1,
+    "numeqt": 1,
+    "errormod": {
+      "ierrmod": 3,
+      "gamlam": 0.4
+    },
+    "target": "concentration"
+  },
+  "drugs": [
+    {
+      "name": "Name",
+      "input": 1,
+      "outeq": 1,
+      "salt": 1,
+      "doseUnits": "mg",
+      "concUnits": "mg/L",
+      "aucUnits": "mg*h/L",
+      "targetType": "trough",
+      "targetMin": 1,
+      "targetMax": 6
+    }
+  ],
+  "outputs": [
+    {
+      "coeff": [ 0.017, 0.02, 0, 0 ]
+    }
+  ],
+  "cov": {
+    "ncov": 2,
+    "covnames": [ "WT", "Age" ],
+    "covlabels": [ "Weight", "Age" ],
+    "covunits": [ "kg", "years" ]
+  },
+  "indications": [
+    {
+      "name": "Invasive aspergillosis"
+    },
+    {
+      "name": "Candidemia in non-neutropenic patients and the following Candida Infections: disseminated infections in skin and infections in abdomen, kidney, bladder wall, and wounds"
+    },
+    {
+      "name": "Esophageal candidiasis"
+    },
+    {
+      "name": "Serious fungal infections caused by Scedosporium apiospermum (asexual form of Pseudallescheria boydii) and Fusarium spp, including Fusarium solani, in patients intolerant of, or refractory to, other therapy"
+    },
+    {
+      "name": "Other"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+BESTDOS OCT_13
+ MODEL FILENAME
+MODEL3.FOR          
+ IRAN INDICES
+           1           1           1           1           1
+ NPAG DENSITY FILE
+DEN0866             
+ MAXCYC
+         500
+ INCLUDPAST
+           1
+ IPASTFILE
+           0
+ PASTFILEIN
+SIMPST.G            
+ ICSVFILE
+           0
+ FUTUREFILEIN
+SIMFUT.GG2           
+ TNEXT
+    5.00000000000000     
+ IDELTA
+          15
+ NOFIX
+           0
+ VALFIX ARRAY IF NOFIX > 0
+ TOLER
+   0.100000000000000D-003
+ NUMEQT
+           2
+ NUMEQT LINES OF ASSAY COEFFICIENTS
+  0.000000      0.1000000E-01   0.000000       0.000000    
+  0.000000      0.1000000E-01   0.000000       0.000000    
+ IERRMOD
+           1
+ GAMLAM
+ -99
+ IASS(I),I=1,NUMEQT
+           1           1
+ NDRUG
+           1
+ AF(I),I=1,NDRUG
+    1.00000000000000     
+ IOPTIMIZE
+           1
+ XLAM
+   0.5     
+ ITARGET
+           2
