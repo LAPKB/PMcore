@@ -14,6 +14,7 @@ use crate::routines::settings::Settings;
 use faer::{Col, Mat};
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
+
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 #[derive(Debug)]
@@ -102,8 +103,7 @@ impl<E: Equation> NPResult<E> {
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
             self.write_covs().context("Failed to write covariates")?;
-            if !self.w.nrows() == 0 {
-                //TODO: find a better way to indicate that the run failed
+            if !(self.w.nrows() == 0) {
                 self.write_posterior()
                     .context("Failed to write posterior")?;
             }
@@ -321,10 +321,23 @@ impl<E: Equation> NPResult<E> {
         posterior.row_iter().enumerate().for_each(|(i, row)| {
             let subject = subjects.get(i).unwrap();
             let id = subject.id();
-            let mut row: Vec<String> = row.iter().map(|val| val.to_string()).collect();
-            row.insert(0, id.clone());
-            row.insert(1, i.to_string());
-            writer.write_record(&row).unwrap();
+
+            row.iter().enumerate().for_each(|(spp, prob)| {
+                writer.write_field(id.clone()).unwrap();
+                writer.write_field(i.to_string()).unwrap();
+
+                theta
+                    .matrix()
+                    .row(spp)
+                    .iter()
+                    .enumerate()
+                    .for_each(|(_, val)| {
+                        writer.write_field(val.to_string()).unwrap();
+                    });
+
+                writer.write_field(prob.to_string()).unwrap();
+                writer.write_record(None::<&[u8]>).unwrap();
+            });
         });
 
         writer.flush()?;
@@ -660,7 +673,7 @@ impl Default for CycleLog {
 }
 
 pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Mat<f64>> {
-    if psi.matrix().nrows() != w.nrows() {
+    if psi.matrix().ncols() != w.nrows() {
         bail!(
             "Number of rows in psi ({}) and number of weights ({}) do not match.",
             psi.matrix().nrows(),

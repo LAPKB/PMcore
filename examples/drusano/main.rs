@@ -4,7 +4,6 @@ use argmin::{
     core::{CostFunction, Executor, TerminationReason, TerminationStatus},
     solver::neldermead::NelderMead,
 };
-use logger::setup_log;
 use pmcore::prelude::*;
 use std::process::exit;
 #[allow(unused_variables)]
@@ -113,10 +112,10 @@ fn main() -> Result<()> {
         .set_error_model(ErrorModel::Proportional, 1.0, (0.1, 0.1, 0.0, 0.0))
         .build();
 
-    settings.set_prior_sampler(Sampler::Sobol, 212900, 347);
-    settings.enable_output_files("examples/drusano/output");
+    settings.set_prior(Prior::sobol(212900, 347));
+    settings.set_output_path("examples/drusano/output");
 
-    let _ = setup_log(&settings);
+    settings.initialize_logs()?;
     let data = data::read_pmetrics("examples/drusano/data.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     algorithm.initialize().unwrap();

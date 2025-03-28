@@ -1,6 +1,6 @@
-use super::initialization::Sampler;
-use super::output::OutputFile;
 use crate::algorithms::Algorithm;
+use crate::routines::initialization::Prior;
+use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
 use pharmsol::prelude::data::ErrorType;
 use serde::{Deserialize, Serialize};
@@ -13,23 +13,23 @@ use std::path::PathBuf;
 #[serde(deny_unknown_fields)]
 pub struct Settings {
     /// General configuration settings
-    config: Config,
+    pub(crate) config: Config,
     /// Parameters to be estimated
-    parameters: Parameters,
+    pub(crate) parameters: Parameters,
     /// Defines the error model and polynomial to be used
-    error: Error,
+    pub(crate) error: Error,
     /// Configuration for predictions
-    predictions: Predictions,
+    pub(crate) predictions: Predictions,
     /// Configuration for logging
-    log: Log,
+    pub(crate) log: Log,
     /// Configuration for (optional) prior
-    prior: Prior,
+    pub(crate) prior: Prior,
     /// Configuration for the output files
-    output: Output,
+    pub(crate) output: Output,
     /// Configuration for the convergence criteria
-    convergence: Convergence,
+    pub(crate) convergence: Convergence,
     /// Advanced options, mostly hyperparameters, for the algorithm(s)
-    advanced: Advanced,
+    pub(crate) advanced: Advanced,
 }
 
 impl Settings {
@@ -45,6 +45,7 @@ impl Settings {
         Ok(())
     }
 
+    /* Getters */
     pub fn config(&self) -> &Config {
         &self.config
     }
@@ -80,6 +81,7 @@ impl Settings {
         &self.advanced
     }
 
+    /* Setters */
     pub fn set_cycles(&mut self, cycles: usize) {
         self.config.cycles = cycles;
     }
@@ -100,33 +102,36 @@ impl Settings {
         self.predictions.tad = tad;
     }
 
-    pub fn set_prior_sampler(&mut self, sampler: Sampler, points: usize, seed: usize) {
-        self.prior.sampler = sampler;
-        self.prior.points = points;
-        self.prior.seed = seed;
+    pub fn set_prior(&mut self, prior: Prior) {
+        self.prior = prior;
     }
 
-    /// Enable logging to the specified level
-    /// Optionally, write logs to a file
-    /// If no file is specified, the logs will be written to the output folder
-    /// The path should be relative to the current working directory
-    /// If the path contains a `#` symbol, it will be replaced by an incrementing number
-    pub fn enable_logs(&mut self, level: LogLevel, file: Option<impl Into<String>>) {
-        self.log.write = true;
+    pub fn disable_output(&mut self) {
+        self.output.write = false;
+    }
+
+    pub fn set_output_path(&mut self, path: impl Into<String>) {
+        self.output.path = parse_output_folder(path.into());
+    }
+
+    pub fn set_log_stdout(&mut self, stdout: bool) {
+        self.log.stdout = stdout;
+    }
+
+    pub fn set_write_logs(&mut self, write: bool) {
+        self.log.write = write;
+    }
+
+    pub fn set_log_level(&mut self, level: LogLevel) {
         self.log.level = level;
-        self.log.file = file.map(|f| f.into()).unwrap_or_default();
     }
 
-    /// Optionally enable output files to the specified path
-    ///
-    /// The path should be relative to the current working directory.
-    /// If the path contains a `#` symbol, it will be replaced by an incrementing number.
-    /// For example, if the path is `outputs/#`, and the folder `outputs/1` exists, the next folder will be `outputs/2`.
-    pub fn enable_output_files(&mut self, path: impl Into<String>) {
-        self.output.write = true;
-        self.output.path = path.into();
+    pub fn set_progress(&mut self, progress: bool) {
+        self.config.progress = progress;
+    }
 
-        //self.output.parse_output_folder();
+    pub fn initialize_logs(&mut self) -> Result<()> {
+        crate::routines::logger::setup_log(self)
     }
 
     /// Writes a copy of the settings to file
@@ -152,6 +157,10 @@ pub struct Config {
     pub algorithm: Algorithm,
     /// If true (default), cache predicted values
     pub cache: bool,
+    /// Should a progress bar be displayed for the first cycle
+    ///
+    /// The progress bar is not written to logs, but is written to stdout. It incurs a minor performance penalty.
+    pub progress: bool,
 }
 
 impl Default for Config {
@@ -160,6 +169,7 @@ impl Default for Config {
             cycles: 100,
             algorithm: Algorithm::NPAG,
             cache: true,
+            progress: true,
         }
     }
 }
@@ -458,52 +468,23 @@ impl Display for LogLevel {
 #[serde(deny_unknown_fields, default)]
 pub struct Log {
     /// The maximum log level to display, as defined by [LogLevel]
-    pub level: LogLevel,
-    /// The file to write the log to
-    pub file: String,
-    /// Whether to write logs
     ///
-    /// If set to `false`, a global subscriber will not be set by PMcore.
-    /// This can be useful when the user wants to use a custom subscriber for a third-party library, or perform benchmarks.
+    /// [LogLevel] is a thin wrapper around `tracing::Level`, but can be serialized
+    pub level: LogLevel,
+    /// Should the logs be written to a file
+    ///
+    /// If true, a file will be created in the output folder with the name `log.txt`, or, if [Output::write] is false, in the current directory.
     pub write: bool,
+    /// Define if logs should be written to stdout
+    pub stdout: bool,
 }
 
 impl Default for Log {
     fn default() -> Self {
-        let path = PathBuf::from("log.txt").to_string_lossy().to_string();
-
         Log {
             level: LogLevel::INFO,
-            file: path,
             write: false,
-        }
-    }
-}
-
-/// Configuration for the prior
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(deny_unknown_fields, default)]
-pub struct Prior {
-    /// The sampler to use for the prior if not supplied
-    pub sampler: Sampler,
-    /// The number of points to generate for the prior
-    pub points: usize,
-    /// The seed for the random number generator
-    pub seed: usize,
-    /// Optionally, the path to a file containing the prior in a CSV-format
-    ///
-    /// The file should contain the prior in a CSV format, with the first row containing the parameter names, and the subsequent rows containing the values for each parameter.
-    /// The `prob` column is optional, and will if present be ignored
-    pub file: Option<String>,
-}
-
-impl Default for Prior {
-    fn default() -> Self {
-        Prior {
-            sampler: Sampler::Sobol,
-            points: 2048,
-            seed: 22,
-            file: None,
+            stdout: true,
         }
     }
 }
@@ -522,33 +503,9 @@ impl Default for Output {
     fn default() -> Self {
         let path = PathBuf::from("outputs/").to_string_lossy().to_string();
 
-        Output { write: false, path }
+        Output { write: true, path }
     }
 }
-
-/* impl Output {
-    /// Parses the output folder location
-    ///
-    /// If a `#` symbol is found, it will automatically increment the number by one.
-    fn parse_output_folder(&mut self) -> String {
-        let path = self.path.clone();
-
-        // If the path doesn't contain a "#", just return it as is
-        if !path.contains("#") {
-            return path;
-        }
-
-        // If it does contain "#", perform the incrementation logic
-        let mut num = 1;
-        while std::path::Path::new(&path.replace("#", &num.to_string())).exists() {
-            num += 1;
-        }
-
-        let result = path.replace("#", &num.to_string());
-        self.path = result.clone(); // Update the internal path
-        result
-    }
-} */
 
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
@@ -674,6 +631,22 @@ impl SettingsBuilder<ErrorSet> {
             advanced: self.advanced.unwrap_or_default(),
         }
     }
+}
+
+fn parse_output_folder(path: String) -> String {
+    // If the path doesn't contain a "#", just return it as is
+    if !path.contains("#") {
+        return path;
+    }
+
+    // If it does contain "#", perform the incrementation logic
+    let mut num = 1;
+    while std::path::Path::new(&path.replace("#", &num.to_string())).exists() {
+        num += 1;
+    }
+
+    let result = path.replace("#", &num.to_string());
+    result
 }
 
 #[cfg(test)]

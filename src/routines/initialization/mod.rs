@@ -18,27 +18,59 @@ pub mod sobol;
 /// - `Latin`: Generates a Latin hypercube
 /// - `File`: Reads the prior distribution from a CSV file
 #[derive(Debug, Deserialize, Clone, Serialize)]
-pub enum Sampler {
-    Sobol,
-    Latin,
+pub enum Prior {
+    Sobol(usize, usize),
+    Latin(usize, usize),
     File(String),
+    #[serde(skip)]
+    Theta(Theta),
+}
+
+impl Prior {
+    pub fn sobol(points: usize, seed: usize) -> Prior {
+        Prior::Sobol(points, seed)
+    }
+
+    pub fn get_points(&self) -> usize {
+        match self {
+            Prior::Sobol(points, _) => *points,
+            Prior::Latin(points, _) => *points,
+            Prior::File(_) => {
+                unimplemented!("File-based prior does not have a fixed number of points")
+            }
+            Prior::Theta(theta) => theta.nspp(),
+        }
+    }
+
+    pub fn get_seed(&self) -> usize {
+        match self {
+            Prior::Sobol(_, seed) => *seed,
+            Prior::Latin(_, seed) => *seed,
+            Prior::File(_) => unimplemented!("File-based prior does not have a fixed seed"),
+            Prior::Theta(_) => {
+                unimplemented!("Custom prior does not have a fixed seed")
+            }
+        }
+    }
+}
+
+impl Default for Prior {
+    fn default() -> Self {
+        Prior::Sobol(2028, 22)
+    }
 }
 
 /// This function generates the grid of support points according to the sampler specified in the [Settings]
 pub fn sample_space(settings: &Settings) -> Result<Theta> {
     // Otherwise, parse the sampler type and generate the grid
-    let prior = match settings.prior().sampler {
-        Sampler::Sobol => sobol::generate(
-            settings.parameters(),
-            settings.prior().points,
-            settings.prior().seed,
-        )?,
-        Sampler::Latin => latin::generate(
-            settings.parameters(),
-            settings.prior().points,
-            settings.prior().seed,
-        )?,
-        Sampler::File(ref path) => parse_prior(path, settings)?,
+    let prior = match settings.prior() {
+        Prior::Sobol(points, seed) => sobol::generate(settings.parameters(), *points, *seed)?,
+        Prior::Latin(points, seed) => latin::generate(settings.parameters(), *points, *seed)?,
+        Prior::File(ref path) => parse_prior(path, settings)?,
+        Prior::Theta(ref theta) => {
+            // If a custom prior is provided, return it directly
+            return Ok(theta.clone());
+        }
     };
     Ok(prior)
 }
