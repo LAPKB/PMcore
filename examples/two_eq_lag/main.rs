@@ -73,7 +73,7 @@ fn main() {
         .add("tlag", 0.0, 4.0, false)
         .add("v", 30.0, 120.0, false);
 
-    let settings = Settings::builder()
+    let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
         .set_error_model(
@@ -83,7 +83,7 @@ fn main() {
         )
         .build();
 
-    setup_log(&settings).unwrap();
+    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     let result = algorithm.fit().unwrap();

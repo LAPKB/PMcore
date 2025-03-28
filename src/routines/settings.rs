@@ -13,23 +13,23 @@ use std::path::PathBuf;
 #[serde(deny_unknown_fields)]
 pub struct Settings {
     /// General configuration settings
-    config: Config,
+    pub(crate) config: Config,
     /// Parameters to be estimated
-    parameters: Parameters,
+    pub(crate) parameters: Parameters,
     /// Defines the error model and polynomial to be used
-    error: Error,
+    pub(crate) error: Error,
     /// Configuration for predictions
-    predictions: Predictions,
+    pub(crate) predictions: Predictions,
     /// Configuration for logging
-    log: Log,
+    pub(crate) log: Log,
     /// Configuration for (optional) prior
-    prior: Prior,
+    pub(crate) prior: Prior,
     /// Configuration for the output files
-    output: Output,
+    pub(crate) output: Output,
     /// Configuration for the convergence criteria
-    convergence: Convergence,
+    pub(crate) convergence: Convergence,
     /// Advanced options, mostly hyperparameters, for the algorithm(s)
-    advanced: Advanced,
+    pub(crate) advanced: Advanced,
 }
 
 impl Settings {
@@ -45,6 +45,7 @@ impl Settings {
         Ok(())
     }
 
+    /* Getters */
     pub fn config(&self) -> &Config {
         &self.config
     }
@@ -80,6 +81,7 @@ impl Settings {
         &self.advanced
     }
 
+    /* Setters */
     pub fn set_cycles(&mut self, cycles: usize) {
         self.config.cycles = cycles;
     }
@@ -106,33 +108,29 @@ impl Settings {
         self.prior.seed = seed;
     }
 
+    pub fn disable_output(&mut self) {
+        self.output.write = false;
+    }
+
+    pub fn set_output_path(&mut self, path: impl Into<String>) {
+        self.output.path = parse_output_folder(path.into());
+    }
+
+    pub fn initialize_logs(&mut self) -> Result<()> {
+        crate::routines::logger::setup_log(self)
+    }
+
     /// Define at which level logs should be captured, and to where
     ///
     /// The [LogLevel] is a wrapper for `tracing::Level`, and can be used to set the log level for the logger.
     /// The `file` and `stdout` parameters define whether the logs should be written to a file or to stdout, respectively.
-    /// The `progress` parameter defines the maximum number of cycles for which a progress bar should be displayed.
+    /// The `progress` parameter defines whether a progress bar should be displayed for the first cycle.
     /// The progress bar is not written to logs, but is written to stdout. It incurs a minor performance penalty.
-    /// It can be disabled by setting the `progress` parameter to `0`.
-    /// Note: To setup the subscriber, one must call [crate::routines::logger::setup_log]
-    ///
-    /// If used in a library, you can define your own subscriber
-    pub fn set_logs(&mut self, level: LogLevel, file: bool, stdout: bool, progress: usize) {
+    pub fn set_log(&mut self, level: LogLevel, file: bool, stdout: bool, progress: bool) {
         self.log.level = level;
         self.log.file = file;
         self.log.stdout = stdout;
         self.log.progress = progress;
-    }
-
-    /// Optionally enable output files to the specified path
-    ///
-    /// The path should be relative to the current working directory.
-    /// If the path contains a `#` symbol, it will be replaced by an incrementing number.
-    /// For example, if the path is `outputs/#`, and the folder `outputs/1` exists, the next folder will be `outputs/2`.
-    pub fn enable_output_files(&mut self, path: impl Into<String>) {
-        self.output.write = true;
-        self.output.path = path.into();
-
-        //self.output.parse_output_folder();
     }
 
     /// Writes a copy of the settings to file
@@ -464,6 +462,8 @@ impl Display for LogLevel {
 #[serde(deny_unknown_fields, default)]
 pub struct Log {
     /// The maximum log level to display, as defined by [LogLevel]
+    ///
+    /// [LogLevel] is a thin wrapper around `tracing::Level`, but can be serialized
     pub level: LogLevel,
     /// Should the logs be written to a file
     ///
@@ -471,8 +471,10 @@ pub struct Log {
     pub file: bool,
     /// Define if logs should be written to stdout
     pub stdout: bool,
-    /// For which (maximum) number of cycles should a progress bar be displayed
-    pub progress: usize,
+    /// Should a progress bar be displayed for the first cycle
+    ///
+    /// The progress bar is not written to logs, but is written to stdout. It incurs a minor performance penalty.
+    pub progress: bool,
 }
 
 impl Default for Log {
@@ -481,7 +483,7 @@ impl Default for Log {
             level: LogLevel::INFO,
             file: false,
             stdout: true,
-            progress: 1,
+            progress: true,
         }
     }
 }
@@ -528,33 +530,9 @@ impl Default for Output {
     fn default() -> Self {
         let path = PathBuf::from("outputs/").to_string_lossy().to_string();
 
-        Output { write: false, path }
+        Output { write: true, path }
     }
 }
-
-/* impl Output {
-    /// Parses the output folder location
-    ///
-    /// If a `#` symbol is found, it will automatically increment the number by one.
-    fn parse_output_folder(&mut self) -> String {
-        let path = self.path.clone();
-
-        // If the path doesn't contain a "#", just return it as is
-        if !path.contains("#") {
-            return path;
-        }
-
-        // If it does contain "#", perform the incrementation logic
-        let mut num = 1;
-        while std::path::Path::new(&path.replace("#", &num.to_string())).exists() {
-            num += 1;
-        }
-
-        let result = path.replace("#", &num.to_string());
-        self.path = result.clone(); // Update the internal path
-        result
-    }
-} */
 
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
@@ -680,6 +658,22 @@ impl SettingsBuilder<ErrorSet> {
             advanced: self.advanced.unwrap_or_default(),
         }
     }
+}
+
+fn parse_output_folder(path: String) -> String {
+    // If the path doesn't contain a "#", just return it as is
+    if !path.contains("#") {
+        return path;
+    }
+
+    // If it does contain "#", perform the incrementation logic
+    let mut num = 1;
+    while std::path::Path::new(&path.replace("#", &num.to_string())).exists() {
+        num += 1;
+    }
+
+    let result = path.replace("#", &num.to_string());
+    result
 }
 
 #[cfg(test)]

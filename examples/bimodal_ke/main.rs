@@ -1,5 +1,4 @@
 use anyhow::Result;
-use logger::setup_log;
 use pmcore::prelude::*;
 
 fn main() -> Result<()> {
@@ -31,11 +30,12 @@ fn main() -> Result<()> {
 
     settings.set_cycles(1000);
     settings.set_prior_sampler(Sampler::Sobol, 2048, 22);
-    settings.enable_output_files("examples/bimodal_ke/output/");
+    settings.set_output_path("examples/bimodal_ke/output/");
+    settings.set_log(LogLevel::INFO, true, true, true);
 
     settings.write()?;
 
-    setup_log(&settings)?;
+    settings.initialize_logs()?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
     let mut algorithm = dispatch_algorithm(settings, eq, data)?;
     let result = algorithm.fit()?;

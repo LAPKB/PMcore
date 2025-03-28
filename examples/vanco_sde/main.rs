@@ -64,9 +64,9 @@ fn main() {
 
     settings.set_cycles(usize::MAX);
     settings.set_cache(true);
-    settings.enable_output_files("examples/vanco_sde/output");
+    settings.set_output_path("examples/vanco_sde/output");
     settings.set_prior_sampler(Sampler::Sobol, 100, 347);
-    setup_log(&settings).unwrap();
+    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
 
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
