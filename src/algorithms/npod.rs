@@ -177,7 +177,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
                 self.gamma,
                 &self.settings.error().error_model().into(),
             ),
-            self.cycle == 1,
+            self.cycle >= self.settings.log().progress,
             self.cycle != 1,
         );
 

@@ -106,15 +106,21 @@ impl Settings {
         self.prior.seed = seed;
     }
 
-    /// Enable logging to the specified level
-    /// Optionally, write logs to a file
-    /// If no file is specified, the logs will be written to the output folder
-    /// The path should be relative to the current working directory
-    /// If the path contains a `#` symbol, it will be replaced by an incrementing number
-    pub fn enable_logs(&mut self, level: LogLevel, file: Option<impl Into<String>>) {
-        self.log.write = true;
+    /// Define at which level logs should be captured, and to where
+    ///
+    /// The [LogLevel] is a wrapper for `tracing::Level`, and can be used to set the log level for the logger.
+    /// The `file` and `stdout` parameters define whether the logs should be written to a file or to stdout, respectively.
+    /// The `progress` parameter defines the maximum number of cycles for which a progress bar should be displayed.
+    /// The progress bar is not written to logs, but is written to stdout. It incurs a minor performance penalty.
+    /// It can be disabled by setting the `progress` parameter to `0`.
+    /// Note: To setup the subscriber, one must call [crate::routines::logger::setup_log]
+    ///
+    /// If used in a library, you can define your own subscriber
+    pub fn set_logs(&mut self, level: LogLevel, file: bool, stdout: bool, progress: usize) {
         self.log.level = level;
-        self.log.file = file.map(|f| f.into()).unwrap_or_default();
+        self.log.file = file;
+        self.log.stdout = stdout;
+        self.log.progress = progress;
     }
 
     /// Optionally enable output files to the specified path
@@ -459,23 +465,23 @@ impl Display for LogLevel {
 pub struct Log {
     /// The maximum log level to display, as defined by [LogLevel]
     pub level: LogLevel,
-    /// The file to write the log to
-    pub file: String,
-    /// Whether to write logs
+    /// Should the logs be written to a file
     ///
-    /// If set to `false`, a global subscriber will not be set by PMcore.
-    /// This can be useful when the user wants to use a custom subscriber for a third-party library, or perform benchmarks.
-    pub write: bool,
+    /// If true, a file will be created in the output folder with the name `log.txt`
+    pub file: bool,
+    /// Define if logs should be written to stdout
+    pub stdout: bool,
+    /// For which (maximum) number of cycles should a progress bar be displayed
+    pub progress: usize,
 }
 
 impl Default for Log {
     fn default() -> Self {
-        let path = PathBuf::from("log.txt").to_string_lossy().to_string();
-
         Log {
             level: LogLevel::INFO,
-            file: path,
-            write: false,
+            file: false,
+            stdout: true,
+            progress: 1,
         }
     }
 }

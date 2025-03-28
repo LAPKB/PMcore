@@ -20,6 +20,11 @@ use tracing_subscriber::EnvFilter;
 ///
 /// If not, the log messages are written to stdout.
 pub fn setup_log(settings: &Settings) -> Result<()> {
+    // If neither `stdout` nor `file` are specified, return without setting the subscriber
+    if !settings.log().stdout && !settings.log().file {
+        return Ok(());
+    }
+
     // Use the log level defined in configuration file
     let log_level = settings.log().level.clone();
     let env_filter = EnvFilter::new(log_level);
@@ -32,20 +37,34 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
     let subscriber = Registry::default().with(env_filter);
 
     // Define outputfile
-    let outputfile = OutputFile::new(&settings.output().path, &settings.log().file)?;
+    let outputfile = OutputFile::new(&settings.output().path, "log.txt")?;
 
     // Define layer for file
-    let file_layer = fmt::layer()
-        .with_writer(outputfile.file)
-        .with_ansi(false)
-        .with_timer(timestamper.clone());
+    let file_layer = match settings.log().file {
+        true => {
+            let layer = fmt::layer()
+                .with_writer(outputfile.file)
+                .with_ansi(false)
+                .with_timer(timestamper.clone());
+
+            Some(layer)
+        }
+        false => None,
+    };
 
     // Define layer for stdout
-    let stdout_layer = fmt::layer()
-        .with_writer(std::io::stdout)
-        .with_ansi(true)
-        .with_target(false)
-        .with_timer(timestamper.clone());
+    let stdout_layer = match settings.log().stdout {
+        true => {
+            let layer = fmt::layer()
+                .with_writer(std::io::stdout)
+                .with_ansi(true)
+                .with_target(false)
+                .with_timer(timestamper.clone());
+
+            Some(layer)
+        }
+        false => None,
+    };
 
     // Combine layers with subscriber
     subscriber.with(file_layer).with(stdout_layer).init();

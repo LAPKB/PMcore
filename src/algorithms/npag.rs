@@ -185,7 +185,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             &self.data,
             &self.theta,
             &ErrorModel::new(self.settings.error().poly, self.gamma, &self.error_type),
-            self.cycle == 1 && self.settings.log().write,
+            self.cycle >= self.settings.log().progress,
             self.cycle != 1,
         );
 
