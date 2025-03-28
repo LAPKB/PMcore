@@ -77,7 +77,7 @@ impl From<&Array2<f64>> for Psi {
     }
 }
 
-pub(crate) fn calculate_psi(
+pub fn calculate_psi(
     equation: &impl Equation,
     subjects: &Data,
     theta: &Theta,
