@@ -660,9 +660,9 @@ impl Default for CycleLog {
 }
 
 pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Mat<f64>> {
-    if psi.matrix().nrows() != w.nrows() {
+    if psi.matrix().ncols() != w.nrows() {
         bail!(
-            "Number of rows in psi ({}) and number of weights ({}) do not match.",
+            "Number of columns in psi ({}) and number of weights ({}) do not match.",
             psi.matrix().nrows(),
             w.nrows()
         );
