@@ -45,10 +45,10 @@ impl CostFunction for DoseOptim {
     type Output = f64;
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
+        print!("Evaluating dose: {:?}", param);
         use pharmsol::ErrorModel;
         let predsub = Subject::builder("Johnny Bravo")
             .bolus(0.0, *param, 0)
-            .repeat(10, 12.0)
             .observation(self.target_time, self.target_conc, 0)
             .build();
 
@@ -63,13 +63,16 @@ impl CostFunction for DoseOptim {
             true,
         );
 
-        println!("Psi: {:?}", psi);
+        println!("Psi: {:#?}", psi);
 
-        let (w, _) = burke(&psi)?;
+        let (w, objf) = burke(&psi)?;
+
+        println!("Objective function value: {:#?}", objf);
+        println!("W: {:#?}", w);
 
         let posterior = posterior(&psi, &w);
 
-        println!("Posterior: {:?}", posterior);
+        println!("Posterior: {:#?}", posterior);
 
         let mut toterr = 0.0;
 
@@ -136,9 +139,9 @@ fn main() -> Result<()> {
     let d_flat = generate(&params, 100, 22)?;
 
     // Create a dose optimizer
-    let dose_optim = DoseOptim::new(100.0, 119.0, 20.0, d_pop, d_flat, eq);
+    let dose_optim = DoseOptim::new(4.0, 24.0, 3.0, d_pop, d_flat, eq);
 
-    let solver = BrentOpt::new(0.0, 1000.0);
+    let solver = BrentOpt::new(0.0, 100.0);
 
     println!("Optimizing dose...");
     let res = Executor::new(dose_optim, solver)
@@ -146,7 +149,10 @@ fn main() -> Result<()> {
         // .add_observer(SlogLogger::term(), ObserverMode::Always)
         .run()?;
 
-    println!("{:#?}", res.state.best_param.unwrap());
+    println!("#######################");
+    println!("Finished optimizing dose...");
+
+    println!("Optimal dose: {:?}", res.state.best_param);
     println!("{:#?}", res.state.best_cost);
     println!("{:#?}", res.state.counts);
 
