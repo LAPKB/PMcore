@@ -33,13 +33,13 @@ fn main() {
     );
 
     let params = Parameters::new()
-        .add("cls", 0.1, 10.0, true)
-        .add("fm", 0.0, 1.0, true)
-        .add("k20", 0.01, 1.0, true)
-        .add("relv", 0.1, 1.0, true)
-        .add("theta1", 0.1, 10.0, true)
-        .add("theta2", 0.1, 10.0, true)
-        .add("vs", 1.0, 10.0, true);
+        .add("cls", 0.1, 10.0, false)
+        .add("fm", 0.0, 1.0, false)
+        .add("k20", 0.01, 1.0, false)
+        .add("relv", 0.1, 1.0, false)
+        .add("theta1", 0.1, 10.0, false)
+        .add("theta2", 0.1, 10.0, false)
+        .add("vs", 1.0, 10.0, false);
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
