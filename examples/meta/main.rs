@@ -2,8 +2,6 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-use std::usize;
-
 use pmcore::{prelude::*, routines::settings};
 
 fn main() {
