@@ -35,22 +35,15 @@ fn main() -> Result<()> {
         .build();
 
     // Example usage
-    let data = Data::new(vec![subject]); // Placeholder for actual data
-    let theta = theta;
-    let target_concentration = 10.0;
-    let target_time = 5.0;
-    let eq = eq;
-    let min_dose = 0.0;
-    let max_dose = 100.0;
-
     let problem = DoseOptimizer {
-        data,
+        data: Data::new(vec![subject]), // Placeholder for actual data
         theta,
-        target_concentration,
-        target_time,
+        target_concentration: 10.0,
+        target_time: 5.0,
         eq,
-        min_dose,
-        max_dose,
+        min_dose: 0.0,
+        max_dose: 10000.0,
+        bias_weight: 0.1,
     };
 
     optimize_dose(problem)?;
