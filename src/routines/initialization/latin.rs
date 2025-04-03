@@ -20,16 +20,9 @@ use crate::structs::theta::Theta;
 /// [Theta], a structure that holds the support point matrix
 ///
 pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<Theta> {
-    let params: Vec<(String, f64, f64, bool)> = parameters
+    let params: Vec<(String, f64, f64)> = parameters
         .iter()
-        .map(|p| (p.name.clone(), p.lower, p.upper, p.fixed))
-        .collect();
-
-    // Random parameters are sampled from the Sobol sequence
-    let random_params: Vec<(String, f64, f64)> = params
-        .iter()
-        .filter(|(_, _, _, fixed)| !fixed)
-        .map(|(name, lower, upper, _)| (name.clone(), *lower, *upper))
+        .map(|p| (p.name.clone(), p.lower, p.upper))
         .collect();
 
     // Initialize random number generator with the provided seed
@@ -37,31 +30,24 @@ pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<T
 
     // Create and shuffle intervals for each parameter
     let mut intervals = Vec::new();
-    for _ in 0..random_params.len() {
+    for _ in 0..params.len() {
         let mut param_intervals: Vec<f64> = (0..points).map(|i| i as f64).collect();
         param_intervals.shuffle(&mut rng);
         intervals.push(param_intervals);
     }
 
-    let rand_matrix = Mat::from_fn(points, random_params.len(), |i, j| {
+    let rand_matrix = Mat::from_fn(points, params.len(), |i, j| {
         // Get the interval for this parameter and point
         let interval = intervals[j][i];
         let random_offset = rng.random::<f64>();
         // Calculate normalized value in [0,1]
         let unscaled = (interval + random_offset) / points as f64;
         // Scale to parameter range
-        let (_name, lower, upper) = random_params.get(j).unwrap(); // Fixed: use j instead of i
+        let (_name, lower, upper) = params.get(j).unwrap(); // Fixed: use j instead of i
         lower + unscaled * (upper - lower)
     });
 
-    // Fixed parameters are initialized to the middle of their range
-    let fixed_params: Vec<(String, f64)> = params
-        .iter()
-        .filter(|(_, _, _, fixed)| *fixed)
-        .map(|(name, lower, upper, _)| (name.clone(), (upper - lower) / 2.0))
-        .collect();
-
-    let theta = Theta::from_parts(rand_matrix, random_params, fixed_params);
+    let theta = Theta::from_parts(rand_matrix, params);
 
     Ok(theta)
 }

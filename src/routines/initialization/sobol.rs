@@ -22,32 +22,18 @@ use crate::prelude::Parameters;
 ///
 pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<Theta> {
     let seed = seed as u32;
-    let params: Vec<(String, f64, f64, bool)> = parameters
+    let params: Vec<(String, f64, f64)> = parameters
         .iter()
-        .map(|p| (p.name.clone(), p.lower, p.upper, p.fixed))
+        .map(|p| (p.name.clone(), p.lower, p.upper))
         .collect();
 
-    // Random parameters are sampled from the Sobol sequence
-    let random_params: Vec<(String, f64, f64)> = params
-        .iter()
-        .filter(|(_, _, _, fixed)| !fixed)
-        .map(|(name, lower, upper, _)| (name.clone(), *lower, *upper))
-        .collect();
-
-    let rand_matrix = Mat::from_fn(points, random_params.len(), |i, j| {
+    let rand_matrix = Mat::from_fn(points, params.len(), |i, j| {
         let unscaled = sample((i).try_into().unwrap(), j.try_into().unwrap(), seed) as f64;
-        let (_name, lower, upper) = random_params.get(j).unwrap();
+        let (_name, lower, upper) = params.get(j).unwrap();
         lower + unscaled * (upper - lower)
     });
 
-    // Fixed parameters are initialized to the middle of their range
-    let fixed_params: Vec<(String, f64)> = params
-        .iter()
-        .filter(|(_, _, _, fixed)| *fixed)
-        .map(|(name, lower, upper, _)| (name.clone(), (upper - lower) / 2.0))
-        .collect();
-
-    let theta = Theta::from_parts(rand_matrix, random_params, fixed_params);
+    let theta = Theta::from_parts(rand_matrix, params);
     Ok(theta)
 }
 
@@ -59,9 +45,9 @@ mod tests {
     #[test]
     fn test_sobol() {
         let params = Parameters::new()
-            .add("a", 0.0, 1.0, false)
-            .add("b", 0.0, 1.0, false)
-            .add("c", 0.0, 1.0, false);
+            .add("a", 0.0, 1.0)
+            .add("b", 0.0, 1.0)
+            .add("c", 0.0, 1.0);
 
         let theta = generate(&params, 10, 22).unwrap();
 
@@ -70,24 +56,11 @@ mod tests {
     }
 
     #[test]
-    fn test_sobol_with_fixed() {
-        let params = Parameters::new()
-            .add("a", 0.0, 1.0, false)
-            .add("b", 0.0, 1.0, false)
-            .add("c", 0.0, 1.0, true);
-
-        let theta = generate(&params, 10, 22).unwrap();
-
-        assert_eq!(theta.nspp(), 10);
-        assert_eq!(theta.matrix().ncols(), 2);
-    }
-
-    #[test]
     fn test_sobol_ranges() {
         let params = Parameters::new()
-            .add("a", 0.0, 1.0, false)
-            .add("b", 0.0, 1.0, false)
-            .add("c", 0.0, 1.0, false);
+            .add("a", 0.0, 1.0)
+            .add("b", 0.0, 1.0)
+            .add("c", 0.0, 1.0);
 
         let theta = generate(&params, 10, 22).unwrap();
 
@@ -102,9 +75,9 @@ mod tests {
     fn test_sobol_values() {
         use faer::mat;
         let params = Parameters::new()
-            .add("a", 0.0, 1.0, false)
-            .add("b", 0.0, 1.0, false)
-            .add("c", 0.0, 1.0, false);
+            .add("a", 0.0, 1.0)
+            .add("b", 0.0, 1.0)
+            .add("c", 0.0, 1.0);
 
         let theta = generate(&params, 10, 22).unwrap();
 

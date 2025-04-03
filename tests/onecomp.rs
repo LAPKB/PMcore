@@ -20,9 +20,7 @@ fn test_one_compartment() -> Result<()> {
     );
 
     // Define parameters
-    let params = Parameters::new()
-        .add("ke", 0.1, 1.0, false)
-        .add("v", 1.0, 20.0, false);
+    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
 
     // Create settings
     let mut settings = Settings::builder()
@@ -33,6 +31,7 @@ fn test_one_compartment() -> Result<()> {
 
     settings.set_prior(Prior::sobol(64, 22));
     settings.set_cycles(300);
+    settings.set_progress(false);
 
     // Let known support points
     let spps: Vec<(f64, f64)> = vec![(0.85, 12.0), (0.52, 5.0), (0.15, 3.0)];

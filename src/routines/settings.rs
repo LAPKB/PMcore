@@ -177,23 +177,20 @@ impl Default for Config {
 /// Defines a parameter to be estimated
 ///
 /// In non-parametric algorithms, parameters must be bounded. The lower and upper bounds are defined by the `lower` and `upper` fields, respectively.
-/// Fixed parameters are unknown, but common among all subjects.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Parameter {
     pub(crate) name: String,
     pub(crate) lower: f64,
     pub(crate) upper: f64,
-    pub(crate) fixed: bool,
 }
 
 impl Parameter {
     /// Create a new parameter
-    pub fn new(name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Self {
+    pub fn new(name: impl Into<String>, lower: f64, upper: f64) -> Self {
         Self {
             name: name.into(),
             lower,
             upper,
-            fixed,
         }
     }
 }
@@ -211,14 +208,8 @@ impl Parameters {
         }
     }
 
-    pub fn add(
-        mut self,
-        name: impl Into<String>,
-        lower: f64,
-        upper: f64,
-        fixed: bool,
-    ) -> Parameters {
-        let parameter = Parameter::new(name, lower, upper, fixed);
+    pub fn add(mut self, name: impl Into<String>, lower: f64, upper: f64) -> Parameters {
+        let parameter = Parameter::new(name, lower, upper);
         self.parameters.push(parameter);
         self
     }
@@ -657,9 +648,7 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        let parameters = Parameters::new()
-            .add("Ke", 0.0, 5.0, false)
-            .add("V", 10.0, 200.0, true);
+        let parameters = Parameters::new().add("Ke", 0.0, 5.0).add("V", 10.0, 200.0);
 
         let mut settings = SettingsBuilder::new()
             .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm

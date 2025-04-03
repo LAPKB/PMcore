@@ -10,7 +10,6 @@ use faer::Mat;
 pub struct Theta {
     matrix: Mat<f64>,
     random: Vec<(String, f64, f64)>,
-    fixed: Vec<(String, f64)>,
 }
 
 impl Default for Theta {
@@ -18,7 +17,6 @@ impl Default for Theta {
         Theta {
             matrix: Mat::new(),
             random: Vec::new(),
-            fixed: Vec::new(),
         }
     }
 }
@@ -28,16 +26,8 @@ impl Theta {
         Theta::default()
     }
 
-    pub(crate) fn from_parts(
-        matrix: Mat<f64>,
-        random: Vec<(String, f64, f64)>,
-        fixed: Vec<(String, f64)>,
-    ) -> Self {
-        Theta {
-            matrix,
-            random,
-            fixed,
-        }
+    pub(crate) fn from_parts(matrix: Mat<f64>, random: Vec<(String, f64, f64)>) -> Self {
+        Theta { matrix, random }
     }
 
     /// Get the matrix containing parameter values
@@ -146,7 +136,7 @@ mod tests {
         // Create a 4x2 matrix with recognizable values
         let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
 
-        let mut theta = Theta::from_parts(matrix, vec![], vec![]);
+        let mut theta = Theta::from_parts(matrix, vec![]);
 
         theta.filter_indices(&[0, 3]);
 
@@ -160,7 +150,7 @@ mod tests {
     fn test_add_point() {
         let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
 
-        let mut theta = Theta::from_parts(matrix, vec![], vec![]);
+        let mut theta = Theta::from_parts(matrix, vec![]);
 
         theta.add_point(&[7.0, 8.0]);
 
