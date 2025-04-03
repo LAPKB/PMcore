@@ -636,8 +636,7 @@ fn parse_output_folder(path: String) -> String {
         num += 1;
     }
 
-    let result = path.replace("#", &num.to_string());
-    result
+    path.replace("#", &num.to_string())
 }
 
 #[cfg(test)]
