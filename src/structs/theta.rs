@@ -2,6 +2,8 @@ use std::fmt::Debug;
 
 use faer::Mat;
 
+use crate::prelude::Parameters;
+
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution
 ///
@@ -9,14 +11,14 @@ use faer::Mat;
 #[derive(Clone, PartialEq)]
 pub struct Theta {
     matrix: Mat<f64>,
-    random: Vec<(String, f64, f64)>,
+    parameters: Parameters,
 }
 
 impl Default for Theta {
     fn default() -> Self {
         Theta {
             matrix: Mat::new(),
-            random: Vec::new(),
+            parameters: Parameters::new(),
         }
     }
 }
@@ -26,8 +28,8 @@ impl Theta {
         Theta::default()
     }
 
-    pub(crate) fn from_parts(matrix: Mat<f64>, random: Vec<(String, f64, f64)>) -> Self {
-        Theta { matrix, random }
+    pub(crate) fn from_parts(matrix: Mat<f64>, parameters: Parameters) -> Self {
+        Theta { matrix, parameters }
     }
 
     /// Get the matrix containing parameter values
@@ -49,10 +51,7 @@ impl Theta {
 
     /// Get the parameter names
     pub fn param_names(&self) -> Vec<String> {
-        self.random
-            .iter()
-            .map(|(name, _, _)| name.clone())
-            .collect()
+        self.parameters.names()
     }
 
     /// Modify the [Theta::matrix] to only include the rows specified by `indices`
@@ -136,7 +135,9 @@ mod tests {
         // Create a 4x2 matrix with recognizable values
         let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
 
-        let mut theta = Theta::from_parts(matrix, vec![]);
+        let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
+
+        let mut theta = Theta::from_parts(matrix, parameters);
 
         theta.filter_indices(&[0, 3]);
 
@@ -150,7 +151,9 @@ mod tests {
     fn test_add_point() {
         let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
 
-        let mut theta = Theta::from_parts(matrix, vec![]);
+        let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
+
+        let mut theta = Theta::from_parts(matrix, parameters);
 
         theta.add_point(&[7.0, 8.0]);
 

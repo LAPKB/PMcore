@@ -177,7 +177,7 @@ impl Default for Config {
 /// Defines a parameter to be estimated
 ///
 /// In non-parametric algorithms, parameters must be bounded. The lower and upper bounds are defined by the `lower` and `upper` fields, respectively.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Parameter {
     pub(crate) name: String,
     pub(crate) lower: f64,
@@ -196,7 +196,7 @@ impl Parameter {
 }
 
 /// This structure contains information on all [Parameter]s to be estimated
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq)]
 pub struct Parameters {
     pub(crate) parameters: Vec<Parameter>,
 }

@@ -139,13 +139,7 @@ pub fn parse_prior(path: &String, settings: &Settings) -> Result<Theta> {
     let theta_matrix: Mat<f64> =
         Mat::from_fn(n_points, n_params, |i, j| theta_values[i * n_params + j]);
 
-    let random = settings
-        .parameters()
-        .iter()
-        .map(|p| (p.name.clone(), p.lower, p.upper))
-        .collect();
-
-    let theta = Theta::from_parts(theta_matrix, random);
+    let theta = Theta::from_parts(theta_matrix, settings.parameters().clone());
 
     Ok(theta)
 }

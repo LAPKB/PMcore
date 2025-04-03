@@ -33,7 +33,7 @@ pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<T
         lower + unscaled * (upper - lower)
     });
 
-    let theta = Theta::from_parts(rand_matrix, params);
+    let theta = Theta::from_parts(rand_matrix, parameters.clone());
     Ok(theta)
 }
 
