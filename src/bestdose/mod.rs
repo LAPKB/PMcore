@@ -5,6 +5,8 @@ use argmin::core::{CostFunction, Executor};
 use argmin::solver::brent::BrentOpt;
 
 use pharmsol::prelude::*;
+use pharmsol::Equation;
+use pharmsol::Predictions;
 use pharmsol::{Data, ODE};
 
 use crate::algorithms::npag::burke;
@@ -20,6 +22,7 @@ pub struct DoseOptimizer {
     pub eq: ODE,
     pub min_dose: f64,
     pub max_dose: f64,
+    pub bias_weight: f64,
 }
 
 impl CostFunction for DoseOptimizer {
@@ -29,13 +32,52 @@ impl CostFunction for DoseOptimizer {
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
         println!("Evaluating dose: {:?}", param);
 
+        let dose = param.clone();
+        let target_subject = Subject::builder("target")
+            .bolus(0.0, dose, 0)
+            .observation(self.target_time, self.target_concentration, 0)
+            .build();
         let errmod = pharmsol::ErrorModel::new((0.0, 0.1, 0.0, 0.0), 0.0, &ErrorType::Add);
 
         let psi = calculate_psi(&self.eq, &self.data, &self.theta, &errmod, false, true);
 
-        let (w, objf) = burke(&psi)?;
+        let (w, _) = burke(&psi)?;
 
-        Ok(param + 5.0) // Example cost function
+        // Normalize W to sum to 1
+        let w_sum: f64 = w.iter().sum();
+        let w: Vec<f64> = w.iter().map(|&x| x / w_sum).collect();
+
+        // Calculate BIAS
+        let mut bias = 0.0;
+
+        for row in self.theta.matrix().row_iter() {
+            let spp = row.iter().copied().collect::<Vec<f64>>();
+            let squared_error = self
+                .eq
+                .simulate_subject(&target_subject, &spp, None)
+                .0
+                .squared_error();
+
+            bias += squared_error;
+        }
+
+        // Calculate the weighted sum
+        let mut wt_sum = 0.0;
+
+        for (row, prob) in self.theta.matrix().row_iter().zip(w.iter()) {
+            let spp = row.iter().copied().collect::<Vec<f64>>();
+            let squared_error = self
+                .eq
+                .simulate_subject(&target_subject, &spp, None)
+                .0
+                .squared_error();
+
+            wt_sum += squared_error * prob;
+        }
+
+        let objf = (1.0 - self.bias_weight) * wt_sum + self.bias_weight * bias;
+
+        Ok(objf) // Example cost function
     }
 }
 
