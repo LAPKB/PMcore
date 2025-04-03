@@ -30,8 +30,8 @@ fn main() {
     );
 
     let params = Parameters::new()
-        .add("ke0", 0.0001, 2.4, false)
-        .add("ske", 0.0001, 0.2, false);
+        .add("ke0", 0.0001, 2.4)
+        .add("ske", 0.0001, 0.2);
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
