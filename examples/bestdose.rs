@@ -55,11 +55,11 @@ fn main() -> Result<()> {
 
     // Example usage
     let problem = DoseOptimizer {
-        data: Data::new(vec![subject]), // Placeholder for actual data
+        data: Data::new(vec![subject.clone()]), // Placeholder for actual data
         theta,
         target_concentration: 10.0,
         target_time: 5.0,
-        eq,
+        eq: eq.clone(),
         min_dose: 0.0,
         max_dose: 10000.0,
         bias_weight: 0.0,
@@ -69,6 +69,33 @@ fn main() -> Result<()> {
     let optimal = optimize_dose(problem)?;
 
     println!("Optimal dose: {:#?}", optimal);
+
+    // Test different values of bias_weight
+    let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    let mut results = Vec::new();
+    for bias_weight in &bias_weights {
+        let problem = DoseOptimizer {
+            data: Data::new(vec![subject.clone()]), // Placeholder for actual data
+            theta: result.get_theta().clone(),
+            target_concentration: 10.0,
+            target_time: 5.0,
+            eq: eq.clone(),
+            min_dose: 0.0,
+            max_dose: 10000.0,
+            bias_weight: *bias_weight,
+        };
+
+        let optimal = optimize_dose(problem)?;
+        results.push((bias_weight, optimal));
+    }
+
+    // Print results
+    for (bias_weight, optimal) in results {
+        println!(
+            "Bias weight: {}, Optimal dose: {:.2}, Objective function: {:.2}",
+            bias_weight, optimal.dose, optimal.objf
+        );
+    }
 
     Ok(())
 }
