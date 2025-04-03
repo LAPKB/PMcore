@@ -121,7 +121,7 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_cycles(1000);
-    settings.set_prior_sampler(Sampler::Sobol, 2048, 22);
+    settings.set_prior(Prior::sobol(2048, 22));
 
     let mut algorithm = dispatch_algorithm(settings, eq.clone(), data)?;
 
