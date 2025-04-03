@@ -5,8 +5,8 @@ use crate::routines::output::NPResult;
 use crate::routines::settings::Settings;
 use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
+use anyhow::Context;
 use anyhow::Result;
-use anyhow::{Context, Error};
 use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
@@ -31,7 +31,7 @@ pub enum Algorithm {
 }
 
 pub trait Algorithms<E: Equation>: Sync {
-    fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>, Error>
+    fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>>
     where
         Self: Sized;
     fn validate_psi(&mut self) -> Result<()> {
@@ -228,7 +228,7 @@ pub trait Algorithms<E: Equation>: Sync {
     }
     fn convergence_evaluation(&mut self);
     fn converged(&self) -> bool;
-    fn initialize(&mut self) -> Result<(), Error> {
+    fn initialize(&mut self) -> Result<()> {
         // If a stop file exists in the current directory, remove it
         if Path::new("stop").exists() {
             tracing::info!("Removing existing stop file prior to run");
@@ -268,7 +268,7 @@ pub fn dispatch_algorithm<E: Equation>(
     settings: Settings,
     equation: E,
     data: Data,
-) -> Result<Box<dyn Algorithms<E>>, Error> {
+) -> Result<Box<dyn Algorithms<E>>> {
     match settings.config().algorithm {
         Algorithm::NPAG => Ok(NPAG::new(settings, equation, data)?),
         Algorithm::NPOD => Ok(NPOD::new(settings, equation, data)?),

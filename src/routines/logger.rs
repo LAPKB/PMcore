@@ -19,7 +19,12 @@ use tracing_subscriber::EnvFilter;
 /// If `log_out` is specifified in the configuration file, a log file is created with the specified name.
 ///
 /// If not, the log messages are written to stdout.
-pub fn setup_log(settings: &Settings) -> Result<()> {
+pub(crate) fn setup_log(settings: &mut Settings) -> Result<()> {
+    // If neither `stdout` nor `file` are specified, return without setting the subscriber
+    if !settings.log().stdout && !settings.log().write {
+        return Ok(());
+    }
+
     // Use the log level defined in configuration file
     let log_level = settings.log().level.clone();
     let env_filter = EnvFilter::new(log_level);
@@ -31,21 +36,40 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
     // Define a registry with that level as an environment filter
     let subscriber = Registry::default().with(env_filter);
 
-    // Define outputfile
-    let outputfile = OutputFile::new(&settings.output().path, &settings.log().file)?;
+    // If we do not want output files, we must create the log in the current directory
+    let outputfile = if !settings.output().write {
+        let cd = std::env::current_dir()?;
+        OutputFile::new(&cd.to_string_lossy(), "log.txt")?
+    } else {
+        OutputFile::new(&settings.output().path, "log.txt")?
+    };
 
     // Define layer for file
-    let file_layer = fmt::layer()
-        .with_writer(outputfile.file)
-        .with_ansi(false)
-        .with_timer(timestamper.clone());
+    let file_layer = match settings.log().write {
+        true => {
+            let layer = fmt::layer()
+                .with_writer(outputfile.file)
+                .with_ansi(false)
+                .with_timer(timestamper.clone());
+
+            Some(layer)
+        }
+        false => None,
+    };
 
     // Define layer for stdout
-    let stdout_layer = fmt::layer()
-        .with_writer(std::io::stdout)
-        .with_ansi(true)
-        .with_target(false)
-        .with_timer(timestamper.clone());
+    let stdout_layer = match settings.log().stdout {
+        true => {
+            let layer = fmt::layer()
+                .with_writer(std::io::stdout)
+                .with_ansi(true)
+                .with_target(false)
+                .with_timer(timestamper.clone());
+
+            Some(layer)
+        }
+        false => None,
+    };
 
     // Combine layers with subscriber
     subscriber.with(file_layer).with(stdout_layer).init();

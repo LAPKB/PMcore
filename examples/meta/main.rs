@@ -41,13 +41,13 @@ fn main() {
         .add("theta2", 0.1, 10.0, true)
         .add("vs", 1.0, 10.0, true);
 
-    let settings = Settings::builder()
+    let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
         .set_error_model(ErrorModel::Proportional, 5.0, (1.0, 0.1, 0.0, 0.0))
         .build();
 
-    setup_log(&settings).unwrap();
+    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();
