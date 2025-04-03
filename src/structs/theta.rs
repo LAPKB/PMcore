@@ -74,17 +74,19 @@ impl Theta {
     /// Suggest a new support point to add to the matrix
     /// The point is only added if it is at least `min_dist` away from all existing support points
     /// and within the limits specified by `limits`
-    pub(crate) fn suggest_point(&mut self, spp: &[f64], min_dist: f64, limits: &[(f64, f64)]) {
-        if self.check_point(spp, min_dist, limits) {
+    pub(crate) fn suggest_point(&mut self, spp: &[f64], min_dist: f64) {
+        if self.check_point(spp, min_dist) {
             self.add_point(spp);
         }
     }
 
     /// Check if a point is at least `min_dist` away from all existing support points
-    pub(crate) fn check_point(&self, spp: &[f64], min_dist: f64, limits: &[(f64, f64)]) -> bool {
+    pub(crate) fn check_point(&self, spp: &[f64], min_dist: f64) -> bool {
         if self.matrix.nrows() == 0 {
             return true;
         }
+
+        let limits = self.parameters.ranges();
 
         for row_idx in 0..self.matrix.nrows() {
             let mut squared_dist = 0.0;
