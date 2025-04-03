@@ -1,7 +1,7 @@
 use anyhow::Result;
 use pmcore::bestdose::{optimize_dose, DoseOptimizer};
+use pmcore::prelude::data::read_pmetrics;
 use pmcore::prelude::*;
-use pmcore::routines::initialization::sobol::generate;
 
 fn main() -> Result<()> {
     // Example model
@@ -26,7 +26,26 @@ fn main() -> Result<()> {
         .add("ke", 0.001, 3.0, false)
         .add("v", 25.0, 250.0, false);
 
-    let theta = generate(&params, 24, 22)?;
+    // Read BKE data
+    let data = read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
+
+    // Make settings
+    let mut settings = Settings::builder()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_model(ErrorModel::Additive, 0.0, (0.0, 0.05, 0.0, 0.0))
+        .build();
+
+    settings.disable_output();
+
+    // Run NPAG
+    let mut algorithm = dispatch_algorithm(settings, eq.clone(), data)?;
+
+    println!("Running NPAG...");
+
+    let result = algorithm.fit()?;
+    println!("Finished NPAG...");
+    let theta = result.get_theta().clone();
 
     // Some observed data
     let subject = Subject::builder("Nikola Tesla")
@@ -43,10 +62,13 @@ fn main() -> Result<()> {
         eq,
         min_dose: 0.0,
         max_dose: 10000.0,
-        bias_weight: 0.1,
+        bias_weight: 0.0,
     };
 
-    optimize_dose(problem)?;
+    println!("Optimizing dose...");
+    let optimal = optimize_dose(problem)?;
+
+    println!("Optimal dose: {:#?}", optimal);
 
     Ok(())
 }

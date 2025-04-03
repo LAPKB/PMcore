@@ -30,8 +30,6 @@ impl CostFunction for DoseOptimizer {
     type Output = f64;
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
-        println!("Evaluating dose: {:?}", param);
-
         let dose = param.clone();
         let target_subject = Subject::builder("target")
             .bolus(0.0, dose, 0)
@@ -47,6 +45,9 @@ impl CostFunction for DoseOptimizer {
         let w_sum: f64 = w.iter().sum();
         let w: Vec<f64> = w.iter().map(|&x| x / w_sum).collect();
 
+        let nspp = self.theta.matrix().nrows();
+        let bias_factor = 1.0 / (nspp as f64);
+
         // Calculate BIAS
         let mut bias = 0.0;
 
@@ -58,7 +59,7 @@ impl CostFunction for DoseOptimizer {
                 .0
                 .squared_error();
 
-            bias += squared_error;
+            bias += squared_error * bias_factor;
         }
 
         // Calculate the weighted sum
@@ -81,10 +82,11 @@ impl CostFunction for DoseOptimizer {
     }
 }
 
+#[derive(Debug)]
 pub struct OptimalDose {
-    dose: f64,
-    cost: f64,
-    status: String,
+    pub dose: f64,
+    pub objf: f64,
+    pub status: String,
 }
 
 pub fn optimize_dose(problem: DoseOptimizer) -> Result<OptimalDose> {
@@ -115,13 +117,9 @@ pub fn optimize_dose(problem: DoseOptimizer) -> Result<OptimalDose> {
 
     let optimaldose = OptimalDose {
         dose: result.param.unwrap(),
-        cost: result.cost,
+        objf: result.cost,
         status: result.termination_status.to_string(),
     };
-
-    println!("Optimal dose: {}", optimaldose.dose);
-    println!("Cost: {}", optimaldose.cost);
-    println!("Status: {}", optimaldose.status);
 
     Ok(optimaldose)
 }
