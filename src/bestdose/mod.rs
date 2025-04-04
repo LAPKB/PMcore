@@ -15,7 +15,7 @@ use crate::structs::psi::calculate_psi;
 use crate::structs::theta::Theta;
 
 pub struct DoseOptimizer {
-    pub data: Data,
+    pub past_data: Data,
     pub theta: Theta,
     pub target_concentration: f64,
     pub target_time: f64,
@@ -37,7 +37,7 @@ impl CostFunction for DoseOptimizer {
             .build();
         let errmod = pharmsol::ErrorModel::new((0.0, 0.1, 0.0, 0.0), 0.0, &ErrorType::Add);
 
-        let psi = calculate_psi(&self.eq, &self.data, &self.theta, &errmod, false, true);
+        let psi = calculate_psi(&self.eq, &self.past_data, &self.theta, &errmod, false, true);
 
         let (w, _) = burke(&psi)?;
 
