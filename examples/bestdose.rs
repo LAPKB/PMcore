@@ -53,9 +53,11 @@ fn main() -> Result<()> {
         .observation(12.0, 8.0, 0)
         .build();
 
+    let past_data = Data::new(vec![subject.clone()]);
+
     // Example usage
     let problem = DoseOptimizer {
-        data: Data::new(vec![subject.clone()]), // Placeholder for actual data
+        past_data: past_data.clone(),
         theta,
         target_concentration: 10.0,
         target_time: 5.0,
@@ -75,7 +77,7 @@ fn main() -> Result<()> {
     let mut results = Vec::new();
     for bias_weight in &bias_weights {
         let problem = DoseOptimizer {
-            data: Data::new(vec![subject.clone()]), // Placeholder for actual data
+            past_data: past_data.clone(),
             theta: result.get_theta().clone(),
             target_concentration: 10.0,
             target_time: 5.0,
