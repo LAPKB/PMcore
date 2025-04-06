@@ -1,6 +1,4 @@
 use anyhow::{Ok, Result};
-use argmin::core::TerminationReason;
-use argmin::core::TerminationStatus;
 use argmin::core::{CostFunction, Executor};
 use argmin::solver::brent::BrentOpt;
 
@@ -10,9 +8,41 @@ use pharmsol::Predictions;
 use pharmsol::{Data, ODE};
 
 use crate::algorithms::npag::burke;
-
 use crate::structs::psi::calculate_psi;
 use crate::structs::theta::Theta;
+
+pub enum Target {
+    Concentration(f64),
+    AUC(f64),
+}
+
+pub struct DoseRange {
+    min: f64,
+    max: f64,
+}
+
+impl DoseRange {
+    pub fn new(min: f64, max: f64) -> Self {
+        DoseRange { min, max }
+    }
+
+    pub fn min(&self) -> f64 {
+        self.min
+    }
+
+    pub fn max(&self) -> f64 {
+        self.max
+    }
+}
+
+impl Default for DoseRange {
+    fn default() -> Self {
+        DoseRange {
+            min: 0.0,
+            max: f64::MAX,
+        }
+    }
+}
 
 pub struct DoseOptimizer {
     pub past_data: Data,
@@ -20,8 +50,7 @@ pub struct DoseOptimizer {
     pub target_concentration: f64,
     pub target_time: f64,
     pub eq: ODE,
-    pub min_dose: f64,
-    pub max_dose: f64,
+    pub doserange: DoseRange,
     pub bias_weight: f64,
 }
 
@@ -35,6 +64,7 @@ impl CostFunction for DoseOptimizer {
             .bolus(0.0, dose, 0)
             .observation(self.target_time, self.target_concentration, 0)
             .build();
+
         let errmod = pharmsol::ErrorModel::new((0.0, 0.1, 0.0, 0.0), 0.0, &ErrorType::Add);
 
         let psi = calculate_psi(&self.eq, &self.past_data, &self.theta, &errmod, false, true);
@@ -90,8 +120,8 @@ pub struct OptimalDose {
 }
 
 pub fn optimize_dose(problem: DoseOptimizer) -> Result<OptimalDose> {
-    let min_dose = problem.min_dose;
-    let max_dose = problem.max_dose;
+    let min_dose = problem.doserange.min;
+    let max_dose = problem.doserange.max;
 
     let solver = BrentOpt::new(min_dose, max_dose); // With the given contraints
 
@@ -100,20 +130,6 @@ pub fn optimize_dose(problem: DoseOptimizer) -> Result<OptimalDose> {
         .run()?;
 
     let result = opt.state();
-
-    match &result.termination_status {
-        TerminationStatus::Terminated(status) => match status {
-            TerminationReason::SolverConverged => {
-                println!("Solver converged");
-            }
-            _ => {
-                println!("Solver terminated with reason: {}", status.text());
-            }
-        },
-        TerminationStatus::NotTerminated => {
-            println!("Solver did not terminate");
-        }
-    }
 
     let optimaldose = OptimalDose {
         dose: result.param.unwrap(),
