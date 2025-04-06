@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{optimize_dose, DoseOptimizer};
+use pmcore::bestdose::{optimize_dose, DoseOptimizer, DoseRange};
 use pmcore::prelude::data::read_pmetrics;
 use pmcore::prelude::*;
 
@@ -21,7 +21,6 @@ fn main() -> Result<()> {
         (1, 1),
     );
 
-    // Example Theta
     let params = Parameters::new()
         .add("ke", 0.001, 3.0, false)
         .add("v", 25.0, 250.0, false);
@@ -62,8 +61,7 @@ fn main() -> Result<()> {
         target_concentration: 10.0,
         target_time: 5.0,
         eq: eq.clone(),
-        min_dose: 0.0,
-        max_dose: 10000.0,
+        doserange: DoseRange::new(0.0, 10000.0),
         bias_weight: 0.0,
     };
 
@@ -82,8 +80,7 @@ fn main() -> Result<()> {
             target_concentration: 10.0,
             target_time: 5.0,
             eq: eq.clone(),
-            min_dose: 0.0,
-            max_dose: 10000.0,
+            doserange: DoseRange::new(0.0, 10000.0),
             bias_weight: *bias_weight,
         };
 
