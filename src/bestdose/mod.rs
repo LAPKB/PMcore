@@ -78,21 +78,9 @@ impl CostFunction for DoseOptimizer {
         let nspp = self.theta.matrix().nrows();
         let bias_factor = 1.0 / (nspp as f64);
 
-        // Calculate BIAS
+        // Accumulator for BIAS
         let mut bias = 0.0;
-
-        for row in self.theta.matrix().row_iter() {
-            let spp = row.iter().copied().collect::<Vec<f64>>();
-            let squared_error = self
-                .eq
-                .simulate_subject(&target_subject, &spp, None)
-                .0
-                .squared_error();
-
-            bias += squared_error * bias_factor;
-        }
-
-        // Calculate the weighted sum
+        // Accumulator for weighted sum
         let mut wt_sum = 0.0;
 
         for (row, prob) in self.theta.matrix().row_iter().zip(w.iter()) {
@@ -103,6 +91,7 @@ impl CostFunction for DoseOptimizer {
                 .0
                 .squared_error();
 
+            bias += squared_error * bias_factor;
             wt_sum += squared_error * prob;
         }
 
