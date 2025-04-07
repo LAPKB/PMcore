@@ -13,22 +13,30 @@ use std::path::PathBuf;
 #[serde(deny_unknown_fields)]
 pub struct Settings {
     /// General configuration settings
+    #[serde(default)]
     pub(crate) config: Config,
     /// Parameters to be estimated
     pub(crate) parameters: Parameters,
     /// Defines the error model and polynomial to be used
+    #[serde(default)]
     pub(crate) error: Error,
     /// Configuration for predictions
+    #[serde(default)]
     pub(crate) predictions: Predictions,
     /// Configuration for logging
+    #[serde(default)]
     pub(crate) log: Log,
     /// Configuration for (optional) prior
+    #[serde(default)]
     pub(crate) prior: Prior,
     /// Configuration for the output files
+    #[serde(default)]
     pub(crate) output: Output,
     /// Configuration for the convergence criteria
+    #[serde(default)]
     pub(crate) convergence: Convergence,
     /// Advanced options, mostly hyperparameters, for the algorithm(s)
+    #[serde(default)]
     pub(crate) advanced: Advanced,
 }
 
@@ -776,5 +784,15 @@ mod tests {
         assert_eq!(settings.parameters().get("ke").unwrap().upper, 3.0);
         assert_eq!(settings.parameters().get("v").unwrap().lower, 25.0);
         assert_eq!(settings.parameters().get("v").unwrap().upper, 250.0);
+    }
+
+    #[test]
+    fn test_pmetrics_json() {
+        let json = r#"
+        {"config":{"cycles":1000,"algorithm":"NPAG","cache":true,"progress":true},"parameters":{"parameters":[{"name":"ke","lower":0,"upper":1,"fixed":false},{"name":"v","lower":25,"upper":250,"fixed":false}]},"error":{"value":0,"model":"Additive","poly":[0,0.1,0,0]}}"#;
+
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(settings.config.algorithm, Algorithm::NPAG);
+        assert_eq!(settings.parameters().names(), vec!["ke", "v"]);
     }
 }
