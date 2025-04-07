@@ -145,6 +145,13 @@ impl Settings {
         std::io::Write::write_all(&mut file, serialized.as_bytes())?;
         Ok(())
     }
+
+    /// Parse Settings from a JSON string
+    pub fn from_json(json: &str) -> Result<Self, anyhow::Error> {
+        let settings: Settings = serde_json::from_str(json)?;
+        settings.validate()?;
+        Ok(settings)
+    }
 }
 
 /// General configuration settings
@@ -267,7 +274,7 @@ impl From<Vec<Parameter>> for Parameters {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Serialize)]
+#[derive(Debug, Deserialize, Clone, Serialize, PartialEq)]
 pub enum ErrorModel {
     Additive,
     Proportional,
@@ -424,7 +431,7 @@ impl Predictions {
 /// - `INFO` (Default)
 /// - `WARN`
 /// - `ERROR`
-#[derive(Debug, Deserialize, Clone, Serialize, Default)]
+#[derive(Debug, Deserialize, Clone, Serialize, Default, PartialEq)]
 pub enum LogLevel {
     TRACE,
     DEBUG,
@@ -673,5 +680,101 @@ mod tests {
         assert_eq!(settings.config.cycles, 100);
         assert_eq!(settings.config.cache, true);
         assert_eq!(settings.parameters().names(), vec!["Ke", "V"]);
+    }
+
+    #[test]
+    fn test_parse_json() {
+        let json = r#"
+       {
+  "config": {
+    "cycles": 1000,
+    "algorithm": "NPAG",
+    "cache": true,
+    "progress": true
+  },
+  "parameters": {
+    "parameters": [
+      {
+        "name": "ke",
+        "lower": 0.001,
+        "upper": 3.0,
+        "fixed": false
+      },
+      {
+        "name": "v",
+        "lower": 25.0,
+        "upper": 250.0,
+        "fixed": false
+      }
+    ]
+  },
+  "error": {
+    "value": 0.0,
+    "model": "Additive",
+    "poly": [
+      0.0,
+      0.5,
+      0.0,
+      0.0
+    ]
+  },
+  "predictions": {
+    "idelta": 0.12,
+    "tad": 0.0
+  },
+  "log": {
+    "level": "INFO",
+    "write": true,
+    "stdout": true
+  },
+  "prior": {
+    "Sobol": [
+      2028,
+      22
+    ]
+  },
+  "output": {
+    "write": true,
+    "path": "examples/bimodal_ke/output/"
+  },
+  "convergence": {
+    "likelihood": 0.0001,
+    "pyl": 0.01,
+    "eps": 0.01
+  },
+  "advanced": {
+    "min_distance": 0.0001,
+    "nm_steps": 100,
+    "tolerance": 1e-6
+  }
+}
+        "#;
+
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(settings.config.algorithm, Algorithm::NPAG);
+        assert_eq!(settings.parameters().names(), vec!["ke", "v"]);
+        assert_eq!(settings.error().value, 0.0);
+        assert_eq!(settings.error().model, ErrorModel::Additive);
+        assert_eq!(settings.predictions().idelta, 0.12);
+        assert_eq!(settings.predictions().tad, 0.0);
+        assert_eq!(settings.log().level, LogLevel::INFO);
+        assert_eq!(settings.log().write, true);
+        assert_eq!(settings.log().stdout, true);
+        assert_eq!(settings.output().write, true);
+        assert_eq!(settings.output().path, "examples/bimodal_ke/output/");
+        assert_eq!(settings.convergence().likelihood, 0.0001);
+        assert_eq!(settings.convergence().pyl, 0.01);
+        assert_eq!(settings.convergence().eps, 0.01);
+        assert_eq!(settings.advanced().min_distance, 0.0001);
+        assert_eq!(settings.advanced().nm_steps, 100);
+        assert_eq!(settings.advanced().tolerance, 1e-6);
+        assert_eq!(settings.config.cycles, 1000);
+        assert_eq!(settings.config.cache, true);
+        assert_eq!(settings.config.progress, true);
+        assert_eq!(settings.parameters().len(), 2);
+        assert_eq!(settings.parameters().get("ke").unwrap().lower, 0.001);
+        assert_eq!(settings.parameters().get("ke").unwrap().upper, 3.0);
+        assert_eq!(settings.parameters().get("v").unwrap().lower, 25.0);
+        assert_eq!(settings.parameters().get("v").unwrap().upper, 250.0);
     }
 }

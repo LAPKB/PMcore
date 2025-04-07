@@ -88,6 +88,8 @@ pub mod prelude {
         pub use pharmsol::prelude::models::*;
     }
 
+    pub use pharmsol;
+
     //traits
     pub use pharmsol::data::*;
     pub use pharmsol::equation::Equation;
