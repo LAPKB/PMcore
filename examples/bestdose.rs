@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{optimize_dose, DoseOptimizer, DoseRange};
+use pmcore::bestdose::{BestDoseProblem, DoseRange};
 use pmcore::prelude::data::read_pmetrics;
 use pmcore::prelude::*;
 
@@ -55,7 +55,7 @@ fn main() -> Result<()> {
     let past_data = Data::new(vec![subject.clone()]);
 
     // Example usage
-    let problem = DoseOptimizer {
+    let problem = BestDoseProblem {
         past_data: past_data.clone(),
         theta,
         target_concentration: 10.0,
@@ -66,15 +66,16 @@ fn main() -> Result<()> {
     };
 
     println!("Optimizing dose...");
-    let optimal = optimize_dose(problem)?;
+    let optimal = problem.optimize()?;
 
     println!("Optimal dose: {:#?}", optimal);
 
     // Test different values of bias_weight
     let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     let mut results = Vec::new();
+
     for bias_weight in &bias_weights {
-        let problem = DoseOptimizer {
+        let problem = BestDoseProblem {
             past_data: past_data.clone(),
             theta: result.get_theta().clone(),
             target_concentration: 10.0,
@@ -84,7 +85,7 @@ fn main() -> Result<()> {
             bias_weight: *bias_weight,
         };
 
-        let optimal = optimize_dose(problem)?;
+        let optimal = problem.optimize()?;
         results.push((bias_weight, optimal));
     }
 
