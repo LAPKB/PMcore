@@ -44,7 +44,7 @@ impl Default for DoseRange {
     }
 }
 
-pub struct DoseOptimizer {
+pub struct BestDoseProblem {
     pub past_data: Data,
     pub theta: Theta,
     pub target_concentration: f64,
@@ -54,7 +54,32 @@ pub struct DoseOptimizer {
     pub bias_weight: f64,
 }
 
-impl CostFunction for DoseOptimizer {
+impl BestDoseProblem {
+    pub fn optimize(self) -> Result<BestDoseResult> {
+        let min_dose = self.doserange.min;
+        let max_dose = self.doserange.max;
+
+        let solver = BrentOpt::new(min_dose, max_dose);
+
+        let problem = self;
+
+        let opt = Executor::new(problem, solver)
+            .configure(|state| state.max_iters(1000))
+            .run()?;
+
+        let result = opt.state();
+
+        let optimaldose = BestDoseResult {
+            dose: result.param.unwrap(),
+            objf: result.cost,
+            status: result.termination_status.to_string(),
+        };
+
+        Ok(optimaldose)
+    }
+}
+
+impl CostFunction for BestDoseProblem {
     type Param = f64;
     type Output = f64;
 
@@ -102,29 +127,8 @@ impl CostFunction for DoseOptimizer {
 }
 
 #[derive(Debug)]
-pub struct OptimalDose {
+pub struct BestDoseResult {
     pub dose: f64,
     pub objf: f64,
     pub status: String,
-}
-
-pub fn optimize_dose(problem: DoseOptimizer) -> Result<OptimalDose> {
-    let min_dose = problem.doserange.min;
-    let max_dose = problem.doserange.max;
-
-    let solver = BrentOpt::new(min_dose, max_dose); // With the given contraints
-
-    let opt = Executor::new(problem, solver)
-        .configure(|state| state.max_iters(1000))
-        .run()?;
-
-    let result = opt.state();
-
-    let optimaldose = OptimalDose {
-        dose: result.param.unwrap(),
-        objf: result.cost,
-        status: result.termination_status.to_string(),
-    };
-
-    Ok(optimaldose)
 }
