@@ -100,26 +100,26 @@ impl CostFunction for BestDoseProblem {
         let w_sum: f64 = w.iter().sum();
         let w: Vec<f64> = w.iter().map(|&x| x / w_sum).collect();
 
-        let nspp = self.theta.matrix().nrows();
-        let bias_factor = 1.0 / (nspp as f64);
+        // Then calcualte the bias
 
-        // Accumulator for BIAS
-        let mut bias = 0.0;
+        // Store the mean of the predictions
+        // TODO: This needs to handle more than one target
+        let mut y_bar = 0.0;
+
         // Accumulator for weighted sum
         let mut wt_sum = 0.0;
-
         for (row, prob) in self.theta.matrix().row_iter().zip(w.iter()) {
             let spp = row.iter().copied().collect::<Vec<f64>>();
-            let squared_error = self
-                .eq
-                .simulate_subject(&target_subject, &spp, None)
-                .0
-                .squared_error();
+            let pred = self.eq.simulate_subject(&target_subject, &spp, None);
+            wt_sum += pred.0.squared_error() * prob;
 
-            bias += squared_error * bias_factor;
-            wt_sum += squared_error * prob;
+            y_bar += pred.0.flat_predictions().first().unwrap() * prob;
         }
 
+        // Bias is the squared difference between the target concentration and the mean of the predictions
+        let bias = (y_bar - self.target_concentration).powi(2);
+
+        // Calculate the objective function
         let objf = (1.0 - self.bias_weight) * wt_sum + self.bias_weight * bias;
 
         Ok(objf) // Example cost function
