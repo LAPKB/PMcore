@@ -204,11 +204,11 @@ pub trait Algorithms<E: Equation>: Sync {
             }
 
             return Err(anyhow::anyhow!(
-                    "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
-                    indices.len(),
-                    self.psi().matrix().nrows(),
-                    zero_probability_subjects
-                ));
+                "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
+                indices.len(),
+                self.psi().matrix().nrows(),
+                zero_probability_subjects
+            ));
         }
 
         Ok(())

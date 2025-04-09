@@ -8,26 +8,26 @@ use crate::{
         },
     },
     structs::{
-        psi::{calculate_psi, Psi},
+        psi::{Psi, calculate_psi},
         theta::Theta,
     },
 };
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use faer_ext::IntoNdarray;
 use pharmsol::{
+    Subject,
     prelude::{
         data::{Data, ErrorModel},
         simulator::Equation,
     },
-    Subject,
 };
 
 use faer::Col;
 
 use ndarray::{
-    parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
     Array, Array1, ArrayBase, Dim, OwnedRepr,
+    parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
 };
 
 use crate::routines::{initialization, optimization::SppOptimizer};
@@ -404,7 +404,8 @@ impl<E: Equation> NPOD<E> {
                 indices.iter().map(|&i| subject[i].id()).collect();
 
             return Err(anyhow::anyhow!(
-                "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects
+                "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}",
+                zero_probability_subjects
             ));
         }
 

@@ -1,7 +1,7 @@
 use crate::{
     prelude::algorithms::Algorithms,
     structs::{
-        psi::{calculate_psi, Psi},
+        psi::{Psi, calculate_psi},
         theta::Theta,
     },
 };

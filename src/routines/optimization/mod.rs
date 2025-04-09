@@ -6,7 +6,7 @@ use ndarray::{Array1, Axis};
 
 use pharmsol::prelude::{
     data::{Data, ErrorModel},
-    simulator::{psi, Equation},
+    simulator::{Equation, psi},
 };
 
 pub struct SppOptimizer<'a, E: Equation> {

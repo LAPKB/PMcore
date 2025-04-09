@@ -3,12 +3,12 @@ use std::time::Instant;
 use crate::routines::output::OutputFile;
 use crate::routines::settings::Settings;
 use anyhow::Result;
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::time::FormatTime;
 use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry::Registry;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
 
 /// Setup logging for the library
 ///

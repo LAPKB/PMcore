@@ -1,6 +1,6 @@
 use crate::structs::psi::Psi;
-use faer::linalg::solvers::ColPivQr;
 use faer::Mat;
+use faer::linalg::solvers::ColPivQr;
 
 pub fn calculate_r(psi: &Psi) -> (Mat<f64>, Vec<usize>) {
     // Clone the matrix, as we will modify it

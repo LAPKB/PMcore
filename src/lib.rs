@@ -66,8 +66,8 @@ pub mod prelude {
     pub use super::HashMap;
     pub use super::Result;
     pub use crate::algorithms;
-    pub use crate::algorithms::dispatch_algorithm;
     pub use crate::algorithms::Algorithm;
+    pub use crate::algorithms::dispatch_algorithm;
     pub use crate::routines;
     pub use crate::routines::logger;
 
@@ -89,6 +89,8 @@ pub mod prelude {
     }
 
     //traits
+    pub use pharmsol::ODE;
+    pub use pharmsol::SDE;
     pub use pharmsol::data::*;
     pub use pharmsol::equation::Equation;
     pub use pharmsol::equation::EquationTypes;
@@ -96,8 +98,6 @@ pub mod prelude {
     pub use pharmsol::equation::*;
     pub use pharmsol::prelude::*;
     pub use pharmsol::simulator::*;
-    pub use pharmsol::ODE;
-    pub use pharmsol::SDE;
 
     //macros
     pub use pharmsol::fa;
