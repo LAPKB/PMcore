@@ -122,6 +122,8 @@ impl CostFunction for BestDoseProblem {
         // Calculate the objective function
         let objf = (1.0 - self.bias_weight) * wt_sum + self.bias_weight * bias;
 
+        // TODO: Repeat with D_flat, and return the best
+
         Ok(objf) // Example cost function
     }
 }
