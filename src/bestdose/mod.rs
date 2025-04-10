@@ -64,7 +64,7 @@ impl BestDoseProblem {
         let problem = self;
 
         let opt = Executor::new(problem, solver)
-            .configure(|state| state.max_iters(1000))
+            .configure(|state| state.max_iters(1000).target_cost(0.0))
             .run()?;
 
         let result = opt.state();
@@ -92,27 +92,36 @@ impl CostFunction for BestDoseProblem {
 
         let errmod = pharmsol::ErrorModel::new((0.0, 0.1, 0.0, 0.0), 0.0, &ErrorType::Add);
 
+        // Calculate psi, in order to determine the optimal weights of the support points in Theta for the target subject
         let psi = calculate_psi(&self.eq, &self.past_data, &self.theta, &errmod, false, true);
 
+        // Calculate the optimal weights
         let (w, _) = burke(&psi)?;
 
         // Normalize W to sum to 1
         let w_sum: f64 = w.iter().sum();
         let w: Vec<f64> = w.iter().map(|&x| x / w_sum).collect();
 
-        // Then calcualte the bias
+        // Then calculate the bias
 
         // Store the mean of the predictions
         // TODO: This needs to handle more than one target
         let mut y_bar = 0.0;
 
-        // Accumulator for weighted sum
-        let mut wt_sum = 0.0;
+        // Accumulator for the variance component
+        let mut variance = 0.0;
+
+        // For each support point in theta, and the associated probability...
         for (row, prob) in self.theta.matrix().row_iter().zip(w.iter()) {
             let spp = row.iter().copied().collect::<Vec<f64>>();
-            let pred = self.eq.simulate_subject(&target_subject, &spp, None);
-            wt_sum += pred.0.squared_error() * prob;
 
+            // Calculate the target subject predictions
+            let pred = self.eq.simulate_subject(&target_subject, &spp, None);
+
+            // The (probability weighted) squared error of the predictions is added to the variance
+            variance += pred.0.squared_error() * prob;
+
+            // At the same time, calculate the mean of the predictions
             y_bar += pred.0.flat_predictions().first().unwrap() * prob;
         }
 
@@ -120,7 +129,7 @@ impl CostFunction for BestDoseProblem {
         let bias = (y_bar - self.target_concentration).powi(2);
 
         // Calculate the objective function
-        let objf = (1.0 - self.bias_weight) * wt_sum + self.bias_weight * bias;
+        let objf = (1.0 - self.bias_weight) * variance + self.bias_weight * bias;
 
         // TODO: Repeat with D_flat, and return the best
 
