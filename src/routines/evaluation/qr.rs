@@ -20,8 +20,9 @@ pub fn qrd(psi: &Psi) -> Result<(Mat<f64>, Vec<usize>)> {
     // Normalize the rows to sum to 1
     for (index, row) in mat.row_iter_mut().enumerate() {
         let row_sum: f64 = row.as_ref().iter().sum();
-        const EPSILON: f64 = 1e-10;
-        if row_sum.abs() < EPSILON {
+
+        // Check if the row sum is zero
+        if row_sum.abs() == 0.0 {
             bail!("In psi, the row with index {} sums to zero", index);
         }
         row.iter_mut().for_each(|x| *x /= row_sum);
