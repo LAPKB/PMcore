@@ -217,7 +217,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         self.psi.filter_column_indices(keep.as_slice());
 
         //Rank-Revealing Factorization
-        let (r, perm) = qr::calculate_r(&self.psi);
+        let (r, perm) = qr::qrd(&self.psi)?;
 
         let mut keep = Vec::<usize>::new();
 
