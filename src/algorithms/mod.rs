@@ -17,8 +17,6 @@ use pharmsol::{ErrorModel, Predictions, Subject};
 use postprob::POSTPROB;
 use serde::{Deserialize, Serialize};
 
-// use self::{data::Subject, simulator::Equation};
-
 pub mod npag;
 pub mod npod;
 pub mod postprob;
