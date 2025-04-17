@@ -1,0 +1,118 @@
+use pmcore::prelude::{
+    settings::{Parameters, Prior, Settings},
+    *,
+};
+
+pub(crate) fn main() {
+    let _sde = equation::SDE::new(
+        |x, p, _t, dx, rateiv, cov| {
+            fetch_params!(p, _v0, ke0, kcp, well, _ske);
+            fetch_cov!(cov,_t,scr,wt);
+            dx[0] = ke0 - x[0]; // mean reverting sde
+            // dx[1] = v0 - x[1];
+            let ke = x[0]; // use ke = ke0, if SDE in only on volume.
+            let _vol = x[1];
+            let kpc = well * kcp;
+            let norm_wt = wt/70.0;
+            let kel = ke * norm_wt.powf(-0.25) * (0.2145/scr).powf(1.1776);
+            dx[2] = rateiv[0] - ( kel + kcp) * x[2] + kpc * x[3];
+            dx[3] = kcp * x[2] - kpc * x[3];
+        },
+        |p, d| {
+            // fetch_params!(p, _v0, _ke0, _kcp, _well, ske, _svol);
+            fetch_params!(p, _v0, _ke0, _kcp, _well, ske);
+            d[0] = ske;
+            // d[1] = svol;
+            // the above increments MUST match the state increments of x
+        },
+        |_p| lag! {},
+        |_p| fa! {},
+        |p, _t, _cov, x| {
+            fetch_params!(p, v0, ke0, _kcp, _well, _ske);
+            x[0] = ke0;
+            x[1] = v0;
+            x[2] = 0.0;
+            x[3] = 0.0;
+        },
+        |x, p, t, cov, y| {
+            // fetch_params!(p, v0, _ke0, _kcp, _well, _ske, _svol);
+            fetch_params!(p, v0, _ke0, _kcp, _well, _ske);
+            //fetch_cov!(cov, t, _scr,wt,_ht,_male);
+            fetch_cov!(cov, t,wt);
+            let norm_wt = wt/70.0;
+            let vol = v0; // x[1];
+            y[0] = x[2] / (vol * norm_wt);
+        },
+        (4, 1),
+        100,
+    );
+
+    let ode = equation::ODE::new(
+        |x, p, _t, dx, rateiv, cov| {
+            fetch_params!(p, _v0, ke0, kcp, well);
+            fetch_cov!(cov,_t,scr,wt);
+            let norm_wt = wt/70.0;
+            let kel = ke0 * norm_wt.powf(-0.25) * (0.2145/scr).powf(1.1776);                                                                                                                     
+            let kpc = well * kcp;
+            dx[0] = rateiv[0] - (kel + kcp)*x[0] + kpc*x[1];
+            dx[1] = kcp*x[0] - kpc*x[1];
+        },
+        |_p| lag! {},
+        |_p| fa! {},
+        |_p, _t, _cov, _x| {},
+        |x, p, t, cov, y| {
+            fetch_params!(p, v0, _ke0, _kcp, _well);
+            fetch_cov!(cov, t, wt);
+            let norm_wt = wt/70.0;
+            y[0] = x[0] / (v0 * norm_wt);
+        },
+         (2, 1),
+    );
+
+    let mut settings = Settings::new();
+    let params = Parameters::builder()
+        .add("v0", 15.0, 200.0, false)
+        .add("ke0", 0.0004, 0.9, false) // Paula's work: mean Ke = 0.137/Hr and mean Vol = 0.425L/kg in prenatal SoAmerican infants, 1 comp mdoel
+        .add("kcp", 0.00001, 0.15, false)
+        .add("well", 0.00025, 20.00, false)
+        // .add("ske", 1e-27, 0.2, false)
+        // .add("svol",1e-27, 1e-25,false)
+        .build()
+        .unwrap();
+    settings.set_parameters(params);
+    settings.set_cycles(usize::MAX);
+    settings.set_cache(true);
+    settings.set_error_poly((0.15,0.075,0.00001,0.0));
+    settings.set_error_value(2.803022);
+    // settings.set_error_type(ErrorType::Add);
+    settings.set_error_type(ErrorType::Prop);
+    settings.set_output_path("examples/vanco_sde_003/output_ode"); // *** SET OUTPUT DIRECTORY HERE ***
+    // settings.set_output_path("examples/vanco_sde_003/output_sde0vol");
+    // settings.set_output_path("examples/vanco_sde_003/output_sde_ske0pt2");
+    //
+    // COPY main.rs to the output directory! (this is your only record of what you actually did)
+    //
+    settings.set_prior(Prior {
+        sampler: "sobol".to_string(),
+        points: 131073,
+        seed: 347,
+        // file: Some(String::from("examples/vanco_sde_003/theta_11.csv")),
+        file: None, // use the Sobol sequence above to get priors for sde runs:
+        // file: Some(String::from("examples/vanco_sde_003/output_ode_sobol/theta_sde0.csv")), // use sobol ode as prior for sde runs
+        // file: Some(String::from("examples/vanco_sde_003/output_ode_sobol/theta_sde0ke.csv")),
+        // file: Some(String::from("examples/vanco_sde_003/output_ode_sobol/theta_sde0vol.csv")),
+        // v0,ke0,kcp,well,ske,svol,prob ... params in the prior.
+    });
+    settings.set_output_write(true);
+    settings.set_log_level(settings::LogLevel::DEBUG);
+    setup_log(&settings).unwrap();
+
+    let data = data::read_pmetrics("examples/vanco_sde_003/vclean.csv").unwrap();
+    // clean.csv is copied from ./11/input/, ./11 is the run on Pmetrics 1.9.7
+
+    let mut algorithm = dispatch_algorithm(settings, ode, data).unwrap(); // verify using sde or ode
+    algorithm.initialize().unwrap();
+    while !algorithm.next_cycle().unwrap() {}
+    let result = algorithm.into_npresult();
+    result.write_outputs().unwrap();
+}

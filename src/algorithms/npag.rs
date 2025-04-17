@@ -20,10 +20,11 @@ use ndarray_stats::{DeviationExt, QuantileExt};
 
 use crate::routines::expansion::adaptative_grid::adaptative_grid;
 
-const THETA_E: f64 = 1e-4; // Convergence criteria
-const THETA_G: f64 = 1e-4; // Objective function convergence criteria
-const THETA_F: f64 = 1e-2;
-const THETA_D: f64 = 1e-4;
+const THETA_G: f64 = 1e-4; // inner loop; if df < theta_g then reduce eps and check for convergence
+const THETA_F: f64 = 1e-2; // big loop; f1 - f0
+const THETA_E: f64 = 1e-4; // min eps; if converged, exit, else reset eps to max
+const MAX_EPS: f64 = 0.2;
+const THETA_D: f64 = 1e-4; // adaptive grid minimum distance
 
 #[derive(Debug)]
 pub struct NPAG<E: Equation> {
@@ -57,7 +58,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             theta: Array2::zeros((0, 0)),
             lambda: Array1::default(0),
             w: Array1::default(0),
-            eps: 0.2,
+            eps: MAX_EPS,
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
             f0: -1e30,
@@ -139,7 +140,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                     self.converged = true;
                 } else {
                     self.f0 = self.f1;
-                    self.eps = 0.2;
+                    self.eps = MAX_EPS;
                 }
             }
         }

@@ -6,10 +6,10 @@ use pmcore::prelude::{
 pub(crate) fn main() {
     let sde = equation::SDE::new(
         |x, p, _t, dx, rateiv, cov| {
-            fetch_params!(p, ke0, _v0, kcp, well);
+            fetch_params!(p, ke0, v0, kcp, well);
             fetch_cov!(cov,_t,scr,wt);
             dx[0] = ke0 - x[0]; // x[0] moves toward ke0
-            dx[1] = 0.0; // v0 - x[1];
+            dx[1] = v0 - x[1];
             let ke = x[0];
             let vol = x[1];
             let norm_wt = wt/3.5;
@@ -18,15 +18,14 @@ pub(crate) fn main() {
             dx[3] = kcp * x[2] - ( well * kcp ) * x[3];
         },
         |p, d| {
-            fetch_params!(p, _ke0, _vol, _well, ske); // , svol);
+            fetch_params!(p, _ke0, _vol, _well, ske, svol);
             d[0] = ske;
-            // d[1] = svol;
-            // the above increments MUST match the state increments of x
+            d[1] = svol;
         },
         |_p| lag! {},
         |_p| fa! {},
         |p, _t, _cov, x| {
-            fetch_params!(p, ke0, v0, _well, _ske); // , _svol);
+            fetch_params!(p, ke0, v0, _well, _ske, _svol);
             x[0] = ke0;
             x[1] = v0;
             x[2] = 0.0;
@@ -70,7 +69,7 @@ pub(crate) fn main() {
         .add("kcp", 0.001, 1.25, false)
         .add("well", 0.25, 2.0, false)
         .add("ske", 1e-7, 0.4, false)
-        // .add("svol",1e-7, 0.4,false)
+        .add("svol",1e-7, 0.4,false)
         .build()
         .unwrap();
 
@@ -82,12 +81,12 @@ pub(crate) fn main() {
     // settings.set_error_value(2.5516439936509987);
     // settings.set_error_type(ErrorType::Add);
     settings.set_error_type(ErrorType::Prop);
-    settings.set_output_path("examples/vanco_sde/output_sde_tmp"); // *** SET OUTPUT DIRECTORY HERE ***
+    settings.set_output_path("examples/vanco_sde/output_sde"); // *** SET OUTPUT DIRECTORY HERE ***
     settings.set_prior(Prior {
         sampler: "sobol".to_string(),
         points: 10000,
         seed: 347,
-        file: Some(String::from("examples/vanco_sde/output_ode/theta_ske.csv")), // None,
+        file: Some(String::from("examples/vanco_sde/output_ode/theta_ske_sv.csv")), // None,
     });
     settings.set_output_write(true);
     settings.set_log_level(settings::LogLevel::DEBUG);
@@ -96,9 +95,6 @@ pub(crate) fn main() {
     let data = data::read_pmetrics("examples/vanco_sde/vclean.csv").unwrap();
 
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
-
-    // TODO_wmy copy main.rs to the output directory before running
-
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}
     let result = algorithm.into_npresult();

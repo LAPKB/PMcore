@@ -97,7 +97,6 @@ pub(crate) fn main() {
 
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
 
-    // TODO_wmy copy main.rs to the output directory before running
 
     algorithm.initialize().unwrap();
     while !algorithm.next_cycle().unwrap() {}
