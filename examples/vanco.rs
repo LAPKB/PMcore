@@ -1,4 +1,4 @@
-use pmcore::prelude::{simulator::Equation, *};
+use pmcore::prelude::{model::Model, simulator::Equation, *};
 fn main() {
     let eq = equation::ODE::new(
         |x, p, _t, dx, _rateiv, _cov| {
@@ -37,7 +37,9 @@ fn main() {
         .repeat(1000, 0.01)
         .build();
 
-    let op = eq.simulate_subject(&subject, &vec![0.3, 0.2, 0.5], None).0;
+    let op = eq
+        .initialize_model(&subject, vec![0.3, 0.2, 0.5])
+        .estimate_outputs();
 
     let times = op.flat_time();
     let pred = op.flat_predictions();

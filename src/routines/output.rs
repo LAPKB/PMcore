@@ -8,6 +8,7 @@ use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
+use pharmsol::simulator::model::Model;
 use serde::Serialize;
 // use pharmsol::Cache;
 use crate::routines::settings::Settings;
@@ -168,33 +169,37 @@ impl<E: for<'a> Equation<'a>> NPResult<E> {
                 // Population predictions
                 let pop_mean_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_mean.to_vec(), None)
-                    .0
+                    .initialize_model(&subject, pop_mean.to_vec())
+                    .estimate_outputs()
                     .get_predictions()
                     .clone();
 
                 let pop_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_median.to_vec(), None)
-                    .0
+                    .initialize_model(&subject, pop_median.to_vec())
+                    .estimate_outputs()
                     .get_predictions()
                     .clone();
 
                 // Posterior predictions
                 let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
+
                 let post_mean_pred = self
                     .equation
-                    .simulate_subject(&subject, &post_mean_spp, None)
-                    .0
+                    .initialize_model(&subject, post_mean_spp.to_vec())
+                    .estimate_outputs()
                     .get_predictions()
                     .clone();
+
                 let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
+
                 let post_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &post_median_spp, None)
-                    .0
+                    .initialize_model(&subject, post_median_spp.to_vec())
+                    .estimate_outputs()
                     .get_predictions()
                     .clone();
+
                 assert_eq!(
                     pop_mean_pred.len(),
                     pop_median_pred.len(),
@@ -415,30 +420,33 @@ impl<E: for<'a> Equation<'a>> NPResult<E> {
                 // Population predictions
                 let pop_mean_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_mean.to_vec(), None)
-                    .0
-                    .get_predictions()
-                    .clone();
-                let pop_median_pred = self
-                    .equation
-                    .simulate_subject(&subject, &pop_median.to_vec(), None)
-                    .0
+                    .initialize_model(&subject, pop_mean.to_vec())
+                    .estimate_outputs()
                     .get_predictions()
                     .clone();
 
-                // Posterior predictions
-                let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
-                let post_mean_pred = self
+                let pop_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &post_mean_spp, None)
-                    .0
+                    .initialize_model(&subject, pop_median.to_vec())
+                    .estimate_outputs()
                     .get_predictions()
                     .clone();
+
+                let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
+
+                let post_mean_pred = self
+                    .equation
+                    .initialize_model(&subject, post_mean_spp.to_vec())
+                    .estimate_outputs()
+                    .get_predictions()
+                    .clone();
+
                 let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
+
                 let post_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &post_median_spp, None)
-                    .0
+                    .initialize_model(&subject, post_median_spp.to_vec())
+                    .estimate_outputs()
                     .get_predictions()
                     .clone();
 
