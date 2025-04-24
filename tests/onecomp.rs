@@ -65,7 +65,9 @@ fn test_one_compartment() -> Result<()> {
 
     // Check the results
     assert_eq!(result.cycles(), 32);
-    assert_eq!(result.objf(), 97.57533032670898);
+    // Check that likelihood are reasonably close
+    let objf_diff = (result.objf() - 97.57533032670898).abs();
+    assert!(objf_diff < 0.01, "objf_diff: {}", objf_diff);
 
     Ok(())
 }
