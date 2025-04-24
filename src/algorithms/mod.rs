@@ -30,7 +30,7 @@ pub enum Algorithm {
     POSTPROB,
 }
 
-pub trait Algorithms<E: Equation>: Sync {
+pub trait Algorithms<E: for<'a> Equation<'a>>: Sync {
     fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>>
     where
         Self: Sized;
@@ -264,7 +264,7 @@ pub trait Algorithms<E: Equation>: Sync {
     fn into_npresult(&self) -> NPResult<E>;
 }
 
-pub fn dispatch_algorithm<E: Equation>(
+pub fn dispatch_algorithm<E: for<'a> Equation<'a>>(
     settings: Settings,
     equation: E,
     data: Data,

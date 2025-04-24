@@ -9,14 +9,14 @@ use pharmsol::prelude::{
     simulator::{psi, Equation},
 };
 
-pub struct SppOptimizer<'a, E: Equation> {
+pub struct SppOptimizer<'a, E: Equation<'a>> {
     equation: &'a E,
     data: &'a Data,
     sig: &'a ErrorModel<'a>,
     pyl: &'a Array1<f64>,
 }
 
-impl<E: Equation> CostFunction for SppOptimizer<'_, E> {
+impl<E: for<'a> Equation<'a>> CostFunction for SppOptimizer<'_, E> {
     type Param = Vec<f64>;
     type Output = f64;
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
@@ -43,7 +43,7 @@ impl<E: Equation> CostFunction for SppOptimizer<'_, E> {
     }
 }
 
-impl<'a, E: Equation> SppOptimizer<'a, E> {
+impl<'a, E: for<'b> Equation<'b>> SppOptimizer<'a, E> {
     pub fn new(equation: &'a E, data: &'a Data, sig: &'a ErrorModel, pyl: &'a Array1<f64>) -> Self {
         Self {
             equation,

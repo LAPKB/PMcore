@@ -91,7 +91,6 @@ pub mod prelude {
     //traits
     pub use pharmsol::data::*;
     pub use pharmsol::equation::Equation;
-    pub use pharmsol::equation::EquationTypes;
     pub use pharmsol::equation::Predictions;
     pub use pharmsol::equation::*;
     pub use pharmsol::prelude::*;

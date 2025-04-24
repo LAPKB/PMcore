@@ -35,7 +35,7 @@ use crate::routines::{initialization, optimization::SppOptimizer};
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-pub struct NPOD<E: Equation> {
+pub struct NPOD<E: for<'a> Equation<'a>> {
     equation: E,
     ranges: Vec<(f64, f64)>,
     psi: Psi,
@@ -53,7 +53,7 @@ pub struct NPOD<E: Equation> {
     settings: Settings,
 }
 
-impl<E: Equation> Algorithms<E> for NPOD<E> {
+impl<E: for<'a> Equation<'a>> Algorithms<E> for NPOD<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
@@ -367,7 +367,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 }
 
-impl<E: Equation> NPOD<E> {
+impl<E: for<'a> Equation<'a>> NPOD<E> {
     fn validate_psi(&mut self) -> Result<()> {
         let mut psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
         // First coerce all NaN and infinite in psi to 0.0

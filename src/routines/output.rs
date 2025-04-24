@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 #[derive(Debug)]
-pub struct NPResult<E: Equation> {
+pub struct NPResult<E: for<'a> Equation<'a>> {
     equation: E,
     data: Data,
     theta: Theta,
@@ -33,7 +33,7 @@ pub struct NPResult<E: Equation> {
 }
 
 #[allow(clippy::too_many_arguments)]
-impl<E: Equation> NPResult<E> {
+impl<E: for<'a> Equation<'a>> NPResult<E> {
     /// Create a new NPResult object
     pub fn new(
         equation: E,
