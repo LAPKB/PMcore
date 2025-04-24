@@ -7,14 +7,9 @@ use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use anyhow::Context;
 use anyhow::Result;
-use faer_ext::IntoNdarray;
-use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
-use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 use npag::*;
 use npod::NPOD;
 use pharmsol::prelude::{data::Data, simulator::Equation};
-use pharmsol::simulator::model::Model;
-use pharmsol::{ErrorModel, Predictions, Subject};
 use postprob::POSTPROB;
 use serde::{Deserialize, Serialize};
 
