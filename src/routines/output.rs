@@ -78,15 +78,15 @@ impl<E: Equation> NPResult<E> {
         self.converged
     }
 
-    pub fn get_theta(&self) -> &Theta {
+    pub fn theta(&self) -> &Theta {
         &self.theta
     }
 
-    pub fn get_psi(&self) -> &Psi {
+    pub fn psi(&self) -> &Psi {
         &self.psi
     }
 
-    pub fn get_w(&self) -> &Col<f64> {
+    pub fn w(&self) -> &Col<f64> {
         &self.w
     }
 
