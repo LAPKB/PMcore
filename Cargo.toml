@@ -20,7 +20,7 @@ ndarray = { version = "0.16.1", features = ["rayon"] }
 serde = "1.0.188"
 serde_json = "1.0.66"
 sobol_burley = "0.5.0"
-argmin = { version = "0.10.0", features = [] }
+argmin = "0.10.0"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = [
     "env-filter",

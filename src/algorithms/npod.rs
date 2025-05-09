@@ -168,15 +168,14 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
+        let mut error_model: ErrorModel = self.settings.error().clone().into();
+        error_model.set_scalar(self.gamma);
+
         self.psi = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(
-                self.settings.error().poly,
-                self.gamma,
-                &self.settings.error().error_model().into(),
-            ),
+            &error_model,
             self.cycle == 1 && self.settings.config().progress,
             self.cycle != 1,
         );
@@ -259,15 +258,17 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
 
+        let mut error_model_up: ErrorModel = self.settings.error().clone().into();
+        error_model_up.set_scalar(gamma_up);
+
+        let mut error_model_down: ErrorModel = self.settings.error().clone().into();
+        error_model_down.set_scalar(gamma_down);
+
         let psi_up = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(
-                self.settings.error().poly,
-                self.gamma,
-                &self.settings.error().error_model().into(),
-            ),
+            &error_model_up,
             false,
             true,
         );
@@ -275,11 +276,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(
-                self.settings.error().poly,
-                self.gamma,
-                &self.settings.error().error_model().into(),
-            ),
+            &error_model_down,
             false,
             true,
         );
@@ -340,8 +337,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let pyl = psi.dot(&w);
 
         // Add new point to theta based on the optimization of the D function
-        let error_type = self.settings.error().error_model().into();
-        let sigma = &ErrorModel::new(self.settings.error().poly, self.gamma, &error_type);
+        let mut error_model: ErrorModel = self.settings.error().clone().into();
+        error_model.set_scalar(self.gamma);
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
         for spp in self.theta.matrix().row_iter() {
@@ -350,7 +347,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             candididate_points.push(spp.to_owned());
         }
         candididate_points.par_iter_mut().for_each(|spp| {
-            let optimizer = SppOptimizer::new(&self.equation, &self.data, sigma, &pyl);
+            let optimizer = SppOptimizer::new(&self.equation, &self.data, &error_model, &pyl);
             let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
             *spp = candidate_point;
             // add spp to theta

@@ -32,6 +32,7 @@ pub struct POSTPROB<E: Equation> {
     data: Data,
     settings: Settings,
     cyclelog: CycleLog,
+    error_model: ErrorModel,
 }
 
 impl<E: Equation> Algorithms<E> for POSTPROB<E> {
@@ -44,6 +45,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
+            error_model: settings.error().clone().into(),
             gamma: settings.error().value,
             settings,
             data,
@@ -116,11 +118,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(
-                self.settings.error().poly,
-                self.gamma,
-                &self.settings.error().error_model().into(),
-            ),
+            &self.error_model,
             false,
             false,
         );

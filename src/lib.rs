@@ -37,11 +37,9 @@ pub mod prelude {
 
     pub use crate::routines::initialization::Prior;
 
-    pub use crate::routines::settings::ErrorModel;
     pub use crate::routines::settings::*;
     pub use crate::structs::*;
 
-    //Alma re-exports
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;
     }
