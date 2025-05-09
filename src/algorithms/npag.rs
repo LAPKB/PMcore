@@ -5,11 +5,11 @@ pub use crate::routines::evaluation::qr;
 use crate::routines::settings::Settings;
 
 use crate::routines::output::{CycleLog, NPCycle, NPResult};
-use crate::structs::psi::{calculate_psi, Psi};
+use crate::structs::psi::{Psi, calculate_psi};
 use crate::structs::theta::Theta;
 
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use pharmsol::prelude::{
     data::{Data, ErrorModel, ErrorType},
     simulator::Equation,

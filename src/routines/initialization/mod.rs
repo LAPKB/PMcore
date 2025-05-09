@@ -1,7 +1,7 @@
 use std::fs::File;
 
 use crate::structs::theta::Theta;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
 
@@ -66,8 +66,8 @@ pub fn sample_space(settings: &Settings) -> Result<Theta> {
     let prior = match settings.prior() {
         Prior::Sobol(points, seed) => sobol::generate(settings.parameters(), *points, *seed)?,
         Prior::Latin(points, seed) => latin::generate(settings.parameters(), *points, *seed)?,
-        Prior::File(ref path) => parse_prior(path, settings)?,
-        Prior::Theta(ref theta) => {
+        Prior::File(path) => parse_prior(path, settings)?,
+        Prior::Theta(theta) => {
             // If a custom prior is provided, return it directly
             return Ok(theta.clone());
         }

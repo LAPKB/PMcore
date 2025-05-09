@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use csv::WriterBuilder;
 use faer::linalg::zip::IntoView;
 use faer_ext::IntoNdarray;
@@ -12,7 +12,7 @@ use serde::Serialize;
 // use pharmsol::Cache;
 use crate::routines::settings::Settings;
 use faer::{Col, Mat};
-use std::fs::{create_dir_all, File, OpenOptions};
+use std::fs::{File, OpenOptions, create_dir_all};
 use std::path::{Path, PathBuf};
 
 /// Defines the result objects from an NPAG run
@@ -810,7 +810,12 @@ pub fn posterior_mean_median(
 
     // Check for compatible sizes
     if theta.nrows() != w.len() || theta.nrows() != psi.ncols() || psi.ncols() != w.len() {
-        bail!("Number of parameters and number of weights do not match, theta.nrows(): {}, w.len(): {}, psi.ncols(): {}", theta.nrows(), w.len(), psi.ncols());
+        bail!(
+            "Number of parameters and number of weights do not match, theta.nrows(): {}, w.len(): {}, psi.ncols(): {}",
+            theta.nrows(),
+            w.len(),
+            psi.ncols()
+        );
     }
 
     // Normalize psi to get probabilities of each spp for each id

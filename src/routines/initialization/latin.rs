@@ -1,8 +1,8 @@
 use anyhow::Result;
 use faer::Mat;
+use rand::Rng;
 use rand::prelude::*;
 use rand::rngs::StdRng;
-use rand::Rng;
 
 use crate::prelude::Parameters;
 use crate::structs::theta::Theta;

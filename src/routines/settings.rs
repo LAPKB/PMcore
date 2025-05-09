@@ -1,7 +1,7 @@
 use crate::algorithms::Algorithm;
 use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use pharmsol::prelude::data::ErrorType;
 use serde::{Deserialize, Serialize};
 use serde_json;

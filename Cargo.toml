@@ -1,7 +1,7 @@
 [package]
 name = "pmcore"
 version = "0.10.0"
-edition = "2021"
+edition = "2024"
 authors = [
     "Julián D. Otálvaro <juliandavid347@gmail.com>",
     "Markus Hovd",

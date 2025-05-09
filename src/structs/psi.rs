@@ -2,10 +2,10 @@ use faer::Mat;
 use faer_ext::IntoFaer;
 use faer_ext::IntoNdarray;
 use ndarray::{Array2, ArrayView2};
-use pharmsol::prelude::simulator::psi;
 use pharmsol::Data;
 use pharmsol::Equation;
 use pharmsol::ErrorModel;
+use pharmsol::prelude::simulator::psi;
 
 use super::theta::Theta;
 
