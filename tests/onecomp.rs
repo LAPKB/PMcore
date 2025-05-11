@@ -54,9 +54,6 @@ fn test_one_compartment() -> Result<()> {
     });
 
     let data = data::Data::new(subjects);
-    data.get_subjects().iter().for_each(|subject| {
-        println!("{}", subject);
-    });
 
     // Run the algorithm
     let mut algorithm = dispatch_algorithm(settings, eq, data)?;
