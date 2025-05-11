@@ -44,7 +44,7 @@ pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_d
     // Option 1: Check all points against the original theta, then add them
     let keep = candidates
         .iter()
-        .filter(|point| theta.check_point(point, min_dist, ranges))
+        .filter(|point| theta.check_point(point, min_dist))
         .cloned()
         .collect::<Vec<_>>();
 

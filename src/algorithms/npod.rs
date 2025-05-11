@@ -37,7 +37,6 @@ const THETA_D: f64 = 1e-4;
 
 pub struct NPOD<E: Equation> {
     equation: E,
-    ranges: Vec<(f64, f64)>,
     psi: Psi,
     theta: Theta,
     lambda: Col<f64>,
@@ -57,7 +56,6 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
-            ranges: settings.parameters().ranges(),
             psi: Psi::new(),
             theta: Theta::new(),
             lambda: Col::zeros(0),
@@ -360,8 +358,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             // re-define a new optimization
         });
         for cp in candididate_points {
-            self.theta
-                .suggest_point(cp.to_vec().as_slice(), THETA_D, &self.ranges);
+            self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D);
         }
         Ok(())
     }

@@ -29,7 +29,7 @@ fn main() -> Result<()> {
         10000,
     );
 
-    let params = Parameters::new().add("ke0", 0.001, 2.0, false);
+    let params = Parameters::new().add("ke0", 0.001, 2.0);
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
