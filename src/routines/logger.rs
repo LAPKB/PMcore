@@ -72,7 +72,10 @@ pub(crate) fn setup_log(settings: &mut Settings) -> Result<()> {
     };
 
     // Combine layers with subscriber
-    subscriber.with(file_layer).with(stdout_layer).init();
+    let res = subscriber.with(file_layer).with(stdout_layer).try_init();
+    if res.is_err() {
+        tracing::warn!("Logger already initialized, skipping setup.");
+    }
 
     Ok(())
 }
