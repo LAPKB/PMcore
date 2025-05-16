@@ -73,8 +73,9 @@ pub(crate) fn setup_log(settings: &mut Settings) -> Result<()> {
 
     // Combine layers with subscriber
     let res = subscriber.with(file_layer).with(stdout_layer).try_init();
-    if res.is_err() {
-        tracing::warn!("Logger already initialized, skipping setup.");
+    match res {
+        Ok(_) => {}
+        Err(e) => tracing::warn!("Failed to initialize logger: {}", e),
     }
 
     Ok(())
