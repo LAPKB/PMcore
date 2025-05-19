@@ -41,7 +41,7 @@ opt-level = 3
 
 [dev-dependencies]
 approx = "0.5.1"
-criterion = { version = "0.5" }
+criterion = { version = "0.6" }
 
 
 [[bench]]
