@@ -101,11 +101,10 @@ pub trait Algorithms<E: Equation>: Sync {
                     .into_par_iter()
                     .map(|(i, spp)| {
                         let support_point: Vec<f64> = spp.iter().copied().collect();
-                        let (pred, ll) = self.equation().simulate_subject(
-                            subject[*index],
-                            &support_point,
-                            Some(&error_model),
-                        );
+                        let (pred, ll) = self
+                            .equation()
+                            .simulate_subject(subject[*index], &support_point, Some(&error_model))
+                            .unwrap(); //TODO: Handle error
                         (i, support_point, pred.get_predictions(), ll)
                     })
                     .collect();

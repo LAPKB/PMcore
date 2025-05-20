@@ -178,7 +178,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &error_model,
             self.cycle == 1 && self.settings.config().progress,
             self.cycle != 1,
-        );
+        )?;
 
         if let Err(err) = self.validate_psi() {
             bail!(err);
@@ -271,7 +271,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &error_model_up,
             false,
             true,
-        );
+        )?;
         let psi_down = calculate_psi(
             &self.equation,
             &self.data,
@@ -279,7 +279,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             &error_model_down,
             false,
             true,
-        );
+        )?;
 
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),

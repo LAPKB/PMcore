@@ -38,7 +38,7 @@ fn main() {
     let settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Proportional, 10.0, (0.1, 0.1, 0.0, 0.0))
+        .set_error_model(ErrorType::Proportional, 10.0, (0.1, 0.1, 0.0, 0.0))
         .build();
 
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();

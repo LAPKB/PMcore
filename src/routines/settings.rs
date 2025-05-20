@@ -3,6 +3,7 @@ use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
 use pharmsol::prelude::data::ErrorModel;
+use pharmsol::ErrorPoly;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fmt::Display;
@@ -315,8 +316,14 @@ impl Error {
 impl From<Error> for pharmsol::prelude::data::ErrorModel {
     fn from(error: Error) -> Self {
         match error.errortype {
-            ErrorType::Additive => ErrorModel::additive(error.poly, error.value),
-            ErrorType::Proportional => ErrorModel::proportional(error.poly, error.value),
+            ErrorType::Additive => ErrorModel::additive(
+                ErrorPoly::new(error.poly.0, error.poly.1, error.poly.2, error.poly.3),
+                error.value,
+            ),
+            ErrorType::Proportional => ErrorModel::proportional(
+                ErrorPoly::new(error.poly.0, error.poly.1, error.poly.2, error.poly.3),
+                error.value,
+            ),
         }
     }
 }

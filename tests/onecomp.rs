@@ -28,7 +28,7 @@ fn test_one_compartment() -> Result<()> {
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Proportional, 2.0, (0.1, 0.25, 0.0, 0.0))
+        .set_error_model(ErrorType::Proportional, 2.0, (0.1, 0.25, 0.0, 0.0))
         .build();
 
     settings.set_prior(Prior::sobol(64, 22));

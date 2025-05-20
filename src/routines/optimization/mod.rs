@@ -23,7 +23,7 @@ impl<E: Equation> CostFunction for SppOptimizer<'_, E> {
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = Array1::from(spp.clone()).insert_axis(Axis(0));
 
-        let psi = psi(self.equation, self.data, &theta, self.sig, false, false);
+        let psi = psi(self.equation, self.data, &theta, self.sig, false, false)?;
 
         if psi.ncols() > 1 {
             tracing::error!("Psi in SppOptimizer has more than one column");

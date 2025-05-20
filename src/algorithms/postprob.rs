@@ -28,7 +28,6 @@ pub struct POSTPROB<E: Equation> {
     objf: f64,
     cycle: usize,
     converged: bool,
-    gamma: f64,
     data: Data,
     settings: Settings,
     cyclelog: CycleLog,
@@ -46,7 +45,6 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             cycle: 0,
             converged: false,
             error_model: settings.error().clone().into(),
-            gamma: settings.error().value,
             settings,
             data,
 
@@ -121,7 +119,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             &self.error_model,
             false,
             false,
-        );
+        )?;
         (self.w, self.objf) = burke(&self.psi).expect("Error in IPM");
         Ok(())
     }
