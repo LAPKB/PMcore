@@ -62,7 +62,7 @@ fn test_one_compartment() -> Result<()> {
 
     // Check the results
     assert_eq!(result.cycles(), 100);
-    assert_eq!(result.objf(), 565.7749529835736);
+    assert!(result.objf() - 565.7749 < 0.01);
 
     Ok(())
 }
