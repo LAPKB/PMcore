@@ -11,7 +11,7 @@ use crate::structs::theta::Theta;
 use anyhow::bail;
 use anyhow::Result;
 use pharmsol::prelude::{
-    data::{Data, ErrorModel, ErrorType},
+    data::{Data, ErrorModel},
     simulator::Equation,
 };
 
@@ -41,8 +41,7 @@ pub struct NPAG<E: Equation> {
     f1: f64,
     cycle: usize,
     gamma_delta: f64,
-    gamma: f64,
-    error_type: ErrorType,
+    error_model: ErrorModel,
     converged: bool,
     cycle_log: CycleLog,
     data: Data,
@@ -65,8 +64,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             f1: f64::default(),
             cycle: 0,
             gamma_delta: 0.1,
-            gamma: settings.error().value,
-            error_type: settings.error().error_model().into(),
+            error_model: settings.error().clone().into(),
             converged: false,
             cycle_log: CycleLog::new(),
             settings,
@@ -166,7 +164,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             delta_objf: (self.last_objf - self.objf).abs(),
             nspp: self.theta.nspp(),
             theta: self.theta.clone(),
-            gamlam: self.gamma,
+            gamlam: self.error_model.scalar(),
             converged: self.converged,
         };
 
@@ -184,10 +182,10 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.settings.error().poly, self.gamma, &self.error_type),
+            &self.error_model,
             self.cycle == 1 && self.settings.config().progress,
             self.cycle != 1,
-        );
+        )?;
 
         if let Err(err) = self.validate_psi() {
             bail!(err);
@@ -272,25 +270,31 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn optimizations(&mut self) -> Result<()> {
         // Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
-        let gamma_up = self.gamma * (1.0 + self.gamma_delta);
-        let gamma_down = self.gamma / (1.0 + self.gamma_delta);
+        let gamma_up = self.error_model.scalar() * (1.0 + self.gamma_delta);
+        let gamma_down = self.error_model.scalar() / (1.0 + self.gamma_delta);
+
+        let mut error_model_up = self.error_model.clone();
+        error_model_up.set_scalar(gamma_up);
+
+        let mut error_model_down = self.error_model.clone();
+        error_model_down.set_scalar(gamma_down);
 
         let psi_up = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.settings.error().poly, gamma_up, &self.error_type),
+            &error_model_up,
             false,
             true,
-        );
+        )?;
         let psi_down = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.settings.error().poly, gamma_down, &self.error_type),
+            &error_model_down,
             false,
             true,
-        );
+        )?;
 
         let (lambda_up, objf_up) = match burke(&psi_up) {
             Ok((lambda, objf)) => (lambda, objf),
@@ -309,14 +313,14 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             }
         };
         if objf_up > self.objf {
-            self.gamma = gamma_up;
+            self.error_model.set_scalar(gamma_up);
             self.objf = objf_up;
             self.gamma_delta *= 4.;
             self.lambda = lambda_up;
             self.psi = psi_up;
         }
         if objf_down > self.objf {
-            self.gamma = gamma_down;
+            self.error_model.set_scalar(gamma_down);
             self.objf = objf_down;
             self.gamma_delta *= 4.;
             self.lambda = lambda_down;
@@ -332,7 +336,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn logs(&self) {
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.nspp());
-        tracing::debug!("Gamma = {:.16}", self.gamma);
+        tracing::debug!("Gamma = {:.16}", self.error_model.scalar());
         tracing::debug!("EPS = {:.4}", self.eps);
         // Increasing objf signals instability or model misspecification.
         if self.last_objf > self.objf + 1e-4 {

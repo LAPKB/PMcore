@@ -168,14 +168,14 @@ impl<E: Equation> NPResult<E> {
                 // Population predictions
                 let pop_mean_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_mean.to_vec(), None)
+                    .simulate_subject(&subject, &pop_mean.to_vec(), None)?
                     .0
                     .get_predictions()
                     .clone();
 
                 let pop_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_median.to_vec(), None)
+                    .simulate_subject(&subject, &pop_median.to_vec(), None)?
                     .0
                     .get_predictions()
                     .clone();
@@ -184,14 +184,14 @@ impl<E: Equation> NPResult<E> {
                 let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
                 let post_mean_pred = self
                     .equation
-                    .simulate_subject(&subject, &post_mean_spp, None)
+                    .simulate_subject(&subject, &post_mean_spp, None)?
                     .0
                     .get_predictions()
                     .clone();
                 let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
                 let post_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &post_median_spp, None)
+                    .simulate_subject(&subject, &post_median_spp, None)?
                     .0
                     .get_predictions()
                     .clone();
@@ -415,13 +415,13 @@ impl<E: Equation> NPResult<E> {
                 // Population predictions
                 let pop_mean_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_mean.to_vec(), None)
+                    .simulate_subject(&subject, &pop_mean.to_vec(), None)?
                     .0
                     .get_predictions()
                     .clone();
                 let pop_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_median.to_vec(), None)
+                    .simulate_subject(&subject, &pop_median.to_vec(), None)?
                     .0
                     .get_predictions()
                     .clone();
@@ -430,14 +430,14 @@ impl<E: Equation> NPResult<E> {
                 let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
                 let post_mean_pred = self
                     .equation
-                    .simulate_subject(&subject, &post_mean_spp, None)
+                    .simulate_subject(&subject, &post_mean_spp, None)?
                     .0
                     .get_predictions()
                     .clone();
                 let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
                 let post_median_pred = self
                     .equation
-                    .simulate_subject(&subject, &post_median_spp, None)
+                    .simulate_subject(&subject, &post_median_spp, None)?
                     .0
                     .get_predictions()
                     .clone();
