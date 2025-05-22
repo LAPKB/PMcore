@@ -27,7 +27,7 @@ fn main() {
             fetch_params!(p, _ka, _ke, v);
             y[0] = x[1] * 1000.0 / v;
         },
-        (2, 1),
+        (3, 3),
     );
 
     let params = Parameters::new()
@@ -35,12 +35,13 @@ fn main() {
         .add("ke", 0.001, 3.0, false)
         .add("v", 0.001, 50.0, false);
 
-    let settings = Settings::builder()
+    let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorType::Proportional, 10.0, (0.1, 0.1, 0.0, 0.0))
+        .set_error_model(ErrorType::Proportional, 2.0, (0.1, 0.1, 0.0, 0.0))
         .build();
 
+    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();
