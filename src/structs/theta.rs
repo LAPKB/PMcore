@@ -39,11 +39,6 @@ impl Theta {
         &self.matrix
     }
 
-    /// Set the matrix containing parameter values
-    pub fn set_matrix(&mut self, matrix: Mat<f64>) {
-        self.matrix = matrix;
-    }
-
     /// Get the number of support points, equal to the number of rows in the matrix
     pub fn nspp(&self) -> usize {
         self.matrix.nrows()
