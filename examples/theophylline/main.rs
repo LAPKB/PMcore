@@ -27,7 +27,7 @@ fn main() {
             fetch_params!(p, _ka, _ke, v);
             y[0] = x[1] * 1000.0 / v;
         },
-        (3, 3),
+        (2, 1),
     );
 
     let params = Parameters::new()
