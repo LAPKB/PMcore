@@ -88,9 +88,6 @@ pub fn mmopt(
     // Generate sample candidate indices
     let candidate_indices = generate_combinations(times.len(), nsamp);
 
-    // em
-    let e = errormodel.;
-
     let (best_combo, min_risk) = candidate_indices
         .par_iter()
         .map(|combo| {
@@ -114,7 +111,7 @@ pub fn mmopt(
                             .collect();
 
                         let i_var: Vec<f64> =
-                            i_obs.iter().map(|&x| errormodel.(x)).collect();
+                            i_obs.iter().map(|&x| errormodel.variance(x)).collect();
                         let j_var: Vec<f64> =
                             j_obs.iter().map(|&x| errorpoly.variance(x)).collect();
 
@@ -148,13 +145,10 @@ pub fn mmopt(
         .min_by(|(_, risk_a), (_, risk_b)| risk_a.partial_cmp(risk_b).unwrap())
         .unwrap();
 
+    let times = best_combo.iter().map(|&i| times[i]).collect::<Vec<_>>();
     let res = MmoptResult {
-        best_combo_indices: best_combo.clone(),
-        best_combo_times: best_combo
-            .iter()
-            .map(|&index| predictions.times[index])
-            .collect(),
-        min_risk,
+        times: times,
+        risk: min_risk,
     };
 
     Ok(res)
