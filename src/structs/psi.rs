@@ -1,3 +1,4 @@
+use anyhow::Result;
 use faer::Mat;
 use faer_ext::IntoFaer;
 use faer_ext::IntoNdarray;
@@ -84,7 +85,7 @@ pub(crate) fn calculate_psi(
     error_model: &ErrorModel,
     progress: bool,
     cache: bool,
-) -> Psi {
+) -> Result<Psi> {
     let psi_ndarray = psi(
         equation,
         subjects,
@@ -92,7 +93,7 @@ pub(crate) fn calculate_psi(
         error_model,
         progress,
         cache,
-    );
+    )?;
 
-    psi_ndarray.view().into()
+    Ok(psi_ndarray.view().into())
 }

@@ -109,7 +109,7 @@ fn main() -> Result<()> {
     let mut settings = SettingsBuilder::new()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Proportional, 1.0, (0.1, 0.1, 0.0, 0.0))
+        .set_error_model(ErrorType::Proportional, 1.0, (0.1, 0.1, 0.0, 0.0))
         .build();
 
     settings.set_prior(Prior::sobol(212900, 347));

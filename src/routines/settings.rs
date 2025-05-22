@@ -2,7 +2,8 @@ use crate::algorithms::Algorithm;
 use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
-use pharmsol::prelude::data::ErrorType;
+use pharmsol::prelude::data::ErrorModel;
+use pharmsol::ErrorPoly;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fmt::Display;
@@ -268,18 +269,9 @@ impl From<Vec<Parameter>> for Parameters {
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
-pub enum ErrorModel {
+pub enum ErrorType {
     Additive,
     Proportional,
-}
-
-impl From<ErrorModel> for ErrorType {
-    fn from(error_model: ErrorModel) -> ErrorType {
-        match error_model {
-            ErrorModel::Additive => ErrorType::Add,
-            ErrorModel::Proportional => ErrorType::Prop,
-        }
-    }
 }
 
 /// Defines the error model and polynomial to be used
@@ -289,7 +281,7 @@ pub struct Error {
     /// The initial value of `gamma` or `lambda`
     pub value: f64,
     /// The error class, either `additive` or `proportional`
-    pub model: ErrorModel,
+    pub errortype: ErrorType,
     /// The assay error polynomial
     pub poly: (f64, f64, f64, f64),
 }
@@ -298,29 +290,41 @@ impl Default for Error {
     fn default() -> Self {
         Error {
             value: 0.0,
-            model: ErrorModel::Additive,
+            errortype: ErrorType::Additive,
             poly: (0.0, 0.1, 0.0, 0.0),
         }
     }
 }
 
 impl Error {
-    fn new(value: f64, model: ErrorModel, poly: (f64, f64, f64, f64)) -> Self {
-        Error { value, model, poly }
+    fn new(value: f64, errortype: ErrorType, poly: (f64, f64, f64, f64)) -> Self {
+        Error {
+            value,
+            errortype,
+            poly,
+        }
     }
 
     fn validate(&self) -> Result<()> {
         if self.value < 0.0 {
-            bail!(format!(
-                "Error value must be non-negative, got {}",
-                self.value
-            ));
+            bail!("The initial value of gamma or lambda must be non-negative");
         }
         Ok(())
     }
+}
 
-    pub fn error_model(&self) -> ErrorModel {
-        self.model.clone()
+impl From<Error> for pharmsol::prelude::data::ErrorModel {
+    fn from(error: Error) -> Self {
+        match error.errortype {
+            ErrorType::Additive => ErrorModel::additive(
+                ErrorPoly::new(error.poly.0, error.poly.1, error.poly.2, error.poly.3),
+                error.value,
+            ),
+            ErrorType::Proportional => ErrorModel::proportional(
+                ErrorPoly::new(error.poly.0, error.poly.1, error.poly.2, error.poly.3),
+                error.value,
+            ),
+        }
     }
 }
 
@@ -595,11 +599,11 @@ impl SettingsBuilder<AlgorithmSet> {
 impl SettingsBuilder<ParametersSet> {
     pub fn set_error_model(
         self,
-        model: ErrorModel,
+        errortype: ErrorType,
         value: f64,
         poly: (f64, f64, f64, f64),
     ) -> SettingsBuilder<ErrorSet> {
-        let error = Error::new(value, model, poly);
+        let error = Error::new(value, errortype, poly);
 
         SettingsBuilder {
             config: self.config,
@@ -664,7 +668,7 @@ mod tests {
         let mut settings = SettingsBuilder::new()
             .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm
             .set_parameters(parameters) // Step 2: Define parameters
-            .set_error_model(ErrorModel::Additive, 5.0, (0.0, 0.1, 0.0, 0.0))
+            .set_error_model(ErrorType::Additive, 5.0, (0.0, 0.1, 0.0, 0.0))
             .build();
 
         settings.set_cycles(100);

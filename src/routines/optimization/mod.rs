@@ -2,6 +2,7 @@ use argmin::{
     core::{CostFunction, Error, Executor},
     solver::neldermead::NelderMead,
 };
+
 use ndarray::{Array1, Axis};
 
 use pharmsol::prelude::{
@@ -12,7 +13,7 @@ use pharmsol::prelude::{
 pub struct SppOptimizer<'a, E: Equation> {
     equation: &'a E,
     data: &'a Data,
-    sig: &'a ErrorModel<'a>,
+    sig: &'a ErrorModel,
     pyl: &'a Array1<f64>,
 }
 
@@ -22,7 +23,7 @@ impl<E: Equation> CostFunction for SppOptimizer<'_, E> {
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = Array1::from(spp.clone()).insert_axis(Axis(0));
 
-        let psi = psi(self.equation, self.data, &theta, self.sig, false, false);
+        let psi = psi(self.equation, self.data, &theta, self.sig, false, false)?;
 
         if psi.ncols() > 1 {
             tracing::error!("Psi in SppOptimizer has more than one column");
@@ -54,7 +55,7 @@ impl<'a, E: Equation> SppOptimizer<'a, E> {
     }
     pub fn optimize_point(self, spp: Array1<f64>) -> Result<Array1<f64>, Error> {
         let simplex = create_initial_simplex(&spp.to_vec());
-        let solver = NelderMead::new(simplex).with_sd_tolerance(1e-2)?;
+        let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(simplex).with_sd_tolerance(1e-2)?;
         let res = Executor::new(self, solver)
             .configure(|state| state.max_iters(5))
             // .add_observer(SlogLogger::term(), ObserverMode::Always)

@@ -13,7 +13,7 @@ use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 use npag::*;
 use npod::NPOD;
 use pharmsol::prelude::{data::Data, simulator::Equation};
-use pharmsol::{ErrorModel, Predictions, Subject};
+use pharmsol::{Predictions, Subject};
 use postprob::POSTPROB;
 use serde::{Deserialize, Serialize};
 
@@ -89,13 +89,7 @@ pub trait Algorithms<E: Equation>: Sync {
             for index in &indices {
                 tracing::debug!("Subject with zero probability: {}", subject[*index].id());
 
-                let e_type = self.get_settings().error().error_model().into();
-
-                let error_model = ErrorModel::new(
-                    self.get_settings().error().poly,
-                    self.get_settings().error().value,
-                    &e_type,
-                );
+                let error_model = self.get_settings().error.clone().into();
 
                 // Simulate all support points in parallel
                 let spp_results: Vec<_> = self
@@ -107,11 +101,10 @@ pub trait Algorithms<E: Equation>: Sync {
                     .into_par_iter()
                     .map(|(i, spp)| {
                         let support_point: Vec<f64> = spp.iter().copied().collect();
-                        let (pred, ll) = self.equation().simulate_subject(
-                            subject[*index],
-                            &support_point,
-                            Some(&error_model),
-                        );
+                        let (pred, ll) = self
+                            .equation()
+                            .simulate_subject(subject[*index], &support_point, Some(&error_model))
+                            .unwrap(); //TODO: Handle error
                         (i, support_point, pred.get_predictions(), ll)
                     })
                     .collect();
