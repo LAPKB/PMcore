@@ -61,7 +61,7 @@ fn test_one_compartment() -> Result<()> {
     let result = algorithm.fit()?;
 
     // Check the results
-    assert_eq!(result.cycles(), 100);
+    assert_eq!(result.cycles(), 32);
     assert!(result.objf() - 565.7749 < 0.01);
 
     Ok(())

@@ -320,7 +320,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             self.psi = psi_up;
         }
         if objf_down > self.objf {
-            self.error_model.set_scalar(gamma_up);
+            self.error_model.set_scalar(gamma_down);
             self.objf = objf_down;
             self.gamma_delta *= 4.;
             self.lambda = lambda_down;
