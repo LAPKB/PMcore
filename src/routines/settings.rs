@@ -231,14 +231,18 @@ impl Parameters {
     pub fn ranges(&self) -> Vec<(f64, f64)> {
         self.parameters.iter().map(|p| (p.lower, p.upper)).collect()
     }
+
+    /// Get the number of parameters
     pub fn len(&self) -> usize {
         self.parameters.len()
     }
 
+    /// Check if the parameters are empty
     pub fn is_empty(&self) -> bool {
         self.parameters.is_empty()
     }
 
+    /// Iterate over the parameters
     pub fn iter(&self) -> std::slice::Iter<'_, Parameter> {
         self.parameters.iter()
     }

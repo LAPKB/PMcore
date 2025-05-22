@@ -119,9 +119,19 @@ impl Debug for Theta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Write nspp and nsub
         writeln!(f, "\nTheta contains {} support points\n", self.nspp())?;
+
+        // Write the parameter names
+        for name in self.parameters.names().iter() {
+            write!(f, "\t{}", name)?;
+        }
+        writeln!(f)?;
         // Write the matrix
         self.matrix.row_iter().enumerate().for_each(|(index, row)| {
-            writeln!(f, "{index}\t{:?}", row).unwrap();
+            write!(f, "{}", index).unwrap();
+            for val in row.iter() {
+                write!(f, "\t{:.2}", val).unwrap();
+            }
+            writeln!(f).unwrap();
         });
         Ok(())
     }
