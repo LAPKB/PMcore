@@ -291,7 +291,7 @@ impl Default for Error {
         Error {
             value: 0.0,
             errortype: ErrorType::Additive,
-            poly: (0.0, 0.0, 0.0, 0.0),
+            poly: (0.0, 0.1, 0.0, 0.0),
         }
     }
 }
