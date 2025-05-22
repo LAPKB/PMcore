@@ -138,8 +138,7 @@ impl Settings {
     /// Writes a copy of the settings to file
     /// The is written to output folder specified in the [Output] and is named `settings.json`.
     pub fn write(&self) -> Result<()> {
-        let serialized = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let serialized = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
 
         let outputfile = OutputFile::new(self.output.path.as_str(), "settings.json")?;
         let mut file = outputfile.file;

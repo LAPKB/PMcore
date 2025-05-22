@@ -41,7 +41,6 @@ fn main() {
         .add("theta2", 0.1, 10.0)
         .add("vs", 1.0, 10.0);
 
-
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
