@@ -35,6 +35,8 @@ pub mod prelude {
     pub use crate::routines;
     pub use crate::routines::logger;
 
+    pub use pharmsol;
+
     pub use crate::routines::initialization::Prior;
 
     pub use crate::routines::settings::*;
