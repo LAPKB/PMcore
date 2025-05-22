@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Additive, 0.0, (0.0, 0.5, 0.0, 0.0))
+        .set_error_model(ErrorType::Additive, 0.0, (0.0, 0.5, 0.0, 0.0))
         .build();
 
     settings.set_cycles(1000);

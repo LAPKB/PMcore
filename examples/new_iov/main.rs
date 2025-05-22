@@ -37,7 +37,7 @@ fn main() {
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
         .set_error_model(
-            ErrorModel::Additive,
+            ErrorType::Additive,
             0.0,
             (-0.00119, 0.44379, -0.45864, 0.16537),
         )

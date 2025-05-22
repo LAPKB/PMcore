@@ -2,6 +2,7 @@ use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use pmcore::prelude::*;
 
+use std::hint::black_box;
 fn create_equation() -> equation::ODE {
     equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
@@ -27,7 +28,7 @@ fn setup_simulation() -> Result<(Settings, equation::ODE, data::Data)> {
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Additive, 0.0, (0.0, 0.5, 0.0, 0.0))
+        .set_error_model(ErrorType::Additive, 0.0, (0.0, 0.5, 0.0, 0.0))
         .build();
 
     settings.set_cycles(1000);
@@ -46,7 +47,8 @@ fn benchmark_bimodal_ke(c: &mut Criterion) {
             || (settings.clone(), eq.clone(), data.clone()),
             |(s, e, d)| {
                 let mut algorithm = dispatch_algorithm(s, e, d).unwrap();
-                algorithm.fit().unwrap()
+                let result = algorithm.fit().unwrap();
+                black_box(result)
             },
         )
     });

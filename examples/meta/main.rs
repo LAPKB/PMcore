@@ -41,10 +41,11 @@ fn main() {
         .add("theta2", 0.1, 10.0)
         .add("vs", 1.0, 10.0);
 
+
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Proportional, 5.0, (1.0, 0.1, 0.0, 0.0))
+        .set_error_model(ErrorType::Proportional, 5.0, (1.0, 0.1, 0.0, 0.0))
         .build();
 
     settings.initialize_logs().unwrap();
