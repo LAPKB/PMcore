@@ -20,9 +20,7 @@ fn test_one_compartment() -> Result<()> {
     );
 
     // Define parameters
-    let params = Parameters::new()
-        .add("ke", 0.1, 1.0, false)
-        .add("v", 1.0, 20.0, false);
+    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
 
     // Create settings
     let mut settings = Settings::builder()
@@ -32,6 +30,7 @@ fn test_one_compartment() -> Result<()> {
         .build();
 
     settings.set_prior(Prior::sobol(64, 22));
+
     settings.set_cycles(100);
 
     // Let known support points

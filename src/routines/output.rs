@@ -103,10 +103,8 @@ impl<E: Equation> NPResult<E> {
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
             self.write_covs().context("Failed to write covariates")?;
-            if !(self.w.nrows() == 0) {
-                self.write_posterior()
-                    .context("Failed to write posterior")?;
-            }
+            self.write_posterior()
+                .context("Failed to write posterior")?;
         }
         Ok(())
     }
@@ -326,14 +324,9 @@ impl<E: Equation> NPResult<E> {
                 writer.write_field(id.clone()).unwrap();
                 writer.write_field(i.to_string()).unwrap();
 
-                theta
-                    .matrix()
-                    .row(spp)
-                    .iter()
-                    .enumerate()
-                    .for_each(|(_, val)| {
-                        writer.write_field(val.to_string()).unwrap();
-                    });
+                theta.matrix().row(spp).iter().for_each(|val| {
+                    writer.write_field(val.to_string()).unwrap();
+                });
 
                 writer.write_field(prob.to_string()).unwrap();
                 writer.write_record(None::<&[u8]>).unwrap();

@@ -252,6 +252,7 @@ pub trait Algorithms<E: Equation>: Sync {
         Ok(self.into_npresult())
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn into_npresult(&self) -> NPResult<E>;
 }
 

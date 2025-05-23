@@ -31,9 +31,9 @@ fn main() {
     );
 
     let params = Parameters::new()
-        .add("ka", 0.001, 3.0, false)
-        .add("ke", 0.001, 3.0, false)
-        .add("v", 0.001, 50.0, false);
+        .add("ka", 0.001, 3.0)
+        .add("ke", 0.001, 3.0)
+        .add("v", 0.001, 50.0);
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)

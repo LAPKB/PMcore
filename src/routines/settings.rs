@@ -138,8 +138,7 @@ impl Settings {
     /// Writes a copy of the settings to file
     /// The is written to output folder specified in the [Output] and is named `settings.json`.
     pub fn write(&self) -> Result<()> {
-        let serialized = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let serialized = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
 
         let outputfile = OutputFile::new(self.output.path.as_str(), "settings.json")?;
         let mut file = outputfile.file;
@@ -178,29 +177,26 @@ impl Default for Config {
 /// Defines a parameter to be estimated
 ///
 /// In non-parametric algorithms, parameters must be bounded. The lower and upper bounds are defined by the `lower` and `upper` fields, respectively.
-/// Fixed parameters are unknown, but common among all subjects.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Parameter {
     pub(crate) name: String,
     pub(crate) lower: f64,
     pub(crate) upper: f64,
-    pub(crate) fixed: bool,
 }
 
 impl Parameter {
     /// Create a new parameter
-    pub fn new(name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Self {
+    pub fn new(name: impl Into<String>, lower: f64, upper: f64) -> Self {
         Self {
             name: name.into(),
             lower,
             upper,
-            fixed,
         }
     }
 }
 
 /// This structure contains information on all [Parameter]s to be estimated
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq)]
 pub struct Parameters {
     pub(crate) parameters: Vec<Parameter>,
 }
@@ -212,14 +208,8 @@ impl Parameters {
         }
     }
 
-    pub fn add(
-        mut self,
-        name: impl Into<String>,
-        lower: f64,
-        upper: f64,
-        fixed: bool,
-    ) -> Parameters {
-        let parameter = Parameter::new(name, lower, upper, fixed);
+    pub fn add(mut self, name: impl Into<String>, lower: f64, upper: f64) -> Parameters {
+        let parameter = Parameter::new(name, lower, upper);
         self.parameters.push(parameter);
         self
     }
@@ -240,14 +230,18 @@ impl Parameters {
     pub fn ranges(&self) -> Vec<(f64, f64)> {
         self.parameters.iter().map(|p| (p.lower, p.upper)).collect()
     }
+
+    /// Get the number of parameters
     pub fn len(&self) -> usize {
         self.parameters.len()
     }
 
+    /// Check if the parameters are empty
     pub fn is_empty(&self) -> bool {
         self.parameters.is_empty()
     }
 
+    /// Iterate over the parameters
     pub fn iter(&self) -> std::slice::Iter<'_, Parameter> {
         self.parameters.iter()
     }
@@ -649,8 +643,7 @@ fn parse_output_folder(path: String) -> String {
         num += 1;
     }
 
-    let result = path.replace("#", &num.to_string());
-    result
+    path.replace("#", &num.to_string())
 }
 
 #[cfg(test)]
@@ -661,9 +654,7 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        let parameters = Parameters::new()
-            .add("Ke", 0.0, 5.0, false)
-            .add("V", 10.0, 200.0, true);
+        let parameters = Parameters::new().add("Ke", 0.0, 5.0).add("V", 10.0, 200.0);
 
         let mut settings = SettingsBuilder::new()
             .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm

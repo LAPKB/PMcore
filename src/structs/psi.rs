@@ -43,6 +43,16 @@ impl Psi {
 
         self.matrix = new;
     }
+
+    /// Write the matrix to a CSV file
+    pub fn write(&self, path: &str) {
+        let mut writer = csv::Writer::from_path(path).unwrap();
+        for row in self.matrix.row_iter() {
+            writer
+                .write_record(row.iter().map(|x| x.to_string()))
+                .unwrap();
+        }
+    }
 }
 
 impl Default for Psi {
