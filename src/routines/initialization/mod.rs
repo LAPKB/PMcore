@@ -84,16 +84,6 @@ pub fn sample_space(settings: &Settings) -> Result<Theta> {
                 param.upper
             );
         }
-
-        // Ensure that the parameter has a non-zero range
-        if param.lower == param.upper {
-            bail!(
-                "Parameter '{}' has zero range: [{}, {}]. Lower and upper bounds must not be equal.",
-                param.name,
-                param.lower,
-                param.upper
-            );
-        }
     }
 
     // Otherwise, parse the sampler type and generate the grid
