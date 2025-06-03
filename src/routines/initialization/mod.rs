@@ -85,16 +85,6 @@ pub fn sample_space(settings: &Settings) -> Result<Theta> {
             );
         }
 
-        // Ensure that the bounds are finite
-        if !param.lower.is_finite() || !param.upper.is_finite() {
-            bail!(
-                "Parameter '{}' has non-finite bounds: [{}, {}]",
-                param.name,
-                param.lower,
-                param.upper
-            );
-        }
-
         // Ensure that the parameter has a non-zero range
         if param.lower == param.upper {
             bail!(
