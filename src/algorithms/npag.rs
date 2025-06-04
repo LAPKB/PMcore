@@ -4,7 +4,7 @@ pub use crate::routines::evaluation::ipm::burke;
 pub use crate::routines::evaluation::qr;
 use crate::routines::settings::Settings;
 
-use crate::routines::output::{CycleLog, NPCycle, NPResult};
+use crate::routines::output::{CycleLog, NPCycle, NPResult, StopReason};
 use crate::structs::psi::{calculate_psi, Psi};
 use crate::structs::theta::Theta;
 
@@ -43,6 +43,7 @@ pub struct NPAG<E: Equation> {
     gamma_delta: f64,
     error_model: ErrorModel,
     converged: bool,
+    stop_reason: StopReason,
     cycle_log: CycleLog,
     data: Data,
     settings: Settings,
@@ -66,6 +67,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             gamma_delta: 0.1,
             error_model: settings.error().clone().into(),
             converged: false,
+            stop_reason: StopReason::Other("Running".to_string()),
             cycle_log: CycleLog::new(),
             settings,
             data,
@@ -84,7 +86,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             self.w.clone(),
             -2. * self.objf,
             self.cycle,
-            self.converged,
+            self.stop_reason.clone(),
             self.settings.clone(),
             self.cycle_log.clone(),
         )
@@ -138,6 +140,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.converged = true;
+                    self.stop_reason = StopReason::Converged;
                 } else {
                     self.f0 = self.f1;
                     self.eps = 0.2;
@@ -149,12 +152,14 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
+            self.stop_reason = StopReason::MaxCycles;
         }
 
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
             self.converged = true;
+            self.stop_reason = StopReason::Other("Stopfile detected".to_string());
         }
 
         // Create state object

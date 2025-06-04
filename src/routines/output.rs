@@ -15,6 +15,14 @@ use faer::{Col, Mat};
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 
+/// Represents the reason why the algorithm stopped
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StopReason {
+    Converged,
+    MaxCycles,
+    Other(String),
+}
+
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 #[derive(Debug)]
@@ -26,7 +34,7 @@ pub struct NPResult<E: Equation> {
     w: Col<f64>,
     objf: f64,
     cycles: usize,
-    converged: bool,
+    stopreason: StopReason,
     par_names: Vec<String>,
     settings: Settings,
     cyclelog: CycleLog,
@@ -43,7 +51,7 @@ impl<E: Equation> NPResult<E> {
         w: Col<f64>,
         objf: f64,
         cycles: usize,
-        converged: bool,
+        stopreason: StopReason,
         settings: Settings,
         cyclelog: CycleLog,
     ) -> Self {
@@ -59,7 +67,7 @@ impl<E: Equation> NPResult<E> {
             w,
             objf,
             cycles,
-            converged,
+            stopreason,
             par_names,
             settings,
             cyclelog,
@@ -75,7 +83,7 @@ impl<E: Equation> NPResult<E> {
     }
 
     pub fn converged(&self) -> bool {
-        self.converged
+        self.stopreason == StopReason::Converged
     }
 
     pub fn get_theta(&self) -> &Theta {

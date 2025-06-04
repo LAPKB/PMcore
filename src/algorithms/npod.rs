@@ -3,7 +3,7 @@ use crate::{
         algorithms::Algorithms,
         routines::{
             evaluation::{ipm::burke, qr},
-            output::{CycleLog, NPCycle, NPResult},
+            output::{CycleLog, NPCycle, NPResult, StopReason},
             settings::Settings,
         },
     },
@@ -47,6 +47,7 @@ pub struct NPOD<E: Equation> {
     gamma_delta: f64,
     error_model: ErrorModel,
     converged: bool,
+    stop_reason: StopReason,
     cycle_log: CycleLog,
     data: Data,
     settings: Settings,
@@ -66,6 +67,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             gamma_delta: 0.1,
             error_model: settings.error().clone().into(),
             converged: false,
+            stop_reason: StopReason::Other("Running".to_string()),
             cycle_log: CycleLog::new(),
             settings,
             data,
@@ -80,7 +82,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             self.w.clone(),
             -2. * self.objf,
             self.cycle,
-            self.converged,
+            self.stop_reason.clone(),
             self.settings.clone(),
             self.cycle_log.clone(),
         )
@@ -131,18 +133,21 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         if (self.last_objf - self.objf).abs() <= THETA_F {
             tracing::info!("Objective function convergence reached");
             self.converged = true;
+            self.stop_reason = StopReason::Converged;
         }
 
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
+            self.stop_reason = StopReason::MaxCycles;
         }
 
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
             self.converged = true;
+            self.stop_reason = StopReason::Other("Stopfile detected".to_string());
         }
 
         // Create state object
