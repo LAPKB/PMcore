@@ -267,3 +267,14 @@ pub fn dispatch_algorithm<E: Equation>(
         Algorithm::POSTPROB => Ok(POSTPROB::new(settings, equation, data)?),
     }
 }
+
+/// Represents the status of the algorithm
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Status {
+    Starting,
+    Converged,
+    MaxCycles,
+    InProgress,
+    ManualStop,
+    Other(String),
+}

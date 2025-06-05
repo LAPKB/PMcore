@@ -1,10 +1,11 @@
+use crate::algorithms::Status;
 use crate::prelude::algorithms::Algorithms;
 
 pub use crate::routines::evaluation::ipm::burke;
 pub use crate::routines::evaluation::qr;
 use crate::routines::settings::Settings;
 
-use crate::routines::output::{CycleLog, NPCycle, NPResult, Status};
+use crate::routines::output::{CycleLog, NPCycle, NPResult};
 use crate::structs::psi::{calculate_psi, Psi};
 use crate::structs::theta::Theta;
 

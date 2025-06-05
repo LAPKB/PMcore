@@ -1,11 +1,12 @@
 use crate::{
+    algorithms::Status,
     prelude::algorithms::Algorithms,
     structs::{
         psi::{calculate_psi, Psi},
         theta::Theta,
     },
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use faer::Col;
 use pharmsol::prelude::{
     data::{Data, ErrorModel},
@@ -14,7 +15,7 @@ use pharmsol::prelude::{
 
 use crate::routines::evaluation::ipm::burke;
 use crate::routines::initialization;
-use crate::routines::output::{CycleLog, NPResult, Status};
+use crate::routines::output::{CycleLog, NPResult};
 use crate::routines::settings::Settings;
 
 /// Posterior probability algorithm
@@ -121,7 +122,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             false,
             false,
         )?;
-        (self.w, self.objf) = burke(&self.psi).expect("Error in IPM");
+        (self.w, self.objf) = burke(&self.psi).context("Error in IPM")?;
         Ok(())
     }
 

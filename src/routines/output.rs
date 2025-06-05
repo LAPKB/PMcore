@@ -1,3 +1,4 @@
+use crate::algorithms::Status;
 use crate::prelude::*;
 use crate::routines::settings::Settings;
 use crate::structs::psi::Psi;
@@ -13,17 +14,6 @@ use pharmsol::prelude::simulator::Equation;
 use serde::Serialize;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
-
-/// Represents the status of the algorithm
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Status {
-    Starting,
-    Converged,
-    MaxCycles,
-    InProgress,
-    ManualStop,
-    Other(String),
-}
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics

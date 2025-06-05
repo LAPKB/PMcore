@@ -1,9 +1,10 @@
 use crate::{
+    algorithms::Status,
     prelude::{
         algorithms::Algorithms,
         routines::{
             evaluation::{ipm::burke, qr},
-            output::{CycleLog, NPCycle, NPResult, Status},
+            output::{CycleLog, NPCycle, NPResult},
             settings::Settings,
         },
     },
