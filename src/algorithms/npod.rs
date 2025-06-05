@@ -118,7 +118,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Theta {
+    fn theta(&self) -> &Theta {
         &self.theta
     }
 
@@ -128,6 +128,14 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
 
     fn likelihood(&self) -> f64 {
         self.objf
+    }
+
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn status(&self) -> &Status {
+        &self.status
     }
 
     fn convergence_evaluation(&mut self) {
@@ -159,7 +167,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             nspp: self.theta.nspp(),
             theta: self.theta.clone(),
             gamlam: self.error_model.scalar(),
-            converged: self.converged,
+            status: self.status.clone(),
         };
 
         // Write cycle log

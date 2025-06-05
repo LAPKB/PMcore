@@ -96,12 +96,20 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Theta {
+    fn theta(&self) -> &Theta {
         &self.theta
     }
 
     fn psi(&self) -> &Psi {
         &self.psi
+    }
+
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn status(&self) -> &Status {
+        &self.status
     }
 
     fn convergence_evaluation(&mut self) {

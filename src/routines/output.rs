@@ -82,11 +82,13 @@ impl<E: Equation> NPResult<E> {
         &self.theta
     }
 
-    pub fn get_psi(&self) -> &Psi {
+    /// Get the [Psi] structure
+    pub fn psi(&self) -> &Psi {
         &self.psi
     }
 
-    pub fn get_w(&self) -> &Col<f64> {
+    /// Get the weights (probabilities) of the support points
+    pub fn w(&self) -> &Col<f64> {
         &self.w
     }
 
@@ -555,7 +557,7 @@ pub struct NPCycle {
     pub theta: Theta,
     pub nspp: usize,
     pub delta_objf: f64,
-    pub converged: bool,
+    pub status: Status,
 }
 
 impl NPCycle {
@@ -566,7 +568,7 @@ impl NPCycle {
         theta: Theta,
         nspp: usize,
         delta_objf: f64,
-        converged: bool,
+        status: Status,
     ) -> Self {
         Self {
             cycle,
@@ -575,7 +577,7 @@ impl NPCycle {
             theta,
             nspp,
             delta_objf,
-            converged,
+            status,
         }
     }
 
@@ -587,7 +589,7 @@ impl NPCycle {
             theta: Theta::new(),
             nspp: 0,
             delta_objf: 0.0,
-            converged: false,
+            status: Status::Starting,
         }
     }
 }
@@ -617,6 +619,7 @@ impl CycleLog {
         // Write headers
         writer.write_field("cycle")?;
         writer.write_field("converged")?;
+        writer.write_field("status")?;
         writer.write_field("neg2ll")?;
         writer.write_field("gamlam")?;
         writer.write_field("nspp")?;
@@ -632,7 +635,8 @@ impl CycleLog {
 
         for cycle in &self.cycles {
             writer.write_field(format!("{}", cycle.cycle))?;
-            writer.write_field(format!("{}", cycle.converged))?;
+            writer.write_field(format!("{}", cycle.status == Status::Converged))?;
+            writer.write_field(format!("{}", cycle.status))?;
             writer.write_field(format!("{}", cycle.objf))?;
             writer.write_field(format!("{}", cycle.gamlam))?;
             writer

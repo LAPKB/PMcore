@@ -122,7 +122,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Theta {
+    fn theta(&self) -> &Theta {
         &self.theta
     }
 
@@ -170,7 +170,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             nspp: self.theta.nspp(),
             theta: self.theta.clone(),
             gamlam: self.error_model.scalar(),
-            converged: self.converged,
+            status: self.status.clone(),
         };
 
         // Write cycle log
@@ -357,5 +357,13 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn expansion(&mut self) -> Result<()> {
         adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
         Ok(())
+    }
+
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn status(&self) -> &Status {
+        &self.status
     }
 }
