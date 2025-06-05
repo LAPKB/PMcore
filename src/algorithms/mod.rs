@@ -269,7 +269,7 @@ pub fn dispatch_algorithm<E: Equation>(
 }
 
 /// Represents the status of the algorithm
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
     Starting,
     Converged,
