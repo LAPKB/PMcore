@@ -1,25 +1,27 @@
 use crate::prelude::*;
+use crate::routines::settings::Settings;
 use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use faer::linalg::zip::IntoView;
+use faer::{Col, Mat};
 use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
 use serde::Serialize;
-// use pharmsol::Cache;
-use crate::routines::settings::Settings;
-use faer::{Col, Mat};
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 
-/// Represents the reason why the algorithm stopped
+/// Represents the status of the algorithm
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StopReason {
+pub enum Status {
+    Starting,
     Converged,
     MaxCycles,
+    InProgress,
+    ManualStop,
     Other(String),
 }
 
@@ -34,7 +36,7 @@ pub struct NPResult<E: Equation> {
     w: Col<f64>,
     objf: f64,
     cycles: usize,
-    stopreason: StopReason,
+    status: Status,
     par_names: Vec<String>,
     settings: Settings,
     cyclelog: CycleLog,
@@ -51,7 +53,7 @@ impl<E: Equation> NPResult<E> {
         w: Col<f64>,
         objf: f64,
         cycles: usize,
-        stopreason: StopReason,
+        status: Status,
         settings: Settings,
         cyclelog: CycleLog,
     ) -> Self {
@@ -67,7 +69,7 @@ impl<E: Equation> NPResult<E> {
             w,
             objf,
             cycles,
-            stopreason,
+            status,
             par_names,
             settings,
             cyclelog,
@@ -83,7 +85,7 @@ impl<E: Equation> NPResult<E> {
     }
 
     pub fn converged(&self) -> bool {
-        self.stopreason == StopReason::Converged
+        self.status == Status::Converged
     }
 
     pub fn get_theta(&self) -> &Theta {

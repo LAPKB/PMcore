@@ -14,7 +14,7 @@ use pharmsol::prelude::{
 
 use crate::routines::evaluation::ipm::burke;
 use crate::routines::initialization;
-use crate::routines::output::{CycleLog, NPResult, StopReason};
+use crate::routines::output::{CycleLog, NPResult, Status};
 use crate::routines::settings::Settings;
 
 /// Posterior probability algorithm
@@ -26,7 +26,7 @@ pub struct POSTPROB<E: Equation> {
     w: Col<f64>,
     objf: f64,
     cycle: usize,
-    stop_reason: StopReason,
+    status: Status,
     data: Data,
     settings: Settings,
     cyclelog: CycleLog,
@@ -42,7 +42,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             w: Col::zeros(0),
             objf: f64::INFINITY,
             cycle: 0,
-            stop_reason: StopReason::Other("Running".to_string()),
+            status: Status::Starting,
             error_model: settings.error().clone().into(),
             settings,
             data,
@@ -58,7 +58,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             self.w.clone(),
             self.objf,
             self.cycle,
-            self.stop_reason.clone(),
+            self.status.clone(),
             self.settings.clone(),
             self.cyclelog.clone(),
         )
@@ -105,7 +105,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
 
     fn convergence_evaluation(&mut self) {
         // POSTPROB algorithm converges after a single evaluation
-        self.stop_reason = StopReason::Converged;
+        self.status = Status::MaxCycles;
     }
 
     fn converged(&self) -> bool {
