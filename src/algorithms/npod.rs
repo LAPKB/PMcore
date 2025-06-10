@@ -261,10 +261,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
                 let gamma_down = em.scalar()? / (1.0 + self.gamma_delta[outeq]);
 
                 let mut error_model_up = self.error_models.clone();
-                error_model_up.set_scalar(outeq, gamma_up);
+                error_model_up.set_scalar(outeq, gamma_up)?;
 
                 let mut error_model_down = self.error_models.clone();
-                error_model_down.set_scalar(outeq, gamma_down);
+                error_model_down.set_scalar(outeq, gamma_down)?;
 
                 let psi_up = calculate_psi(
                     &self.equation,

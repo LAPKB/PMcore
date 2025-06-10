@@ -284,10 +284,10 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 let gamma_down = em.scalar()? / (1.0 + self.gamma_delta[outeq]);
 
                 let mut error_model_up = self.error_models.clone();
-                error_model_up.set_scalar(outeq, gamma_up);
+                error_model_up.set_scalar(outeq, gamma_up)?;
 
                 let mut error_model_down = self.error_models.clone();
-                error_model_down.set_scalar(outeq, gamma_down);
+                error_model_down.set_scalar(outeq, gamma_down)?;
 
                 let psi_up = calculate_psi(
                     &self.equation,
@@ -323,14 +323,14 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                     }
                 };
                 if objf_up > self.objf {
-                    self.error_models.set_scalar(outeq, gamma_up);
+                    self.error_models.set_scalar(outeq, gamma_up)?;
                     self.objf = objf_up;
                     self.gamma_delta[outeq] *= 4.;
                     self.lambda = lambda_up;
                     self.psi = psi_up;
                 }
                 if objf_down > self.objf {
-                    self.error_models.set_scalar(outeq, gamma_down);
+                    self.error_models.set_scalar(outeq, gamma_down)?;
                     self.objf = objf_down;
                     self.gamma_delta[outeq] *= 4.;
                     self.lambda = lambda_down;
@@ -341,7 +341,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                     self.gamma_delta[outeq] = 0.1;
                 }
                 Ok(())
-            });
+            })?;
 
         Ok(())
     }

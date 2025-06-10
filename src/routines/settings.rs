@@ -3,7 +3,7 @@ use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
 use pharmsol::prelude::data::ErrorModels;
-use pharmsol::{ErrorModel, ErrorPoly};
+
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fmt::Display;
@@ -575,6 +575,8 @@ fn parse_output_folder(path: String) -> String {
 #[cfg(test)]
 
 mod tests {
+    use pharmsol::{ErrorModel, ErrorPoly};
+
     use super::*;
     use crate::algorithms::Algorithm;
 
