@@ -22,11 +22,14 @@ fn test_one_compartment() -> Result<()> {
     // Define parameters
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
 
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
+    let ems = ErrorModels::new().add(0, em).unwrap();
+
     // Create settings
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorType::Additive, 2.0, (0.0, 0.10, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_prior(Prior::sobol(64, 22));

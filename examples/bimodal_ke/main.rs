@@ -28,10 +28,7 @@ fn main() -> Result<()> {
             ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
         .unwrap()
-        .add(
-            1,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )
+        .add(1, ErrorModel::None)
         .unwrap();
 
     let mut settings = Settings::builder()
