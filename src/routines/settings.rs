@@ -2,8 +2,8 @@ use crate::algorithms::Algorithm;
 use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
-use pharmsol::prelude::data::ErrorModel;
-use pharmsol::ErrorPoly;
+use pharmsol::prelude::data::ErrorModels;
+use pharmsol::{ErrorModel, ErrorPoly};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fmt::Display;
@@ -17,8 +17,8 @@ pub struct Settings {
     pub(crate) config: Config,
     /// Parameters to be estimated
     pub(crate) parameters: Parameters,
-    /// Defines the error model and polynomial to be used
-    pub(crate) error: Error,
+    /// Defines the error models and polynomials to be used
+    pub(crate) errors: Errors,
     /// Configuration for predictions
     pub(crate) predictions: Predictions,
     /// Configuration for logging
@@ -41,7 +41,7 @@ impl Settings {
 
     /// Validate the settings
     pub fn validate(&self) -> Result<()> {
-        self.error.validate()?;
+        self.errors.validate()?;
         self.predictions.validate()?;
         Ok(())
     }
@@ -55,8 +55,8 @@ impl Settings {
         &self.parameters
     }
 
-    pub fn error(&self) -> &Error {
-        &self.error
+    pub fn errors(&self) -> &Errors {
+        &self.errors
     }
 
     pub fn predictions(&self) -> &Predictions {
@@ -268,6 +268,25 @@ pub enum ErrorType {
     Proportional,
 }
 
+#[derive(Debug, Deserialize, Clone, Serialize, Default)]
+#[serde(deny_unknown_fields, default)]
+pub struct Errors {
+    /// A list of error models to be used
+    ///
+    /// The error models are defined by the [Error] struct
+    pub errors: Vec<Error>,
+}
+
+impl Errors {
+    /// Validate the errors
+    pub fn validate(&self) -> Result<()> {
+        for error in &self.errors {
+            error.validate()?;
+        }
+        Ok(())
+    }
+}
+
 /// Defines the error model and polynomial to be used
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
@@ -278,6 +297,8 @@ pub struct Error {
     pub errortype: ErrorType,
     /// The assay error polynomial
     pub poly: (f64, f64, f64, f64),
+
+    pub outeq: usize,
 }
 
 impl Default for Error {
@@ -286,16 +307,18 @@ impl Default for Error {
             value: 0.0,
             errortype: ErrorType::Additive,
             poly: (0.0, 0.1, 0.0, 0.0),
+            outeq: 0,
         }
     }
 }
 
 impl Error {
-    fn new(value: f64, errortype: ErrorType, poly: (f64, f64, f64, f64)) -> Self {
+    fn new(value: f64, errortype: ErrorType, poly: (f64, f64, f64, f64), outeq: usize) -> Self {
         Error {
             value,
             errortype,
             poly,
+            outeq,
         }
     }
 
@@ -305,9 +328,23 @@ impl Error {
         }
         Ok(())
     }
+
+    fn from_error_model(em: ErrorModel, outeq: usize) -> Self {
+        match em {
+            ErrorModel::Additive { lambda, poly } => {
+                Error::new(lambda, ErrorType::Additive, poly.coefficients(), outeq)
+            }
+            ErrorModel::Proportional { gamma, poly } => {
+                Error::new(gamma, ErrorType::Proportional, poly.coefficients(), outeq)
+            }
+            ErrorModel::None => {
+                panic!("ErrorModel cannot be None, it must be either Additive or Proportional");
+            }
+        }
+    }
 }
 
-impl From<Error> for pharmsol::prelude::data::ErrorModel {
+impl From<Error> for ErrorModel {
     fn from(error: Error) -> Self {
         match error.errortype {
             ErrorType::Additive => ErrorModel::additive(
@@ -508,7 +545,7 @@ impl Default for Output {
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
     parameters: Option<Parameters>,
-    error: Option<Error>,
+    errors: Option<Errors>,
     predictions: Option<Predictions>,
     log: Option<Log>,
     prior: Option<Prior>,
@@ -535,7 +572,7 @@ impl SettingsBuilder<InitialState> {
         SettingsBuilder {
             config: None,
             parameters: None,
-            error: None,
+            errors: None,
             predictions: None,
             log: None,
             prior: None,
@@ -553,7 +590,7 @@ impl SettingsBuilder<InitialState> {
                 ..Config::default()
             }),
             parameters: self.parameters,
-            error: self.error,
+            errors: self.errors,
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -577,7 +614,7 @@ impl SettingsBuilder<AlgorithmSet> {
         SettingsBuilder {
             config: self.config,
             parameters: Some(parameters),
-            error: self.error,
+            errors: self.errors,
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -591,18 +628,21 @@ impl SettingsBuilder<AlgorithmSet> {
 
 // Parameters are set, move to defining error model
 impl SettingsBuilder<ParametersSet> {
-    pub fn set_error_model(
-        self,
-        errortype: ErrorType,
-        value: f64,
-        poly: (f64, f64, f64, f64),
-    ) -> SettingsBuilder<ErrorSet> {
-        let error = Error::new(value, errortype, poly);
+    pub fn set_error_models(self, ems: ErrorModels) -> SettingsBuilder<ErrorSet> {
+        let errors = Errors {
+            errors: ems
+                .into_iter()
+                .filter_map(|(index, em)| match em {
+                    ErrorModel::None => None,
+                    _ => Some(Error::from_error_model(em, index)),
+                })
+                .collect(),
+        };
 
         SettingsBuilder {
             config: self.config,
             parameters: self.parameters,
-            error: Some(error),
+            errors: Some(errors),
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -620,7 +660,7 @@ impl SettingsBuilder<ErrorSet> {
         Settings {
             config: self.config.unwrap(),
             parameters: self.parameters.unwrap(),
-            error: self.error.unwrap(),
+            errors: self.errors.unwrap(),
             predictions: self.predictions.unwrap_or_default(),
             log: self.log.unwrap_or_default(),
             prior: self.prior.unwrap_or_default(),
@@ -656,10 +696,19 @@ mod tests {
     fn test_builder() {
         let parameters = Parameters::new().add("Ke", 0.0, 5.0).add("V", 10.0, 200.0);
 
+        let ems = ErrorModels::new()
+            .add(
+                0,
+                ErrorModel::Proportional {
+                    gamma: 5.0,
+                    poly: ErrorPoly::new(0.0, 0.1, 0.0, 0.0),
+                },
+            )
+            .unwrap();
         let mut settings = SettingsBuilder::new()
             .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm
             .set_parameters(parameters) // Step 2: Define parameters
-            .set_error_model(ErrorType::Additive, 5.0, (0.0, 0.1, 0.0, 0.0))
+            .set_error_models(ems)
             .build();
 
         settings.set_cycles(100);
