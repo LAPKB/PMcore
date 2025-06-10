@@ -44,7 +44,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             objf: f64::INFINITY,
             cycle: 0,
             converged: false,
-            error_models: settings.errors(),
+            error_models: settings.errormodels().clone(),
             settings,
             data,
 
@@ -116,7 +116,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &self.error_model,
+            &self.error_models,
             false,
             false,
         )?;

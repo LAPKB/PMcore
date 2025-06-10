@@ -18,7 +18,7 @@ pub struct Settings {
     /// Parameters to be estimated
     pub(crate) parameters: Parameters,
     /// Defines the error models and polynomials to be used
-    pub(crate) errors: Errors,
+    pub(crate) errormodels: ErrorModels,
     /// Configuration for predictions
     pub(crate) predictions: Predictions,
     /// Configuration for logging
@@ -39,13 +39,6 @@ impl Settings {
         SettingsBuilder::new()
     }
 
-    /// Validate the settings
-    pub fn validate(&self) -> Result<()> {
-        self.errors.validate()?;
-        self.predictions.validate()?;
-        Ok(())
-    }
-
     /* Getters */
     pub fn config(&self) -> &Config {
         &self.config
@@ -55,8 +48,8 @@ impl Settings {
         &self.parameters
     }
 
-    pub fn errors(&self) -> &Errors {
-        &self.errors
+    pub fn errormodels(&self) -> &ErrorModels {
+        &self.errormodels
     }
 
     pub fn predictions(&self) -> &Predictions {
@@ -262,103 +255,6 @@ impl From<Vec<Parameter>> for Parameters {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub enum ErrorType {
-    Additive,
-    Proportional,
-}
-
-#[derive(Debug, Deserialize, Clone, Serialize, Default)]
-#[serde(deny_unknown_fields, default)]
-pub struct Errors {
-    /// A list of error models to be used
-    ///
-    /// The error models are defined by the [Error] struct
-    pub errors: Vec<Error>,
-}
-
-impl Errors {
-    /// Validate the errors
-    pub fn validate(&self) -> Result<()> {
-        for error in &self.errors {
-            error.validate()?;
-        }
-        Ok(())
-    }
-}
-
-/// Defines the error model and polynomial to be used
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(deny_unknown_fields, default)]
-pub struct Error {
-    /// The initial value of `gamma` or `lambda`
-    pub value: f64,
-    /// The error class, either `additive` or `proportional`
-    pub errortype: ErrorType,
-    /// The assay error polynomial
-    pub poly: (f64, f64, f64, f64),
-
-    pub outeq: usize,
-}
-
-impl Default for Error {
-    fn default() -> Self {
-        Error {
-            value: 0.0,
-            errortype: ErrorType::Additive,
-            poly: (0.0, 0.1, 0.0, 0.0),
-            outeq: 0,
-        }
-    }
-}
-
-impl Error {
-    fn new(value: f64, errortype: ErrorType, poly: (f64, f64, f64, f64), outeq: usize) -> Self {
-        Error {
-            value,
-            errortype,
-            poly,
-            outeq,
-        }
-    }
-
-    fn validate(&self) -> Result<()> {
-        if self.value < 0.0 {
-            bail!("The initial value of gamma or lambda must be non-negative");
-        }
-        Ok(())
-    }
-
-    fn from_error_model(em: ErrorModel, outeq: usize) -> Self {
-        match em {
-            ErrorModel::Additive { lambda, poly } => {
-                Error::new(lambda, ErrorType::Additive, poly.coefficients(), outeq)
-            }
-            ErrorModel::Proportional { gamma, poly } => {
-                Error::new(gamma, ErrorType::Proportional, poly.coefficients(), outeq)
-            }
-            ErrorModel::None => {
-                panic!("ErrorModel cannot be None, it must be either Additive or Proportional");
-            }
-        }
-    }
-}
-
-impl From<Error> for ErrorModel {
-    fn from(error: Error) -> Self {
-        match error.errortype {
-            ErrorType::Additive => ErrorModel::additive(
-                ErrorPoly::new(error.poly.0, error.poly.1, error.poly.2, error.poly.3),
-                error.value,
-            ),
-            ErrorType::Proportional => ErrorModel::proportional(
-                ErrorPoly::new(error.poly.0, error.poly.1, error.poly.2, error.poly.3),
-                error.value,
-            ),
-        }
-    }
-}
-
 /// This struct contains advanced options and hyperparameters
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
@@ -545,7 +441,7 @@ impl Default for Output {
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
     parameters: Option<Parameters>,
-    errors: Option<Errors>,
+    errormodels: Option<ErrorModels>,
     predictions: Option<Predictions>,
     log: Option<Log>,
     prior: Option<Prior>,
@@ -572,7 +468,7 @@ impl SettingsBuilder<InitialState> {
         SettingsBuilder {
             config: None,
             parameters: None,
-            errors: None,
+            errormodels: None,
             predictions: None,
             log: None,
             prior: None,
@@ -590,7 +486,7 @@ impl SettingsBuilder<InitialState> {
                 ..Config::default()
             }),
             parameters: self.parameters,
-            errors: self.errors,
+            errormodels: self.errormodels,
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -614,7 +510,7 @@ impl SettingsBuilder<AlgorithmSet> {
         SettingsBuilder {
             config: self.config,
             parameters: Some(parameters),
-            errors: self.errors,
+            errormodels: self.errormodels,
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -629,20 +525,10 @@ impl SettingsBuilder<AlgorithmSet> {
 // Parameters are set, move to defining error model
 impl SettingsBuilder<ParametersSet> {
     pub fn set_error_models(self, ems: ErrorModels) -> SettingsBuilder<ErrorSet> {
-        let errors = Errors {
-            errors: ems
-                .into_iter()
-                .filter_map(|(index, em)| match em {
-                    ErrorModel::None => None,
-                    _ => Some(Error::from_error_model(em, index)),
-                })
-                .collect(),
-        };
-
         SettingsBuilder {
             config: self.config,
             parameters: self.parameters,
-            errors: Some(errors),
+            errormodels: Some(ems),
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -660,7 +546,7 @@ impl SettingsBuilder<ErrorSet> {
         Settings {
             config: self.config.unwrap(),
             parameters: self.parameters.unwrap(),
-            errors: self.errors.unwrap(),
+            errormodels: self.errormodels.unwrap(),
             predictions: self.predictions.unwrap_or_default(),
             log: self.log.unwrap_or_default(),
             prior: self.prior.unwrap_or_default(),

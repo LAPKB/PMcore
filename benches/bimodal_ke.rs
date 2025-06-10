@@ -25,10 +25,17 @@ fn setup_simulation() -> Result<(Settings, equation::ODE, data::Data)> {
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+        )
+        .unwrap();
+
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorType::Additive, 0.0, (0.0, 0.5, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_cycles(1000);
