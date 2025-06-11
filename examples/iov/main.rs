@@ -31,14 +31,15 @@ fn main() -> Result<()> {
 
     let params = Parameters::new().add("ke0", 0.001, 2.0);
 
+    let ems = ErrorModels::new().add(
+        0,
+        ErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
+    )?;
+
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(
-            ErrorType::Additive,
-            0.0000757575757576,
-            (0.0, 0.0, 0.0, 0.0),
-        )
+        .set_error_models(ems)
         .build();
 
     settings.set_cycles(100000);

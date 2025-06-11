@@ -2,8 +2,8 @@ use crate::algorithms::Algorithm;
 use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
-use pharmsol::prelude::data::ErrorModel;
-use pharmsol::ErrorPoly;
+use pharmsol::prelude::data::ErrorModels;
+
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fmt::Display;
@@ -17,8 +17,8 @@ pub struct Settings {
     pub(crate) config: Config,
     /// Parameters to be estimated
     pub(crate) parameters: Parameters,
-    /// Defines the error model and polynomial to be used
-    pub(crate) error: Error,
+    /// Defines the error models and polynomials to be used
+    pub(crate) errormodels: ErrorModels,
     /// Configuration for predictions
     pub(crate) predictions: Predictions,
     /// Configuration for logging
@@ -39,13 +39,6 @@ impl Settings {
         SettingsBuilder::new()
     }
 
-    /// Validate the settings
-    pub fn validate(&self) -> Result<()> {
-        self.error.validate()?;
-        self.predictions.validate()?;
-        Ok(())
-    }
-
     /* Getters */
     pub fn config(&self) -> &Config {
         &self.config
@@ -55,8 +48,8 @@ impl Settings {
         &self.parameters
     }
 
-    pub fn error(&self) -> &Error {
-        &self.error
+    pub fn errormodels(&self) -> &ErrorModels {
+        &self.errormodels
     }
 
     pub fn predictions(&self) -> &Predictions {
@@ -262,66 +255,6 @@ impl From<Vec<Parameter>> for Parameters {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub enum ErrorType {
-    Additive,
-    Proportional,
-}
-
-/// Defines the error model and polynomial to be used
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(deny_unknown_fields, default)]
-pub struct Error {
-    /// The initial value of `gamma` or `lambda`
-    pub value: f64,
-    /// The error class, either `additive` or `proportional`
-    pub errortype: ErrorType,
-    /// The assay error polynomial
-    pub poly: (f64, f64, f64, f64),
-}
-
-impl Default for Error {
-    fn default() -> Self {
-        Error {
-            value: 0.0,
-            errortype: ErrorType::Additive,
-            poly: (0.0, 0.1, 0.0, 0.0),
-        }
-    }
-}
-
-impl Error {
-    fn new(value: f64, errortype: ErrorType, poly: (f64, f64, f64, f64)) -> Self {
-        Error {
-            value,
-            errortype,
-            poly,
-        }
-    }
-
-    fn validate(&self) -> Result<()> {
-        if self.value < 0.0 {
-            bail!("The initial value of gamma or lambda must be non-negative");
-        }
-        Ok(())
-    }
-}
-
-impl From<Error> for pharmsol::prelude::data::ErrorModel {
-    fn from(error: Error) -> Self {
-        match error.errortype {
-            ErrorType::Additive => ErrorModel::additive(
-                ErrorPoly::new(error.poly.0, error.poly.1, error.poly.2, error.poly.3),
-                error.value,
-            ),
-            ErrorType::Proportional => ErrorModel::proportional(
-                ErrorPoly::new(error.poly.0, error.poly.1, error.poly.2, error.poly.3),
-                error.value,
-            ),
-        }
-    }
-}
-
 /// This struct contains advanced options and hyperparameters
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
@@ -508,7 +441,7 @@ impl Default for Output {
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
     parameters: Option<Parameters>,
-    error: Option<Error>,
+    errormodels: Option<ErrorModels>,
     predictions: Option<Predictions>,
     log: Option<Log>,
     prior: Option<Prior>,
@@ -535,7 +468,7 @@ impl SettingsBuilder<InitialState> {
         SettingsBuilder {
             config: None,
             parameters: None,
-            error: None,
+            errormodels: None,
             predictions: None,
             log: None,
             prior: None,
@@ -553,7 +486,7 @@ impl SettingsBuilder<InitialState> {
                 ..Config::default()
             }),
             parameters: self.parameters,
-            error: self.error,
+            errormodels: self.errormodels,
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -577,7 +510,7 @@ impl SettingsBuilder<AlgorithmSet> {
         SettingsBuilder {
             config: self.config,
             parameters: Some(parameters),
-            error: self.error,
+            errormodels: self.errormodels,
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -591,18 +524,11 @@ impl SettingsBuilder<AlgorithmSet> {
 
 // Parameters are set, move to defining error model
 impl SettingsBuilder<ParametersSet> {
-    pub fn set_error_model(
-        self,
-        errortype: ErrorType,
-        value: f64,
-        poly: (f64, f64, f64, f64),
-    ) -> SettingsBuilder<ErrorSet> {
-        let error = Error::new(value, errortype, poly);
-
+    pub fn set_error_models(self, ems: ErrorModels) -> SettingsBuilder<ErrorSet> {
         SettingsBuilder {
             config: self.config,
             parameters: self.parameters,
-            error: Some(error),
+            errormodels: Some(ems),
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -620,7 +546,7 @@ impl SettingsBuilder<ErrorSet> {
         Settings {
             config: self.config.unwrap(),
             parameters: self.parameters.unwrap(),
-            error: self.error.unwrap(),
+            errormodels: self.errormodels.unwrap(),
             predictions: self.predictions.unwrap_or_default(),
             log: self.log.unwrap_or_default(),
             prior: self.prior.unwrap_or_default(),
@@ -649,6 +575,8 @@ fn parse_output_folder(path: String) -> String {
 #[cfg(test)]
 
 mod tests {
+    use pharmsol::{ErrorModel, ErrorPoly};
+
     use super::*;
     use crate::algorithms::Algorithm;
 
@@ -656,10 +584,19 @@ mod tests {
     fn test_builder() {
         let parameters = Parameters::new().add("Ke", 0.0, 5.0).add("V", 10.0, 200.0);
 
+        let ems = ErrorModels::new()
+            .add(
+                0,
+                ErrorModel::Proportional {
+                    gamma: 5.0,
+                    poly: ErrorPoly::new(0.0, 0.1, 0.0, 0.0),
+                },
+            )
+            .unwrap();
         let mut settings = SettingsBuilder::new()
             .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm
             .set_parameters(parameters) // Step 2: Define parameters
-            .set_error_model(ErrorType::Additive, 5.0, (0.0, 0.1, 0.0, 0.0))
+            .set_error_models(ems)
             .build();
 
         settings.set_cycles(100);

@@ -33,14 +33,17 @@ fn main() {
         .add("ke0", 0.0001, 2.4)
         .add("ske", 0.0001, 0.2);
 
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+        )
+        .unwrap();
+
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(
-            ErrorType::Additive,
-            0.0,
-            (-0.00119, 0.44379, -0.45864, 0.16537),
-        )
+        .set_error_models(ems)
         .build();
 
     settings.set_cycles(1000);
