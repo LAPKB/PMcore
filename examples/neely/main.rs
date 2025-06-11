@@ -54,20 +54,37 @@ fn main() {
         (4, 3),
     );
     let params = Parameters::new()
-        .add("cls", 0.0, 0.4, false)
-        .add("k30", 0.0, 0.5, false)
-        .add("k40", 0.3, 1.5, false)
-        .add("qs", 0.0, 0.5, false)
-        .add("vps", 0.0, 5.0, false)
-        .add("vs", 0.0, 2.0, false)
-        .add("fm1", 0.0, 0.2, false)
-        .add("fm2", 0.0, 0.1, false)
-        .add("theta1", -4.0, 2.0, false)
-        .add("theta2", -2.0, 0.5, false);
+        .add("cls", 0.0, 0.4)
+        .add("k30", 0.0, 0.5)
+        .add("k40", 0.3, 1.5)
+        .add("qs", 0.0, 0.5)
+        .add("vps", 0.0, 5.0)
+        .add("vs", 0.0, 2.0)
+        .add("fm1", 0.0, 0.2)
+        .add("fm2", 0.0, 0.1)
+        .add("theta1", -4.0, 2.0)
+        .add("theta2", -2.0, 0.5);
+
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+        )
+        .unwrap()
+        .add(
+            1,
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+        )
+        .unwrap()
+        .add(
+            2,
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+        )
+        .unwrap();
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Proportional, 5.0, (1.0, 0.1, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_cycles(1000);
