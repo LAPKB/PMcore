@@ -73,14 +73,17 @@ fn main() {
         .add("tlag", 0.0, 4.0)
         .add("v", 30.0, 120.0);
 
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+        )
+        .unwrap();
+
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(
-            ErrorType::Additive,
-            0.0,
-            (-0.00119, 0.44379, -0.45864, 0.16537),
-        )
+        .set_error_models(ems)
         .build();
 
     settings.initialize_logs().unwrap();
