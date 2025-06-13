@@ -31,7 +31,8 @@ impl Prior {
         Prior::Sobol(points, seed)
     }
 
-    pub fn get_points(&self) -> usize {
+    /// Get the number of initial support points
+    pub fn points(&self) -> usize {
         match self {
             Prior::Sobol(points, _) => *points,
             Prior::Latin(points, _) => *points,
@@ -42,7 +43,8 @@ impl Prior {
         }
     }
 
-    pub fn get_seed(&self) -> usize {
+    /// Get the seed used for the random number generator
+    pub fn seed(&self) -> usize {
         match self {
             Prior::Sobol(_, seed) => *seed,
             Prior::Latin(_, seed) => *seed,
@@ -62,6 +64,28 @@ impl Default for Prior {
 
 /// This function generates the grid of support points according to the sampler specified in the [Settings]
 pub fn sample_space(settings: &Settings) -> Result<Theta> {
+    // Ensure that the parameter ranges are not infinite
+    for param in settings.parameters().iter() {
+        if param.lower.is_infinite() || param.upper.is_infinite() {
+            bail!(
+                "Parameter '{}' has infinite bounds: [{}, {}]",
+                param.name,
+                param.lower,
+                param.upper
+            );
+        }
+
+        // Ensure that the lower bound is less than the upper bound
+        if param.lower >= param.upper {
+            bail!(
+                "Parameter '{}' has invalid bounds: [{}, {}]. Lower bound must be less than upper bound.",
+                param.name,
+                param.lower,
+                param.upper
+            );
+        }
+    }
+
     // Otherwise, parse the sampler type and generate the grid
     let prior = match settings.prior() {
         Prior::Sobol(points, seed) => sobol::generate(settings.parameters(), *points, *seed)?,
