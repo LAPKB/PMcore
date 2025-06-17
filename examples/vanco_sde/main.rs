@@ -56,10 +56,17 @@ fn main() {
         .add("vol", 0.2, 12.0)
         .add("ske", 0.0001, 0.2);
 
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
+        )
+        .unwrap();
+
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorType::Additive, 0.0, (0.00119, 0.20, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_cycles(usize::MAX);
