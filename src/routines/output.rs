@@ -618,8 +618,23 @@ impl CycleLog {
         writer.write_field("cycle")?;
         writer.write_field("converged")?;
         writer.write_field("neg2ll")?;
-        //writer.write_field("gamlam")?;
         writer.write_field("nspp")?;
+        if let Some(first_cycle) = self.cycles.first() {
+            first_cycle.error_models.iter().try_for_each(
+                |(outeq, errmod): (usize, &ErrorModel)| -> Result<(), csv::Error> {
+                    match errmod {
+                        ErrorModel::Additive { .. } => {
+                            writer.write_field(format!("gamlam.{}", outeq))?;
+                        }
+                        ErrorModel::Proportional { .. } => {
+                            writer.write_field(format!("gamlam.{}", outeq))?;
+                        }
+                        ErrorModel::None { .. } => {}
+                    }
+                    Ok(())
+                },
+            )?;
+        }
 
         let parameter_names = settings.parameters().names();
         for param_name in &parameter_names {
@@ -634,10 +649,25 @@ impl CycleLog {
             writer.write_field(format!("{}", cycle.cycle))?;
             writer.write_field(format!("{}", cycle.converged))?;
             writer.write_field(format!("{}", cycle.objf))?;
-            // writer.write_field(format!("{}", cycle.gamlam))?;
             writer
-                .write_field(format!("{}", cycle.theta.matrix().nrows()))
+                .write_field(format!("{}", cycle.theta.nspp()))
                 .unwrap();
+
+            // Write the error models
+            cycle.error_models.iter().try_for_each(
+                |(_, errmod): (usize, &ErrorModel)| -> Result<()> {
+                    match errmod {
+                        ErrorModel::Additive { .. } => {
+                            writer.write_field(format!("{:.5}", errmod.scalar()?))?;
+                        }
+                        ErrorModel::Proportional { .. } => {
+                            writer.write_field(format!("{:.5}", errmod.scalar()?))?;
+                        }
+                        ErrorModel::None { .. } => {}
+                    }
+                    Ok(())
+                },
+            )?;
 
             for param in cycle.theta.matrix().col_iter() {
                 let param_values: Vec<f64> = param.iter().cloned().collect();
