@@ -346,7 +346,38 @@ impl<E: Equation> NPResult<E> {
     pub fn write_obs(&self) -> Result<()> {
         tracing::debug!("Writing observations...");
         let outputfile = OutputFile::new(&self.settings.output().path, "obs.csv")?;
-        write_pmetrics_observations(&self.data, &outputfile.file)?;
+
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(&outputfile.file);
+
+        #[derive(Serialize)]
+        struct Row {
+            id: String,
+            block: usize,
+            time: f64,
+            out: f64,
+            outeq: usize,
+        }
+
+        for subject in self.data.get_subjects() {
+            for occasion in subject.occasions() {
+                for event in occasion.get_events(&None, &None, false) {
+                    if let Event::Observation(event) = event {
+                        let row = Row {
+                            id: subject.id().clone(),
+                            block: occasion.index(),
+                            time: event.time(),
+                            out: event.value(),
+                            outeq: event.outeq(),
+                        };
+                        writer.serialize(row)?;
+                    }
+                }
+            }
+        }
+        writer.flush()?;
+
         tracing::info!(
             "Observations written to {:?}",
             &outputfile.get_relative_path()
@@ -913,28 +944,6 @@ impl OutputFile {
     pub fn get_relative_path(&self) -> &Path {
         &self.relative_path
     }
-}
-
-pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<()> {
-    let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
-
-    writer.write_record(["id", "block", "time", "out", "outeq"])?;
-    for subject in data.get_subjects() {
-        for occasion in subject.occasions() {
-            for event in occasion.get_events(&None, &None, false) {
-                if let Event::Observation(event) = event {
-                    writer.write_record([
-                        subject.id(),
-                        &occasion.index().to_string(),
-                        &event.time().to_string(),
-                        &event.value().to_string(),
-                        &event.outeq().to_string(),
-                    ])?;
-                }
-            }
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]
