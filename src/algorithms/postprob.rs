@@ -44,7 +44,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             objf: f64::INFINITY,
             cycle: 0,
             status: Status::Starting,
-            error_model: settings.errormodels().clone(),
+            error_models: settings.errormodels().clone(),
             settings,
             data,
             cyclelog: CycleLog::new(),
