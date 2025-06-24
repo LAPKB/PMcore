@@ -274,11 +274,17 @@ pub fn dispatch_algorithm<E: Equation>(
 /// Represents the status of the algorithm
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
+    /// Algorithm is starting up
     Starting,
+    /// Algorithm has converged to a solution
     Converged,
+    /// Algorithm stopped due to reaching maximum cycles
     MaxCycles,
+    /// Algorithm is currently running
     InProgress,
+    /// Algorithm was manually stopped by user
     ManualStop,
+    /// Other status with custom message
     Other(String),
 }
 
