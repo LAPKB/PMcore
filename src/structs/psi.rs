@@ -6,7 +6,7 @@ use ndarray::{Array2, ArrayView2};
 use pharmsol::prelude::simulator::psi;
 use pharmsol::Data;
 use pharmsol::Equation;
-use pharmsol::ErrorModel;
+use pharmsol::ErrorModels;
 
 use super::theta::Theta;
 
@@ -92,7 +92,7 @@ pub(crate) fn calculate_psi(
     equation: &impl Equation,
     subjects: &Data,
     theta: &Theta,
-    error_model: &ErrorModel,
+    error_models: &ErrorModels,
     progress: bool,
     cache: bool,
 ) -> Result<Psi> {
@@ -100,7 +100,7 @@ pub(crate) fn calculate_psi(
         equation,
         subjects,
         &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
-        error_model,
+        error_models,
         progress,
         cache,
     )?;

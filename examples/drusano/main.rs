@@ -106,10 +106,32 @@ fn main() -> Result<()> {
         .add("h1r1", 5.0, 25.0)
         .add("h2r2", 10.0, 22.0);
 
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .add(
+            1,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .add(
+            2,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .add(
+            3,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .add(
+            4,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?;
+
     let mut settings = SettingsBuilder::new()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorType::Proportional, 1.0, (0.1, 0.1, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_prior(Prior::sobol(212900, 347));

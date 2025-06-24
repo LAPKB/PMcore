@@ -9,7 +9,7 @@ use crate::{
 use anyhow::{Context, Result};
 use faer::Col;
 use pharmsol::prelude::{
-    data::{Data, ErrorModel},
+    data::{Data, ErrorModels},
     simulator::Equation,
 };
 
@@ -31,7 +31,7 @@ pub struct POSTPROB<E: Equation> {
     data: Data,
     settings: Settings,
     cyclelog: CycleLog,
-    error_model: ErrorModel,
+    error_models: ErrorModels,
 }
 
 impl<E: Equation> Algorithms<E> for POSTPROB<E> {
@@ -44,7 +44,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             objf: f64::INFINITY,
             cycle: 0,
             status: Status::Starting,
-            error_model: settings.error().clone().into(),
+            error_model: settings.errormodels().clone(),
             settings,
             data,
             cyclelog: CycleLog::new(),
@@ -126,7 +126,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &self.error_model,
+            &self.error_models,
             false,
             false,
         )?;

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1](https://github.com/LAPKB/PMcore/compare/v0.12.0...v0.12.1) - 2025-06-19
+
+### Other
+
+- Update Cargo.toml ([#145](https://github.com/LAPKB/PMcore/pull/145))
+- Use pharmsol 0.11.0
+
+## [0.12.0](https://github.com/LAPKB/PMcore/compare/v0.11.0...v0.12.0) - 2025-06-11
+
+### Added
+
+- Deprecate fixed but unknown ([#118](https://github.com/LAPKB/PMcore/pull/118))
+
+### Other
+
+- Error model ([#139](https://github.com/LAPKB/PMcore/pull/139))
+
 ## [0.10.0](https://github.com/LAPKB/PMcore/compare/v0.9.0...v0.10.0) - 2025-03-28
 
 ### Added

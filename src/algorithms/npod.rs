@@ -15,16 +15,13 @@ use crate::{
 };
 use anyhow::bail;
 use anyhow::Result;
+use faer::Col;
 use faer_ext::IntoNdarray;
+use pharmsol::{prelude::ErrorModel, ErrorModels};
 use pharmsol::{
-    prelude::{
-        data::{Data, ErrorModel},
-        simulator::Equation,
-    },
+    prelude::{data::Data, simulator::Equation},
     Subject,
 };
-
-use faer::Col;
 
 use ndarray::{
     parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
@@ -45,8 +42,8 @@ pub struct NPOD<E: Equation> {
     last_objf: f64,
     objf: f64,
     cycle: usize,
-    gamma_delta: f64,
-    error_model: ErrorModel,
+    gamma_delta: Vec<f64>,
+    error_models: ErrorModels,
     converged: bool,
     status: Status,
     cycle_log: CycleLog,
@@ -65,8 +62,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
             cycle: 0,
-            gamma_delta: 0.1,
-            error_model: settings.error().clone().into(),
+            gamma_delta: vec![0.1; settings.errormodels().len()],
+            error_models: settings.errormodels().clone().into(),
             converged: false,
             status: Status::Starting,
             cycle_log: CycleLog::new(),
@@ -166,7 +163,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             delta_objf: (self.last_objf - self.objf).abs(),
             nspp: self.theta.nspp(),
             theta: self.theta.clone(),
-            gamlam: self.error_model.scalar(),
+            error_models: self.error_models.clone(),
             status: self.status.clone(),
         };
 
@@ -180,7 +177,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
-        let error_model: ErrorModel = self.error_model.clone();
+        let error_model: ErrorModels = self.error_models.clone();
 
         self.psi = calculate_psi(
             &self.equation,
@@ -264,72 +261,95 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn optimizations(&mut self) -> Result<()> {
-        // Gam/Lam optimization
-        // TODO: Move this to e.g. /evaluation/error.rs
-        let gamma_up = self.error_model.scalar() * (1.0 + self.gamma_delta);
-        let gamma_down = self.error_model.scalar() / (1.0 + self.gamma_delta);
+        self.error_models
+            .clone()
+            .iter_mut()
+            .filter_map(|(outeq, em)| match em {
+                ErrorModel::None => None,
+                _ => Some((outeq, em)),
+            })
+            .try_for_each(|(outeq, em)| -> Result<()> {
+                // OPTIMIZATION
 
-        let mut error_model_up: ErrorModel = self.error_model.clone();
-        error_model_up.set_scalar(gamma_up);
+                let gamma_up = em.scalar()? * (1.0 + self.gamma_delta[outeq]);
+                let gamma_down = em.scalar()? / (1.0 + self.gamma_delta[outeq]);
 
-        let mut error_model_down: ErrorModel = self.error_model.clone();
-        error_model_down.set_scalar(gamma_down);
+                let mut error_model_up = self.error_models.clone();
+                error_model_up.set_scalar(outeq, gamma_up)?;
 
-        let psi_up = calculate_psi(
-            &self.equation,
-            &self.data,
-            &self.theta,
-            &error_model_up,
-            false,
-            true,
-        )?;
-        let psi_down = calculate_psi(
-            &self.equation,
-            &self.data,
-            &self.theta,
-            &error_model_down,
-            false,
-            true,
-        )?;
+                let mut error_model_down = self.error_models.clone();
+                error_model_down.set_scalar(outeq, gamma_down)?;
 
-        let (lambda_up, objf_up) = match burke(&psi_up) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
-            }
-        };
-        let (lambda_down, objf_down) = match burke(&psi_down) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
-            }
-        };
+                let psi_up = calculate_psi(
+                    &self.equation,
+                    &self.data,
+                    &self.theta,
+                    &error_model_up,
+                    false,
+                    true,
+                )?;
+                let psi_down = calculate_psi(
+                    &self.equation,
+                    &self.data,
+                    &self.theta,
+                    &error_model_down,
+                    false,
+                    true,
+                )?;
 
-        if objf_up > self.objf {
-            self.error_model.set_scalar(gamma_up);
-            self.objf = objf_up;
-            self.gamma_delta *= 4.;
-            self.lambda = lambda_up;
-            self.psi = psi_up;
-        }
-        if objf_down > self.objf {
-            self.error_model.set_scalar(gamma_down);
-            self.objf = objf_down;
-            self.gamma_delta *= 4.;
-            self.lambda = lambda_down;
-            self.psi = psi_down;
-        }
-        self.gamma_delta *= 0.5;
-        if self.gamma_delta <= 0.01 {
-            self.gamma_delta = 0.1;
-        }
+                let (lambda_up, objf_up) = match burke(&psi_up) {
+                    Ok((lambda, objf)) => (lambda, objf),
+                    Err(err) => {
+                        //todo: write out report
+                        return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
+                    }
+                };
+                let (lambda_down, objf_down) = match burke(&psi_down) {
+                    Ok((lambda, objf)) => (lambda, objf),
+                    Err(err) => {
+                        //todo: write out report
+                        //panic!("Error in IPM: {:?}", err);
+                        return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
+                        //(Array1::zeros(1), f64::NEG_INFINITY)
+                    }
+                };
+                if objf_up > self.objf {
+                    self.error_models.set_scalar(outeq, gamma_up)?;
+                    self.objf = objf_up;
+                    self.gamma_delta[outeq] *= 4.;
+                    self.lambda = lambda_up;
+                    self.psi = psi_up;
+                }
+                if objf_down > self.objf {
+                    self.error_models.set_scalar(outeq, gamma_down)?;
+                    self.objf = objf_down;
+                    self.gamma_delta[outeq] *= 4.;
+                    self.lambda = lambda_down;
+                    self.psi = psi_down;
+                }
+                self.gamma_delta[outeq] *= 0.5;
+                if self.gamma_delta[outeq] <= 0.01 {
+                    self.gamma_delta[outeq] = 0.1;
+                }
+                Ok(())
+            })?;
+
         Ok(())
     }
 
     fn logs(&self) {
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.nspp());
-        tracing::debug!("Gamma = {:.16}", self.error_model.scalar());
+        self.error_models.iter().for_each(|(outeq, em)| {
+            if ErrorModel::None == *em {
+                return;
+            }
+            tracing::debug!(
+                "Error model for outeq {}: {:.16}",
+                outeq,
+                em.scalar().unwrap_or_default()
+            );
+        });
         // Increasing objf signals instability or model misspecification.
         if self.last_objf > self.objf + 1e-4 {
             tracing::warn!(
@@ -348,7 +368,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let pyl = psi.dot(&w);
 
         // Add new point to theta based on the optimization of the D function
-        let error_model: ErrorModel = self.error_model.clone();
+        let error_model: ErrorModels = self.error_models.clone();
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
         for spp in self.theta.matrix().row_iter() {

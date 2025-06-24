@@ -35,10 +35,17 @@ fn main() {
         .add("ke", 0.001, 3.0)
         .add("v", 0.001, 50.0);
 
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
+        )
+        .unwrap();
+
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorType::Proportional, 2.0, (0.1, 0.1, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.initialize_logs().unwrap();
