@@ -478,11 +478,10 @@ impl<E: Equation> NPResult<E> {
         let mut covariate_names = std::collections::HashSet::new();
         for subject in self.data.get_subjects() {
             for occasion in subject.occasions() {
-                if let Some(cov) = occasion.get_covariates() {
-                    let covmap = cov.covariates();
-                    for cov_name in covmap.keys() {
-                        covariate_names.insert(cov_name.clone());
-                    }
+                let cov = occasion.covariates();
+                let covmap = cov.covariates();
+                for cov_name in covmap.keys() {
+                    covariate_names.insert(cov_name.clone());
                 }
             }
         }
@@ -497,36 +496,35 @@ impl<E: Equation> NPResult<E> {
         // Write the data rows
         for subject in self.data.get_subjects() {
             for occasion in subject.occasions() {
-                if let Some(cov) = occasion.get_covariates() {
-                    let covmap = cov.covariates();
+                let cov = occasion.covariates();
+                let covmap = cov.covariates();
 
-                    for event in occasion.get_events(&None, &None, false) {
-                        let time = match event {
-                            Event::Bolus(bolus) => bolus.time(),
-                            Event::Infusion(infusion) => infusion.time(),
-                            Event::Observation(observation) => observation.time(),
-                        };
+                for event in occasion.get_events(&None, &None, false) {
+                    let time = match event {
+                        Event::Bolus(bolus) => bolus.time(),
+                        Event::Infusion(infusion) => infusion.time(),
+                        Event::Observation(observation) => observation.time(),
+                    };
 
-                        let mut row: Vec<String> = Vec::new();
-                        row.push(subject.id().clone());
-                        row.push(time.to_string());
-                        row.push(occasion.index().to_string());
+                    let mut row: Vec<String> = Vec::new();
+                    row.push(subject.id().clone());
+                    row.push(time.to_string());
+                    row.push(occasion.index().to_string());
 
-                        // Add covariate values to the row
-                        for cov_name in &covariate_names {
-                            if let Some(cov) = covmap.get(cov_name) {
-                                if let Some(value) = cov.interpolate(time) {
-                                    row.push(value.to_string());
-                                } else {
-                                    row.push(String::new());
-                                }
+                    // Add covariate values to the row
+                    for cov_name in &covariate_names {
+                        if let Some(cov) = covmap.get(cov_name) {
+                            if let Some(value) = cov.interpolate(time) {
+                                row.push(value.to_string());
                             } else {
                                 row.push(String::new());
                             }
+                        } else {
+                            row.push(String::new());
                         }
-
-                        writer.write_record(&row)?;
                     }
+
+                    writer.write_record(&row)?;
                 }
             }
         }
