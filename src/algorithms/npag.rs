@@ -1,3 +1,4 @@
+use crate::algorithms::Status;
 use crate::prelude::algorithms::Algorithms;
 
 pub use crate::routines::evaluation::ipm::burke;
@@ -45,6 +46,7 @@ pub struct NPAG<E: Equation> {
     gamma_delta: Vec<f64>,
     error_models: ErrorModels,
     converged: bool,
+    status: Status,
     cycle_log: CycleLog,
     data: Data,
     settings: Settings,
@@ -68,6 +70,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             gamma_delta: vec![0.1; settings.errormodels().len()],
             error_models: settings.errormodels().clone().into(),
             converged: false,
+            status: Status::Starting,
             cycle_log: CycleLog::new(),
             settings,
             data,
@@ -86,7 +89,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             self.w.clone(),
             -2. * self.objf,
             self.cycle,
-            self.converged,
+            self.status.clone(),
             self.settings.clone(),
             self.cycle_log.clone(),
         )
@@ -121,7 +124,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Theta {
+    fn theta(&self) -> &Theta {
         &self.theta
     }
 
@@ -140,6 +143,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.converged = true;
+                    self.status = Status::Converged;
                 } else {
                     self.f0 = self.f1;
                     self.eps = 0.2;
@@ -151,12 +155,13 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
+            self.status = Status::MaxCycles;
         }
 
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
-            self.converged = true;
+            self.status = Status::ManualStop;
         }
 
         // Create state object
@@ -167,7 +172,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             nspp: self.theta.nspp(),
             theta: self.theta.clone(),
             error_models: self.error_models.clone(),
-            converged: self.converged,
+            status: self.status.clone(),
         };
 
         // Write cycle log
@@ -376,5 +381,13 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn expansion(&mut self) -> Result<()> {
         adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
         Ok(())
+    }
+
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn status(&self) -> &Status {
+        &self.status
     }
 }

@@ -1,4 +1,5 @@
 use crate::{
+    algorithms::Status,
     prelude::{
         algorithms::Algorithms,
         routines::{
@@ -44,6 +45,7 @@ pub struct NPOD<E: Equation> {
     gamma_delta: Vec<f64>,
     error_models: ErrorModels,
     converged: bool,
+    status: Status,
     cycle_log: CycleLog,
     data: Data,
     settings: Settings,
@@ -63,6 +65,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             gamma_delta: vec![0.1; settings.errormodels().len()],
             error_models: settings.errormodels().clone().into(),
             converged: false,
+            status: Status::Starting,
             cycle_log: CycleLog::new(),
             settings,
             data,
@@ -77,7 +80,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             self.w.clone(),
             -2. * self.objf,
             self.cycle,
-            self.converged,
+            self.status.clone(),
             self.settings.clone(),
             self.cycle_log.clone(),
         )
@@ -112,7 +115,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Theta {
+    fn theta(&self) -> &Theta {
         &self.theta
     }
 
@@ -124,22 +127,33 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         self.objf
     }
 
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn status(&self) -> &Status {
+        &self.status
+    }
+
     fn convergence_evaluation(&mut self) {
         if (self.last_objf - self.objf).abs() <= THETA_F {
             tracing::info!("Objective function convergence reached");
             self.converged = true;
+            self.status = Status::Converged;
         }
 
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
+            self.status = Status::MaxCycles;
         }
 
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
             self.converged = true;
+            self.status = Status::ManualStop;
         }
 
         // Create state object
@@ -150,7 +164,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             nspp: self.theta.nspp(),
             theta: self.theta.clone(),
             error_models: self.error_models.clone(),
-            converged: self.converged,
+            status: self.status.clone(),
         };
 
         // Write cycle log
