@@ -29,7 +29,7 @@ tracing-subscriber = { version = "0.3.19", features = [
 ] }
 faer = "0.22.4"
 faer-ext = { version = "0.6.0", features = ["nalgebra", "ndarray"] }
-pharmsol = "=0.11.1"
+pharmsol = "=0.12.0"
 # pharmsol = { path = "../pharmsol" }
 rand = "0.9.0"
 anyhow = "1.0.97"
