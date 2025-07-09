@@ -15,8 +15,8 @@ fn main() {
             fetch_params!(p, _ka, _ke0, _kcp, _kpc, _vol, ske);
             d[3] = ske;
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |p, _t, _cov, x| {
             fetch_params!(p, _ka, ke0, _kcp, _kpc, _vol);
             x[3] = ke0;
@@ -37,8 +37,8 @@ fn main() {
     //         dx[1] = ka * x[0] - (ke0 + kcp) * x[1] + kpc * x[2];
     //         dx[2] = kcp * x[1] - kpc * x[2];
     //     },
-    //     |_p| lag! {},
-    //     |_p| fa! {},
+    //     |_p, _t, _cov| lag! {},
+    //     |_p, _t, _cov| fa! {},
     //     |_p, _t, _cov, _x| {},
     //     |x, p, t, cov, y| {
     //         fetch_params!(p, _ka, _ke0, _kcp, _kpc, vol);
