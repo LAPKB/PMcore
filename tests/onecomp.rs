@@ -9,8 +9,8 @@ fn test_one_compartment() -> Result<()> {
             fetch_params!(p, ke);
             dx[0] = -ke * x[0];
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
             fetch_params!(p, v);

@@ -50,8 +50,8 @@ fn main() -> Result<()> {
             let xm0best = get_xm0best(u_r2, v_r2, w_r2, 1.0 / h1r2, 1.0 / h2r2, alpha_s);
             dx[4] = xnr2 * (kgr2 * e - kkr2 * xm0best / (xm0best + 1.0));
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |p, t, cov, x| {
             fetch_params!(
                 p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,

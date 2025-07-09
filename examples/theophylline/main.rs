@@ -8,8 +8,8 @@ fn main() {
     //         dx[0] = -ka * x[0];
     //         dx[1] = ka * x[0] - ke * x[1];
     //     },
-    //     |_p| lag! {},
-    //     |_p| fa! {},
+    //     |_p, _t, _cov| lag! {},
+    //     |_p, _t, _cov| fa! {},
     //     |_p, _t, _cov, _x| {},
     //     |x, p, _t, _cov, y| {
     //         fetch_params!(p, _ka, _ke, v);
@@ -20,8 +20,8 @@ fn main() {
     let eq = equation::Analytical::new(
         one_compartment_with_absorption,
         |_p, _t, _cov| {},
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ka, _ke, v);

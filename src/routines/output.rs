@@ -499,7 +499,7 @@ impl<E: Equation> NPResult<E> {
                 let cov = occasion.covariates();
                 let covmap = cov.covariates();
 
-                for event in occasion.get_events(&None, &None, false) {
+                for event in occasion.get_events(None, false) {
                     let time = match event {
                         Event::Bolus(bolus) => bolus.time(),
                         Event::Infusion(infusion) => infusion.time(),
@@ -923,7 +923,7 @@ pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<
     writer.write_record(["id", "block", "time", "out", "outeq"])?;
     for subject in data.get_subjects() {
         for occasion in subject.occasions() {
-            for event in occasion.get_events(&None, &None, false) {
+            for event in occasion.get_events(None, false) {
                 if let Event::Observation(event) = event {
                     writer.write_record([
                         subject.id(),
