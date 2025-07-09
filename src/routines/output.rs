@@ -234,7 +234,7 @@ impl<E: Equation> NPResult<E> {
             }
         }
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Observations with predictions written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -274,7 +274,7 @@ impl<E: Equation> NPResult<E> {
             writer.write_record(&row)?;
         }
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Population parameter distribution written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -334,7 +334,7 @@ impl<E: Equation> NPResult<E> {
         });
 
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Posterior parameters written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -378,7 +378,7 @@ impl<E: Equation> NPResult<E> {
         }
         writer.flush()?;
 
-        tracing::info!(
+        tracing::debug!(
             "Observations written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -488,7 +488,7 @@ impl<E: Equation> NPResult<E> {
             }
         }
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Predictions written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -561,7 +561,7 @@ impl<E: Equation> NPResult<E> {
         }
 
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Covariates written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -715,7 +715,7 @@ impl CycleLog {
             writer.write_record(None::<&[u8]>)?;
         }
         writer.flush()?;
-        tracing::info!("Cycles written to {:?}", &outputfile.get_relative_path());
+        tracing::debug!("Cycles written to {:?}", &outputfile.get_relative_path());
         Ok(())
     }
 }
