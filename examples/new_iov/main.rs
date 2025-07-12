@@ -15,8 +15,8 @@ fn main() {
             fetch_params!(p, _ke0, ske);
             d[1] = ske;
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |p, _t, _cov, x| {
             fetch_params!(p, ke0, _ske);
             x[1] = ke0;

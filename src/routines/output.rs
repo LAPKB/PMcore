@@ -1,17 +1,17 @@
+use crate::algorithms::Status;
 use crate::prelude::*;
+use crate::routines::settings::Settings;
 use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use faer::linalg::zip::IntoView;
+use faer::{Col, Mat};
 use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
 use serde::Serialize;
-// use pharmsol::Cache;
-use crate::routines::settings::Settings;
-use faer::{Col, Mat};
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 
@@ -26,7 +26,7 @@ pub struct NPResult<E: Equation> {
     w: Col<f64>,
     objf: f64,
     cycles: usize,
-    converged: bool,
+    status: Status,
     par_names: Vec<String>,
     settings: Settings,
     cyclelog: CycleLog,
@@ -43,7 +43,7 @@ impl<E: Equation> NPResult<E> {
         w: Col<f64>,
         objf: f64,
         cycles: usize,
-        converged: bool,
+        status: Status,
         settings: Settings,
         cyclelog: CycleLog,
     ) -> Self {
@@ -59,7 +59,7 @@ impl<E: Equation> NPResult<E> {
             w,
             objf,
             cycles,
-            converged,
+            status,
             par_names,
             settings,
             cyclelog,
@@ -75,18 +75,20 @@ impl<E: Equation> NPResult<E> {
     }
 
     pub fn converged(&self) -> bool {
-        self.converged
+        self.status == Status::Converged
     }
 
     pub fn get_theta(&self) -> &Theta {
         &self.theta
     }
 
-    pub fn get_psi(&self) -> &Psi {
+    /// Get the [Psi] structure
+    pub fn psi(&self) -> &Psi {
         &self.psi
     }
 
-    pub fn get_w(&self) -> &Col<f64> {
+    /// Get the weights (probabilities) of the support points
+    pub fn w(&self) -> &Col<f64> {
         &self.w
     }
 
@@ -507,11 +509,10 @@ impl<E: Equation> NPResult<E> {
         let mut covariate_names = std::collections::HashSet::new();
         for subject in self.data.get_subjects() {
             for occasion in subject.occasions() {
-                if let Some(cov) = occasion.get_covariates() {
-                    let covmap = cov.covariates();
-                    for cov_name in covmap.keys() {
-                        covariate_names.insert(cov_name.clone());
-                    }
+                let cov = occasion.covariates();
+                let covmap = cov.covariates();
+                for cov_name in covmap.keys() {
+                    covariate_names.insert(cov_name.clone());
                 }
             }
         }
@@ -526,36 +527,35 @@ impl<E: Equation> NPResult<E> {
         // Write the data rows
         for subject in self.data.get_subjects() {
             for occasion in subject.occasions() {
-                if let Some(cov) = occasion.get_covariates() {
-                    let covmap = cov.covariates();
+                let cov = occasion.covariates();
+                let covmap = cov.covariates();
 
-                    for event in occasion.get_events(&None, &None, false) {
-                        let time = match event {
-                            Event::Bolus(bolus) => bolus.time(),
-                            Event::Infusion(infusion) => infusion.time(),
-                            Event::Observation(observation) => observation.time(),
-                        };
+                for event in occasion.get_events(None, false) {
+                    let time = match event {
+                        Event::Bolus(bolus) => bolus.time(),
+                        Event::Infusion(infusion) => infusion.time(),
+                        Event::Observation(observation) => observation.time(),
+                    };
 
-                        let mut row: Vec<String> = Vec::new();
-                        row.push(subject.id().clone());
-                        row.push(time.to_string());
-                        row.push(occasion.index().to_string());
+                    let mut row: Vec<String> = Vec::new();
+                    row.push(subject.id().clone());
+                    row.push(time.to_string());
+                    row.push(occasion.index().to_string());
 
-                        // Add covariate values to the row
-                        for cov_name in &covariate_names {
-                            if let Some(cov) = covmap.get(cov_name) {
-                                if let Some(value) = cov.interpolate(time) {
-                                    row.push(value.to_string());
-                                } else {
-                                    row.push(String::new());
-                                }
+                    // Add covariate values to the row
+                    for cov_name in &covariate_names {
+                        if let Some(cov) = covmap.get(cov_name) {
+                            if let Some(value) = cov.interpolate(time) {
+                                row.push(value.to_string());
                             } else {
                                 row.push(String::new());
                             }
+                        } else {
+                            row.push(String::new());
                         }
-
-                        writer.write_record(&row)?;
                     }
+
+                    writer.write_record(&row)?;
                 }
             }
         }
@@ -586,7 +586,7 @@ pub struct NPCycle {
     pub theta: Theta,
     pub nspp: usize,
     pub delta_objf: f64,
-    pub converged: bool,
+    pub status: Status,
 }
 
 impl NPCycle {
@@ -597,7 +597,7 @@ impl NPCycle {
         theta: Theta,
         nspp: usize,
         delta_objf: f64,
-        converged: bool,
+        status: Status,
     ) -> Self {
         Self {
             cycle,
@@ -606,7 +606,7 @@ impl NPCycle {
             theta,
             nspp,
             delta_objf,
-            converged,
+            status,
         }
     }
 
@@ -618,7 +618,7 @@ impl NPCycle {
             theta: Theta::new(),
             nspp: 0,
             delta_objf: 0.0,
-            converged: false,
+            status: Status::Starting,
         }
     }
 }
@@ -648,6 +648,7 @@ impl CycleLog {
         // Write headers
         writer.write_field("cycle")?;
         writer.write_field("converged")?;
+        writer.write_field("status")?;
         writer.write_field("neg2ll")?;
         writer.write_field("nspp")?;
         if let Some(first_cycle) = self.cycles.first() {
@@ -678,7 +679,8 @@ impl CycleLog {
 
         for cycle in &self.cycles {
             writer.write_field(format!("{}", cycle.cycle))?;
-            writer.write_field(format!("{}", cycle.converged))?;
+            writer.write_field(format!("{}", cycle.status == Status::Converged))?;
+            writer.write_field(format!("{}", cycle.status))?;
             writer.write_field(format!("{}", cycle.objf))?;
             writer
                 .write_field(format!("{}", cycle.theta.nspp()))

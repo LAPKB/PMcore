@@ -16,8 +16,8 @@ fn main() {
             dx[0] = rateiv[0] - ke * x[0] * (1.0 - fm) - fm * x[0];
             dx[1] = fm * x[0] - k20 * x[1];
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, t, cov, y| {
             fetch_cov!(cov, t, wt, pkvisit);
