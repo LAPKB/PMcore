@@ -728,6 +728,7 @@ impl Default for CycleLog {
     }
 }
 
+/// Calculates the posterior probabilities for each support point given the weights
 pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Mat<f64>> {
     if psi.matrix().ncols() != w.nrows() {
         bail!(
