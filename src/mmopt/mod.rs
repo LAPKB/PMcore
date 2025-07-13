@@ -108,9 +108,8 @@ fn calculate_risk(
                 })
                 .sum();
 
-            // For now, assume unit cost matrix (cost = 1.0 for all pairs)
-            // This can be parameterized later if needed
-            let cost = 1.0;
+            // No cost for getting it right
+            let cost = if i == j { 0.0 } else { 1.0 };
 
             weights[i] * weights[j] * (-sum_k_ijn).exp() * cost
         })
