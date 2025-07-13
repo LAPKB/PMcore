@@ -5,19 +5,6 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::structs::theta::Theta;
 
-struct CostMatrix {
-    matrix: Option<Mat<f64>>,
-    auc: f64,
-    cmax: f64,
-    cmin: f64,
-}
-
-impl CostMatrix {
-    pub fn new(auc: f64, cmax: f64, cmin: f64) -> Self {
-        !unimplemented!()
-    }
-}
-
 /// The results of a multiple-model optimization
 ///
 ///
@@ -36,6 +23,7 @@ pub fn mmopt(
     equation: impl Equation,
     errormodel: ErrorModel,
     nsamp: usize,
+    weights: Vec<f64>,
 ) -> Result<MmoptResult> {
     // Check that subject contains only one Occasion
     if subject.occasions().len() != 1 {
@@ -70,7 +58,8 @@ pub fn mmopt(
     let (best_combo, min_risk) = candidate_indices
         .par_iter()
         .map(|combo| {
-            let risk = calculate_risk(combo, &pred_matrix, theta, &errormodel).unwrap();
+            let risk =
+                calculate_risk(combo, &pred_matrix, theta, &errormodel, weights.clone()).unwrap();
             (combo.clone(), risk)
         })
         .min_by(|(_, risk_a), (_, risk_b)| risk_a.partial_cmp(risk_b).unwrap())
@@ -89,9 +78,9 @@ fn calculate_risk(
     pred_matrix: &Mat<f64>,
     theta: &Theta,
     errormodel: &ErrorModel,
+    weights: Vec<f64>,
 ) -> Result<f64> {
     let nspp = theta.nspp();
-    let prob_uniform = 1.0 / nspp as f64; // Uniform probability for each support point
 
     let risk = (0..nspp)
         .flat_map(|i| (0..nspp).map(move |j| (i, j)))
@@ -123,7 +112,7 @@ fn calculate_risk(
             // This can be parameterized later if needed
             let cost = 1.0;
 
-            prob_uniform * prob_uniform * (-sum_k_ijn).exp() * cost
+            weights[i] * weights[j] * (-sum_k_ijn).exp() * cost
         })
         .sum();
 
