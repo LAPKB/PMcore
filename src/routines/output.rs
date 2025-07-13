@@ -1,17 +1,17 @@
+use crate::algorithms::Status;
 use crate::prelude::*;
+use crate::routines::settings::Settings;
 use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use faer::linalg::zip::IntoView;
+use faer::{Col, Mat};
 use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
 use serde::Serialize;
-// use pharmsol::Cache;
-use crate::routines::settings::Settings;
-use faer::{Col, Mat};
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 
@@ -26,7 +26,7 @@ pub struct NPResult<E: Equation> {
     w: Col<f64>,
     objf: f64,
     cycles: usize,
-    converged: bool,
+    status: Status,
     par_names: Vec<String>,
     settings: Settings,
     cyclelog: CycleLog,
@@ -43,7 +43,7 @@ impl<E: Equation> NPResult<E> {
         w: Col<f64>,
         objf: f64,
         cycles: usize,
-        converged: bool,
+        status: Status,
         settings: Settings,
         cyclelog: CycleLog,
     ) -> Self {
@@ -59,7 +59,7 @@ impl<E: Equation> NPResult<E> {
             w,
             objf,
             cycles,
-            converged,
+            status,
             par_names,
             settings,
             cyclelog,
@@ -75,18 +75,20 @@ impl<E: Equation> NPResult<E> {
     }
 
     pub fn converged(&self) -> bool {
-        self.converged
+        self.status == Status::Converged
     }
 
     pub fn get_theta(&self) -> &Theta {
         &self.theta
     }
 
-    pub fn get_psi(&self) -> &Psi {
+    /// Get the [Psi] structure
+    pub fn psi(&self) -> &Psi {
         &self.psi
     }
 
-    pub fn get_w(&self) -> &Col<f64> {
+    /// Get the weights (probabilities) of the support points
+    pub fn w(&self) -> &Col<f64> {
         &self.w
     }
 
@@ -103,10 +105,8 @@ impl<E: Equation> NPResult<E> {
             self.write_pred(idelta, tad)
                 .context("Failed to write predictions")?;
             self.write_covs().context("Failed to write covariates")?;
-            if !(self.w.nrows() == 0) {
-                self.write_posterior()
-                    .context("Failed to write posterior")?;
-            }
+            self.write_posterior()
+                .context("Failed to write posterior")?;
         }
         Ok(())
     }
@@ -326,14 +326,9 @@ impl<E: Equation> NPResult<E> {
                 writer.write_field(id.clone()).unwrap();
                 writer.write_field(i.to_string()).unwrap();
 
-                theta
-                    .matrix()
-                    .row(spp)
-                    .iter()
-                    .enumerate()
-                    .for_each(|(_, val)| {
-                        writer.write_field(val.to_string()).unwrap();
-                    });
+                theta.matrix().row(spp).iter().for_each(|val| {
+                    writer.write_field(val.to_string()).unwrap();
+                });
 
                 writer.write_field(prob.to_string()).unwrap();
                 writer.write_record(None::<&[u8]>).unwrap();
@@ -483,11 +478,10 @@ impl<E: Equation> NPResult<E> {
         let mut covariate_names = std::collections::HashSet::new();
         for subject in self.data.get_subjects() {
             for occasion in subject.occasions() {
-                if let Some(cov) = occasion.get_covariates() {
-                    let covmap = cov.covariates();
-                    for cov_name in covmap.keys() {
-                        covariate_names.insert(cov_name.clone());
-                    }
+                let cov = occasion.covariates();
+                let covmap = cov.covariates();
+                for cov_name in covmap.keys() {
+                    covariate_names.insert(cov_name.clone());
                 }
             }
         }
@@ -502,36 +496,35 @@ impl<E: Equation> NPResult<E> {
         // Write the data rows
         for subject in self.data.get_subjects() {
             for occasion in subject.occasions() {
-                if let Some(cov) = occasion.get_covariates() {
-                    let covmap = cov.covariates();
+                let cov = occasion.covariates();
+                let covmap = cov.covariates();
 
-                    for event in occasion.get_events(&None, &None, false) {
-                        let time = match event {
-                            Event::Bolus(bolus) => bolus.time(),
-                            Event::Infusion(infusion) => infusion.time(),
-                            Event::Observation(observation) => observation.time(),
-                        };
+                for event in occasion.get_events(None, false) {
+                    let time = match event {
+                        Event::Bolus(bolus) => bolus.time(),
+                        Event::Infusion(infusion) => infusion.time(),
+                        Event::Observation(observation) => observation.time(),
+                    };
 
-                        let mut row: Vec<String> = Vec::new();
-                        row.push(subject.id().clone());
-                        row.push(time.to_string());
-                        row.push(occasion.index().to_string());
+                    let mut row: Vec<String> = Vec::new();
+                    row.push(subject.id().clone());
+                    row.push(time.to_string());
+                    row.push(occasion.index().to_string());
 
-                        // Add covariate values to the row
-                        for cov_name in &covariate_names {
-                            if let Some(cov) = covmap.get(cov_name) {
-                                if let Some(value) = cov.interpolate(time) {
-                                    row.push(value.to_string());
-                                } else {
-                                    row.push(String::new());
-                                }
+                    // Add covariate values to the row
+                    for cov_name in &covariate_names {
+                        if let Some(cov) = covmap.get(cov_name) {
+                            if let Some(value) = cov.interpolate(time) {
+                                row.push(value.to_string());
                             } else {
                                 row.push(String::new());
                             }
+                        } else {
+                            row.push(String::new());
                         }
-
-                        writer.write_record(&row)?;
                     }
+
+                    writer.write_record(&row)?;
                 }
             }
         }
@@ -558,31 +551,31 @@ impl<E: Equation> NPResult<E> {
 pub struct NPCycle {
     pub cycle: usize,
     pub objf: f64,
-    pub gamlam: f64,
+    pub error_models: ErrorModels,
     pub theta: Theta,
     pub nspp: usize,
     pub delta_objf: f64,
-    pub converged: bool,
+    pub status: Status,
 }
 
 impl NPCycle {
     pub fn new(
         cycle: usize,
         objf: f64,
-        gamlam: f64,
+        error_models: ErrorModels,
         theta: Theta,
         nspp: usize,
         delta_objf: f64,
-        converged: bool,
+        status: Status,
     ) -> Self {
         Self {
             cycle,
             objf,
-            gamlam,
+            error_models,
             theta,
             nspp,
             delta_objf,
-            converged,
+            status,
         }
     }
 
@@ -590,11 +583,11 @@ impl NPCycle {
         Self {
             cycle: 0,
             objf: 0.0,
-            gamlam: 0.0,
+            error_models: ErrorModels::default(),
             theta: Theta::new(),
             nspp: 0,
             delta_objf: 0.0,
-            converged: false,
+            status: Status::Starting,
         }
     }
 }
@@ -624,9 +617,25 @@ impl CycleLog {
         // Write headers
         writer.write_field("cycle")?;
         writer.write_field("converged")?;
+        writer.write_field("status")?;
         writer.write_field("neg2ll")?;
-        writer.write_field("gamlam")?;
         writer.write_field("nspp")?;
+        if let Some(first_cycle) = self.cycles.first() {
+            first_cycle.error_models.iter().try_for_each(
+                |(outeq, errmod): (usize, &ErrorModel)| -> Result<(), csv::Error> {
+                    match errmod {
+                        ErrorModel::Additive { .. } => {
+                            writer.write_field(format!("gamlam.{}", outeq))?;
+                        }
+                        ErrorModel::Proportional { .. } => {
+                            writer.write_field(format!("gamlam.{}", outeq))?;
+                        }
+                        ErrorModel::None { .. } => {}
+                    }
+                    Ok(())
+                },
+            )?;
+        }
 
         let parameter_names = settings.parameters().names();
         for param_name in &parameter_names {
@@ -639,12 +648,28 @@ impl CycleLog {
 
         for cycle in &self.cycles {
             writer.write_field(format!("{}", cycle.cycle))?;
-            writer.write_field(format!("{}", cycle.converged))?;
+            writer.write_field(format!("{}", cycle.status == Status::Converged))?;
+            writer.write_field(format!("{}", cycle.status))?;
             writer.write_field(format!("{}", cycle.objf))?;
-            writer.write_field(format!("{}", cycle.gamlam))?;
             writer
-                .write_field(format!("{}", cycle.theta.matrix().nrows()))
+                .write_field(format!("{}", cycle.theta.nspp()))
                 .unwrap();
+
+            // Write the error models
+            cycle.error_models.iter().try_for_each(
+                |(_, errmod): (usize, &ErrorModel)| -> Result<()> {
+                    match errmod {
+                        ErrorModel::Additive { .. } => {
+                            writer.write_field(format!("{:.5}", errmod.scalar()?))?;
+                        }
+                        ErrorModel::Proportional { .. } => {
+                            writer.write_field(format!("{:.5}", errmod.scalar()?))?;
+                        }
+                        ErrorModel::None { .. } => {}
+                    }
+                    Ok(())
+                },
+            )?;
 
             for param in cycle.theta.matrix().col_iter() {
                 let param_values: Vec<f64> = param.iter().cloned().collect();
@@ -898,7 +923,7 @@ pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<
     writer.write_record(["id", "block", "time", "out", "outeq"])?;
     for subject in data.get_subjects() {
         for occasion in subject.occasions() {
-            for event in occasion.get_events(&None, &None, false) {
+            for event in occasion.get_events(None, false) {
                 if let Event::Observation(event) = event {
                     writer.write_record([
                         subject.id(),

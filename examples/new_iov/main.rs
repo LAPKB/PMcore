@@ -15,8 +15,8 @@ fn main() {
             fetch_params!(p, _ke0, ske);
             d[1] = ske;
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |p, _t, _cov, x| {
             fetch_params!(p, ke0, _ske);
             x[1] = ke0;
@@ -30,17 +30,20 @@ fn main() {
     );
 
     let params = Parameters::new()
-        .add("ke0", 0.0001, 2.4, false)
-        .add("ske", 0.0001, 0.2, false);
+        .add("ke0", 0.0001, 2.4)
+        .add("ske", 0.0001, 0.2);
+
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+        )
+        .unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(
-            ErrorType::Additive,
-            0.0,
-            (-0.00119, 0.44379, -0.45864, 0.16537),
-        )
+        .set_error_models(ems)
         .build();
 
     settings.set_cycles(1000);

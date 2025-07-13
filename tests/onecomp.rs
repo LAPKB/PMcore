@@ -9,8 +9,8 @@ fn test_one_compartment() -> Result<()> {
             fetch_params!(p, ke);
             dx[0] = -ke * x[0];
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
             fetch_params!(p, v);
@@ -20,18 +20,20 @@ fn test_one_compartment() -> Result<()> {
     );
 
     // Define parameters
-    let params = Parameters::new()
-        .add("ke", 0.1, 1.0, false)
-        .add("v", 1.0, 20.0, false);
+    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
+
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
+    let ems = ErrorModels::new().add(0, em).unwrap();
 
     // Create settings
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorType::Additive, 2.0, (0.0, 0.10, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_prior(Prior::sobol(64, 22));
+
     settings.set_cycles(100);
 
     // Let known support points

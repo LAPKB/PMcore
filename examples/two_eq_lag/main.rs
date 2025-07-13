@@ -12,11 +12,11 @@ fn main() {
             dx[0] = -ka * x[0];
             dx[1] = ka * x[0] - ke * x[1];
         },
-        |p| {
+        |p, _t, _cov| {
             fetch_params!(p, _ka, _ke, tlag, _v);
             lag! {0=>tlag}
         },
-        |_p| fa! {},
+        |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ka, _ke, _tlag, v);
@@ -31,7 +31,7 @@ fn main() {
     //         fetch_params!(p, _ka, _ke, tlag, _v);
     //         lag! {0=>tlag}
     //     },
-    //     |_p| fa! {},
+    //     |_p, _t, _cov| fa! {},
     //     |_p, _t, _cov, _x| {},
     //     |x, p, _t, _cov, y| {
     //         fetch_params!(p, _ka, _ke, _tlag, v);
@@ -68,19 +68,22 @@ fn main() {
     // );
 
     let params = Parameters::new()
-        .add("ka", 0.1, 0.9, false)
-        .add("ke", 0.001, 0.1, false)
-        .add("tlag", 0.0, 4.0, false)
-        .add("v", 30.0, 120.0, false);
+        .add("ka", 0.1, 0.9)
+        .add("ke", 0.001, 0.1)
+        .add("tlag", 0.0, 4.0)
+        .add("v", 30.0, 120.0);
+
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+        )
+        .unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(
-            ErrorType::Additive,
-            0.0,
-            (-0.00119, 0.44379, -0.45864, 0.16537),
-        )
+        .set_error_models(ems)
         .build();
 
     settings.initialize_logs().unwrap();

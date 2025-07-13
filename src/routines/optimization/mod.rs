@@ -6,14 +6,14 @@ use argmin::{
 use ndarray::{Array1, Axis};
 
 use pharmsol::prelude::{
-    data::{Data, ErrorModel},
+    data::{Data, ErrorModels},
     simulator::{psi, Equation},
 };
 
 pub struct SppOptimizer<'a, E: Equation> {
     equation: &'a E,
     data: &'a Data,
-    sig: &'a ErrorModel,
+    sig: &'a ErrorModels,
     pyl: &'a Array1<f64>,
 }
 
@@ -45,7 +45,12 @@ impl<E: Equation> CostFunction for SppOptimizer<'_, E> {
 }
 
 impl<'a, E: Equation> SppOptimizer<'a, E> {
-    pub fn new(equation: &'a E, data: &'a Data, sig: &'a ErrorModel, pyl: &'a Array1<f64>) -> Self {
+    pub fn new(
+        equation: &'a E,
+        data: &'a Data,
+        sig: &'a ErrorModels,
+        pyl: &'a Array1<f64>,
+    ) -> Self {
         Self {
             equation,
             data,

@@ -89,11 +89,11 @@ pub trait Algorithms<E: Equation>: Sync {
             for index in &indices {
                 tracing::debug!("Subject with zero probability: {}", subject[*index].id());
 
-                let error_model = self.get_settings().error.clone().into();
+                let error_model = self.get_settings().errormodels().clone().into();
 
                 // Simulate all support points in parallel
                 let spp_results: Vec<_> = self
-                    .get_theta()
+                    .theta()
                     .matrix()
                     .row_iter()
                     .enumerate()
@@ -211,12 +211,14 @@ pub trait Algorithms<E: Equation>: Sync {
     fn inc_cycle(&mut self) -> usize;
     fn get_cycle(&self) -> usize;
     fn set_theta(&mut self, theta: Theta);
-    fn get_theta(&self) -> &Theta;
+    fn theta(&self) -> &Theta;
     fn psi(&self) -> &Psi;
     fn likelihood(&self) -> f64;
     fn n2ll(&self) -> f64 {
         -2.0 * self.likelihood()
     }
+    fn status(&self) -> &Status;
+    fn set_status(&mut self, status: Status);
     fn convergence_evaluation(&mut self);
     fn converged(&self) -> bool;
     fn initialize(&mut self) -> Result<()> {
@@ -225,6 +227,7 @@ pub trait Algorithms<E: Equation>: Sync {
             tracing::info!("Removing existing stop file prior to run");
             fs::remove_file("stop").context("Unable to remove previous stop file")?;
         }
+        self.set_status(Status::InProgress);
         self.set_theta(self.get_prior());
         Ok(())
     }
@@ -252,6 +255,7 @@ pub trait Algorithms<E: Equation>: Sync {
         Ok(self.into_npresult())
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn into_npresult(&self) -> NPResult<E>;
 }
 
@@ -264,5 +268,35 @@ pub fn dispatch_algorithm<E: Equation>(
         Algorithm::NPAG => Ok(NPAG::new(settings, equation, data)?),
         Algorithm::NPOD => Ok(NPOD::new(settings, equation, data)?),
         Algorithm::POSTPROB => Ok(POSTPROB::new(settings, equation, data)?),
+    }
+}
+
+/// Represents the status of the algorithm
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Status {
+    /// Algorithm is starting up
+    Starting,
+    /// Algorithm has converged to a solution
+    Converged,
+    /// Algorithm stopped due to reaching maximum cycles
+    MaxCycles,
+    /// Algorithm is currently running
+    InProgress,
+    /// Algorithm was manually stopped by user
+    ManualStop,
+    /// Other status with custom message
+    Other(String),
+}
+
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Status::Starting => write!(f, "Starting"),
+            Status::Converged => write!(f, "Converged"),
+            Status::MaxCycles => write!(f, "Maximum cycles reached"),
+            Status::InProgress => write!(f, "In progress"),
+            Status::ManualStop => write!(f, "Manual stop requested"),
+            Status::Other(msg) => write!(f, "{}", msg),
+        }
     }
 }
