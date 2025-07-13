@@ -1,32 +1,9 @@
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use faer::Mat;
-use pharmsol::{
-    prelude::simulator::SubjectPredictions, Data, Equation, ErrorModel, Predictions, Subject,
-};
+use pharmsol::{Equation, ErrorModel, Predictions, Subject};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use serde_json::error;
-use std::fmt::Error;
 
 use crate::structs::theta::Theta;
-
-pub struct PredictionsContainer {
-    pub matrix: Mat<f64>,
-    pub times: Vec<f64>,
-    pub probs: Vec<f64>,
-}
-
-impl PredictionsContainer {
-    fn matrix(&self) -> &Mat<f64> {
-        &self.matrix
-    }
-
-    fn nsub(&self) -> usize {
-        self.matrix.ncols()
-    }
-    fn nout(&self) -> usize {
-        self.matrix.nrows()
-    }
-}
 
 struct CostMatrix {
     matrix: Option<Mat<f64>>,
@@ -52,6 +29,7 @@ pub struct MmoptResult {
     pub risk: f64,
 }
 
+/// Perform multiple-model optimization to determine optimal sample times
 pub fn mmopt(
     theta: &Theta,
     subject: &Subject,
@@ -72,6 +50,7 @@ pub fn mmopt(
             let support_point: Vec<f64> = theta_row.iter().cloned().collect();
             let predictions = equation
                 .estimate_predictions(&subject, &support_point)
+                .unwrap()
                 .get_predictions();
             predictions
         })
@@ -91,67 +70,64 @@ pub fn mmopt(
     let (best_combo, min_risk) = candidate_indices
         .par_iter()
         .map(|combo| {
-            let mut risk = 0.0;
-            // Compare the i-th and the j-th subject predictions
-            for i in 0..theta.nspp() {
-                for j in 0..theta.nspp() {
-                    if i != j {
-                        let i_obs: Vec<f64> = pred_matrix
-                            .col(i)
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(k, &x)| if combo.contains(&k) { Some(x) } else { None })
-                            .collect();
-
-                        let j_obs: Vec<f64> = pred_matrix
-                            .col(j)
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(k, &x)| if combo.contains(&k) { Some(x) } else { None })
-                            .collect();
-
-                        let i_var: Vec<f64> =
-                            i_obs.iter().map(|&x| errormodel.variance(x)).collect();
-                        let j_var: Vec<f64> =
-                            j_obs.iter().map(|&x| errorpoly.variance(x)).collect();
-
-                        let sum_k_ijn: f64 = i_obs
-                            .iter()
-                            .zip(j_obs.iter())
-                            .zip(i_var.iter())
-                            .zip(j_var.iter())
-                            .map(|(((y_i, y_j), i_var), j_var)| {
-                                let denominator = i_var + j_var;
-                                let term1 = (y_i - y_j).powi(2) / (4.0 * denominator);
-                                let term2 = 0.5 * ((i_var + j_var) / 2.0).ln();
-                                let term3 = -0.25 * (i_var * j_var).ln();
-                                term1 + term2 + term3
-                            })
-                            .collect::<Vec<f64>>()
-                            .iter()
-                            .sum::<f64>();
-
-                        let prob_i = predictions.probs[i];
-                        let prob_j = predictions.probs[j];
-                        let cost = cost_matrix.matrix[(i, j)];
-                        let risk_component = prob_i * prob_j * (-sum_k_ijn).exp() * cost;
-                        risk += risk_component;
-                    }
-                }
-            }
-
+            let risk = calculate_risk(combo, &pred_matrix, theta, &errormodel).unwrap();
             (combo.clone(), risk)
         })
         .min_by(|(_, risk_a), (_, risk_b)| risk_a.partial_cmp(risk_b).unwrap())
         .unwrap();
 
-    let times = best_combo.iter().map(|&i| times[i]).collect::<Vec<_>>();
-    let res = MmoptResult {
-        times: times,
+    let optimal_times = best_combo.iter().map(|&i| times[i]).collect();
+    Ok(MmoptResult {
+        times: optimal_times,
         risk: min_risk,
-    };
+    })
+}
 
-    Ok(res)
+/// Calculate the risk for a specific combination of sample times
+fn calculate_risk(
+    combo: &[usize],
+    pred_matrix: &Mat<f64>,
+    theta: &Theta,
+    errormodel: &ErrorModel,
+) -> Result<f64> {
+    let nspp = theta.nspp();
+    let prob_uniform = 1.0 / nspp as f64; // Uniform probability for each support point
+
+    let risk = (0..nspp)
+        .flat_map(|i| (0..nspp).map(move |j| (i, j)))
+        .filter(|(i, j)| i != j)
+        .map(|(i, j)| {
+            // Extract observations for the selected time points
+            let i_obs: Vec<f64> = combo.iter().map(|&k| pred_matrix[(k, i)]).collect();
+
+            let j_obs: Vec<f64> = combo.iter().map(|&k| pred_matrix[(k, j)]).collect();
+
+            // Calculate the sum of log-likelihood differences
+            let sum_k_ijn: f64 = i_obs
+                .iter()
+                .zip(j_obs.iter())
+                .map(|(&y_i, &y_j)| {
+                    let i_var = errormodel.variance_from_value(y_i).unwrap();
+                    let j_var = errormodel.variance_from_value(y_j).unwrap();
+                    let denominator = i_var + j_var;
+
+                    let term1 = (y_i - y_j).powi(2) / (4.0 * denominator);
+                    let term2 = 0.5 * (denominator / 2.0).ln();
+                    let term3 = -0.25 * (i_var * j_var).ln();
+
+                    term1 + term2 + term3
+                })
+                .sum();
+
+            // For now, assume unit cost matrix (cost = 1.0 for all pairs)
+            // This can be parameterized later if needed
+            let cost = 1.0;
+
+            prob_uniform * prob_uniform * (-sum_k_ijn).exp() * cost
+        })
+        .sum();
+
+    Ok(risk)
 }
 
 fn generate_combinations(m: usize, n: usize) -> Vec<Vec<usize>> {
