@@ -94,6 +94,7 @@ impl<E: Equation> NPResult<E> {
 
     pub fn write_outputs(&self) -> Result<()> {
         if self.settings.output().write {
+            tracing::info!("Writing outputs to {:?}", self.settings.output().path);
             self.settings.write()?;
             let idelta: f64 = self.settings.predictions().idelta;
             let tad = self.settings.predictions().tad;
@@ -364,7 +365,7 @@ impl<E: Equation> NPResult<E> {
 
         for subject in self.data.get_subjects() {
             for occasion in subject.occasions() {
-                for event in occasion.get_events(&None, &None, false) {
+                for event in occasion.get_events(None, false) {
                     if let Event::Observation(event) = event {
                         let row = Row {
                             id: subject.id().clone(),
