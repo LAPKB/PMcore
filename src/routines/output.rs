@@ -325,7 +325,7 @@ impl<E: Equation> NPResult<E> {
 
             row.iter().enumerate().for_each(|(spp, prob)| {
                 writer.write_field(id.clone()).unwrap();
-                writer.write_field(i.to_string()).unwrap();
+                writer.write_field(spp.to_string()).unwrap();
 
                 theta.matrix().row(spp).iter().for_each(|val| {
                     writer.write_field(val.to_string()).unwrap();
