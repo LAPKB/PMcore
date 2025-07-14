@@ -94,6 +94,7 @@ impl<E: Equation> NPResult<E> {
 
     pub fn write_outputs(&self) -> Result<()> {
         if self.settings.output().write {
+            tracing::info!("Writing outputs to {:?}", self.settings.output().path);
             self.settings.write()?;
             let idelta: f64 = self.settings.predictions().idelta;
             let tad = self.settings.predictions().tad;
@@ -236,7 +237,7 @@ impl<E: Equation> NPResult<E> {
             }
         }
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Observations with predictions written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -276,7 +277,7 @@ impl<E: Equation> NPResult<E> {
             writer.write_record(&row)?;
         }
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Population parameter distribution written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -324,7 +325,7 @@ impl<E: Equation> NPResult<E> {
 
             row.iter().enumerate().for_each(|(spp, prob)| {
                 writer.write_field(id.clone()).unwrap();
-                writer.write_field(i.to_string()).unwrap();
+                writer.write_field(spp.to_string()).unwrap();
 
                 theta.matrix().row(spp).iter().for_each(|val| {
                     writer.write_field(val.to_string()).unwrap();
@@ -336,7 +337,7 @@ impl<E: Equation> NPResult<E> {
         });
 
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Posterior parameters written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -348,8 +349,39 @@ impl<E: Equation> NPResult<E> {
     pub fn write_obs(&self) -> Result<()> {
         tracing::debug!("Writing observations...");
         let outputfile = OutputFile::new(&self.settings.output().path, "obs.csv")?;
-        write_pmetrics_observations(&self.data, &outputfile.file)?;
-        tracing::info!(
+
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(&outputfile.file);
+
+        #[derive(Serialize)]
+        struct Row {
+            id: String,
+            block: usize,
+            time: f64,
+            out: f64,
+            outeq: usize,
+        }
+
+        for subject in self.data.get_subjects() {
+            for occasion in subject.occasions() {
+                for event in occasion.get_events(None, false) {
+                    if let Event::Observation(event) = event {
+                        let row = Row {
+                            id: subject.id().clone(),
+                            block: occasion.index(),
+                            time: event.time(),
+                            out: event.value(),
+                            outeq: event.outeq(),
+                        };
+                        writer.serialize(row)?;
+                    }
+                }
+            }
+        }
+        writer.flush()?;
+
+        tracing::debug!(
             "Observations written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -459,7 +491,7 @@ impl<E: Equation> NPResult<E> {
             }
         }
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Predictions written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -530,7 +562,7 @@ impl<E: Equation> NPResult<E> {
         }
 
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Covariates written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -686,7 +718,7 @@ impl CycleLog {
             writer.write_record(None::<&[u8]>)?;
         }
         writer.flush()?;
-        tracing::info!("Cycles written to {:?}", &outputfile.get_relative_path());
+        tracing::debug!("Cycles written to {:?}", &outputfile.get_relative_path());
         Ok(())
     }
 }
@@ -697,6 +729,7 @@ impl Default for CycleLog {
     }
 }
 
+/// Calculates the posterior probabilities for each support point given the weights
 pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Mat<f64>> {
     if psi.matrix().ncols() != w.nrows() {
         bail!(
@@ -915,28 +948,6 @@ impl OutputFile {
     pub fn get_relative_path(&self) -> &Path {
         &self.relative_path
     }
-}
-
-pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<()> {
-    let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
-
-    writer.write_record(["id", "block", "time", "out", "outeq"])?;
-    for subject in data.get_subjects() {
-        for occasion in subject.occasions() {
-            for event in occasion.get_events(None, false) {
-                if let Event::Observation(event) = event {
-                    writer.write_record([
-                        subject.id(),
-                        &occasion.index().to_string(),
-                        &event.time().to_string(),
-                        &event.value().to_string(),
-                        &event.outeq().to_string(),
-                    ])?;
-                }
-            }
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]
