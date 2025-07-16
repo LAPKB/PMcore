@@ -94,7 +94,7 @@ impl<E: Equation> NPResult<E> {
 
     pub fn write_outputs(&self) -> Result<()> {
         if self.settings.output().write {
-            tracing::info!("Writing outputs to {:?}", self.settings.output().path);
+            tracing::debug!("Writing outputs to {:?}", self.settings.output().path);
             self.settings.write()?;
             let idelta: f64 = self.settings.predictions().idelta;
             let tad = self.settings.predictions().tad;
