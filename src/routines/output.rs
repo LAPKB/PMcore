@@ -10,7 +10,7 @@ use faer::{Col, Mat};
 use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
-use pharmsol::prelude::simulator::Equation;
+use pharmsol::prelude::simulator::{Equation, Prediction};
 use serde::Serialize;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -392,26 +392,49 @@ impl<E: Equation> NPResult<E> {
     pub fn write_pred(&self, idelta: f64, tad: f64) -> Result<()> {
         tracing::debug!("Writing predictions...");
         let data = self.data.expand(idelta, tad);
-
-        let theta: Array2<f64> = self
-            .theta
-            .matrix()
-            .clone()
-            .as_mut()
-            .into_ndarray()
-            .to_owned();
-        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
+        let theta = self.theta.matrix();
+        let w: Vec<f64> = self.w.iter().cloned().collect();
         let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
-
-        let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
-            .context("Failed to calculate posterior mean and median")?;
-
-        let (pop_mean, pop_median) = population_mean_median(&theta, &w)
-            .context("Failed to calculate population mean and median")?;
-
+        let posterior = posterior(&self.psi, &self.w)?;
         let subjects = data.get_subjects();
-        if subjects.len() != post_mean.nrows() {
-            bail!("Number of subjects and number of posterior means do not match");
+
+        // Iterate over each subject and then each support point
+        for subject in subjects.iter().enumerate() {
+            let (subject_index, subject) = subject;
+            // Container for predictions for this subject
+            let mut predictions: Vec<Vec<Prediction>> = Vec::new();
+
+            // And each support points
+            for spp in self.theta.matrix().row_iter() {
+                // Simulate the subject with the current support point
+                let spp_values = spp.iter().cloned().collect::<Vec<f64>>();
+                let pred = self
+                    .equation
+                    .simulate_subject(subject, &spp_values, None)?
+                    .0
+                    .get_predictions();
+                predictions.push(pred);
+            }
+
+            // Calculate the population predictions
+            // This is now defined as the weighted mean and median response
+            // And not the response of the weighted mean and median support point
+
+            let mut pop_mean: Vec<f64> = Vec::new();
+            for outer_pred in predictions.iter() {
+                for inner_pred in outer_pred.iter().enumerate() {
+                    let (i, pred) = inner_pred;
+                    pop_mean[i] += pred.prediction() * w[i];
+                }
+            }
+
+            let mut posterior_mean: Vec<f64> = Vec::new();
+            for outer_pred in predictions.iter() {
+                for inner_pred in outer_pred.iter().enumerate() {
+                    let (i, pred) = inner_pred;
+                    posterior_mean[i] += pred.prediction() * posterior[(subject_index, i)];
+                }
+            }
         }
 
         let outputfile = OutputFile::new(&self.settings.output().path, "pred.csv")?;
@@ -431,65 +454,6 @@ impl<E: Equation> NPResult<E> {
             post_median: f64,
         }
 
-        for (i, subject) in subjects.iter().enumerate() {
-            for occasion in subject.occasions() {
-                let id = subject.id();
-                let block = occasion.index();
-
-                // Create a new subject with only the current occasion
-                let subject = Subject::from_occasions(id.clone(), vec![occasion.clone()]);
-
-                // Population predictions
-                let pop_mean_pred = self
-                    .equation
-                    .simulate_subject(&subject, &pop_mean.to_vec(), None)?
-                    .0
-                    .get_predictions()
-                    .clone();
-                let pop_median_pred = self
-                    .equation
-                    .simulate_subject(&subject, &pop_median.to_vec(), None)?
-                    .0
-                    .get_predictions()
-                    .clone();
-
-                // Posterior predictions
-                let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
-                let post_mean_pred = self
-                    .equation
-                    .simulate_subject(&subject, &post_mean_spp, None)?
-                    .0
-                    .get_predictions()
-                    .clone();
-                let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
-                let post_median_pred = self
-                    .equation
-                    .simulate_subject(&subject, &post_median_spp, None)?
-                    .0
-                    .get_predictions()
-                    .clone();
-
-                // Write predictions for each time point
-                for (((pop_mean, pop_median), post_mean), post_median) in pop_mean_pred
-                    .iter()
-                    .zip(pop_median_pred.iter())
-                    .zip(post_mean_pred.iter())
-                    .zip(post_median_pred.iter())
-                {
-                    let row = Row {
-                        id: id.clone(),
-                        time: pop_mean.time(),
-                        outeq: pop_mean.outeq(),
-                        block,
-                        pop_mean: pop_mean.prediction(),
-                        pop_median: pop_median.prediction(),
-                        post_mean: post_mean.prediction(),
-                        post_median: post_median.prediction(),
-                    };
-                    writer.serialize(row)?;
-                }
-            }
-        }
         writer.flush()?;
         tracing::debug!(
             "Predictions written to {:?}",
@@ -730,6 +694,8 @@ impl Default for CycleLog {
 }
 
 /// Calculates the posterior probabilities for each support point given the weights
+///
+/// The shape is the same as [Psi], and thus subjects are the rows and support points are the columns.
 pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Mat<f64>> {
     if psi.matrix().ncols() != w.nrows() {
         bail!(
