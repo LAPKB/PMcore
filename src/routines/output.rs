@@ -442,6 +442,9 @@ impl<E: Equation> NPResult<E> {
             // This is now defined as the weighted mean and median response
             // And not the response of the weighted mean and median support point
 
+            if predictions.is_empty() {
+                continue; // Skip this subject if no predictions are available
+            }
             let mut pop_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
             for outer_pred in predictions.iter().enumerate() {
                 let (i, outer_pred) = outer_pred;
