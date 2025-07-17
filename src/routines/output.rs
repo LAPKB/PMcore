@@ -394,48 +394,8 @@ impl<E: Equation> NPResult<E> {
         let data = self.data.expand(idelta, tad);
         let theta = self.theta.matrix();
         let w: Vec<f64> = self.w.iter().cloned().collect();
-        let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
         let posterior = posterior(&self.psi, &self.w)?;
         let subjects = data.get_subjects();
-
-        // Iterate over each subject and then each support point
-        for subject in subjects.iter().enumerate() {
-            let (subject_index, subject) = subject;
-            // Container for predictions for this subject
-            let mut predictions: Vec<Vec<Prediction>> = Vec::new();
-
-            // And each support points
-            for spp in self.theta.matrix().row_iter() {
-                // Simulate the subject with the current support point
-                let spp_values = spp.iter().cloned().collect::<Vec<f64>>();
-                let pred = self
-                    .equation
-                    .simulate_subject(subject, &spp_values, None)?
-                    .0
-                    .get_predictions();
-                predictions.push(pred);
-            }
-
-            // Calculate the population predictions
-            // This is now defined as the weighted mean and median response
-            // And not the response of the weighted mean and median support point
-
-            let mut pop_mean: Vec<f64> = Vec::new();
-            for outer_pred in predictions.iter() {
-                for inner_pred in outer_pred.iter().enumerate() {
-                    let (i, pred) = inner_pred;
-                    pop_mean[i] += pred.prediction() * w[i];
-                }
-            }
-
-            let mut posterior_mean: Vec<f64> = Vec::new();
-            for outer_pred in predictions.iter() {
-                for inner_pred in outer_pred.iter().enumerate() {
-                    let (i, pred) = inner_pred;
-                    posterior_mean[i] += pred.prediction() * posterior[(subject_index, i)];
-                }
-            }
-        }
 
         let outputfile = OutputFile::new(&self.settings.output().path, "pred.csv")?;
         let mut writer = WriterBuilder::new()
@@ -452,6 +412,64 @@ impl<E: Equation> NPResult<E> {
             pop_median: f64,
             post_mean: f64,
             post_median: f64,
+        }
+
+        // Iterate over each subject and then each support point
+        for subject in subjects.iter().enumerate() {
+            let (subject_index, subject) = subject;
+            // Container for predictions for this subject
+            let mut predictions: Vec<Vec<Prediction>> = Vec::new();
+
+            // And each support points
+            for spp in theta.row_iter() {
+                // Simulate the subject with the current support point
+                let spp_values = spp.iter().cloned().collect::<Vec<f64>>();
+                let pred = self
+                    .equation
+                    .simulate_subject(subject, &spp_values, None)?
+                    .0
+                    .get_predictions();
+                predictions.push(pred);
+            }
+
+            // Calculate the population predictions
+            // This is now defined as the weighted mean and median response
+            // And not the response of the weighted mean and median support point
+
+            let mut pop_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
+            for outer_pred in predictions.iter().enumerate() {
+                let (i, outer_pred) = outer_pred;
+                for inner_pred in outer_pred.iter().enumerate() {
+                    let (j, pred) = inner_pred;
+                    pop_mean[j] += pred.prediction() * w[i];
+                }
+            }
+
+            let mut posterior_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
+            for outer_pred in predictions.iter().enumerate() {
+                let (i, outer_pred) = outer_pred;
+                for inner_pred in outer_pred.iter().enumerate() {
+                    let (j, pred) = inner_pred;
+                    posterior_mean[j] += pred.prediction() * posterior[(subject_index, i)];
+                }
+            }
+
+            for pred in predictions.iter().enumerate() {
+                let (i, preds) = pred;
+                for p in preds.iter() {
+                    let row = Row {
+                        id: subject.id().clone(),
+                        time: p.time(),
+                        outeq: p.outeq(),
+                        block: 0,
+                        pop_mean: pop_mean[i],
+                        pop_median: 0.0,
+                        post_mean: posterior_mean[i],
+                        post_median: 0.0,
+                    };
+                    writer.serialize(row)?;
+                }
+            }
         }
 
         writer.flush()?;
