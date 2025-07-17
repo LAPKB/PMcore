@@ -455,16 +455,16 @@ impl<E: Equation> NPResult<E> {
             }
 
             for pred in predictions.iter().enumerate() {
-                let (i, preds) = pred;
-                for p in preds.iter() {
+                let (_, preds) = pred;
+                for (j, p) in preds.iter().enumerate() {
                     let row = Row {
                         id: subject.id().clone(),
                         time: p.time(),
                         outeq: p.outeq(),
                         block: 0,
-                        pop_mean: pop_mean[i],
+                        pop_mean: pop_mean[j],
                         pop_median: 0.0,
-                        post_mean: posterior_mean[i],
+                        post_mean: posterior_mean[j],
                         post_median: 0.0,
                     };
                     writer.serialize(row)?;
