@@ -391,17 +391,23 @@ impl<E: Equation> NPResult<E> {
     /// Writes the predictions
     pub fn write_pred(&self, idelta: f64, tad: f64) -> Result<()> {
         tracing::debug!("Writing predictions...");
-        let data = self.data.expand(idelta, tad);
+
+        // Get necessary data
         let theta = self.theta.matrix();
         let w: Vec<f64> = self.w.iter().cloned().collect();
         let posterior = posterior(&self.psi, &self.w)?;
+
+        // Expand data and get subjects
+        let data = self.data.expand(idelta, tad);
         let subjects = data.get_subjects();
 
+        // Check if the file can be created
         let outputfile = OutputFile::new(&self.settings.output().path, "pred.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
 
+        // Structure for the output
         #[derive(Debug, Clone, Serialize)]
         struct Row {
             id: String,
@@ -445,6 +451,21 @@ impl<E: Equation> NPResult<E> {
                 }
             }
 
+            // Calculate population median using weighted_median
+            let mut pop_median: Vec<f64> = Vec::new();
+            for j in 0..predictions.first().unwrap().len() {
+                let mut values: Vec<f64> = Vec::new();
+                let mut weights: Vec<f64> = Vec::new();
+
+                for (i, outer_pred) in predictions.iter().enumerate() {
+                    values.push(outer_pred[j].prediction());
+                    weights.push(w[i]);
+                }
+
+                let median_val = weighted_median(&Array1::from(values), &Array1::from(weights));
+                pop_median.push(median_val);
+            }
+
             let mut posterior_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
             for outer_pred in predictions.iter().enumerate() {
                 let (i, outer_pred) = outer_pred;
@@ -454,6 +475,22 @@ impl<E: Equation> NPResult<E> {
                 }
             }
 
+            // Calculate posterior median using weighted_median
+            let mut posterior_median: Vec<f64> = Vec::new();
+            for j in 0..predictions.first().unwrap().len() {
+                let mut values: Vec<f64> = Vec::new();
+                let mut weights: Vec<f64> = Vec::new();
+
+                for (i, outer_pred) in predictions.iter().enumerate() {
+                    values.push(outer_pred[j].prediction());
+                    weights.push(posterior[(subject_index, i)]);
+                }
+
+                let median_val = weighted_median(&Array1::from(values), &Array1::from(weights));
+                posterior_median.push(median_val);
+            }
+
+            // Write the data
             for pred in predictions.iter().enumerate() {
                 let (_, preds) = pred;
                 for (j, p) in preds.iter().enumerate() {
@@ -463,9 +500,9 @@ impl<E: Equation> NPResult<E> {
                         outeq: p.outeq(),
                         block: 0,
                         pop_mean: pop_mean[j],
-                        pop_median: 0.0,
+                        pop_median: pop_median[j],
                         post_mean: posterior_mean[j],
-                        post_median: 0.0,
+                        post_median: posterior_median[j],
                     };
                     writer.serialize(row)?;
                 }
