@@ -25,7 +25,7 @@ jobs:
           --start-point-hash '${{ github.event.pull_request.base.sha }}' \
           --start-point-clone-thresholds \
           --start-point-reset \
-          --testbed orion \
+          --testbed ${{ runner.name }} \
           --err \
           --adapter rust_criterion \
           --github-actions '${{ secrets.GITHUB_TOKEN }}' \

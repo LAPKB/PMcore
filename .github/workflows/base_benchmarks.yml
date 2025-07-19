@@ -2,7 +2,7 @@ name: Benchmark (main)
 
 on:
   push:
-    branches: main
+    branches: [main]
 
 jobs:
   benchmark_base_branch:
@@ -19,7 +19,7 @@ jobs:
           --project pmcore \
           --token '${{ secrets.BENCHER_API_TOKEN }}' \
           --branch main \
-          --testbed orion \
+          --testbed ${{ runner.name }} \
           --threshold-measure latency \
           --threshold-test t_test \
           --threshold-max-sample-size 64 \
