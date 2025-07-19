@@ -401,29 +401,24 @@ impl<E: Equation> NPResult<E> {
         let data = self.data.expand(idelta, tad);
         let subjects = data.get_subjects();
 
-        // Check if the file can be created
+        // Create the output file and writer for pred.csv
         let outputfile = OutputFile::new(&self.settings.output().path, "pred.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
 
-        // Structure for the output
-        #[derive(Debug, Clone, Serialize)]
-        struct Row {
-            id: String,
-            time: f64,
-            outeq: usize,
-            block: usize,
-            pop_mean: f64,
-            pop_median: f64,
-            post_mean: f64,
-            post_median: f64,
-        }
+        // Create the output file and writer for postpred.csv
+        let postpred = OutputFile::new(&self.settings.output().path, "postpred.csv")?;
+        let mut postpredwriter = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(&postpred.file);
 
         // Iterate over each subject and then each support point
         for subject in subjects.iter().enumerate() {
             let (subject_index, subject) = subject;
+
             // Container for predictions for this subject
+            // This will hold predictions for each support point
             let mut predictions: Vec<Vec<Prediction>> = Vec::new();
 
             // And each support points
@@ -493,7 +488,19 @@ impl<E: Equation> NPResult<E> {
                 posterior_median.push(median_val);
             }
 
-            // Write the data
+            // Structure for the output
+            #[derive(Debug, Clone, Serialize)]
+            struct Row {
+                id: String,
+                time: f64,
+                outeq: usize,
+                block: usize,
+                pop_mean: f64,
+                pop_median: f64,
+                post_mean: f64,
+                post_median: f64,
+            }
+
             for pred in predictions.iter().enumerate() {
                 let (_, preds) = pred;
                 for (j, p) in preds.iter().enumerate() {
@@ -510,6 +517,35 @@ impl<E: Equation> NPResult<E> {
                     writer.serialize(row)?;
                 }
             }
+
+            // Raw predictions block
+            #[derive(Debug, Clone, Serialize)]
+            struct RawRow {
+                id: String,
+                time: f64,
+                outeq: usize,
+                block: usize,
+                pred: f64,
+                prob: f64,
+                spp: usize,
+            }
+
+            // Write the data
+            for pred in predictions.iter().enumerate() {
+                let (i, preds) = pred;
+                for p in preds.iter() {
+                    let row = RawRow {
+                        id: subject.id().clone(),
+                        time: p.time(),
+                        outeq: p.outeq(),
+                        block: 0,
+                        pred: p.prediction(),
+                        prob: w[i],
+                        spp: i,
+                    };
+                    postpredwriter.serialize(row)?;
+                }
+            }
         }
 
         writer.flush()?;
@@ -517,6 +553,13 @@ impl<E: Equation> NPResult<E> {
             "Predictions written to {:?}",
             &outputfile.get_relative_path()
         );
+
+        postpredwriter.flush()?;
+        tracing::debug!(
+            "Posterior predictions written to {:?}",
+            &postpred.get_relative_path()
+        );
+
         Ok(())
     }
 
