@@ -2,14 +2,15 @@ use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use pmcore::prelude::*;
 
+use std::hint::black_box;
 fn create_equation() -> equation::ODE {
     equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
             fetch_params!(p, ke, _v);
             dx[0] = -ke * x[0] + rateiv[0];
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
@@ -21,13 +22,20 @@ fn create_equation() -> equation::ODE {
 
 fn setup_simulation() -> Result<(Settings, equation::ODE, data::Data)> {
     let params = Parameters::new()
-        .add("ke", 0.001, 3.0, false)
-        .add("v", 25.0, 250.0, false);
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+        )
+        .unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Additive, 0.0, (0.0, 0.5, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_cycles(1000);
@@ -46,7 +54,8 @@ fn benchmark_bimodal_ke(c: &mut Criterion) {
             || (settings.clone(), eq.clone(), data.clone()),
             |(s, e, d)| {
                 let mut algorithm = dispatch_algorithm(s, e, d).unwrap();
-                algorithm.fit().unwrap()
+                let result = algorithm.fit().unwrap();
+                black_box(result)
             },
         )
     });

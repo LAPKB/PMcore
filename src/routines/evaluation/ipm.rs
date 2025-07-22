@@ -30,23 +30,20 @@ use rayon::prelude::*;
 /// This function returns an error if any step in the optimization (e.g. Cholesky factorization)
 /// fails.
 pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
-    // Get the underlying matrix. (Assume psi.matrix() returns an ndarray-compatible matrix.)
     let mut psi = psi.matrix().to_owned();
 
     // Ensure all entries are finite and make them non-negative.
-    psi.row_iter_mut()
-        .try_for_each(|row| {
-            row.iter_mut().try_for_each(|x| {
-                if !x.is_finite() {
-                    bail!("Input matrix must have finite entries")
-                } else {
-                    // Coerce negatives to non-negative (could alternatively return an error)
-                    *x = x.abs();
-                    Ok(())
-                }
-            })
+    psi.row_iter_mut().try_for_each(|row| {
+        row.iter_mut().try_for_each(|x| {
+            if !x.is_finite() {
+                bail!("Input matrix must have finite entries")
+            } else {
+                // Coerce negatives to non-negative (could alternatively return an error)
+                *x = x.abs();
+                Ok(())
+            }
         })
-        .unwrap();
+    })?;
 
     // Let psi be of shape (n_sub, n_point)
     let (n_sub, n_point) = psi.shape();
@@ -280,9 +277,154 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     Ok((lam, obj))
 }
 
-// fn pprint(x: &Mat<f64>, name: &str) {
-//     println!("Matrix: {}", name);
-//     x.row_iter().for_each(|row| {
-//         println!("{:.unwrap()}", row);
-//     });
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use faer::Mat;
+
+    #[test]
+    fn test_burke_identity() {
+        // Test with a small identity matrix
+        // For an identity matrix, each support point should have equal weight
+        let n = 100;
+        let mat = Mat::identity(n, n);
+        let psi = Psi::from(mat);
+
+        let (lam, _) = burke(&psi).unwrap();
+
+        // For identity matrix, all lambda values should be equal
+        let expected = 1.0 / n as f64;
+        for i in 0..n {
+            assert_relative_eq!(lam[i], expected, epsilon = 1e-10);
+        }
+
+        // Check that lambda sums to 1
+        assert_relative_eq!(lam.iter().sum::<f64>(), 1.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_burke_uniform_square() {
+        // Test with a matrix of all ones
+        // This should also result in uniform weights
+        let n_sub = 10;
+        let n_point = 10;
+        let mat = Mat::from_fn(n_sub, n_point, |_, _| 1.0);
+        let psi = Psi::from(mat);
+
+        let (lam, _) = burke(&psi).unwrap();
+
+        // Check that lambda sums to 1
+        assert_relative_eq!(lam.iter().sum::<f64>(), 1.0, epsilon = 1e-10);
+
+        // For uniform matrix, all lambda values should be equal
+        let expected = 1.0 / n_point as f64;
+        for i in 0..n_point {
+            assert_relative_eq!(lam[i], expected, epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_burke_uniform_wide() {
+        // Test with a matrix of all ones
+        // This should also result in uniform weights
+        let n_sub = 10;
+        let n_point = 100;
+        let mat = Mat::from_fn(n_sub, n_point, |_, _| 1.0);
+        let psi = Psi::from(mat);
+
+        let (lam, _) = burke(&psi).unwrap();
+
+        // Check that lambda sums to 1
+        assert_relative_eq!(lam.iter().sum::<f64>(), 1.0, epsilon = 1e-10);
+
+        // For uniform matrix, all lambda values should be equal
+        let expected = 1.0 / n_point as f64;
+        for i in 0..n_point {
+            assert_relative_eq!(lam[i], expected, epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_burke_uniform_long() {
+        // Test with a matrix of all ones
+        // This should also result in uniform weights
+        let n_sub = 100;
+        let n_point = 10;
+        let mat = Mat::from_fn(n_sub, n_point, |_, _| 1.0);
+        let psi = Psi::from(mat);
+
+        let (lam, _) = burke(&psi).unwrap();
+
+        // Check that lambda sums to 1
+        assert_relative_eq!(lam.iter().sum::<f64>(), 1.0, epsilon = 1e-10);
+
+        // For uniform matrix, all lambda values should be equal
+        let expected = 1.0 / n_point as f64;
+        for i in 0..n_point {
+            assert_relative_eq!(lam[i], expected, epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_burke_with_non_uniform_matrix() {
+        // Test with a non-uniform matrix
+        // Create a matrix where one column is clearly better
+        let n_sub = 3;
+        let n_point = 4;
+        let mat = Mat::from_fn(n_sub, n_point, |_, j| if j == 0 { 10.0 } else { 1.0 });
+        let psi = Psi::from(mat);
+
+        let (lam, _) = burke(&psi).unwrap();
+
+        // Check that lambda sums to 1
+        assert_relative_eq!(lam.iter().sum::<f64>(), 1.0, epsilon = 1e-10);
+
+        // First support point should have highest weight
+        assert!(lam[0] > lam[1]);
+        assert!(lam[0] > lam[2]);
+        assert!(lam[0] > lam[3]);
+    }
+
+    #[test]
+    fn test_burke_with_negative_values() {
+        // The algorithm should handle negative values by taking their absolute value
+        let n_sub = 2;
+        let n_point = 3;
+        let mat = Mat::from_fn(
+            n_sub,
+            n_point,
+            |i, j| if i == 0 && j == 0 { -5.0 } else { 1.0 },
+        );
+        let psi = Psi::from(mat);
+
+        let result = burke(&psi);
+        assert!(result.is_ok());
+
+        let (lam, _) = result.unwrap();
+        // Check that lambda sums to 1
+        assert_relative_eq!(lam.iter().sum::<f64>(), 1.0, epsilon = 1e-10);
+
+        // First support point should have highest weight due to the high absolute value
+        assert!(lam[0] > lam[1]);
+        assert!(lam[0] > lam[2]);
+    }
+
+    #[test]
+    fn test_burke_with_non_finite_values() {
+        // The algorithm should return an error for non-finite values
+        let n_sub = 10;
+        let n_point = 10;
+        let mat = Mat::from_fn(n_sub, n_point, |i, j| {
+            if i == 0 && j == 0 {
+                f64::NAN
+            } else {
+                1.0
+            }
+        });
+        let psi = Psi::from(mat);
+
+        let result = burke(&psi);
+        assert!(result.is_err());
+    }
+}

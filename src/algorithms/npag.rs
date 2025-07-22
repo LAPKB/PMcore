@@ -1,3 +1,4 @@
+use crate::algorithms::Status;
 use crate::prelude::algorithms::Algorithms;
 
 pub use crate::routines::evaluation::ipm::burke;
@@ -11,9 +12,11 @@ use crate::structs::theta::Theta;
 use anyhow::bail;
 use anyhow::Result;
 use pharmsol::prelude::{
-    data::{Data, ErrorModel, ErrorType},
+    data::{Data, ErrorModels},
     simulator::Equation,
 };
+
+use pharmsol::prelude::ErrorModel;
 
 use faer::Col;
 
@@ -40,10 +43,10 @@ pub struct NPAG<E: Equation> {
     f0: f64,
     f1: f64,
     cycle: usize,
-    gamma_delta: f64,
-    gamma: f64,
-    error_type: ErrorType,
+    gamma_delta: Vec<f64>,
+    error_models: ErrorModels,
     converged: bool,
+    status: Status,
     cycle_log: CycleLog,
     data: Data,
     settings: Settings,
@@ -64,10 +67,10 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             f0: -1e30,
             f1: f64::default(),
             cycle: 0,
-            gamma_delta: 0.1,
-            gamma: settings.error().value,
-            error_type: settings.error().error_model().into(),
+            gamma_delta: vec![0.1; settings.errormodels().len()],
+            error_models: settings.errormodels().clone().into(),
             converged: false,
+            status: Status::Starting,
             cycle_log: CycleLog::new(),
             settings,
             data,
@@ -86,7 +89,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             self.w.clone(),
             -2. * self.objf,
             self.cycle,
-            self.converged,
+            self.status.clone(),
             self.settings.clone(),
             self.cycle_log.clone(),
         )
@@ -121,7 +124,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Theta {
+    fn theta(&self) -> &Theta {
         &self.theta
     }
 
@@ -140,6 +143,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.converged = true;
+                    self.status = Status::Converged;
                 } else {
                     self.f0 = self.f1;
                     self.eps = 0.2;
@@ -151,12 +155,13 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
+            self.status = Status::MaxCycles;
         }
 
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
-            self.converged = true;
+            self.status = Status::ManualStop;
         }
 
         // Create state object
@@ -166,8 +171,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             delta_objf: (self.last_objf - self.objf).abs(),
             nspp: self.theta.nspp(),
             theta: self.theta.clone(),
-            gamlam: self.gamma,
-            converged: self.converged,
+            error_models: self.error_models.clone(),
+            status: self.status.clone(),
         };
 
         // Write cycle log
@@ -184,10 +189,10 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(self.settings.error().poly, self.gamma, &self.error_type),
+            &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
             self.cycle != 1,
-        );
+        )?;
 
         if let Err(err) = self.validate_psi() {
             bail!(err);
@@ -227,7 +232,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         self.psi.filter_column_indices(keep.as_slice());
 
         //Rank-Revealing Factorization
-        let (r, perm) = qr::calculate_r(&self.psi);
+        let (r, perm) = qr::qrd(&self.psi)?;
 
         let mut keep = Vec::<usize>::new();
 
@@ -270,69 +275,97 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn optimizations(&mut self) -> Result<()> {
-        // Gam/Lam optimization
-        // TODO: Move this to e.g. /evaluation/error.rs
-        let gamma_up = self.gamma * (1.0 + self.gamma_delta);
-        let gamma_down = self.gamma / (1.0 + self.gamma_delta);
+        self.error_models
+            .clone()
+            .iter_mut()
+            .filter_map(|(outeq, em)| match em {
+                ErrorModel::None => None,
+                _ => Some((outeq, em)),
+            })
+            .try_for_each(|(outeq, em)| -> Result<()> {
+                // OPTIMIZATION
 
-        let psi_up = calculate_psi(
-            &self.equation,
-            &self.data,
-            &self.theta,
-            &ErrorModel::new(self.settings.error().poly, gamma_up, &self.error_type),
-            false,
-            true,
-        );
-        let psi_down = calculate_psi(
-            &self.equation,
-            &self.data,
-            &self.theta,
-            &ErrorModel::new(self.settings.error().poly, gamma_down, &self.error_type),
-            false,
-            true,
-        );
+                let gamma_up = em.scalar()? * (1.0 + self.gamma_delta[outeq]);
+                let gamma_down = em.scalar()? / (1.0 + self.gamma_delta[outeq]);
 
-        let (lambda_up, objf_up) = match burke(&psi_up) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                //todo: write out report
-                return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
-            }
-        };
-        let (lambda_down, objf_down) = match burke(&psi_down) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                //todo: write out report
-                //panic!("Error in IPM: {:?}", err);
-                return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
-                //(Array1::zeros(1), f64::NEG_INFINITY)
-            }
-        };
-        if objf_up > self.objf {
-            self.gamma = gamma_up;
-            self.objf = objf_up;
-            self.gamma_delta *= 4.;
-            self.lambda = lambda_up;
-            self.psi = psi_up;
-        }
-        if objf_down > self.objf {
-            self.gamma = gamma_down;
-            self.objf = objf_down;
-            self.gamma_delta *= 4.;
-            self.lambda = lambda_down;
-            self.psi = psi_down;
-        }
-        self.gamma_delta *= 0.5;
-        if self.gamma_delta <= 0.01 {
-            self.gamma_delta = 0.1;
-        }
+                let mut error_model_up = self.error_models.clone();
+                error_model_up.set_scalar(outeq, gamma_up)?;
+
+                let mut error_model_down = self.error_models.clone();
+                error_model_down.set_scalar(outeq, gamma_down)?;
+
+                let psi_up = calculate_psi(
+                    &self.equation,
+                    &self.data,
+                    &self.theta,
+                    &error_model_up,
+                    false,
+                    true,
+                )?;
+                let psi_down = calculate_psi(
+                    &self.equation,
+                    &self.data,
+                    &self.theta,
+                    &error_model_down,
+                    false,
+                    true,
+                )?;
+
+                let (lambda_up, objf_up) = match burke(&psi_up) {
+                    Ok((lambda, objf)) => (lambda, objf),
+                    Err(err) => {
+                        //todo: write out report
+                        return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
+                    }
+                };
+                let (lambda_down, objf_down) = match burke(&psi_down) {
+                    Ok((lambda, objf)) => (lambda, objf),
+                    Err(err) => {
+                        //todo: write out report
+                        //panic!("Error in IPM: {:?}", err);
+                        return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
+                        //(Array1::zeros(1), f64::NEG_INFINITY)
+                    }
+                };
+                if objf_up > self.objf {
+                    self.error_models.set_scalar(outeq, gamma_up)?;
+                    self.objf = objf_up;
+                    self.gamma_delta[outeq] *= 4.;
+                    self.lambda = lambda_up;
+                    self.psi = psi_up;
+                }
+                if objf_down > self.objf {
+                    self.error_models.set_scalar(outeq, gamma_down)?;
+                    self.objf = objf_down;
+                    self.gamma_delta[outeq] *= 4.;
+                    self.lambda = lambda_down;
+                    self.psi = psi_down;
+                }
+                self.gamma_delta[outeq] *= 0.5;
+                if self.gamma_delta[outeq] <= 0.01 {
+                    self.gamma_delta[outeq] = 0.1;
+                }
+                Ok(())
+            })?;
+
         Ok(())
     }
 
     fn logs(&self) {
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.nspp());
-        tracing::debug!("Gamma = {:.16}", self.gamma);
+
+        self.error_models.iter().for_each(|(outeq, em)| {
+            if ErrorModel::None == *em {
+                return;
+            }
+            tracing::debug!(
+                "Error model for outeq {}: {:.16}",
+                outeq,
+                em.scalar().unwrap_or_default()
+            );
+        });
+
         tracing::debug!("EPS = {:.4}", self.eps);
         // Increasing objf signals instability or model misspecification.
         if self.last_objf > self.objf + 1e-4 {
@@ -348,5 +381,13 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn expansion(&mut self) -> Result<()> {
         adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
         Ok(())
+    }
+
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn status(&self) -> &Status {
+        &self.status
     }
 }

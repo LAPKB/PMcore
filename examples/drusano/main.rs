@@ -50,8 +50,8 @@ fn main() -> Result<()> {
             let xm0best = get_xm0best(u_r2, v_r2, w_r2, 1.0 / h1r2, 1.0 / h2r2, alpha_s);
             dx[4] = xnr2 * (kgr2 * e - kkr2 * xm0best / (xm0best + 1.0));
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |p, t, cov, x| {
             fetch_params!(
                 p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
@@ -81,35 +81,57 @@ fn main() -> Result<()> {
     );
 
     let params = Parameters::new()
-        .add("v1", 5.0, 160.0, false)
-        .add("cl1", 4.0, 9.0, false)
-        .add("v2", 100.0, 200.0, false)
-        .add("cl2", 25.0, 35.0, false)
-        .add("popmax", 100000000.0, 100000000000.0, false)
-        .add("kgs", 0.01, 0.25, false)
-        .add("kks", 0.01, 0.5, false)
-        .add("e50_1s", 0.1, 2.5, false)
-        .add("e50_2s", 0.1, 10.0, false)
-        .add("alpha_s", -8.0, 5.0, false)
-        .add("kgr1", 0.004, 0.1, false)
-        .add("kkr1", 0.08, 0.4, false)
-        .add("e50_1r1", 8.0, 17.0, false)
-        .add("alpha_r1", -8.0, 5.0, false)
-        .add("kgr2", 0.004, 0.3, false)
-        .add("kkr2", 0.1, 0.5, false)
-        .add("e50_2r2", 5.0, 8.0, false)
-        .add("alpha_r2", -5.0, 5.0, false)
-        .add("init_4", -1.0, 4.0, false)
-        .add("init_5", -1.0, 3.0, false)
-        .add("h1s", 0.5, 8.0, false)
-        .add("h2s", 0.1, 4.0, false)
-        .add("h1r1", 5.0, 25.0, false)
-        .add("h2r2", 10.0, 22.0, false);
+        .add("v1", 5.0, 160.0)
+        .add("cl1", 4.0, 9.0)
+        .add("v2", 100.0, 200.0)
+        .add("cl2", 25.0, 35.0)
+        .add("popmax", 100000000.0, 100000000000.0)
+        .add("kgs", 0.01, 0.25)
+        .add("kks", 0.01, 0.5)
+        .add("e50_1s", 0.1, 2.5)
+        .add("e50_2s", 0.1, 10.0)
+        .add("alpha_s", -8.0, 5.0)
+        .add("kgr1", 0.004, 0.1)
+        .add("kkr1", 0.08, 0.4)
+        .add("e50_1r1", 8.0, 17.0)
+        .add("alpha_r1", -8.0, 5.0)
+        .add("kgr2", 0.004, 0.3)
+        .add("kkr2", 0.1, 0.5)
+        .add("e50_2r2", 5.0, 8.0)
+        .add("alpha_r2", -5.0, 5.0)
+        .add("init_4", -1.0, 4.0)
+        .add("init_5", -1.0, 3.0)
+        .add("h1s", 0.5, 8.0)
+        .add("h2s", 0.1, 4.0)
+        .add("h1r1", 5.0, 25.0)
+        .add("h2r2", 10.0, 22.0);
+
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .add(
+            1,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .add(
+            2,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .add(
+            3,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .add(
+            4,
+            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?;
 
     let mut settings = SettingsBuilder::new()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Proportional, 1.0, (0.1, 0.1, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_prior(Prior::sobol(212900, 347));

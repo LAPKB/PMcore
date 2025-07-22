@@ -16,8 +16,8 @@ fn main() {
             dx[0] = rateiv[0] - ke * x[0] * (1.0 - fm) - fm * x[0];
             dx[1] = fm * x[0] - k20 * x[1];
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, t, cov, y| {
             fetch_cov!(cov, t, wt, pkvisit);
@@ -33,18 +33,30 @@ fn main() {
     );
 
     let params = Parameters::new()
-        .add("cls", 0.1, 10.0, true)
-        .add("fm", 0.0, 1.0, true)
-        .add("k20", 0.01, 1.0, true)
-        .add("relv", 0.1, 1.0, true)
-        .add("theta1", 0.1, 10.0, true)
-        .add("theta2", 0.1, 10.0, true)
-        .add("vs", 1.0, 10.0, true);
+        .add("cls", 0.1, 10.0)
+        .add("fm", 0.0, 1.0)
+        .add("k20", 0.01, 1.0)
+        .add("relv", 0.1, 1.0)
+        .add("theta1", 0.1, 10.0)
+        .add("theta2", 0.1, 10.0)
+        .add("vs", 1.0, 10.0);
+
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+        )
+        .unwrap()
+        .add(
+            1,
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+        )
+        .unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Proportional, 5.0, (1.0, 0.1, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.initialize_logs().unwrap();

@@ -1,21 +1,21 @@
 use crate::{
+    algorithms::Status,
     prelude::algorithms::Algorithms,
     structs::{
         psi::{calculate_psi, Psi},
         theta::Theta,
     },
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use faer::Col;
 use pharmsol::prelude::{
-    data::{Data, ErrorModel},
+    data::{Data, ErrorModels},
     simulator::Equation,
 };
 
 use crate::routines::evaluation::ipm::burke;
 use crate::routines::initialization;
-use crate::routines::output::CycleLog;
-use crate::routines::output::NPResult;
+use crate::routines::output::{CycleLog, NPResult};
 use crate::routines::settings::Settings;
 
 /// Posterior probability algorithm
@@ -27,11 +27,11 @@ pub struct POSTPROB<E: Equation> {
     w: Col<f64>,
     objf: f64,
     cycle: usize,
-    converged: bool,
-    gamma: f64,
+    status: Status,
     data: Data,
     settings: Settings,
     cyclelog: CycleLog,
+    error_models: ErrorModels,
 }
 
 impl<E: Equation> Algorithms<E> for POSTPROB<E> {
@@ -43,11 +43,10 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             w: Col::zeros(0),
             objf: f64::INFINITY,
             cycle: 0,
-            converged: false,
-            gamma: settings.error().value,
+            status: Status::Starting,
+            error_models: settings.errormodels().clone(),
             settings,
             data,
-
             cyclelog: CycleLog::new(),
         }))
     }
@@ -60,7 +59,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             self.w.clone(),
             self.objf,
             self.cycle,
-            self.converged,
+            self.status.clone(),
             self.settings.clone(),
             self.cyclelog.clone(),
         )
@@ -97,7 +96,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         self.theta = theta;
     }
 
-    fn get_theta(&self) -> &Theta {
+    fn theta(&self) -> &Theta {
         &self.theta
     }
 
@@ -105,7 +104,18 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         &self.psi
     }
 
-    fn convergence_evaluation(&mut self) {}
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn status(&self) -> &Status {
+        &self.status
+    }
+
+    fn convergence_evaluation(&mut self) {
+        // POSTPROB algorithm converges after a single evaluation
+        self.status = Status::MaxCycles;
+    }
 
     fn converged(&self) -> bool {
         true
@@ -116,15 +126,11 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             &self.equation,
             &self.data,
             &self.theta,
-            &ErrorModel::new(
-                self.settings.error().poly,
-                self.gamma,
-                &self.settings.error().error_model().into(),
-            ),
+            &self.error_models,
             false,
             false,
-        );
-        (self.w, self.objf) = burke(&self.psi).expect("Error in IPM");
+        )?;
+        (self.w, self.objf) = burke(&self.psi).context("Error in IPM")?;
         Ok(())
     }
 

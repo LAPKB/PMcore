@@ -15,8 +15,8 @@ fn main() {
             fetch_params!(p, _ka, _ke0, _kcp, _kpc, _vol, ske);
             d[3] = ske;
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |p, _t, _cov, x| {
             fetch_params!(p, _ka, ke0, _kcp, _kpc, _vol);
             x[3] = ke0;
@@ -37,8 +37,8 @@ fn main() {
     //         dx[1] = ka * x[0] - (ke0 + kcp) * x[1] + kpc * x[2];
     //         dx[2] = kcp * x[1] - kpc * x[2];
     //     },
-    //     |_p| lag! {},
-    //     |_p| fa! {},
+    //     |_p, _t, _cov| lag! {},
+    //     |_p, _t, _cov| fa! {},
     //     |_p, _t, _cov, _x| {},
     //     |x, p, t, cov, y| {
     //         fetch_params!(p, _ka, _ke0, _kcp, _kpc, vol);
@@ -49,17 +49,24 @@ fn main() {
     // );
 
     let params = Parameters::new()
-        .add("ka", 0.0001, 2.4, false)
-        .add("ke0", 0.0001, 2.7, false)
-        .add("kcp", 0.0001, 2.4, false)
-        .add("kpc", 0.0001, 2.4, false)
-        .add("vol", 0.2, 12.0, false)
-        .add("ske", 0.0001, 0.2, false);
+        .add("ka", 0.0001, 2.4)
+        .add("ke0", 0.0001, 2.7)
+        .add("kcp", 0.0001, 2.4)
+        .add("kpc", 0.0001, 2.4)
+        .add("vol", 0.2, 12.0)
+        .add("ske", 0.0001, 0.2);
+
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
+        )
+        .unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Additive, 0.0, (0.00119, 0.20, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_cycles(usize::MAX);

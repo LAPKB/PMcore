@@ -2,7 +2,8 @@ use crate::algorithms::Algorithm;
 use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
-use pharmsol::prelude::data::ErrorType;
+use pharmsol::prelude::data::ErrorModels;
+
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fmt::Display;
@@ -16,8 +17,8 @@ pub struct Settings {
     pub(crate) config: Config,
     /// Parameters to be estimated
     pub(crate) parameters: Parameters,
-    /// Defines the error model and polynomial to be used
-    pub(crate) error: Error,
+    /// Defines the error models and polynomials to be used
+    pub(crate) errormodels: ErrorModels,
     /// Configuration for predictions
     pub(crate) predictions: Predictions,
     /// Configuration for logging
@@ -38,13 +39,6 @@ impl Settings {
         SettingsBuilder::new()
     }
 
-    /// Validate the settings
-    pub fn validate(&self) -> Result<()> {
-        self.error.validate()?;
-        self.predictions.validate()?;
-        Ok(())
-    }
-
     /* Getters */
     pub fn config(&self) -> &Config {
         &self.config
@@ -54,8 +48,8 @@ impl Settings {
         &self.parameters
     }
 
-    pub fn error(&self) -> &Error {
-        &self.error
+    pub fn errormodels(&self) -> &ErrorModels {
+        &self.errormodels
     }
 
     pub fn predictions(&self) -> &Predictions {
@@ -137,8 +131,7 @@ impl Settings {
     /// Writes a copy of the settings to file
     /// The is written to output folder specified in the [Output] and is named `settings.json`.
     pub fn write(&self) -> Result<()> {
-        let serialized = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let serialized = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
 
         let outputfile = OutputFile::new(self.output.path.as_str(), "settings.json")?;
         let mut file = outputfile.file;
@@ -177,29 +170,26 @@ impl Default for Config {
 /// Defines a parameter to be estimated
 ///
 /// In non-parametric algorithms, parameters must be bounded. The lower and upper bounds are defined by the `lower` and `upper` fields, respectively.
-/// Fixed parameters are unknown, but common among all subjects.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Parameter {
     pub(crate) name: String,
     pub(crate) lower: f64,
     pub(crate) upper: f64,
-    pub(crate) fixed: bool,
 }
 
 impl Parameter {
     /// Create a new parameter
-    pub fn new(name: impl Into<String>, lower: f64, upper: f64, fixed: bool) -> Self {
+    pub fn new(name: impl Into<String>, lower: f64, upper: f64) -> Self {
         Self {
             name: name.into(),
             lower,
             upper,
-            fixed,
         }
     }
 }
 
 /// This structure contains information on all [Parameter]s to be estimated
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq)]
 pub struct Parameters {
     pub(crate) parameters: Vec<Parameter>,
 }
@@ -211,14 +201,8 @@ impl Parameters {
         }
     }
 
-    pub fn add(
-        mut self,
-        name: impl Into<String>,
-        lower: f64,
-        upper: f64,
-        fixed: bool,
-    ) -> Parameters {
-        let parameter = Parameter::new(name, lower, upper, fixed);
+    pub fn add(mut self, name: impl Into<String>, lower: f64, upper: f64) -> Parameters {
+        let parameter = Parameter::new(name, lower, upper);
         self.parameters.push(parameter);
         self
     }
@@ -239,14 +223,18 @@ impl Parameters {
     pub fn ranges(&self) -> Vec<(f64, f64)> {
         self.parameters.iter().map(|p| (p.lower, p.upper)).collect()
     }
+
+    /// Get the number of parameters
     pub fn len(&self) -> usize {
         self.parameters.len()
     }
 
+    /// Check if the parameters are empty
     pub fn is_empty(&self) -> bool {
         self.parameters.is_empty()
     }
 
+    /// Iterate over the parameters
     pub fn iter(&self) -> std::slice::Iter<'_, Parameter> {
         self.parameters.iter()
     }
@@ -264,63 +252,6 @@ impl IntoIterator for Parameters {
 impl From<Vec<Parameter>> for Parameters {
     fn from(parameters: Vec<Parameter>) -> Self {
         Parameters { parameters }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub enum ErrorModel {
-    Additive,
-    Proportional,
-}
-
-impl From<ErrorModel> for ErrorType {
-    fn from(error_model: ErrorModel) -> ErrorType {
-        match error_model {
-            ErrorModel::Additive => ErrorType::Add,
-            ErrorModel::Proportional => ErrorType::Prop,
-        }
-    }
-}
-
-/// Defines the error model and polynomial to be used
-#[derive(Debug, Deserialize, Clone, Serialize)]
-#[serde(deny_unknown_fields, default)]
-pub struct Error {
-    /// The initial value of `gamma` or `lambda`
-    pub value: f64,
-    /// The error class, either `additive` or `proportional`
-    pub model: ErrorModel,
-    /// The assay error polynomial
-    pub poly: (f64, f64, f64, f64),
-}
-
-impl Default for Error {
-    fn default() -> Self {
-        Error {
-            value: 0.0,
-            model: ErrorModel::Additive,
-            poly: (0.0, 0.1, 0.0, 0.0),
-        }
-    }
-}
-
-impl Error {
-    fn new(value: f64, model: ErrorModel, poly: (f64, f64, f64, f64)) -> Self {
-        Error { value, model, poly }
-    }
-
-    fn validate(&self) -> Result<()> {
-        if self.value < 0.0 {
-            bail!(format!(
-                "Error value must be non-negative, got {}",
-                self.value
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn error_model(&self) -> ErrorModel {
-        self.model.clone()
     }
 }
 
@@ -510,7 +441,7 @@ impl Default for Output {
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
     parameters: Option<Parameters>,
-    error: Option<Error>,
+    errormodels: Option<ErrorModels>,
     predictions: Option<Predictions>,
     log: Option<Log>,
     prior: Option<Prior>,
@@ -537,7 +468,7 @@ impl SettingsBuilder<InitialState> {
         SettingsBuilder {
             config: None,
             parameters: None,
-            error: None,
+            errormodels: None,
             predictions: None,
             log: None,
             prior: None,
@@ -555,7 +486,7 @@ impl SettingsBuilder<InitialState> {
                 ..Config::default()
             }),
             parameters: self.parameters,
-            error: self.error,
+            errormodels: self.errormodels,
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -579,7 +510,7 @@ impl SettingsBuilder<AlgorithmSet> {
         SettingsBuilder {
             config: self.config,
             parameters: Some(parameters),
-            error: self.error,
+            errormodels: self.errormodels,
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -593,18 +524,11 @@ impl SettingsBuilder<AlgorithmSet> {
 
 // Parameters are set, move to defining error model
 impl SettingsBuilder<ParametersSet> {
-    pub fn set_error_model(
-        self,
-        model: ErrorModel,
-        value: f64,
-        poly: (f64, f64, f64, f64),
-    ) -> SettingsBuilder<ErrorSet> {
-        let error = Error::new(value, model, poly);
-
+    pub fn set_error_models(self, ems: ErrorModels) -> SettingsBuilder<ErrorSet> {
         SettingsBuilder {
             config: self.config,
             parameters: self.parameters,
-            error: Some(error),
+            errormodels: Some(ems),
             predictions: self.predictions,
             log: self.log,
             prior: self.prior,
@@ -622,7 +546,7 @@ impl SettingsBuilder<ErrorSet> {
         Settings {
             config: self.config.unwrap(),
             parameters: self.parameters.unwrap(),
-            error: self.error.unwrap(),
+            errormodels: self.errormodels.unwrap(),
             predictions: self.predictions.unwrap_or_default(),
             log: self.log.unwrap_or_default(),
             prior: self.prior.unwrap_or_default(),
@@ -645,26 +569,34 @@ fn parse_output_folder(path: String) -> String {
         num += 1;
     }
 
-    let result = path.replace("#", &num.to_string());
-    result
+    path.replace("#", &num.to_string())
 }
 
 #[cfg(test)]
 
 mod tests {
+    use pharmsol::{ErrorModel, ErrorPoly};
+
     use super::*;
     use crate::algorithms::Algorithm;
 
     #[test]
     fn test_builder() {
-        let parameters = Parameters::new()
-            .add("Ke", 0.0, 5.0, false)
-            .add("V", 10.0, 200.0, true);
+        let parameters = Parameters::new().add("Ke", 0.0, 5.0).add("V", 10.0, 200.0);
 
+        let ems = ErrorModels::new()
+            .add(
+                0,
+                ErrorModel::Proportional {
+                    gamma: 5.0,
+                    poly: ErrorPoly::new(0.0, 0.1, 0.0, 0.0),
+                },
+            )
+            .unwrap();
         let mut settings = SettingsBuilder::new()
             .set_algorithm(Algorithm::NPAG) // Step 1: Define algorithm
             .set_parameters(parameters) // Step 2: Define parameters
-            .set_error_model(ErrorModel::Additive, 5.0, (0.0, 0.1, 0.0, 0.0))
+            .set_error_models(ems)
             .build();
 
         settings.set_cycles(100);

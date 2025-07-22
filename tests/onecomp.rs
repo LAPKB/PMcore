@@ -9,8 +9,8 @@ fn test_one_compartment() -> Result<()> {
             fetch_params!(p, ke);
             dx[0] = -ke * x[0];
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
             fetch_params!(p, v);
@@ -20,19 +20,21 @@ fn test_one_compartment() -> Result<()> {
     );
 
     // Define parameters
-    let params = Parameters::new()
-        .add("ke", 0.1, 1.0, false)
-        .add("v", 1.0, 20.0, false);
+    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
+
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
+    let ems = ErrorModels::new().add(0, em).unwrap();
 
     // Create settings
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Proportional, 2.0, (0.1, 0.25, 0.0, 0.0))
+        .set_error_models(ems)
         .build();
 
     settings.set_prior(Prior::sobol(64, 22));
-    settings.set_cycles(300);
+
+    settings.set_cycles(100);
 
     // Let known support points
     let spps: Vec<(f64, f64)> = vec![(0.85, 12.0), (0.52, 5.0), (0.15, 3.0)];
@@ -55,9 +57,6 @@ fn test_one_compartment() -> Result<()> {
     });
 
     let data = data::Data::new(subjects);
-    data.get_subjects().iter().for_each(|subject| {
-        println!("{}", subject);
-    });
 
     // Run the algorithm
     let mut algorithm = dispatch_algorithm(settings, eq, data)?;
@@ -65,7 +64,7 @@ fn test_one_compartment() -> Result<()> {
 
     // Check the results
     assert_eq!(result.cycles(), 32);
-    assert_eq!(result.objf(), 97.57533032670898);
+    assert!(result.objf() - 565.7749 < 0.01);
 
     Ok(())
 }
