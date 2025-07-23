@@ -33,7 +33,7 @@ fn main() -> Result<()> {
 
     let ems = ErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
+        ErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576, None),
     )?;
 
     let mut settings = Settings::builder()
