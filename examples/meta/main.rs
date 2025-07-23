@@ -44,12 +44,12 @@ fn main() {
     let ems = ErrorModels::new()
         .add(
             0,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0, None),
         )
         .unwrap()
         .add(
             1,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0, None),
         )
         .unwrap();
 
