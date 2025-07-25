@@ -251,13 +251,15 @@ impl<E: Equation> NPResult<E> {
 
         let theta = &self.theta;
         let w: Vec<f64> = self.w.clone().into_view().iter().cloned().collect();
-        /* let w = if self.w.len() != theta.matrix().nrows() {
-                   tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
-                   Array1::zeros(theta.matrix().nrows())
-               } else {
-                   self.w.clone()
-               };
-        */
+
+        if w.len() != theta.matrix().nrows() {
+            bail!(
+                "Number of weights ({}) and number of support points ({}) do not match.",
+                w.len(),
+                theta.matrix().nrows()
+            );
+        }
+
         let outputfile = OutputFile::new(&self.settings.output().path, "theta.csv")
             .context("Failed to create output file for theta")?;
 
@@ -407,11 +409,11 @@ impl<E: Equation> NPResult<E> {
             .has_headers(true)
             .from_writer(&outputfile.file);
 
-        // Create the output file and writer for postpred.csv
-        let postpred = OutputFile::new(&self.settings.output().path, "postpred.csv")?;
-        let mut postpredwriter = WriterBuilder::new()
+        // Create the output file and writer for raw predictions
+        let rawpred = OutputFile::new(&self.settings.output().path, "rawpred.csv")?;
+        let mut rawpredwriter = WriterBuilder::new()
             .has_headers(true)
-            .from_writer(&postpred.file);
+            .from_writer(&rawpred.file);
 
         // Iterate over each subject and then each support point
         for subject in subjects.iter().enumerate() {
@@ -525,8 +527,10 @@ impl<E: Equation> NPResult<E> {
                 time: f64,
                 outeq: usize,
                 block: usize,
+                obs: f64,
                 pred: f64,
-                prob: f64,
+                pop_prob: f64,
+                post_prob: f64,
                 spp: usize,
             }
 
@@ -538,12 +542,14 @@ impl<E: Equation> NPResult<E> {
                         id: subject.id().clone(),
                         time: p.time(),
                         outeq: p.outeq(),
-                        block: 0,
+                        block: 0, //TODO: Handle blocks properly
+                        obs: p.observation(),
                         pred: p.prediction(),
-                        prob: w[i],
+                        pop_prob: w[i],
+                        post_prob: posterior[(subject_index, i)],
                         spp: i,
                     };
-                    postpredwriter.serialize(row)?;
+                    rawpredwriter.serialize(row)?;
                 }
             }
         }
@@ -554,10 +560,10 @@ impl<E: Equation> NPResult<E> {
             &outputfile.get_relative_path()
         );
 
-        postpredwriter.flush()?;
+        rawpredwriter.flush()?;
         tracing::debug!(
-            "Posterior predictions written to {:?}",
-            &postpred.get_relative_path()
+            "Raw predictions written to {:?}",
+            &rawpred.get_relative_path()
         );
 
         Ok(())
