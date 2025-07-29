@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1](https://github.com/LAPKB/PMcore/compare/v0.15.0...v0.15.1) - 2025-07-29
+
+### Other
+
+- Update criterion requirement from 0.6 to 0.7 ([#169](https://github.com/LAPKB/PMcore/pull/169))
+
 ## [0.15.0](https://github.com/LAPKB/PMcore/compare/v0.14.0...v0.15.0) - 2025-07-23
 
 ### Added
