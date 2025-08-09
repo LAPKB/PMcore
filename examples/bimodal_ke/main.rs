@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     let ems = ErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0, None),
         )
         .unwrap()
         .add(1, ErrorModel::None)

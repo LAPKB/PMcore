@@ -28,7 +28,7 @@ fn setup_simulation() -> Result<(Settings, equation::ODE, data::Data)> {
     let ems = ErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0, None),
         )
         .unwrap();
 
