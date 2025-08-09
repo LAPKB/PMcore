@@ -409,12 +409,6 @@ impl<E: Equation> NPResult<E> {
             .has_headers(true)
             .from_writer(&outputfile.file);
 
-        // Create the output file and writer for raw predictions
-        let rawpred = OutputFile::new(&self.settings.output().path, "rawpred.csv")?;
-        let mut rawpredwriter = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(&rawpred.file);
-
         // Iterate over each subject and then each support point
         for subject in subjects.iter().enumerate() {
             let (subject_index, subject) = subject;
@@ -519,51 +513,12 @@ impl<E: Equation> NPResult<E> {
                     writer.serialize(row)?;
                 }
             }
-
-            // Raw predictions block
-            #[derive(Debug, Clone, Serialize)]
-            struct RawRow {
-                id: String,
-                time: f64,
-                outeq: usize,
-                block: usize,
-                obs: f64,
-                pred: f64,
-                pop_prob: f64,
-                post_prob: f64,
-                spp: usize,
-            }
-
-            // Write the data
-            for pred in predictions.iter().enumerate() {
-                let (i, preds) = pred;
-                for p in preds.iter() {
-                    let row = RawRow {
-                        id: subject.id().clone(),
-                        time: p.time(),
-                        outeq: p.outeq(),
-                        block: 0, //TODO: Handle blocks properly
-                        obs: p.observation(),
-                        pred: p.prediction(),
-                        pop_prob: w[i],
-                        post_prob: posterior[(subject_index, i)],
-                        spp: i,
-                    };
-                    rawpredwriter.serialize(row)?;
-                }
-            }
         }
 
         writer.flush()?;
         tracing::debug!(
             "Predictions written to {:?}",
             &outputfile.get_relative_path()
-        );
-
-        rawpredwriter.flush()?;
-        tracing::debug!(
-            "Raw predictions written to {:?}",
-            &rawpred.get_relative_path()
         );
 
         Ok(())
