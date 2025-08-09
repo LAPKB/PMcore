@@ -107,3 +107,128 @@ pub(crate) fn calculate_psi(
 
     Ok(psi_ndarray.view().into())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::Array2;
+
+    #[test]
+    fn test_from_array2() {
+        // Create a test 2x3 array
+        let array = Array2::from_shape_vec((2, 3), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+
+        let psi = Psi::from(array.clone());
+
+        // Check dimensions
+        assert_eq!(psi.nspp(), 2);
+        assert_eq!(psi.nsub(), 3);
+
+        // Check values by converting back to ndarray and comparing
+        let result_array = psi.matrix().as_ref().into_ndarray();
+        for i in 0..2 {
+            for j in 0..3 {
+                assert_eq!(result_array[[i, j]], array[[i, j]]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_from_array2_ref() {
+        // Create a test 3x2 array
+        let array =
+            Array2::from_shape_vec((3, 2), vec![10.0, 20.0, 30.0, 40.0, 50.0, 60.0]).unwrap();
+
+        let psi = Psi::from(&array);
+
+        // Check dimensions
+        assert_eq!(psi.nspp(), 3);
+        assert_eq!(psi.nsub(), 2);
+
+        // Check values by converting back to ndarray and comparing
+        let result_array = psi.matrix().as_ref().into_ndarray();
+        for i in 0..3 {
+            for j in 0..2 {
+                assert_eq!(result_array[[i, j]], array[[i, j]]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_nspp() {
+        // Test with a 4x2 matrix
+        let array =
+            Array2::from_shape_vec((4, 2), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).unwrap();
+        let psi = Psi::from(array);
+
+        assert_eq!(psi.nspp(), 4);
+    }
+
+    #[test]
+    fn test_nspp_empty() {
+        // Test with empty matrix
+        let psi = Psi::new();
+        assert_eq!(psi.nspp(), 0);
+    }
+
+    #[test]
+    fn test_nspp_single_row() {
+        // Test with 1x3 matrix
+        let array = Array2::from_shape_vec((1, 3), vec![1.0, 2.0, 3.0]).unwrap();
+        let psi = Psi::from(array);
+
+        assert_eq!(psi.nspp(), 1);
+    }
+
+    #[test]
+    fn test_nsub() {
+        // Test with a 2x5 matrix
+        let array = Array2::from_shape_vec(
+            (2, 5),
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
+        )
+        .unwrap();
+        let psi = Psi::from(array);
+
+        assert_eq!(psi.nsub(), 5);
+    }
+
+    #[test]
+    fn test_nsub_empty() {
+        // Test with empty matrix
+        let psi = Psi::new();
+        assert_eq!(psi.nsub(), 0);
+    }
+
+    #[test]
+    fn test_nsub_single_column() {
+        // Test with 3x1 matrix
+        let array = Array2::from_shape_vec((3, 1), vec![1.0, 2.0, 3.0]).unwrap();
+        let psi = Psi::from(array);
+
+        assert_eq!(psi.nsub(), 1);
+    }
+
+    #[test]
+    fn test_from_implementations_consistency() {
+        // Test that both From implementations produce the same result
+        let array = Array2::from_shape_vec((2, 3), vec![1.5, 2.5, 3.5, 4.5, 5.5, 6.5]).unwrap();
+
+        let psi_from_owned = Psi::from(array.clone());
+        let psi_from_ref = Psi::from(&array);
+
+        // Both should have the same dimensions
+        assert_eq!(psi_from_owned.nspp(), psi_from_ref.nspp());
+        assert_eq!(psi_from_owned.nsub(), psi_from_ref.nsub());
+
+        // And the same values
+        let owned_array = psi_from_owned.matrix().as_ref().into_ndarray();
+        let ref_array = psi_from_ref.matrix().as_ref().into_ndarray();
+
+        for i in 0..2 {
+            for j in 0..3 {
+                assert_eq!(owned_array[[i, j]], ref_array[[i, j]]);
+            }
+        }
+    }
+}

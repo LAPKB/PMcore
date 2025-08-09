@@ -168,4 +168,29 @@ mod tests {
 
         assert_eq!(theta.matrix, expected);
     }
+
+    #[test]
+    fn test_suggest_point() {
+        let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+        let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
+        let mut theta = Theta::from_parts(matrix, parameters);
+        theta.suggest_point(&[7.0, 8.0], 0.2);
+        let expected = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
+        assert_eq!(theta.matrix, expected);
+
+        // Suggest a point that is too close
+        theta.suggest_point(&[7.1, 8.1], 0.2);
+        // The point should not be added
+        assert_eq!(theta.matrix.nrows(), 4);
+    }
+
+    #[test]
+    fn test_param_names() {
+        let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+        let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
+
+        let theta = Theta::from_parts(matrix, parameters);
+        let names = theta.param_names();
+        assert_eq!(names, vec!["A".to_string(), "B".to_string()]);
+    }
 }
