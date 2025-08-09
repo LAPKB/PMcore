@@ -413,8 +413,28 @@ impl<E: Equation> NPResult<E> {
         for subject in subjects.iter().enumerate() {
             let (subject_index, subject) = subject;
 
+            // Get a vector of occasions for this subject, for each predictions
+            let occasions = subject
+                .occasions()
+                .iter()
+                .flat_map(|o| {
+                    o.events()
+                        .iter()
+                        .filter_map(|e| {
+                            if let Event::Observation(_obs) = e {
+                                Some(o.index())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<usize>>();
+
             // Container for predictions for this subject
             // This will hold predictions for each support point
+            // The outer vector is for each support point
+            // The inner vector is for the vector of predictions for that support point
             let mut predictions: Vec<Vec<Prediction>> = Vec::new();
 
             // And each support points
@@ -504,7 +524,7 @@ impl<E: Equation> NPResult<E> {
                         id: subject.id().clone(),
                         time: p.time(),
                         outeq: p.outeq(),
-                        block: 0,
+                        block: occasions[j],
                         pop_mean: pop_mean[j],
                         pop_median: pop_median[j],
                         post_mean: posterior_mean[j],
