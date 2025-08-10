@@ -122,7 +122,7 @@ impl<E: Equation> NPResult<E> {
             time: f64,
             outeq: usize,
             block: usize,
-            obs: f64,
+            obs: Option<f64>,
             pop_mean: f64,
             pop_median: f64,
             post_mean: f64,
@@ -145,7 +145,7 @@ impl<E: Equation> NPResult<E> {
         let (pop_mean, pop_median) = population_mean_median(&theta, &w)
             .context("Failed to calculate posterior mean and median")?;
 
-        let subjects = self.data.get_subjects();
+        let subjects = self.data.subjects();
         if subjects.len() != post_mean.nrows() {
             bail!(
                 "Number of subjects: {} and number of posterior means: {} do not match",
@@ -318,7 +318,7 @@ impl<E: Equation> NPResult<E> {
         writer.write_record(None::<&[u8]>)?;
 
         // Write contents
-        let subjects = self.data.get_subjects();
+        let subjects = self.data.subjects();
         posterior.row_iter().enumerate().for_each(|(i, row)| {
             let subject = subjects.get(i).unwrap();
             let id = subject.id();
@@ -359,11 +359,11 @@ impl<E: Equation> NPResult<E> {
             id: String,
             block: usize,
             time: f64,
-            out: f64,
+            out: Option<f64>,
             outeq: usize,
         }
 
-        for subject in self.data.get_subjects() {
+        for subject in self.data.subjects() {
             for occasion in subject.occasions() {
                 for event in occasion.get_events(None, false) {
                     if let Event::Observation(event) = event {
@@ -409,7 +409,7 @@ impl<E: Equation> NPResult<E> {
         let (pop_mean, pop_median) = population_mean_median(&theta, &w)
             .context("Failed to calculate population mean and median")?;
 
-        let subjects = data.get_subjects();
+        let subjects = data.subjects();
         if subjects.len() != post_mean.nrows() {
             bail!("Number of subjects and number of posterior means do not match");
         }
@@ -508,7 +508,7 @@ impl<E: Equation> NPResult<E> {
 
         // Collect all unique covariate names
         let mut covariate_names = std::collections::HashSet::new();
-        for subject in self.data.get_subjects() {
+        for subject in self.data.subjects() {
             for occasion in subject.occasions() {
                 let cov = occasion.covariates();
                 let covmap = cov.covariates();
@@ -526,7 +526,7 @@ impl<E: Equation> NPResult<E> {
         writer.write_record(&headers)?;
 
         // Write the data rows
-        for subject in self.data.get_subjects() {
+        for subject in self.data.subjects() {
             for occasion in subject.occasions() {
                 let cov = occasion.covariates();
                 let covmap = cov.covariates();
@@ -692,10 +692,10 @@ impl CycleLog {
                 |(_, errmod): (usize, &ErrorModel)| -> Result<()> {
                     match errmod {
                         ErrorModel::Additive { .. } => {
-                            writer.write_field(format!("{:.5}", errmod.scalar()?))?;
+                            writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
                         ErrorModel::Proportional { .. } => {
-                            writer.write_field(format!("{:.5}", errmod.scalar()?))?;
+                            writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
                         ErrorModel::None { .. } => {}
                     }
