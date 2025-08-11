@@ -68,7 +68,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             f1: f64::default(),
             cycle: 0,
             gamma_delta: vec![0.1; settings.errormodels().len()],
-            error_models: settings.errormodels().clone().into(),
+            error_models: settings.errormodels().clone(),
             converged: false,
             status: Status::Starting,
             cycle_log: CycleLog::new(),
@@ -285,14 +285,14 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             .try_for_each(|(outeq, em)| -> Result<()> {
                 // OPTIMIZATION
 
-                let gamma_up = em.scalar()? * (1.0 + self.gamma_delta[outeq]);
-                let gamma_down = em.scalar()? / (1.0 + self.gamma_delta[outeq]);
+                let gamma_up = em.factor()? * (1.0 + self.gamma_delta[outeq]);
+                let gamma_down = em.factor()? / (1.0 + self.gamma_delta[outeq]);
 
                 let mut error_model_up = self.error_models.clone();
-                error_model_up.set_scalar(outeq, gamma_up)?;
+                error_model_up.set_factor(outeq, gamma_up)?;
 
                 let mut error_model_down = self.error_models.clone();
-                error_model_down.set_scalar(outeq, gamma_down)?;
+                error_model_down.set_factor(outeq, gamma_down)?;
 
                 let psi_up = calculate_psi(
                     &self.equation,
@@ -328,14 +328,14 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                     }
                 };
                 if objf_up > self.objf {
-                    self.error_models.set_scalar(outeq, gamma_up)?;
+                    self.error_models.set_factor(outeq, gamma_up)?;
                     self.objf = objf_up;
                     self.gamma_delta[outeq] *= 4.;
                     self.lambda = lambda_up;
                     self.psi = psi_up;
                 }
                 if objf_down > self.objf {
-                    self.error_models.set_scalar(outeq, gamma_down)?;
+                    self.error_models.set_factor(outeq, gamma_down)?;
                     self.objf = objf_down;
                     self.gamma_delta[outeq] *= 4.;
                     self.lambda = lambda_down;
@@ -362,7 +362,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             tracing::debug!(
                 "Error model for outeq {}: {:.16}",
                 outeq,
-                em.scalar().unwrap_or_default()
+                em.factor().unwrap_or_default()
             );
         });
 
