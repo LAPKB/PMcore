@@ -11,8 +11,8 @@ fn main() -> Result<()> {
             fetch_params!(p, ke, _v);
             dx[0] = -ke * x[0] + rateiv[0];
         },
-        |_p| lag! {},
-        |_p| fa! {},
+        |_p, _, _| lag! {},
+        |_p, _, _| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
@@ -22,17 +22,22 @@ fn main() -> Result<()> {
     );
 
     let params = Parameters::new()
-        .add("ke", 0.001, 3.0, false)
-        .add("v", 25.0, 250.0, false);
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
 
     // Read BKE data
     let data = read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
+
+    let ems = ErrorModels::new().add(
+        0,
+        ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0, None),
+    )?;
 
     // Make settings
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
-        .set_error_model(ErrorModel::Additive, 0.0, (0.0, 0.05, 0.0, 0.0))
+        .set_error_models(ems.clone())
         .build();
 
     settings.disable_output();
@@ -63,6 +68,7 @@ fn main() -> Result<()> {
         eq: eq.clone(),
         doserange: DoseRange::new(0.0, 10000.0),
         bias_weight: 0.0,
+        error_models: ems.clone(),
     };
 
     println!("Optimizing dose...");
@@ -83,6 +89,7 @@ fn main() -> Result<()> {
             eq: eq.clone(),
             doserange: DoseRange::new(0.0, 10000.0),
             bias_weight: *bias_weight,
+            error_models: ems.clone(),
         };
 
         let optimal = problem.optimize()?;
