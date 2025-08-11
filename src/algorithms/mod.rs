@@ -89,7 +89,7 @@ pub trait Algorithms<E: Equation>: Sync {
             for index in &indices {
                 tracing::debug!("Subject with zero probability: {}", subject[*index].id());
 
-                let error_model = self.get_settings().errormodels().clone().into();
+                let error_model = self.get_settings().errormodels().clone();
 
                 // Simulate all support points in parallel
                 let spp_results: Vec<_> = self

@@ -68,7 +68,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             f1: f64::default(),
             cycle: 0,
             gamma_delta: vec![0.1; settings.errormodels().len()],
-            error_models: settings.errormodels().clone().into(),
+            error_models: settings.errormodels().clone(),
             converged: false,
             status: Status::Starting,
             cycle_log: CycleLog::new(),

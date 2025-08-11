@@ -662,7 +662,7 @@ impl CycleLog {
                         ErrorModel::Proportional { .. } => {
                             writer.write_field(format!("gamlam.{}", outeq))?;
                         }
-                        ErrorModel::None { .. } => {}
+                        ErrorModel::None => {}
                     }
                     Ok(())
                 },
@@ -691,13 +691,21 @@ impl CycleLog {
             cycle.error_models.iter().try_for_each(
                 |(_, errmod): (usize, &ErrorModel)| -> Result<()> {
                     match errmod {
-                        ErrorModel::Additive { .. } => {
+                        ErrorModel::Additive {
+                            lambda: _,
+                            poly: _,
+                            lloq: _,
+                        } => {
                             writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
-                        ErrorModel::Proportional { .. } => {
+                        ErrorModel::Proportional {
+                            gamma: _,
+                            poly: _,
+                            lloq: _,
+                        } => {
                             writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
-                        ErrorModel::None { .. } => {}
+                        ErrorModel::None => {}
                     }
                     Ok(())
                 },
