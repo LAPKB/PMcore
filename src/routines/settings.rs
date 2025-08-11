@@ -588,8 +588,9 @@ mod tests {
             .add(
                 0,
                 ErrorModel::Proportional {
-                    gamma: 5.0,
+                    gamma: pharmsol::Factor::Variable(5.0),
                     poly: ErrorPoly::new(0.0, 0.1, 0.0, 0.0),
+                    lloq: None,
                 },
             )
             .unwrap();
