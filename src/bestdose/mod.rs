@@ -52,6 +52,7 @@ pub struct BestDoseProblem {
     pub eq: ODE,
     pub doserange: DoseRange,
     pub bias_weight: f64,
+    pub error_models: ErrorModels,
 }
 
 impl BestDoseProblem {
@@ -90,10 +91,15 @@ impl CostFunction for BestDoseProblem {
             .observation(self.target_time, self.target_concentration, 0)
             .build();
 
-        let errmod = pharmsol::ErrorModel::new((0.0, 0.1, 0.0, 0.0), 0.0, &ErrorType::Add);
-
         // Calculate psi, in order to determine the optimal weights of the support points in Theta for the target subject
-        let psi = calculate_psi(&self.eq, &self.past_data, &self.theta, &errmod, false, true);
+        let psi = calculate_psi(
+            &self.eq,
+            &self.past_data,
+            &self.theta,
+            &self.error_models,
+            false,
+            true,
+        )?;
 
         // Calculate the optimal weights
         let (w, _) = burke(&psi)?;
@@ -116,7 +122,7 @@ impl CostFunction for BestDoseProblem {
             let spp = row.iter().copied().collect::<Vec<f64>>();
 
             // Calculate the target subject predictions
-            let pred = self.eq.simulate_subject(&target_subject, &spp, None);
+            let pred = self.eq.simulate_subject(&target_subject, &spp, None)?;
 
             // The (probability weighted) squared error of the predictions is added to the variance
             variance += pred.0.squared_error() * prob;
