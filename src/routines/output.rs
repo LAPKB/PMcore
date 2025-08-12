@@ -399,8 +399,11 @@ impl<E: Equation> NPResult<E> {
         let w: Vec<f64> = self.w.iter().cloned().collect();
         let posterior = posterior(&self.psi, &self.w)?;
 
+        let data = self.data.clone().expand(idelta, tad);
+
         let subjects = data.subjects();
-        if subjects.len() != post_mean.nrows() {
+
+        if subjects.len() != posterior.nrows() {
             bail!("Number of subjects and number of posterior means do not match");
         };
 
@@ -450,13 +453,11 @@ impl<E: Equation> NPResult<E> {
                 predictions.push(pred);
             }
 
-            // Calculate the population predictions
-            // This is now defined as the weighted mean and median response
-            // And not the response of the weighted mean and median support point
-
             if predictions.is_empty() {
                 continue; // Skip this subject if no predictions are available
             }
+
+            // Calculate population mean using
             let mut pop_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
             for outer_pred in predictions.iter().enumerate() {
                 let (i, outer_pred) = outer_pred;
@@ -466,7 +467,7 @@ impl<E: Equation> NPResult<E> {
                 }
             }
 
-            // Calculate population median using weighted_median
+            // Calculate population median
             let mut pop_median: Vec<f64> = Vec::new();
             for j in 0..predictions.first().unwrap().len() {
                 let mut values: Vec<f64> = Vec::new();
@@ -481,6 +482,7 @@ impl<E: Equation> NPResult<E> {
                 pop_median.push(median_val);
             }
 
+            // Calculate posterior mean
             let mut posterior_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
             for outer_pred in predictions.iter().enumerate() {
                 let (i, outer_pred) = outer_pred;
@@ -490,7 +492,7 @@ impl<E: Equation> NPResult<E> {
                 }
             }
 
-            // Calculate posterior median using weighted_median
+            // Calculate posterior median
             let mut posterior_median: Vec<f64> = Vec::new();
             for j in 0..predictions.first().unwrap().len() {
                 let mut values: Vec<f64> = Vec::new();
