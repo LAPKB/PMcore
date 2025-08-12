@@ -402,8 +402,7 @@ impl<E: Equation> NPResult<E> {
         let subjects = data.subjects();
         if subjects.len() != post_mean.nrows() {
             bail!("Number of subjects and number of posterior means do not match");
-        }
-
+        };
 
         // Create the output file and writer for pred.csv
         let outputfile = OutputFile::new(&self.settings.output().path, "pred.csv")?;
