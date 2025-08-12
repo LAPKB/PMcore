@@ -75,7 +75,7 @@ pub trait Algorithms<E: Equation>: Sync {
             .collect::<Vec<_>>();
 
         if !indices.is_empty() {
-            let subject: Vec<&Subject> = self.get_data().get_subjects();
+            let subject: Vec<&Subject> = self.get_data().subjects();
             let zero_probability_subjects: Vec<&String> =
                 indices.iter().map(|&i| subject[i].id()).collect();
 
@@ -89,7 +89,7 @@ pub trait Algorithms<E: Equation>: Sync {
             for index in &indices {
                 tracing::debug!("Subject with zero probability: {}", subject[*index].id());
 
-                let error_model = self.get_settings().errormodels().clone().into();
+                let error_model = self.get_settings().errormodels().clone();
 
                 // Simulate all support points in parallel
                 let spp_results: Vec<_> = self
@@ -177,7 +177,10 @@ pub trait Algorithms<E: Equation>: Sync {
                     tracing::debug!("\t\tLog-likelihood: {:?}", ll);
 
                     let times = preds.iter().map(|x| x.time()).collect::<Vec<f64>>();
-                    let observations = preds.iter().map(|x| x.observation()).collect::<Vec<f64>>();
+                    let observations = preds
+                        .iter()
+                        .map(|x| x.observation())
+                        .collect::<Vec<Option<f64>>>();
                     let predictions = preds.iter().map(|x| x.prediction()).collect::<Vec<f64>>();
                     let outeqs = preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>();
                     let states = preds
