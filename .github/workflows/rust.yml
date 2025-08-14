@@ -1,42 +1,44 @@
-name: Build and test
-
-on:
-  push:
-    branches: [main, dev]
-  pull_request:
-    branches: [main, dev]
-
 permissions:
   contents: read
 
+name: Build
+'on':
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: '${{ github.workflow }}-${{ github.ref }}'
   cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-and-test:
-    name: Build and Test (Stable)
-    runs-on: ${{ matrix.os }}
+  
+  test:
+    runs-on: '${{ matrix.os }}'
+    name: '${{ matrix.os }} / stable'
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest] # Temp remove ubuntu-latest
-
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Rust (stable)
-        uses: actions-rs/toolchain@v1
+        uses: actions/checkout@v5
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
-          components: clippy, rustfmt
-
-      - name: Cache cargo registry, git, and target
+          components: rustfmt, clippy
+      
+      - name: Setup cache
         uses: actions/cache@v4
         with:
           path: |
@@ -44,11 +46,27 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Build
+      
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      
+      - name: Build (no features)
+        run: cargo build --verbose --no-default-features
+      
+      - name: Build (default features)
         run: cargo build --verbose
-
-      - name: Test
+      
+      - name: Build (all features)
+        run: cargo build --verbose --all-features
+      
+      - name: Run tests (no features)
+        run: cargo test --verbose --no-default-features
+      
+      - name: Run tests (default features)
         run: cargo test --verbose
+      
+      - name: Run tests (all features)
+        run: cargo test --verbose --all-features
+      
+      - name: Run doc tests
+        run: cargo test --doc --all-features

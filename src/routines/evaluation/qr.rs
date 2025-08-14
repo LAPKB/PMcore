@@ -64,12 +64,12 @@ mod tests {
     fn test_with_zero_row_sum() {
         // Create a test matrix with a row that sums to zero
         let mat = Mat::from_fn(2, 2, |i, j| {
-            match (i, j) {
-                (0, 0) => 1.0,
-                (0, 1) => 2.0,
-                (1, 0) => 0.0, // Row that sums to zero
-                (1, 1) => 0.0,
-                _ => 0.0,
+            if i == 0 && j == 0 {
+                1.0
+            } else if i == 0 && j == 1 {
+                2.0
+            } else {
+                0.0 // Row that sums to zero for i == 1
             }
         });
         let psi = Psi::from(mat);

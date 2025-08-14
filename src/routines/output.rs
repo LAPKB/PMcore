@@ -10,7 +10,7 @@ use faer::{Col, Mat};
 use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
-use pharmsol::prelude::simulator::Equation;
+use pharmsol::prelude::simulator::{Equation, Prediction};
 use serde::Serialize;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -94,6 +94,7 @@ impl<E: Equation> NPResult<E> {
 
     pub fn write_outputs(&self) -> Result<()> {
         if self.settings.output().write {
+            tracing::debug!("Writing outputs to {:?}", self.settings.output().path);
             self.settings.write()?;
             let idelta: f64 = self.settings.predictions().idelta;
             let tad = self.settings.predictions().tad;
@@ -121,7 +122,7 @@ impl<E: Equation> NPResult<E> {
             time: f64,
             outeq: usize,
             block: usize,
-            obs: f64,
+            obs: Option<f64>,
             pop_mean: f64,
             pop_median: f64,
             post_mean: f64,
@@ -144,7 +145,7 @@ impl<E: Equation> NPResult<E> {
         let (pop_mean, pop_median) = population_mean_median(&theta, &w)
             .context("Failed to calculate posterior mean and median")?;
 
-        let subjects = self.data.get_subjects();
+        let subjects = self.data.subjects();
         if subjects.len() != post_mean.nrows() {
             bail!(
                 "Number of subjects: {} and number of posterior means: {} do not match",
@@ -236,7 +237,7 @@ impl<E: Equation> NPResult<E> {
             }
         }
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Observations with predictions written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -250,13 +251,15 @@ impl<E: Equation> NPResult<E> {
 
         let theta = &self.theta;
         let w: Vec<f64> = self.w.clone().into_view().iter().cloned().collect();
-        /* let w = if self.w.len() != theta.matrix().nrows() {
-                   tracing::warn!("Number of weights and number of support points do not match. Setting all weights to 0.");
-                   Array1::zeros(theta.matrix().nrows())
-               } else {
-                   self.w.clone()
-               };
-        */
+
+        if w.len() != theta.matrix().nrows() {
+            bail!(
+                "Number of weights ({}) and number of support points ({}) do not match.",
+                w.len(),
+                theta.matrix().nrows()
+            );
+        }
+
         let outputfile = OutputFile::new(&self.settings.output().path, "theta.csv")
             .context("Failed to create output file for theta")?;
 
@@ -276,7 +279,7 @@ impl<E: Equation> NPResult<E> {
             writer.write_record(&row)?;
         }
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Population parameter distribution written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -317,14 +320,14 @@ impl<E: Equation> NPResult<E> {
         writer.write_record(None::<&[u8]>)?;
 
         // Write contents
-        let subjects = self.data.get_subjects();
+        let subjects = self.data.subjects();
         posterior.row_iter().enumerate().for_each(|(i, row)| {
             let subject = subjects.get(i).unwrap();
             let id = subject.id();
 
             row.iter().enumerate().for_each(|(spp, prob)| {
                 writer.write_field(id.clone()).unwrap();
-                writer.write_field(i.to_string()).unwrap();
+                writer.write_field(spp.to_string()).unwrap();
 
                 theta.matrix().row(spp).iter().for_each(|val| {
                     writer.write_field(val.to_string()).unwrap();
@@ -336,7 +339,7 @@ impl<E: Equation> NPResult<E> {
         });
 
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Posterior parameters written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -348,8 +351,39 @@ impl<E: Equation> NPResult<E> {
     pub fn write_obs(&self) -> Result<()> {
         tracing::debug!("Writing observations...");
         let outputfile = OutputFile::new(&self.settings.output().path, "obs.csv")?;
-        write_pmetrics_observations(&self.data, &outputfile.file)?;
-        tracing::info!(
+
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(&outputfile.file);
+
+        #[derive(Serialize)]
+        struct Row {
+            id: String,
+            block: usize,
+            time: f64,
+            out: Option<f64>,
+            outeq: usize,
+        }
+
+        for subject in self.data.subjects() {
+            for occasion in subject.occasions() {
+                for event in occasion.get_events(None, false) {
+                    if let Event::Observation(event) = event {
+                        let row = Row {
+                            id: subject.id().clone(),
+                            block: occasion.index(),
+                            time: event.time(),
+                            out: event.value(),
+                            outeq: event.outeq(),
+                        };
+                        writer.serialize(row)?;
+                    }
+                }
+            }
+        }
+        writer.flush()?;
+
+        tracing::debug!(
             "Observations written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -359,110 +393,157 @@ impl<E: Equation> NPResult<E> {
     /// Writes the predictions
     pub fn write_pred(&self, idelta: f64, tad: f64) -> Result<()> {
         tracing::debug!("Writing predictions...");
-        let data = self.data.expand(idelta, tad);
 
-        let theta: Array2<f64> = self
-            .theta
-            .matrix()
-            .clone()
-            .as_mut()
-            .into_ndarray()
-            .to_owned();
-        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
-        let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
+        // Get necessary data
+        let theta = self.theta.matrix();
+        let w: Vec<f64> = self.w.iter().cloned().collect();
+        let posterior = posterior(&self.psi, &self.w)?;
 
-        let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
-            .context("Failed to calculate posterior mean and median")?;
+        let data = self.data.clone().expand(idelta, tad);
 
-        let (pop_mean, pop_median) = population_mean_median(&theta, &w)
-            .context("Failed to calculate population mean and median")?;
+        let subjects = data.subjects();
 
-        let subjects = data.get_subjects();
-        if subjects.len() != post_mean.nrows() {
+        if subjects.len() != posterior.nrows() {
             bail!("Number of subjects and number of posterior means do not match");
-        }
+        };
 
+        // Create the output file and writer for pred.csv
         let outputfile = OutputFile::new(&self.settings.output().path, "pred.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(&outputfile.file);
 
-        #[derive(Debug, Clone, Serialize)]
-        struct Row {
-            id: String,
-            time: f64,
-            outeq: usize,
-            block: usize,
-            pop_mean: f64,
-            pop_median: f64,
-            post_mean: f64,
-            post_median: f64,
-        }
+        // Iterate over each subject and then each support point
+        for subject in subjects.iter().enumerate() {
+            let (subject_index, subject) = subject;
 
-        for (i, subject) in subjects.iter().enumerate() {
-            for occasion in subject.occasions() {
-                let id = subject.id();
-                let block = occasion.index();
+            // Get a vector of occasions for this subject, for each predictions
+            let occasions = subject
+                .occasions()
+                .iter()
+                .flat_map(|o| {
+                    o.events()
+                        .iter()
+                        .filter_map(|e| {
+                            if let Event::Observation(_obs) = e {
+                                Some(o.index())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<usize>>();
 
-                // Create a new subject with only the current occasion
-                let subject = Subject::from_occasions(id.clone(), vec![occasion.clone()]);
+            // Container for predictions for this subject
+            // This will hold predictions for each support point
+            // The outer vector is for each support point
+            // The inner vector is for the vector of predictions for that support point
+            let mut predictions: Vec<Vec<Prediction>> = Vec::new();
 
-                // Population predictions
-                let pop_mean_pred = self
+            // And each support points
+            for spp in theta.row_iter() {
+                // Simulate the subject with the current support point
+                let spp_values = spp.iter().cloned().collect::<Vec<f64>>();
+                let pred = self
                     .equation
-                    .simulate_subject(&subject, &pop_mean.to_vec(), None)?
+                    .simulate_subject(subject, &spp_values, None)?
                     .0
-                    .get_predictions()
-                    .clone();
-                let pop_median_pred = self
-                    .equation
-                    .simulate_subject(&subject, &pop_median.to_vec(), None)?
-                    .0
-                    .get_predictions()
-                    .clone();
+                    .get_predictions();
+                predictions.push(pred);
+            }
 
-                // Posterior predictions
-                let post_mean_spp: Vec<f64> = post_mean.row(i).to_vec();
-                let post_mean_pred = self
-                    .equation
-                    .simulate_subject(&subject, &post_mean_spp, None)?
-                    .0
-                    .get_predictions()
-                    .clone();
-                let post_median_spp: Vec<f64> = post_median.row(i).to_vec();
-                let post_median_pred = self
-                    .equation
-                    .simulate_subject(&subject, &post_median_spp, None)?
-                    .0
-                    .get_predictions()
-                    .clone();
+            if predictions.is_empty() {
+                continue; // Skip this subject if no predictions are available
+            }
 
-                // Write predictions for each time point
-                for (((pop_mean, pop_median), post_mean), post_median) in pop_mean_pred
-                    .iter()
-                    .zip(pop_median_pred.iter())
-                    .zip(post_mean_pred.iter())
-                    .zip(post_median_pred.iter())
-                {
+            // Calculate population mean using
+            let mut pop_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
+            for outer_pred in predictions.iter().enumerate() {
+                let (i, outer_pred) = outer_pred;
+                for inner_pred in outer_pred.iter().enumerate() {
+                    let (j, pred) = inner_pred;
+                    pop_mean[j] += pred.prediction() * w[i];
+                }
+            }
+
+            // Calculate population median
+            let mut pop_median: Vec<f64> = Vec::new();
+            for j in 0..predictions.first().unwrap().len() {
+                let mut values: Vec<f64> = Vec::new();
+                let mut weights: Vec<f64> = Vec::new();
+
+                for (i, outer_pred) in predictions.iter().enumerate() {
+                    values.push(outer_pred[j].prediction());
+                    weights.push(w[i]);
+                }
+
+                let median_val = weighted_median(&values, &weights);
+                pop_median.push(median_val);
+            }
+
+            // Calculate posterior mean
+            let mut posterior_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
+            for outer_pred in predictions.iter().enumerate() {
+                let (i, outer_pred) = outer_pred;
+                for inner_pred in outer_pred.iter().enumerate() {
+                    let (j, pred) = inner_pred;
+                    posterior_mean[j] += pred.prediction() * posterior[(subject_index, i)];
+                }
+            }
+
+            // Calculate posterior median
+            let mut posterior_median: Vec<f64> = Vec::new();
+            for j in 0..predictions.first().unwrap().len() {
+                let mut values: Vec<f64> = Vec::new();
+                let mut weights: Vec<f64> = Vec::new();
+
+                for (i, outer_pred) in predictions.iter().enumerate() {
+                    values.push(outer_pred[j].prediction());
+                    weights.push(posterior[(subject_index, i)]);
+                }
+
+                let median_val = weighted_median(&values, &weights);
+                posterior_median.push(median_val);
+            }
+
+            // Structure for the output
+            #[derive(Debug, Clone, Serialize)]
+            struct Row {
+                id: String,
+                time: f64,
+                outeq: usize,
+                block: usize,
+                pop_mean: f64,
+                pop_median: f64,
+                post_mean: f64,
+                post_median: f64,
+            }
+
+            for pred in predictions.iter().enumerate() {
+                let (_, preds) = pred;
+                for (j, p) in preds.iter().enumerate() {
                     let row = Row {
-                        id: id.clone(),
-                        time: pop_mean.time(),
-                        outeq: pop_mean.outeq(),
-                        block,
-                        pop_mean: pop_mean.prediction(),
-                        pop_median: pop_median.prediction(),
-                        post_mean: post_mean.prediction(),
-                        post_median: post_median.prediction(),
+                        id: subject.id().clone(),
+                        time: p.time(),
+                        outeq: p.outeq(),
+                        block: occasions[j],
+                        pop_mean: pop_mean[j],
+                        pop_median: pop_median[j],
+                        post_mean: posterior_mean[j],
+                        post_median: posterior_median[j],
                     };
                     writer.serialize(row)?;
                 }
             }
         }
+
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Predictions written to {:?}",
             &outputfile.get_relative_path()
         );
+
         Ok(())
     }
 
@@ -476,7 +557,7 @@ impl<E: Equation> NPResult<E> {
 
         // Collect all unique covariate names
         let mut covariate_names = std::collections::HashSet::new();
-        for subject in self.data.get_subjects() {
+        for subject in self.data.subjects() {
             for occasion in subject.occasions() {
                 let cov = occasion.covariates();
                 let covmap = cov.covariates();
@@ -494,7 +575,7 @@ impl<E: Equation> NPResult<E> {
         writer.write_record(&headers)?;
 
         // Write the data rows
-        for subject in self.data.get_subjects() {
+        for subject in self.data.subjects() {
             for occasion in subject.occasions() {
                 let cov = occasion.covariates();
                 let covmap = cov.covariates();
@@ -530,7 +611,7 @@ impl<E: Equation> NPResult<E> {
         }
 
         writer.flush()?;
-        tracing::info!(
+        tracing::debug!(
             "Covariates written to {:?}",
             &outputfile.get_relative_path()
         );
@@ -630,7 +711,7 @@ impl CycleLog {
                         ErrorModel::Proportional { .. } => {
                             writer.write_field(format!("gamlam.{}", outeq))?;
                         }
-                        ErrorModel::None { .. } => {}
+                        ErrorModel::None => {}
                     }
                     Ok(())
                 },
@@ -659,13 +740,21 @@ impl CycleLog {
             cycle.error_models.iter().try_for_each(
                 |(_, errmod): (usize, &ErrorModel)| -> Result<()> {
                     match errmod {
-                        ErrorModel::Additive { .. } => {
-                            writer.write_field(format!("{:.5}", errmod.scalar()?))?;
+                        ErrorModel::Additive {
+                            lambda: _,
+                            poly: _,
+                            lloq: _,
+                        } => {
+                            writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
-                        ErrorModel::Proportional { .. } => {
-                            writer.write_field(format!("{:.5}", errmod.scalar()?))?;
+                        ErrorModel::Proportional {
+                            gamma: _,
+                            poly: _,
+                            lloq: _,
+                        } => {
+                            writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
-                        ErrorModel::None { .. } => {}
+                        ErrorModel::None => {}
                     }
                     Ok(())
                 },
@@ -686,7 +775,7 @@ impl CycleLog {
             writer.write_record(None::<&[u8]>)?;
         }
         writer.flush()?;
-        tracing::info!("Cycles written to {:?}", &outputfile.get_relative_path());
+        tracing::debug!("Cycles written to {:?}", &outputfile.get_relative_path());
         Ok(())
     }
 }
@@ -697,6 +786,9 @@ impl Default for CycleLog {
     }
 }
 
+/// Calculates the posterior probabilities for each support point given the weights
+///
+/// The shape is the same as [Psi], and thus subjects are the rows and support points are the columns.
 pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Mat<f64>> {
     if psi.matrix().ncols() != w.nrows() {
         bail!(
@@ -731,7 +823,7 @@ pub fn median(data: Vec<f64>) -> f64 {
     }
 }
 
-fn weighted_median(data: &Array1<f64>, weights: &Array1<f64>) -> f64 {
+fn weighted_median(data: &Vec<f64>, weights: &Vec<f64>) -> f64 {
     // Ensure the data and weights arrays have the same length
     assert_eq!(
         data.len(),
@@ -755,7 +847,7 @@ fn weighted_median(data: &Array1<f64>, weights: &Array1<f64>) -> f64 {
     weighted_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
     // Calculate the cumulative sum of weights
-    let total_weight: f64 = weights.sum();
+    let total_weight: f64 = weights.iter().sum();
     let mut cumulative_sum = 0.0;
 
     for (i, &(_, weight)) in weighted_data.iter().enumerate() {
@@ -812,7 +904,7 @@ pub fn population_mean_median(
             weights.push(wi);
         }
 
-        *mdn = weighted_median(&Array::from(params), &Array::from(weights));
+        *mdn = weighted_median(&params, &weights);
     }
 
     Ok((mean, median))
@@ -872,7 +964,7 @@ pub fn posterior_mean_median(
             post_mean.push(the_mean);
 
             // Calculate the median
-            let median = weighted_median(&pars.to_owned(), &probs.to_owned());
+            let median = weighted_median(&pars.to_vec(), &probs.to_vec());
             post_median.push(median);
         }
 
@@ -917,28 +1009,6 @@ impl OutputFile {
     }
 }
 
-pub fn write_pmetrics_observations(data: &Data, file: &std::fs::File) -> Result<()> {
-    let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
-
-    writer.write_record(["id", "block", "time", "out", "outeq"])?;
-    for subject in data.get_subjects() {
-        for occasion in subject.occasions() {
-            for event in occasion.get_events(None, false) {
-                if let Event::Observation(event) = event {
-                    writer.write_record([
-                        subject.id(),
-                        &occasion.index().to_string(),
-                        &event.time().to_string(),
-                        &event.value().to_string(),
-                        &event.outeq().to_string(),
-                    ])?;
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::median;
@@ -980,63 +1050,62 @@ mod tests {
     }
 
     use super::weighted_median;
-    use ndarray::Array1;
 
     #[test]
     fn test_weighted_median_simple() {
-        let data = Array1::from(vec![1.0, 2.0, 3.0]);
-        let weights = Array1::from(vec![0.2, 0.5, 0.3]);
+        let data = vec![1.0, 2.0, 3.0];
+        let weights = vec![0.2, 0.5, 0.3];
         assert_eq!(weighted_median(&data, &weights), 2.0);
     }
 
     #[test]
     fn test_weighted_median_even_weights() {
-        let data = Array1::from(vec![1.0, 2.0, 3.0, 4.0]);
-        let weights = Array1::from(vec![0.25, 0.25, 0.25, 0.25]);
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let weights = vec![0.25, 0.25, 0.25, 0.25];
         assert_eq!(weighted_median(&data, &weights), 2.5);
     }
 
     #[test]
     fn test_weighted_median_single_element() {
-        let data = Array1::from(vec![42.0]);
-        let weights = Array1::from(vec![1.0]);
+        let data = vec![42.0];
+        let weights = vec![1.0];
         assert_eq!(weighted_median(&data, &weights), 42.0);
     }
 
     #[test]
     #[should_panic(expected = "The length of data and weights must be the same")]
     fn test_weighted_median_mismatched_lengths() {
-        let data = Array1::from(vec![1.0, 2.0, 3.0]);
-        let weights = Array1::from(vec![0.1, 0.2]);
+        let data = vec![1.0, 2.0, 3.0];
+        let weights = vec![0.1, 0.2];
         weighted_median(&data, &weights);
     }
 
     #[test]
     fn test_weighted_median_all_same_elements() {
-        let data = Array1::from(vec![5.0, 5.0, 5.0, 5.0]);
-        let weights = Array1::from(vec![0.1, 0.2, 0.3, 0.4]);
+        let data = vec![5.0, 5.0, 5.0, 5.0];
+        let weights = vec![0.1, 0.2, 0.3, 0.4];
         assert_eq!(weighted_median(&data, &weights), 5.0);
     }
 
     #[test]
     #[should_panic(expected = "Weights must be non-negative")]
     fn test_weighted_median_negative_weights() {
-        let data = Array1::from(vec![1.0, 2.0, 3.0, 4.0]);
-        let weights = Array1::from(vec![0.2, -0.5, 0.5, 0.8]);
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let weights = vec![0.2, -0.5, 0.5, 0.8];
         assert_eq!(weighted_median(&data, &weights), 4.0);
     }
 
     #[test]
     fn test_weighted_median_unsorted_data() {
-        let data = Array1::from(vec![3.0, 1.0, 4.0, 2.0]);
-        let weights = Array1::from(vec![0.1, 0.3, 0.4, 0.2]);
+        let data = vec![3.0, 1.0, 4.0, 2.0];
+        let weights = vec![0.1, 0.3, 0.4, 0.2];
         assert_eq!(weighted_median(&data, &weights), 2.5);
     }
 
     #[test]
     fn test_weighted_median_with_zero_weights() {
-        let data = Array1::from(vec![1.0, 2.0, 3.0, 4.0]);
-        let weights = Array1::from(vec![0.0, 0.0, 1.0, 0.0]);
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let weights = vec![0.0, 0.0, 1.0, 0.0];
         assert_eq!(weighted_median(&data, &weights), 3.0);
     }
 }
