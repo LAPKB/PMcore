@@ -367,7 +367,7 @@ impl<E: Equation> NPResult<E> {
 
         for subject in self.data.subjects() {
             for occasion in subject.occasions() {
-                for event in occasion.get_events(None, false) {
+                for event in occasion.iter() {
                     if let Event::Observation(event) = event {
                         let row = Row {
                             id: subject.id().clone(),
@@ -580,7 +580,7 @@ impl<E: Equation> NPResult<E> {
                 let cov = occasion.covariates();
                 let covmap = cov.covariates();
 
-                for event in occasion.get_events(None, false) {
+                for event in occasion.iter() {
                     let time = match event {
                         Event::Bolus(bolus) => bolus.time(),
                         Event::Infusion(infusion) => infusion.time(),
@@ -595,7 +595,7 @@ impl<E: Equation> NPResult<E> {
                     // Add covariate values to the row
                     for cov_name in &covariate_names {
                         if let Some(cov) = covmap.get(cov_name) {
-                            if let Some(value) = cov.interpolate(time) {
+                            if let Ok(value) = cov.interpolate(time) {
                                 row.push(value.to_string());
                             } else {
                                 row.push(String::new());
