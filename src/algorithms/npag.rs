@@ -279,7 +279,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             .clone()
             .iter_mut()
             .filter_map(|(outeq, em)| {
-                if *em == ErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
+                if em.optimize() {
                     None
                 } else {
                     Some((outeq, em))
