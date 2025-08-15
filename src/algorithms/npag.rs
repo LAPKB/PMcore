@@ -280,9 +280,9 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             .iter_mut()
             .filter_map(|(outeq, em)| {
                 if em.optimize() {
-                    None
-                } else {
                     Some((outeq, em))
+                } else {
+                    None
                 }
             })
             .try_for_each(|(outeq, em)| -> Result<()> {
