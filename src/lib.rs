@@ -21,6 +21,9 @@ pub mod routines;
 // Structures
 pub mod structs;
 
+// MMopt
+pub mod mmopt;
+
 // Re-export commonly used items
 pub use anyhow::Result;
 pub use std::collections::HashMap;
@@ -41,6 +44,9 @@ pub mod prelude {
 
     pub use crate::routines::settings::*;
     pub use crate::structs::*;
+
+
+    pub use crate::mmopt::*;
 
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;
