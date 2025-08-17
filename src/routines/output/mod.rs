@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 
 pub mod cycles;
 pub mod posterior;
+pub mod predictions;
 
 use posterior::posterior;
 
