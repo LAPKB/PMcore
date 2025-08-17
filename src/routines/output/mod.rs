@@ -245,7 +245,7 @@ impl<E: Equation> NPResult<E> {
         writer.flush()?;
         tracing::debug!(
             "Observations with predictions written to {:?}",
-            &outputfile.get_relative_path()
+            &outputfile.relative_path()
         );
         Ok(())
     }
@@ -287,7 +287,7 @@ impl<E: Equation> NPResult<E> {
         writer.flush()?;
         tracing::debug!(
             "Population parameter distribution written to {:?}",
-            &outputfile.get_relative_path()
+            &outputfile.relative_path()
         );
         Ok(())
     }
@@ -351,7 +351,7 @@ impl<E: Equation> NPResult<E> {
         writer.flush()?;
         tracing::debug!(
             "Posterior parameters written to {:?}",
-            &outputfile.get_relative_path()
+            &outputfile.relative_path()
         );
 
         Ok(())
@@ -393,10 +393,7 @@ impl<E: Equation> NPResult<E> {
         }
         writer.flush()?;
 
-        tracing::debug!(
-            "Observations written to {:?}",
-            &outputfile.get_relative_path()
-        );
+        tracing::debug!("Observations written to {:?}", &outputfile.relative_path());
         Ok(())
     }
 
@@ -549,10 +546,7 @@ impl<E: Equation> NPResult<E> {
         }
 
         writer.flush()?;
-        tracing::debug!(
-            "Predictions written to {:?}",
-            &outputfile.get_relative_path()
-        );
+        tracing::debug!("Predictions written to {:?}", &outputfile.relative_path());
 
         Ok(())
     }
@@ -621,10 +615,7 @@ impl<E: Equation> NPResult<E> {
         }
 
         writer.flush()?;
-        tracing::debug!(
-            "Covariates written to {:?}",
-            &outputfile.get_relative_path()
-        );
+        tracing::debug!("Covariates written to {:?}", &outputfile.relative_path());
         Ok(())
     }
 }
@@ -799,8 +790,8 @@ pub fn posterior_mean_median(
 /// Contains all the necessary information of an output file
 #[derive(Debug)]
 pub struct OutputFile {
-    pub file: File,
-    pub relative_path: PathBuf,
+    file: File,
+    relative_path: PathBuf,
 }
 
 impl OutputFile {
@@ -825,7 +816,15 @@ impl OutputFile {
         })
     }
 
-    pub fn get_relative_path(&self) -> &Path {
+    pub fn file(&self) -> &File {
+        &self.file
+    }
+
+    pub fn file_owned(self) -> File {
+        self.file
+    }
+
+    pub fn relative_path(&self) -> &Path {
         &self.relative_path
     }
 }

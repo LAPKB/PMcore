@@ -191,7 +191,7 @@ impl CycleLog {
             writer.write_record(None::<&[u8]>)?;
         }
         writer.flush()?;
-        tracing::debug!("Cycles written to {:?}", &outputfile.get_relative_path());
+        tracing::debug!("Cycles written to {:?}", &outputfile.relative_path());
         Ok(())
     }
 }
