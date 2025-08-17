@@ -12,11 +12,41 @@ pub struct Posterior {
 
 impl Posterior {
     /// Create a new Posterior from a matrix
-    pub fn new(mat: Mat<f64>) -> Self {
+    fn new(mat: Mat<f64>) -> Self {
         Posterior { mat }
     }
 
-    /// Get the underlying matrix
+    /// Calculate the posterior probabilities for each support point given the weights
+    ///
+    /// The shape is the same as [Psi], and thus subjects are the rows and support points are the columns.
+    /// /// # Errors
+    /// Returns an error if the number of rows in `psi` does not match the number of weights in `w`.
+    /// # Arguments
+    /// * `psi` - The Psi object containing the matrix of support points.
+    /// * `w` - The weights for each support point.
+    /// # Returns
+    /// A Result containing the Posterior probabilities if successful, or an error if the
+    /// dimensions do not match.
+    pub fn calculate(psi: &Psi, w: &Col<f64>) -> Result<Posterior> {
+        if psi.matrix().ncols() != w.nrows() {
+            bail!(
+                "Number of rows in psi ({}) and number of weights ({}) do not match.",
+                psi.matrix().nrows(),
+                w.nrows()
+            );
+        }
+
+        let psi_matrix = psi.matrix();
+        let py = psi_matrix * w;
+
+        let posterior = Mat::from_fn(psi_matrix.nrows(), psi_matrix.ncols(), |i, j| {
+            psi_matrix.get(i, j) * w.get(j) / py.get(i)
+        });
+
+        Ok(posterior.into())
+    }
+
+    /// Get a reference to the underlying matrix
     pub fn matrix(&self) -> &Mat<f64> {
         &self.mat
     }
@@ -68,6 +98,7 @@ impl Posterior {
     }
 }
 
+/// Convert a matrix to a [Posterior]
 impl From<Mat<f64>> for Posterior {
     fn from(mat: Mat<f64>) -> Self {
         Posterior::new(mat)
