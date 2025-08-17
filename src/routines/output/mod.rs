@@ -629,7 +629,7 @@ impl<E: Equation> NPResult<E> {
     }
 }
 
-pub fn median(data: Vec<f64>) -> f64 {
+pub(crate) fn median(data: &Vec<f64>) -> f64 {
     let mut data = data.clone();
     data.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
@@ -837,37 +837,37 @@ mod tests {
     #[test]
     fn test_median_odd() {
         let data = vec![1.0, 3.0, 2.0];
-        assert_eq!(median(data), 2.0);
+        assert_eq!(median(&data), 2.0);
     }
 
     #[test]
     fn test_median_even() {
         let data = vec![1.0, 2.0, 3.0, 4.0];
-        assert_eq!(median(data), 2.5);
+        assert_eq!(median(&data), 2.5);
     }
 
     #[test]
     fn test_median_single() {
         let data = vec![42.0];
-        assert_eq!(median(data), 42.0);
+        assert_eq!(median(&data), 42.0);
     }
 
     #[test]
     fn test_median_sorted() {
         let data = vec![5.0, 10.0, 15.0, 20.0, 25.0];
-        assert_eq!(median(data), 15.0);
+        assert_eq!(median(&data), 15.0);
     }
 
     #[test]
     fn test_median_unsorted() {
         let data = vec![10.0, 30.0, 20.0, 50.0, 40.0];
-        assert_eq!(median(data), 30.0);
+        assert_eq!(median(&data), 30.0);
     }
 
     #[test]
     fn test_median_with_duplicates() {
         let data = vec![1.0, 2.0, 2.0, 3.0, 4.0];
-        assert_eq!(median(data), 2.0);
+        assert_eq!(median(&data), 2.0);
     }
 
     use super::weighted_median;

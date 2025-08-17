@@ -180,7 +180,7 @@ impl CycleLog {
                 let param_values: Vec<f64> = param.iter().cloned().collect();
 
                 let mean: f64 = param_values.iter().sum::<f64>() / param_values.len() as f64;
-                let median = median(param_values.clone());
+                let median = median(&param_values);
                 let std = param_values.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
                     / (param_values.len() as f64 - 1.0);
 
