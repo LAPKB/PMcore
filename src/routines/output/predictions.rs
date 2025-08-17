@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use faer::Col;
 use pharmsol::{prelude::simulator::Prediction, Data, Event, Predictions as PredTrait};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     routines::output::{posterior::Posterior, weighted_median},
@@ -9,7 +9,7 @@ use crate::{
 };
 
 // Structure for the output
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NPPredictionRow {
     id: String,
     time: f64,
