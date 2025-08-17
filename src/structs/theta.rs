@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 
+use anyhow::{bail, Result};
 use faer::Mat;
+use serde::{Deserialize, Serialize};
 
 use crate::prelude::Parameters;
 
@@ -108,6 +110,58 @@ impl Theta {
                 .unwrap();
         }
     }
+
+    /// Write the theta matrix to a CSV writer
+    /// Each row represents a support point, each column represents a parameter
+    pub fn to_csv<W: std::io::Write>(&self, writer: W) -> Result<()> {
+        let mut csv_writer = csv::Writer::from_writer(writer);
+
+        // Write each row
+        for i in 0..self.matrix.nrows() {
+            let row: Vec<f64> = (0..self.matrix.ncols())
+                .map(|j| *self.matrix.get(i, j))
+                .collect();
+            csv_writer.serialize(row)?;
+        }
+
+        csv_writer.flush()?;
+        Ok(())
+    }
+
+    /// Read theta matrix from a CSV reader
+    /// Each row represents a support point, each column represents a parameter
+    /// Note: This only reads the matrix values, not the parameter metadata
+    pub fn from_csv<R: std::io::Read>(reader: R) -> Result<Self> {
+        let mut csv_reader = csv::Reader::from_reader(reader);
+        let mut rows: Vec<Vec<f64>> = Vec::new();
+
+        for result in csv_reader.deserialize() {
+            let row: Vec<f64> = result?;
+            rows.push(row);
+        }
+
+        if rows.is_empty() {
+            bail!("CSV file is empty");
+        }
+
+        let nrows = rows.len();
+        let ncols = rows[0].len();
+
+        // Verify all rows have the same length
+        for (i, row) in rows.iter().enumerate() {
+            if row.len() != ncols {
+                bail!("Row {} has {} columns, expected {}", i, row.len(), ncols);
+            }
+        }
+
+        // Create matrix from rows
+        let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
+
+        // Create empty parameters - user will need to set these separately
+        let parameters = Parameters::new();
+
+        Ok(Theta::from_parts(mat, parameters))
+    }
 }
 
 impl Debug for Theta {
@@ -129,6 +183,87 @@ impl Debug for Theta {
             writeln!(f).unwrap();
         });
         Ok(())
+    }
+}
+
+impl Serialize for Theta {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+
+        let mut seq = serializer.serialize_seq(Some(self.matrix.nrows()))?;
+
+        // Serialize each row as a vector
+        for i in 0..self.matrix.nrows() {
+            let row: Vec<f64> = (0..self.matrix.ncols())
+                .map(|j| *self.matrix.get(i, j))
+                .collect();
+            seq.serialize_element(&row)?;
+        }
+
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Theta {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{SeqAccess, Visitor};
+        use std::fmt;
+
+        struct ThetaVisitor;
+
+        impl<'de> Visitor<'de> for ThetaVisitor {
+            type Value = Theta;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a sequence of rows (vectors of f64)")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut rows: Vec<Vec<f64>> = Vec::new();
+
+                while let Some(row) = seq.next_element::<Vec<f64>>()? {
+                    rows.push(row);
+                }
+
+                if rows.is_empty() {
+                    return Err(serde::de::Error::custom("Empty matrix not allowed"));
+                }
+
+                let nrows = rows.len();
+                let ncols = rows[0].len();
+
+                // Verify all rows have the same length
+                for (i, row) in rows.iter().enumerate() {
+                    if row.len() != ncols {
+                        return Err(serde::de::Error::custom(format!(
+                            "Row {} has {} columns, expected {}",
+                            i,
+                            row.len(),
+                            ncols
+                        )));
+                    }
+                }
+
+                // Create matrix from rows
+                let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
+
+                // Create empty parameters - user will need to set these separately
+                let parameters = Parameters::new();
+
+                Ok(Theta::from_parts(mat, parameters))
+            }
+        }
+
+        deserializer.deserialize_seq(ThetaVisitor)
     }
 }
 

@@ -6,7 +6,7 @@ use crate::structs::theta::Theta;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use faer::linalg::zip::IntoView;
-use faer::{Col, Mat};
+use faer::Col;
 use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
@@ -14,6 +14,10 @@ use pharmsol::prelude::simulator::{Equation, Prediction};
 use serde::Serialize;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
+
+pub mod posterior;
+
+use posterior::posterior;
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
@@ -321,22 +325,26 @@ impl<E: Equation> NPResult<E> {
 
         // Write contents
         let subjects = self.data.subjects();
-        posterior.row_iter().enumerate().for_each(|(i, row)| {
-            let subject = subjects.get(i).unwrap();
-            let id = subject.id();
+        posterior
+            .matrix()
+            .row_iter()
+            .enumerate()
+            .for_each(|(i, row)| {
+                let subject = subjects.get(i).unwrap();
+                let id = subject.id();
 
-            row.iter().enumerate().for_each(|(spp, prob)| {
-                writer.write_field(id.clone()).unwrap();
-                writer.write_field(spp.to_string()).unwrap();
+                row.iter().enumerate().for_each(|(spp, prob)| {
+                    writer.write_field(id.clone()).unwrap();
+                    writer.write_field(spp.to_string()).unwrap();
 
-                theta.matrix().row(spp).iter().for_each(|val| {
-                    writer.write_field(val.to_string()).unwrap();
+                    theta.matrix().row(spp).iter().for_each(|val| {
+                        writer.write_field(val.to_string()).unwrap();
+                    });
+
+                    writer.write_field(prob.to_string()).unwrap();
+                    writer.write_record(None::<&[u8]>).unwrap();
                 });
-
-                writer.write_field(prob.to_string()).unwrap();
-                writer.write_record(None::<&[u8]>).unwrap();
             });
-        });
 
         writer.flush()?;
         tracing::debug!(
@@ -403,7 +411,7 @@ impl<E: Equation> NPResult<E> {
 
         let subjects = data.subjects();
 
-        if subjects.len() != posterior.nrows() {
+        if subjects.len() != posterior.matrix().nrows() {
             bail!("Number of subjects and number of posterior means do not match");
         };
 
@@ -488,7 +496,7 @@ impl<E: Equation> NPResult<E> {
                 let (i, outer_pred) = outer_pred;
                 for inner_pred in outer_pred.iter().enumerate() {
                     let (j, pred) = inner_pred;
-                    posterior_mean[j] += pred.prediction() * posterior[(subject_index, i)];
+                    posterior_mean[j] += pred.prediction() * posterior.matrix()[(subject_index, i)];
                 }
             }
 
@@ -500,7 +508,7 @@ impl<E: Equation> NPResult<E> {
 
                 for (i, outer_pred) in predictions.iter().enumerate() {
                     values.push(outer_pred[j].prediction());
-                    weights.push(posterior[(subject_index, i)]);
+                    weights.push(posterior.matrix()[(subject_index, i)]);
                 }
 
                 let median_val = weighted_median(&values, &weights);
@@ -784,28 +792,6 @@ impl Default for CycleLog {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Calculates the posterior probabilities for each support point given the weights
-///
-/// The shape is the same as [Psi], and thus subjects are the rows and support points are the columns.
-pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Mat<f64>> {
-    if psi.matrix().ncols() != w.nrows() {
-        bail!(
-            "Number of rows in psi ({}) and number of weights ({}) do not match.",
-            psi.matrix().nrows(),
-            w.nrows()
-        );
-    }
-
-    let psi_matrix = psi.matrix();
-    let py = psi_matrix * w;
-
-    let posterior = Mat::from_fn(psi_matrix.nrows(), psi_matrix.ncols(), |i, j| {
-        psi_matrix.get(i, j) * w.get(j) / py.get(i)
-    });
-
-    Ok(posterior)
 }
 
 pub fn median(data: Vec<f64>) -> f64 {
