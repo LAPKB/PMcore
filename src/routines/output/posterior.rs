@@ -27,7 +27,7 @@ impl Posterior {
     /// # Returns
     /// A Result containing the Posterior probabilities if successful, or an error if the
     /// dimensions do not match.
-    pub fn calculate(psi: &Psi, w: &Col<f64>) -> Result<Posterior> {
+    pub fn calculate(psi: &Psi, w: &Col<f64>) -> Result<Self> {
         if psi.matrix().ncols() != w.nrows() {
             bail!(
                 "Number of rows in psi ({}) and number of weights ({}) do not match.",
