@@ -15,7 +15,7 @@ use pharmsol::prelude::{
 
 use crate::routines::evaluation::ipm::burke;
 use crate::routines::initialization;
-use crate::routines::output::{CycleLog, NPResult};
+use crate::routines::output::{cycles::CycleLog, NPResult};
 use crate::routines::settings::Settings;
 
 /// Posterior probability algorithm

@@ -5,7 +5,7 @@ pub use crate::routines::evaluation::ipm::burke;
 pub use crate::routines::evaluation::qr;
 use crate::routines::settings::Settings;
 
-use crate::routines::output::{CycleLog, NPCycle, NPResult};
+use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
 use crate::structs::psi::{calculate_psi, Psi};
 use crate::structs::theta::Theta;
 
@@ -165,15 +165,15 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         }
 
         // Create state object
-        let state = NPCycle {
-            cycle: self.cycle,
-            objf: -2. * self.objf,
-            delta_objf: (self.last_objf - self.objf).abs(),
-            nspp: self.theta.nspp(),
-            theta: self.theta.clone(),
-            error_models: self.error_models.clone(),
-            status: self.status.clone(),
-        };
+        let state = NPCycle::new(
+            self.cycle,
+            -2. * self.objf,
+            self.error_models.clone(),
+            self.theta.clone(),
+            self.theta.nspp(),
+            (self.last_objf - self.objf).abs(),
+            self.status.clone(),
+        );
 
         // Write cycle log
         self.cycle_log.push(state);

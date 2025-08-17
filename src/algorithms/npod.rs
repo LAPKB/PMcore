@@ -1,10 +1,10 @@
+use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
 use crate::{
     algorithms::Status,
     prelude::{
         algorithms::Algorithms,
         routines::{
             evaluation::{ipm::burke, qr},
-            output::{CycleLog, NPCycle, NPResult},
             settings::Settings,
         },
     },
@@ -13,6 +13,7 @@ use crate::{
         theta::Theta,
     },
 };
+
 use anyhow::bail;
 use anyhow::Result;
 use faer::Col;
@@ -157,15 +158,15 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         }
 
         // Create state object
-        let state = NPCycle {
-            cycle: self.cycle,
-            objf: -2. * self.objf,
-            delta_objf: (self.last_objf - self.objf).abs(),
-            nspp: self.theta.nspp(),
-            theta: self.theta.clone(),
-            error_models: self.error_models.clone(),
-            status: self.status.clone(),
-        };
+        let state = NPCycle::new(
+            self.cycle,
+            -2. * self.objf,
+            self.error_models.clone(),
+            self.theta.clone(),
+            self.theta.nspp(),
+            (self.last_objf - self.objf).abs(),
+            self.status.clone(),
+        );
 
         // Write cycle log
         self.cycle_log.push(state);
