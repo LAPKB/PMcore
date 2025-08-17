@@ -620,8 +620,8 @@ impl<E: Equation> NPResult<E> {
     }
 }
 
-pub(crate) fn median(data: &Vec<f64>) -> f64 {
-    let mut data = data.clone();
+pub(crate) fn median(data: &[f64]) -> f64 {
+    let mut data: Vec<f64> = data.to_vec();
     data.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
     let size = data.len();
@@ -635,7 +635,7 @@ pub(crate) fn median(data: &Vec<f64>) -> f64 {
     }
 }
 
-fn weighted_median(data: &Vec<f64>, weights: &Vec<f64>) -> f64 {
+fn weighted_median(data: &[f64], weights: &Vec<f64>) -> f64 {
     // Ensure the data and weights arrays have the same length
     assert_eq!(
         data.len(),
