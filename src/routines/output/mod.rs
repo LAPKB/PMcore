@@ -5,10 +5,10 @@ use crate::routines::output::predictions::NPPredictions;
 use crate::routines::settings::Settings;
 use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
+use crate::structs::weights::Weights;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use faer::linalg::zip::IntoView;
-use faer::Col;
 use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
@@ -31,7 +31,7 @@ pub struct NPResult<E: Equation> {
     data: Data,
     theta: Theta,
     psi: Psi,
-    w: Col<f64>,
+    w: Weights,
     objf: f64,
     cycles: usize,
     status: Status,
@@ -48,7 +48,7 @@ impl<E: Equation> NPResult<E> {
         data: Data,
         theta: Theta,
         psi: Psi,
-        w: Col<f64>,
+        w: Weights,
         objf: f64,
         cycles: usize,
         status: Status,
@@ -96,7 +96,7 @@ impl<E: Equation> NPResult<E> {
     }
 
     /// Get the weights (probabilities) of the support points
-    pub fn w(&self) -> &Col<f64> {
+    pub fn weights(&self) -> &Weights {
         &self.w
     }
 
@@ -144,7 +144,14 @@ impl<E: Equation> NPResult<E> {
             .as_mut()
             .into_ndarray()
             .to_owned();
-        let w: Array1<f64> = self.w.clone().into_view().iter().cloned().collect();
+        let w: Array1<f64> = self
+            .w
+            .weights()
+            .clone()
+            .into_view()
+            .iter()
+            .cloned()
+            .collect();
         let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
 
         let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
@@ -258,7 +265,14 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!("Writing population parameter distribution...");
 
         let theta = &self.theta;
-        let w: Vec<f64> = self.w.clone().into_view().iter().cloned().collect();
+        let w: Vec<f64> = self
+            .w
+            .weights()
+            .clone()
+            .into_view()
+            .iter()
+            .cloned()
+            .collect();
 
         if w.len() != theta.matrix().nrows() {
             bail!(

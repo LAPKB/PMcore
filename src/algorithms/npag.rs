@@ -8,6 +8,7 @@ use crate::routines::settings::Settings;
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
 use crate::structs::psi::{calculate_psi, Psi};
 use crate::structs::theta::Theta;
+use crate::structs::weights::Weights;
 
 use anyhow::bail;
 use anyhow::Result;
@@ -17,8 +18,6 @@ use pharmsol::prelude::{
 };
 
 use pharmsol::prelude::ErrorModel;
-
-use faer::Col;
 
 use crate::routines::initialization;
 
@@ -35,8 +34,8 @@ pub struct NPAG<E: Equation> {
     ranges: Vec<(f64, f64)>,
     psi: Psi,
     theta: Theta,
-    lambda: Col<f64>,
-    w: Col<f64>,
+    lambda: Weights,
+    w: Weights,
     eps: f64,
     last_objf: f64,
     objf: f64,
@@ -59,8 +58,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             ranges: settings.parameters().ranges(),
             psi: Psi::new(),
             theta: Theta::new(),
-            lambda: Col::zeros(0),
-            w: Col::zeros(0),
+            lambda: Weights::default(),
+            w: Weights::default(),
             eps: 0.2,
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
@@ -138,7 +137,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
             self.eps /= 2.;
             if self.eps <= THETA_E {
-                let pyl = psi * w;
+                let pyl = psi * w.weights();
                 self.f1 = pyl.iter().map(|x| x.ln()).sum();
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
@@ -199,7 +198,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         }
 
         (self.lambda, _) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda, objf),
+            Ok((lambda, objf)) => (lambda.into(), objf),
             Err(err) => {
                 bail!("Error in IPM during evaluation: {:?}", err);
             }
@@ -213,11 +212,11 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         let max_lambda = self
             .lambda
             .iter()
-            .fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
+            .fold(f64::NEG_INFINITY, |acc, x| x.max(acc));
 
         let mut keep = Vec::<usize>::new();
         for (index, lam) in self.lambda.iter().enumerate() {
-            if *lam > max_lambda / 1000_f64 {
+            if lam > max_lambda / 1000_f64 {
                 keep.push(index);
             }
         }
@@ -262,7 +261,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
 
         self.validate_psi()?;
         (self.lambda, self.objf) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda, objf),
+            Ok((lambda, objf)) => (lambda.into(), objf),
             Err(err) => {
                 return Err(anyhow::anyhow!(
                     "Error in IPM during condensation: {:?}",
@@ -270,7 +269,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 ));
             }
         };
-        self.w = self.lambda.clone();
+        self.w = self.lambda.clone().into();
         Ok(())
     }
 

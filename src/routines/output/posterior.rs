@@ -2,7 +2,7 @@ pub use anyhow::{bail, Result};
 use faer::{Col, Mat};
 use serde::{Deserialize, Serialize};
 
-use crate::structs::psi::Psi;
+use crate::structs::{psi::Psi, weights::Weights};
 
 /// Posterior probabilities for each support points
 #[derive(Debug, Clone)]
@@ -184,20 +184,20 @@ impl<'de> Deserialize<'de> for Posterior {
 /// Calculates the posterior probabilities for each support point given the weights
 ///
 /// The shape is the same as [Psi], and thus subjects are the rows and support points are the columns.
-pub fn posterior(psi: &Psi, w: &Col<f64>) -> Result<Posterior> {
-    if psi.matrix().ncols() != w.nrows() {
+pub fn posterior(psi: &Psi, w: &Weights) -> Result<Posterior> {
+    if psi.matrix().ncols() != w.len() {
         bail!(
             "Number of rows in psi ({}) and number of weights ({}) do not match.",
             psi.matrix().nrows(),
-            w.nrows()
+            w.len()
         );
     }
 
     let psi_matrix = psi.matrix();
-    let py = psi_matrix * w;
+    let py = psi_matrix * w.weights();
 
     let posterior = Mat::from_fn(psi_matrix.nrows(), psi_matrix.ncols(), |i, j| {
-        psi_matrix.get(i, j) * w.get(j) / py.get(i)
+        psi_matrix.get(i, j) * w.weights().get(j) / py.get(i)
     });
 
     Ok(posterior.into())

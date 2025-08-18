@@ -1,11 +1,10 @@
 use anyhow::{bail, Result};
-use faer::Col;
 use pharmsol::{prelude::simulator::Prediction, Data, Event, Predictions as PredTrait};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     routines::output::{posterior::Posterior, weighted_median},
-    structs::theta::Theta,
+    structs::{theta::Theta, weights::Weights},
 };
 
 // Structure for the output
@@ -104,7 +103,7 @@ impl NPPredictions {
         equation: &impl pharmsol::prelude::simulator::Equation,
         data: &Data,
         theta: Theta,
-        w: &Col<f64>,
+        w: &Weights,
         posterior: &Posterior,
         idelta: f64,
         tad: f64,

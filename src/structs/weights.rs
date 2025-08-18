@@ -5,6 +5,7 @@ use std::ops::{Index, IndexMut};
 /// The weight (probabilities) for each support point in the model.
 ///
 /// This struct is used to hold the weights for each support point in the model.
+/// It is a thin wrapper around [faer::Col<f64>] to provide additional functionality and context
 #[derive(Debug, Clone)]
 pub struct Weights {
     weights: Col<f64>,
@@ -48,6 +49,10 @@ impl Weights {
     /// Get a vector representation of the weights.
     pub fn to_vec(&self) -> Vec<f64> {
         self.weights.iter().cloned().collect()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = f64> + '_ {
+        self.weights.iter().cloned()
     }
 }
 
