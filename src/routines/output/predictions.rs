@@ -88,6 +88,18 @@ impl NPPredictions {
         &self.predictions
     }
 
+    /// Calculate the populatuion and posterior predictions
+    ///
+    /// # Arguments
+    /// * `equation` - The equation to use for simulation
+    /// * `data` - The data to use for simulation
+    /// * `theta` - The theta values for the simulation
+    /// * `w` - The weights for the simulation
+    /// * `posterior` - The posterior values for the simulation
+    /// * `idelta` - The delta for the simulation
+    /// * `tad` - The time after dose for the simulation
+    /// # Returns
+    /// A Result containing the NPPredictions or an error
     pub fn calculate(
         equation: &impl pharmsol::prelude::simulator::Equation,
         data: &Data,
