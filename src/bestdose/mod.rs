@@ -12,6 +12,9 @@ use crate::algorithms::npag::burke;
 use crate::structs::psi::calculate_psi;
 use crate::structs::theta::Theta;
 
+// TODO: AUC as a target
+// TODO: Add support for loading and maintenance doses
+
 pub enum Target {
     Concentration(f64),
     AUC(f64),
@@ -63,6 +66,7 @@ impl BestDoseProblem {
         let min_dose = self.doserange.min;
         let max_dose = self.doserange.max;
 
+        // TODO: Use Nelder-Mead instead
         let solver = BrentOpt::new(min_dose, max_dose);
 
         let problem = self;
