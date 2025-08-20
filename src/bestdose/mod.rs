@@ -143,11 +143,11 @@ impl CostFunction for BestDoseProblem {
         let bias = (y_bar - self.target_concentration).powi(2);
 
         // Calculate the objective function
-        let objf = (1.0 - self.bias_weight) * variance + self.bias_weight * bias;
+        let cost = (1.0 - self.bias_weight) * variance + self.bias_weight * bias;
 
         // TODO: Repeat with D_flat, and return the best
 
-        Ok(2.0 * objf.ln()) // Example cost function
+        Ok(cost.ln()) // Example cost function
     }
 }
 
