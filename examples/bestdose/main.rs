@@ -81,11 +81,7 @@ fn main() -> Result<()> {
     };
 
     println!("Optimizing dose...");
-    // let optimal = problem.clone().optimize()?;
 
-    // println!("Optimal dose: {:#?}", optimal);
-
-    // Test different values of bias_weight
     let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     let mut results = Vec::new();
 
@@ -97,7 +93,7 @@ fn main() -> Result<()> {
     // Print results
     for (bias_weight, optimal) in results {
         println!(
-            "Bias weight: {:.1}\t\t Optimal dose: {:.2}\t\t -2LL: {:.2}",
+            "Bias weight: {:.1}\t\t Optimal dose: {:.2}\t\t ln cost: {:.2}",
             bias_weight, optimal.dose, optimal.objf
         );
     }
