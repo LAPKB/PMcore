@@ -62,7 +62,11 @@ fn main() -> Result<()> {
 
     let past_data = Data::new(vec![subject.clone()]);
 
-    let theta = parse_prior(&"examples/bestdose/theta.csv".to_string(), &settings).unwrap();
+    let theta = parse_prior(
+        &"examples/bimodal_ke/output/theta.csv".to_string(),
+        &settings,
+    )
+    .unwrap();
 
     // Example usage
     let problem = BestDoseProblem {
