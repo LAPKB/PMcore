@@ -2,6 +2,7 @@ use anyhow::{Ok, Result};
 use argmin::core::{CostFunction, Executor};
 use argmin::solver::brent::BrentOpt;
 
+use crate::prelude::*;
 use pharmsol::prelude::*;
 use pharmsol::Equation;
 use pharmsol::Predictions;
@@ -16,6 +17,7 @@ pub enum Target {
     AUC(f64),
 }
 
+#[derive(Debug, Clone)]
 pub struct DoseRange {
     min: f64,
     max: f64,
@@ -44,6 +46,7 @@ impl Default for DoseRange {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct BestDoseProblem {
     pub past_data: Data,
     pub theta: Theta,
@@ -65,7 +68,7 @@ impl BestDoseProblem {
         let problem = self;
 
         let opt = Executor::new(problem, solver)
-            .configure(|state| state.max_iters(1000).target_cost(0.0))
+            .configure(|state| state.max_iters(1000))
             .run()?;
 
         let result = opt.state();
@@ -77,6 +80,11 @@ impl BestDoseProblem {
         };
 
         Ok(optimaldose)
+    }
+
+    pub fn bias(mut self, weight: f64) -> Self {
+        self.bias_weight = weight;
+        self
     }
 }
 
@@ -139,7 +147,7 @@ impl CostFunction for BestDoseProblem {
 
         // TODO: Repeat with D_flat, and return the best
 
-        Ok(objf) // Example cost function
+        Ok(2.0 * objf.ln()) // Example cost function
     }
 }
 
