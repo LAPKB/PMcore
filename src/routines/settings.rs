@@ -134,7 +134,7 @@ impl Settings {
         let serialized = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
 
         let outputfile = OutputFile::new(self.output.path.as_str(), "settings.json")?;
-        let mut file = outputfile.file;
+        let mut file = outputfile.file_owned();
         std::io::Write::write_all(&mut file, serialized.as_bytes())?;
         Ok(())
     }
