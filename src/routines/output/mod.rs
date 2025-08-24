@@ -107,13 +107,10 @@ impl<E: Equation> NPResult<E> {
             let idelta: f64 = self.settings.predictions().idelta;
             let tad = self.settings.predictions().tad;
             self.cyclelog.write(&self.settings)?;
-            self.write_obs().context("Failed to write observations")?;
             self.write_theta().context("Failed to write theta")?;
-            self.write_obspred()
-                .context("Failed to write observed-predicted file")?;
-            self.write_pred(idelta, tad)
-                .context("Failed to write predictions")?;
             self.write_covs().context("Failed to write covariates")?;
+            self.write_predictions(idelta, tad)
+                .context("Failed to write predictions")?;
             self.write_posterior()
                 .context("Failed to write posterior")?;
         }
@@ -373,52 +370,13 @@ impl<E: Equation> NPResult<E> {
         Ok(())
     }
 
-    /// Write the observations, which is the reformatted input data
-    pub fn write_obs(&self) -> Result<()> {
-        tracing::debug!("Writing observations...");
-        let outputfile = OutputFile::new(&self.settings.output().path, "obs.csv")?;
-
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(&outputfile.file);
-
-        #[derive(Serialize)]
-        struct Row {
-            id: String,
-            block: usize,
-            time: f64,
-            out: Option<f64>,
-            outeq: usize,
-        }
-
-        for subject in self.data.subjects() {
-            for occasion in subject.occasions() {
-                for event in occasion.iter() {
-                    if let Event::Observation(event) = event {
-                        let row = Row {
-                            id: subject.id().clone(),
-                            block: occasion.index(),
-                            time: event.time(),
-                            out: event.value(),
-                            outeq: event.outeq(),
-                        };
-                        writer.serialize(row)?;
-                    }
-                }
-            }
-        }
-        writer.flush()?;
-
-        tracing::debug!("Observations written to {:?}", &outputfile.relative_path());
-        Ok(())
-    }
-
     /// Writes the predictions
-    pub fn write_pred(&self, idelta: f64, tad: f64) -> Result<()> {
+    pub fn write_predictions(&self, idelta: f64, tad: f64) -> Result<()> {
         tracing::debug!("Writing predictions...");
 
         let posterior = posterior(&self.psi, &self.w)?;
 
+        // Calculate the predictions
         let predictions = NPPredictions::calculate(
             &self.equation,
             &self.data,
@@ -429,11 +387,11 @@ impl<E: Equation> NPResult<E> {
             tad,
         )?;
 
-        // Create the output file and writer for pred.csv
-        let outputfile = OutputFile::new(&self.settings.output().path, "pred.csv")?;
+        // Write (full) predictions to pred.csv
+        let outputfile_pred = OutputFile::new(&self.settings.output().path, "pred.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
-            .from_writer(&outputfile.file);
+            .from_writer(&outputfile_pred.file);
 
         // Write each prediction row
         for row in predictions.predictions() {
@@ -441,7 +399,31 @@ impl<E: Equation> NPResult<E> {
         }
 
         writer.flush()?;
-        tracing::debug!("Predictions written to {:?}", &outputfile.relative_path());
+        tracing::debug!(
+            "Predictions written to {:?}",
+            &outputfile_pred.relative_path()
+        );
+
+        // Write observations and predictions to op.csv
+        let outputfile_op = OutputFile::new(&self.settings.output().path, "op.csv")?;
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(&outputfile_op.file);
+
+        // Write each prediction row
+        for row in predictions
+            .predictions()
+            .iter()
+            .filter(|r| r.obs().is_some())
+        {
+            writer.serialize(row)?;
+        }
+
+        writer.flush()?;
+        tracing::debug!(
+            "Observed-predicted values written to {:?}",
+            &outputfile_op.relative_path()
+        );
 
         Ok(())
     }
