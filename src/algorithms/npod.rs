@@ -264,9 +264,12 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         self.error_models
             .clone()
             .iter_mut()
-            .filter_map(|(outeq, em)| match em {
-                ErrorModel::None => None,
-                _ => Some((outeq, em)),
+            .filter_map(|(outeq, em)| {
+                if *em == ErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
+                    None
+                } else {
+                    Some((outeq, em))
+                }
             })
             .try_for_each(|(outeq, em)| -> Result<()> {
                 // OPTIMIZATION

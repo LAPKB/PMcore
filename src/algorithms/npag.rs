@@ -278,9 +278,12 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         self.error_models
             .clone()
             .iter_mut()
-            .filter_map(|(outeq, em)| match em {
-                ErrorModel::None => None,
-                _ => Some((outeq, em)),
+            .filter_map(|(outeq, em)| {
+                if em.optimize() {
+                    Some((outeq, em))
+                } else {
+                    None
+                }
             })
             .try_for_each(|(outeq, em)| -> Result<()> {
                 // OPTIMIZATION
