@@ -60,7 +60,7 @@ fn main() -> Result<()> {
         .observation(12.0, conc(12.0), 0)
         .build();
 
-    let past_data = Data::new(vec![subject.clone()]);
+    let past_data = subject.clone();
 
     let theta = parse_prior(
         &"examples/bimodal_ke/output/theta.csv".to_string(),
@@ -68,12 +68,17 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
+    // Create target data (future dosing scenario we want to optimize)
+    let target_data = Subject::builder("Target Patient")
+        .bolus(0.0, 100.0, 0) // This dose will be optimized
+        .observation(5.0, conc(5.0), 0) // Target observation at t=5.0
+        .build();
+
     // Example usage
     let problem = BestDoseProblem {
         past_data: past_data.clone(),
         theta,
-        target_concentration: conc(5.0),
-        target_time: 5.0,
+        target_data: target_data.clone(),
         eq: eq.clone(),
         doserange: DoseRange::new(10.0, 1000.0),
         bias_weight: 0.0,
@@ -93,7 +98,7 @@ fn main() -> Result<()> {
     // Print results
     for (bias_weight, optimal) in results {
         println!(
-            "Bias weight: {:.1}\t\t Optimal dose: {:.2}\t\t ln cost: {:.2}",
+            "Bias weight: {:.1}\t\t Optimal dose: {:?}\t\t ln cost: {:.2}",
             bias_weight, optimal.dose, optimal.objf
         );
     }

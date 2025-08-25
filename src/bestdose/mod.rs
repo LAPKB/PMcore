@@ -1,6 +1,6 @@
 use anyhow::{Ok, Result};
 use argmin::core::{CostFunction, Executor};
-use argmin::solver::brent::BrentOpt;
+use argmin::solver::neldermead::NelderMead;
 
 use crate::prelude::*;
 use pharmsol::prelude::*;
@@ -51,10 +51,9 @@ impl Default for DoseRange {
 
 #[derive(Debug, Clone)]
 pub struct BestDoseProblem {
-    pub past_data: Data,
+    pub past_data: Subject,
     pub theta: Theta,
-    pub target_concentration: f64,
-    pub target_time: f64,
+    pub target_data: Subject,
     pub eq: ODE,
     pub doserange: DoseRange,
     pub bias_weight: f64,
@@ -66,9 +65,28 @@ impl BestDoseProblem {
         let min_dose = self.doserange.min;
         let max_dose = self.doserange.max;
 
-        // TODO: Use Nelder-Mead instead
-        let solver = BrentOpt::new(min_dose, max_dose);
+        // Get the target subject
+        let target_subject = self.target_data.clone();
 
+        // Get all dose amounts as a vector
+        let all_doses: Vec<f64> = target_subject
+            .iter()
+            .flat_map(|occ| {
+                occ.iter().filter_map(|event| match event {
+                    Event::Bolus(bolus) => Some(bolus.amount()),
+                    Event::Infusion(infusion) => Some(infusion.amount()),
+                    Event::Observation(_) => None,
+                })
+            })
+            .collect();
+
+        // Make initial simplex of the Nelder-Mead solver
+        let initial_guess = (min_dose + max_dose) / 2.0;
+        let initial_point = vec![initial_guess; all_doses.len()];
+        let initial_simplex = create_initial_simplex(&initial_point);
+
+        // Initialize the Nelder-Mead solver with correct generic types
+        let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(initial_simplex);
         let problem = self;
 
         let opt = Executor::new(problem, solver)
@@ -78,8 +96,8 @@ impl BestDoseProblem {
         let result = opt.state();
 
         let optimaldose = BestDoseResult {
-            dose: result.param.unwrap(),
-            objf: result.cost,
+            dose: result.best_param.clone().unwrap(),
+            objf: result.best_cost,
             status: result.termination_status.to_string(),
         };
 
@@ -92,21 +110,63 @@ impl BestDoseProblem {
     }
 }
 
+fn create_initial_simplex(initial_point: &[f64]) -> Vec<Vec<f64>> {
+    let num_dimensions = initial_point.len();
+    let perturbation_percentage = 0.008;
+
+    // Initialize a Vec to store the vertices of the simplex
+    let mut vertices = Vec::new();
+
+    // Add the initial point to the vertices
+    vertices.push(initial_point.to_vec());
+
+    // Calculate perturbation values for each component
+    for i in 0..num_dimensions {
+        let perturbation = if initial_point[i] == 0.0 {
+            0.00025 // Special case for components equal to 0
+        } else {
+            perturbation_percentage * initial_point[i]
+        };
+
+        let mut perturbed_point = initial_point.to_owned();
+        perturbed_point[i] += perturbation;
+        vertices.push(perturbed_point);
+    }
+
+    vertices
+}
+
 impl CostFunction for BestDoseProblem {
-    type Param = f64;
+    type Param = Vec<f64>;
     type Output = f64;
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
-        let dose = param.clone();
-        let target_subject = Subject::builder("target")
-            .bolus(0.0, dose, 0)
-            .observation(self.target_time, self.target_concentration, 0)
-            .build();
+        // Modify the target subject with the new dose(s)
+        let mut target_subject = self.target_data.clone();
+        let mut dose_number = 0;
+
+        for occ in target_subject.iter_mut() {
+            for event in occ.iter_mut() {
+                match event {
+                    Event::Bolus(bolus) => {
+                        // Set the dose to the new dose
+                        bolus.set_amount(param[dose_number]);
+                        dose_number += 1;
+                    }
+                    Event::Infusion(infusion) => {
+                        // Set the dose to the new dose
+                        infusion.set_amount(param[dose_number]);
+                        dose_number += 1;
+                    }
+                    Event::Observation(_) => {}
+                }
+            }
+        }
 
         // Calculate psi, in order to determine the optimal weights of the support points in Theta for the target subject
         let psi = calculate_psi(
             &self.eq,
-            &self.past_data,
+            &Data::new(vec![target_subject.clone()]),
             &self.theta,
             &self.error_models,
             false,
@@ -134,7 +194,9 @@ impl CostFunction for BestDoseProblem {
             let spp = row.iter().copied().collect::<Vec<f64>>();
 
             // Calculate the target subject predictions
-            let pred = self.eq.simulate_subject(&target_subject, &spp, None)?;
+            let pred = self
+                .eq
+                .simulate_subject(&target_subject.clone(), &spp, None)?;
 
             // The (probability weighted) squared error of the predictions is added to the variance
             variance += pred.0.squared_error() * prob;
@@ -144,7 +206,8 @@ impl CostFunction for BestDoseProblem {
         }
 
         // Bias is the squared difference between the target concentration and the mean of the predictions
-        let bias = (y_bar - self.target_concentration).powi(2);
+        // TODO: Implement proper bias calculation when target is defined
+        let bias = 0.0;
 
         // Calculate the objective function
         let cost = (1.0 - self.bias_weight) * variance + self.bias_weight * bias;
@@ -157,7 +220,7 @@ impl CostFunction for BestDoseProblem {
 
 #[derive(Debug)]
 pub struct BestDoseResult {
-    pub dose: f64,
+    pub dose: Vec<f64>,
     pub objf: f64,
     pub status: String,
 }
