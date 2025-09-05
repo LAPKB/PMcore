@@ -42,7 +42,7 @@ fn main() {
         .unwrap()
         .0;
 
-    let times = op.flat_time();
+    let times = op.flat_times();
     let pred = op.flat_predictions();
 
     for (t, p) in times.iter().zip(pred.iter()) {
