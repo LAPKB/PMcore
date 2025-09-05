@@ -1,3 +1,5 @@
+pub mod bestmo;
+
 use argmin::{
     core::{CostFunction, Error, Executor},
     solver::neldermead::NelderMead,
