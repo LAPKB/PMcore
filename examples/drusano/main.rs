@@ -28,21 +28,21 @@ fn main() -> Result<()> {
             let v_s = x[1] / (v2 * e50_2s);
             let w_s = alpha_s * u_s * v_s / (e50_1s * e50_2s);
             let xm0best = get_xm0best(u_s, v_s, w_s, 1.0 / h1s, 1.0 / h2s, alpha_s);
-            dx[2] = xns * (kgs * e - kks * xm0best / (xm0best + 1.0));
+            dx[2] = xns * (kgs * e - kks * xm0best);
 
             // Case r1
             let u_r1 = x[0] / (v1 * e50_1r1);
             let v_r1 = x[1] / (v2 * e50_2r1);
             let w_r1 = alpha_r1 * u_r1 * v_r1 / (e50_1r1 * e50_2r1);
             let xm0best = get_xm0best(u_r1, v_r1, w_r1, 1.0 / h1r1, 1.0 / h2r1, alpha_s);
-            dx[3] = xnr1 * (kgr1 * e - kkr1 * xm0best / (xm0best + 1.0));
+            dx[3] = xnr1 * (kgr1 * e - kkr1 * xm0best);
 
             // Case r2
             let u_r2 = x[0] / (v1 * e50_1r2);
             let v_r2 = x[1] / (v2 * e50_2r2);
             let w_r2 = alpha_r2 * u_r2 * v_r2 / (e50_1r2 * e50_2r2);
             let xm0best = get_xm0best(u_r2, v_r2, w_r2, 1.0 / h1r2, 1.0 / h2r2, alpha_s);
-            dx[4] = xnr2 * (kgr2 * e - kkr2 * xm0best / (xm0best + 1.0));
+            dx[4] = xnr2 * (kgr2 * e - kkr2 * xm0best);
         },
         |_p, _t, _cov| lag! {},
         |_p, _t, _cov| fa! {},

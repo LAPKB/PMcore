@@ -154,10 +154,12 @@ pub fn get_xm0best(a: f64, b: f64, w: f64, h1: f64, h2: f64, alpha_s: f64) -> f6
 
     // if one coefficient negative/zero, return simple closed-form estimate
     if b <= 0.0 && a > 0.0 {
-        return a.powf(1.0 / h1);
+        let xm0best = a.powf(1.0 / h1);
+        return xm0best / (xm0best + 1.0);
     }
     if a <= 0.0 && b > 0.0 {
-        return b.powf(1.0 / h2);
+        let xm0best = b.powf(1.0 / h2);
+        return xm0best / (xm0best + 1.0);
     }
 
     // both positive: do optimization in log-space
@@ -178,40 +180,42 @@ pub fn get_xm0best(a: f64, b: f64, w: f64, h1: f64, h2: f64, alpha_s: f64) -> f6
             if !conv1 {
                 // we still keep the answer if cost is tiny
                 if valmin1 < 1e-10 {
-                    return xm0best1;
+                    return xm0best1 / (xm0best1 + 1.0);
                 }
                 // fallback to iterative estimator
                 let xm0est = find_m0(a, b, alpha_s, h1, h2);
                 if xm0est < 0.0 {
-                    return xm0best1;
+                    return xm0best1 / (xm0best1 + 1.0);
                 }
                 // refine from bg estimate:
                 let start_log2 = xm0est.ln();
                 if let Ok((xm0best2, valmin2, conv2)) = bm0.get_best(start_log2, 0.1) {
                     if conv2 && valmin2 < valmin1 {
-                        return xm0best2;
+                        return xm0best2 / (xm0best2 + 1.0);
                     } else {
-                        return xm0best1;
+                        return xm0best1 / (xm0best1 + 1.0);
                     }
                 } else {
-                    return xm0best1;
+                    return xm0best1 / (xm0best1 + 1.0);
                 }
             } else {
-                return xm0best1;
+                return xm0best1 / (xm0best1 + 1.0);
             }
         }
         Err(_) => {
             // if optimizer failed, fallback to numerical estimator
             let xm0est = find_m0(a, b, alpha_s, h1, h2);
             if xm0est > 0.0 {
-                return xm0est;
+                return xm0est / (xm0est + 1.0);
             } else {
                 // last resort: simple closed form (if possible)
                 if a > 0.0 {
-                    return a.powf(1.0 / h1);
+                    let xm0best = a.powf(1.0 / h1);
+                    return xm0best / (xm0best + 1.0);
                 }
                 if b > 0.0 {
-                    return b.powf(1.0 / h2);
+                    let xm0best = b.powf(1.0 / h2);
+                    return xm0best / (xm0best + 1.0);
                 }
                 return 0.0;
             }
