@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use pharmsol::{prelude::simulator::Prediction, Data, Event, Predictions as PredTrait};
+use pharmsol::{prelude::simulator::Prediction, Data, Predictions as PredTrait};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -10,14 +10,23 @@ use crate::{
 // Structure for the output
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NPPredictionRow {
+    /// The subject ID
     id: String,
+    /// The time of the prediction
     time: f64,
+    /// The output equation number
     outeq: usize,
+    /// The occasion of the prediction
     block: usize,
+    /// The observed value, if any
     obs: Option<f64>,
+    /// The population mean prediction
     pop_mean: f64,
+    /// The population median prediction
     pop_median: f64,
+    /// The posterior mean prediction
     post_mean: f64,
+    /// The posterior median prediction
     post_median: f64,
 }
 
@@ -51,6 +60,7 @@ impl NPPredictionRow {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NPPredictions {
     predictions: Vec<NPPredictionRow>,
 }
@@ -122,24 +132,6 @@ impl NPPredictions {
         // Iterate over each subject and then each support point
         for subject in subjects.iter().enumerate() {
             let (subject_index, subject) = subject;
-
-            // Get a vector of occasions for this subject, for each predictions
-            let occasions = subject
-                .occasions()
-                .iter()
-                .flat_map(|o| {
-                    o.events()
-                        .iter()
-                        .filter_map(|e| {
-                            if let Event::Observation(_obs) = e {
-                                Some(o.index())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<usize>>();
 
             // Container for predictions for this subject
             // This will hold predictions for each support point
@@ -219,7 +211,7 @@ impl NPPredictions {
                         id: subject.id().clone(),
                         time: p.time(),
                         outeq: p.outeq(),
-                        block: occasions[j],
+                        block: p.occasion(),
                         obs: p.observation(),
                         pop_mean: pop_mean[j],
                         pop_median: pop_median[j],
