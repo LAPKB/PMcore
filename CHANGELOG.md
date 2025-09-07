@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1](https://github.com/LAPKB/PMcore/compare/v0.15.0...v0.15.1) - 2025-09-07
+
+### Added
+
+- Support pharmsol fixed error factors ([#176](https://github.com/LAPKB/PMcore/pull/176))
+- Update calculation of predictions ([#159](https://github.com/LAPKB/PMcore/pull/159))
+
+### Other
+
+- Drusano Greco model ([#182](https://github.com/LAPKB/PMcore/pull/182))
+- Update pharmsol requirement from =0.16.0 to =0.17.0 ([#183](https://github.com/LAPKB/PMcore/pull/183))
+- Update pharmsol requirement from =0.15.0 to =0.16.0 ([#177](https://github.com/LAPKB/PMcore/pull/177))
+- Improve test coverage ([#172](https://github.com/LAPKB/PMcore/pull/172))
+- Bump actions/checkout from 4 to 5 ([#175](https://github.com/LAPKB/PMcore/pull/175))
+- Update pharmsol requirement from =0.14.0 to =0.15.0 ([#173](https://github.com/LAPKB/PMcore/pull/173))
+- Improve benchmark coverage ([#174](https://github.com/LAPKB/PMcore/pull/174))
+- Change log-level of output folder destination ([#158](https://github.com/LAPKB/PMcore/pull/158))
+- Update criterion requirement from 0.6 to 0.7 ([#169](https://github.com/LAPKB/PMcore/pull/169))
+
 ## [0.15.0](https://github.com/LAPKB/PMcore/compare/v0.14.0...v0.15.0) - 2025-07-23
 
 ### Added
