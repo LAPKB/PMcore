@@ -48,7 +48,7 @@ pub(crate) fn setup_log(settings: &mut Settings) -> Result<()> {
     let file_layer = match settings.log().write {
         true => {
             let layer = fmt::layer()
-                .with_writer(outputfile.file)
+                .with_writer(outputfile.file_owned())
                 .with_ansi(false)
                 .with_timer(timestamper.clone());
 
