@@ -512,7 +512,7 @@ pub(crate) fn median(data: &[f64]) -> f64 {
     }
 }
 
-fn weighted_median(data: &[f64], weights: &Vec<f64>) -> f64 {
+fn weighted_median(data: &[f64], weights: &[f64]) -> f64 {
     // Ensure the data and weights arrays have the same length
     assert_eq!(
         data.len(),
