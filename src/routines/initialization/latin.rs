@@ -1,11 +1,6 @@
-use anyhow::Result;
-use faer::Mat;
-use rand::prelude::*;
-use rand::rngs::StdRng;
-use rand::Rng;
-
 use crate::prelude::Parameters;
 use crate::structs::theta::Theta;
+use anyhow::Result;
 
 /// Generates an instance of [Theta] using Latin Hypercube Sampling.
 ///
@@ -20,36 +15,7 @@ use crate::structs::theta::Theta;
 /// [Theta], a structure that holds the support point matrix
 ///
 pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<Theta> {
-    let params: Vec<(String, f64, f64)> = parameters
-        .iter()
-        .map(|p| (p.name.clone(), p.lower, p.upper))
-        .collect();
-
-    // Initialize random number generator with the provided seed
-    let mut rng = StdRng::seed_from_u64(seed as u64);
-
-    // Create and shuffle intervals for each parameter
-    let mut intervals = Vec::new();
-    for _ in 0..params.len() {
-        let mut param_intervals: Vec<f64> = (0..points).map(|i| i as f64).collect();
-        param_intervals.shuffle(&mut rng);
-        intervals.push(param_intervals);
-    }
-
-    let rand_matrix = Mat::from_fn(points, params.len(), |i, j| {
-        // Get the interval for this parameter and point
-        let interval = intervals[j][i];
-        let random_offset = rng.random::<f64>();
-        // Calculate normalized value in [0,1]
-        let unscaled = (interval + random_offset) / points as f64;
-        // Scale to parameter range
-        let (_name, lower, upper) = params.get(j).unwrap(); // Fixed: use j instead of i
-        lower + unscaled * (upper - lower)
-    });
-
-    let theta = Theta::from_parts(rand_matrix, parameters.clone());
-
-    Ok(theta)
+    Theta::from_latin(parameters.clone(), points, seed)
 }
 
 #[cfg(test)]

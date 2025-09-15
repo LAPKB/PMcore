@@ -1,10 +1,6 @@
+use crate::prelude::Parameters;
 use crate::structs::theta::Theta;
 use anyhow::Result;
-use faer::Mat;
-
-use sobol_burley::sample;
-
-use crate::prelude::Parameters;
 
 /// Generates an instance of [Theta] from a Sobol sequence.
 ///
@@ -21,20 +17,7 @@ use crate::prelude::Parameters;
 /// [Theta], a structure that holds the support point matrix
 ///
 pub fn generate(parameters: &Parameters, points: usize, seed: usize) -> Result<Theta> {
-    let seed = seed as u32;
-    let params: Vec<(String, f64, f64)> = parameters
-        .iter()
-        .map(|p| (p.name.clone(), p.lower, p.upper))
-        .collect();
-
-    let rand_matrix = Mat::from_fn(points, params.len(), |i, j| {
-        let unscaled = sample((i).try_into().unwrap(), j.try_into().unwrap(), seed) as f64;
-        let (_name, lower, upper) = params.get(j).unwrap();
-        lower + unscaled * (upper - lower)
-    });
-
-    let theta = Theta::from_parts(rand_matrix, parameters.clone());
-    Ok(theta)
+    Theta::from_sobol(parameters.clone(), points, seed)
 }
 
 #[cfg(test)]

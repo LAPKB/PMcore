@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
 
@@ -32,6 +32,197 @@ impl Theta {
 
     pub(crate) fn from_parts(matrix: Mat<f64>, parameters: Parameters) -> Self {
         Theta { matrix, parameters }
+    }
+
+    /// Create a new [Theta] using Sobol sequence sampling
+    ///
+    /// # Arguments
+    ///
+    /// * `parameters` - The [Parameters] struct, which contains the parameters to be sampled
+    /// * `points` - The number of points to generate, i.e. the number of rows in the matrix
+    /// * `seed` - The seed for the Sobol sequence generator
+    ///
+    /// # Returns
+    ///
+    /// A [Result] containing the [Theta] structure with the support point matrix
+    pub fn from_sobol(parameters: Parameters, points: usize, seed: usize) -> Result<Self> {
+        // Validate parameter bounds
+        Self::validate_parameters(&parameters)?;
+
+        let seed = seed as u32;
+        let params: Vec<(String, f64, f64)> = parameters
+            .iter()
+            .map(|p| (p.name.clone(), p.lower, p.upper))
+            .collect();
+
+        let rand_matrix = Mat::from_fn(points, params.len(), |i, j| {
+            let unscaled =
+                sobol_burley::sample((i).try_into().unwrap(), j.try_into().unwrap(), seed) as f64;
+            let (_name, lower, upper) = params.get(j).unwrap();
+            lower + unscaled * (upper - lower)
+        });
+
+        let theta = Theta::from_parts(rand_matrix, parameters);
+        Ok(theta)
+    }
+
+    /// Create a new [Theta] using Latin Hypercube sampling
+    ///
+    /// # Arguments
+    ///
+    /// * `parameters` - The [Parameters] struct, which contains the parameters to be sampled
+    /// * `points` - The number of points to generate, i.e. the number of rows in the matrix
+    /// * `seed` - The seed for the random number generator
+    ///
+    /// # Returns
+    ///
+    /// A [Result] containing the [Theta] structure with the support point matrix
+    pub fn from_latin(parameters: Parameters, points: usize, seed: usize) -> Result<Self> {
+        use rand::prelude::*;
+        use rand::rngs::StdRng;
+        use rand::Rng;
+
+        // Validate parameter bounds
+        Self::validate_parameters(&parameters)?;
+
+        let params: Vec<(String, f64, f64)> = parameters
+            .iter()
+            .map(|p| (p.name.clone(), p.lower, p.upper))
+            .collect();
+
+        // Initialize random number generator with the provided seed
+        let mut rng = StdRng::seed_from_u64(seed as u64);
+
+        // Create and shuffle intervals for each parameter
+        let mut intervals = Vec::new();
+        for _ in 0..params.len() {
+            let mut param_intervals: Vec<f64> = (0..points).map(|i| i as f64).collect();
+            param_intervals.shuffle(&mut rng);
+            intervals.push(param_intervals);
+        }
+
+        let rand_matrix = Mat::from_fn(points, params.len(), |i, j| {
+            // Get the interval for this parameter and point
+            let interval = intervals[j][i];
+            let random_offset = rng.random::<f64>();
+            // Calculate normalized value in [0,1]
+            let unscaled = (interval + random_offset) / points as f64;
+            // Scale to parameter range
+            let (_name, lower, upper) = params.get(j).unwrap();
+            lower + unscaled * (upper - lower)
+        });
+
+        let theta = Theta::from_parts(rand_matrix, parameters);
+        Ok(theta)
+    }
+
+    /// Create a new [Theta] by reading from a CSV file
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the CSV file containing the prior distribution
+    /// * `parameters` - The [Parameters] struct defining expected parameters
+    ///
+    /// # Returns
+    ///
+    /// A [Result] containing the [Theta] structure with the support point matrix
+    pub fn from_file<P: AsRef<str>>(path: P, parameters: Parameters) -> Result<Self> {
+        use std::fs::File;
+
+        // Validate parameter bounds
+        Self::validate_parameters(&parameters)?;
+
+        let path = path.as_ref();
+        tracing::info!("Reading prior from {}", path);
+        let file = File::open(path).context(format!("Unable to open the prior file '{}'", path))?;
+        let mut reader = csv::ReaderBuilder::new()
+            .has_headers(true)
+            .from_reader(file);
+
+        let mut parameter_names: Vec<String> = reader
+            .headers()?
+            .clone()
+            .into_iter()
+            .map(|s| s.trim().to_owned())
+            .collect();
+
+        // Remove "prob" column if present
+        if let Some(index) = parameter_names.iter().position(|name| name == "prob") {
+            parameter_names.remove(index);
+        }
+
+        // Check and reorder parameters to match names in parameters
+        let random_names: Vec<String> = parameters.names();
+
+        let mut reordered_indices: Vec<usize> = Vec::new();
+        for random_name in &random_names {
+            match parameter_names.iter().position(|name| name == random_name) {
+                Some(index) => {
+                    reordered_indices.push(index);
+                }
+                None => {
+                    bail!("Parameter {} is not present in the CSV file.", random_name);
+                }
+            }
+        }
+
+        // Check if there are remaining parameters not present in parameters
+        if parameter_names.len() > random_names.len() {
+            let extra_parameters: Vec<&String> = parameter_names.iter().collect();
+            bail!(
+                "Found parameters in the prior not present in configuration: {:?}",
+                extra_parameters
+            );
+        }
+
+        // Read parameter values row by row, keeping only those associated with the reordered parameters
+        let mut theta_values = Vec::new();
+        for result in reader.records() {
+            let record = result.unwrap();
+            let values: Vec<f64> = reordered_indices
+                .iter()
+                .map(|&i| record[i].parse::<f64>().unwrap())
+                .collect();
+            theta_values.push(values);
+        }
+
+        let n_points = theta_values.len();
+        let n_params = random_names.len();
+
+        // Convert nested Vec into a single Vec
+        let theta_values: Vec<f64> = theta_values.into_iter().flatten().collect();
+
+        let theta_matrix: Mat<f64> =
+            Mat::from_fn(n_points, n_params, |i, j| theta_values[i * n_params + j]);
+
+        let theta = Theta::from_parts(theta_matrix, parameters);
+
+        Ok(theta)
+    }
+
+    /// Validate parameter bounds to ensure they are finite and lower < upper
+    fn validate_parameters(parameters: &Parameters) -> Result<()> {
+        for param in parameters.iter() {
+            if param.lower.is_infinite() || param.upper.is_infinite() {
+                bail!(
+                    "Parameter '{}' has infinite bounds: [{}, {}]",
+                    param.name,
+                    param.lower,
+                    param.upper
+                );
+            }
+
+            // Ensure that the lower bound is less than the upper bound
+            if param.lower >= param.upper {
+                bail!(
+                    "Parameter '{}' has invalid bounds: [{}, {}]. Lower bound must be less than upper bound.",
+                    param.name,
+                    param.lower,
+                    param.upper
+                );
+            }
+        }
+        Ok(())
     }
 
     /// Get the matrix containing parameter values
@@ -327,5 +518,148 @@ mod tests {
         let theta = Theta::from_parts(matrix, parameters);
         let names = theta.param_names();
         assert_eq!(names, vec!["A".to_string(), "B".to_string()]);
+    }
+
+    #[test]
+    fn test_from_sobol() {
+        let parameters = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 50.0);
+
+        let theta = Theta::from_sobol(parameters, 10, 42).unwrap();
+
+        assert_eq!(theta.nspp(), 10);
+        assert_eq!(theta.matrix().ncols(), 2);
+
+        // Verify values are within bounds
+        for i in 0..theta.matrix().nrows() {
+            let ke_val = *theta.matrix().get(i, 0);
+            let v_val = *theta.matrix().get(i, 1);
+            assert!(
+                ke_val >= 0.1 && ke_val <= 1.0,
+                "ke value {} out of bounds",
+                ke_val
+            );
+            assert!(
+                v_val >= 5.0 && v_val <= 50.0,
+                "v value {} out of bounds",
+                v_val
+            );
+        }
+    }
+
+    #[test]
+    fn test_from_latin() {
+        let parameters = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 50.0);
+
+        let theta = Theta::from_latin(parameters, 15, 123).unwrap();
+
+        assert_eq!(theta.nspp(), 15);
+        assert_eq!(theta.matrix().ncols(), 2);
+
+        // Verify values are within bounds
+        for i in 0..theta.matrix().nrows() {
+            let ke_val = *theta.matrix().get(i, 0);
+            let v_val = *theta.matrix().get(i, 1);
+            assert!(
+                ke_val >= 0.1 && ke_val <= 1.0,
+                "ke value {} out of bounds",
+                ke_val
+            );
+            assert!(
+                v_val >= 5.0 && v_val <= 50.0,
+                "v value {} out of bounds",
+                v_val
+            );
+        }
+    }
+
+    #[test]
+    fn test_from_file_valid() {
+        use std::fs;
+
+        let csv_content = "ke,v\n0.2,10.0\n0.5,25.0\n0.8,40.0\n";
+        let temp_path = format!("test_temp_{}.csv", rand::random::<u32>());
+        fs::write(&temp_path, csv_content).unwrap();
+
+        let parameters = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 50.0);
+        let theta = Theta::from_file(&temp_path, parameters).unwrap();
+
+        assert_eq!(theta.nspp(), 3);
+        assert_eq!(theta.matrix().ncols(), 2);
+
+        // Clean up
+        let _ = fs::remove_file(&temp_path);
+    }
+
+    #[test]
+    fn test_from_file_with_prob_column() {
+        use std::fs;
+
+        let csv_content = "ke,v,prob\n0.2,10.0,0.5\n0.5,25.0,0.3\n0.8,40.0,0.2\n";
+        let temp_path = format!("test_temp_{}.csv", rand::random::<u32>());
+        fs::write(&temp_path, csv_content).unwrap();
+
+        let parameters = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 50.0);
+        let theta = Theta::from_file(&temp_path, parameters).unwrap();
+
+        assert_eq!(theta.nspp(), 3);
+        assert_eq!(theta.matrix().ncols(), 2);
+
+        // Clean up
+        let _ = fs::remove_file(&temp_path);
+    }
+
+    #[test]
+    fn test_from_sobol_infinite_bounds() {
+        let parameters = Parameters::new()
+            .add("ke", f64::NEG_INFINITY, 1.0)
+            .add("v", 5.0, 50.0);
+
+        let result = Theta::from_sobol(parameters, 10, 42);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("infinite bounds"));
+    }
+
+    #[test]
+    fn test_from_latin_invalid_bounds() {
+        let parameters = Parameters::new()
+            .add("ke", 1.0, 0.5) // Invalid: lower >= upper
+            .add("v", 5.0, 50.0);
+
+        let result = Theta::from_latin(parameters, 10, 42);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("invalid bounds"));
+    }
+
+    #[test]
+    fn test_from_file_missing_parameter() {
+        use std::fs;
+
+        let csv_content = "ke\n0.2\n0.5\n0.8\n";
+        let temp_path = format!("test_temp_{}.csv", rand::random::<u32>());
+        fs::write(&temp_path, csv_content).unwrap();
+
+        let parameters = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 50.0);
+        let result = Theta::from_file(&temp_path, parameters);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Parameter v is not present"));
+
+        // Clean up
+        let _ = fs::remove_file(&temp_path);
+    }
+
+    #[test]
+    fn test_from_file_nonexistent() {
+        let parameters = Parameters::new().add("ke", 0.1, 1.0);
+        let result = Theta::from_file("nonexistent_file.csv", parameters);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unable to open the prior file"));
     }
 }
