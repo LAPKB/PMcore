@@ -1,5 +1,5 @@
 pub use anyhow::{bail, Result};
-use faer::{Col, Mat};
+use faer::Mat;
 use serde::{Deserialize, Serialize};
 
 use crate::structs::{psi::Psi, weights::Weights};
