@@ -147,8 +147,8 @@ impl CostFunction for BestDoseProblem {
         let mut target_subject = self.target.clone();
         let mut dose_number = 0;
 
-        for occ in target_subject.iter_mut() {
-            for event in occ.iter_mut() {
+        for occasion in target_subject.iter_mut() {
+            for event in occasion.iter_mut() {
                 match event {
                     Event::Bolus(bolus) => {
                         // Set the dose to the new dose
@@ -193,41 +193,30 @@ impl CostFunction for BestDoseProblem {
             0.0,
         )?;
 
-        // Then calculate the bias
-
-        // Store the mean of the predictions
-        // TODO: This needs to handle more than one target
-        let mut y_bar = 0.0;
-
         // Accumulator for the variance component
         let mut variance = 0.0;
 
-        // For each support point in theta, and the associated probability...
-        for (row, prob) in self.theta.matrix().row_iter().zip(w.iter()) {
-            let spp = row.iter().copied().collect::<Vec<f64>>();
+        // Accumulator for the bias component
+        let mut bias = 0.0;
 
-            // Calculate the target subject predictions
-            let pred = self
-                .eq
-                .simulate_subject(&target_subject.clone(), &spp, None)?;
+        // Iterate over the predictions
+        for pred in predictions.predictions() {
+            // The squared error of the posterior is added to the variance
+            if let Some(squared_error) = pred.obs().map(|obs| (obs - pred.post_mean()).powi(2)) {
+                variance += squared_error;
+            }
 
-            // The (probability weighted) squared error of the predictions is added to the variance
-            variance += pred.0.squared_error() * prob;
-
-            // At the same time, calculate the mean of the predictions
-            y_bar += pred.0.flat_predictions().first().unwrap() * prob;
+            // The squared error of the population prediction is added to the variance
+            if let Some(squared_error) = pred.obs().map(|obs| (obs - pred.pop_mean()).powi(2)) {
+                bias += squared_error;
+            }
         }
-
-        // Bias is the squared difference between the target concentration and the mean of the predictions
-        // TODO: Implement proper bias calculation when target is defined
-        let bias = 0.0;
 
         // Calculate the objective function
         let cost = (1.0 - self.bias_weight) * variance + self.bias_weight * bias;
 
-        // TODO: Repeat with D_flat, and return the best
-
-        Ok(cost.ln()) // Example cost function
+        // Use the natural logarithm of the cost as the objective function
+        Ok(cost.ln())
     }
 }
 
