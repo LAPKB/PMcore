@@ -193,10 +193,6 @@ impl CostFunction for BestDoseProblem {
             0.0,
         )?;
 
-        // Normalize W to sum to 1
-        let w_sum: f64 = w.iter().sum();
-        let w: Vec<f64> = w.iter().map(|x| x / w_sum).collect();
-
         // Then calculate the bias
 
         // Store the mean of the predictions
