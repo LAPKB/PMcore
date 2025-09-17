@@ -6,8 +6,6 @@ use crate::prelude::*;
 use crate::routines::output::posterior::Posterior;
 use crate::routines::output::predictions::NPPredictions;
 use pharmsol::prelude::*;
-use pharmsol::Equation;
-use pharmsol::Predictions;
 use pharmsol::{Data, ODE};
 
 use crate::algorithms::npag::burke;
