@@ -3,6 +3,8 @@ use argmin::core::{CostFunction, Executor};
 use argmin::solver::neldermead::NelderMead;
 
 use crate::prelude::*;
+use crate::routines::output::posterior::Posterior;
+use crate::routines::output::predictions::NPPredictions;
 use pharmsol::prelude::*;
 use pharmsol::Equation;
 use pharmsol::Predictions;
@@ -174,7 +176,22 @@ impl CostFunction for BestDoseProblem {
         )?;
 
         // Calculate the optimal weights
-        let (w, _) = burke(&psi)?;
+        let (w, likelihood) = burke(&psi)?;
+        tracing::debug!("Likelihood: {}", likelihood);
+
+        // Calculate posterior
+        let posterior = Posterior::calculate(&psi, &w)?;
+
+        // Calculate predictions
+        let predictions = NPPredictions::calculate(
+            &self.eq,
+            &Data::new(vec![target_subject.clone()]),
+            self.theta.clone(),
+            &w,
+            &posterior,
+            0.0,
+            0.0,
+        )?;
 
         // Normalize W to sum to 1
         let w_sum: f64 = w.iter().sum();
