@@ -53,7 +53,7 @@ impl Default for DoseRange {
 pub struct BestDoseProblem {
     pub past_data: Subject,
     pub theta: Theta,
-    pub target_data: Subject,
+    pub target: Subject,
     pub eq: ODE,
     pub doserange: DoseRange,
     pub bias_weight: f64,
@@ -66,7 +66,7 @@ impl BestDoseProblem {
         let max_dose = self.doserange.max;
 
         // Get the target subject
-        let target_subject = self.target_data.clone();
+        let target_subject = self.target.clone();
 
         // Get all dose amounts as a vector
         let all_doses: Vec<f64> = target_subject
@@ -142,7 +142,7 @@ impl CostFunction for BestDoseProblem {
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
         // Modify the target subject with the new dose(s)
-        let mut target_subject = self.target_data.clone();
+        let mut target_subject = self.target.clone();
         let mut dose_number = 0;
 
         for occ in target_subject.iter_mut() {

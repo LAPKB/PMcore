@@ -78,7 +78,7 @@ fn main() -> Result<()> {
     let problem = BestDoseProblem {
         past_data: past_data.clone(),
         theta,
-        target_data: target_data.clone(),
+        target: target_data.clone(),
         eq: eq.clone(),
         doserange: DoseRange::new(10.0, 1000.0),
         bias_weight: 0.0,
