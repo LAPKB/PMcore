@@ -1,4 +1,5 @@
 use crate::structs::psi::Psi;
+use crate::structs::weights::Weights;
 use anyhow::bail;
 use faer::linalg::triangular_solve::solve_lower_triangular_in_place;
 use faer::linalg::triangular_solve::solve_upper_triangular_in_place;
@@ -21,15 +22,15 @@ use rayon::prelude::*;
 ///
 /// # Returns
 ///
-/// On success, returns a tuple `(lam, obj)` where:
-///   - `lam` is a faer::Col<f64> containing the computed probability vector,
+/// On success, returns a tuple `(weights, obj)` where:
+///   - [Weights] contains the optimized weights (probabilities) for each support point.
 ///   - `obj` is the value of the objective function at the solution.
 ///
 /// # Errors
 ///
 /// This function returns an error if any step in the optimization (e.g. Cholesky factorization)
 /// fails.
-pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
+pub fn burke(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
     let mut psi = psi.matrix().to_owned();
 
     // Ensure all entries are finite and make them non-negative.
@@ -274,7 +275,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Col<f64>, f64)> {
     let lam_sum: f64 = lam.iter().sum();
     lam = &lam / lam_sum;
 
-    Ok((lam, obj))
+    Ok((lam.into(), obj))
 }
 
 #[cfg(test)]
@@ -465,7 +466,11 @@ mod tests {
         // distribution depends on the optimization algorithm's convergence
 
         // Just verify that no single weight dominates excessively (basic sanity check)
-        let max_weight = lam.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let max_weight = lam
+            .weights()
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
         assert!(
             max_weight < 0.1,
             "No single weight should dominate in uniform matrix (max weight: {})",
