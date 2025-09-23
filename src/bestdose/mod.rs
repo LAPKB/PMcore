@@ -85,20 +85,74 @@ impl BestDoseProblem {
         let initial_point = vec![initial_guess; all_doses.len()];
         let initial_simplex = create_initial_simplex(&initial_point);
 
+        println!("Initial simplex: {:?}", initial_simplex);
+
         // Initialize the Nelder-Mead solver with correct generic types
         let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(initial_simplex);
         let problem = self;
 
-        let opt = Executor::new(problem, solver)
+        let opt = Executor::new(problem.clone(), solver)
             .configure(|state| state.max_iters(1000))
             .run()?;
 
         let result = opt.state();
 
+        let preds = {
+            // Modify the target subject with the new dose(s)
+            let mut target_subject = target_subject.clone();
+            let mut dose_number = 0;
+
+            for occasion in target_subject.iter_mut() {
+                for event in occasion.iter_mut() {
+                    match event {
+                        Event::Bolus(bolus) => {
+                            // Set the dose to the new dose
+                            bolus.set_amount(result.best_param.clone().unwrap()[dose_number]);
+                            dose_number += 1;
+                        }
+                        Event::Infusion(infusion) => {
+                            // Set the dose to the new dose
+                            infusion.set_amount(result.best_param.clone().unwrap()[dose_number]);
+                            dose_number += 1;
+                        }
+                        Event::Observation(_) => {}
+                    }
+                }
+            }
+
+            // Calculate psi, in order to determine the optimal weights of the support points in Theta for the target subject
+            let psi = calculate_psi(
+                &problem.eq,
+                &Data::new(vec![target_subject.clone()]),
+                &problem.theta.clone(),
+                &problem.error_models,
+                false,
+                true,
+            )?;
+
+            // Calculate the optimal weights
+            let (w, _likelihood) = burke(&psi)?;
+
+            // Calculate posterior
+            let posterior = Posterior::calculate(&psi, &w)?;
+
+            // Calculate predictions
+            NPPredictions::calculate(
+                &problem.eq,
+                &Data::new(vec![target_subject.clone()]),
+                problem.theta.clone(),
+                &w,
+                &posterior,
+                0.0,
+                0.0,
+            )?
+        };
+
         let optimaldose = BestDoseResult {
             dose: result.best_param.clone().unwrap(),
             objf: result.best_cost,
             status: result.termination_status.to_string(),
+            preds,
         };
 
         Ok(optimaldose)
@@ -223,4 +277,5 @@ pub struct BestDoseResult {
     pub dose: Vec<f64>,
     pub objf: f64,
     pub status: String,
+    pub preds: NPPredictions,
 }
