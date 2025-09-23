@@ -62,17 +62,17 @@ fn main() -> Result<()> {
 
     let past_data = subject.clone();
 
-    let theta = parse_prior(
-        &"examples/bimodal_ke/output/theta.csv".to_string(),
-        &settings,
-    )
-    .unwrap();
-
     // Create target data (future dosing scenario we want to optimize)
     let target_data = Subject::builder("Target Patient")
         .bolus(0.0, 100.0, 0) // This dose will be optimized
         .observation(5.0, conc(5.0), 0) // Target observation at t=5.0
         .build();
+
+    let theta = parse_prior(
+        &"examples/bimodal_ke/output/theta.csv".to_string(),
+        &settings,
+    )
+    .unwrap();
 
     // Example usage
     let problem = BestDoseProblem {
