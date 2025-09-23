@@ -62,11 +62,21 @@ fn main() -> Result<()> {
 
     let past_data = subject.clone();
 
-    // Create target data (future dosing scenario we want to optimize)
-    let target_data = Subject::builder("Target Patient")
-        .bolus(0.0, 100.0, 0) // This dose will be optimized
-        .observation(5.0, conc(5.0), 0) // Target observation at t=5.0
+    let target_data = Subject::builder("Thomas Edison")
+        .bolus(0.0, 100.0, 0)
+        .observation(2.0, conc(2.0), 0)
+        .observation(4.0, conc(4.0), 0)
+        .observation(6.0, conc(6.0), 0)
+        .observation(12.0, conc(12.0), 0)
         .build();
+
+    // Create target data (future dosing scenario we want to optimize)
+    // let target_data = Subject::builder("Target Patient")
+    //     .bolus(0.0, 100.0, 0) // This dose will be optimized
+    //    .observation(5.0, 5.0, 0) // Target observation at t=5.0
+    //   .bolus(6.0, 100.0, 0) // This dose will be optimized
+    //  .observation(5.0, 10.0, 0) // Target observation at t=10.0
+    // .build();
 
     let theta = parse_prior(
         &"examples/bimodal_ke/output/theta.csv".to_string(),
@@ -80,26 +90,38 @@ fn main() -> Result<()> {
         theta,
         target: target_data.clone(),
         eq: eq.clone(),
-        doserange: DoseRange::new(10.0, 1000.0),
+        doserange: DoseRange::new(0.0, 500.0),
         bias_weight: 0.0,
         error_models: ems.clone(),
     };
 
     println!("Optimizing dose...");
 
-    let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    let bias_weights = vec![0.5];
+    //let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     let mut results = Vec::new();
 
     for bias_weight in &bias_weights {
+        println!("Running optimization with bias weight: {}", bias_weight);
         let optimal = problem.clone().bias(*bias_weight).optimize()?;
         results.push((bias_weight, optimal));
     }
 
     // Print results
-    for (bias_weight, optimal) in results {
+    for (bias_weight, optimal) in &results {
         println!(
             "Bias weight: {:.1}\t\t Optimal dose: {:?}\t\t ln cost: {:.2}",
             bias_weight, optimal.dose, optimal.objf
+        );
+    }
+
+    // Print concentration-time predictions for the optimal dose
+    let optimal = &results.last().unwrap().1;
+    println!("\nConcentration-time predictions for optimal dose:");
+    for pred in optimal.preds.predictions().into_iter() {
+        println!(
+            "Time: {:.2} h, Observed: {:.2}, (Pop Mean: {:.4}, Pop Median: {:.4}, Post Mean: {:.4}, Post Median: {:.4})",
+            pred.time(), pred.obs().unwrap_or(0.0), pred.pop_mean(), pred.pop_median(), pred.post_mean(), pred.post_median()
         );
     }
 
