@@ -28,7 +28,7 @@ fn main() -> Result<()> {
 
     let ems = ErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.1, 0.0, 0.0), 0.0, None),
+        ErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0, None),
     )?;
 
     // Make settings
@@ -47,13 +47,13 @@ fn main() -> Result<()> {
     fn conc(t: f64) -> f64 {
         let dose = 150.0; // Example dose
         let ke = 0.5; // Elimination rate constant
-        let v = 50.0; // Volume of distribution
+        let v = 100.0; // Volume of distribution
         (dose * (-ke * t).exp()) / v
     }
 
     // Some observed data
     let subject = Subject::builder("Nikola Tesla")
-        .bolus(0.0, 100.0, 0)
+        .bolus(0.0, 150.0, 0)
         .observation(2.0, conc(2.0), 0)
         .observation(4.0, conc(4.0), 0)
         .observation(6.0, conc(6.0), 0)
@@ -63,7 +63,7 @@ fn main() -> Result<()> {
     let past_data = subject.clone();
 
     let target_data = Subject::builder("Thomas Edison")
-        .bolus(0.0, 100.0, 0)
+        .bolus(0.0, 999.0, 0)
         .observation(2.0, conc(2.0), 0)
         .observation(4.0, conc(4.0), 0)
         .observation(6.0, conc(6.0), 0)
@@ -90,15 +90,15 @@ fn main() -> Result<()> {
         theta,
         target: target_data.clone(),
         eq: eq.clone(),
-        doserange: DoseRange::new(0.0, 500.0),
+        doserange: DoseRange::new(0.0, 300.0),
         bias_weight: 0.0,
         error_models: ems.clone(),
     };
 
     println!("Optimizing dose...");
 
-    let bias_weights = vec![0.5];
-    //let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    //let bias_weights = vec![0.5];
+    let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     let mut results = Vec::new();
 
     for bias_weight in &bias_weights {

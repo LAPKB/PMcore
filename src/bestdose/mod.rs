@@ -228,8 +228,7 @@ impl CostFunction for BestDoseProblem {
         )?;
 
         // Calculate the optimal weights
-        let (w, likelihood) = burke(&psi)?;
-        tracing::debug!("Likelihood: {}", likelihood);
+        let (w, _likelihood) = burke(&psi)?;
 
         // Calculate posterior
         let posterior = Posterior::calculate(&psi, &w)?;
@@ -258,13 +257,14 @@ impl CostFunction for BestDoseProblem {
                 variance += squared_error;
             }
 
-            // The squared error of the population prediction is added to the variance
+            // The squared error of the population prediction is added to the bias
             if let Some(squared_error) = pred.obs().map(|obs| (obs - pred.pop_mean()).powi(2)) {
                 bias += squared_error;
             }
         }
 
         // Calculate the objective function
+
         let cost = (1.0 - self.bias_weight) * variance + self.bias_weight * bias;
 
         // Use the natural logarithm of the cost as the objective function
