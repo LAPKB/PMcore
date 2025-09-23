@@ -15,6 +15,8 @@ use crate::structs::theta::Theta;
 // TODO: AUC as a target
 // TODO: Add support for loading and maintenance doses
 
+// TODO: Make sure to use the population probabilities from the "prior" Theta!!!
+
 pub enum Target {
     Concentration(f64),
     AUC(f64),
