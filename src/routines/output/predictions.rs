@@ -204,9 +204,10 @@ impl NPPredictions {
                 posterior_median.push(median_val);
             }
 
-            for pred in predictions.iter().enumerate() {
-                let (_, preds) = pred;
-                for (j, p) in preds.iter().enumerate() {
+            // Iterate over the aggregated predictions (one row per timepoint per subject)
+            // Use the first support point predictions to get time, outeq, block, and obs info
+            if let Some(first_spp_preds) = predictions.first() {
+                for (j, p) in first_spp_preds.iter().enumerate() {
                     let row = NPPredictionRow {
                         id: subject.id().clone(),
                         time: p.time(),
