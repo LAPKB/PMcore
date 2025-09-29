@@ -13,11 +13,6 @@ use crate::algorithms::npag::burke;
 use crate::structs::psi::calculate_psi;
 use crate::structs::theta::Theta;
 
-// TODO: AUC as a target
-// TODO: Add support for loading and maintenance doses
-
-// TODO: Make sure to use the population probabilities from the "prior" Theta!!!
-
 pub enum Target {
     Concentration(f64),
     AUC(f64),
@@ -56,7 +51,7 @@ impl Default for DoseRange {
 pub struct BestDoseProblem {
     pub past_data: Subject,
     pub theta: Theta,
-    pub prior: Weights,
+    pub prior: Weights, // These are posterior weights from past_data, fixed during optimization
     pub target: Subject,
     pub eq: ODE,
     pub doserange: DoseRange,
@@ -91,7 +86,7 @@ impl BestDoseProblem {
 
         println!("Initial simplex: {:?}", initial_simplex);
 
-        // Initialize the Nelder-Mead solver with correct generic types
+        // Initialize the Nelder-Mead solver
         let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(initial_simplex);
         let problem = self;
 
@@ -102,7 +97,7 @@ impl BestDoseProblem {
         let result = opt.state();
 
         let preds = {
-            // Modify the target subject with the new dose(s)
+            // Modify the target subject with the optimal dose(s)
             let mut target_subject = target_subject.clone();
             let mut dose_number = 0;
 
@@ -110,12 +105,10 @@ impl BestDoseProblem {
                 for event in occasion.iter_mut() {
                     match event {
                         Event::Bolus(bolus) => {
-                            // Set the dose to the new dose
                             bolus.set_amount(result.best_param.clone().unwrap()[dose_number]);
                             dose_number += 1;
                         }
                         Event::Infusion(infusion) => {
-                            // Set the dose to the new dose
                             infusion.set_amount(result.best_param.clone().unwrap()[dose_number]);
                             dose_number += 1;
                         }
@@ -124,7 +117,7 @@ impl BestDoseProblem {
                 }
             }
 
-            // Calculate psi, in order to determine the optimal weights of the support points in Theta for the target subject
+            // Calculate psi for final predictions with optimal doses
             let psi = calculate_psi(
                 &problem.eq,
                 &Data::new(vec![target_subject.clone()]),
@@ -134,7 +127,7 @@ impl BestDoseProblem {
                 true,
             )?;
 
-            // Calculate the optimal weights
+            // Calculate the optimal weights for final output
             let (w, _likelihood) = burke(&psi)?;
 
             // Calculate posterior
@@ -172,16 +165,12 @@ fn create_initial_simplex(initial_point: &[f64]) -> Vec<Vec<f64>> {
     let num_dimensions = initial_point.len();
     let perturbation_percentage = 0.008;
 
-    // Initialize a Vec to store the vertices of the simplex
     let mut vertices = Vec::new();
-
-    // Add the initial point to the vertices
     vertices.push(initial_point.to_vec());
 
-    // Calculate perturbation values for each component
     for i in 0..num_dimensions {
         let perturbation = if initial_point[i] == 0.0 {
-            0.00025 // Special case for components equal to 0
+            0.00025
         } else {
             perturbation_percentage * initial_point[i]
         };
@@ -199,7 +188,7 @@ impl CostFunction for BestDoseProblem {
     type Output = f64;
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
-        // Modify the target subject with the new dose(s)
+        // Modify the target subject with the candidate dose(s)
         let mut target_subject = self.target.clone();
         let mut dose_number = 0;
 
@@ -219,21 +208,7 @@ impl CostFunction for BestDoseProblem {
             }
         }
 
-        // Calculate psi for the target subject
-        let psi = calculate_psi(
-            &self.eq,
-            &Data::new(vec![target_subject.clone()]),
-            &self.theta,
-            &self.error_models,
-            false,
-            true,
-        )?;
-
-        // Calculate the optimal weights
-        let (posterior, _likelihood) = burke(&psi)?;
-
-        // Build observation vector (must be in the same order as flat_predictions())
-
+        // Build observation vector
         let obs_vec: Vec<f64> = target_subject
             .occasions()
             .iter()
@@ -250,23 +225,18 @@ impl CostFunction for BestDoseProblem {
         }
 
         // Accumulators
-        let mut variance = 0.0_f64; // Expected squared error V(U)
-        let mut y_bar = vec![0.0_f64; n_obs]; // Container for the population mean predictions
+        let mut variance = 0.0_f64;
+        let mut y_bar = vec![0.0_f64; n_obs];
 
-        // Iterate over each support point in theta with its normalized probability
-        for ((row, post_prob), pop_prob) in self
-            .theta
-            .matrix()
-            .row_iter()
-            .zip(posterior.iter())
-            .zip(self.prior.iter())
-        {
+        // Iterate over each support point with FIXED prior probabilities
+        // (which are actually posterior from past_data, but fixed during optimization)
+        for (row, prob) in self.theta.matrix().row_iter().zip(self.prior.iter()) {
             let spp = row.iter().copied().collect::<Vec<f64>>();
 
             // Simulate the target subject with this support point
             let pred = self.eq.simulate_subject(&target_subject, &spp, None)?;
 
-            // Get per-observation predictions in the same order as obs_vec
+            // Get per-observation predictions
             let preds_i: Vec<f64> = pred.0.flat_predictions();
 
             if preds_i.len() != n_obs {
@@ -277,28 +247,27 @@ impl CostFunction for BestDoseProblem {
                 ));
             }
 
-            // For each support point, calculate the squared prediction error
+            // Calculate squared prediction error for this support point
             let mut sumsq_i = 0.0_f64;
             for (j, &obs_val) in obs_vec.iter().enumerate() {
                 let pj = preds_i[j];
                 let se = (obs_val - pj).powi(2);
                 sumsq_i += se;
-                y_bar[j] += pop_prob * pj; // Calculate the weighted mean prediction using the population probabilities
+                y_bar[j] += prob * pj; // Weighted mean using fixed probabilities
             }
 
-            variance += post_prob * sumsq_i; // expected contribution
+            variance += prob * sumsq_i; // Expected variance using fixed probabilities
         }
 
-        // Calculate bias, here defined as the squared difference between the observation and the population mean prediction
+        // Calculate bias
         let mut bias = 0.0_f64;
         for (j, &obs_val) in obs_vec.iter().enumerate() {
             bias += (obs_val - y_bar[j]).powi(2);
         }
 
-        // Final cost:
+        // Final cost
         let cost = (1.0 - self.bias_weight) * variance + self.bias_weight * bias;
 
-        // Return raw cost to stay faithful to Fortran semantics.
         Ok(cost)
     }
 }
