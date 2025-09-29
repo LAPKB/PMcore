@@ -4,10 +4,11 @@ use crate::{
     structs::{
         psi::{calculate_psi, Psi},
         theta::Theta,
+        weights::Weights,
     },
 };
 use anyhow::{Context, Result};
-use faer::Col;
+
 use pharmsol::prelude::{
     data::{Data, ErrorModels},
     simulator::Equation,
@@ -15,7 +16,7 @@ use pharmsol::prelude::{
 
 use crate::routines::evaluation::ipm::burke;
 use crate::routines::initialization;
-use crate::routines::output::{CycleLog, NPResult};
+use crate::routines::output::{cycles::CycleLog, NPResult};
 use crate::routines::settings::Settings;
 
 /// Posterior probability algorithm
@@ -24,7 +25,7 @@ pub struct POSTPROB<E: Equation> {
     equation: E,
     psi: Psi,
     theta: Theta,
-    w: Col<f64>,
+    w: Weights,
     objf: f64,
     cycle: usize,
     status: Status,
@@ -40,7 +41,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             equation,
             psi: Psi::new(),
             theta: Theta::new(),
-            w: Col::zeros(0),
+            w: Weights::default(),
             objf: f64::INFINITY,
             cycle: 0,
             status: Status::Starting,

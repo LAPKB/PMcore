@@ -1,10 +1,11 @@
+use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
+use crate::structs::weights::Weights;
 use crate::{
     algorithms::Status,
     prelude::{
         algorithms::Algorithms,
         routines::{
             evaluation::{ipm::burke, qr},
-            output::{CycleLog, NPCycle, NPResult},
             settings::Settings,
         },
     },
@@ -13,9 +14,9 @@ use crate::{
         theta::Theta,
     },
 };
+
 use anyhow::bail;
 use anyhow::Result;
-use faer::Col;
 use faer_ext::IntoNdarray;
 use pharmsol::{prelude::ErrorModel, ErrorModels};
 use pharmsol::{
@@ -37,8 +38,8 @@ pub struct NPOD<E: Equation> {
     equation: E,
     psi: Psi,
     theta: Theta,
-    lambda: Col<f64>,
-    w: Col<f64>,
+    lambda: Weights,
+    w: Weights,
     last_objf: f64,
     objf: f64,
     cycle: usize,
@@ -57,8 +58,8 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             equation,
             psi: Psi::new(),
             theta: Theta::new(),
-            lambda: Col::zeros(0),
-            w: Col::zeros(0),
+            lambda: Weights::default(),
+            w: Weights::default(),
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
             cycle: 0,
@@ -157,15 +158,15 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         }
 
         // Create state object
-        let state = NPCycle {
-            cycle: self.cycle,
-            objf: -2. * self.objf,
-            delta_objf: (self.last_objf - self.objf).abs(),
-            nspp: self.theta.nspp(),
-            theta: self.theta.clone(),
-            error_models: self.error_models.clone(),
-            status: self.status.clone(),
-        };
+        let state = NPCycle::new(
+            self.cycle,
+            -2. * self.objf,
+            self.error_models.clone(),
+            self.theta.clone(),
+            self.theta.nspp(),
+            (self.last_objf - self.objf).abs(),
+            self.status.clone(),
+        );
 
         // Write cycle log
         self.cycle_log.push(state);
@@ -205,11 +206,11 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let max_lambda = self
             .lambda
             .iter()
-            .fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
+            .fold(f64::NEG_INFINITY, |acc, x| x.max(acc));
 
         let mut keep = Vec::<usize>::new();
         for (index, lam) in self.lambda.iter().enumerate() {
-            if *lam > max_lambda / 1000_f64 {
+            if lam > max_lambda / 1000_f64 {
                 keep.push(index);
             }
         }
@@ -367,7 +368,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     fn expansion(&mut self) -> Result<()> {
         // If no stop signal, add new point to theta based on the optimization of the D function
         let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
-        let w: Array1<f64> = self.w.clone().iter().cloned().collect();
+        let w: Array1<f64> = self.w.clone().iter().collect();
         let pyl = psi.dot(&w);
 
         // Add new point to theta based on the optimization of the D function
