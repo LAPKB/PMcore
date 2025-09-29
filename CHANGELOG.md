@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0](https://github.com/LAPKB/PMcore/compare/v0.16.0...v0.17.0) - 2025-09-29
+
+### Added
+
+- Refactor outputs ([#178](https://github.com/LAPKB/PMcore/pull/178))
+
+### Fixed
+
+- Duplicate predictions ([#187](https://github.com/LAPKB/PMcore/pull/187))
+
+### Other
+
+- Greco model ([#190](https://github.com/LAPKB/PMcore/pull/190))
+- Update faer requirement from 0.22.4 to 0.23.1 ([#186](https://github.com/LAPKB/PMcore/pull/186))
+
 ## [0.15.1](https://github.com/LAPKB/PMcore/compare/v0.15.0...v0.16.0) - 2025-09-07
 
 ### Added
