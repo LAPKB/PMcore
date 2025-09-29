@@ -45,8 +45,8 @@ fn main() -> Result<()> {
     // C(t) = Dose * exp(-ke * t) / V
 
     fn conc(t: f64, dose: f64) -> f64 {
-        let ke = 0.95; // Elimination rate constant
-        let v = 210.0; // Volume of distribution
+        let ke = 0.3406021231412888; // Elimination rate constant
+        let v = 99.99475717544556; // Volume of distribution
         (dose * (-ke * t).exp()) / v
     }
 
@@ -107,7 +107,7 @@ fn main() -> Result<()> {
     // Print results
     for (bias_weight, optimal) in &results {
         println!(
-            "Bias weight: {:.1}\t\t Optimal dose: {:?}\t\tCost: {:.6}\t\tln Cost: {:.4}",
+            "Bias weight: {:.2}\t\t Optimal dose: {:?}\t\tCost: {:.6}\t\tln Cost: {:.4}",
             bias_weight,
             optimal.dose,
             optimal.objf,
