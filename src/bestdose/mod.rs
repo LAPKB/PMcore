@@ -205,12 +205,10 @@ impl CostFunction for BestDoseProblem {
             for event in occasion.iter_mut() {
                 match event {
                     Event::Bolus(bolus) => {
-                        // Set the dose to the new dose
                         bolus.set_amount(param[dose_number]);
                         dose_number += 1;
                     }
                     Event::Infusion(infusion) => {
-                        // Set the dose to the new dose
                         infusion.set_amount(param[dose_number]);
                         dose_number += 1;
                     }
@@ -219,7 +217,7 @@ impl CostFunction for BestDoseProblem {
             }
         }
 
-        // Calculate psi, in order to determine the optimal weights of the support points in Theta for the target subject
+        // Calculate psi for the target subject
         let psi = calculate_psi(
             &self.eq,
             &Data::new(vec![target_subject.clone()]),
@@ -230,47 +228,88 @@ impl CostFunction for BestDoseProblem {
         )?;
 
         // Calculate the optimal weights
-        let (w, _likelihood) = burke(&psi)?;
+        let (w_raw, _likelihood) = burke(&psi)?;
 
-        // Calculate posterior
-        let posterior = Posterior::calculate(&psi, &w)?;
-
-        // Calculate predictions
-        let predictions = NPPredictions::calculate(
-            &self.eq,
-            &Data::new(vec![target_subject.clone()]),
-            self.theta.clone(),
-            &w,
-            &posterior,
-            0.0,
-            0.0,
-        )?;
-
-        // Accumulator for the variance component
-        let mut variance = 0.0;
-
-        // Accumulator for the bias component
-        let mut bias = 0.0;
-
-        // Iterate over the predictions
-        for pred in predictions.predictions() {
-            // The squared error of the posterior is added to the variance
-            if let Some(squared_error) = pred.obs().map(|obs| (obs - pred.post_mean()).powi(2)) {
-                variance += squared_error;
-            }
-
-            // The squared error of the population prediction is added to the bias
-            if let Some(squared_error) = pred.obs().map(|obs| (obs - pred.pop_mean()).powi(2)) {
-                bias += squared_error;
-            }
+        // Basic checks
+        if w_raw.len() != self.theta.matrix().nrows() {
+            return Err(anyhow::anyhow!(
+                "weight length ({}) does not match theta rows ({})",
+                w_raw.len(),
+                self.theta.matrix().nrows()
+            ));
         }
 
-        // Calculate the objective function
+        // Normalize weights safely
+        let w_sum: f64 = w_raw.iter().sum();
+        if w_sum == 0.0 || !w_sum.is_finite() {
+            return Err(anyhow::anyhow!(
+                "posterior weights sum to zero or non-finite"
+            ));
+        }
+        let weights: Vec<f64> = w_raw.iter().map(|x| x / w_sum).collect();
 
+        // Build observation vector (must be in the same order as flat_predictions())
+
+        let obs_vec: Vec<f64> = target_subject
+            .occasions()
+            .iter()
+            .flat_map(|occ| occ.events())
+            .filter_map(|event| match event {
+                Event::Observation(obs) => obs.value(),
+                _ => None,
+            })
+            .collect();
+
+        let n_obs = obs_vec.len();
+        if n_obs == 0 {
+            return Err(anyhow::anyhow!("no observations found in target subject"));
+        }
+
+        // Accumulators
+        let mut variance = 0.0_f64; // expected squared error V(U)
+        let mut y_bar = vec![0.0_f64; n_obs]; // weighted mean prediction across theta
+
+        // Iterate over each support point in theta with its normalized probability
+        for (row, &prob) in self.theta.matrix().row_iter().zip(weights.iter()) {
+            let spp = row.iter().copied().collect::<Vec<f64>>();
+
+            // Simulate the target subject with this support point
+            let pred = self.eq.simulate_subject(&target_subject, &spp, None)?;
+
+            // Get per-observation predictions in the same order as obs_vec
+            let preds_i: Vec<f64> = pred.0.flat_predictions();
+
+            if preds_i.len() != n_obs {
+                return Err(anyhow::anyhow!(
+                    "prediction length ({}) != observation length ({})",
+                    preds_i.len(),
+                    n_obs
+                ));
+            }
+
+            // per-support sum of squared errors across observations
+            let mut sumsq_i = 0.0_f64;
+            for (j, &obs_val) in obs_vec.iter().enumerate() {
+                let pj = preds_i[j];
+                let se = (obs_val - pj).powi(2);
+                sumsq_i += se;
+                y_bar[j] += prob * pj; // accumulate weighted mean prediction
+            }
+
+            variance += prob * sumsq_i; // expected contribution
+        }
+
+        // compute bias: squared difference between weighted mean prediction and observations (sum over all obs)
+        let mut bias = 0.0_f64;
+        for (j, &obs_val) in obs_vec.iter().enumerate() {
+            bias += (obs_val - y_bar[j]).powi(2);
+        }
+
+        // Final cost:
         let cost = (1.0 - self.bias_weight) * variance + self.bias_weight * bias;
 
-        // Use the natural logarithm of the cost as the objective function
-        Ok(cost.ln())
+        // Return raw cost to stay faithful to Fortran semantics.
+        Ok(cost)
     }
 }
 
