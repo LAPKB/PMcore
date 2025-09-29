@@ -44,39 +44,36 @@ fn main() -> Result<()> {
     // Ke = 0.5, V = 50
     // C(t) = Dose * exp(-ke * t) / V
 
-    fn conc(t: f64) -> f64 {
-        let dose = 150.0; // Example dose
-        let ke = 0.5; // Elimination rate constant
-        let v = 100.0; // Volume of distribution
+    fn conc(t: f64, dose: f64) -> f64 {
+        let ke = 0.95; // Elimination rate constant
+        let v = 210.0; // Volume of distribution
         (dose * (-ke * t).exp()) / v
     }
 
     // Some observed data
     let subject = Subject::builder("Nikola Tesla")
         .bolus(0.0, 150.0, 0)
-        .observation(2.0, conc(2.0), 0)
-        .observation(4.0, conc(4.0), 0)
-        .observation(6.0, conc(6.0), 0)
-        .observation(12.0, conc(12.0), 0)
+        .observation(2.0, conc(2.0, 150.0), 0)
+        .observation(4.0, conc(4.0, 150.0), 0)
+        .observation(6.0, conc(6.0, 150.0), 0)
+        .bolus(12.0, 75.0, 0)
+        .observation(14.0, conc(2.0, 75.0) + conc(14.0, 150.0), 0)
+        .observation(16.0, conc(4.0, 75.0) + conc(16.0, 150.0), 0)
+        .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
         .build();
 
     let past_data = subject.clone();
 
     let target_data = Subject::builder("Thomas Edison")
-        .bolus(0.0, 999.0, 0)
-        .observation(2.0, conc(2.0), 0)
-        .observation(4.0, conc(4.0), 0)
-        .observation(6.0, conc(6.0), 0)
-        .observation(12.0, conc(12.0), 0)
+        .bolus(0.0, 0.0, 0)
+        .observation(2.0, conc(2.0, 150.0), 0)
+        .observation(4.0, conc(4.0, 150.0), 0)
+        .observation(6.0, conc(6.0, 150.0), 0)
+        .bolus(12.0, 0.0, 0)
+        .observation(14.0, conc(2.0, 75.0) + conc(14.0, 150.0), 0)
+        .observation(16.0, conc(4.0, 75.0) + conc(16.0, 150.0), 0)
+        .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
         .build();
-
-    // Create target data (future dosing scenario we want to optimize)
-    // let target_data = Subject::builder("Target Patient")
-    //     .bolus(0.0, 100.0, 0) // This dose will be optimized
-    //    .observation(5.0, 5.0, 0) // Target observation at t=5.0
-    //   .bolus(6.0, 100.0, 0) // This dose will be optimized
-    //  .observation(5.0, 10.0, 0) // Target observation at t=10.0
-    // .build();
 
     let (theta, prior) = parse_prior(
         &"examples/bimodal_ke/output/theta.csv".to_string(),
@@ -98,7 +95,6 @@ fn main() -> Result<()> {
 
     println!("Optimizing dose...");
 
-    //let bias_weights = vec![0.5];
     let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     let mut results = Vec::new();
 
@@ -111,8 +107,11 @@ fn main() -> Result<()> {
     // Print results
     for (bias_weight, optimal) in &results {
         println!(
-            "Bias weight: {:.1}\t\t Optimal dose: {:?}\t\tCost: {:.2}",
-            bias_weight, optimal.dose, optimal.objf
+            "Bias weight: {:.1}\t\t Optimal dose: {:?}\t\tCost: {:.6}\t\tln Cost: {:.4}",
+            bias_weight,
+            optimal.dose,
+            optimal.objf,
+            optimal.objf.ln()
         );
     }
 
