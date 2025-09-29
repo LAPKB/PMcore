@@ -78,7 +78,7 @@ fn main() -> Result<()> {
     //  .observation(5.0, 10.0, 0) // Target observation at t=10.0
     // .build();
 
-    let theta = parse_prior(
+    let (theta, prior) = parse_prior(
         &"examples/bimodal_ke/output/theta.csv".to_string(),
         &settings,
     )
@@ -88,6 +88,7 @@ fn main() -> Result<()> {
     let problem = BestDoseProblem {
         past_data: past_data.clone(),
         theta,
+        prior: prior.unwrap(),
         target: target_data.clone(),
         eq: eq.clone(),
         doserange: DoseRange::new(0.0, 300.0),
@@ -110,7 +111,7 @@ fn main() -> Result<()> {
     // Print results
     for (bias_weight, optimal) in &results {
         println!(
-            "Bias weight: {:.1}\t\t Optimal dose: {:?}\t\t ln cost: {:.2}",
+            "Bias weight: {:.1}\t\t Optimal dose: {:?}\t\tCost: {:.2}",
             bias_weight, optimal.dose, optimal.objf
         );
     }
