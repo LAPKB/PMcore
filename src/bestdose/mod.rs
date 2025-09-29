@@ -5,6 +5,7 @@ use argmin::solver::neldermead::NelderMead;
 use crate::prelude::*;
 use crate::routines::output::posterior::Posterior;
 use crate::routines::output::predictions::NPPredictions;
+use crate::structs::weights::Weights;
 use pharmsol::prelude::*;
 use pharmsol::{Data, ODE};
 
@@ -55,6 +56,7 @@ impl Default for DoseRange {
 pub struct BestDoseProblem {
     pub past_data: Subject,
     pub theta: Theta,
+    pub prior: Weights,
     pub target: Subject,
     pub eq: ODE,
     pub doserange: DoseRange,
@@ -228,25 +230,7 @@ impl CostFunction for BestDoseProblem {
         )?;
 
         // Calculate the optimal weights
-        let (w_raw, _likelihood) = burke(&psi)?;
-
-        // Basic checks
-        if w_raw.len() != self.theta.matrix().nrows() {
-            return Err(anyhow::anyhow!(
-                "weight length ({}) does not match theta rows ({})",
-                w_raw.len(),
-                self.theta.matrix().nrows()
-            ));
-        }
-
-        // Normalize weights safely
-        let w_sum: f64 = w_raw.iter().sum();
-        if w_sum == 0.0 || !w_sum.is_finite() {
-            return Err(anyhow::anyhow!(
-                "posterior weights sum to zero or non-finite"
-            ));
-        }
-        let weights: Vec<f64> = w_raw.iter().map(|x| x / w_sum).collect();
+        let (posterior, _likelihood) = burke(&psi)?;
 
         // Build observation vector (must be in the same order as flat_predictions())
 
@@ -266,11 +250,17 @@ impl CostFunction for BestDoseProblem {
         }
 
         // Accumulators
-        let mut variance = 0.0_f64; // expected squared error V(U)
-        let mut y_bar = vec![0.0_f64; n_obs]; // weighted mean prediction across theta
+        let mut variance = 0.0_f64; // Expected squared error V(U)
+        let mut y_bar = vec![0.0_f64; n_obs]; // Container for the population mean predictions
 
         // Iterate over each support point in theta with its normalized probability
-        for (row, &prob) in self.theta.matrix().row_iter().zip(weights.iter()) {
+        for ((row, post_prob), pop_prob) in self
+            .theta
+            .matrix()
+            .row_iter()
+            .zip(posterior.iter())
+            .zip(self.prior.iter())
+        {
             let spp = row.iter().copied().collect::<Vec<f64>>();
 
             // Simulate the target subject with this support point
@@ -287,19 +277,19 @@ impl CostFunction for BestDoseProblem {
                 ));
             }
 
-            // per-support sum of squared errors across observations
+            // For each support point, calculate the squared prediction error
             let mut sumsq_i = 0.0_f64;
             for (j, &obs_val) in obs_vec.iter().enumerate() {
                 let pj = preds_i[j];
                 let se = (obs_val - pj).powi(2);
                 sumsq_i += se;
-                y_bar[j] += prob * pj; // accumulate weighted mean prediction
+                y_bar[j] += pop_prob * pj; // Calculate the weighted mean prediction using the population probabilities
             }
 
-            variance += prob * sumsq_i; // expected contribution
+            variance += post_prob * sumsq_i; // expected contribution
         }
 
-        // compute bias: squared difference between weighted mean prediction and observations (sum over all obs)
+        // Calculate bias, here defined as the squared difference between the observation and the population mean prediction
         let mut bias = 0.0_f64;
         for (j, &obs_val) in obs_vec.iter().enumerate() {
             bias += (obs_val - y_bar[j]).powi(2);
