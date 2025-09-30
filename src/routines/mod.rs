@@ -8,8 +8,6 @@ pub mod expansion;
 pub mod initialization;
 // Routines for logging
 pub mod logger;
-// Routines for optimization
-pub mod optimization;
 // Routines for output
 pub mod output;
 // Routines for settings
