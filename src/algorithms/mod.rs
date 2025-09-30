@@ -207,12 +207,18 @@ pub trait Algorithms<E: Equation>: Sync {
 
         Ok(())
     }
+
     fn settings(&self) -> &Settings;
+    /// Get the equation used in the algorithm
     fn equation(&self) -> &E;
+    /// Get the data used in the algorithm
     fn data(&self) -> &Data;
     fn get_prior(&self) -> Theta;
+    /// Increment the cycle counter and return the new value
     fn increment_cycle(&mut self) -> usize;
+    /// Get the current cycle number
     fn cycle(&self) -> usize;
+    /// Set the current [Theta]
     fn set_theta(&mut self, theta: Theta);
     /// Get the current [Theta]
     fn theta(&self) -> &Theta;
@@ -243,9 +249,23 @@ pub trait Algorithms<E: Equation>: Sync {
         Ok(())
     }
     fn estimation(&mut self) -> Result<()>;
+    /// Performs condensation of [Theta] and updates [Psi]
+    ///
+    /// This step reduces the number of support points in [Theta] based on the current weights,
+    /// and updates the [Psi] matrix accordingly to reflect the new set of support points.
+    /// It is typically performed after the estimation step in each cycle of the algorithm.
     fn condensation(&mut self) -> Result<()>;
+
+    /// Performs optimizations on the current [ErrorModels] and updates [Psi] accordingly
+    ///
+    /// This step refines the error model parameters to better fit the data,
+    /// and subsequently updates the [Psi] matrix to reflect these changes.
     fn optimizations(&mut self) -> Result<()>;
     fn logs(&self);
+    /// Performs expansion of [Theta]
+    ///
+    /// This step increases the number of support points in [Theta] based on the current distribution,
+    /// allowing for exploration of the parameter space.
     fn expansion(&mut self) -> Result<()>;
     fn next_cycle(&mut self) -> Result<Status> {
         let cycle = self.increment_cycle();
@@ -262,6 +282,12 @@ pub trait Algorithms<E: Equation>: Sync {
         self.logs();
         self.evaluation()
     }
+
+    /// Fit the model until convergence or stopping criteria are met
+    ///
+    /// This method runs the full fitting process, starting with initialization,
+    /// followed by iterative cycles of estimation, condensation, optimization, and evaluation
+    /// until the algorithm converges or meets a stopping criteria.
     fn fit(&mut self) -> Result<NPResult<E>> {
         self.initialize().unwrap();
         loop {
