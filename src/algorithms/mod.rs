@@ -267,6 +267,12 @@ pub trait Algorithms<E: Equation>: Sync {
     /// This step increases the number of support points in [Theta] based on the current distribution,
     /// allowing for exploration of the parameter space.
     fn expansion(&mut self) -> Result<()>;
+
+    /// Proceed to the next cycle of the algorithm
+    ///
+    /// This method increments the cycle counter, performs expansion if necessary,
+    /// and then runs the estimation, condensation, optimization, logging, and evaluation steps
+    /// in sequence. It returns the current [Status] of the algorithm after completing these steps.
     fn next_cycle(&mut self) -> Result<Status> {
         let cycle = self.increment_cycle();
 
