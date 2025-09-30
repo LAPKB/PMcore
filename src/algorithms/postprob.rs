@@ -65,7 +65,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             self.cyclelog.clone(),
         )
     }
-    fn get_settings(&self) -> &Settings {
+    fn settings(&self) -> &Settings {
         &self.settings
     }
 
@@ -73,7 +73,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         &self.equation
     }
 
-    fn get_data(&self) -> &Data {
+    fn data(&self) -> &Data {
         &self.data
     }
 
@@ -85,11 +85,11 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         self.objf
     }
 
-    fn inc_cycle(&mut self) -> usize {
+    fn increment_cycle(&mut self) -> usize {
         0
     }
 
-    fn get_cycle(&self) -> usize {
+    fn cycle(&self) -> usize {
         0
     }
 

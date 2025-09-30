@@ -59,7 +59,6 @@ fn main() {
     let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();
-    while !algorithm.next_cycle().unwrap() {}
-    let result = algorithm.into_npresult();
+    let result = algorithm.fit().unwrap();
     result.write_outputs().unwrap();
 }

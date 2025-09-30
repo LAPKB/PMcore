@@ -75,7 +75,7 @@ pub trait Algorithms<E: Equation>: Sync {
             .collect::<Vec<_>>();
 
         if !indices.is_empty() {
-            let subject: Vec<&Subject> = self.get_data().subjects();
+            let subject: Vec<&Subject> = self.data().subjects();
             let zero_probability_subjects: Vec<&String> =
                 indices.iter().map(|&i| subject[i].id()).collect();
 
@@ -89,7 +89,7 @@ pub trait Algorithms<E: Equation>: Sync {
             for index in &indices {
                 tracing::debug!("Subject with zero probability: {}", subject[*index].id());
 
-                let error_model = self.get_settings().errormodels().clone();
+                let error_model = self.settings().errormodels().clone();
 
                 // Simulate all support points in parallel
                 let spp_results: Vec<_> = self
@@ -207,12 +207,12 @@ pub trait Algorithms<E: Equation>: Sync {
 
         Ok(())
     }
-    fn get_settings(&self) -> &Settings;
+    fn settings(&self) -> &Settings;
     fn equation(&self) -> &E;
-    fn get_data(&self) -> &Data;
+    fn data(&self) -> &Data;
     fn get_prior(&self) -> Theta;
-    fn inc_cycle(&mut self) -> usize;
-    fn get_cycle(&self) -> usize;
+    fn increment_cycle(&mut self) -> usize;
+    fn cycle(&self) -> usize;
     fn set_theta(&mut self, theta: Theta);
     fn theta(&self) -> &Theta;
     fn psi(&self) -> &Psi;
@@ -230,7 +230,7 @@ pub trait Algorithms<E: Equation>: Sync {
             tracing::info!("Removing existing stop file prior to run");
             fs::remove_file("stop").context("Unable to remove previous stop file")?;
         }
-        self.set_status(Status::InProgress);
+        self.set_status(Status::Starting);
         self.set_theta(self.get_prior());
         Ok(())
     }
@@ -239,22 +239,38 @@ pub trait Algorithms<E: Equation>: Sync {
     fn optimizations(&mut self) -> Result<()>;
     fn logs(&self);
     fn expansion(&mut self) -> Result<()>;
-    fn next_cycle(&mut self) -> Result<bool> {
-        if self.inc_cycle() > 1 {
+    fn next_cycle(&mut self) -> Result<Status> {
+        let cycle = self.increment_cycle();
+
+        if cycle > 1 {
             self.expansion()?;
         }
-        let span = tracing::info_span!("", "{}", format!("Cycle {}", self.get_cycle()));
+
+        let span = tracing::info_span!("", "{}", format!("Cycle {}", self.cycle()));
         let _enter = span.enter();
         self.evaluation()?;
         self.condensation()?;
         self.optimizations()?;
         self.logs();
         self.convergence_evaluation();
-        Ok(self.converged())
+
+        if self.converged() {
+            Ok(Status::Converged)
+        } else {
+            Ok(Status::Continue)
+        }
     }
     fn fit(&mut self) -> Result<NPResult<E>> {
         self.initialize().unwrap();
-        while !self.next_cycle()? {}
+        loop {
+            match self.next_cycle()? {
+                Status::Continue => continue,
+                Status::Converged => break,
+                Status::MaxCycles => break,
+                Status::Stopped => break,
+                Status::Starting => continue,
+            }
+        }
         Ok(self.into_npresult())
     }
 
@@ -274,32 +290,29 @@ pub fn dispatch_algorithm<E: Equation>(
     }
 }
 
-/// Represents the status of the algorithm
+/// Represents the status/result of the algorithm
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
     /// Algorithm is starting up
     Starting,
+    /// Algorithm should continue to next cycle
+    Continue,
     /// Algorithm has converged to a solution
     Converged,
     /// Algorithm stopped due to reaching maximum cycles
     MaxCycles,
-    /// Algorithm is currently running
-    InProgress,
     /// Algorithm was manually stopped by user
-    ManualStop,
-    /// Other status with custom message
-    Other(String),
+    Stopped,
 }
 
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Status::Starting => write!(f, "Starting"),
+            Status::Continue => write!(f, "Continue"),
             Status::Converged => write!(f, "Converged"),
-            Status::MaxCycles => write!(f, "Maximum cycles reached"),
-            Status::InProgress => write!(f, "In progress"),
-            Status::ManualStop => write!(f, "Manual stop requested"),
-            Status::Other(msg) => write!(f, "{}", msg),
+            Status::MaxCycles => write!(f, "MaxCycles"),
+            Status::Stopped => write!(f, "Stopped"),
         }
     }
 }

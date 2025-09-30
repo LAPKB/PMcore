@@ -91,11 +91,11 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         &self.equation
     }
 
-    fn get_settings(&self) -> &Settings {
+    fn settings(&self) -> &Settings {
         &self.settings
     }
 
-    fn get_data(&self) -> &Data {
+    fn data(&self) -> &Data {
         &self.data
     }
 
@@ -103,12 +103,12 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         sample_space(&self.settings).unwrap()
     }
 
-    fn inc_cycle(&mut self) -> usize {
+    fn increment_cycle(&mut self) -> usize {
         self.cycle += 1;
         self.cycle
     }
 
-    fn get_cycle(&self) -> usize {
+    fn cycle(&self) -> usize {
         self.cycle
     }
 
@@ -154,7 +154,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
             self.converged = true;
-            self.status = Status::ManualStop;
+            self.status = Status::Stopped;
         }
 
         // Create state object
