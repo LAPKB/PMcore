@@ -1,3 +1,4 @@
+use crate::routines::initialization::sample_space;
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
 use crate::structs::weights::Weights;
 use crate::{
@@ -14,6 +15,7 @@ use crate::{
         theta::Theta,
     },
 };
+use pharmsol::SppOptimizer;
 
 use anyhow::bail;
 use anyhow::Result;
@@ -28,8 +30,6 @@ use ndarray::{
     parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
     Array, Array1, ArrayBase, Dim, OwnedRepr,
 };
-
-use crate::routines::{initialization, optimization::SppOptimizer};
 
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
@@ -100,7 +100,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        initialization::sample_space(&self.settings).unwrap()
+        sample_space(&self.settings).unwrap()
     }
 
     fn inc_cycle(&mut self) -> usize {

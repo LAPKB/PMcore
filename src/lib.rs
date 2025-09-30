@@ -34,7 +34,7 @@ pub mod prelude {
     pub use crate::algorithms::Algorithm;
     pub use crate::routines;
     pub use crate::routines::logger;
-    pub use crate::routines::optimization::bestmo::get_e2;
+    pub use pharmsol::optimize::effect::get_e2;
 
     pub use pharmsol;
 
