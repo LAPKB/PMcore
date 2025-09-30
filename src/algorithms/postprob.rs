@@ -14,7 +14,7 @@ use pharmsol::prelude::{
     simulator::Equation,
 };
 
-use crate::routines::evaluation::ipm::burke;
+use crate::routines::estimation::ipm::burke;
 use crate::routines::initialization;
 use crate::routines::output::{cycles::CycleLog, NPResult};
 use crate::routines::settings::Settings;
@@ -113,16 +113,12 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         &self.status
     }
 
-    fn convergence_evaluation(&mut self) {
-        // POSTPROB algorithm converges after a single evaluation
-        self.status = Status::MaxCycles;
+    fn evaluation(&mut self) -> Result<Status> {
+        self.status = Status::Converged;
+        Ok(self.status.clone())
     }
 
-    fn converged(&self) -> bool {
-        true
-    }
-
-    fn evaluation(&mut self) -> Result<()> {
+    fn estimation(&mut self) -> Result<()> {
         self.psi = calculate_psi(
             &self.equation,
             &self.data,

@@ -6,7 +6,7 @@ use crate::{
     prelude::{
         algorithms::Algorithms,
         routines::{
-            evaluation::{ipm::burke, qr},
+            estimation::{ipm::burke, qr},
             settings::Settings,
         },
     },
@@ -136,7 +136,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         &self.status
     }
 
-    fn convergence_evaluation(&mut self) {
+    fn evaluation(&mut self) -> Result<Status> {
         if (self.last_objf - self.objf).abs() <= THETA_F {
             tracing::info!("Objective function convergence reached");
             self.converged = true;
@@ -171,13 +171,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         // Write cycle log
         self.cycle_log.push(state);
         self.last_objf = self.objf;
+        Ok(self.status.clone())
     }
 
-    fn converged(&self) -> bool {
-        self.converged
-    }
-
-    fn evaluation(&mut self) -> Result<()> {
+    fn estimation(&mut self) -> Result<()> {
         let error_model: ErrorModels = self.error_models.clone();
 
         self.psi = calculate_psi(

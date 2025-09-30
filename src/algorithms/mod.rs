@@ -214,16 +214,24 @@ pub trait Algorithms<E: Equation>: Sync {
     fn increment_cycle(&mut self) -> usize;
     fn cycle(&self) -> usize;
     fn set_theta(&mut self, theta: Theta);
+    /// Get the current [Theta]
     fn theta(&self) -> &Theta;
+    /// Get the current [Psi]
     fn psi(&self) -> &Psi;
+    /// Get the current likelihood
     fn likelihood(&self) -> f64;
+    /// Get the current negative two log-likelihood
     fn n2ll(&self) -> f64 {
         -2.0 * self.likelihood()
     }
+    /// Get the current [Status] of the algorithm
     fn status(&self) -> &Status;
+    /// Set the current [Status] of the algorithm
     fn set_status(&mut self, status: Status);
-    fn convergence_evaluation(&mut self);
-    fn converged(&self) -> bool;
+    /// Evaluate convergence criteria and update status
+    fn evaluation(&mut self) -> Result<Status>;
+
+    /// Initialize the algorithm, setting up initial [Theta] and [Status]
     fn initialize(&mut self) -> Result<()> {
         // If a stop file exists in the current directory, remove it
         if Path::new("stop").exists() {
@@ -234,7 +242,7 @@ pub trait Algorithms<E: Equation>: Sync {
         self.set_theta(self.get_prior());
         Ok(())
     }
-    fn evaluation(&mut self) -> Result<()>;
+    fn estimation(&mut self) -> Result<()>;
     fn condensation(&mut self) -> Result<()>;
     fn optimizations(&mut self) -> Result<()>;
     fn logs(&self);
@@ -248,17 +256,11 @@ pub trait Algorithms<E: Equation>: Sync {
 
         let span = tracing::info_span!("", "{}", format!("Cycle {}", self.cycle()));
         let _enter = span.enter();
-        self.evaluation()?;
+        self.estimation()?;
         self.condensation()?;
         self.optimizations()?;
         self.logs();
-        self.convergence_evaluation();
-
-        if self.converged() {
-            Ok(Status::Converged)
-        } else {
-            Ok(Status::Continue)
-        }
+        self.evaluation()
     }
     fn fit(&mut self) -> Result<NPResult<E>> {
         self.initialize().unwrap();

@@ -1,8 +1,8 @@
 use crate::algorithms::Status;
 use crate::prelude::algorithms::Algorithms;
 
-pub use crate::routines::evaluation::ipm::burke;
-pub use crate::routines::evaluation::qr;
+pub use crate::routines::estimation::ipm::burke;
+pub use crate::routines::estimation::qr;
 use crate::routines::settings::Settings;
 
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
@@ -44,7 +44,6 @@ pub struct NPAG<E: Equation> {
     cycle: usize,
     gamma_delta: Vec<f64>,
     error_models: ErrorModels,
-    converged: bool,
     status: Status,
     cycle_log: CycleLog,
     data: Data,
@@ -68,7 +67,6 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             cycle: 0,
             gamma_delta: vec![0.1; settings.errormodels().len()],
             error_models: settings.errormodels().clone(),
-            converged: false,
             status: Status::Starting,
             cycle_log: CycleLog::new(),
             settings,
@@ -131,7 +129,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         &self.psi
     }
 
-    fn convergence_evaluation(&mut self) {
+    fn evaluation(&mut self) -> Result<Status> {
         let psi = self.psi.matrix();
         let w = &self.w;
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
@@ -141,8 +139,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 self.f1 = pyl.iter().map(|x| x.ln()).sum();
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
-                    self.converged = true;
-                    self.status = Status::Converged;
+                    self.set_status(Status::Converged);
                 } else {
                     self.f0 = self.f1;
                     self.eps = 0.2;
@@ -153,14 +150,13 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
-            self.converged = true;
-            self.status = Status::MaxCycles;
+            self.set_status(Status::MaxCycles);
         }
 
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
-            self.status = Status::Stopped;
+            self.set_status(Status::Stopped);
         }
 
         // Create state object
@@ -177,13 +173,11 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         // Write cycle log
         self.cycle_log.push(state);
         self.last_objf = self.objf;
+
+        Ok(self.status().to_owned())
     }
 
-    fn converged(&self) -> bool {
-        self.converged
-    }
-
-    fn evaluation(&mut self) -> Result<()> {
+    fn estimation(&mut self) -> Result<()> {
         self.psi = calculate_psi(
             &self.equation,
             &self.data,
@@ -200,7 +194,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         (self.lambda, _) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda.into(), objf),
             Err(err) => {
-                bail!("Error in IPM during evaluation: {:?}", err);
+                bail!("Error in IPM during estimation: {:?}", err);
             }
         };
         Ok(())
