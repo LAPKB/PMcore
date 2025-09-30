@@ -216,7 +216,7 @@ impl<'de> Deserialize<'de> for Psi {
     }
 }
 
-pub(crate) fn calculate_psi(
+pub fn calculate_psi(
     equation: &impl Equation,
     subjects: &Data,
     theta: &Theta,
