@@ -140,6 +140,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.set_status(Status::Converged);
+                    self.log_cycle_state();
+                    return Ok(self.status().clone());
                 } else {
                     self.f0 = self.f1;
                     self.eps = 0.2;
@@ -151,30 +153,22 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.set_status(Status::MaxCycles);
+            self.log_cycle_state();
+            return Ok(self.status().clone());
         }
 
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
             self.set_status(Status::Stopped);
+            self.log_cycle_state();
+            return Ok(self.status().clone());
         }
 
-        // Create state object
-        let state = NPCycle::new(
-            self.cycle,
-            -2. * self.objf,
-            self.error_models.clone(),
-            self.theta.clone(),
-            self.theta.nspp(),
-            (self.last_objf - self.objf).abs(),
-            self.status.clone(),
-        );
-
-        // Write cycle log
-        self.cycle_log.push(state);
-        self.last_objf = self.objf;
-
-        Ok(self.status().to_owned())
+        // Continue with normal operation
+        self.set_status(Status::Continue);
+        self.log_cycle_state();
+        Ok(self.status().clone())
     }
 
     fn estimation(&mut self) -> Result<()> {
@@ -385,5 +379,19 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
 
     fn status(&self) -> &Status {
         &self.status
+    }
+
+    fn log_cycle_state(&mut self) {
+        let state = NPCycle::new(
+            self.cycle,
+            -2. * self.objf,
+            self.error_models.clone(),
+            self.theta.clone(),
+            self.theta.nspp(),
+            (self.last_objf - self.objf).abs(),
+            self.status.clone(),
+        );
+        self.cycle_log.push(state);
+        self.last_objf = self.objf;
     }
 }

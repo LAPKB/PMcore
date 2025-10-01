@@ -136,28 +136,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         &self.status
     }
 
-    fn evaluation(&mut self) -> Result<Status> {
-        if (self.last_objf - self.objf).abs() <= THETA_F {
-            tracing::info!("Objective function convergence reached");
-            self.converged = true;
-            self.status = Status::Converged;
-        }
-
-        // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config().cycles {
-            tracing::warn!("Maximum number of cycles reached");
-            self.converged = true;
-            self.status = Status::MaxCycles;
-        }
-
-        // Stop if stopfile exists
-        if std::path::Path::new("stop").exists() {
-            tracing::warn!("Stopfile detected - breaking");
-            self.converged = true;
-            self.status = Status::Stopped;
-        }
-
-        // Create state object
+    fn log_cycle_state(&mut self) {
         let state = NPCycle::new(
             self.cycle,
             -2. * self.objf,
@@ -167,10 +146,40 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             (self.last_objf - self.objf).abs(),
             self.status.clone(),
         );
-
-        // Write cycle log
         self.cycle_log.push(state);
         self.last_objf = self.objf;
+    }
+
+    fn evaluation(&mut self) -> Result<Status> {
+        if (self.last_objf - self.objf).abs() <= THETA_F {
+            tracing::info!("Objective function convergence reached");
+            self.converged = true;
+            self.status = Status::Converged;
+            self.log_cycle_state();
+            return Ok(self.status.clone());
+        }
+
+        // Stop if we have reached maximum number of cycles
+        if self.cycle >= self.settings.config().cycles {
+            tracing::warn!("Maximum number of cycles reached");
+            self.converged = true;
+            self.status = Status::MaxCycles;
+            self.log_cycle_state();
+            return Ok(self.status.clone());
+        }
+
+        // Stop if stopfile exists
+        if std::path::Path::new("stop").exists() {
+            tracing::warn!("Stopfile detected - breaking");
+            self.converged = true;
+            self.status = Status::Stopped;
+            self.log_cycle_state();
+            return Ok(self.status.clone());
+        }
+
+        // Continue with normal operation
+        self.status = Status::Continue;
+        self.log_cycle_state();
         Ok(self.status.clone())
     }
 

@@ -143,4 +143,18 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
     fn expansion(&mut self) -> Result<()> {
         Ok(())
     }
+
+    fn log_cycle_state(&mut self) {
+        // Postprob doesn't track last_objf, so we use 0.0 as the delta
+        let state = crate::routines::output::cycles::NPCycle::new(
+            self.cycle,
+            self.objf,
+            self.error_models.clone(),
+            self.theta.clone(),
+            self.theta.nspp(),
+            0.0,
+            self.status.clone(),
+        );
+        self.cyclelog.push(state);
+    }
 }

@@ -237,6 +237,9 @@ pub trait Algorithms<E: Equation>: Sync {
     /// Evaluate convergence criteria and update status
     fn evaluation(&mut self) -> Result<Status>;
 
+    /// Create and log a cycle state with the current algorithm state
+    fn log_cycle_state(&mut self);
+
     /// Initialize the algorithm, setting up initial [Theta] and [Status]
     fn initialize(&mut self) -> Result<()> {
         // If a stop file exists in the current directory, remove it
