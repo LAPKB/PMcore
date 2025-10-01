@@ -178,6 +178,13 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn evaluation(&mut self) -> Result<()> {
+
+
+        tracing::debug!(
+            "Starting Psi", 
+         );
+
+
         self.psi = psi(
             &self.equation,
             &self.data,
@@ -187,9 +194,15 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             self.cycle != 1,
         );
 
+        /*
         if let Err(err) = self.validate_psi() {
             bail!(err);
         }
+        */
+
+        tracing::debug!(
+            "Starting Burke"
+         );
 
         (self.lambda, _) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
@@ -260,9 +273,9 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn optimizations(&mut self) -> Result<()> {
         // Gam/Lam optimization
         // TODO: Move this to e.g. /evaluation/error.rs
+        /*
         let gamma_up = self.gamma * (1.0 + self.gamma_delta);
         let gamma_down = self.gamma / (1.0 + self.gamma_delta);
-
         let psi_up = psi(
             &self.equation,
             &self.data,
@@ -310,6 +323,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             self.lambda = lambda_down;
             self.psi = psi_down;
         }
+        */
         self.gamma_delta *= 0.5;
         if self.gamma_delta <= 0.01 {
             self.gamma_delta = 0.1;

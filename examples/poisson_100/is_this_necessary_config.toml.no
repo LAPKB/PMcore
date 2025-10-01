@@ -1,0 +1,27 @@
+[config]
+cycles = 1024
+algorithm = "NPAG"
+cache = true
+
+[random]
+EC50 = [1.762668, 2.138798]
+Kk = [1.540277, 1.772984]
+Kg = [2.227923, 2.901866]
+Kknat = [0.9137731, 1.4066447]
+
+[error]
+value = 2.718282
+class = "proportional"
+poly = [0.01, 0.0025, 0.0, 0.0]
+
+
+[log]
+level = "info"
+
+[prior]
+sampler = "sobol"
+# file = "examples/bimodal_ke/prior.csv"
+
+[output]
+write = true
+path = "examples/poisson_100/output"

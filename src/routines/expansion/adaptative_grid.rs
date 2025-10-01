@@ -25,12 +25,26 @@ pub fn adaptative_grid(
     ranges: &[(f64, f64)],
     min_dist: f64,
 ) -> Array2<f64> {
+    /* // These print out correctly
+    tracing::debug!("eps: {}; theta: {}; ranges: {}, {}, {}, {}, {}, {}, {}, {}, {}, {}"
+    , eps, theta
+    , ranges[0].0, ranges[0].1
+    , ranges[1].0, ranges[1].1
+    , ranges[2].0, ranges[2].1
+    , ranges[3].0, ranges[3].1
+    , ranges[4].0, ranges[4].1
+    );
+    */
     let old_theta = theta.clone();
+        // this print statement hangs:
+        // tracing::debug!("theta.rows: {}; theta.columns: {};", old_theta.nrows(), old_theta.ncols());
+
     for spp in old_theta.rows() {
         for (j, val) in spp.into_iter().enumerate() {
-            let l = eps * (ranges[j].1 - ranges[j].0); //abs?
-                                                       // dbg!(val + l);
-                                                       // dbg!(val - l);
+            if j == 4 { // svol is the 5th r.v.
+            let l = eps * (ranges[j].1 - ranges[j].0); //abs? ?? val * eps;// 
+                // dbg!(val + l);
+                // dbg!(val - l);
             if val + l < ranges[j].1 {
                 let mut plus = Array::zeros(spp.len());
                 plus[j] = l;
@@ -57,15 +71,19 @@ pub fn adaptative_grid(
                 //     val - l
                 // );
             }
+            } // if j == 4, i.e. svol is only r.v. that can change, rest of the distribution is fixed in place.
         }
     }
     if theta.nrows() != (old_theta.nrows() + 2 * old_theta.ncols()) {
-        // tracing::debug!(
-        //     "3) The adaptive grid tried to add {} support points, from those {} were rejected.",
-        //     2 * old_theta.ncols(),
-        //     2 * old_theta.ncols() + old_theta.nrows() - theta.nrows()
-        // );
+        /*
+        tracing::debug!(
+            "3) The adaptive grid tried to add {} support points, from those {} were rejected.",
+            2 * old_theta.ncols(), // * old_theta.nrows(), // the multiplication hangs
+            theta.nrows() - 2 * old_theta.ncols() + old_theta.nrows() 
+        );
+        */
     }
+    // tracing::debug!("new theta: {}", theta);
     theta.to_owned()
 }
 
