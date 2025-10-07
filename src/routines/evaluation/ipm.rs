@@ -180,7 +180,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
         let uph = match h.llt(faer::Side::Lower) {
             Ok(llt) => llt,
             Err(_) => {
-                bail!("Error during Cholesky decomposition")
+                bail!("Error during Cholesky decomposition. The matrix might not be positive definite. This is usually due to model misspecification or numerical issues.")
             }
         };
         let uph = uph.L().transpose().to_owned();
