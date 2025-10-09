@@ -55,7 +55,7 @@ impl Theta {
         &self.matrix
     }
 
-    // Get a mutable reference to the matrix
+    /// Get a mutable reference to the matrix
     pub fn matrix_mut(&mut self) -> &mut Mat<f64> {
         &mut self.matrix
     }
