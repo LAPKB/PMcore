@@ -30,8 +30,22 @@ impl Theta {
         Theta::default()
     }
 
-    pub(crate) fn from_parts(matrix: Mat<f64>, parameters: Parameters) -> Self {
-        Theta { matrix, parameters }
+    /// Create a new [Theta] from a matrix and [Parameters]
+    ///
+    /// It is important that the number of columns in the matrix matches the number of parameters
+    /// in the [Parameters] object
+    ///
+    /// The order of parameters in the [Parameters] object should match the order of columns in the matrix
+    pub fn from_parts(matrix: Mat<f64>, parameters: Parameters) -> Result<Self> {
+        if matrix.ncols() != parameters.len() {
+            bail!(
+                "Number of columns in matrix ({}) does not match number of parameters ({})",
+                matrix.ncols(),
+                parameters.len()
+            );
+        }
+
+        Ok(Theta { matrix, parameters })
     }
 
     /// Get the matrix containing parameter values
@@ -39,6 +53,21 @@ impl Theta {
     /// The matrix is a 2D array where each row represents a support point, and each column a parameter
     pub fn matrix(&self) -> &Mat<f64> {
         &self.matrix
+    }
+
+    // Get a mutable reference to the matrix
+    pub fn matrix_mut(&mut self) -> &mut Mat<f64> {
+        &mut self.matrix
+    }
+
+    /// Get the [Parameters] object associated with this [Theta]
+    pub fn parameters(&self) -> &Parameters {
+        &self.parameters
+    }
+
+    /// Get a mutable reference to the [Parameters] object
+    pub fn parameters_mut(&mut self) -> &mut Parameters {
+        &mut self.parameters
     }
 
     /// Get the number of support points, equal to the number of rows in the matrix
@@ -63,18 +92,28 @@ impl Theta {
     }
 
     /// Forcibly add a support point to the matrix
-    pub(crate) fn add_point(&mut self, spp: &[f64]) {
+    pub fn add_point(&mut self, spp: &[f64]) -> Result<()> {
+        if spp.len() != self.matrix.ncols() {
+            bail!(
+                "Support point length ({}) does not match number of parameters ({})",
+                spp.len(),
+                self.matrix.ncols()
+            );
+        }
+
         self.matrix
             .resize_with(self.matrix.nrows() + 1, self.matrix.ncols(), |_, i| spp[i]);
+        Ok(())
     }
 
     /// Suggest a new support point to add to the matrix
     /// The point is only added if it is at least `min_dist` away from all existing support points
     /// and within the limits specified by `limits`
-    pub(crate) fn suggest_point(&mut self, spp: &[f64], min_dist: f64) {
+    pub(crate) fn suggest_point(&mut self, spp: &[f64], min_dist: f64) -> Result<()> {
         if self.check_point(spp, min_dist) {
-            self.add_point(spp);
+            self.add_point(spp)?;
         }
+        Ok(())
     }
 
     /// Check if a point is at least `min_dist` away from all existing support points
@@ -160,7 +199,7 @@ impl Theta {
         // Create empty parameters - user will need to set these separately
         let parameters = Parameters::new();
 
-        Ok(Theta::from_parts(mat, parameters))
+        Ok(Theta::from_parts(mat, parameters)?)
     }
 }
 
@@ -259,7 +298,7 @@ impl<'de> Deserialize<'de> for Theta {
                 // Create empty parameters - user will need to set these separately
                 let parameters = Parameters::new();
 
-                Ok(Theta::from_parts(mat, parameters))
+                Theta::from_parts(mat, parameters).map_err(serde::de::Error::custom)
             }
         }
 
@@ -279,7 +318,7 @@ mod tests {
 
         let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
 
-        let mut theta = Theta::from_parts(matrix, parameters);
+        let mut theta = Theta::from_parts(matrix, parameters).unwrap();
 
         theta.filter_indices(&[0, 3]);
 
@@ -295,9 +334,9 @@ mod tests {
 
         let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
 
-        let mut theta = Theta::from_parts(matrix, parameters);
+        let mut theta = Theta::from_parts(matrix, parameters).unwrap();
 
-        theta.add_point(&[7.0, 8.0]);
+        theta.add_point(&[7.0, 8.0]).unwrap();
 
         let expected = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
 
@@ -308,13 +347,13 @@ mod tests {
     fn test_suggest_point() {
         let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
         let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
-        let mut theta = Theta::from_parts(matrix, parameters);
-        theta.suggest_point(&[7.0, 8.0], 0.2);
+        let mut theta = Theta::from_parts(matrix, parameters).unwrap();
+        theta.suggest_point(&[7.0, 8.0], 0.2).unwrap();
         let expected = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
         assert_eq!(theta.matrix, expected);
 
         // Suggest a point that is too close
-        theta.suggest_point(&[7.1, 8.1], 0.2);
+        theta.suggest_point(&[7.1, 8.1], 0.2).unwrap();
         // The point should not be added
         assert_eq!(theta.matrix.nrows(), 4);
     }
@@ -324,8 +363,20 @@ mod tests {
         let matrix = mat![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
         let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
 
-        let theta = Theta::from_parts(matrix, parameters);
+        let theta = Theta::from_parts(matrix, parameters).unwrap();
         let names = theta.param_names();
         assert_eq!(names, vec!["A".to_string(), "B".to_string()]);
+    }
+
+    #[test]
+    fn test_set_matrix() {
+        let matrix = mat![[1.0, 2.0], [3.0, 4.0]];
+        let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
+        let mut theta = Theta::from_parts(matrix, parameters).unwrap();
+
+        let new_matrix = mat![[5.0, 6.0], [7.0, 8.0], [9.0, 10.0]];
+        theta.matrix_mut().clone_from(&new_matrix);
+
+        assert_eq!(theta.matrix(), &new_matrix);
     }
 }

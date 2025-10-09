@@ -381,7 +381,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn expansion(&mut self) -> Result<()> {
-        adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D);
+        adaptative_grid(&mut self.theta, self.eps, &self.ranges, THETA_D)?;
         Ok(())
     }
 
