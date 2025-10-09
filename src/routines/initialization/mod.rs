@@ -167,7 +167,7 @@ pub fn parse_prior(path: &String, settings: &Settings) -> Result<Theta> {
     let theta_matrix: Mat<f64> =
         Mat::from_fn(n_points, n_params, |i, j| theta_values[i * n_params + j]);
 
-    let theta = Theta::from_parts(theta_matrix, settings.parameters().clone());
+    let theta = Theta::from_parts(theta_matrix, settings.parameters().clone())?;
 
     Ok(theta)
 }
@@ -268,7 +268,7 @@ mod tests {
         // Create a custom theta
         let parameters = settings.parameters().clone();
         let matrix = faer::Mat::from_fn(3, 2, |i, j| (i + j) as f64);
-        let custom_theta = Theta::from_parts(matrix, parameters);
+        let custom_theta = Theta::from_parts(matrix, parameters).unwrap();
 
         let prior = Prior::Theta(custom_theta.clone());
         settings.set_prior(Prior::Theta(custom_theta.clone()));
@@ -452,7 +452,7 @@ mod tests {
     fn test_prior_theta_no_seed_panic() {
         let parameters = Parameters::new().add("ke", 0.1, 1.0);
         let matrix = faer::Mat::from_fn(1, 1, |_, _| 0.5);
-        let theta = Theta::from_parts(matrix, parameters);
+        let theta = Theta::from_parts(matrix, parameters).unwrap();
         let prior = Prior::Theta(theta);
 
         assert_eq!(prior.seed(), None, "Theta prior should not have a seed");
