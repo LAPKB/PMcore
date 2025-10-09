@@ -19,6 +19,9 @@ use tracing_subscriber::EnvFilter;
 /// If `log_out` is specifified in the configuration file, a log file is created with the specified name.
 ///
 /// If not, the log messages are written to stdout.
+/// 
+/// 
+
 pub fn setup_log(settings: &Settings) -> Result<()> {
     // Use the log level defined in configuration file
     let log_level = settings.log().level.clone();
@@ -48,7 +51,17 @@ pub fn setup_log(settings: &Settings) -> Result<()> {
         .with_timer(timestamper.clone());
 
     // Combine layers with subscriber
-    subscriber.with(file_layer).with(stdout_layer).init();
+    // subscriber.with(file_layer).with(stdout_layer).init();
+
+    let res = subscriber.with(file_layer).with(stdout_layer).try_init();
+    match res {
+        Ok(_) => {}
+        Err(e) => tracing::warn!("Failed to initialize logger: {}", e),
+    }
+
+
+
+
 
     Ok(())
 }

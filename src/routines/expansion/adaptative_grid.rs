@@ -41,7 +41,7 @@ pub fn adaptative_grid(
 
     for spp in old_theta.rows() {
         for (j, val) in spp.into_iter().enumerate() {
-            if j == 4 { // svol is the 5th r.v.
+            // if j == 4 { // svol is the 5th r.v.
             let l = eps * (ranges[j].1 - ranges[j].0); //abs? ?? val * eps;// 
                 // dbg!(val + l);
                 // dbg!(val - l);
@@ -71,7 +71,7 @@ pub fn adaptative_grid(
                 //     val - l
                 // );
             }
-            } // if j == 4, i.e. svol is only r.v. that can change, rest of the distribution is fixed in place.
+            // } // if j == 4, i.e. svol is only r.v. that can change, rest of the distribution is fixed in place.
         }
     }
     if theta.nrows() != (old_theta.nrows() + 2 * old_theta.ncols()) {
