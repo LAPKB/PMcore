@@ -1,6 +1,7 @@
 use anyhow::Result;
 use csv::WriterBuilder;
 use pharmsol::{ErrorModel, ErrorModels};
+use serde::Serialize;
 
 use crate::{
     algorithms::Status,
@@ -18,7 +19,7 @@ use crate::{
 /// - `nspp`: The number of support points
 /// - `delta_objf`: The change in objective function value from last cycle
 /// - `converged`: Whether the algorithm has reached convergence
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct NPCycle {
     cycle: usize,
     objf: f64,
@@ -86,7 +87,7 @@ impl NPCycle {
 }
 
 /// This holdes a vector of [NPCycle] objects to provide a more detailed log
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CycleLog {
     cycles: Vec<NPCycle>,
 }
