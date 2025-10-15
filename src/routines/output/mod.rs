@@ -25,8 +25,9 @@ use posterior::posterior;
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct NPResult<E: Equation> {
+    #[serde(skip)]
     equation: E,
     data: Data,
     theta: Theta,
