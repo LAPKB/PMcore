@@ -1,5 +1,5 @@
 pub use anyhow::{bail, Result};
-use faer::{Col, Mat};
+use faer::Mat;
 use serde::{Deserialize, Serialize};
 
 use crate::structs::{psi::Psi, weights::Weights};
@@ -27,20 +27,20 @@ impl Posterior {
     /// # Returns
     /// A Result containing the Posterior probabilities if successful, or an error if the
     /// dimensions do not match.
-    pub fn calculate(psi: &Psi, w: &Col<f64>) -> Result<Self> {
-        if psi.matrix().ncols() != w.nrows() {
+    pub fn calculate(psi: &Psi, w: &Weights) -> Result<Self> {
+        if psi.matrix().ncols() != w.weights().nrows() {
             bail!(
                 "Number of rows in psi ({}) and number of weights ({}) do not match.",
                 psi.matrix().nrows(),
-                w.nrows()
+                w.weights().nrows()
             );
         }
 
         let psi_matrix = psi.matrix();
-        let py = psi_matrix * w;
+        let py = psi_matrix * w.weights();
 
         let posterior = Mat::from_fn(psi_matrix.nrows(), psi_matrix.ncols(), |i, j| {
-            psi_matrix.get(i, j) * w.get(j) / py.get(i)
+            psi_matrix.get(i, j) * w.weights().get(j) / py.get(i)
         });
 
         Ok(posterior.into())
