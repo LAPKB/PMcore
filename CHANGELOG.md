@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.1](https://github.com/LAPKB/PMcore/compare/v0.18.0...v0.18.1) - 2025-10-09
+
+### Added
+
+- Expose methods on Theta ([#200](https://github.com/LAPKB/PMcore/pull/200))
+
 ## [0.18.0](https://github.com/LAPKB/PMcore/compare/v0.17.0...v0.18.0) - 2025-09-30
 
 ### Added

@@ -391,7 +391,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             // re-define a new optimization
         });
         for cp in candididate_points {
-            self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D);
+            self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D)?;
         }
         Ok(())
     }
