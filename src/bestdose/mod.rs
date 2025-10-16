@@ -13,7 +13,6 @@ use pharmsol::{Data, ODE};
 use crate::algorithms::npag::burke;
 use crate::algorithms::npag::NPAG;
 use crate::algorithms::Algorithms;
-use crate::routines::condensation::condense_support_points;
 use crate::routines::settings::Settings;
 use crate::structs::psi::calculate_psi;
 use crate::structs::theta::Theta;
@@ -58,9 +57,10 @@ impl Default for DoseRange {
 #[derive(Debug, Clone)]
 pub struct BestDoseProblem {
     pub past_data: Subject,
-    pub theta: Theta,
-    pub prior: Weights,     // Population probabilities (for bias calculation)
-    pub posterior: Weights, // Patient-specific probabilities from NPAGFULL11 (for variance calculation)
+    pub prior_theta: Theta,     // Original population prior support points
+    pub prior_weights: Weights, // Original population prior probabilities
+    pub theta: Theta,           // Posterior support points (filtered/refined from prior)
+    pub posterior: Weights,     // Patient-specific posterior probabilities from NPAGFULL11
     pub target: Subject,
     pub eq: ODE,
     pub doserange: DoseRange,
@@ -141,8 +141,9 @@ impl BestDoseProblem {
 
         Ok(Self {
             past_data,
+            prior_theta: prior_theta.clone(),
+            prior_weights: prior_weights.clone(),
             theta: posterior_theta,
-            prior: prior_weights.clone(),
             posterior: posterior_weights,
             target,
             eq,
@@ -171,24 +172,56 @@ impl BestDoseProblem {
         // Calculate psi matrix P(data|theta_i) for all support points
         let psi = calculate_psi(eq, past_data, prior_theta, error_models, false, true)?;
 
-        // First burke call - equivalent to emint with ijob=1 (start)
+        // First burke call to get initial posterior probabilities
         let (initial_weights, _) = burke(&psi)?;
 
-        // Use the reusable condensation function with NPAGFULL11-specific 1e-100 threshold
-        // This does: lambda filtering + QR decomposition + second burke call
-        let (filtered_theta, _filtered_psi, final_weights, _objf) = condense_support_points(
-            prior_theta,
-            &psi,
-            &initial_weights,
-            1e-100, // NPAGFULL11-specific threshold (much stricter than NPAG's 1e-3)
-            1e-8,   // QR decomposition threshold (standard)
-        )?;
+        // NPAGFULL11 filtering: Keep all points within 1e-100 of the maximum weight
+        // This is different from NPAG's condensation - NO QR decomposition here!
+        // Fortran: "THOSE WHOSE PROBABILITIES ARE WITHIN 1.D-100 OF THE BEST GRID PT."
+        let max_weight = initial_weights
+            .iter()
+            .fold(f64::NEG_INFINITY, |a, b| a.max(b));
+
+        let threshold = 1e-100; // NPAGFULL11-specific threshold
+
+        let keep_lambda: Vec<usize> = initial_weights
+            .iter()
+            .enumerate()
+            .filter(|(_, lam)| *lam > threshold * max_weight)
+            .map(|(i, _)| i)
+            .collect();
+
+        // Filter theta to keep only points above threshold
+        let mut filtered_theta = prior_theta.clone();
+        filtered_theta.filter_indices(&keep_lambda);
+
+        // Filter the weights to keep only those above threshold
+        let filtered_weights: Vec<f64> = keep_lambda
+            .iter()
+            .map(|&i| initial_weights.iter().nth(i).unwrap())
+            .collect();
+
+        // Renormalize the filtered weights to sum to 1
+        let sum: f64 = filtered_weights.iter().sum();
+        let final_weights = Weights::from_vec(filtered_weights.iter().map(|w| w / sum).collect());
 
         tracing::info!(
-            "NPAGFULL11 complete: {} -> {} support points",
+            "NPAGFULL11 complete: {} -> {} support points (lambda filter only, no QR, no second burke)",
             prior_theta.matrix().nrows(),
             filtered_theta.matrix().nrows()
         );
+
+        if filtered_theta.matrix().nrows() > 0 {
+            tracing::debug!(
+                "Max weight: {:.6e}, threshold: {:.6e}",
+                max_weight,
+                threshold * max_weight
+            );
+            tracing::debug!(
+                "Kept {} points with weights above threshold",
+                keep_lambda.len()
+            );
+        }
 
         Ok((filtered_theta, final_weights))
     }
@@ -207,6 +240,7 @@ impl BestDoseProblem {
         settings: &Settings,
     ) -> Result<(Theta, Weights)> {
         let mut refined_points = Vec::new();
+        let mut kept_weights: Vec<f64> = Vec::new();
         let num_points = filtered_theta.matrix().nrows();
 
         for i in 0..num_points {
@@ -219,43 +253,64 @@ impl BestDoseProblem {
             // We need to create a matrix with the correct dimensions (1 row, n_params columns)
             let n_params = point.len();
             let single_point_matrix = Mat::from_fn(1, n_params, |_r, c| point[c]);
-            let single_point_theta = Theta::from_parts(single_point_matrix, settings.parameters().clone());
+            let single_point_theta =
+                Theta::from_parts(single_point_matrix, settings.parameters().clone());
 
             // Create NPAG settings with limited cycles for refinement
             // Set the prior to this single point so get_prior() returns the correct theta
             let mut npag_settings = settings.clone();
             npag_settings.set_cycles(100); // Limit cycles for individual refinements
             npag_settings.disable_output(); // Don't write files for each refinement
-            npag_settings.set_prior(crate::routines::initialization::Prior::Theta(single_point_theta.clone()));
+            npag_settings.set_prior(crate::routines::initialization::Prior::Theta(
+                single_point_theta.clone(),
+            ));
 
             // Create and run NPAG
             let mut npag = NPAG::new(npag_settings, eq.clone(), past_data.clone())?;
             // The theta will be initialized from get_prior() automatically, but we set it explicitly here
             npag.set_theta(single_point_theta);
 
-            tracing::debug!("Starting NPAG refinement for point {}/{}", i + 1, num_points);
-            
+            tracing::debug!(
+                "Starting NPAG refinement for point {}/{}",
+                i + 1,
+                num_points
+            );
+
             // Run NPAG optimization loop
             // We need at least 2 cycles to trigger expansion (expansion happens when cycle > 1)
             // This ensures we get the "daughter points" mentioned in Fortran documentation
             let mut cycle_count = 0;
             const MIN_CYCLES: usize = 2; // Force at least 2 cycles to ensure expansion happens
-            
-            while !npag.converged() || cycle_count < MIN_CYCLES {
-                npag.inc_cycle();
-                cycle_count += 1;
-                
-                // Expansion happens first (after cycle 1)
-                if cycle_count > 1 {
-                    npag.expansion()?;
+
+            let refinement_result = (|| -> Result<()> {
+                while !npag.converged() || cycle_count < MIN_CYCLES {
+                    npag.inc_cycle();
+                    cycle_count += 1;
+
+                    // Expansion happens first (after cycle 1)
+                    if cycle_count > 1 {
+                        npag.expansion()?;
+                    }
+
+                    npag.evaluation()?;
+                    npag.condensation()?;
+                    npag.optimizations()?;
+                    npag.convergence_evaluation();
                 }
-                
-                npag.evaluation()?;
-                npag.condensation()?;
-                npag.optimizations()?;
-                npag.convergence_evaluation();
+                Ok(())
+            })();
+
+            // If refinement failed (e.g., zero probability), skip this point
+            if refinement_result.is_err() {
+                tracing::warn!(
+                    "Failed to refine point {}/{}:  {} - skipping",
+                    i + 1,
+                    num_points,
+                    refinement_result.unwrap_err()
+                );
+                continue;
             }
-            
+
             tracing::debug!(
                 "NPAG converged after {} cycles with {} final point(s)",
                 cycle_count,
@@ -275,17 +330,20 @@ impl BestDoseProblem {
                 let original_point: Vec<f64> =
                     filtered_theta.matrix().row(i).iter().copied().collect();
                 refined_points.push(original_point);
+                kept_weights.push(filtered_weights.iter().nth(i).unwrap());
             } else if refined_theta.matrix().nrows() == 1 {
                 // Single point - use it
                 let refined_point: Vec<f64> =
                     refined_theta.matrix().row(0).iter().copied().collect();
                 refined_points.push(refined_point);
+                kept_weights.push(filtered_weights.iter().nth(i).unwrap());
             } else {
                 // Multiple points - this is actually expected with NPAG
                 // We take the first point (they're already filtered by condensation)
                 let refined_point: Vec<f64> =
                     refined_theta.matrix().row(0).iter().copied().collect();
                 refined_points.push(refined_point);
+                kept_weights.push(filtered_weights.iter().nth(i).unwrap());
                 tracing::debug!(
                     "NPAG produced {} points, using first",
                     refined_theta.matrix().nrows()
@@ -299,13 +357,22 @@ impl BestDoseProblem {
         let refined_matrix = Mat::from_fn(n_points, n_params, |r, c| refined_points[r][c]);
         let refined_theta = Theta::from_parts(refined_matrix, settings.parameters().clone());
 
-        // Preserve the NPAGFULL11 weights (don't recalculate!)
+        // Renormalize the kept weights (in case we skipped some points due to zero probability)
+        let weight_sum: f64 = kept_weights.iter().sum();
+        let normalized_weights = if weight_sum > 0.0 {
+            Weights::from_vec(kept_weights.iter().map(|w| w / weight_sum).collect())
+        } else {
+            // Fallback to uniform weights if something went wrong
+            Weights::uniform(n_points)
+        };
+
         tracing::info!(
-            "NPAGFULL refinement complete: {} refined points",
+            "NPAGFULL refinement complete: {} -> {} refined points",
+            filtered_theta.matrix().nrows(),
             refined_theta.matrix().nrows()
         );
 
-        Ok((refined_theta, filtered_weights.clone()))
+        Ok((refined_theta, normalized_weights))
     }
 
     pub fn optimize(self) -> Result<BestDoseResult> {
@@ -375,24 +442,19 @@ impl BestDoseProblem {
                 }
             }
 
-            // Calculate psi for optimal doses to get final predictions
-            let psi = calculate_psi(
-                &problem.eq,
-                &Data::new(vec![target_subject.clone()]),
-                &problem.theta.clone(),
-                &problem.error_models,
-                false,
-                true,
-            )?;
-
             // Use the preserved posterior weights from NPAGFULL11
             // NOT recalculated weights from burke!
             let w = &problem.posterior;
 
-            // Calculate posterior for predictions
-            let posterior = Posterior::calculate(&psi, w)?;
+            // For BestDose, population and posterior statistics are the same
+            // Both use the NPAGFULL posterior weights
+            // Create a 1-row posterior matrix with the NPAGFULL weights
+            use faer::Mat;
+            let posterior_matrix =
+                Mat::from_fn(1, w.weights().nrows(), |_row, col| *w.weights().get(col));
+            let posterior = Posterior::from(posterior_matrix);
 
-            // Calculate predictions using NPAGFULL11 posterior weights
+            // Calculate predictions using NPAGFULL11 posterior weights for both pop and post statistics
             NPPredictions::calculate(
                 &problem.eq,
                 &Data::new(vec![target_subject.clone()]),
@@ -510,7 +572,7 @@ impl CostFunction for BestDoseProblem {
             .matrix()
             .row_iter()
             .zip(self.posterior.iter()) // Posterior from NPAGFULL11 (patient-specific)
-            .zip(self.prior.iter())
+            .zip(self.prior_weights.iter())
         // Prior (population)
         {
             let spp = row.iter().copied().collect::<Vec<f64>>();
