@@ -81,19 +81,29 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
-    // Example usage
-    let problem = BestDoseProblem {
-        past_data: past_data.clone(),
-        theta,
-        prior: prior.unwrap(),
-        target: target_data.clone(),
-        eq: eq.clone(),
-        doserange: DoseRange::new(0.0, 300.0),
-        bias_weight: 0.0,
-        error_models: ems.clone(),
-    };
+    // Example usage - using new() constructor which calculates NPAGFULL11 posterior
+    // Set refine_with_npagfull=false for faster computation (NPAGFULL11 only)
+    // Set refine_with_npagfull=true for full two-step posterior (slower but more accurate)
+    let problem = BestDoseProblem::new(
+        &theta,
+        &prior.unwrap(),
+        past_data.clone(),
+        target_data.clone(),
+        eq.clone(),
+        ems.clone(),
+        DoseRange::new(0.0, 300.0),
+        0.0,
+        settings.clone(),
+        true, // refine_with_npagfull - set to true for full NPAGFULL refinement
+    )?;
 
     println!("Optimizing dose...");
+    println!("Posterior has {} support points", problem.theta.matrix().nrows());
+    println!("Posterior support points:");
+    for i in 0..problem.theta.matrix().nrows() {
+        let row: Vec<f64> = problem.theta.matrix().row(i).iter().copied().collect();
+        println!("  Point {}: {:?}", i+1, row);
+    }
 
     let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     let mut results = Vec::new();
