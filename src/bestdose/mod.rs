@@ -229,9 +229,10 @@ impl BestDoseProblem {
         filtered_theta.filter_indices(&keep_lambda);
 
         // Filter the weights to keep only those above threshold
+        // Use direct indexing instead of iter().nth() to avoid O(n²) complexity
         let filtered_weights: Vec<f64> = keep_lambda
             .iter()
-            .map(|&i| initial_weights.iter().nth(i).unwrap())
+            .map(|&i| initial_weights[i])
             .collect();
 
         // Renormalize the filtered weights to sum to 1
@@ -344,20 +345,20 @@ impl BestDoseProblem {
                 let original_point: Vec<f64> =
                     filtered_theta.matrix().row(i).iter().copied().collect();
                 refined_points.push(original_point);
-                kept_weights.push(filtered_weights.iter().nth(i).unwrap());
+                kept_weights.push(filtered_weights[i]);
             } else if refined_theta.matrix().nrows() == 1 {
                 // Single point - use it
                 let refined_point: Vec<f64> =
                     refined_theta.matrix().row(0).iter().copied().collect();
                 refined_points.push(refined_point);
-                kept_weights.push(filtered_weights.iter().nth(i).unwrap());
+                kept_weights.push(filtered_weights[i]);
             } else {
                 // Multiple points - this is actually expected with NPAG
                 // We take the first point (they're already filtered by condensation)
                 let refined_point: Vec<f64> =
                     refined_theta.matrix().row(0).iter().copied().collect();
                 refined_points.push(refined_point);
-                kept_weights.push(filtered_weights.iter().nth(i).unwrap());
+                kept_weights.push(filtered_weights[i]);
                 tracing::debug!(
                     "NPAG produced {} points, using first",
                     refined_theta.matrix().nrows()
