@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseProblem, DoseRange};
+use pmcore::bestdose::{BestDoseProblem, DoseRange, Target};
 
 use pmcore::prelude::*;
 use pmcore::routines::initialization::parse_prior;
@@ -96,7 +96,8 @@ fn main() -> Result<()> {
         DoseRange::new(0.0, 300.0),
         0.0,
         settings.clone(),
-        500, // max_cycles - Fortran default for full two-step posterior
+        500,                   // max_cycles - Fortran default for full two-step posterior
+        Target::Concentration, // Target concentrations (not AUCs)
     )?;
 
     println!("Optimizing dose...");
