@@ -94,16 +94,10 @@ fn main() -> Result<()> {
         DoseRange::new(0.0, 300.0),
         0.0,
         settings.clone(),
-        true, // refine_with_npagfull - set to true for full NPAGFULL refinement
+        false, // refine_with_npagfull - set to true for full NPAGFULL refinement
     )?;
 
     println!("Optimizing dose...");
-    println!("Posterior has {} support points", problem.theta.matrix().nrows());
-    println!("Posterior support points:");
-    for i in 0..problem.theta.matrix().nrows() {
-        let row: Vec<f64> = problem.theta.matrix().row(i).iter().copied().collect();
-        println!("  Point {}: {:?}", i+1, row);
-    }
 
     let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     let mut results = Vec::new();
