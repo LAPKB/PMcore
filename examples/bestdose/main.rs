@@ -82,19 +82,21 @@ fn main() -> Result<()> {
     .unwrap();
 
     // Example usage - using new() constructor which calculates NPAGFULL11 posterior
-    // Set refine_with_npagfull=false for faster computation (NPAGFULL11 only)
-    // Set refine_with_npagfull=true for full two-step posterior (slower but more accurate)
+    // max_cycles controls NPAGFULL refinement:
+    //   0 = NPAGFULL11 only (fast but less accurate)
+    //   100 = moderate refinement
+    //   500 = full refinement (Fortran default, slow but most accurate)
     let problem = BestDoseProblem::new(
         &theta,
         &prior.unwrap(),
-        past_data.clone(),
+        Some(past_data.clone()), // Optional: past data for Bayesian updating
         target_data.clone(),
         eq.clone(),
         ems.clone(),
         DoseRange::new(0.0, 300.0),
         0.0,
         settings.clone(),
-        false, // refine_with_npagfull - set to true for full NPAGFULL refinement
+        500, // max_cycles - Fortran default for full two-step posterior
     )?;
 
     println!("Optimizing dose...");
