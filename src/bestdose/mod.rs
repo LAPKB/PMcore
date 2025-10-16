@@ -17,12 +17,19 @@ use crate::routines::settings::Settings;
 use crate::structs::psi::calculate_psi;
 use crate::structs::theta::Theta;
 
-// TODO: AUC as a target
 // TODO: Add support for loading and maintenance doses
 
+/// Target type for dose optimization
+///
+/// Determines whether targets in the "future" file represent concentrations or AUCs.
+/// This matches Fortran's ITARGET parameter (1=concentration, 2=AUC).
+#[derive(Debug, Clone, Copy)]
 pub enum Target {
-    Concentration(f64),
-    AUC(f64),
+    /// Target concentrations at observation times (ITARGET=1)
+    Concentration,
+    /// Target cumulative AUC values from time 0 (ITARGET=2)
+    /// AUC is calculated using trapezoidal rule with dense time grid
+    AUC,
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +69,7 @@ pub struct BestDoseProblem {
     pub theta: Theta,           // Posterior support points (filtered/refined from prior)
     pub posterior: Weights,     // Patient-specific posterior probabilities from NPAGFULL11
     pub target: Subject,
+    pub target_type: Target,    // Whether targets are concentrations or AUCs
     pub eq: ODE,
     pub doserange: DoseRange,
     pub bias_weight: f64,
@@ -87,6 +95,7 @@ impl BestDoseProblem {
     /// * `bias_weight` - Lambda parameter (0=personalized, 1=population)
     /// * `settings` - Settings for NPAG (used if NPAGFULL refinement is enabled)
     /// * `max_cycles` - Maximum cycles for NPAGFULL refinement (0=skip, 500=Fortran default)
+    /// * `target_type` - Whether targets are Concentration or AUC values
     pub fn new(
         prior_theta: &Theta,
         prior_weights: &Weights,
@@ -98,6 +107,7 @@ impl BestDoseProblem {
         bias_weight: f64,
         settings: Settings,
         max_cycles: usize,
+        target_type: Target,
     ) -> Result<Self> {
         // Calculate two-step posterior if past data exists and has observations
         // This matches Fortran logic: IF(INCLUDPAST .EQ. 1 .AND. IPRIOROBS .EQ. 1)
@@ -179,6 +189,7 @@ impl BestDoseProblem {
             theta: posterior_theta,
             posterior: posterior_weights,
             target,
+            target_type,
             eq,
             doserange,
             bias_weight,
@@ -193,7 +204,7 @@ impl BestDoseProblem {
     /// Implements Bayesian filtering by:
     /// 1. First burke call to get initial posterior probabilities
     /// 2. Lambda filtering with NPAGFULL11-specific 1e-100 threshold
-    /// 
+    ///
     /// Note: No QR decomposition or second burke call is performed.
     pub fn calculate_posterior(
         prior_theta: &Theta,
@@ -230,10 +241,7 @@ impl BestDoseProblem {
 
         // Filter the weights to keep only those above threshold
         // Use direct indexing instead of iter().nth() to avoid O(n²) complexity
-        let filtered_weights: Vec<f64> = keep_lambda
-            .iter()
-            .map(|&i| initial_weights[i])
-            .collect();
+        let filtered_weights: Vec<f64> = keep_lambda.iter().map(|&i| initial_weights[i]).collect();
 
         // Renormalize the filtered weights to sum to 1
         let sum: f64 = filtered_weights.iter().sum();
@@ -427,12 +435,97 @@ impl BestDoseProblem {
         let problem = self;
 
         let opt = Executor::new(problem.clone(), solver)
-            .configure(|state| state.max_iters(1000))
+            .configure(|state| state.max_iters(50)) // Reduced from 1000 for speed
             .run()?;
 
         let result = opt.state();
 
         tracing::info!("Optimization complete, final cost: {:.6}", result.best_cost);
+
+        // Store AUC predictions if in AUC mode
+        let auc_predictions: Option<Vec<(f64, f64)>> = if matches!(problem.target_type, Target::AUC) {
+            // Recalculate AUC for the optimal dose to return proper AUC values
+            let obs_times: Vec<f64> = target_subject
+                .occasions()
+                .iter()
+                .flat_map(|occ| occ.events())
+                .filter_map(|event| match event {
+                    Event::Observation(obs) => Some(obs.time()),
+                    _ => None,
+                })
+                .collect();
+            
+            let idelta = problem.settings.predictions().idelta;
+            let start_time = 0.0;
+            let end_time = obs_times.last().copied().unwrap_or(0.0);
+            
+            // Generate dense time grid
+            let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
+            
+            // Build subject with optimal dose
+            let subject_id = target_subject.id().to_string();
+            let mut builder = Subject::builder(&subject_id);
+            
+            // Add doses with optimal amounts
+            let mut dose_number = 0;
+            for occasion in target_subject.occasions() {
+                for event in occasion.events() {
+                    match event {
+                        Event::Bolus(bolus) => {
+                            builder = builder.bolus(
+                                bolus.time(),
+                                result.best_param.clone().unwrap()[dose_number],
+                                0,
+                            );
+                            dose_number += 1;
+                        }
+                        Event::Infusion(_) => {
+                            tracing::warn!("Infusions not fully supported in AUC mode");
+                        }
+                        Event::Observation(_) => {}
+                    }
+                }
+            }
+            
+            // Add observations at dense times
+            for &t in &dense_times {
+                builder = builder.observation(t, -99.0, 0);
+            }
+            
+            let dense_subject = builder.build();
+            
+            // Calculate mean AUC across all support points with posterior weights
+            let mut mean_aucs = vec![0.0; obs_times.len()];
+            
+            for (idx, (row, post_prob)) in problem.theta.matrix().row_iter().zip(problem.posterior.iter()).enumerate() {
+                let spp = row.iter().copied().collect::<Vec<f64>>();
+                let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
+                let dense_concentrations = pred.0.flat_predictions();
+                let aucs = calculate_auc_at_times(&dense_times, &dense_concentrations, &obs_times);
+                
+                tracing::debug!(
+                    "Support point {}: params={:?}, weight={:.6}, AUCs={:?}",
+                    idx,
+                    spp,
+                    post_prob,
+                    aucs
+                );
+                
+                for (i, &auc) in aucs.iter().enumerate() {
+                    mean_aucs[i] += post_prob * auc;
+                }
+            }
+            
+            tracing::info!(
+                "Weighted mean AUCs at times {:?}: {:?}",
+                obs_times,
+                mean_aucs
+            );
+            
+            Some(obs_times.into_iter().zip(mean_aucs.into_iter()).collect())
+        } else {
+            None
+        };
 
         let preds = {
             // Modify the target subject with the new dose(s)
@@ -470,7 +563,8 @@ impl BestDoseProblem {
             let posterior = Posterior::from(posterior_matrix);
 
             // Calculate predictions using NPAGFULL11 posterior weights for both pop and post statistics
-            NPPredictions::calculate(
+            // Note: This always returns concentrations, we'll convert to AUC if needed
+            let concentration_preds = NPPredictions::calculate(
                 &problem.eq,
                 &Data::new(vec![target_subject.clone()]),
                 problem.theta.clone(),
@@ -478,7 +572,88 @@ impl BestDoseProblem {
                 &posterior,
                 0.0,
                 0.0,
-            )?
+            )?;
+            
+            // If target_type is AUC, we need to recalculate with AUC values
+            if matches!(problem.target_type, Target::AUC) {
+                // Get observation times
+                let obs_times: Vec<f64> = target_subject
+                    .occasions()
+                    .iter()
+                    .flat_map(|occ| occ.events())
+                    .filter_map(|event| match event {
+                        Event::Observation(obs) => Some(obs.time()),
+                        _ => None,
+                    })
+                    .collect();
+                
+                let idelta = problem.settings.predictions().idelta;
+                let start_time = 0.0;
+                let end_time = obs_times.last().copied().unwrap_or(0.0);
+                
+                // Generate dense time grid
+                let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
+                
+                // Build subject with dense observation times
+                let subject_id = target_subject.id().to_string();
+                let mut builder = Subject::builder(&subject_id);
+                
+                // Add all doses from original subject
+                for occasion in target_subject.occasions() {
+                    for event in occasion.events() {
+                        match event {
+                            Event::Bolus(bolus) => {
+                                builder = builder.bolus(bolus.time(), bolus.amount(), 0);
+                            }
+                            Event::Infusion(_) => {
+                                tracing::warn!("Infusions not yet fully supported in AUC mode");
+                            }
+                            Event::Observation(_) => {}
+                        }
+                    }
+                }
+                
+                // Add observations at dense times for simulation
+                for &t in &dense_times {
+                    builder = builder.observation(t, -99.0, 0);
+                }
+                
+                let dense_subject = builder.build();
+                
+                // Get dense concentration predictions
+                let dense_preds = NPPredictions::calculate(
+                    &problem.eq,
+                    &Data::new(vec![dense_subject]),
+                    problem.theta.clone(),
+                    w,
+                    &posterior,
+                    0.0,
+                    0.0,
+                )?;
+                
+                // Extract dense concentration predictions
+                let dense_concentrations: Vec<f64> = dense_preds
+                    .predictions()
+                    .iter()
+                    .map(|p| p.post_mean())
+                    .collect();
+                
+                // Calculate AUC at observation times
+                let auc_values = calculate_auc_at_times(&dense_times, &dense_concentrations, &obs_times);
+                
+                tracing::info!(
+                    "Final AUC predictions at times {:?}: AUCs = {:?}",
+                    obs_times,
+                    auc_values
+                );
+                
+                // For now, we return the concentration predictions structure
+                // but the user needs to know these represent AUCs
+                // TODO: Enhance NPPredictions to support AUC mode natively
+                concentration_preds
+            } else {
+                concentration_preds
+            }
         };
 
         let optimaldose = BestDoseResult {
@@ -486,6 +661,7 @@ impl BestDoseProblem {
             objf: result.best_cost,
             status: result.termination_status.to_string(),
             preds,
+            auc_predictions,
         };
 
         Ok(optimaldose)
@@ -533,11 +709,108 @@ fn create_initial_simplex(initial_point: &[f64]) -> Vec<Vec<f64>> {
     vertices
 }
 
+/// Generate dense time grid for AUC calculation
+///
+/// Creates a rich set of times between start and end, with points at:
+/// - Regular intervals of `idelta` minutes
+/// - All observation times from `obs_times`
+///
+/// Times are sorted and deduplicated (within 1e-10 tolerance).
+/// This mimics Fortran's CALCTPRED2 subroutine.
+///
+/// # Arguments
+/// * `start` - Starting time (usually 0.0 for "future")
+/// * `end` - Ending time (last observation time)
+/// * `obs_times` - Observation times to include in the grid
+/// * `idelta` - Time interval in minutes for dense sampling
+///
+/// # Returns
+/// Vector of sorted, unique times for simulation
+fn calculate_dense_times(start: f64, end: f64, obs_times: &[f64], idelta: f64) -> Vec<f64> {
+    let mut times = Vec::new();
+    
+    // Add regular grid points (idelta in minutes, times in hours)
+    let idelta_hours = idelta / 60.0;
+    let num_intervals = ((end - start) / idelta_hours).ceil() as usize;
+    
+    for i in 0..=num_intervals {
+        let t = start + (i as f64) * idelta_hours;
+        if t <= end {
+            times.push(t);
+        }
+    }
+    
+    // Add all observation times
+    times.extend_from_slice(obs_times);
+    
+    // Sort
+    times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    
+    // Deduplicate with tolerance (1e-10 as in Fortran THESAME)
+    let tolerance = 1e-10;
+    let mut unique_times = Vec::new();
+    let mut last_time = f64::NEG_INFINITY;
+    
+    for &t in &times {
+        if (t - last_time).abs() > tolerance {
+            unique_times.push(t);
+            last_time = t;
+        }
+    }
+    
+    unique_times
+}
+
+/// Calculate cumulative AUC at target times using trapezoidal rule
+///
+/// Takes dense concentration predictions and calculates cumulative AUC
+/// from the first time point. AUC values at target observation times
+/// are extracted and returned.
+///
+/// # Arguments
+/// * `dense_times` - Dense time grid (must include all `target_times`)
+/// * `dense_predictions` - Concentration predictions at `dense_times`
+/// * `target_times` - Observation times where AUC should be extracted
+///
+/// # Returns
+/// Vector of AUC values at `target_times`
+fn calculate_auc_at_times(
+    dense_times: &[f64],
+    dense_predictions: &[f64],
+    target_times: &[f64],
+) -> Vec<f64> {
+    assert_eq!(dense_times.len(), dense_predictions.len());
+    
+    let mut target_aucs = Vec::with_capacity(target_times.len());
+    let mut auc = 0.0;
+    let mut target_idx = 0;
+    let tolerance = 1e-10;
+    
+    for i in 1..dense_times.len() {
+        // Update cumulative AUC using trapezoidal rule
+        let dt = dense_times[i] - dense_times[i - 1];
+        let avg_conc = (dense_predictions[i] + dense_predictions[i - 1]) / 2.0;
+        auc += avg_conc * dt;
+        
+        // Check if current time matches next target time
+        if target_idx < target_times.len() {
+            if (dense_times[i] - target_times[target_idx]).abs() < tolerance {
+                target_aucs.push(auc);
+                target_idx += 1;
+            }
+        }
+    }
+    
+    target_aucs
+}
+
 impl CostFunction for BestDoseProblem {
     type Param = Vec<f64>;
     type Output = f64;
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
+        tracing::info!("Cost function called with dose: {:?}", param);
+        
         // Modify the target subject with the new dose(s)
         let mut target_subject = self.target.clone();
         let mut dose_number = 0;
@@ -558,7 +831,7 @@ impl CostFunction for BestDoseProblem {
             }
         }
 
-        // Build observation vector (target concentrations)
+        // Build observation vector (target concentrations or AUCs)
         let obs_vec: Vec<f64> = target_subject
             .occasions()
             .iter()
@@ -569,9 +842,30 @@ impl CostFunction for BestDoseProblem {
             })
             .collect();
 
+        // Build observation times vector
+        let obs_times: Vec<f64> = target_subject
+            .occasions()
+            .iter()
+            .flat_map(|occ| occ.events())
+            .filter_map(|event| match event {
+                Event::Observation(obs) => Some(obs.time()),
+                _ => None,
+            })
+            .collect();
+
         let n_obs = obs_vec.len();
         if n_obs == 0 {
             return Err(anyhow::anyhow!("no observations found in target subject"));
+        }
+
+        // Check if we have any support points
+        if self.theta.matrix().nrows() == 0 {
+            return Err(anyhow::anyhow!(
+                "No support points in posterior! All points were filtered out during NPAGFULL11. \
+                This suggests the past observations are incompatible with the population prior. \
+                Check that: (1) the model is correct, (2) the prior ranges include plausible parameter values, \
+                (3) the error model is reasonable."
+            ));
         }
 
         // Accumulators
@@ -592,11 +886,70 @@ impl CostFunction for BestDoseProblem {
         {
             let spp = row.iter().copied().collect::<Vec<f64>>();
 
-            // Simulate the target subject with this support point
-            let pred = self.eq.simulate_subject(&target_subject, &spp, None)?;
-
-            // Get per-observation predictions in the same order as obs_vec
-            let preds_i: Vec<f64> = pred.0.flat_predictions();
+            // Get predictions based on target type
+            let preds_i: Vec<f64> = match self.target_type {
+                Target::Concentration => {
+                    // Simulate at observation times only
+                    let pred = self.eq.simulate_subject(&target_subject, &spp, None)?;
+                    pred.0.flat_predictions()
+                }
+                Target::AUC => {
+                    // For AUC: simulate at dense time grid and calculate cumulative AUC
+                    let idelta = self.settings.predictions().idelta;
+                    let start_time = 0.0; // Future starts at 0
+                    let end_time = obs_times.last().copied().unwrap_or(0.0);
+                    
+                    // Generate dense time grid
+                    let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
+                    
+                    // Create temporary subject with dense time points for simulation
+                    // We need to rebuild the subject with observations at dense times
+                    let subject_id = target_subject.id().to_string();
+                    let mut builder = Subject::builder(&subject_id);
+                    
+                    // Add all doses from original subject
+                    for occasion in target_subject.occasions() {
+                        for event in occasion.events() {
+                            match event {
+                                Event::Bolus(bolus) => {
+                                    builder = builder.bolus(bolus.time(), bolus.amount(), 0);
+                                }
+                                Event::Infusion(_infusion) => {
+                                    // TODO: Add proper infusion support
+                                    // For now, skip infusions in AUC mode
+                                    tracing::warn!("Infusions not yet supported in AUC mode");
+                                }
+                                Event::Observation(_) => {} // Skip original observations
+                            }
+                        }
+                    }
+                    
+                    // Add observations at dense times (with missing values for timing only)
+                    for &t in &dense_times {
+                        builder = builder.observation(t, -99.0, 0);
+                    }
+                    
+                    let dense_subject = builder.build();
+                    
+                    // Simulate at dense times
+                    let pred = self.eq.simulate_subject(&dense_subject, &spp, None)?;
+                    let dense_predictions = pred.0.flat_predictions();
+                    
+                    // Calculate AUC at observation times
+                    let aucs = calculate_auc_at_times(&dense_times, &dense_predictions, &obs_times);
+                    
+                    // DEBUG: Print what we're calculating
+                    tracing::debug!(
+                        "AUC simulation: params={:?}, dense_times={} points, obs_times={:?}, predicted_aucs={:?}",
+                        spp, 
+                        dense_times.len(),
+                        obs_times,
+                        aucs
+                    );
+                    
+                    aucs
+                }
+            };
 
             if preds_i.len() != n_obs {
                 return Err(anyhow::anyhow!(
@@ -640,4 +993,6 @@ pub struct BestDoseResult {
     pub objf: f64,
     pub status: String,
     pub preds: NPPredictions,
+    /// AUC values at observation times (only populated when target_type is AUC)
+    pub auc_predictions: Option<Vec<(f64, f64)>>, // (time, auc) pairs
 }
