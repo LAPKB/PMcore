@@ -74,73 +74,106 @@ impl BestDoseProblem {
     ///
     /// This implements the Fortran BestDose algorithm:
     /// 1. NPAGFULL11: Bayesian filtering of prior based on past data
-    /// 2. NPAGFULL: Refinement of each filtered point (optional)
+    /// 2. NPAGFULL: Refinement of each filtered point (controlled by max_cycles)
     ///
     /// # Arguments
     /// * `prior_theta` - Prior support points from population NPAG
     /// * `prior_weights` - Prior probabilities (population)
-    /// * `past_data` - Patient's historical data (doses and observations)
+    /// * `past_data` - Patient's historical data (doses and observations). None = use prior directly
     /// * `target` - Future dosing template with target concentrations
     /// * `eq` - Pharmacokinetic/pharmacodynamic model
     /// * `error_models` - Error model specifications
     /// * `doserange` - Allowable dose range
     /// * `bias_weight` - Lambda parameter (0=personalized, 1=population)
     /// * `settings` - Settings for NPAG (used if NPAGFULL refinement is enabled)
-    /// * `refine_with_npagfull` - If true, refine filtered points with full NPAG optimization
+    /// * `max_cycles` - Maximum cycles for NPAGFULL refinement (0=skip, 500=Fortran default)
     pub fn new(
         prior_theta: &Theta,
         prior_weights: &Weights,
-        past_data: Subject,
+        past_data: Option<Subject>,
         target: Subject,
         eq: ODE,
         error_models: ErrorModels,
         doserange: DoseRange,
         bias_weight: f64,
         settings: Settings,
-        refine_with_npagfull: bool,
+        max_cycles: usize,
     ) -> Result<Self> {
         // Calculate two-step posterior if past data exists and has observations
-        let (posterior_theta, posterior_weights) = if past_data.occasions().is_empty()
-            || past_data.occasions().iter().all(|occ| {
-                occ.events()
-                    .iter()
-                    .all(|e| !matches!(e, Event::Observation(_)))
-            }) {
-            // No past data or no observations - use prior as-is
-            tracing::info!("No past observations - using prior density directly");
-            (prior_theta.clone(), prior_weights.clone())
-        } else {
-            // Step 1: Calculate Bayesian posterior via NPAGFULL11
-            tracing::info!("Calculating Bayesian posterior from past data...");
-            let past_data_obj = Data::new(vec![past_data.clone()]);
-            let (filtered_theta, filtered_weights) = Self::calculate_posterior(
-                prior_theta,
-                prior_weights,
-                &past_data_obj,
-                &eq,
-                &error_models,
-            )?;
+        // This matches Fortran logic: IF(INCLUDPAST .EQ. 1 .AND. IPRIOROBS .EQ. 1)
+        let (posterior_theta, posterior_weights, final_past_data) = match &past_data {
+            None => {
+                // INCLUDPAST = 0: No past data provided
+                tracing::info!("No past data - using prior density directly");
+                (
+                    prior_theta.clone(),
+                    prior_weights.clone(),
+                    Subject::builder("Empty").build(),
+                )
+            }
+            Some(past_subject) => {
+                // Check if past data has observations (IPRIOROBS check)
+                let has_observations = !past_subject.occasions().is_empty()
+                    && past_subject.occasions().iter().any(|occ| {
+                        occ.events()
+                            .iter()
+                            .any(|e| matches!(e, Event::Observation(_)))
+                    });
 
-            // Step 2: Optionally refine with NPAGFULL
-            if refine_with_npagfull && filtered_theta.matrix().nrows() > 0 {
-                tracing::info!(
-                    "Refining {} filtered points with NPAGFULL...",
-                    filtered_theta.matrix().nrows()
-                );
-                Self::refine_with_npagfull(
-                    &filtered_theta,
-                    &filtered_weights,
-                    &past_data_obj,
-                    &eq,
-                    &settings,
-                )?
-            } else {
-                (filtered_theta, filtered_weights)
+                if !has_observations {
+                    // IPRIOROBS = 0: Past data exists but no observations
+                    tracing::info!("Past data has no observations - using prior density directly");
+                    (
+                        prior_theta.clone(),
+                        prior_weights.clone(),
+                        past_subject.clone(),
+                    )
+                } else {
+                    // INCLUDPAST = 1 AND IPRIOROBS = 1: Calculate posterior from past data
+                    tracing::info!("Calculating Bayesian posterior from past data...");
+                    let past_data_obj = Data::new(vec![past_subject.clone()]);
+                    let (filtered_theta, filtered_weights) = Self::calculate_posterior(
+                        prior_theta,
+                        prior_weights,
+                        &past_data_obj,
+                        &eq,
+                        &error_models,
+                    )?;
+
+                    // Step 2: Optionally refine with NPAGFULL (controlled by max_cycles)
+                    let (final_theta, final_weights) =
+                        if max_cycles > 0 && filtered_theta.matrix().nrows() > 0 {
+                            tracing::info!(
+                                "Refining {} filtered points with NPAGFULL (max {} cycles)...",
+                                filtered_theta.matrix().nrows(),
+                                max_cycles
+                            );
+
+                            // Update settings with max_cycles
+                            let mut npag_settings = settings.clone();
+                            npag_settings.set_cycles(max_cycles);
+
+                            Self::refine_with_npagfull(
+                                &filtered_theta,
+                                &filtered_weights,
+                                &past_data_obj,
+                                &eq,
+                                &npag_settings,
+                            )?
+                        } else {
+                            if max_cycles == 0 {
+                                tracing::info!("Skipping NPAGFULL refinement (max_cycles=0)");
+                            }
+                            (filtered_theta, filtered_weights)
+                        };
+
+                    (final_theta, final_weights, past_subject.clone())
+                }
             }
         };
 
         Ok(Self {
-            past_data,
+            past_data: final_past_data,
             prior_theta: prior_theta.clone(),
             prior_weights: prior_weights.clone(),
             theta: posterior_theta,
@@ -259,7 +292,7 @@ impl BestDoseProblem {
             // Create NPAG settings with limited cycles for refinement
             // Set the prior to this single point so get_prior() returns the correct theta
             let mut npag_settings = settings.clone();
-            npag_settings.set_cycles(100); // Limit cycles for individual refinements
+            // Cycles are already set by caller via max_cycles parameter
             npag_settings.disable_output(); // Don't write files for each refinement
             npag_settings.set_prior(crate::routines::initialization::Prior::Theta(
                 single_point_theta.clone(),
@@ -276,44 +309,25 @@ impl BestDoseProblem {
                 num_points
             );
 
-            // Run NPAG optimization loop
-            // We need at least 2 cycles to trigger expansion (expansion happens when cycle > 1)
-            // This ensures we get the "daughter points" mentioned in Fortran documentation
-            let mut cycle_count = 0;
-            const MIN_CYCLES: usize = 2; // Force at least 2 cycles to ensure expansion happens
-
-            let refinement_result = (|| -> Result<()> {
-                while !npag.converged() || cycle_count < MIN_CYCLES {
-                    npag.inc_cycle();
-                    cycle_count += 1;
-
-                    // Expansion happens first (after cycle 1)
-                    if cycle_count > 1 {
-                        npag.expansion()?;
-                    }
-
-                    npag.evaluation()?;
-                    npag.condensation()?;
-                    npag.optimizations()?;
-                    npag.convergence_evaluation();
-                }
+            // Run NPAG optimization using the standard API
+            let refinement_result = npag.initialize().and_then(|_| {
+                while !npag.next_cycle()? {}
                 Ok(())
-            })();
+            });
 
             // If refinement failed (e.g., zero probability), skip this point
-            if refinement_result.is_err() {
+            if let Err(e) = refinement_result {
                 tracing::warn!(
                     "Failed to refine point {}/{}:  {} - skipping",
                     i + 1,
                     num_points,
-                    refinement_result.unwrap_err()
+                    e
                 );
                 continue;
             }
 
             tracing::debug!(
-                "NPAG converged after {} cycles with {} final point(s)",
-                cycle_count,
+                "NPAG converged with {} final point(s)",
                 npag.theta().matrix().nrows()
             );
 
