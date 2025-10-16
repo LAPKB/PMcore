@@ -190,11 +190,11 @@ impl BestDoseProblem {
     /// NPAGFULL11: Bayesian filtering to get compatible points
     /// This is Step 1 of the two-step posterior
     ///
-    /// Follows the Fortran NPAGFULL11 algorithm which calls emint twice:
+    /// Implements Bayesian filtering by:
     /// 1. First burke call to get initial posterior probabilities
     /// 2. Lambda filtering with NPAGFULL11-specific 1e-100 threshold
-    /// 3. QR decomposition to remove linearly dependent points
-    /// 4. Second burke call to recalculate weights on filtered points
+    /// 
+    /// Note: No QR decomposition or second burke call is performed.
     pub fn calculate_posterior(
         prior_theta: &Theta,
         _prior_weights: &Weights,
