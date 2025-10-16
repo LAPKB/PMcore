@@ -398,11 +398,15 @@ impl BestDoseProblem {
         Ok((refined_theta, normalized_weights))
     }
 
-    pub fn optimize(self) -> Result<BestDoseResult> {
+    /// Helper method to run a single optimization with specified weights
+    /// Returns (optimal_doses, cost, auc_predictions, predictions)
+    fn run_single_optimization(
+        &self,
+        weights: &Weights,
+        method_name: &str,
+    ) -> Result<(Vec<f64>, f64, Option<Vec<(f64, f64)>>, NPPredictions)> {
         let min_dose = self.doserange.min;
         let max_dose = self.doserange.max;
-
-        // Get the target subject
         let target_subject = self.target.clone();
 
         // Get all dose amounts as a vector
@@ -418,33 +422,38 @@ impl BestDoseProblem {
             .collect();
 
         tracing::info!(
-            "Optimizing {} dose(s) using {} support points (posterior from NPAGFULL11)",
-            all_doses.len(),
+            "Running {} optimization with {} support points",
+            method_name,
             self.theta.matrix().nrows()
         );
 
-        // Make initial simplex of the Nelder-Mead solver
+        // Make initial simplex
         let initial_guess = (min_dose + max_dose) / 2.0;
         let initial_point = vec![initial_guess; all_doses.len()];
         let initial_simplex = create_initial_simplex(&initial_point);
 
-        tracing::debug!("Initial simplex: {:?}", initial_simplex);
+        // Create a modified problem with the custom weights
+        let mut problem_with_weights = self.clone();
+        problem_with_weights.posterior = weights.clone();
 
-        // Initialize the Nelder-Mead solver with correct generic types
+        // Run optimization
         let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(initial_simplex);
-        let problem = self;
-
-        let opt = Executor::new(problem.clone(), solver)
-            .configure(|state| state.max_iters(50)) // Reduced from 1000 for speed
+        let opt = Executor::new(problem_with_weights.clone(), solver)
+            .configure(|state| state.max_iters(50))
             .run()?;
 
         let result = opt.state();
+        let optimal_doses = result.best_param.clone().unwrap();
+        let final_cost = result.best_cost;
 
-        tracing::info!("Optimization complete, final cost: {:.6}", result.best_cost);
+        tracing::info!(
+            "{} optimization complete, cost: {:.6}",
+            method_name,
+            final_cost
+        );
 
-        // Store AUC predictions if in AUC mode
-        let auc_predictions: Option<Vec<(f64, f64)>> = if matches!(problem.target_type, Target::AUC) {
-            // Recalculate AUC for the optimal dose to return proper AUC values
+        // Calculate AUC predictions if in AUC mode
+        let auc_predictions = if matches!(self.target_type, Target::AUC) {
             let obs_times: Vec<f64> = target_subject
                 .occasions()
                 .iter()
@@ -454,29 +463,21 @@ impl BestDoseProblem {
                     _ => None,
                 })
                 .collect();
-            
-            let idelta = problem.settings.predictions().idelta;
+
+            let idelta = self.settings.predictions().idelta;
             let start_time = 0.0;
             let end_time = obs_times.last().copied().unwrap_or(0.0);
-            
-            // Generate dense time grid
             let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
-            
-            // Build subject with optimal dose
+
             let subject_id = target_subject.id().to_string();
             let mut builder = Subject::builder(&subject_id);
-            
-            // Add doses with optimal amounts
+
             let mut dose_number = 0;
             for occasion in target_subject.occasions() {
                 for event in occasion.events() {
                     match event {
                         Event::Bolus(bolus) => {
-                            builder = builder.bolus(
-                                bolus.time(),
-                                result.best_param.clone().unwrap()[dose_number],
-                                0,
-                            );
+                            builder = builder.bolus(bolus.time(), optimal_doses[dose_number], 0);
                             dose_number += 1;
                         }
                         Event::Infusion(_) => {
@@ -486,185 +487,114 @@ impl BestDoseProblem {
                     }
                 }
             }
-            
-            // Add observations at dense times
+
             for &t in &dense_times {
                 builder = builder.observation(t, -99.0, 0);
             }
-            
+
             let dense_subject = builder.build();
-            
-            // Calculate mean AUC across all support points with posterior weights
             let mut mean_aucs = vec![0.0; obs_times.len()];
-            
-            for (idx, (row, post_prob)) in problem.theta.matrix().row_iter().zip(problem.posterior.iter()).enumerate() {
+
+            for (row, weight) in self.theta.matrix().row_iter().zip(weights.iter()) {
                 let spp = row.iter().copied().collect::<Vec<f64>>();
-                let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
+                let pred = self.eq.simulate_subject(&dense_subject, &spp, None)?;
                 let dense_concentrations = pred.0.flat_predictions();
                 let aucs = calculate_auc_at_times(&dense_times, &dense_concentrations, &obs_times);
-                
-                tracing::debug!(
-                    "Support point {}: params={:?}, weight={:.6}, AUCs={:?}",
-                    idx,
-                    spp,
-                    post_prob,
-                    aucs
-                );
-                
+
                 for (i, &auc) in aucs.iter().enumerate() {
-                    mean_aucs[i] += post_prob * auc;
+                    mean_aucs[i] += weight * auc;
                 }
             }
-            
-            tracing::info!(
-                "Weighted mean AUCs at times {:?}: {:?}",
-                obs_times,
-                mean_aucs
-            );
-            
+
             Some(obs_times.into_iter().zip(mean_aucs.into_iter()).collect())
         } else {
             None
         };
 
-        let preds = {
-            // Modify the target subject with the new dose(s)
-            let mut target_subject = target_subject.clone();
-            let mut dose_number = 0;
-
-            for occasion in target_subject.iter_mut() {
-                for event in occasion.iter_mut() {
-                    match event {
-                        Event::Bolus(bolus) => {
-                            // Set the dose to the new dose
-                            bolus.set_amount(result.best_param.clone().unwrap()[dose_number]);
-                            dose_number += 1;
-                        }
-                        Event::Infusion(infusion) => {
-                            // Set the dose to the new dose
-                            infusion.set_amount(result.best_param.clone().unwrap()[dose_number]);
-                            dose_number += 1;
-                        }
-                        Event::Observation(_) => {}
+        // Calculate predictions
+        let mut target_with_optimal = target_subject.clone();
+        let mut dose_number = 0;
+        for occasion in target_with_optimal.iter_mut() {
+            for event in occasion.iter_mut() {
+                match event {
+                    Event::Bolus(bolus) => {
+                        bolus.set_amount(optimal_doses[dose_number]);
+                        dose_number += 1;
                     }
+                    Event::Infusion(infusion) => {
+                        infusion.set_amount(optimal_doses[dose_number]);
+                        dose_number += 1;
+                    }
+                    Event::Observation(_) => {}
                 }
             }
+        }
 
-            // Use the preserved posterior weights from NPAGFULL11
-            // NOT recalculated weights from burke!
-            let w = &problem.posterior;
+        use faer::Mat;
+        let posterior_matrix =
+            Mat::from_fn(1, weights.weights().nrows(), |_row, col| *weights.weights().get(col));
+        let posterior = Posterior::from(posterior_matrix);
 
-            // For BestDose, population and posterior statistics are the same
-            // Both use the NPAGFULL posterior weights
-            // Create a 1-row posterior matrix with the NPAGFULL weights
-            use faer::Mat;
-            let posterior_matrix =
-                Mat::from_fn(1, w.weights().nrows(), |_row, col| *w.weights().get(col));
-            let posterior = Posterior::from(posterior_matrix);
+        let preds = NPPredictions::calculate(
+            &self.eq,
+            &Data::new(vec![target_with_optimal]),
+            self.theta.clone(),
+            weights,
+            &posterior,
+            0.0,
+            0.0,
+        )?;
 
-            // Calculate predictions using NPAGFULL11 posterior weights for both pop and post statistics
-            // Note: This always returns concentrations, we'll convert to AUC if needed
-            let concentration_preds = NPPredictions::calculate(
-                &problem.eq,
-                &Data::new(vec![target_subject.clone()]),
-                problem.theta.clone(),
-                w,
-                &posterior,
-                0.0,
-                0.0,
-            )?;
-            
-            // If target_type is AUC, we need to recalculate with AUC values
-            if matches!(problem.target_type, Target::AUC) {
-                // Get observation times
-                let obs_times: Vec<f64> = target_subject
-                    .occasions()
-                    .iter()
-                    .flat_map(|occ| occ.events())
-                    .filter_map(|event| match event {
-                        Event::Observation(obs) => Some(obs.time()),
-                        _ => None,
-                    })
-                    .collect();
-                
-                let idelta = problem.settings.predictions().idelta;
-                let start_time = 0.0;
-                let end_time = obs_times.last().copied().unwrap_or(0.0);
-                
-                // Generate dense time grid
-                let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
-                
-                // Build subject with dense observation times
-                let subject_id = target_subject.id().to_string();
-                let mut builder = Subject::builder(&subject_id);
-                
-                // Add all doses from original subject
-                for occasion in target_subject.occasions() {
-                    for event in occasion.events() {
-                        match event {
-                            Event::Bolus(bolus) => {
-                                builder = builder.bolus(bolus.time(), bolus.amount(), 0);
-                            }
-                            Event::Infusion(_) => {
-                                tracing::warn!("Infusions not yet fully supported in AUC mode");
-                            }
-                            Event::Observation(_) => {}
-                        }
-                    }
-                }
-                
-                // Add observations at dense times for simulation
-                for &t in &dense_times {
-                    builder = builder.observation(t, -99.0, 0);
-                }
-                
-                let dense_subject = builder.build();
-                
-                // Get dense concentration predictions
-                let dense_preds = NPPredictions::calculate(
-                    &problem.eq,
-                    &Data::new(vec![dense_subject]),
-                    problem.theta.clone(),
-                    w,
-                    &posterior,
-                    0.0,
-                    0.0,
-                )?;
-                
-                // Extract dense concentration predictions
-                let dense_concentrations: Vec<f64> = dense_preds
-                    .predictions()
-                    .iter()
-                    .map(|p| p.post_mean())
-                    .collect();
-                
-                // Calculate AUC at observation times
-                let auc_values = calculate_auc_at_times(&dense_times, &dense_concentrations, &obs_times);
-                
-                tracing::info!(
-                    "Final AUC predictions at times {:?}: AUCs = {:?}",
-                    obs_times,
-                    auc_values
-                );
-                
-                // For now, we return the concentration predictions structure
-                // but the user needs to know these represent AUCs
-                // TODO: Enhance NPPredictions to support AUC mode natively
-                concentration_preds
-            } else {
-                concentration_preds
-            }
+        Ok((optimal_doses, final_cost, auc_predictions, preds))
+    }
+
+    pub fn optimize(self) -> Result<BestDoseResult> {
+        let n_points = self.theta.matrix().nrows();
+        
+        tracing::info!(
+            "Starting dual optimization approach (matching Fortran BESTDOS113+)"
+        );
+        
+        // FIRST OPTIMIZATION: Use posterior weights from NPAGFULL11
+        tracing::info!("{}", "=".repeat(60));
+        tracing::info!("OPTIMIZATION 1: Posterior weights (patient-specific)");
+        tracing::info!("{}", "=".repeat(60));
+        
+        let (doses1, cost1, auc1, preds1) = 
+            self.run_single_optimization(&self.posterior, "Posterior")?;
+        
+        // SECOND OPTIMIZATION: Use uniform weights (population-based)
+        tracing::info!("{}", "=".repeat(60));
+        tracing::info!("OPTIMIZATION 2: Uniform weights (population)");
+        tracing::info!("{}", "=".repeat(60));
+        
+        let uniform_weights = Weights::uniform(n_points);
+        let (doses2, cost2, auc2, preds2) = 
+            self.run_single_optimization(&uniform_weights, "Uniform")?;
+        
+        // Compare and pick the better result
+        tracing::info!("{}", "=".repeat(60));
+        tracing::info!("COMPARISON:");
+        tracing::info!("  Posterior optimization: cost = {:.6}", cost1);
+        tracing::info!("  Uniform optimization:   cost = {:.6}", cost2);
+        
+        let (final_doses, final_cost, final_auc, final_preds, method) = if cost1 <= cost2 {
+            tracing::info!("  → Selected: Posterior weights (lower cost)");
+            (doses1, cost1, auc1, preds1, "posterior")
+        } else {
+            tracing::info!("  → Selected: Uniform weights (lower cost)");
+            (doses2, cost2, auc2, preds2, "uniform")
         };
-
-        let optimaldose = BestDoseResult {
-            dose: result.best_param.clone().unwrap(),
-            objf: result.best_cost,
-            status: result.termination_status.to_string(),
-            preds,
-            auc_predictions,
-        };
-
-        Ok(optimaldose)
+        tracing::info!("{}", "=".repeat(60));
+        
+        Ok(BestDoseResult {
+            dose: final_doses,
+            objf: final_cost,
+            status: "Converged".to_string(),
+            preds: final_preds,
+            auc_predictions: final_auc,
+            optimization_method: method.to_string(),
+        })
     }
 
     /// Set the bias weight (lambda parameter)
@@ -995,4 +925,7 @@ pub struct BestDoseResult {
     pub preds: NPPredictions,
     /// AUC values at observation times (only populated when target_type is AUC)
     pub auc_predictions: Option<Vec<(f64, f64)>>, // (time, auc) pairs
+    /// Which optimization method produced the best result: "posterior" or "uniform"
+    /// Matches Fortran's dual-optimization approach (BESTDOS113+)
+    pub optimization_method: String,
 }

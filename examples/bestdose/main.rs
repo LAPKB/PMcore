@@ -114,11 +114,12 @@ fn main() -> Result<()> {
     // Print results
     for (bias_weight, optimal) in &results {
         println!(
-            "Bias weight: {:.2}\t\t Optimal dose: {:?}\t\tCost: {:.6}\t\tln Cost: {:.4}",
+            "Bias weight: {:.2}\t\t Optimal dose: {:?}\t\tCost: {:.6}\t\tln Cost: {:.4}\t\tMethod: {}",
             bias_weight,
             optimal.dose,
             optimal.objf,
-            optimal.objf.ln()
+            optimal.objf.ln(),
+            optimal.optimization_method
         );
     }
 
