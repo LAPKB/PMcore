@@ -74,7 +74,7 @@ fn main() -> Result<()> {
         eq,
         ems,
         DoseRange::new(100.0, 2000.0), // Wider range for AUC targets
-        0.0,  // bias_weight: 0.0 = full personalization
+        0.0,                           // bias_weight: 0.0 = full personalization
         settings,
         0, // No NPAGFULL refinement (no past data)
         Target::AUC,
@@ -86,7 +86,7 @@ fn main() -> Result<()> {
     println!("=== RESULTS ===");
     println!("Optimal dose: {:.1} mg", optimal.dose[0]);
     println!("Cost function: {:.6}", optimal.objf);
-    
+
     if let Some(auc_preds) = &optimal.auc_predictions {
         println!("\nAUC Predictions:");
         let mut total_error = 0.0;
@@ -106,7 +106,10 @@ fn main() -> Result<()> {
                 time, target, auc, error_pct
             );
         }
-        println!("\n  Mean absolute error: {:.1}%", total_error / auc_preds.len() as f64);
+        println!(
+            "\n  Mean absolute error: {:.1}%",
+            total_error / auc_preds.len() as f64
+        );
     } else {
         println!("\nConcentration Predictions:");
         for pred in optimal.preds.predictions() {
