@@ -61,12 +61,21 @@ use pharmsol::Equation;
 /// # Arguments
 ///
 /// * `problem` - The [`BestDoseProblem`] containing all necessary data
-/// * `candidate_doses` - Dose amounts to evaluate (same order as doses in target subject)
+/// * `candidate_doses` - Dose amounts to evaluate (only for optimizable doses)
 ///
 /// # Returns
 ///
 /// The cost value `(1-λ) × Variance + λ × Bias²` for the candidate doses.
 /// Lower cost indicates better match to targets.
+///
+/// # Dose Masking
+///
+/// When `problem.current_time` is set (past/future separation), only doses where
+/// `dose_optimization_mask[i] == true` are updated with values from `candidate_doses`.
+/// Past doses (mask == false) remain at their historical values.
+///
+/// - **Standard mode**: All doses in `candidate_doses` → all doses updated
+/// - **Fortran mode**: Only future doses in `candidate_doses` → only future doses updated
 ///
 /// # Cost Function Details
 ///
@@ -118,18 +127,26 @@ use pharmsol::Equation;
 pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
     // Build target subject with candidate doses
     let mut target_subject = problem.target.clone();
-    let mut dose_number = 0;
+    let mut optimizable_dose_number = 0; // Index into candidate_doses
 
     for occasion in target_subject.iter_mut() {
         for event in occasion.iter_mut() {
             match event {
                 Event::Bolus(bolus) => {
-                    bolus.set_amount(candidate_doses[dose_number]);
-                    dose_number += 1;
+                    // Only update if this dose is optimizable (amount == 0)
+                    if bolus.amount() == 0.0 {
+                        bolus.set_amount(candidate_doses[optimizable_dose_number]);
+                        optimizable_dose_number += 1;
+                    }
+                    // If not optimizable (amount > 0), keep original amount
                 }
                 Event::Infusion(infusion) => {
-                    infusion.set_amount(candidate_doses[dose_number]);
-                    dose_number += 1;
+                    // Only update if this dose is optimizable (amount == 0)
+                    if infusion.amount() == 0.0 {
+                        infusion.set_amount(candidate_doses[optimizable_dose_number]);
+                        optimizable_dose_number += 1;
+                    }
+                    // If not optimizable (amount > 0), keep original amount
                 }
                 Event::Observation(_) => {}
             }
