@@ -71,6 +71,7 @@ fn main() -> Result<()> {
         &weights,
         None, // No past data - use prior directly
         target_data,
+        None,
         eq,
         ems,
         DoseRange::new(100.0, 2000.0), // Wider range for AUC targets

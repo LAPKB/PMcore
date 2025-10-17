@@ -234,6 +234,14 @@ pub struct BestDoseProblem {
     // Optimization parameters
     pub doserange: DoseRange,
     pub bias_weight: f64, // λ: 0=personalized, 1=population
+
+    /// Time offset between past and future data (used for concatenation)
+    /// When Some(t): future events were offset by this time to create continuous simulation
+    /// When None: no concatenation was performed (standard single-subject mode)
+    ///
+    /// This is used to track the boundary between past and future for reporting/debugging.
+    /// The actual optimization mask is derived from dose amounts (0 = optimize, >0 = fixed).
+    pub current_time: Option<f64>,
 }
 
 /// Result from BestDose optimization

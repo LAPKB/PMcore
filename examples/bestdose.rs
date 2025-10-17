@@ -92,6 +92,7 @@ fn main() -> Result<()> {
         &prior.unwrap(),
         Some(past_data.clone()), // Optional: past data for Bayesian updating
         target_data.clone(),
+        None,
         eq.clone(),
         ems.clone(),
         bestdose::DoseRange::new(0.0, 300.0),

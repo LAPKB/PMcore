@@ -299,6 +299,157 @@ mod types;
 // Re-export public API
 pub use types::{BestDoseProblem, BestDoseResult, DoseRange, Target};
 
+/// Helper function to concatenate past and future subjects (Option 3: Fortran MAKETMP approach)
+///
+/// This mimics Fortran's MAKETMP subroutine logic:
+/// 1. Takes doses (only doses, not observations) from past subject
+/// 2. Offsets all future subject event times by `current_time`
+/// 3. Combines into single continuous subject
+///
+/// # Arguments
+///
+/// * `past` - Subject with past history (only doses will be used)
+/// * `future` - Subject template for future (all events: doses + observations)
+/// * `current_time` - Time offset to apply to all future events
+///
+/// # Returns
+///
+/// Combined subject with:
+/// - Past doses at original times [0, current_time)
+/// - Future doses + observations at offset times [current_time, ∞)
+///
+/// # Example
+///
+/// ```rust,ignore
+/// // Past: dose at t=0, observation at t=6 (patient has been on therapy 6 hours)
+/// let past = Subject::builder("patient")
+///     .bolus(0.0, 500.0, 0)
+///     .observation(6.0, 15.0, 0)  // 15 mg/L at 6 hours
+///     .build();
+///
+/// // Future: dose at t=0 (relative), target at t=24 (relative)
+/// let future = Subject::builder("patient")
+///     .bolus(0.0, 100.0, 0)  // Dose to optimize, will be at t=6 absolute
+///     .observation(24.0, 10.0, 0)  // Target at t=30 absolute
+///     .build();
+///
+/// // Concatenate with current_time = 6.0
+/// let combined = concatenate_past_and_future(&past, &future, 6.0);
+/// // Result: dose at t=0 (fixed, 500mg), dose at t=6 (optimizable, 100mg initial),
+/// //         observation target at t=30 (10 mg/L)
+/// ```
+fn concatenate_past_and_future(
+    past: &pharmsol::prelude::Subject,
+    future: &pharmsol::prelude::Subject,
+    current_time: f64,
+) -> pharmsol::prelude::Subject {
+    use pharmsol::prelude::*;
+
+    let mut builder = Subject::builder(past.id());
+
+    // Add past doses only (skip observations from past)
+    for occasion in past.occasions() {
+        for event in occasion.events() {
+            match event {
+                Event::Bolus(bolus) => {
+                    builder = builder.bolus(bolus.time(), bolus.amount(), bolus.input());
+                }
+                Event::Infusion(inf) => {
+                    builder =
+                        builder.infusion(inf.time(), inf.amount(), inf.input(), inf.duration());
+                }
+                Event::Observation(_) => {
+                    // Skip observations from past (they were already used for posterior)
+                }
+            }
+        }
+    }
+
+    // Add future events with time offset
+    for occasion in future.occasions() {
+        for event in occasion.events() {
+            match event {
+                Event::Bolus(bolus) => {
+                    builder =
+                        builder.bolus(bolus.time() + current_time, bolus.amount(), bolus.input());
+                }
+                Event::Infusion(inf) => {
+                    builder = builder.infusion(
+                        inf.time() + current_time,
+                        inf.amount(),
+                        inf.input(),
+                        inf.duration(),
+                    );
+                }
+                Event::Observation(obs) => {
+                    builder = builder.observation(
+                        obs.time() + current_time,
+                        obs.value().unwrap_or(0.0), // Use 0.0 as default if value is None
+                        obs.outeq(),
+                    );
+                }
+            }
+        }
+    }
+
+    builder.build()
+}
+
+/// Calculate which doses are optimizable based on dose amounts
+///
+/// Returns a boolean mask where:
+/// - `true` = dose amount is 0 (placeholder, optimizable)
+/// - `false` = dose amount > 0 (fixed past dose)
+///
+/// This allows users to specify a combined subject with:
+/// - Non-zero doses for past doses (e.g., 500 mg at t=0) - these are fixed
+/// - Zero doses as placeholders for future doses (e.g., 0 mg at t=6) - these are optimized
+///
+/// # Arguments
+///
+/// * `subject` - The subject with both fixed and placeholder doses
+///
+/// # Returns
+///
+/// Vector of booleans, one per dose in the subject
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let subject = Subject::builder("patient")
+///     .bolus(0.0, 500.0, 0)    // Past dose (fixed) - mask[0] = false
+///     .bolus(6.0, 0.0, 0)      // Future dose (optimize) - mask[1] = true
+///     .observation(30.0, 10.0, 0)
+///     .build();
+/// let mask = calculate_dose_optimization_mask(&subject);
+/// assert_eq!(mask, vec![false, true]);
+/// ```
+fn calculate_dose_optimization_mask(subject: &pharmsol::prelude::Subject) -> Vec<bool> {
+    use pharmsol::prelude::*;
+
+    let mut mask = Vec::new();
+
+    for occasion in subject.occasions() {
+        for event in occasion.events() {
+            match event {
+                Event::Bolus(bolus) => {
+                    // Dose is optimizable if amount is 0 (placeholder)
+                    mask.push(bolus.amount() == 0.0);
+                }
+                Event::Infusion(_) => {
+                    // Note: Infusions not currently supported in BestDose
+                    // Don't add to mask
+                }
+                Event::Observation(_) => {
+                    // Observations don't go in the mask
+                }
+            }
+        }
+    }
+
+    mask
+}
+
 use anyhow::Result;
 use pharmsol::prelude::*;
 use pharmsol::ODE;
@@ -307,25 +458,190 @@ use crate::routines::settings::Settings;
 use crate::structs::theta::Theta;
 use crate::structs::weights::Weights;
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Helper Functions for STAGE 1: Posterior Density Calculation
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Validate current_time parameter for past/future separation mode
+fn validate_current_time(current_time: f64, past_data: &Option<Subject>) -> Result<()> {
+    if let Some(past_subject) = past_data {
+        let max_past_time = past_subject
+            .occasions()
+            .iter()
+            .flat_map(|occ| occ.events())
+            .map(|event| match event {
+                Event::Bolus(b) => b.time(),
+                Event::Infusion(i) => i.time(),
+                Event::Observation(o) => o.time(),
+            })
+            .fold(0.0_f64, |max, time| max.max(time));
+
+        if current_time < max_past_time {
+            return Err(anyhow::anyhow!(
+                "Invalid current_time: {} is before the last past_data event at time {}. \
+                current_time must be >= the maximum time in past_data to avoid time travel!",
+                current_time,
+                max_past_time
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Calculate posterior density (STAGE 1: Two-step process)
+///
+/// # Algorithm Flow (Matches Diagram)
+///
+/// ```text
+/// Prior Density (N points)
+///     ↓
+/// Has past data with observations?
+///     ↓ Yes              ↓ No
+/// Step 1.1:          Use prior
+/// NPAGFULL11         directly
+/// (Bayesian Filter)
+///     ↓
+/// Filtered Posterior (M points)
+///     ↓
+/// Step 1.2:
+/// NPAGFULL
+/// (Refine each point)
+///     ↓
+/// Refined Posterior
+/// (M points with NPAGFULL11 weights)
+/// ```
+///
+/// # Returns
+///
+/// Tuple: (posterior_theta, posterior_weights, filtered_prior_weights, past_subject)
+fn calculate_posterior_density(
+    prior_theta: &Theta,
+    prior_weights: &Weights,
+    past_data: Option<&Subject>,
+    eq: &ODE,
+    error_models: &ErrorModels,
+    settings: &Settings,
+    max_cycles: usize,
+) -> Result<(Theta, Weights, Weights, Subject)> {
+    match past_data {
+        None => {
+            tracing::info!("  No past data → using prior directly");
+            Ok((
+                prior_theta.clone(),
+                prior_weights.clone(),
+                prior_weights.clone(),
+                Subject::builder("Empty").build(),
+            ))
+        }
+        Some(past_subject) => {
+            // Check if past data has observations
+            let has_observations = !past_subject.occasions().is_empty()
+                && past_subject.occasions().iter().any(|occ| {
+                    occ.events()
+                        .iter()
+                        .any(|e| matches!(e, Event::Observation(_)))
+                });
+
+            if !has_observations {
+                tracing::info!("  Past data has no observations → using prior directly");
+                Ok((
+                    prior_theta.clone(),
+                    prior_weights.clone(),
+                    prior_weights.clone(),
+                    past_subject.clone(),
+                ))
+            } else {
+                // Two-step posterior calculation
+                tracing::info!("  Past data with observations → calculating two-step posterior");
+                tracing::info!("    Step 1.1: NPAGFULL11 (Bayesian filtering)");
+                tracing::info!("    Step 1.2: NPAGFULL (local refinement)");
+
+                let past_data_obj = Data::new(vec![past_subject.clone()]);
+
+                let (posterior_theta, posterior_weights, filtered_prior_weights) =
+                    posterior::calculate_two_step_posterior(
+                        prior_theta,
+                        prior_weights,
+                        &past_data_obj,
+                        eq,
+                        error_models,
+                        settings,
+                        max_cycles,
+                    )?;
+
+                Ok((
+                    posterior_theta,
+                    posterior_weights,
+                    filtered_prior_weights,
+                    past_subject.clone(),
+                ))
+            }
+        }
+    }
+}
+
+/// Prepare target subject by handling past/future concatenation if needed
+///
+/// # Returns
+///
+/// Tuple: (final_target, final_past_data)
+fn prepare_target_subject(
+    past_subject: Subject,
+    target: Subject,
+    current_time: Option<f64>,
+) -> Result<(Subject, Subject)> {
+    match current_time {
+        None => {
+            tracing::info!("  Mode: Standard (single subject)");
+            Ok((target, past_subject))
+        }
+        Some(t) => {
+            tracing::info!("  Mode: Past/Future separation (Fortran MAKETMP approach)");
+            tracing::info!("  Current time boundary: {} hours", t);
+            tracing::info!("  Concatenating past and future subjects...");
+
+            let combined = concatenate_past_and_future(&past_subject, &target, t);
+
+            // Log dose structure
+            let mask = calculate_dose_optimization_mask(&combined);
+            let num_fixed = mask.iter().filter(|&&x| !x).count();
+            let num_optimizable = mask.iter().filter(|&&x| x).count();
+            tracing::info!("    Fixed doses (from past): {}", num_fixed);
+            tracing::info!("    Optimizable doses (from future): {}", num_optimizable);
+
+            Ok((combined, past_subject))
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+
 impl BestDoseProblem {
     /// Create a new BestDose problem with automatic posterior calculation
     ///
     /// This is the main entry point for the BestDose algorithm.
     ///
-    /// # Three-Stage Process
+    /// # Algorithm Structure (Matches Flowchart)
     ///
-    /// 1. **Posterior Calculation** (if past data exists):
-    ///    - NPAGFULL11: Bayesian filtering of prior
-    ///    - NPAGFULL: Refinement of each filtered point
-    ///
-    /// 2. **Dual Optimization** (automatic in `optimize()`):
-    ///    - Optimize with posterior weights
-    ///    - Optimize with uniform weights
-    ///    - Select better result
-    ///
-    /// 3. **Predictions** (automatic in `optimize()`):
-    ///    - Calculate concentration or AUC predictions
-    ///    - Return optimal doses and statistics
+    /// ```text
+    /// ┌─────────────────────────────────────────┐
+    /// │ STAGE 1: Posterior Density Calculation  │
+    /// │                                         │
+    /// │  Prior Density (N points)              │
+    /// │      ↓                                 │
+    /// │  Has past data with observations?      │
+    /// │      ↓ Yes          ↓ No              │
+    /// │  Step 1.1:      Use prior             │
+    /// │  NPAGFULL11     directly               │
+    /// │  (Filter)                              │
+    /// │      ↓                                 │
+    /// │  Step 1.2:                             │
+    /// │  NPAGFULL                              │
+    /// │  (Refine)                              │
+    /// │      ↓                                 │
+    /// │  Posterior Density                     │
+    /// └─────────────────────────────────────────┘
+    /// ```
     ///
     /// # Parameters
     ///
@@ -333,6 +649,7 @@ impl BestDoseProblem {
     /// * `prior_weights` - Population probabilities
     /// * `past_data` - Patient history (None = use prior directly)
     /// * `target` - Future dosing template with targets
+    /// * `current_time` - Optional time offset for concatenation (None = standard mode, Some(t) = Fortran mode)
     /// * `eq` - Pharmacokinetic/pharmacodynamic model
     /// * `error_models` - Error model specifications
     /// * `doserange` - Allowable dose constraints
@@ -350,6 +667,7 @@ impl BestDoseProblem {
         prior_weights: &Weights,
         past_data: Option<Subject>,
         target: Subject,
+        current_time: Option<f64>,
         eq: ODE,
         error_models: ErrorModels,
         doserange: DoseRange,
@@ -359,76 +677,46 @@ impl BestDoseProblem {
         target_type: Target,
     ) -> Result<Self> {
         tracing::info!("╔══════════════════════════════════════════════════════════╗");
-        tracing::info!("║            BestDose Algorithm Initialization             ║");
+        tracing::info!("║            BestDose Algorithm: STAGE 1                   ║");
+        tracing::info!("║           Posterior Density Calculation                  ║");
         tracing::info!("╚══════════════════════════════════════════════════════════╝");
 
-        // Determine if we need posterior calculation
-        let (posterior_theta, posterior_weights, filtered_prior_weights, final_past_data) =
-            match &past_data {
-                None => {
-                    tracing::info!("No past data provided → using prior directly");
-                    (
-                        prior_theta.clone(),
-                        prior_weights.clone(),
-                        prior_weights.clone(), // No filtering when no past data
-                        Subject::builder("Empty").build(),
-                    )
-                }
-                Some(past_subject) => {
-                    // Check if past data has observations
-                    let has_observations = !past_subject.occasions().is_empty()
-                        && past_subject.occasions().iter().any(|occ| {
-                            occ.events()
-                                .iter()
-                                .any(|e| matches!(e, Event::Observation(_)))
-                        });
+        // Validate input if using past/future separation mode
+        if let Some(t) = current_time {
+            validate_current_time(t, &past_data)?;
+        }
 
-                    if !has_observations {
-                        tracing::info!("Past data has no observations → using prior directly");
-                        (
-                            prior_theta.clone(),
-                            prior_weights.clone(),
-                            prior_weights.clone(), // No filtering when no observations
-                            past_subject.clone(),
-                        )
-                    } else {
-                        // Calculate two-step posterior (NPAGFULL11 + NPAGFULL)
-                        tracing::info!("Past data with observations → calculating posterior");
-                        let past_data_obj = Data::new(vec![past_subject.clone()]);
+        // ═════════════════════════════════════════════════════════════
+        // STAGE 1: Calculate Posterior Density
+        // ═════════════════════════════════════════════════════════════
+        let (posterior_theta, posterior_weights, filtered_prior_weights, past_subject) =
+            calculate_posterior_density(
+                prior_theta,
+                prior_weights,
+                past_data.as_ref(),
+                &eq,
+                &error_models,
+                &settings,
+                max_cycles,
+            )?;
 
-                        let (post_theta, post_weights, filt_prior_weights) =
-                            posterior::calculate_two_step_posterior(
-                                prior_theta,
-                                prior_weights,
-                                &past_data_obj,
-                                &eq,
-                                &error_models,
-                                &settings,
-                                max_cycles,
-                            )?;
+        // Handle past/future concatenation if needed
+        let (final_target, final_past_data) =
+            prepare_target_subject(past_subject, target, current_time)?;
 
-                        // Return filtered prior weights to match filtered theta rows
-                        (
-                            post_theta,
-                            post_weights,
-                            filt_prior_weights,
-                            past_subject.clone(),
-                        )
-                    }
-                }
-            };
-
-        tracing::info!("Initialization complete:");
+        tracing::info!("╔══════════════════════════════════════════════════════════╗");
+        tracing::info!("║              Stage 1 Complete - Ready for Optimization   ║");
+        tracing::info!("╚══════════════════════════════════════════════════════════╝");
         tracing::info!("  Support points: {}", posterior_theta.matrix().nrows());
         tracing::info!("  Target type: {:?}", target_type);
         tracing::info!("  Bias weight (λ): {}", bias_weight);
 
         Ok(BestDoseProblem {
             past_data: final_past_data,
-            target,
+            target: final_target,
             target_type,
             prior_theta: prior_theta.clone(),
-            prior_weights: filtered_prior_weights, // Use filtered prior weights that match filtered theta rows
+            prior_weights: filtered_prior_weights,
             theta: posterior_theta,
             posterior: posterior_weights,
             eq,
@@ -436,24 +724,42 @@ impl BestDoseProblem {
             settings,
             doserange,
             bias_weight,
+            current_time,
         })
     }
 
     /// Run the complete BestDose optimization algorithm
     ///
-    /// # Algorithm Flow (Reads Like a Diagram!)
+    /// # Algorithm Flow (Matches Diagram!)
     ///
     /// ```text
-    /// Stage 1: Posterior Calculation  [DONE in new()]
-    ///     ↓
-    /// Stage 2: Dual Optimization      [THIS METHOD]
-    ///     Optimization 1: Posterior weights
-    ///     Optimization 2: Uniform weights
-    ///     Select best result
-    ///     ↓
-    /// Stage 3: Final Predictions      [THIS METHOD]
-    ///     Calculate concentrations/AUCs
-    ///     Return optimal doses
+    /// ┌─────────────────────────────────────────┐
+    /// │ STAGE 1: Posterior Calculation          │
+    /// │         [COMPLETED in new()]             │
+    /// └────────────┬────────────────────────────┘
+    ///              ↓
+    /// ┌─────────────────────────────────────────┐
+    /// │ STAGE 2: Dual Optimization              │
+    /// │                                         │
+    /// │  Optimization 1: Posterior Weights      │
+    /// │    (Patient-specific)                   │
+    /// │      ↓                                  │
+    /// │  Result 1: (doses₁, cost₁)             │
+    /// │                                         │
+    /// │  Optimization 2: Uniform Weights        │
+    /// │    (Population-based)                   │
+    /// │      ↓                                  │
+    /// │  Result 2: (doses₂, cost₂)             │
+    /// │                                         │
+    /// │  Select: min(cost₁, cost₂)             │
+    /// └────────────┬────────────────────────────┘
+    ///              ↓
+    /// ┌─────────────────────────────────────────┐
+    /// │ STAGE 3: Final Predictions              │
+    /// │                                         │
+    /// │  Calculate predictions with             │
+    /// │  optimal doses and winning weights      │
+    /// └─────────────────────────────────────────┘
     /// ```
     ///
     /// # Returns
@@ -466,10 +772,11 @@ impl BestDoseProblem {
     /// - `optimization_method`: "posterior" or "uniform"
     pub fn optimize(self) -> Result<BestDoseResult> {
         tracing::info!("╔══════════════════════════════════════════════════════════╗");
-        tracing::info!("║              BestDose Optimization Starting              ║");
+        tracing::info!("║            BestDose Algorithm: STAGE 2 & 3               ║");
+        tracing::info!("║        Dual Optimization + Final Predictions             ║");
         tracing::info!("╚══════════════════════════════════════════════════════════╝");
 
-        // Stage 2 & 3: Dual optimization + predictions
+        // STAGE 2 & 3: Dual optimization + predictions
         optimization::dual_optimization(&self)
     }
 
