@@ -1,9 +1,31 @@
-//! Prediction calculations for BestDose
+//! Stage 3: Prediction calculations
 //!
-//! Handles:
+//! Handles final prediction calculations with optimal doses, including:
 //! - Dense time grid generation for AUC calculations
 //! - Trapezoidal AUC integration
-//! - Final predictions with optimal doses
+//! - Concentration-time predictions
+//!
+//! # AUC Calculation Method
+//!
+//! For [`Target::AUC`](crate::bestdose::Target::AUC) targets:
+//!
+//! 1. **Dense Time Grid**: Generate points at `idelta` intervals plus observation times
+//! 2. **Simulation**: Run model at all dense time points
+//! 3. **Trapezoidal Integration**: Calculate cumulative AUC:
+//!    ```text
+//!    AUC(t) = Σᵢ₌₁ⁿ (C[i] + C[i-1])/2 × (t[i] - t[i-1])
+//!    ```
+//! 4. **Extraction**: Extract AUC values at target observation times
+//!
+//! # Key Functions
+//!
+//! - [`calculate_dense_times`]: Generate time grid for numerical integration
+//! - [`calculate_auc_at_times`]: Trapezoidal AUC calculation
+//! - [`calculate_final_predictions`]: Final predictions with optimal doses
+//!
+//! # See Also
+//!
+//! - Configuration: `settings.predictions().idelta` controls time grid resolution
 
 use anyhow::Result;
 use faer::Mat;

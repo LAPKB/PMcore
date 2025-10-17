@@ -1,8 +1,51 @@
 //! # BestDose Algorithm
 //!
-//! Optimizes future dosing regimens to achieve target drug concentrations or AUCs.
+//! Bayesian dose optimization algorithm that finds optimal dosing regimens to achieve
+//! target drug concentrations or cumulative AUC (Area Under the Curve) values.
 //!
-//! ## Algorithm Overview (Three Stages)
+//! The BestDose algorithm combines Bayesian posterior estimation with dual optimization
+//! to balance patient-specific adaptation and population-level robustness.
+//!
+//! # Quick Start
+//!
+//! ```rust,no_run
+//! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
+//!
+//! # fn example(prior_theta: pmcore::structs::theta::Theta,
+//! #            prior_weights: pmcore::structs::weights::Weights,
+//! #            past_data: pharmsol::prelude::Subject,
+//! #            target: pharmsol::prelude::Subject,
+//! #            eq: pharmsol::prelude::ODE,
+//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            settings: pmcore::routines::settings::Settings)
+//! #            -> anyhow::Result<()> {
+//! // Create optimization problem
+//! let problem = BestDoseProblem::new(
+//!     &prior_theta,                    // Population support points from NPAG
+//!     &prior_weights,                  // Population probabilities
+//!     Some(past_data),                 // Patient history (None = use prior)
+//!     target,                          // Future template with targets
+//!     eq,                              // PK/PD model
+//!     error_models,                    // Error specifications
+//!     DoseRange::new(0.0, 1000.0),     // Dose constraints (0-1000 mg)
+//!     0.5,                             // bias_weight: 0=personalized, 1=population
+//!     settings,                        // NPAG settings
+//!     500,                             // NPAGFULL refinement cycles
+//!     Target::Concentration,           // Target type
+//! )?;
+//!
+//! // Run optimization
+//! let result = problem.optimize()?;
+//!
+//! // Extract results
+//! println!("Optimal dose: {:?} mg", result.dose);
+//! println!("Final cost: {}", result.objf);
+//! println!("Method: {}", result.optimization_method);  // "posterior" or "uniform"
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Algorithm Overview (Three Stages)
 //!
 //! ```text
 //! ┌─────────────────────────────────────────────────────────────────┐
@@ -52,32 +95,200 @@
 //! └─────────────────────────────────────────────────────────────────┘
 //! ```
 //!
-//! ## Usage Example
+//! # Mathematical Foundation
+//!
+//! ## Bayesian Posterior
+//!
+//! The posterior density is calculated via Bayes' rule:
+//!
+//! ```text
+//! P(θ | data) = P(data | θ) × P(θ) / P(data)
+//! ```
+//!
+//! Where:
+//! - `P(θ | data)`: Posterior (patient-specific parameters)
+//! - `P(data | θ)`: Likelihood (from error model)
+//! - `P(θ)`: Prior (from population)
+//! - `P(data)`: Normalizing constant
+//!
+//! ## Cost Function
+//!
+//! The optimization minimizes a hybrid cost function:
+//!
+//! ```text
+//! Cost = (1-λ) × Variance + λ × Bias²
+//! ```
+//!
+//! **Variance Term** (Patient-Specific Performance):
+//! ```text
+//! Variance = Σᵢ P(θᵢ|data) × Σⱼ (target[j] - pred[i,j])²
+//! ```
+//! Expected squared error using posterior weights.
+//!
+//! **Bias Term** (Population-Level Performance):
+//! ```text
+//! Bias² = Σⱼ (target[j] - E[pred[j]])²
+//! where E[pred[j]] = Σᵢ P(θᵢ) × pred[i,j]
+//! ```
+//! Squared deviation from population mean prediction using prior weights.
+//!
+//! **Bias Weight Parameter (λ)**:
+//! - `λ = 0.0`: Fully personalized (minimize variance only)
+//! - `λ = 0.5`: Balanced hybrid approach
+//! - `λ = 1.0`: Population-based (minimize bias from population)
+//!
+//! # Examples
+//!
+//! ## Single Dose Optimization
 //!
 //! ```rust,no_run
-//! use pmcore::bestdose::BestDoseProblem;
+//! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
+//! use pharmsol::prelude::Subject;
 //!
-//! // Create problem with prior, past data, and targets
+//! # fn example(prior_theta: pmcore::structs::theta::Theta,
+//! #            prior_weights: pmcore::structs::weights::Weights,
+//! #            past: pharmsol::prelude::Subject,
+//! #            eq: pharmsol::prelude::ODE,
+//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            settings: pmcore::routines::settings::Settings)
+//! #            -> anyhow::Result<()> {
+//! // Define target: 5 mg/L at 24 hours
+//! let target = Subject::builder("patient_001")
+//!     .bolus(0.0, 100.0, 0)           // Initial dose (will be optimized)
+//!     .observation(24.0, 5.0, 0)      // Target: 5 mg/L at 24h
+//!     .build();
+//!
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta,
-//!     &prior_weights,
-//!     Some(past_data),
-//!     target_subject,
-//!     eq,
-//!     error_models,
-//!     dose_range,
-//!     bias_weight,
-//!     settings,
-//!     max_cycles,
-//!     target_type,
+//!     &prior_theta, &prior_weights, Some(past), target, eq, error_models,
+//!     DoseRange::new(10.0, 500.0),    // 10-500 mg allowed
+//!     0.3,                             // Slight population emphasis
+//!     settings, 500, Target::Concentration,
 //! )?;
 //!
-//! // Run complete three-stage algorithm
 //! let result = problem.optimize()?;
-//!
-//! println!("Optimal dose: {:?}", result.dose);
-//! println!("Method used: {}", result.optimization_method);
+//! println!("Optimal dose: {} mg", result.dose[0]);
+//! # Ok(())
+//! # }
 //! ```
+//!
+//! ## Multiple Doses with AUC Target
+//!
+//! ```rust,no_run
+//! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
+//! use pharmsol::prelude::Subject;
+//!
+//! # fn example(prior_theta: pmcore::structs::theta::Theta,
+//! #            prior_weights: pmcore::structs::weights::Weights,
+//! #            past: pharmsol::prelude::Subject,
+//! #            eq: pharmsol::prelude::ODE,
+//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            settings: pmcore::routines::settings::Settings)
+//! #            -> anyhow::Result<()> {
+//! // Target: Achieve AUC₂₄ = 400 mg·h/L
+//! let target = Subject::builder("patient_002")
+//!     .bolus(0.0, 100.0, 0)           // Dose 1 (optimized)
+//!     .bolus(12.0, 100.0, 0)          // Dose 2 (optimized)
+//!     .observation(24.0, 400.0, 0)    // Target: AUC₂₄ = 400
+//!     .build();
+//!
+//! let problem = BestDoseProblem::new(
+//!     &prior_theta, &prior_weights, Some(past), target, eq, error_models,
+//!     DoseRange::new(50.0, 300.0),
+//!     0.0,                             // Full personalization
+//!     settings, 500, Target::AUC,      // AUC target!
+//! )?;
+//!
+//! let result = problem.optimize()?;
+//! println!("Dose 1: {} mg at t=0", result.dose[0]);
+//! println!("Dose 2: {} mg at t=12", result.dose[1]);
+//! if let Some(auc) = result.auc_predictions {
+//!     println!("Predicted AUC₂₄: {} mg·h/L", auc[0].1);
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Population-Only Optimization
+//!
+//! ```rust,no_run
+//! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
+//! # fn example(prior_theta: pmcore::structs::theta::Theta,
+//! #            prior_weights: pmcore::structs::weights::Weights,
+//! #            target: pharmsol::prelude::Subject,
+//! #            eq: pharmsol::prelude::ODE,
+//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            settings: pmcore::routines::settings::Settings)
+//! #            -> anyhow::Result<()> {
+//! // No patient history - use population prior directly
+//! let problem = BestDoseProblem::new(
+//!     &prior_theta, &prior_weights,
+//!     None,                            // No past data
+//!     target, eq, error_models,
+//!     DoseRange::new(0.0, 1000.0),
+//!     1.0,                             // Full population weighting
+//!     settings,
+//!     0,                               // Skip refinement
+//!     Target::Concentration,
+//! )?;
+//!
+//! let result = problem.optimize()?;
+//! // Returns population-typical dose
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Configuration
+//!
+//! ## Key Parameters
+//!
+//! - **`bias_weight` (λ)**: Controls personalization level
+//!   - `0.0`: Minimize patient-specific variance (full personalization)
+//!   - `1.0`: Minimize deviation from population (robustness)
+//!   
+//! - **`max_cycles`**: NPAGFULL refinement iterations
+//!   - `0`: Skip refinement (use filtered points directly)
+//!   - `100-500`: Typical range for refinement
+//!   
+//! - **`doserange`**: Dose constraints
+//!   - Set clinically appropriate bounds for your drug
+//!   
+//! - **`target_type`**: Optimization target
+//!   - `Target::Concentration`: Direct concentration targets
+//!   - `Target::AUC`: Cumulative AUC targets
+//!
+//! ## Performance Tuning
+//!
+//! For faster optimization:
+//! ```rust,no_run
+//! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
+//! # fn example(prior_theta: pmcore::structs::theta::Theta,
+//! #            prior_weights: pmcore::structs::weights::Weights,
+//! #            target: pharmsol::prelude::Subject,
+//! #            eq: pharmsol::prelude::ODE,
+//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            mut settings: pmcore::routines::settings::Settings)
+//! #            -> anyhow::Result<()> {
+//! // Reduce refinement cycles
+//! let problem = BestDoseProblem::new(
+//!     &prior_theta, &prior_weights, None, target, eq, error_models,
+//!     DoseRange::new(0.0, 1000.0), 0.5,
+//!     settings.clone(),
+//!     100,                             // Faster: 100 instead of 500
+//!     Target::Concentration,
+//! )?;
+//!
+//! // For AUC: use coarser time grid
+//! settings.predictions().idelta = 30;  // 30-minute intervals
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # See Also
+//!
+//! - [`BestDoseProblem`]: Main entry point for optimization
+//! - [`BestDoseResult`]: Output structure with optimal doses
+//! - [`Target`]: Enum for concentration vs AUC targets
+//! - [`DoseRange`]: Dose constraint specification
 
 mod cost;
 mod optimization;

@@ -1,8 +1,54 @@
 //! Stage 1: Posterior Density Calculation
 //!
-//! Two-step process for Bayesian posterior refinement:
-//! 1. NPAGFULL11: Bayesian filtering to identify compatible parameter regions
-//! 2. NPAGFULL: Local optimization to refine each filtered point
+//! Two-step Bayesian posterior refinement process that transforms a population prior
+//! into a patient-specific posterior distribution.
+//!
+//! # Overview
+//!
+//! The posterior calculation uses a two-step approach:
+//!
+//! ## Step 1: NPAGFULL11 - Bayesian Filtering
+//!
+//! Filters the population prior to identify parameter regions compatible with patient data:
+//!
+//! 1. Calculate likelihood P(data|θᵢ) for each prior support point
+//! 2. Apply Bayes' rule: P(θᵢ|data) ∝ P(data|θᵢ) × P(θᵢ)
+//! 3. Filter: Keep points where P(θᵢ|data) > 1e-100 × max(P(θᵢ|data))
+//! 4. Renormalize weights
+//!
+//! **Output**: Filtered posterior with typically 5-50 support points
+//!
+//! ## Step 2: NPAGFULL - Local Refinement
+//!
+//! Refines each filtered point through full NPAG optimization:
+//!
+//! 1. For each filtered support point: Run NPAG optimization starting from that point
+//! 2. Find refined "daughter" point in local parameter space
+//! 3. Preserve NPAGFULL11 weights (no recalculation)
+//!
+//! **Output**: Refined posterior with improved parameter estimates
+//!
+//! # Key Differences from Standard NPAG
+//!
+//! - **NPAGFULL11**: Uses only lambda filtering (no QR decomposition)
+//! - **NPAGFULL**: Refines individual points (not population estimation)
+//! - **Weight preservation**: NPAGFULL11 probabilities are kept, not recalculated
+//!
+//! # Configuration
+//!
+//! The `KEEP_UNREFINED_POINTS` constant controls behavior when refinement fails:
+//! - `true`: Keep original filtered point (maintains point count)
+//! - `false`: Skip point entirely (may reduce posterior size)
+//!
+//! # Functions
+//!
+//! - [`npagfull11_filter`]: Step 1 - Bayesian filtering
+//! - [`npagfull_refinement`]: Step 2 - Local optimization
+//! - [`calculate_two_step_posterior`]: Complete two-step process
+//!
+//! # See Also
+//!
+//! - [`crate::algorithms::npag`]: Standard NPAG algorithm for comparison
 
 use anyhow::Result;
 use faer::Mat;
