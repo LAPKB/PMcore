@@ -74,7 +74,7 @@ fn main() -> Result<()> {
         eq,
         ems,
         DoseRange::new(100.0, 2000.0), // Wider range for AUC targets
-        0.0,                           // bias_weight: 0.0 = full personalization
+        0.8,                           // for AUC targets higher bias_weight usually works best
         settings,
         0, // No NPAGFULL refinement (no past data)
         Target::AUC,
