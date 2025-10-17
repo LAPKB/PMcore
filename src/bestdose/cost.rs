@@ -1,12 +1,50 @@
 //! Cost function calculation for BestDose optimization
 //!
-//! Implements the weighted cost function:
-//! Cost = (1-λ)×Variance + λ×Bias²
+//! Implements the hybrid cost function that balances patient-specific performance
+//! (variance) with population-level robustness (bias).
 //!
-//! Where:
-//! - Variance: Expected squared prediction error (patient-specific)
-//! - Bias: Squared deviation from population mean prediction
-//! - λ (bias_weight): 0=personalized, 1=population-based
+//! # Cost Function
+//!
+//! ```text
+//! Cost = (1-λ) × Variance + λ × Bias²
+//! ```
+//!
+//! ## Variance Term (Patient-Specific)
+//!
+//! Expected squared prediction error using posterior weights:
+//! ```text
+//! Variance = Σᵢ posterior_weight[i] × Σⱼ (target[j] - pred[i,j])²
+//! ```
+//!
+//! - Weighted by patient-specific posterior probabilities
+//! - Minimizes expected error for this specific patient
+//! - Emphasizes parameter values compatible with patient history
+//!
+//! ## Bias Term (Population-Level)
+//!
+//! Squared deviation from population mean prediction using prior weights:
+//! ```text
+//! Bias² = Σⱼ (target[j] - population_mean[j])²
+//! where population_mean[j] = Σᵢ prior_weight[i] × pred[i,j]
+//! ```
+//!
+//! - Weighted by population prior probabilities
+//! - Minimizes deviation from population-typical behavior
+//! - Provides robustness when patient history is limited
+//!
+//! ## Bias Weight Parameter (λ)
+//!
+//! - `λ = 0.0`: Pure personalization (minimize variance only)
+//! - `λ = 0.5`: Balanced hybrid approach
+//! - `λ = 1.0`: Pure population (minimize bias only)
+//!
+//! # Implementation Notes
+//!
+//! The cost function handles both concentration and AUC targets:
+//! - **Concentration**: Simulates model at observation times directly
+//! - **AUC**: Generates dense time grid and calculates cumulative AUC via trapezoidal rule
+//!
+//! See [`calculate_cost`] for the main implementation.
 
 use anyhow::Result;
 
@@ -17,16 +55,66 @@ use pharmsol::Equation;
 
 /// Calculate cost function for a candidate dose regimen
 ///
-/// This is the core objective function minimized by the Nelder-Mead optimizer.
+/// This is the core objective function minimized by the Nelder-Mead optimizer during
+/// Stage 2 of the BestDose algorithm.
 ///
-/// Cost = (1-λ)×Variance + λ×Bias²
+/// # Arguments
 ///
-/// Where:
-/// - Variance = Σᵢ posterior_weight[i] × (target - pred[i])²
-///   (expected squared error across patient-specific posterior)
-/// - Bias² = Σⱼ (target[j] - population_mean[j])²
-///   (squared deviation from population mean prediction)
-/// - population_mean[j] = Σᵢ prior_weight[i] × pred[i,j]
+/// * `problem` - The [`BestDoseProblem`] containing all necessary data
+/// * `candidate_doses` - Dose amounts to evaluate (same order as doses in target subject)
+///
+/// # Returns
+///
+/// The cost value `(1-λ) × Variance + λ × Bias²` for the candidate doses.
+/// Lower cost indicates better match to targets.
+///
+/// # Cost Function Details
+///
+/// ## Variance Term
+///
+/// Expected squared prediction error using posterior weights:
+/// ```text
+/// Variance = Σᵢ P(θᵢ|data) × Σⱼ (target[j] - pred[i,j])²
+/// ```
+///
+/// For each support point θᵢ:
+/// 1. Simulate model with candidate doses
+/// 2. Calculate squared error at each observation time j
+/// 3. Weight by posterior probability P(θᵢ|data)
+///
+/// ## Bias Term
+///
+/// Squared deviation from population mean:
+/// ```text
+/// Bias² = Σⱼ (target[j] - E[pred[j]])²
+/// where E[pred[j]] = Σᵢ P(θᵢ) × pred[i,j]  (prior weights)
+/// ```
+///
+/// The population mean uses **prior weights**, not posterior weights, to represent
+/// population-typical behavior independent of patient-specific data.
+///
+/// ## Target Types
+///
+/// - **Concentration** ([`Target::Concentration`]):
+///   Predictions are concentrations at observation times
+///
+/// - **AUC** ([`Target::AUC`]):
+///   Predictions are cumulative AUC values calculated via trapezoidal rule
+///   on a dense time grid (controlled by `settings.predictions().idelta`)
+///
+/// # Example
+///
+/// ```rust,ignore
+/// // Internal use by optimizer
+/// let cost = calculate_cost(&problem, &[100.0, 150.0])?;
+/// ```
+///
+/// # Errors
+///
+/// Returns error if:
+/// - Model simulation fails
+/// - Prediction length doesn't match observation count
+/// - AUC calculation fails (for AUC targets)
 pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
     // Build target subject with candidate doses
     let mut target_subject = problem.target.clone();

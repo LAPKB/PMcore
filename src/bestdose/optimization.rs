@@ -1,9 +1,43 @@
 //! Stage 2: Dose Optimization
 //!
-//! Dual optimization approach matching Fortran BESTDOS113+:
-//! 1. Optimize using posterior weights (patient-specific)
-//! 2. Optimize using uniform weights (population-based)
-//! 3. Compare costs and select the better result
+//! Implements the dual optimization strategy that compares patient-specific and
+//! population-based approaches to find the best dosing regimen.
+//!
+//! # Dual Optimization Strategy
+//!
+//! The algorithm runs two independent optimizations:
+//!
+//! ## Optimization 1: Posterior Weights (Patient-Specific)
+//!
+//! - Uses refined posterior weights from NPAGFULL11 + NPAGFULL
+//! - Emphasizes parameter values compatible with patient history
+//! - Best when patient has substantial historical data
+//! - Variance term dominates cost function
+//!
+//! ## Optimization 2: Uniform Weights (Population-Based)
+//!
+//! - Treats all posterior support points equally (weight = 1/M)
+//! - Emphasizes population-typical behavior
+//! - More robust when patient history is limited
+//! - Population mean (from prior) influences cost
+//!
+//! ## Selection
+//!
+//! The algorithm compares both results and selects the one with lower cost.
+//! This automatic selection provides robustness across diverse patient scenarios.
+//!
+//! # Optimization Method
+//!
+//! Uses the Nelder-Mead simplex algorithm (derivative-free):
+//! - **Initial simplex**: -20% perturbation from starting doses
+//! - **Max iterations**: 1000
+//! - **Convergence tolerance**: 1e-10 (standard deviation of simplex)
+//!
+//! # See Also
+//!
+//! - [`dual_optimization`]: Main entry point for Stage 2
+//! - [`create_initial_simplex`]: Simplex construction
+//! - [`crate::bestdose::cost::calculate_cost`]: Cost function implementation
 
 use anyhow::Result;
 use argmin::core::{CostFunction, Executor};
