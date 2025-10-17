@@ -290,10 +290,10 @@
 //! - [`Target`]: Enum for concentration vs AUC targets
 //! - [`DoseRange`]: Dose constraint specification
 
-mod cost;
+pub mod cost;
 mod optimization;
 mod posterior;
-mod predictions;
+pub mod predictions;
 mod types;
 
 // Re-export public API
