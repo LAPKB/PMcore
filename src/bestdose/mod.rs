@@ -85,8 +85,6 @@ mod posterior;
 mod predictions;
 mod types;
 
-pub mod bestdose_old;
-
 // Re-export public API
 pub use types::{BestDoseProblem, BestDoseResult, DoseRange, Target};
 
