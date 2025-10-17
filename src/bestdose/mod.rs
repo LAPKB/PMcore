@@ -482,10 +482,4 @@ impl BestDoseProblem {
         self.bias_weight = weight;
         self
     }
-
-    /// Legacy alias for with_bias_weight
-    #[deprecated(since = "0.16.0", note = "Use with_bias_weight instead")]
-    pub fn bias(self, weight: f64) -> Self {
-        self.with_bias_weight(weight)
-    }
 }
