@@ -9,13 +9,12 @@ use pharmsol::prelude::*;
 
 /// Target type for dose optimization
 ///
-/// Determines whether targets in the "future" file represent concentrations or AUCs.
-/// This matches Fortran's ITARGET parameter (1=concentration, 2=AUC).
+/// Determines whether targets represent concentrations or AUCs.
 #[derive(Debug, Clone, Copy)]
 pub enum Target {
-    /// Target concentrations at observation times (ITARGET=1)
+    /// Target concentrations at observation times
     Concentration,
-    /// Target cumulative AUC values from time 0 (ITARGET=2)
+    /// Target cumulative AUC values from time 0
     /// AUC is calculated using trapezoidal rule with dense time grid
     AUC,
 }
@@ -100,6 +99,5 @@ pub struct BestDoseResult {
     pub auc_predictions: Option<Vec<(f64, f64)>>, // (time, auc) pairs
 
     /// Which optimization method produced the best result: "posterior" or "uniform"
-    /// Matches Fortran's dual-optimization approach (BESTDOS113+)
     pub optimization_method: String,
 }
