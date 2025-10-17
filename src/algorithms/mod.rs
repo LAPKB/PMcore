@@ -245,8 +245,11 @@ pub trait Algorithms<E: Equation>: Sync {
         }
         let span = tracing::info_span!("", "{}", format!("Cycle {}", self.get_cycle()));
         let _enter = span.enter();
+        tracing::debug!("Getting into evaluation");
         self.evaluation()?;
+        tracing::debug!("Getting into condensation");
         self.condensation()?;
+        tracing::debug!("Getting into optimization");
         self.optimizations()?;
         self.logs();
         self.convergence_evaluation();

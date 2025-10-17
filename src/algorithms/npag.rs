@@ -23,10 +23,11 @@ use crate::routines::initialization;
 
 use crate::routines::expansion::adaptative_grid::adaptative_grid;
 
-const THETA_E: f64 = 1e-4; // Convergence criteria
-const THETA_G: f64 = 1e-4; // Objective function convergence criteria
-const THETA_F: f64 = 1e-2;
-const THETA_D: f64 = 1e-4;
+const THETA_G: f64 = 1e-4; // inner loop; if df < theta_g then reduce eps and check for convergence
+const THETA_F: f64 = 1e-2; // big loop; f1 - f0
+const THETA_E: f64 = 1e-4; // min eps; if converged, exit, else reset eps to max
+const MAX_EPS: f64 = 0.2;
+const THETA_D: f64 = 1e-4; // adaptive grid minimum distance
 
 #[derive(Debug)]
 pub struct NPAG<E: Equation> {
@@ -60,7 +61,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             theta: Theta::new(),
             lambda: Weights::default(),
             w: Weights::default(),
-            eps: 0.2,
+            eps: MAX_EPS,
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
             f0: -1e30,
@@ -132,6 +133,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn convergence_evaluation(&mut self) {
+        tracing::debug!("Starting Psi",);
         let psi = self.psi.matrix();
         let w = &self.w;
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
@@ -197,6 +199,8 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             bail!(err);
         }
 
+        tracing::debug!("Starting Burke");
+
         (self.lambda, _) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda.into(), objf),
             Err(err) => {
@@ -260,6 +264,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         self.psi.filter_column_indices(keep.as_slice());
 
         self.validate_psi()?;
+        tracing::debug!("Starting Burke");
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda.into(), objf),
             Err(err) => {
@@ -312,6 +317,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                     false,
                     true,
                 )?;
+                tracing::debug!("Starting Burke");
 
                 let (lambda_up, objf_up) = match burke(&psi_up) {
                     Ok((lambda, objf)) => (lambda, objf),
