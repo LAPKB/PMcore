@@ -28,12 +28,54 @@ const THETA_G: f64 = 1e-4; // Objective function convergence criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
+/// Calculate CHECKBIG convergence metric as in Fortran NPAGFULLA
+/// 
+/// Returns the median of relative parameter changes across all support points.
+/// This is calculated as: median(abs((theta_new - theta_old) / theta_old))
+/// 
+/// Used by Fortran as an alternative convergence criterion focusing on parameter stability
+/// rather than objective function improvement.
+fn calculate_checkbig(theta_old: &Theta, theta_new: &Theta) -> f64 {
+    let mut changes = Vec::new();
+    let old_mat = theta_old.matrix();
+    let new_mat = theta_new.matrix();
+    
+    // Calculate relative change for each parameter in each support point
+    for row in 0..old_mat.nrows() {
+        for col in 0..old_mat.ncols() {
+            let old_val = old_mat.get(row, col);
+            let new_val = new_mat.get(row, col);
+            
+            // Avoid division by zero for very small values
+            if old_val.abs() > 1e-10 {
+                let rel_change = ((new_val - old_val) / old_val).abs();
+                changes.push(rel_change);
+            }
+        }
+    }
+    
+    if changes.is_empty() {
+        return 0.0;
+    }
+    
+    // Calculate median
+    changes.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let mid = changes.len() / 2;
+    
+    if changes.len() % 2 == 0 {
+        (changes[mid - 1] + changes[mid]) / 2.0
+    } else {
+        changes[mid]
+    }
+}
+
 #[derive(Debug)]
 pub struct NPAG<E: Equation> {
     equation: E,
     ranges: Vec<(f64, f64)>,
     psi: Psi,
     theta: Theta,
+    theta_old: Option<Theta>,  // Store previous theta for CHECKBIG calculation
     lambda: Weights,
     w: Weights,
     eps: f64,
@@ -58,6 +100,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             ranges: settings.parameters().ranges(),
             psi: Psi::new(),
             theta: Theta::new(),
+            theta_old: None,  // Initialize as None (no previous theta yet)
             lambda: Weights::default(),
             w: Weights::default(),
             eps: 0.2,
@@ -139,8 +182,34 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             if self.eps <= THETA_E {
                 let pyl = psi * w.weights();
                 self.f1 = pyl.iter().map(|x| x.ln()).sum();
-                if (self.f1 - self.f0).abs() <= THETA_F {
-                    tracing::info!("The model converged after {} cycles", self.cycle,);
+                
+                // Calculate CHECKBIG if we have a previous theta
+                let checkbig = if let Some(ref old_theta) = self.theta_old {
+                    calculate_checkbig(old_theta, &self.theta)
+                } else {
+                    f64::MAX  // First cycle, no previous theta
+                };
+                
+                let f1_f0_diff = (self.f1 - self.f0).abs();
+                
+                // Log both convergence metrics for diagnostics
+                tracing::info!(
+                    "Cycle {}: f1-f0={:.6e} (threshold={:.6e}), CHECKBIG={:.6e} (threshold={:.6e})",
+                    self.cycle,
+                    f1_f0_diff,
+                    THETA_F,
+                    checkbig,
+                    THETA_E
+                );
+                
+                // Use f1-f0 as convergence criterion (standard approach)
+                if f1_f0_diff <= THETA_F {
+                    tracing::info!(
+                        "The model converged after {} cycles (f1-f0={:.6e} < THETA_F={:.6e})",
+                        self.cycle,
+                        f1_f0_diff,
+                        THETA_F
+                    );
                     self.converged = true;
                     self.status = Status::Converged;
                 } else {
@@ -149,6 +218,9 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 }
             }
         }
+        
+        // Save current theta for next cycle's CHECKBIG calculation
+        self.theta_old = Some(self.theta.clone());
 
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config().cycles {
