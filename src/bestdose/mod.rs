@@ -26,7 +26,7 @@
 //! └─────────────────────────────────────────────────────────────────┘
 //!
 //! ┌─────────────────────────────────────────────────────────────────┐
-//! │ STAGE 2: Dual Optimization (Fortran BESTDOS113+)              │
+//! │ STAGE 2: Dual Optimization                                     │
 //! │                                                                 │
 //! │  Optimization 1: Posterior Weights (Patient-Specific)          │
 //! │      Minimize Cost = (1-λ)×Variance + λ×Bias²                 │
@@ -126,8 +126,8 @@ impl BestDoseProblem {
     /// * `error_models` - Error model specifications
     /// * `doserange` - Allowable dose constraints
     /// * `bias_weight` - λ ∈ [0,1]: 0=personalized, 1=population
-    /// * `settings` - NPAG settings (for NPAGFULL refinement)
-    /// * `max_cycles` - NPAGFULL cycles (0=skip, 500=Fortran default)
+    /// * `settings` - NPAG settings for posterior refinement
+    /// * `max_cycles` - NPAGFULL cycles (0=skip refinement, 500=default)
     /// * `target_type` - Concentration or AUC targets
     ///
     /// # Returns

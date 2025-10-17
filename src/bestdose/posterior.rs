@@ -1,6 +1,6 @@
 //! Stage 1: Posterior Density Calculation
 //!
-//! Two-step process matching Fortran's NPAGFULL11 + NPAGFULL:
+//! Two-step process for Bayesian posterior refinement:
 //! 1. NPAGFULL11: Bayesian filtering to identify compatible parameter regions
 //! 2. NPAGFULL: Local optimization to refine each filtered point
 
@@ -19,18 +19,17 @@ use pharmsol::prelude::*;
 // =============================================================================
 // CONFIGURATION: Control refinement behavior
 // =============================================================================
-/// Set to `true` to match Fortran behavior (keep all points, use original if refinement fails)
-/// Set to `false` to use OLD behavior (skip points when refinement fails)
+/// Control whether to keep or skip points when refinement fails
 ///
-/// **Fortran-matching (true)**: All filtered points are kept in posterior.
+/// **Keep unrefined points (true)**: All filtered points are kept in posterior.
 ///   - If refinement succeeds → use refined point
 ///   - If refinement fails → use original filtered point
 ///   - Result: Same number of points as NPAGFULL11 filtering produced
 ///
-/// **OLD behavior (false)**: Points are skipped when refinement fails.
+/// **Skip failed refinements (false)**: Points are skipped when refinement fails.
 ///   - If refinement succeeds → use refined point
 ///   - If refinement fails → skip point entirely
-///   - Result: Fewer points than NPAGFULL11 filtering (27 out of 47 skipped in test case)
+///   - Result: Fewer points than NPAGFULL11 filtering
 const KEEP_UNREFINED_POINTS: bool = true;
 
 /// Step 1.1: NPAGFULL11 - Bayesian filtering to get compatible points
@@ -41,7 +40,6 @@ const KEEP_UNREFINED_POINTS: bool = true;
 /// 3. Filter: Keep points where P(θᵢ|data) > 1e-100 × max_weight
 ///
 /// Note: This uses only lambda filtering, NO QR decomposition or second burke call.
-/// This matches Fortran's NPAGFULL11 exactly.
 ///
 /// Returns: (filtered_theta, filtered_posterior_weights, filtered_prior_weights)
 pub fn npagfull11_filter(
@@ -61,7 +59,6 @@ pub fn npagfull11_filter(
 
     // NPAGFULL11 filtering: Keep all points within 1e-100 of the maximum weight
     // This is different from NPAG's condensation - NO QR decomposition here!
-    // Fortran: "THOSE WHOSE PROBABILITIES ARE WITHIN 1.D-100 OF THE BEST GRID PT."
     let max_weight = initial_weights
         .iter()
         .fold(f64::NEG_INFINITY, |a, b| a.max(b));
@@ -110,18 +107,14 @@ pub fn npagfull11_filter(
 /// For each filtered support point from NPAGFULL11, run a full NPAG optimization
 /// starting from that point to get a refined "daughter" point.
 ///
-/// **CRITICAL: Fortran-Matching Behavior**
-/// The Fortran code has NO error checking in the NPAGFULL refinement loop.
-/// It always keeps ALL filtered points, regardless of whether refinement succeeds:
+/// Behavior controlled by KEEP_UNREFINED_POINTS configuration:
 /// - If refinement succeeds → use refined point
-/// - If refinement fails → use original filtered point
-///
-/// This ensures the posterior has the same number of points as filtered by NPAGFULL11.
+/// - If refinement fails → keep original filtered point (when enabled)
 ///
 /// The NPAGFULL11 probabilities are preserved (not recalculated from NPAG).
 ///
 /// Parameters:
-/// - max_cycles: Maximum NPAG cycles for refinement (0=skip, 500=Fortran default)
+/// - max_cycles: Maximum NPAG cycles for refinement (0=skip refinement)
 pub fn npagfull_refinement(
     filtered_theta: &Theta,
     filtered_weights: &Weights,
@@ -173,7 +166,7 @@ pub fn npagfull_refinement(
         // Handle refinement failure based on configuration
         if let Err(e) = refinement_result {
             if KEEP_UNREFINED_POINTS {
-                // Fortran-matching: Keep the original filtered point
+                // Keep the original filtered point
                 tracing::warn!(
                     "  Failed to refine point {}/{}: {} - using original point",
                     i + 1,
@@ -183,7 +176,7 @@ pub fn npagfull_refinement(
                 refined_points.push(point);
                 kept_weights.push(filtered_weights[i]);
             } else {
-                // OLD behavior: Skip this point entirely
+                // Skip this point entirely
                 tracing::warn!(
                     "  Failed to refine point {}/{}: {} - skipping",
                     i + 1,
@@ -200,7 +193,7 @@ pub fn npagfull_refinement(
         // Check if refinement produced any points
         if refined_theta.matrix().nrows() == 0 {
             if KEEP_UNREFINED_POINTS {
-                // Fortran-matching: Keep the original filtered point
+                // Keep the original filtered point
                 tracing::warn!(
                     "  NPAG refinement produced no points for point {}/{} - using original point",
                     i + 1,
@@ -209,7 +202,7 @@ pub fn npagfull_refinement(
                 refined_points.push(point);
                 kept_weights.push(filtered_weights[i]);
             } else {
-                // OLD behavior: Skip this point entirely
+                // Skip this point entirely
                 tracing::warn!(
                     "  NPAG refinement produced no points for point {}/{} - skipping",
                     i + 1,
