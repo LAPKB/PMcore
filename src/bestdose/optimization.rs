@@ -19,9 +19,11 @@ use pharmsol::prelude::*;
 ///
 /// Constructs a simplex with n+1 vertices in n-dimensional space,
 /// where n is the number of doses to optimize.
+///
+/// Uses -20% perturbation to match Fortran: STEP(IDOS)= -.2D0*START(IDOS)
 fn create_initial_simplex(initial_point: &[f64]) -> Vec<Vec<f64>> {
     let n = initial_point.len();
-    let perturbation_percentage = 0.008; // 0.8% perturbation (matches Fortran/mod_old.rs)
+    let perturbation_percentage = -0.2; // -20% perturbation (matches Fortran BESTDOS121.FOR)
     let mut simplex = Vec::with_capacity(n + 1);
 
     // First vertex is the initial point
@@ -96,10 +98,14 @@ fn run_single_optimization(
     let mut problem_with_weights = problem.clone();
     problem_with_weights.posterior = weights.clone();
 
-    // Run Nelder-Mead optimization
-    let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(initial_simplex);
+    // Run Nelder-Mead optimization with Fortran-matching parameters:
+    // - Tolerance: 1.D-10 (VALMIN in ELDERY call)
+    // - Max iterations: 1000
+    let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(initial_simplex)
+        .with_sd_tolerance(1e-10)?; // Matches Fortran: CALL ELDERY(...,1.D-10,...)
+    
     let opt = Executor::new(problem_with_weights, solver)
-        .configure(|state| state.max_iters(50))
+        .configure(|state| state.max_iters(1000)) // Matches Fortran: 1000 iterations
         .run()?;
 
     let result = opt.state();
