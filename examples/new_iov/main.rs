@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let sde = equation::SDE::new(
         |x, p, _t, dx, _rateiv, _cov| {
             // automatically defined
@@ -33,16 +33,12 @@ fn main() {
         .add("ke0", 0.0001, 2.4)
         .add("ske", 0.0001, 0.2);
 
-    let ems = ErrorModels::new()
-        .add(
-            0,
-            ErrorModel::additive(
-                ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
-                0.0,
-                None,
-            ),
-        )
-        .unwrap();
+    let em = ErrorModel::additive(
+        ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
+        0.0,
+        None,
+    );
+    let ems = ErrorModels::new().add(0, em).unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
@@ -52,14 +48,18 @@ fn main() {
 
     settings.set_cycles(1000);
     settings.set_cache(true);
-    settings.set_output_path("examples/new_iov/output");
     settings.set_prior(Prior::sobol(100, 347));
+    settings.set_output_path("examples/new_iov/output");
+    settings.set_write_logs(true);
+    settings.set_log_level(LogLevel::DEBUG);
+    settings.initialize_logs()?;
 
-    settings.initialize_logs().unwrap();
-    let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
-    algorithm.initialize().unwrap();
-    while !algorithm.next_cycle().unwrap() {}
+    let data = data::read_pmetrics("examples/new_iov/data.csv")?;
+    let mut algorithm = dispatch_algorithm(settings, sde, data)?;
+    algorithm.initialize()?;
+    while !algorithm.next_cycle()? {}
     let result = algorithm.into_npresult();
-    result.write_outputs().unwrap();
+    result.write_outputs()?;
+
+    Ok(())
 }

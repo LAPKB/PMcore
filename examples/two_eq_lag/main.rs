@@ -27,7 +27,7 @@ fn main() {
     // let eq = Equation::new_analytical(
     //     one_compartment_with_absorption,
     //     |_p, _cov| {},
-    //     |p| {
+    //     |p, _t, _cov| {
     //         fetch_params!(p, _ka, _ke, tlag, _v);
     //         lag! {0=>tlag}
     //     },
@@ -73,16 +73,8 @@ fn main() {
         .add("tlag", 0.0, 4.0)
         .add("v", 30.0, 120.0);
 
-    let ems = ErrorModels::new()
-        .add(
-            0,
-            ErrorModel::additive(
-                ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
-                0.0,
-                None,
-            ),
-        )
-        .unwrap();
+    let em = ErrorModel::proportional(ErrorPoly::new(0.02, 0.05, -2e-04, 0.0), 5.0, None);
+    let ems = ErrorModels::new().add(0, em).unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
@@ -90,7 +82,12 @@ fn main() {
         .set_error_models(ems)
         .build();
 
+    settings.set_cycles(1000);
+    settings.set_prior(Prior::sobol(2129, 347));
+    settings.set_cache(true);
+    settings.set_write_logs(true);
     settings.initialize_logs().unwrap();
+
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     let result = algorithm.fit().unwrap();

@@ -1,4 +1,4 @@
-use pmcore::prelude::*;
+use pmcore::prelude::{models::one_compartment_with_absorption, *};
 
 fn main() {
     // let eq = Equation::new_ode(
@@ -31,16 +31,12 @@ fn main() {
     );
 
     let params = Parameters::new()
-        .add("ka", 0.001, 3.0)
-        .add("ke", 0.001, 3.0)
-        .add("v", 0.001, 50.0);
+        .add("Ka", 0.001, 3.0)
+        .add("Ke", 0.001, 3.0)
+        .add("V", 0.001, 50.0);
 
-    let ems = ErrorModels::new()
-        .add(
-            0,
-            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0, None),
-        )
-        .unwrap();
+    let em = ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 10.0, None);
+    let ems = ErrorModels::new().add(0, em).unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
@@ -48,7 +44,12 @@ fn main() {
         .set_error_models(ems)
         .build();
 
+    settings.set_cycles(1024);
+    settings.set_prior(Prior::sobol(100, 347));
+    settings.set_cache(true);
+    settings.set_write_logs(true);
     settings.initialize_logs().unwrap();
+
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();

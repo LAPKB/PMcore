@@ -1,5 +1,5 @@
 use pmcore::prelude::{simulator::Equation, *};
-fn main() {
+fn main() -> Result<()> {
     let eq = equation::ODE::new(
         |x, p, _t, dx, _rateiv, _cov| {
             fetch_params!(p, ke, kcp, kpc);
@@ -20,8 +20,8 @@ fn main() {
     // let eq = Equation::new_analytical(
     //     two_compartments,
     //     |_p, _cov| {},
-    //     |_p, _t, _cov| lag! {},
-    //     |_p, _t, _cov| fa! {},
+    //     |_p| lag! {},
+    //     |_p| fa! {},
     //     |_p, _t, _cov, x| {
     //         x[0] = 500.0;
     //         x[1] = 0.0;
@@ -37,10 +37,7 @@ fn main() {
         .repeat(1000, 0.01)
         .build();
 
-    let op = eq
-        .simulate_subject(&subject, &vec![0.3, 0.2, 0.5], None)
-        .unwrap()
-        .0;
+    let (op, _) = eq.simulate_subject(&subject, &vec![0.3, 0.2, 0.5], None)?;
 
     let times = op.flat_times();
     let pred = op.flat_predictions();
@@ -48,4 +45,6 @@ fn main() {
     for (t, p) in times.iter().zip(pred.iter()) {
         println!("{}, {}", t, p);
     }
+
+    Ok(())
 }

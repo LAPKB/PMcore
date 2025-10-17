@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-use pmcore::{prelude::*, routines::settings};
+use pmcore::prelude::*;
 
 fn main() {
     let eq = equation::ODE::new(
@@ -33,24 +33,19 @@ fn main() {
     );
 
     let params = Parameters::new()
-        .add("cls", 0.1, 10.0)
+        .add("cls", 0.0, 2.0)
         .add("fm", 0.0, 1.0)
-        .add("k20", 0.01, 1.0)
-        .add("relv", 0.1, 1.0)
-        .add("theta1", 0.1, 10.0)
-        .add("theta2", 0.1, 10.0)
-        .add("vs", 1.0, 10.0);
+        .add("k20", 0.0, 5.0)
+        .add("relv", 0.0, 1.0)
+        .add("theta1", -3.0, 1.0)
+        .add("theta2", -3.0, 1.0)
+        .add("vs", 0.0, 5.0);
 
+    let em = ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0, None);
     let ems = ErrorModels::new()
-        .add(
-            0,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0, None),
-        )
+        .add(0, em.clone())
         .unwrap()
-        .add(
-            1,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0, None),
-        )
+        .add(1, em)
         .unwrap();
 
     let mut settings = Settings::builder()
@@ -59,7 +54,13 @@ fn main() {
         .set_error_models(ems)
         .build();
 
+    settings.set_cycles(100);
+    settings.set_prior(Prior::sobol(2129, 347));
+    settings.set_cache(true);
+    settings.set_write_logs(true);
+    settings.set_output_path("meta");
     settings.initialize_logs().unwrap();
+
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();

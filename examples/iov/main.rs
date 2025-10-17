@@ -31,10 +31,8 @@ fn main() -> Result<()> {
 
     let params = Parameters::new().add("ke0", 0.001, 2.0);
 
-    let ems = ErrorModels::new().add(
-        0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576, None),
-    )?;
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576, None);
+    let ems = ErrorModels::new().add(0, em).unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
@@ -43,18 +41,17 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_cycles(100000);
-
-    settings.set_output_path("examples/iov/output");
     settings.set_prior(Prior::sobol(100, 347));
-
+    settings.set_output_path("examples/iov/output");
+    settings.set_write_logs(true);
     settings.initialize_logs()?;
 
-    let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
-    algorithm.initialize().unwrap();
-    while !algorithm.next_cycle().unwrap() {}
+    let data = data::read_pmetrics("examples/iov/test.csv")?;
+    let mut algorithm = dispatch_algorithm(settings, sde, data)?;
+    algorithm.initialize()?;
+    while !algorithm.next_cycle()? {}
     let result = algorithm.into_npresult();
-    result.write_outputs().unwrap();
+    result.write_outputs()?;
 
     Ok(())
 }

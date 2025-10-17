@@ -1,6 +1,5 @@
 use anyhow::Result;
 use pmcore::prelude::*;
-
 fn main() -> Result<()> {
     let eq = equation::ODE::new(
         |x, p, _t, dx, rateiv, _cov| {
@@ -22,14 +21,8 @@ fn main() -> Result<()> {
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = ErrorModels::new()
-        .add(
-            0,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0, None),
-        )
-        .unwrap()
-        .add(1, ErrorModel::None)
-        .unwrap();
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 2.0, None);
+    let ems = ErrorModels::new().add(0, em).unwrap();
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)
@@ -38,17 +31,12 @@ fn main() -> Result<()> {
         .build();
 
     settings.set_cycles(1000);
-    settings.set_prior(Prior::sobol(2028, 22));
-    settings.set_output_path("examples/bimodal_ke/output/");
-    settings.set_write_logs(true);
-
+    settings.set_output_path("examples/bimodal_ke/output");
     settings.write()?;
-
-    // settings.enable_logs(stdout: bool, )
     settings.initialize_logs()?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
     let mut algorithm = dispatch_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    let result = algorithm.fit().unwrap();
     result.write_outputs()?;
 
     Ok(())
