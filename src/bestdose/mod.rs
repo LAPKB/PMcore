@@ -382,11 +382,12 @@ fn concatenate_past_and_future(
                     );
                 }
                 Event::Observation(obs) => {
-                    builder = builder.observation(
-                        obs.time() + current_time,
-                        obs.value().unwrap_or(0.0), // Use 0.0 as default if value is None
-                        obs.outeq(),
-                    );
+                    builder = match obs.value() {
+                        Some(val) => {
+                            builder.observation(obs.time() + current_time, val, obs.outeq())
+                        }
+                        None => builder,
+                    };
                 }
             }
         }
