@@ -1,5 +1,6 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseProblem, DoseRange};
+use pmcore::bestdose; // bestdose new
+                      // use pmcore::bestdose::bestdose_old as bestdose; // bestdose old
 
 use pmcore::prelude::*;
 use pmcore::routines::initialization::parse_prior;
@@ -81,17 +82,25 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
-    // Example usage
-    let problem = BestDoseProblem {
-        past_data: past_data.clone(),
-        theta,
-        prior: prior.unwrap(),
-        target: target_data.clone(),
-        eq: eq.clone(),
-        doserange: DoseRange::new(0.0, 300.0),
-        bias_weight: 0.0,
-        error_models: ems.clone(),
-    };
+    // Example usage - using new() constructor which calculates NPAGFULL11 posterior
+    // max_cycles controls NPAGFULL refinement:
+    //   0 = NPAGFULL11 only (fast but less accurate)
+    //   100 = moderate refinement
+    //   500 = full refinement (Fortran default, slow but most accurate)
+    let problem = bestdose::BestDoseProblem::new(
+        &theta,
+        &prior.unwrap(),
+        Some(past_data.clone()), // Optional: past data for Bayesian updating
+        target_data.clone(),
+        None,
+        eq.clone(),
+        ems.clone(),
+        bestdose::DoseRange::new(0.0, 300.0),
+        0.0,
+        settings.clone(),
+        500, // max_cycles - Fortran default for full two-step posterior
+        bestdose::Target::Concentration, // Target concentrations (not AUCs)
+    )?;
 
     println!("Optimizing dose...");
 
@@ -100,18 +109,19 @@ fn main() -> Result<()> {
 
     for bias_weight in &bias_weights {
         println!("Running optimization with bias weight: {}", bias_weight);
-        let optimal = problem.clone().bias(*bias_weight).optimize()?;
+        let optimal = problem.clone().with_bias_weight(*bias_weight).optimize()?;
         results.push((bias_weight, optimal));
     }
 
     // Print results
     for (bias_weight, optimal) in &results {
         println!(
-            "Bias weight: {:.2}\t\t Optimal dose: {:?}\t\tCost: {:.6}\t\tln Cost: {:.4}",
+            "Bias weight: {:.2}\t\t Optimal dose: {:?}\t\tCost: {:.6}\t\tln Cost: {:.4}\t\tMethod: {}",
             bias_weight,
             optimal.dose,
             optimal.objf,
-            optimal.objf.ln()
+            optimal.objf.ln(),
+            optimal.optimization_method
         );
     }
 
