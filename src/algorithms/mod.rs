@@ -264,7 +264,7 @@ pub trait Algorithms<E: Equation>: Sync {
     /// This step refines the error model parameters to better fit the data,
     /// and subsequently updates the [Psi] matrix to reflect these changes.
     fn optimizations(&mut self) -> Result<()>;
-    fn logs(&self);
+
     /// Performs expansion of [Theta]
     ///
     /// This step increases the number of support points in [Theta] based on the current distribution,
@@ -288,7 +288,6 @@ pub trait Algorithms<E: Equation>: Sync {
         self.estimation()?;
         self.condensation()?;
         self.optimizations()?;
-        self.logs();
         self.evaluation()
     }
 

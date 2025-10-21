@@ -130,6 +130,31 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     }
 
     fn evaluation(&mut self) -> Result<Status> {
+        tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
+        tracing::debug!("Support points: {}", self.theta.nspp());
+
+        self.error_models.iter().for_each(|(outeq, em)| {
+            if ErrorModel::None == *em {
+                return;
+            }
+            tracing::debug!(
+                "Error model for outeq {}: {:.2}",
+                outeq,
+                em.factor().unwrap_or_default()
+            );
+        });
+
+        tracing::debug!("EPS = {:.4}", self.eps);
+        // Increasing objf signals instability or model misspecification.
+        if self.last_objf > self.objf + 1e-4 {
+            tracing::warn!(
+                "Objective function decreased from {:.4} to {:.4} (delta = {})",
+                -2.0 * self.last_objf,
+                -2.0 * self.objf,
+                -2.0 * self.last_objf - -2.0 * self.objf
+            );
+        }
+
         let psi = self.psi.matrix();
         let w = &self.w;
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
@@ -339,33 +364,6 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             })?;
 
         Ok(())
-    }
-
-    fn logs(&self) {
-        tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
-        tracing::debug!("Support points: {}", self.theta.nspp());
-
-        self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None == *em {
-                return;
-            }
-            tracing::debug!(
-                "Error model for outeq {}: {:.16}",
-                outeq,
-                em.factor().unwrap_or_default()
-            );
-        });
-
-        tracing::debug!("EPS = {:.4}", self.eps);
-        // Increasing objf signals instability or model misspecification.
-        if self.last_objf > self.objf + 1e-4 {
-            tracing::warn!(
-                "Objective function decreased from {:.4} to {:.4} (delta = {})",
-                -2.0 * self.last_objf,
-                -2.0 * self.objf,
-                -2.0 * self.last_objf - -2.0 * self.objf
-            );
-        }
     }
 
     fn expansion(&mut self) -> Result<()> {

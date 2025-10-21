@@ -138,8 +138,6 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         Ok(())
     }
 
-    fn logs(&self) {}
-
     fn expansion(&mut self) -> Result<()> {
         Ok(())
     }
