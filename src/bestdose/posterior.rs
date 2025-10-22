@@ -190,7 +190,7 @@ pub fn npagfull_refinement(
         let n_params = point.len();
         let single_point_matrix = Mat::from_fn(1, n_params, |_r, c| point[c]);
         let single_point_theta =
-            Theta::from_parts(single_point_matrix, settings.parameters().clone());
+            Theta::from_parts(single_point_matrix, settings.parameters().clone()).unwrap();
 
         // Configure NPAG for refinement
         let mut npag_settings = settings.clone();
@@ -269,7 +269,7 @@ pub fn npagfull_refinement(
     let n_params = settings.parameters().len();
     let n_points = refined_points.len();
     let refined_matrix = Mat::from_fn(n_points, n_params, |r, c| refined_points[r][c]);
-    let refined_theta = Theta::from_parts(refined_matrix, settings.parameters().clone());
+    let refined_theta = Theta::from_parts(refined_matrix, settings.parameters().clone()).unwrap();
 
     // Renormalize weights
     let weight_sum: f64 = kept_weights.iter().sum();
