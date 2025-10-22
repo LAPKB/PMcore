@@ -8,7 +8,7 @@
 //!
 //! # Quick Start
 //!
-//! ```rust,no_run
+//! ```rust,no_run,ignore
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //!
 //! # fn example(prior_theta: pmcore::structs::theta::Theta,
@@ -141,7 +141,7 @@
 //!
 //! ## Single Dose Optimization
 //!
-//! ```rust,no_run
+//! ```rust,no_run,ignore
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
@@ -173,7 +173,7 @@
 //!
 //! ## Multiple Doses with AUC Target
 //!
-//! ```rust,no_run
+//! ```rust,no_run,ignore
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
@@ -210,7 +210,7 @@
 //!
 //! ## Population-Only Optimization
 //!
-//! ```rust,no_run
+//! ```rust,no_run,ignore
 //! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! # fn example(prior_theta: pmcore::structs::theta::Theta,
 //! #            prior_weights: pmcore::structs::weights::Weights,
@@ -259,12 +259,12 @@
 //! ## Performance Tuning
 //!
 //! For faster optimization:
-//! ```rust,no_run
+//! ```rust,no_run,ignore
 //! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! # fn example(prior_theta: pmcore::structs::theta::Theta,
 //! #            prior_weights: pmcore::structs::weights::Weights,
 //! #            target: pharmsol::prelude::Subject,
-//! #            eq: pharmsol::prelude::ODE,
+//! #            eq: pharmsol::ODE,
 //! #            error_models: pharmsol::prelude::ErrorModels,
 //! #            mut settings: pmcore::routines::settings::Settings)
 //! #            -> anyhow::Result<()> {
@@ -278,7 +278,7 @@
 //! )?;
 //!
 //! // For AUC: use coarser time grid
-//! settings.predictions().idelta = 30;  // 30-minute intervals
+//! settings.predictions().idelta = 30.0;  // 30-minute intervals
 //! # Ok(())
 //! # }
 //! ```

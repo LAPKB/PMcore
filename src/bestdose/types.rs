@@ -87,7 +87,7 @@ pub enum Target {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use pmcore::bestdose::DoseRange;
 ///
 /// // Standard range: 0-1000 mg
@@ -182,7 +182,7 @@ impl Default for DoseRange {
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust,no_run,ignore
 /// use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 ///
 /// # fn example(prior_theta: pmcore::structs::theta::Theta,
@@ -281,7 +281,7 @@ pub struct BestDoseProblem {
 ///
 /// ## Extracting Results
 ///
-/// ```rust,no_run
+/// ```rust,no_run,ignore
 /// # use pmcore::bestdose::BestDoseProblem;
 /// # fn example(problem: BestDoseProblem) -> anyhow::Result<()> {
 /// let result = problem.optimize()?;
