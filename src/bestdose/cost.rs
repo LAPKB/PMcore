@@ -218,10 +218,16 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                     for event in occasion.events() {
                         match event {
                             Event::Bolus(bolus) => {
-                                builder = builder.bolus(bolus.time(), bolus.amount(), 0);
+                                builder =
+                                    builder.bolus(bolus.time(), bolus.amount(), bolus.input());
                             }
-                            Event::Infusion(_infusion) => {
-                                tracing::warn!("Infusions not yet supported in AUC mode");
+                            Event::Infusion(infusion) => {
+                                builder = builder.infusion(
+                                    infusion.time(),
+                                    infusion.amount(),
+                                    infusion.input(),
+                                    infusion.duration(),
+                                );
                             }
                             Event::Observation(_) => {} // Skip original observations
                         }
