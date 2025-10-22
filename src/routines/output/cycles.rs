@@ -157,18 +157,10 @@ impl CycleLog {
             cycle.error_models.iter().try_for_each(
                 |(_, errmod): (usize, &ErrorModel)| -> Result<()> {
                     match errmod {
-                        ErrorModel::Additive {
-                            lambda: _,
-                            poly: _,
-                            lloq: _,
-                        } => {
+                        ErrorModel::Additive { lambda: _, poly: _ } => {
                             writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
-                        ErrorModel::Proportional {
-                            gamma: _,
-                            poly: _,
-                            lloq: _,
-                        } => {
+                        ErrorModel::Proportional { gamma: _, poly: _ } => {
                             writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
                         ErrorModel::None => {}

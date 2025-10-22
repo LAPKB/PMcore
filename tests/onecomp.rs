@@ -5,9 +5,9 @@ use pmcore::prelude::*;
 fn test_one_compartment_npag() -> Result<()> {
     // Create a simple one-compartment model
     let eq = equation::ODE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
+        |x, p, _t, dx, b, _rateiv, _cov| {
             fetch_params!(p, ke);
-            dx[0] = -ke * x[0];
+            dx[0] = -ke * x[0] + b[0];
         },
         |_p, _t, _cov| lag! {},
         |_p, _t, _cov| fa! {},
@@ -22,7 +22,7 @@ fn test_one_compartment_npag() -> Result<()> {
     // Define parameters
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
 
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em).unwrap();
 
     // Create settings
@@ -73,9 +73,9 @@ fn test_one_compartment_npag() -> Result<()> {
 fn test_one_compartment_npod() -> Result<()> {
     // Create a simple one-compartment model
     let eq = equation::ODE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
+        |x, p, _t, dx, b, _rateiv, _cov| {
             fetch_params!(p, ke);
-            dx[0] = -ke * x[0];
+            dx[0] = -ke * x[0] + b[0];
         },
         |_p, _t, _cov| lag! {},
         |_p, _t, _cov| fa! {},
@@ -90,7 +90,7 @@ fn test_one_compartment_npod() -> Result<()> {
     // Define parameters
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
 
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em).unwrap();
 
     // Create settings
@@ -141,9 +141,9 @@ fn test_one_compartment_npod() -> Result<()> {
 fn test_one_compartment_postprob() -> Result<()> {
     // Create a simple one-compartment model
     let eq = equation::ODE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
+        |x, p, _t, dx, b, _rateiv, _cov| {
             fetch_params!(p, ke);
-            dx[0] = -ke * x[0];
+            dx[0] = -ke * x[0] + b[0];
         },
         |_p, _t, _cov| lag! {},
         |_p, _t, _cov| fa! {},
@@ -158,7 +158,7 @@ fn test_one_compartment_postprob() -> Result<()> {
     // Define parameters
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
 
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em).unwrap();
 
     // Create settings
