@@ -36,11 +36,7 @@ fn main() {
     let ems = ErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(
-                ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
-                0.0,
-                None,
-            ),
+            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
         .unwrap();
 

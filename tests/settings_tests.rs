@@ -6,7 +6,7 @@ use pmcore::prelude::*;
 fn test_settings_builder_basic() -> Result<()> {
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
 
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
 
     let settings = Settings::builder()
@@ -27,7 +27,7 @@ fn test_settings_builder_basic() -> Result<()> {
 fn test_settings_serialization() -> Result<()> {
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 15.0);
 
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
 
     let settings = Settings::builder()
@@ -54,7 +54,7 @@ fn test_settings_serialization() -> Result<()> {
 #[test]
 fn test_settings_algorithms() -> Result<()> {
     let params = Parameters::new().add("ke", 0.1, 1.0);
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
 
     // Test NPAG
@@ -80,7 +80,7 @@ fn test_settings_algorithms() -> Result<()> {
 #[test]
 fn test_settings_setters() -> Result<()> {
     let params = Parameters::new().add("ke", 0.1, 1.0);
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
 
     let mut settings = Settings::builder()
@@ -116,7 +116,7 @@ fn test_settings_setters() -> Result<()> {
 #[test]
 fn test_settings_with_prior() -> Result<()> {
     let params = Parameters::new().add("ke", 0.1, 1.0);
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
 
     let mut settings = Settings::builder()
@@ -139,7 +139,7 @@ fn test_settings_with_prior() -> Result<()> {
 #[test]
 fn test_settings_latin_prior() -> Result<()> {
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 15.0);
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
 
     let mut settings = Settings::builder()
@@ -181,8 +181,8 @@ fn test_parameters() {
 /// Test ErrorModels construction
 #[test]
 fn test_error_models() -> Result<()> {
-    let em1 = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
-    let em2 = ErrorModel::proportional(ErrorPoly::new(0.0, 0.0, 0.15, 0.0), 2.0, None);
+    let em1 = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
+    let em2 = ErrorModel::proportional(ErrorPoly::new(0.0, 0.0, 0.15, 0.0), 2.0);
 
     let mut ems = ErrorModels::new();
     ems = ems.add(0, em1)?;
@@ -198,7 +198,7 @@ fn test_error_models() -> Result<()> {
 #[test]
 fn test_config_accessors() -> Result<()> {
     let params = Parameters::new().add("ke", 0.1, 1.0);
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
 
     let settings = Settings::builder()
