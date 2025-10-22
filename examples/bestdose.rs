@@ -8,10 +8,10 @@ use pmcore::routines::initialization::parse_prior;
 fn main() -> Result<()> {
     // Example model
     let eq = equation::ODE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
+        |x, p, _t, dx, b, _rateiv, _cov| {
             // fetch_cov!(cov, t, wt);
             fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0];
+            dx[0] = -ke * x[0] + b[0];
         },
         |_p, _, _| lag! {},
         |_p, _, _| fa! {},
@@ -29,7 +29,7 @@ fn main() -> Result<()> {
 
     let ems = ErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0, None),
+        ErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
     // Make settings
