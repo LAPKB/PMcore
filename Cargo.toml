@@ -34,10 +34,12 @@ rand = "0.9.0"
 anyhow = "1.0.100"
 rayon = "1.10.0"
 argmin-math = "0.4.0"
+clarabel = { version = "0.11.1", optional = true }
 
 [features]
-default = []
+default = ["clarabel"]
 exa = ["pharmsol/exa"]
+clarabel = ["dep:clarabel"]
 
 [profile.release]
 codegen-units = 1
@@ -49,4 +51,8 @@ criterion = { version = "0.7" }
 
 [[bench]]
 name = "bimodal_ke"
+harness = false
+
+[[bench]]
+name = "weights"
 harness = false

@@ -30,7 +30,14 @@ use rayon::prelude::*;
 ///
 /// This function returns an error if any step in the optimization (e.g. Cholesky factorization)
 /// fails.
+///
 pub fn burke(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
+    // burke_old(psi)
+    // crate::routines::evaluation::frank_wolfe::frank_wolfe_weights(psi)
+    // crate::routines::evaluation::pgd::pgd_weights(psi)
+    crate::routines::evaluation::em::em_weights(psi)
+}
+pub fn burke_old(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
     let mut psi = psi.matrix().to_owned();
 
     // Ensure all entries are finite and make them non-negative.

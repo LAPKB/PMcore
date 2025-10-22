@@ -134,6 +134,15 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
     fn convergence_evaluation(&mut self) {
         let psi = self.psi.matrix();
         let w = &self.w;
+        // if self.last_objf > self.objf + 1e-4 {
+        //     self.psi.write("psi.csv");
+        //     tracing::warn!(
+        //         "Objective function decreased from {:.4} to {:.4} (delta = {})",
+        //         -2.0 * self.last_objf,
+        //         -2.0 * self.objf,
+        //         -2.0 * self.last_objf - -2.0 * self.objf
+        //     );
+        // }
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
             self.eps /= 2.;
             if self.eps <= THETA_E {
@@ -371,6 +380,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         tracing::debug!("EPS = {:.4}", self.eps);
         // Increasing objf signals instability or model misspecification.
         if self.last_objf > self.objf + 1e-4 {
+            self.psi.write("psi.csv");
             tracing::warn!(
                 "Objective function decreased from {:.4} to {:.4} (delta = {})",
                 -2.0 * self.last_objf,

@@ -1,2 +1,11 @@
+pub mod clarabel;
+pub mod em;
+pub mod frank_wolfe;
 pub mod ipm;
+pub mod lbfgs;
+pub mod mirror_descent;
+// pub mod newton_cg;
+pub mod pgd;
 pub mod qr;
+pub mod squarem;
+pub mod stochastic_mirror_descent;

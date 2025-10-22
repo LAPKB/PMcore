@@ -1,3 +1,4 @@
+//REMOVEME: Missing past_data steady state
 //! # BestDose Algorithm
 //!
 //! Bayesian dose optimization algorithm that finds optimal dosing regimens to achieve
@@ -384,7 +385,7 @@ fn concatenate_past_and_future(
                 Event::Observation(obs) => {
                     builder = builder.observation(
                         obs.time() + current_time,
-                        obs.value().unwrap_or(0.0), // Use 0.0 as default if value is None
+                        obs.value().unwrap_or(0.0), // None represents a missing observation, should not happen TODO: add an error check?
                         obs.outeq(),
                     );
                 }
