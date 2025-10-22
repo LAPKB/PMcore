@@ -234,9 +234,22 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                     }
                 }
 
+                let mut outeqs = vec![];
+                target_subject.iter().for_each(|occ| {
+                    occ.events().into_iter().for_each(|event| {
+                        if let Event::Observation(obs) = event {
+                            outeqs.push(obs.outeq().clone());
+                        }
+                    });
+                });
+
+                outeqs.dedup();
+
                 // Add observations at dense times (with dummy values for timing only)
-                for &t in &dense_times {
-                    builder = builder.observation(t, -99.0, 0);
+                for outeq in outeqs {
+                    for &t in &dense_times {
+                        builder = builder.missing_observation(t, outeq);
+                    }
                 }
 
                 let dense_subject = builder.build();
