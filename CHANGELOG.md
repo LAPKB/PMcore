@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0](https://github.com/LAPKB/PMcore/compare/v0.18.1...v0.19.0) - 2025-10-22
+
+### Added
+
+- New version of pharmsol ([#208](https://github.com/LAPKB/PMcore/pull/208))
+- Implement serialize for NPResult ([#202](https://github.com/LAPKB/PMcore/pull/202))
+
+### Other
+
+- Remove writing of the op.csv ([#205](https://github.com/LAPKB/PMcore/pull/205))
+- Add more tests ([#199](https://github.com/LAPKB/PMcore/pull/199))
+- More informative error for Cholesky decomposition ([#198](https://github.com/LAPKB/PMcore/pull/198))
+
 ## [0.18.1](https://github.com/LAPKB/PMcore/compare/v0.18.0...v0.18.1) - 2025-10-09
 
 ### Added
