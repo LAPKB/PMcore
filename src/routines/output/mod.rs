@@ -405,27 +405,6 @@ impl<E: Equation> NPResult<E> {
             &outputfile_pred.relative_path()
         );
 
-        // Write observations and predictions to op.csv
-        let outputfile_op = OutputFile::new(&self.settings.output().path, "op.csv")?;
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(&outputfile_op.file);
-
-        // Write each prediction row
-        for row in predictions
-            .predictions()
-            .iter()
-            .filter(|r| r.obs().is_some())
-        {
-            writer.serialize(row)?;
-        }
-
-        writer.flush()?;
-        tracing::debug!(
-            "Observed-predicted values written to {:?}",
-            &outputfile_op.relative_path()
-        );
-
         Ok(())
     }
 

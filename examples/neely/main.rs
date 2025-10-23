@@ -1,7 +1,7 @@
 use pmcore::prelude::*;
 fn main() {
     let ode = equation::ODE::new(
-        |x, p, t, dx, rateiv, cov| {
+        |x, p, t, dx, b, rateiv, cov| {
             fetch_params!(p, cls, k30, k40, qs, vps, vs, fm1, fm2, theta1, theta2);
             fetch_cov!(cov, t, wt, pkvisit);
 
@@ -19,7 +19,8 @@ fn main() {
 
             //</tem>
             dx[0] = rateiv[0] - ke * x[0] * (1.0 - fm1 - fm2) - (fm1 + fm2) * x[0] - k12 * x[0]
-                + k21 * x[1];
+                + k21 * x[1]
+                + b[0];
             dx[1] = k12 * x[0] - k21 * x[1];
             dx[2] = fm1 * x[0] - k30 * x[2];
             dx[3] = fm2 * x[0] - k40 * x[3];
@@ -68,17 +69,17 @@ fn main() {
     let ems = ErrorModels::new()
         .add(
             0,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0, None),
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
         .add(
             1,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0, None),
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
         .add(
             2,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0, None),
+            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap();
     let mut settings = Settings::builder()

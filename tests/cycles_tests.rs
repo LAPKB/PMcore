@@ -7,7 +7,7 @@ use pmcore::structs::theta::Theta;
 /// Test NPCycle creation and accessors
 #[test]
 fn test_npcycle_creation() -> Result<()> {
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
 
     let theta = Theta::new();
@@ -48,7 +48,7 @@ fn test_npcycle_placeholder() {
 fn test_cycle_log() -> Result<()> {
     let mut log = CycleLog::new();
 
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
     let theta = Theta::new();
 
@@ -86,7 +86,7 @@ fn test_cycle_log() -> Result<()> {
 fn test_cycle_log_statuses() -> Result<()> {
     let mut log = CycleLog::new();
 
-    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+    let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let ems = ErrorModels::new().add(0, em)?;
     let theta = Theta::new();
 
