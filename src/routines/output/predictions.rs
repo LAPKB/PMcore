@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use pharmsol::{prelude::simulator::Prediction, Data, Predictions as PredTrait};
+use pharmsol::{prelude::simulator::Prediction, Censor, Data, Predictions as PredTrait};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -20,6 +20,8 @@ pub struct NPPredictionRow {
     block: usize,
     /// The observed value, if any
     obs: Option<f64>,
+    /// Censored observation flag
+    censored: Censor,
     /// The population mean prediction
     pop_mean: f64,
     /// The population median prediction
@@ -214,6 +216,7 @@ impl NPPredictions {
                         outeq: p.outeq(),
                         block: p.occasion(),
                         obs: p.observation(),
+                        censored: p.censor(),
                         pop_mean: pop_mean[j],
                         pop_median: pop_median[j],
                         post_mean: posterior_mean[j],
