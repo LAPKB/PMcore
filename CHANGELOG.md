@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.18.2](https://github.com/LAPKB/PMcore/compare/v0.18.1...v0.18.2) - 2025-10-22
+## [0.19.0](https://github.com/LAPKB/PMcore/compare/v0.18.1...v0.19.0) - 2025-10-22
 
 ### Added
 
