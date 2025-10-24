@@ -31,6 +31,18 @@ impl Weights {
         }
     }
 
+    /// Create a new [Weights] instance with uniform weights.
+    /// If `n` is 0, returns an empty [Weights] instance.
+    pub fn uniform(n: usize) -> Self {
+        if n == 0 {
+            return Self::default();
+        }
+        let uniform_weight = 1.0 / n as f64;
+        Self {
+            weights: Col::from_fn(n, |_| uniform_weight),
+        }
+    }
+
     /// Get a reference to the weights.
     pub fn weights(&self) -> &Col<f64> {
         &self.weights
