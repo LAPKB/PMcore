@@ -187,7 +187,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
         .matrix()
         .row_iter()
         .zip(problem.posterior.iter()) // Posterior from NPAGFULL11 (patient-specific)
-        .zip(problem.prior_weights.iter())
+        .zip(problem.population_weights.iter())
     // Prior (population)
     {
         let spp = row.iter().copied().collect::<Vec<f64>>();

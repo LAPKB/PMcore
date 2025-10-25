@@ -164,8 +164,8 @@ impl Default for DoseRange {
 /// - `target_type`: [`Target::Concentration`] or [`Target::AUC`]
 ///
 /// ## Population Prior
-/// - `prior_theta`: Support points from NPAG population model
-/// - `prior_weights`: Probability weights for each support point
+/// - `population_theta`: Support points from NPAG population model
+/// - `population_weights`: Probability weights for each support point
 ///
 /// ## Patient-Specific Posterior
 /// - `theta`: Refined posterior support points (from NPAGFULL11 + NPAGFULL)
@@ -185,8 +185,8 @@ impl Default for DoseRange {
 /// ```rust,no_run,ignore
 /// use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 ///
-/// # fn example(prior_theta: pmcore::structs::theta::Theta,
-/// #            prior_weights: pmcore::structs::weights::Weights,
+/// # fn example(population_theta: pmcore::structs::theta::Theta,
+/// #            population_weights: pmcore::structs::weights::Weights,
 /// #            past: pharmsol::prelude::Subject,
 /// #            target: pharmsol::prelude::Subject,
 /// #            eq: pharmsol::prelude::ODE,
@@ -194,8 +194,8 @@ impl Default for DoseRange {
 /// #            settings: pmcore::routines::settings::Settings)
 /// #            -> anyhow::Result<()> {
 /// let problem = BestDoseProblem::new(
-///     &prior_theta,
-///     &prior_weights,
+///     &population_theta,
+///     &population_weights,
 ///     Some(past),                      // Patient history
 ///     target,                          // Dosing template with targets
 ///     eq,
@@ -237,9 +237,9 @@ pub struct BestDoseProblem {
 
     // Population prior
     /// The population prior support points ([Theta]), representing your previous knowledge of the population parameter distribution.
-    pub(crate) prior_theta: Theta,
+    pub(crate) population_theta: Theta,
     /// The population prior weights ([Weights]), representing the probability of each support point in the population.
-    pub(crate) prior_weights: Weights,
+    pub(crate) population_weights: Weights,
 
     // Patient-specific posterior (from NPAGFULL11 + NPAGFULL)
     pub(crate) theta: Theta,
@@ -261,6 +261,20 @@ pub struct BestDoseProblem {
     /// This is used to track the boundary between past and future for reporting/debugging.
     /// The actual optimization mask is derived from dose amounts (0 = optimize, >0 = fixed).
     pub(crate) time_offset: Option<f64>,
+}
+
+impl BestDoseProblem {
+    /// Validate input
+    pub(crate) fn validate(&self) -> anyhow::Result<()> {
+        if self.bias_weight <= 0.0 || self.bias_weight >= 1.0 {
+            return Err(anyhow::anyhow!(
+                "Bias weight must be between 0.0 and 1.0, got {}",
+                self.bias_weight
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 /// Result from BestDose optimization

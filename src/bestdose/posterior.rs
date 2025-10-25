@@ -87,10 +87,10 @@ const KEEP_UNREFINED_POINTS: bool = true;
 ///
 /// Note: This uses only lambda filtering, NO QR decomposition or second burke call.
 ///
-/// Returns: (filtered_theta, filtered_posterior_weights, filtered_prior_weights)
+/// Returns: (filtered_theta, filtered_posterior_weights, filtered_population_weights)
 pub fn npagfull11_filter(
-    prior_theta: &Theta,
-    prior_weights: &Weights,
+    population_theta: &Theta,
+    population_weights: &Weights,
     past_data: &Data,
     eq: &ODE,
     error_models: &ErrorModels,
@@ -98,7 +98,7 @@ pub fn npagfull11_filter(
     tracing::info!("Stage 1.1: NPAGFULL11 Bayesian filtering");
 
     // Calculate psi matrix P(data|theta_i) for all support points
-    let psi = calculate_psi(eq, past_data, prior_theta, error_models, false, true)?;
+    let psi = calculate_psi(eq, past_data, population_theta, error_models, false, true)?;
 
     // First burke call to get initial posterior probabilities
     let (initial_weights, _) = burke(&psi)?;
@@ -119,7 +119,7 @@ pub fn npagfull11_filter(
         .collect();
 
     // Filter theta to keep only points above threshold
-    let mut filtered_theta = prior_theta.clone();
+    let mut filtered_theta = population_theta.clone();
     filtered_theta.filter_indices(&keep_lambda);
 
     // Filter and renormalize posterior weights
@@ -129,10 +129,11 @@ pub fn npagfull11_filter(
         Weights::from_vec(filtered_weights.iter().map(|w| w / sum).collect());
 
     // Also filter the prior weights to match the filtered theta
-    let filtered_prior_weights: Vec<f64> = keep_lambda.iter().map(|&i| prior_weights[i]).collect();
-    let prior_sum: f64 = filtered_prior_weights.iter().sum();
-    let final_prior_weights = Weights::from_vec(
-        filtered_prior_weights
+    let filtered_population_weights: Vec<f64> =
+        keep_lambda.iter().map(|&i| population_weights[i]).collect();
+    let prior_sum: f64 = filtered_population_weights.iter().sum();
+    let final_population_weights = Weights::from_vec(
+        filtered_population_weights
             .iter()
             .map(|w| w / prior_sum)
             .collect(),
@@ -140,12 +141,16 @@ pub fn npagfull11_filter(
 
     tracing::info!(
         "  {} → {} support points (lambda filter, threshold={:.0e})",
-        prior_theta.matrix().nrows(),
+        population_theta.matrix().nrows(),
         filtered_theta.matrix().nrows(),
         threshold * max_weight
     );
 
-    Ok((filtered_theta, final_posterior_weights, final_prior_weights))
+    Ok((
+        filtered_theta,
+        final_posterior_weights,
+        final_population_weights,
+    ))
 }
 
 /// Step 1.2: NPAGFULL - Refine each filtered point with full NPAG optimization
@@ -292,11 +297,11 @@ pub fn npagfull_refinement(
 ///
 /// This is the complete Stage 1 of the BestDose algorithm.
 ///
-/// Returns (posterior_theta, posterior_weights, filtered_prior_weights) suitable for dose optimization.
-/// The filtered_prior_weights are the original prior weights filtered to match the posterior support points.
+/// Returns (posterior_theta, posterior_weights, filtered_population_weights) suitable for dose optimization.
+/// The filtered_population_weights are the original prior weights filtered to match the posterior support points.
 pub fn calculate_two_step_posterior(
-    prior_theta: &Theta,
-    prior_weights: &Weights,
+    population_theta: &Theta,
+    population_weights: &Weights,
     past_data: &Data,
     eq: &ODE,
     error_models: &ErrorModels,
@@ -306,8 +311,14 @@ pub fn calculate_two_step_posterior(
     tracing::info!("=== STAGE 1: Posterior Density Calculation ===");
 
     // Step 1.1: NPAGFULL11 filtering (returns filtered posterior AND filtered prior)
-    let (filtered_theta, filtered_posterior_weights, filtered_prior_weights) =
-        npagfull11_filter(prior_theta, prior_weights, past_data, eq, error_models)?;
+    let (filtered_theta, filtered_posterior_weights, filtered_population_weights) =
+        npagfull11_filter(
+            population_theta,
+            population_weights,
+            past_data,
+            eq,
+            error_models,
+        )?;
 
     // Step 1.2: NPAGFULL refinement
     let (refined_theta, refined_weights) = npagfull_refinement(
@@ -324,5 +335,5 @@ pub fn calculate_two_step_posterior(
         refined_theta.matrix().nrows()
     );
 
-    Ok((refined_theta, refined_weights, filtered_prior_weights))
+    Ok((refined_theta, refined_weights, filtered_population_weights))
 }

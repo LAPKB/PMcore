@@ -11,8 +11,8 @@
 //! ```rust,no_run,ignore
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //!
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past_data: pharmsol::prelude::Subject,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
@@ -21,8 +21,8 @@
 //! #            -> anyhow::Result<()> {
 //! // Create optimization problem
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta,                    // Population support points from NPAG
-//!     &prior_weights,                  // Population probabilities
+//!     &population_theta,                    // Population support points from NPAG
+//!     &population_weights,                  // Population probabilities
 //!     Some(past_data),                 // Patient history (None = use prior)
 //!     target,                          // Future template with targets
 //!     eq,                              // PK/PD model
@@ -145,8 +145,8 @@
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
 //! #            error_models: pharmsol::prelude::ErrorModels,
@@ -159,7 +159,7 @@
 //!     .build();
 //!
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta, &prior_weights, Some(past), target, eq, error_models,
+//!     &population_theta, &population_weights, Some(past), target, eq, error_models,
 //!     DoseRange::new(10.0, 500.0),    // 10-500 mg allowed
 //!     0.3,                             // Slight population emphasis
 //!     settings, 500, Target::Concentration,
@@ -177,8 +177,8 @@
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
 //! #            error_models: pharmsol::prelude::ErrorModels,
@@ -192,7 +192,7 @@
 //!     .build();
 //!
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta, &prior_weights, Some(past), target, eq, error_models,
+//!     &population_theta, &population_weights, Some(past), target, eq, error_models,
 //!     DoseRange::new(50.0, 300.0),
 //!     0.0,                             // Full personalization
 //!     settings, 500, Target::AUC,      // AUC target!
@@ -212,8 +212,8 @@
 //!
 //! ```rust,no_run,ignore
 //! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
 //! #            error_models: pharmsol::prelude::ErrorModels,
@@ -221,7 +221,7 @@
 //! #            -> anyhow::Result<()> {
 //! // No patient history - use population prior directly
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta, &prior_weights,
+//!     &population_theta, &population_weights,
 //!     None,                            // No past data
 //!     target, eq, error_models,
 //!     DoseRange::new(0.0, 1000.0),
@@ -261,8 +261,8 @@
 //! For faster optimization:
 //! ```rust,no_run,ignore
 //! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::ODE,
 //! #            error_models: pharmsol::prelude::ErrorModels,
@@ -270,7 +270,7 @@
 //! #            -> anyhow::Result<()> {
 //! // Reduce refinement cycles
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta, &prior_weights, None, target, eq, error_models,
+//!     &population_theta, &population_weights, None, target, eq, error_models,
 //!     DoseRange::new(0.0, 1000.0), 0.5,
 //!     settings.clone(),
 //!     100,                             // Faster: 100 instead of 500
@@ -514,10 +514,10 @@ fn validate_time_offset(time_offset: f64, past_data: &Option<Subject>) -> Result
 ///
 /// # Returns
 ///
-/// Tuple: (posterior_theta, posterior_weights, filtered_prior_weights, past_subject)
+/// Tuple: (posterior_theta, posterior_weights, filtered_population_weights, past_subject)
 fn calculate_posterior_density(
-    prior_theta: &Theta,
-    prior_weights: &Weights,
+    population_theta: &Theta,
+    population_weights: &Weights,
     past_data: Option<&Subject>,
     eq: &ODE,
     error_models: &ErrorModels,
@@ -528,9 +528,9 @@ fn calculate_posterior_density(
         None => {
             tracing::info!("  No past data → using prior directly");
             Ok((
-                prior_theta.clone(),
-                prior_weights.clone(),
-                prior_weights.clone(),
+                population_theta.clone(),
+                population_weights.clone(),
+                population_weights.clone(),
                 Subject::builder("Empty").build(),
             ))
         }
@@ -546,9 +546,9 @@ fn calculate_posterior_density(
             if !has_observations {
                 tracing::info!("  Past data has no observations → using prior directly");
                 Ok((
-                    prior_theta.clone(),
-                    prior_weights.clone(),
-                    prior_weights.clone(),
+                    population_theta.clone(),
+                    population_weights.clone(),
+                    population_weights.clone(),
                     past_subject.clone(),
                 ))
             } else {
@@ -559,10 +559,10 @@ fn calculate_posterior_density(
 
                 let past_data_obj = Data::new(vec![past_subject.clone()]);
 
-                let (posterior_theta, posterior_weights, filtered_prior_weights) =
+                let (posterior_theta, posterior_weights, filtered_population_weights) =
                     posterior::calculate_two_step_posterior(
-                        prior_theta,
-                        prior_weights,
+                        population_theta,
+                        population_weights,
                         &past_data_obj,
                         eq,
                         error_models,
@@ -573,7 +573,7 @@ fn calculate_posterior_density(
                 Ok((
                     posterior_theta,
                     posterior_weights,
-                    filtered_prior_weights,
+                    filtered_population_weights,
                     past_subject.clone(),
                 ))
             }
@@ -646,8 +646,8 @@ impl BestDoseProblem {
     ///
     /// # Parameters
     ///
-    /// * `prior_theta` - Population support points from NPAG
-    /// * `prior_weights` - Population probabilities
+    /// * `population_theta` - Population support points from NPAG
+    /// * `population_weights` - Population probabilities
     /// * `past_data` - Patient history (None = use prior directly)
     /// * `target` - Future dosing template with targets
     /// * `time_offset` - Optional time offset for concatenation (None = standard mode, Some(t) = Fortran mode)
@@ -664,8 +664,8 @@ impl BestDoseProblem {
     /// BestDoseProblem ready for `optimize()`
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        prior_theta: &Theta,
-        prior_weights: &Weights,
+        population_theta: &Theta,
+        population_weights: &Weights,
         past_data: Option<Subject>,
         target: Subject,
         time_offset: Option<f64>,
@@ -690,10 +690,10 @@ impl BestDoseProblem {
         // ═════════════════════════════════════════════════════════════
         // STAGE 1: Calculate Posterior Density
         // ═════════════════════════════════════════════════════════════
-        let (posterior_theta, posterior_weights, filtered_prior_weights, past_subject) =
+        let (posterior_theta, posterior_weights, filtered_population_weights, past_subject) =
             calculate_posterior_density(
-                prior_theta,
-                prior_weights,
+                population_theta,
+                population_weights,
                 past_data.as_ref(),
                 &eq,
                 &error_models,
@@ -716,8 +716,8 @@ impl BestDoseProblem {
             past_data: final_past_data,
             target: final_target,
             target_type,
-            prior_theta: prior_theta.clone(),
-            prior_weights: filtered_prior_weights,
+            population_theta: population_theta.clone(),
+            population_weights: filtered_population_weights,
             theta: posterior_theta,
             posterior: posterior_weights,
             eq,
