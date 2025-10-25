@@ -218,7 +218,7 @@ pub struct BestDoseProblem {
     ///
     /// These observations are used to refine the population prior into a
     /// patient-specific posterior, and will be used to inform dose optimization.
-    pub past_data: Subject,
+    pub(crate) past_data: Subject,
     /// Target subject with dosing template and target observations
     ///
     /// This [Subject] defines the targets for optimization, including
@@ -229,30 +229,30 @@ pub struct BestDoseProblem {
     /// For a `Target::AUC`, observation values are target cumulative AUC.
     ///
     /// Only doses with a value of `0.0` will be optimized; non-zero doses remain fixed.
-    pub target: Subject,
+    pub(crate) target: Subject,
     /// Target type for optimization
     ///
     /// Specifies whether to optimize for concentrations or AUC values.
-    pub target_type: Target,
+    pub(crate) target_type: Target,
 
     // Population prior
     /// The population prior support points ([Theta]), representing your previous knowledge of the population parameter distribution.
-    pub prior_theta: Theta,
+    pub(crate) prior_theta: Theta,
     /// The population prior weights ([Weights]), representing the probability of each support point in the population.
-    pub prior_weights: Weights,
+    pub(crate) prior_weights: Weights,
 
     // Patient-specific posterior (from NPAGFULL11 + NPAGFULL)
-    pub theta: Theta,
-    pub posterior: Weights,
+    pub(crate) theta: Theta,
+    pub(crate) posterior: Weights,
 
     // Model and settings
-    pub eq: ODE,
-    pub error_models: ErrorModels,
-    pub settings: Settings,
+    pub(crate) eq: ODE,
+    pub(crate) error_models: ErrorModels,
+    pub(crate) settings: Settings,
 
     // Optimization parameters
-    pub doserange: DoseRange,
-    pub bias_weight: f64, // λ: 0=personalized, 1=population
+    pub(crate) doserange: DoseRange,
+    pub(crate) bias_weight: f64, // λ: 0=personalized, 1=population
 
     /// Time offset between past and future data (used for concatenation)
     /// When Some(t): future events were offset by this time to create continuous simulation
@@ -260,7 +260,7 @@ pub struct BestDoseProblem {
     ///
     /// This is used to track the boundary between past and future for reporting/debugging.
     /// The actual optimization mask is derived from dose amounts (0 = optimize, >0 = fixed).
-    pub current_time: Option<f64>,
+    pub(crate) time_offset: Option<f64>,
 }
 
 /// Result from BestDose optimization

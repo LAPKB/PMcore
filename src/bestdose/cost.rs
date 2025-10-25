@@ -70,7 +70,7 @@ use pharmsol::Equation;
 ///
 /// # Dose Masking
 ///
-/// When `problem.current_time` is set (past/future separation), only doses where
+/// When `problem.time_offset` is set (past/future separation), only doses where
 /// `dose_optimization_mask[i] == true` are updated with values from `candidate_doses`.
 /// Past doses (mask == false) remain at their historical values.
 ///
