@@ -214,12 +214,31 @@ impl Default for DoseRange {
 #[derive(Debug, Clone)]
 pub struct BestDoseProblem {
     // Input data
+    /// Past patient data for posterior calculation
+    ///
+    /// These observations are used to refine the population prior into a
+    /// patient-specific posterior, and will be used to inform dose optimization.
     pub past_data: Subject,
+    /// Target subject with dosing template and target observations
+    ///
+    /// This [Subject] defines the targets for optimization, including
+    /// dose events (with amounts to be optimized) and observation events
+    /// (with desired target values).
+    ///
+    /// For a `Target::Concentration`, observation values are target concentrations.
+    /// For a `Target::AUC`, observation values are target cumulative AUC.
+    ///
+    /// Only doses with a value of `0.0` will be optimized; non-zero doses remain fixed.
     pub target: Subject,
+    /// Target type for optimization
+    ///
+    /// Specifies whether to optimize for concentrations or AUC values.
     pub target_type: Target,
 
     // Population prior
+    /// The population prior support points ([Theta]), representing your previous knowledge of the population parameter distribution.
     pub prior_theta: Theta,
+    /// The population prior weights ([Weights]), representing the probability of each support point in the population.
     pub prior_weights: Weights,
 
     // Patient-specific posterior (from NPAGFULL11 + NPAGFULL)
