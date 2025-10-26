@@ -354,7 +354,7 @@ pub struct BestDoseResult {
     ///
     /// Vector contains one element per dose in the target subject.
     /// Order matches the dose events in the target subject.
-    pub dose: Vec<f64>,
+    pub optimal_subject: Subject,
 
     /// Final cost function value
     ///

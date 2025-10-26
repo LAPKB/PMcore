@@ -84,8 +84,23 @@ fn main() -> Result<()> {
     println!("Optimizing dose...\n");
     let optimal = problem.optimize()?;
 
+    let opt_doses = optimal
+        .optimal_subject
+        .iter()
+        .flat_map(|occ| {
+            occ.events()
+                .iter()
+                .filter_map(|event| match event {
+                    Event::Bolus(bolus) => Some(bolus.amount()),
+                    Event::Infusion(infusion) => Some(infusion.amount()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<f64>>();
+
     println!("=== RESULTS ===");
-    println!("Optimal dose: {:.1} mg", optimal.dose[0]);
+    println!("Optimal dose: {:.1} mg", opt_doses[0]);
     println!("Cost function: {:.6}", optimal.objf);
 
     if let Some(auc_preds) = &optimal.auc_predictions {
