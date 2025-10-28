@@ -34,7 +34,7 @@ use ndarray::{
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-pub struct NPOD<E: Equation> {
+pub struct NPOD<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
     theta: Theta,
@@ -52,7 +52,7 @@ pub struct NPOD<E: Equation> {
     settings: Settings,
 }
 
-impl<E: Equation> Algorithms<E> for NPOD<E> {
+impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
@@ -397,7 +397,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
     }
 }
 
-impl<E: Equation> NPOD<E> {
+impl<E: Equation + Send + 'static> NPOD<E> {
     fn validate_psi(&mut self) -> Result<()> {
         let mut psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
         // First coerce all NaN and infinite in psi to 0.0
