@@ -30,8 +30,9 @@ fn model_ke_ode() -> equation::ODE {
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke0, v0);
             y[0] = x[0]/v0;
+            y[1] = x[0]/v0;
         },
-        (1, 1),
+        (1, 2),
     )
 }
 
@@ -53,8 +54,9 @@ fn model_ke() -> equation::SDE {
         |x, p, _t, _cov, y| {
              fetch_params!(p, _ke0, v0);
              y[0] = x[0]/v0;
+             y[1] = x[0]/v0;
         },
-        (1, 1),
+        (1, 2),
         101,
     )
 }
@@ -86,8 +88,9 @@ fn model_ke_s1() -> equation::SDE {
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke0, v0, _s1);
             y[0] = x[0]/v0;
+            y[1] = x[0]/v0;
         },
-        (2, 1),
+        (2, 2),
         101,
     )
 }
@@ -110,8 +113,9 @@ fn model_ke_v() -> equation::SDE {
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
+            y[1] = x[0] / v;
         },
-        (1, 1),
+        (1, 2),
         1,
     )
 }
@@ -143,8 +147,9 @@ fn model_ke_v_s1() -> equation::SDE {
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v, _s1);
             y[0] = x[0] / v;
+            y[1] = x[0] / v;
         },
-        (2, 1),
+        (2, 2),
         1,
     )
 }
@@ -174,22 +179,74 @@ fn model_ke_v_s1_s2() -> equation::SDE {
         |_p| lag! {},
         |_p| fa! {},
         |p, _t, _cov, x| {
-            fetch_params!(p, k0, v0, _s1, _s2);
+            fetch_params!(p, k0, v0, s1, s2);
             x[0] = 20.0;
-            x[1] = k0;
-            x[2] = v0;
+            let normal_ke = Normal::new(k0, s1).unwrap();
+            x[1] = normal_ke.sample(&mut rand::rng()); // k0 + v;
+            let normal_v = Normal::new(v0, s2).unwrap();
+            x[2] = normal_v.sample(&mut rand::rng());// v0 + v;
             x[3] = 20.0; // ODE -- Like = ODE + SDE
+            // println!("{}")
         },
         |x, p, _t, _cov, y| {
             fetch_params!(p, _k0, v0, _s1, _s2);
             let v = x[2];
-            y[0] = x[0] / v;
-            y[1] = x[3] / v0;
+            y[0] = x[0] / v; // SDE 
+            y[1] = x[3] / v0; // ODE center
         },
         (4, 2),
         47,
     )
 }
+
+fn model_sde_no_6() -> equation::SDE {
+    equation::SDE::new(
+        |x, p, _t, dx, _rateiv, _cov| {
+            // automatically defined
+            fetch_params!(p, ke0, v0); // , _s1, _s2);
+            // mean reversion to ke0
+            dx[1] = -x[1] + ke0;
+            let ke = x[1];
+
+            // mean reversion to V
+            dx[2] = -x[2] + v0;
+            // let v = x[2];
+            // user defined
+            dx[0] = -ke * x[0];
+            // ODE
+            dx[3] = -ke * x[3];
+        },
+        |p, d| {
+            fetch_params!(p, _ke0, _v0, s1, s2);
+            // let s1 = 0.0;
+            // let s2 = 0.0; 
+            d[1] = s1;
+            d[2] = s2;
+        },
+        |_p| lag! {},
+        |_p| fa! {},
+        |p, _t, _cov, x| {
+            // fetch_params!(p, k0, v0); // , s1, s2); // exp 1 control
+            fetch_params!(p, k0, v0, s1, s2);
+            x[0] = 20.0;
+            let normal_ke = Normal::new(k0, s1).unwrap();
+            x[1] = normal_ke.sample(&mut rand::rng()); // k0
+            let normal_v = Normal::new(v0, s2).unwrap();
+            x[2] = normal_v.sample(&mut rand::rng()); // v0
+            x[3] = 20.0; // ODE -- Like = ODE + SDE
+            // println!("{}")
+        },
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _k0, v0); // , _s1, _s2);
+            let v = x[2];
+            y[0] = x[0] / v; // SDE 
+            y[1] = x[3] / v0; // ODE center
+        },
+        (4, 2),
+        47,
+    )
+}
+
 
 fn settings_exp1() -> Settings {
     let mut settings = Settings::new();
@@ -244,10 +301,28 @@ fn settings_exp4() -> Settings {
 fn settings_exp5() -> Settings {
     let mut settings = Settings::new();
     let params = Parameters::builder()
-        .add("ke0", 2.5e-2, 1.5 + 5.0 * (1.5 - (0.5 + 3.0 * 0.05))/3.0, false)
+        .add("ke0", 0.025, 1.5 + 5.0 * (1.5 - (0.5 + 3.0 * 0.05))/3.0, false)
         .add("v0", 0.0001, 2.0, false) // Base volume range
-        .add("s1", 0.0025, 5.4, false) // Diffusion parameter for ke
-        .add("s2", 0.01, 0.4, false) // Diffusion parameter for volume
+        .add("s1", 0.0, 2.877113, false) // Diffusion parameter for ke
+        .add("s2", 0.0, 2.0, false) // Diffusion parameter for volume
+        .build()
+        .unwrap();
+
+    settings.set_parameters(params);
+    setup_common_settings(&mut settings)
+}
+
+fn settings_exp6() -> Settings {
+    let mut settings = Settings::new();
+    let params = Parameters::builder()
+        .add("ke0", 0.025, 1.5 + 5.0 * (1.5 - (0.5 + 3.0 * 0.05))/3.0, false)
+        .add("v0", 0.0001, 2.0, false) // Base volume range
+        // Fix sigma in the model file becauase I don't know how to fix it here!
+        // .add("s1",0.0, 1.0e-28,false)
+        // .add("s2", 0.0,1.0e-28,false)
+        // ... or set them in a range.
+        .add("s1", 0.0, 2.877113, false) // Diffusion parameter for ke
+        .add("s2", 0.0, 2.0, false) // Diffusion parameter for volume
         .build()
         .unwrap();
 
@@ -258,11 +333,11 @@ fn settings_exp5() -> Settings {
 fn setup_common_settings(settings: &mut Settings) -> Settings {
     settings.set_cycles(usize::MAX);
     settings.set_cache(true);
-    settings.set_error_value(1.0); // was set to 0.0
+    settings.set_error_value(0.0); // was set to 0.0
     settings.set_error_type(ErrorType::Add);
     settings.set_prior(Prior {
         sampler: "sobol".to_string(),
-        points: 4851,
+        points: 8192,
         seed: 347,
         file: None,
     });
@@ -276,7 +351,18 @@ fn subject() -> Subject {
     data::Subject::builder("id1")
         // .bolus(0.0, 20.0, 0)
         .observation(0.0, -1.0, 0)
-        .repeat(5, 0.2)
+    //    .repeat(5, 0.2)
+        .observation(0.0, -1.0, 1)
+        .observation(0.2, -1.0, 0)
+        .observation(0.2, -1.0, 1)
+        .observation(0.4, -1.0, 0)
+        .observation(0.4, -1.0, 1)
+        .observation(0.6, -1.0, 0)
+        .observation(0.6, -1.0, 1)
+        .observation(0.8, -1.0, 0)
+        .observation(0.8, -1.0, 1)
+        .observation(1.0, -1.0, 0)
+        .observation(1.0, -1.0, 1)
         .build()
 }
 fn sample_k0(rng: &mut StdRng, n1: Normal<f64>, n2: Normal<f64>) -> f64 {
@@ -316,11 +402,20 @@ fn write_samples_to_file(
             let spp = vec![*k0, *v, s1, s2];
             let trajectories = sde.estimate_predictions(&subject, &spp);
             let trajectory = trajectories.row(0);
-            let mut sb = data::Subject::builder(format!("id{}", i));
-            for (t, point) in trajectory.iter().enumerate() {
-                sb = sb.observation((t) as f64 * 0.2, point.prediction(), 0);
-            }
-            data.push(sb.build());
+            // for (t, point) in trajectory.iter().enumerate() {
+                let mut sb = data::Subject::builder(format!("id{}", i));
+                // let mut sb2 = data::Subject::builder(format!("id{}", i));
+                for (t, point) in trajectory.iter().enumerate() {
+                    // for eqn in 0..1 {
+                        sb = sb.observation(point.time(), point.prediction(), point.outeq());
+                        // println!("{} {} {}",i,point.prediction(),point.outeq());
+                    // }
+                    // sb = sb.observation((t) as f64 * 0.2, point.prediction(), 0);
+                    // sb2 = sb2.observation((t) as f64 * 0.2, point.prediction(), 1);
+                }
+                data.push(sb.build());
+                // data.push(sb2.build());
+            // } // sb2 has same output as sb.
         });
     let data = data::Data::new(data);
     data.write_pmetrics(&File::create(Path::new(file_name)).unwrap());
@@ -362,8 +457,8 @@ fn generate_data() {
             .x_axis(layout::Axis::new().title("k0"))
             .y_axis(layout::Axis::new().title("V")),
     );
+    plot.show();
 */
-    // plot.show();
     let mut file = File::create("examples/sde_paper/data/population.csv").unwrap();
     writeln!(file, "index,k0,v").unwrap();
     for (i, (k0, v)) in k0_pop.iter().zip(v_pop.iter()).enumerate() {
@@ -416,9 +511,70 @@ fn generate_data() {
         "examples/sde_paper/data/experiment5.csv",
         k0_pop.clone(),
         Some(v_pop.clone()),
-        0.5346338, // (ke_s1^2 + ke_s2^2)^0.5 = 0.5346338
-        0.2, // sigma_vol is hard coded to 0.2 => 20%CV
+        0.0, // control
+        // 0.01798196, // 1/16
+        // 0.03596393, // 1/8
+        // 0.07192785, // 1/4
+        // 0.1438557, // x0.5
+        // 0.2877113, // 0.2877113 = sqrt(ke_s1^2 + ke_s2^2)
+        // 0.5754226, // x2
+        // 1.150845, // x4
+        // 1.438557, // x5
+        // 1.726268, // x6
+        // 2.013979, // x7
+        // 2.157835, // x7.5
+        // 2.30169, // x8
+        // 2.445546, // x8.5
+        // 2.589402, // x9
+        // 2.733257, // x9.5
+        // 2.877113, // x10
+        // 4.027958, // x14 -- ODE fails at Burke
+        // 5.754226, // x20
+        0.0, // control
+        // 0.0125, // 1/16
+        // 0.025, // 1/8
+        // 0.05, // 1/4
+        // 0.1, // 1/2
+        // 0.2, // population sigma
+        // 0.3,
+        // 0.4, // x2
         model_ke_v_s1_s2(),
+    );
+
+    //experiment 6:
+      //experiment 5: Random Ke, Volume with their sigma parameters
+    write_samples_to_file(
+        "examples/sde_paper/data/experiment6.csv",
+        k0_pop.clone(),
+        Some(v_pop.clone()),
+        // 0.0, // control
+        0.01798196, // 1/16
+        // 0.03596393, // 1/8
+        // 0.07192785, // 1/4
+        // 0.1438557, // x0.5
+        // 0.2877113,  // 0.2877113 = sqrt(ke_s1^2 + ke_s2^2)
+        // 0.5754226, // x2
+        // 1.150845, // x4
+        // 1.438557, // x5
+        // 1.726268, // x6
+        // 2.013979, // x7
+        // 2.157835, // x7.5
+        // 2.30169, // x8
+        // 2.445546, // x8.5
+        // 2.589402, // x9
+        // 2.733257, // x9.5
+        // 2.877113, // x10
+        // 4.027958, // x14 -- ODE fails at Burke
+        // 5.754226, // x20
+        // 0.0, // control
+        0.0125, // 1/16
+        // 0.025, // 1/8
+        // 0.05, // 1/4
+        // 0.1, // 1/2
+        // 0.2, // population sigma
+        // 0.3,
+        // 0.4, // x2
+        model_sde_no_6(),
     );
 }
 
@@ -426,12 +582,12 @@ fn fit_experiment(experiment: usize) {
     // Experiment 0 is the ODE model // note: optimize on exp#5, which has stochastic r.v.s
 
     if experiment == 0 {
-        let data = data::read_pmetrics("examples/sde_paper/data/experiment5.csv").unwrap();
+        let data = data::read_pmetrics("examples/sde_paper/data/experiment6.csv").unwrap();
         let eqn = model_ke_ode();
         let mut settings = settings_exp1();
         settings.set_output_path("examples/sde_paper/output/experiment0");
         // settings.set_error_poly((4.0, 0.32, 0.0, 0.0)); // => shrinkage, a lot!
-        settings.set_error_poly((0.0, 0.01, 0.0, 0.0));
+        settings.set_error_poly((2.0, 0.02, 0.0, 0.0));
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
         result.write_outputs().unwrap();
@@ -449,6 +605,7 @@ fn fit_experiment(experiment: usize) {
         3 => (model_ke_v(), settings_exp3()),
         4 => (model_ke_v_s1(), settings_exp4()),
         5 => (model_ke_v_s1_s2(), settings_exp5()),
+        6 => (model_sde_no_6(), settings_exp6()),
         _ => panic!("Invalid experiment"),
     };
 
@@ -459,8 +616,9 @@ fn fit_experiment(experiment: usize) {
     ));
 
     settings.set_error_poly(match experiment {
-        1..=4 => (0.0, 0.1, 0.0, 0.0),
-        5 => (0.0, 0.01, 0.0, 0.0),
+        1..=4 => (0.0, 0.2, 0.0, 0.0),
+        5 => (0.5, 0.02, 0.0, 0.0),
+        6 => (2.0, 0.02, 0.0, 0.0), // C0 in 0.4, 0.8, 1.0, 1.2, 1.6 ... min obs is approx. 2, 1/2 = 1 (our usual protocol)
         _ => panic!("Invalid experiment"),
     });
 
@@ -472,7 +630,8 @@ fn fit_experiment(experiment: usize) {
 fn main() {
     generate_data();
     fit_experiment(0);
-    fit_experiment(5);
+    // fit_experiment(5);
+    fit_experiment(6);
     /*
     for i in 0..=2 { // 0..=5 runs all of them
         println!("Start experiment {}",i);
