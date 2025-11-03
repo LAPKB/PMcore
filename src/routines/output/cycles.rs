@@ -3,7 +3,7 @@ use csv::WriterBuilder;
 use pharmsol::{ErrorModel, ErrorModels};
 
 use crate::{
-    algorithms::Status,
+    algorithms::{Status, StopReason},
     prelude::Settings,
     routines::output::{median, OutputFile},
     structs::theta::Theta,
@@ -80,7 +80,7 @@ impl NPCycle {
             theta: Theta::new(),
             nspp: 0,
             delta_objf: 0.0,
-            status: Status::Starting,
+            status: Status::Continue,
         }
     }
 }
@@ -145,7 +145,10 @@ impl CycleLog {
 
         for cycle in &self.cycles {
             writer.write_field(format!("{}", cycle.cycle))?;
-            writer.write_field(format!("{}", cycle.status == Status::Converged))?;
+            writer.write_field(format!(
+                "{}",
+                cycle.status == Status::Stop(StopReason::Converged)
+            ))?;
             writer.write_field(format!("{}", cycle.status))?;
             writer.write_field(format!("{}", cycle.objf))?;
             writer

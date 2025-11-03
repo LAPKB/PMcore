@@ -1,4 +1,4 @@
-use crate::algorithms::Status;
+use crate::algorithms::{Status, StopReason};
 use crate::prelude::algorithms::Algorithms;
 
 pub use crate::routines::estimation::ipm::burke;
@@ -67,7 +67,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
             cycle: 0,
             gamma_delta: vec![0.1; settings.errormodels().len()],
             error_models: settings.errormodels().clone(),
-            status: Status::Starting,
+            status: Status::Continue,
             cycle_log: CycleLog::new(),
             settings,
             data,
@@ -164,7 +164,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
                 self.f1 = pyl.iter().map(|x| x.ln()).sum();
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
-                    self.set_status(Status::Converged);
+                    self.set_status(Status::Stop(StopReason::Converged));
                     self.log_cycle_state();
                     return Ok(self.status().clone());
                 } else {
@@ -177,7 +177,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
-            self.set_status(Status::MaxCycles);
+            self.set_status(Status::Stop(StopReason::MaxCycles));
             self.log_cycle_state();
             return Ok(self.status().clone());
         }
@@ -185,7 +185,7 @@ impl<E: Equation> Algorithms<E> for NPAG<E> {
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
-            self.set_status(Status::Stopped);
+            self.set_status(Status::Stop(StopReason::Stopped));
             self.log_cycle_state();
             return Ok(self.status().clone());
         }

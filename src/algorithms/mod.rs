@@ -247,7 +247,7 @@ pub trait Algorithms<E: Equation>: Sync {
             tracing::info!("Removing existing stop file prior to run");
             fs::remove_file("stop").context("Unable to remove previous stop file")?;
         }
-        self.set_status(Status::Starting);
+        self.set_status(Status::Continue);
         self.set_theta(self.get_prior());
         Ok(())
     }
@@ -301,10 +301,7 @@ pub trait Algorithms<E: Equation>: Sync {
         loop {
             match self.next_cycle()? {
                 Status::Continue => continue,
-                Status::Converged => break,
-                Status::MaxCycles => break,
-                Status::Stopped => break,
-                Status::Starting => continue,
+                Status::Stop(_) => break,
             }
         }
         Ok(self.into_npresult())
@@ -329,26 +326,24 @@ pub fn dispatch_algorithm<E: Equation>(
 /// Represents the status/result of the algorithm
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
-    /// Algorithm is starting up
-    Starting,
-    /// Algorithm should continue to next cycle
     Continue,
-    /// Algorithm has converged to a solution
-    Converged,
-    /// Algorithm stopped due to reaching maximum cycles
-    MaxCycles,
-    /// Algorithm was manually stopped by user
-    Stopped,
+    Stop(StopReason),
 }
 
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Status::Starting => write!(f, "Starting"),
             Status::Continue => write!(f, "Continue"),
-            Status::Converged => write!(f, "Converged"),
-            Status::MaxCycles => write!(f, "MaxCycles"),
-            Status::Stopped => write!(f, "Stopped"),
+            Status::Stop(s) => write!(f, "Stop: {:?}", s),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+
+pub enum StopReason {
+    Converged,
+    MaxCycles,
+    Stopped,
+    Completed,
 }

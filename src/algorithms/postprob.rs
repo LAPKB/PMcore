@@ -1,5 +1,5 @@
 use crate::{
-    algorithms::Status,
+    algorithms::{Status, StopReason},
     prelude::algorithms::Algorithms,
     structs::{
         psi::{calculate_psi, Psi},
@@ -44,7 +44,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             w: Weights::default(),
             objf: f64::INFINITY,
             cycle: 0,
-            status: Status::Starting,
+            status: Status::Continue,
             error_models: settings.errormodels().clone(),
             settings,
             data,
@@ -114,7 +114,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
     }
 
     fn evaluation(&mut self) -> Result<Status> {
-        self.status = Status::Converged;
+        self.status = Status::Stop(StopReason::Converged);
         Ok(self.status.clone())
     }
 

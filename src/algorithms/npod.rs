@@ -1,3 +1,4 @@
+use crate::algorithms::StopReason;
 use crate::routines::initialization::sample_space;
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
 use crate::structs::weights::Weights;
@@ -66,7 +67,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             gamma_delta: vec![0.1; settings.errormodels().len()],
             error_models: settings.errormodels().clone(),
             converged: false,
-            status: Status::Starting,
+            status: Status::Continue,
             cycle_log: CycleLog::new(),
             settings,
             data,
@@ -176,7 +177,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         if (self.last_objf - self.objf).abs() <= THETA_F {
             tracing::info!("Objective function convergence reached");
             self.converged = true;
-            self.status = Status::Converged;
+            self.set_status(Status::Stop(StopReason::Converged));
             self.log_cycle_state();
             return Ok(self.status.clone());
         }
@@ -185,7 +186,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
-            self.status = Status::MaxCycles;
+            self.set_status(Status::Stop(StopReason::MaxCycles));
             self.log_cycle_state();
             return Ok(self.status.clone());
         }
@@ -194,7 +195,7 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
             self.converged = true;
-            self.status = Status::Stopped;
+            self.set_status(Status::Stop(StopReason::Stopped));
             self.log_cycle_state();
             return Ok(self.status.clone());
         }
