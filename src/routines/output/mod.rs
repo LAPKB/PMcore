@@ -13,7 +13,7 @@ use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 
@@ -25,7 +25,7 @@ use posterior::posterior;
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NPResult<E: Equation> {
     #[serde(skip)]
     equation: E,
