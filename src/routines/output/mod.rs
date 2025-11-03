@@ -25,8 +25,9 @@ use posterior::posterior;
 
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct NPResult<E: Equation> {
+    #[serde(skip)]
     equation: E,
     data: Data,
     theta: Theta,
@@ -402,27 +403,6 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!(
             "Predictions written to {:?}",
             &outputfile_pred.relative_path()
-        );
-
-        // Write observations and predictions to op.csv
-        let outputfile_op = OutputFile::new(&self.settings.output().path, "op.csv")?;
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(&outputfile_op.file);
-
-        // Write each prediction row
-        for row in predictions
-            .predictions()
-            .iter()
-            .filter(|r| r.obs().is_some())
-        {
-            writer.serialize(row)?;
-        }
-
-        writer.flush()?;
-        tracing::debug!(
-            "Observed-predicted values written to {:?}",
-            &outputfile_op.relative_path()
         );
 
         Ok(())

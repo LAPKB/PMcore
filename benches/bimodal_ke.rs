@@ -6,9 +6,9 @@ use std::hint::black_box;
 
 fn create_equation() -> equation::ODE {
     equation::ODE::new(
-        |x, p, _t, dx, rateiv, _cov| {
+        |x, p, _t, dx, b, rateiv, _cov| {
             fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + rateiv[0];
+            dx[0] = -ke * x[0] + rateiv[0] + b[0];
         },
         |_p, _t, _cov| lag! {},
         |_p, _t, _cov| fa! {},
@@ -30,7 +30,7 @@ fn create_parameters() -> Parameters {
 fn create_error_models() -> Result<ErrorModels> {
     Ok(ErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0, None),
+        ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?)
 }
 

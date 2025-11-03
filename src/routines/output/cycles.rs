@@ -1,6 +1,7 @@
 use anyhow::Result;
 use csv::WriterBuilder;
 use pharmsol::{ErrorModel, ErrorModels};
+use serde::Serialize;
 
 use crate::{
     algorithms::{Status, StopReason},
@@ -18,7 +19,7 @@ use crate::{
 /// - `nspp`: The number of support points
 /// - `delta_objf`: The change in objective function value from last cycle
 /// - `converged`: Whether the algorithm has reached convergence
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct NPCycle {
     cycle: usize,
     objf: f64,
@@ -86,7 +87,7 @@ impl NPCycle {
 }
 
 /// This holdes a vector of [NPCycle] objects to provide a more detailed log
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CycleLog {
     cycles: Vec<NPCycle>,
 }
@@ -159,18 +160,10 @@ impl CycleLog {
             cycle.error_models.iter().try_for_each(
                 |(_, errmod): (usize, &ErrorModel)| -> Result<()> {
                     match errmod {
-                        ErrorModel::Additive {
-                            lambda: _,
-                            poly: _,
-                            lloq: _,
-                        } => {
+                        ErrorModel::Additive { lambda: _, poly: _ } => {
                             writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
-                        ErrorModel::Proportional {
-                            gamma: _,
-                            poly: _,
-                            lloq: _,
-                        } => {
+                        ErrorModel::Proportional { gamma: _, poly: _ } => {
                             writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
                         ErrorModel::None => {}

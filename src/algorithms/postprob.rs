@@ -21,7 +21,7 @@ use crate::routines::settings::Settings;
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
-pub struct POSTPROB<E: Equation> {
+pub struct POSTPROB<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
     theta: Theta,
@@ -35,7 +35,7 @@ pub struct POSTPROB<E: Equation> {
     error_models: ErrorModels,
 }
 
-impl<E: Equation> Algorithms<E> for POSTPROB<E> {
+impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,

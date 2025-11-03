@@ -29,7 +29,7 @@ const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
 #[derive(Debug)]
-pub struct NPAG<E: Equation> {
+pub struct NPAG<E: Equation + Send + 'static> {
     equation: E,
     ranges: Vec<(f64, f64)>,
     psi: Psi,
@@ -50,7 +50,7 @@ pub struct NPAG<E: Equation> {
     settings: Settings,
 }
 
-impl<E: Equation> Algorithms<E> for NPAG<E> {
+impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
