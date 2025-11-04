@@ -1173,7 +1173,7 @@ fn test_auc_from_last_dose_no_prior_dose() -> Result<()> {
     // Edge case: observation at t=6, but dose is at t=12 (after the observation)
     let target = Subject::builder("patient_edge")
         .observation(6.0, 30.0, 0) // Observation before any dose
-        .bolus(12.0, 0.0, 0)        // Dose after observation
+        .bolus(12.0, 0.0, 0) // Dose after observation
         .build();
 
     let prior_theta = {
@@ -1272,7 +1272,7 @@ fn test_dose_range_bounds_respected() -> Result<()> {
 
     let prior_theta = {
         let mat = faer::Mat::from_fn(1, 2, |_r, c| match c {
-            0 => 0.3, // ke
+            0 => 0.3,  // ke
             1 => 50.0, // v
             _ => 0.0,
         });

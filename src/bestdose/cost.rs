@@ -156,7 +156,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
     // This constrains the Nelder-Mead optimizer to search within the specified DoseRange
     let min_dose = problem.doserange.min;
     let max_dose = problem.doserange.max;
-    
+
     for &dose in candidate_doses {
         if dose < min_dose || dose > max_dose {
             // Return a large penalty cost to push the optimizer back into bounds

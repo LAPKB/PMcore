@@ -54,7 +54,7 @@ fn main() -> Result<()> {
 
     // Create a target requiring high dose
     println!("Target: Achieve 15 mg/L at 2h (requires high dose)");
-    
+
     let target_data = Subject::builder("Target")
         .bolus(0.0, 0.0, 0) // Dose to be optimized
         .observation(2.0, 15.0, 0) // High target concentration
@@ -87,7 +87,7 @@ fn main() -> Result<()> {
         )?;
 
         let result = problem.optimize()?;
-        
+
         // Check if dose hit the bound
         let at_bound = if (result.dose[0] - max).abs() < 1.0 {
             " (at upper bound)"
