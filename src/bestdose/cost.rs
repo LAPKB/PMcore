@@ -298,7 +298,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                 for prediction in dense_predictions_with_outeq {
                     outeq_predictions
                         .entry(prediction.outeq())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(prediction.prediction());
                 }
 

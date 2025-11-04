@@ -126,12 +126,11 @@ pub fn calculate_auc_at_times(
         auc += avg_conc * dt;
 
         // Check if current time matches next target time
-        if target_idx < target_times.len() {
-            if (dense_times[i] - target_times[target_idx]).abs() < tolerance {
+        if target_idx < target_times.len()
+            && (dense_times[i] - target_times[target_idx]).abs() < tolerance {
                 target_aucs.push(auc);
                 target_idx += 1;
             }
-        }
     }
 
     target_aucs
@@ -290,7 +289,7 @@ pub fn calculate_final_predictions(
             for prediction in dense_predictions_with_outeq {
                 outeq_predictions
                     .entry(prediction.outeq())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(prediction.prediction());
             }
 
@@ -344,7 +343,7 @@ pub fn calculate_final_predictions(
             obs_time_outeq
                 .iter()
                 .map(|(t, _)| *t)
-                .zip(result_aucs.into_iter())
+                .zip(result_aucs)
                 .collect(),
         )
     } else {
