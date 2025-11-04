@@ -98,7 +98,6 @@ fn main() -> Result<()> {
         bestdose::DoseRange::new(0.0, 300.0),
         0.0,
         settings.clone(),
-        500, // max_cycles - Fortran default for full two-step posterior
         bestdose::Target::Concentration, // Target concentrations (not AUCs)
     )?;
 

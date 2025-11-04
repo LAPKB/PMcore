@@ -38,6 +38,7 @@ fn test_infusion_mask_inclusion() -> Result<()> {
         .build();
 
     settings.disable_output();
+    settings.set_cycles(0);
 
     // Create a target subject with an optimizable infusion
     // Use reasonable target concentrations that match typical PK behavior
@@ -70,7 +71,6 @@ fn test_infusion_mask_inclusion() -> Result<()> {
         DoseRange::new(10.0, 300.0),
         0.5,
         settings.clone(),
-        0,
         Target::Concentration,
     )?;
 
@@ -154,6 +154,7 @@ fn test_fixed_infusion_preservation() -> Result<()> {
         .build();
 
     settings.disable_output();
+    settings.set_cycles(0);
 
     // Create past data with a fixed infusion
     let past = Subject::builder("test_patient")
@@ -189,7 +190,6 @@ fn test_fixed_infusion_preservation() -> Result<()> {
         DoseRange::new(0.0, 500.0),
         0.5,
         settings.clone(),
-        0,
         Target::Concentration,
     )?;
 
@@ -233,6 +233,7 @@ fn test_dose_count_validation() -> Result<()> {
         .set_error_models(ems.clone())
         .build();
     settings.disable_output();
+    settings.set_cycles(0);
 
     // Create target with 2 optimizable doses
     let target = Subject::builder("test_patient")
@@ -263,7 +264,6 @@ fn test_dose_count_validation() -> Result<()> {
         DoseRange::new(10.0, 300.0),
         0.5,
         settings,
-        0,
         Target::Concentration,
     )?;
 
@@ -314,6 +314,7 @@ fn test_empty_observations_validation() -> Result<()> {
         .set_error_models(ems.clone())
         .build();
     settings.disable_output();
+    settings.set_cycles(0);
 
     // Create target with doses but NO observations
     let target = Subject::builder("test_patient").bolus(0.0, 0.0, 0).build(); // No observations!
@@ -339,7 +340,6 @@ fn test_empty_observations_validation() -> Result<()> {
         DoseRange::new(10.0, 300.0),
         0.5,
         settings,
-        0,
         Target::Concentration,
     )?;
 
@@ -384,6 +384,7 @@ fn test_basic_auc_mode() -> Result<()> {
 
     settings.disable_output();
     settings.set_idelta(30.0);
+    settings.set_cycles(0);
 
     let target = Subject::builder("test_patient")
         .bolus(0.0, 0.0, 0) // Optimizable bolus
@@ -411,7 +412,6 @@ fn test_basic_auc_mode() -> Result<()> {
         DoseRange::new(100.0, 2000.0),
         0.8,
         settings,
-        0,
         Target::AUC,
     )?;
 
@@ -475,6 +475,7 @@ fn test_infusion_auc_mode() -> Result<()> {
 
     settings.disable_output();
     settings.set_idelta(30.0); // 30-minute intervals for AUC calculation
+    settings.set_cycles(0);
 
     // Create a target with an optimizable infusion and AUC targets
     let target = Subject::builder("test_patient")
@@ -505,7 +506,6 @@ fn test_infusion_auc_mode() -> Result<()> {
         DoseRange::new(100.0, 2000.0),
         0.8, // Higher bias weight typically works better for AUC targets
         settings,
-        0,
         Target::AUC, // AUC mode!
     )?;
 
@@ -584,6 +584,7 @@ fn test_multi_outeq_auc_mode() -> Result<()> {
         .build();
 
     settings.disable_output();
+    settings.set_cycles(0);
 
     // Subject with fixed dose and target observations at multiple outeqs
     let target = Subject::builder("test")
@@ -614,7 +615,6 @@ fn test_multi_outeq_auc_mode() -> Result<()> {
         DoseRange::new(0.0, 2000.0),
         0.5,
         settings,
-        0, // No optimization cycles - just test cost calculation
         Target::AUC,
     )?;
 
@@ -657,6 +657,7 @@ fn test_multi_outeq_auc_optimization() -> Result<()> {
         .set_error_models(ems.clone())
         .build();
     settings.disable_output();
+    settings.set_cycles(3);
 
     let target = Subject::builder("test")
         .bolus(0.0, 0.0, 0)
@@ -685,7 +686,6 @@ fn test_multi_outeq_auc_optimization() -> Result<()> {
         DoseRange::new(0.0, 2000.0),
         0.5,
         settings,
-        3,
         Target::AUC,
     )?;
 

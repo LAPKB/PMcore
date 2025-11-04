@@ -522,7 +522,6 @@ fn calculate_posterior_density(
     eq: &ODE,
     error_models: &ErrorModels,
     settings: &Settings,
-    max_cycles: usize,
 ) -> Result<(Theta, Weights, Weights, Subject)> {
     match past_data {
         None => {
@@ -567,7 +566,6 @@ fn calculate_posterior_density(
                         eq,
                         error_models,
                         settings,
-                        max_cycles,
                     )?;
 
                 Ok((
@@ -674,7 +672,6 @@ impl BestDoseProblem {
         doserange: DoseRange,
         bias_weight: f64,
         settings: Settings,
-        max_cycles: usize,
         target_type: Target,
     ) -> Result<Self> {
         tracing::info!("╔══════════════════════════════════════════════════════════╗");
@@ -698,7 +695,6 @@ impl BestDoseProblem {
                 &eq,
                 &error_models,
                 &settings,
-                max_cycles,
             )?;
 
         // Handle past/future concatenation if needed
