@@ -105,16 +105,42 @@ fn test_infusion_mask_inclusion() -> Result<()> {
 
     // We should get back 1 optimized dose (the infusion placeholder)
     assert_eq!(
-        result.dose.len(),
+        result
+            .optimal_subject
+            .iter()
+            .flat_map(|occ| {
+                occ.events()
+                    .iter()
+                    .filter_map(|event| match event {
+                        Event::Infusion(inf) => Some(inf.amount()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .count(),
         1,
         "Should have 1 optimized dose (the infusion)"
     );
 
+    let optinf = result
+        .optimal_subject
+        .iter()
+        .flat_map(|occ| {
+            occ.events()
+                .iter()
+                .filter_map(|event| match event {
+                    Event::Infusion(inf) => Some(inf.amount()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<f64>>();
+
     // The optimized dose should be reasonable (not NaN, not infinite)
     assert!(
-        result.dose[0].is_finite(),
+        optinf[0].is_finite(),
         "Optimized dose should be finite, got {}",
-        result.dose[0]
+        optinf[0]
     );
 
     Ok(())
@@ -196,7 +222,22 @@ fn test_fixed_infusion_preservation() -> Result<()> {
     let result = problem.optimize()?;
 
     // Should only optimize the future bolus, not the past infusion
-    assert_eq!(result.dose.len(), 1, "Should have 1 optimized dose");
+    let doses = result
+        .optimal_subject
+        .iter()
+        .flat_map(|occ| {
+            occ.events()
+                .iter()
+                .filter_map(|event| match event {
+                    Event::Infusion(inf) if inf.amount() != 200.0 => Some(inf.amount()),
+                    Event::Bolus(bol) => Some(bol.amount()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<f64>>();
+    eprintln!("Optimized doses: {:?}", doses);
+    assert_eq!(doses.len(), 1, "Should have 1 optimized dose");
 
     Ok(())
 }
@@ -424,7 +465,21 @@ fn test_basic_auc_mode() -> Result<()> {
     );
 
     let result = result?;
-    assert_eq!(result.dose.len(), 1);
+    let doses = result
+        .optimal_subject
+        .iter()
+        .flat_map(|occ| {
+            occ.events()
+                .iter()
+                .filter_map(|event| match event {
+                    Event::Infusion(inf) => Some(inf.amount()),
+                    Event::Bolus(bol) => Some(bol.amount()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<f64>>();
+    assert_eq!(doses.len(), 1);
 
     assert!(result.auc_predictions.is_some());
 
@@ -519,11 +574,25 @@ fn test_infusion_auc_mode() -> Result<()> {
     );
 
     let result = result?;
+    let doses = result
+        .optimal_subject
+        .iter()
+        .flat_map(|occ| {
+            occ.events()
+                .iter()
+                .filter_map(|event| match event {
+                    Event::Infusion(inf) => Some(inf.amount()),
+                    Event::Bolus(bol) => Some(bol.amount()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<f64>>();
 
-    eprintln!("Optimized dose: {}", result.dose[0]);
+    eprintln!("Optimized dose: {:?}", doses);
 
     // Should have 1 optimized dose (the infusion)
-    assert_eq!(result.dose.len(), 1, "Should have 1 optimized dose");
+    assert_eq!(doses.len(), 1, "Should have 1 optimized dose");
 
     // Should have AUC predictions
     assert!(
@@ -697,8 +766,24 @@ fn test_multi_outeq_auc_optimization() -> Result<()> {
     );
 
     let best_dose_result = result?;
-    assert_eq!(best_dose_result.dose.len(), 1);
-    assert!(best_dose_result.dose[0] > 0.0);
+
+    let doses = best_dose_result
+        .optimal_subject
+        .iter()
+        .flat_map(|occ| {
+            occ.events()
+                .iter()
+                .filter_map(|event| match event {
+                    Event::Infusion(inf) => Some(inf.amount()),
+                    Event::Bolus(bol) => Some(bol.amount()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<f64>>();
+
+    assert_eq!(doses.len(), 1);
+    assert!(doses[0] > 0.0);
     assert!(best_dose_result.objf.is_finite());
 
     assert!(best_dose_result.auc_predictions.is_some());

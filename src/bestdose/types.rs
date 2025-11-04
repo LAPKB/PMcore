@@ -348,7 +348,7 @@ impl BestDoseProblem {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BestDoseResult {
     /// Optimal dose amount(s)
     ///
