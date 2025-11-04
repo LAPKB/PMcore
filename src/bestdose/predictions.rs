@@ -126,11 +126,11 @@ pub fn calculate_auc_at_times(
         auc += avg_conc * dt;
 
         // Check if current time matches next target time
-        if target_idx < target_times.len() {
-            if (dense_times[i] - target_times[target_idx]).abs() < tolerance {
-                target_aucs.push(auc);
-                target_idx += 1;
-            }
+        if target_idx < target_times.len()
+            && (dense_times[i] - target_times[target_idx]).abs() < tolerance
+        {
+            target_aucs.push(auc);
+            target_idx += 1;
         }
     }
 
@@ -146,6 +146,23 @@ pub fn calculate_final_predictions(
     optimal_doses: &[f64],
     weights: &Weights,
 ) -> Result<(NPPredictions, Option<Vec<(f64, f64)>>)> {
+    // Validate optimal_doses length matches total dose count (fixed + optimizable)
+    let expected_total_doses = problem
+        .target
+        .occasions()
+        .iter()
+        .flat_map(|occ| occ.events())
+        .filter(|event| matches!(event, Event::Bolus(_) | Event::Infusion(_)))
+        .count();
+
+    if optimal_doses.len() != expected_total_doses {
+        return Err(anyhow::anyhow!(
+            "Dose count mismatch in predictions: received {} optimal doses but expected {} total doses",
+            optimal_doses.len(),
+            expected_total_doses
+        ));
+    }
+
     // Build subject with optimal doses
     let mut target_with_optimal = problem.target.clone();
     let mut dose_number = 0;
@@ -203,41 +220,133 @@ pub fn calculate_final_predictions(
         let subject_id = target_with_optimal.id().to_string();
         let mut builder = Subject::builder(&subject_id);
 
-        let mut dose_number = 0;
+        // Copy all dose events from target_with_optimal (which already has optimal doses set)
         for occasion in target_with_optimal.occasions() {
             for event in occasion.events() {
                 match event {
                     Event::Bolus(bolus) => {
-                        builder = builder.bolus(bolus.time(), optimal_doses[dose_number], 0);
-                        dose_number += 1;
+                        builder = builder.bolus(bolus.time(), bolus.amount(), bolus.input());
                     }
-                    Event::Infusion(_) => {
-                        tracing::warn!("Infusions not fully supported in AUC mode");
+                    Event::Infusion(infusion) => {
+                        builder = builder.infusion(
+                            infusion.time(),
+                            infusion.amount(),
+                            infusion.input(),
+                            infusion.duration(),
+                        );
                     }
                     Event::Observation(_) => {}
                 }
             }
         }
 
-        for &t in &dense_times {
-            builder = builder.observation(t, -99.0, 0);
-        }
+        // Collect observations with (time, outeq) pairs to preserve original order
+        let obs_time_outeq: Vec<(f64, usize)> = target_with_optimal
+            .occasions()
+            .iter()
+            .flat_map(|occ| occ.events())
+            .filter_map(|event| match event {
+                Event::Observation(obs) => Some((obs.time(), obs.outeq())),
+                _ => None,
+            })
+            .collect();
 
-        let dense_subject = builder.build();
-        let mut mean_aucs = vec![0.0; obs_times.len()];
+        let mut unique_outeqs: Vec<usize> =
+            obs_time_outeq.iter().map(|(_, outeq)| *outeq).collect();
+        unique_outeqs.sort_unstable();
+        unique_outeqs.dedup();
 
-        for (row, weight) in problem.theta.matrix().row_iter().zip(weights.iter()) {
-            let spp = row.iter().copied().collect::<Vec<f64>>();
-            let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
-            let dense_concentrations = pred.0.flat_predictions();
-            let aucs = calculate_auc_at_times(&dense_times, &dense_concentrations, &obs_times);
-
-            for (i, &auc) in aucs.iter().enumerate() {
-                mean_aucs[i] += weight * auc;
+        // Add observations at dense times for each outeq
+        for outeq in unique_outeqs.iter() {
+            for &t in &dense_times {
+                builder = builder.missing_observation(t, *outeq);
             }
         }
 
-        Some(obs_times.into_iter().zip(mean_aucs.into_iter()).collect())
+        let dense_subject = builder.build();
+
+        // Initialize AUC storage per outeq
+        let mut outeq_mean_aucs: std::collections::HashMap<usize, Vec<f64>> =
+            std::collections::HashMap::new();
+        for outeq in unique_outeqs.iter() {
+            let outeq_obs_times: Vec<f64> = obs_time_outeq
+                .iter()
+                .filter(|(_, o)| *o == *outeq)
+                .map(|(t, _)| *t)
+                .collect();
+            outeq_mean_aucs.insert(*outeq, vec![0.0; outeq_obs_times.len()]);
+        }
+
+        // Calculate AUC for each support point and accumulate weighted means
+        for (row, weight) in problem.theta.matrix().row_iter().zip(weights.iter()) {
+            let spp = row.iter().copied().collect::<Vec<f64>>();
+            let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
+            let dense_predictions_with_outeq = pred.0.predictions();
+
+            // Group predictions by outeq
+            let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =
+                std::collections::HashMap::new();
+
+            for prediction in dense_predictions_with_outeq {
+                outeq_predictions
+                    .entry(prediction.outeq())
+                    .or_default()
+                    .push(prediction.prediction());
+            }
+
+            // Calculate AUC for each outeq separately
+            for &outeq in unique_outeqs.iter() {
+                let outeq_preds = outeq_predictions
+                    .get(&outeq)
+                    .ok_or_else(|| anyhow::anyhow!("Missing predictions for outeq {}", outeq))?;
+
+                // Get observation times for this outeq only
+                let outeq_obs_times: Vec<f64> = obs_time_outeq
+                    .iter()
+                    .filter(|(_, o)| *o == outeq)
+                    .map(|(t, _)| *t)
+                    .collect();
+
+                // Calculate AUC at observation times for this outeq
+                let aucs = calculate_auc_at_times(&dense_times, outeq_preds, &outeq_obs_times);
+
+                // Accumulate weighted AUCs
+                let mean_aucs = outeq_mean_aucs.get_mut(&outeq).unwrap();
+                for (i, &auc) in aucs.iter().enumerate() {
+                    mean_aucs[i] += weight * auc;
+                }
+            }
+        }
+
+        // Build final AUC vector in original observation order
+        let mut result_aucs = Vec::with_capacity(obs_time_outeq.len());
+        let mut outeq_counters: std::collections::HashMap<usize, usize> =
+            std::collections::HashMap::new();
+
+        for (_, outeq) in obs_time_outeq.iter() {
+            let aucs = outeq_mean_aucs
+                .get(outeq)
+                .ok_or_else(|| anyhow::anyhow!("Missing AUC for outeq {}", outeq))?;
+
+            let counter = outeq_counters.entry(*outeq).or_insert(0);
+            if *counter < aucs.len() {
+                result_aucs.push(aucs[*counter]);
+                *counter += 1;
+            } else {
+                return Err(anyhow::anyhow!(
+                    "AUC index out of bounds for outeq {}",
+                    outeq
+                ));
+            }
+        }
+
+        Some(
+            obs_time_outeq
+                .iter()
+                .map(|(t, _)| *t)
+                .zip(result_aucs)
+                .collect(),
+        )
     } else {
         None
     };

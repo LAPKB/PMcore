@@ -437,9 +437,9 @@ fn calculate_dose_optimization_mask(subject: &pharmsol::prelude::Subject) -> Vec
                     // Dose is optimizable if amount is 0 (placeholder)
                     mask.push(bolus.amount() == 0.0);
                 }
-                Event::Infusion(_) => {
-                    // Note: Infusions not currently supported in BestDose
-                    // Don't add to mask
+                Event::Infusion(infusion) => {
+                    // Infusion is optimizable if amount is 0 (placeholder)
+                    mask.push(infusion.amount() == 0.0);
                 }
                 Event::Observation(_) => {
                     // Observations don't go in the mask
@@ -522,7 +522,6 @@ fn calculate_posterior_density(
     eq: &ODE,
     error_models: &ErrorModels,
     settings: &Settings,
-    max_cycles: usize,
 ) -> Result<(Theta, Weights, Weights, Subject)> {
     match past_data {
         None => {
@@ -567,7 +566,6 @@ fn calculate_posterior_density(
                         eq,
                         error_models,
                         settings,
-                        max_cycles,
                     )?;
 
                 Ok((
@@ -674,7 +672,6 @@ impl BestDoseProblem {
         doserange: DoseRange,
         bias_weight: f64,
         settings: Settings,
-        max_cycles: usize,
         target_type: Target,
     ) -> Result<Self> {
         tracing::info!("╔══════════════════════════════════════════════════════════╗");
@@ -698,7 +695,6 @@ impl BestDoseProblem {
                 &eq,
                 &error_models,
                 &settings,
-                max_cycles,
             )?;
 
         // Handle past/future concatenation if needed

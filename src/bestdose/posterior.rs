@@ -56,6 +56,7 @@ use faer::Mat;
 use crate::algorithms::npag::burke;
 use crate::algorithms::npag::NPAG;
 use crate::algorithms::Algorithms;
+use crate::algorithms::Status;
 use crate::prelude::*;
 use crate::structs::psi::calculate_psi;
 use crate::structs::theta::Theta;
@@ -172,14 +173,16 @@ pub fn npagfull_refinement(
     past_data: &Data,
     eq: &ODE,
     settings: &Settings,
-    max_cycles: usize,
 ) -> Result<(Theta, Weights)> {
-    if max_cycles == 0 {
+    if settings.config.cycles == 0 {
         tracing::info!("Stage 1.2: NPAGFULL refinement skipped (max_cycles=0)");
         return Ok((filtered_theta.clone(), filtered_weights.clone()));
     }
 
-    tracing::info!("Stage 1.2: NPAGFULL refinement (max_cycles={})", max_cycles);
+    tracing::info!(
+        "Stage 1.2: NPAGFULL refinement (max_cycles={})",
+        settings.config.cycles
+    );
 
     let mut refined_points = Vec::new();
     let mut kept_weights: Vec<f64> = Vec::new();
@@ -210,7 +213,12 @@ pub fn npagfull_refinement(
 
         // Run NPAG optimization
         let refinement_result = npag.initialize().and_then(|_| {
-            while !npag.next_cycle()? {}
+            loop {
+                match npag.next_cycle()? {
+                    Status::Continue => continue,
+                    Status::Stop(_) => break,
+                }
+            }
             Ok(())
         });
 
@@ -306,7 +314,6 @@ pub fn calculate_two_step_posterior(
     eq: &ODE,
     error_models: &ErrorModels,
     settings: &Settings,
-    max_cycles: usize,
 ) -> Result<(Theta, Weights, Weights)> {
     tracing::info!("=== STAGE 1: Posterior Density Calculation ===");
 
@@ -327,7 +334,6 @@ pub fn calculate_two_step_posterior(
         past_data,
         eq,
         settings,
-        max_cycles,
     )?;
 
     tracing::info!(

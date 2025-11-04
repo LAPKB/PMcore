@@ -1,5 +1,5 @@
 use crate::{
-    algorithms::Status,
+    algorithms::{Status, StopReason},
     prelude::algorithms::Algorithms,
     structs::{
         psi::{calculate_psi, Psi},
@@ -14,14 +14,14 @@ use pharmsol::prelude::{
     simulator::Equation,
 };
 
-use crate::routines::evaluation::ipm::burke;
+use crate::routines::estimation::ipm::burke;
 use crate::routines::initialization;
 use crate::routines::output::{cycles::CycleLog, NPResult};
 use crate::routines::settings::Settings;
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
-pub struct POSTPROB<E: Equation> {
+pub struct POSTPROB<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
     theta: Theta,
@@ -35,7 +35,7 @@ pub struct POSTPROB<E: Equation> {
     error_models: ErrorModels,
 }
 
-impl<E: Equation> Algorithms<E> for POSTPROB<E> {
+impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
@@ -44,7 +44,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             w: Weights::default(),
             objf: f64::INFINITY,
             cycle: 0,
-            status: Status::Starting,
+            status: Status::Continue,
             error_models: settings.errormodels().clone(),
             settings,
             data,
@@ -65,7 +65,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
             self.cyclelog.clone(),
         )
     }
-    fn get_settings(&self) -> &Settings {
+    fn settings(&self) -> &Settings {
         &self.settings
     }
 
@@ -73,7 +73,7 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         &self.equation
     }
 
-    fn get_data(&self) -> &Data {
+    fn data(&self) -> &Data {
         &self.data
     }
 
@@ -85,11 +85,11 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         self.objf
     }
 
-    fn inc_cycle(&mut self) -> usize {
+    fn increment_cycle(&mut self) -> usize {
         0
     }
 
-    fn get_cycle(&self) -> usize {
+    fn cycle(&self) -> usize {
         0
     }
 
@@ -113,16 +113,12 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         &self.status
     }
 
-    fn convergence_evaluation(&mut self) {
-        // POSTPROB algorithm converges after a single evaluation
-        self.status = Status::MaxCycles;
+    fn evaluation(&mut self) -> Result<Status> {
+        self.status = Status::Stop(StopReason::Converged);
+        Ok(self.status.clone())
     }
 
-    fn converged(&self) -> bool {
-        true
-    }
-
-    fn evaluation(&mut self) -> Result<()> {
+    fn estimation(&mut self) -> Result<()> {
         self.psi = calculate_psi(
             &self.equation,
             &self.data,
@@ -142,9 +138,21 @@ impl<E: Equation> Algorithms<E> for POSTPROB<E> {
         Ok(())
     }
 
-    fn logs(&self) {}
-
     fn expansion(&mut self) -> Result<()> {
         Ok(())
+    }
+
+    fn log_cycle_state(&mut self) {
+        // Postprob doesn't track last_objf, so we use 0.0 as the delta
+        let state = crate::routines::output::cycles::NPCycle::new(
+            self.cycle,
+            self.objf,
+            self.error_models.clone(),
+            self.theta.clone(),
+            self.theta.nspp(),
+            0.0,
+            self.status.clone(),
+        );
+        self.cyclelog.push(state);
     }
 }

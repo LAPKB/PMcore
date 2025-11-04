@@ -1,4 +1,4 @@
-use crate::algorithms::Status;
+use crate::algorithms::{Status, StopReason};
 use crate::prelude::*;
 use crate::routines::output::cycles::CycleLog;
 use crate::routines::output::predictions::NPPredictions;
@@ -84,7 +84,7 @@ impl<E: Equation> NPResult<E> {
     }
 
     pub fn converged(&self) -> bool {
-        self.status == Status::Converged
+        self.status == Status::Stop(StopReason::Converged)
     }
 
     pub fn get_theta(&self) -> &Theta {

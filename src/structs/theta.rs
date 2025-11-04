@@ -199,7 +199,7 @@ impl Theta {
         // Create empty parameters - user will need to set these separately
         let parameters = Parameters::new();
 
-        Ok(Theta::from_parts(mat, parameters)?)
+        Theta::from_parts(mat, parameters)
     }
 }
 

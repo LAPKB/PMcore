@@ -125,6 +125,27 @@ use pharmsol::Equation;
 /// - Prediction length doesn't match observation count
 /// - AUC calculation fails (for AUC targets)
 pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
+    // Validate candidate_doses length matches expected optimizable dose count
+    let expected_optimizable = problem
+        .target
+        .occasions()
+        .iter()
+        .flat_map(|occ| occ.events())
+        .filter(|event| match event {
+            Event::Bolus(b) => b.amount() == 0.0,
+            Event::Infusion(inf) => inf.amount() == 0.0,
+            _ => false,
+        })
+        .count();
+
+    if candidate_doses.len() != expected_optimizable {
+        return Err(anyhow::anyhow!(
+            "Dose count mismatch: received {} candidate doses but expected {} optimizable doses",
+            candidate_doses.len(),
+            expected_optimizable
+        ));
+    }
+
     // Build target subject with candidate doses
     let mut target_subject = problem.target.clone();
     let mut optimizable_dose_number = 0; // Index into candidate_doses
@@ -163,6 +184,13 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             _ => None,
         })
         .collect();
+
+    // Validate that target has observations
+    if obs_times.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Target subject has no observations. At least one observation is required for dose optimization."
+        ));
+    }
 
     let obs_vec: Vec<f64> = target_subject
         .occasions()
@@ -234,21 +262,26 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                     }
                 }
 
-                let mut outeqs = vec![];
-                target_subject.iter().for_each(|occ| {
-                    occ.events().into_iter().for_each(|event| {
-                        if let Event::Observation(obs) = event {
-                            outeqs.push(obs.outeq().clone());
-                        }
-                    });
-                });
+                // Collect observations with (time, outeq) pairs to preserve original order
+                let obs_time_outeq: Vec<(f64, usize)> = target_subject
+                    .occasions()
+                    .iter()
+                    .flat_map(|occ| occ.events())
+                    .filter_map(|event| match event {
+                        Event::Observation(obs) => Some((obs.time(), obs.outeq())),
+                        _ => None,
+                    })
+                    .collect();
 
-                outeqs.dedup();
+                let mut unique_outeqs: Vec<usize> =
+                    obs_time_outeq.iter().map(|(_, outeq)| *outeq).collect();
+                unique_outeqs.sort();
+                unique_outeqs.dedup();
 
                 // Add observations at dense times (with dummy values for timing only)
-                for outeq in outeqs {
+                for outeq in unique_outeqs.iter() {
                     for &t in &dense_times {
-                        builder = builder.missing_observation(t, outeq);
+                        builder = builder.missing_observation(t, *outeq);
                     }
                 }
 
@@ -256,10 +289,63 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
 
                 // Simulate at dense times
                 let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
-                let dense_predictions = pred.0.flat_predictions();
+                let dense_predictions_with_outeq = pred.0.predictions();
 
-                // Calculate AUC at observation times
-                calculate_auc_at_times(&dense_times, &dense_predictions, &obs_times)
+                // Group predictions by outeq using the Prediction struct
+                let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =
+                    std::collections::HashMap::new();
+
+                for prediction in dense_predictions_with_outeq {
+                    outeq_predictions
+                        .entry(prediction.outeq())
+                        .or_default()
+                        .push(prediction.prediction());
+                }
+
+                // Calculate AUC for each outeq separately
+                let mut outeq_aucs: std::collections::HashMap<usize, Vec<f64>> =
+                    std::collections::HashMap::new();
+
+                for &outeq in unique_outeqs.iter() {
+                    let outeq_preds = outeq_predictions.get(&outeq).ok_or_else(|| {
+                        anyhow::anyhow!("Missing predictions for outeq {}", outeq)
+                    })?;
+
+                    // Get observation times for this outeq only
+                    let outeq_obs_times: Vec<f64> = obs_time_outeq
+                        .iter()
+                        .filter(|(_, o)| *o == outeq)
+                        .map(|(t, _)| *t)
+                        .collect();
+
+                    // Calculate AUC at observation times for this outeq
+                    let aucs = calculate_auc_at_times(&dense_times, outeq_preds, &outeq_obs_times);
+                    outeq_aucs.insert(outeq, aucs);
+                }
+
+                // Build final AUC vector in original observation order
+                let mut result_aucs = Vec::with_capacity(obs_time_outeq.len());
+                let mut outeq_counters: std::collections::HashMap<usize, usize> =
+                    std::collections::HashMap::new();
+
+                for (_, outeq) in obs_time_outeq.iter() {
+                    let aucs = outeq_aucs
+                        .get(outeq)
+                        .ok_or_else(|| anyhow::anyhow!("Missing AUC for outeq {}", outeq))?;
+
+                    let counter = outeq_counters.entry(*outeq).or_insert(0);
+                    if *counter < aucs.len() {
+                        result_aucs.push(aucs[*counter]);
+                        *counter += 1;
+                    } else {
+                        return Err(anyhow::anyhow!(
+                            "AUC index out of bounds for outeq {}",
+                            outeq
+                        ));
+                    }
+                }
+
+                result_aucs
             }
         };
 
