@@ -437,9 +437,9 @@ fn calculate_dose_optimization_mask(subject: &pharmsol::prelude::Subject) -> Vec
                     // Dose is optimizable if amount is 0 (placeholder)
                     mask.push(bolus.amount() == 0.0);
                 }
-                Event::Infusion(_) => {
-                    // Note: Infusions not currently supported in BestDose
-                    // Don't add to mask
+                Event::Infusion(infusion) => {
+                    // Infusion is optimizable if amount is 0 (placeholder)
+                    mask.push(infusion.amount() == 0.0);
                 }
                 Event::Observation(_) => {
                     // Observations don't go in the mask

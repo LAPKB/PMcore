@@ -146,6 +146,23 @@ pub fn calculate_final_predictions(
     optimal_doses: &[f64],
     weights: &Weights,
 ) -> Result<(NPPredictions, Option<Vec<(f64, f64)>>)> {
+    // Validate optimal_doses length matches total dose count (fixed + optimizable)
+    let expected_total_doses = problem
+        .target
+        .occasions()
+        .iter()
+        .flat_map(|occ| occ.events())
+        .filter(|event| matches!(event, Event::Bolus(_) | Event::Infusion(_)))
+        .count();
+
+    if optimal_doses.len() != expected_total_doses {
+        return Err(anyhow::anyhow!(
+            "Dose count mismatch in predictions: received {} optimal doses but expected {} total doses",
+            optimal_doses.len(),
+            expected_total_doses
+        ));
+    }
+
     // Build subject with optimal doses
     let mut target_with_optimal = problem.target.clone();
     let mut dose_number = 0;
@@ -203,24 +220,47 @@ pub fn calculate_final_predictions(
         let subject_id = target_with_optimal.id().to_string();
         let mut builder = Subject::builder(&subject_id);
 
-        let mut dose_number = 0;
+        // Copy all dose events from target_with_optimal (which already has optimal doses set)
         for occasion in target_with_optimal.occasions() {
             for event in occasion.events() {
                 match event {
                     Event::Bolus(bolus) => {
-                        builder = builder.bolus(bolus.time(), optimal_doses[dose_number], 0);
-                        dose_number += 1;
+                        builder = builder.bolus(bolus.time(), bolus.amount(), bolus.input());
                     }
-                    Event::Infusion(_) => {
-                        tracing::warn!("Infusions not fully supported in AUC mode");
+                    Event::Infusion(infusion) => {
+                        builder = builder.infusion(
+                            infusion.time(),
+                            infusion.amount(),
+                            infusion.input(),
+                            infusion.duration(),
+                        );
                     }
                     Event::Observation(_) => {}
                 }
             }
         }
 
-        for &t in &dense_times {
-            builder = builder.observation(t, -99.0, 0);
+        // Collect unique outeqs from target observations
+        let mut outeqs: Vec<usize> = target_with_optimal
+            .occasions()
+            .iter()
+            .flat_map(|occ| occ.events())
+            .filter_map(|event| {
+                if let Event::Observation(obs) = event {
+                    Some(obs.outeq())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        outeqs.sort_unstable();
+        outeqs.dedup();
+
+        // Add observations at dense times for each outeq
+        for outeq in outeqs {
+            for &t in &dense_times {
+                builder = builder.missing_observation(t, outeq);
+            }
         }
 
         let dense_subject = builder.build();
