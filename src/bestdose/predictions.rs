@@ -240,44 +240,107 @@ pub fn calculate_final_predictions(
             }
         }
 
-        // Collect unique outeqs from target observations
-        let mut outeqs: Vec<usize> = target_with_optimal
+        // Collect observations with (time, outeq) pairs to preserve original order
+        let obs_time_outeq: Vec<(f64, usize)> = target_with_optimal
             .occasions()
             .iter()
             .flat_map(|occ| occ.events())
-            .filter_map(|event| {
-                if let Event::Observation(obs) = event {
-                    Some(obs.outeq())
-                } else {
-                    None
-                }
+            .filter_map(|event| match event {
+                Event::Observation(obs) => Some((obs.time(), obs.outeq())),
+                _ => None,
             })
             .collect();
-        outeqs.sort_unstable();
-        outeqs.dedup();
+
+        let mut unique_outeqs: Vec<usize> =
+            obs_time_outeq.iter().map(|(_, outeq)| *outeq).collect();
+        unique_outeqs.sort_unstable();
+        unique_outeqs.dedup();
 
         // Add observations at dense times for each outeq
-        for outeq in outeqs {
+        for outeq in unique_outeqs.iter() {
             for &t in &dense_times {
-                builder = builder.missing_observation(t, outeq);
+                builder = builder.missing_observation(t, *outeq);
             }
         }
 
         let dense_subject = builder.build();
-        let mut mean_aucs = vec![0.0; obs_times.len()];
 
+        // Initialize AUC storage per outeq
+        let mut outeq_mean_aucs: std::collections::HashMap<usize, Vec<f64>> =
+            std::collections::HashMap::new();
+        for outeq in unique_outeqs.iter() {
+            let outeq_obs_times: Vec<f64> = obs_time_outeq
+                .iter()
+                .filter(|(_, o)| *o == *outeq)
+                .map(|(t, _)| *t)
+                .collect();
+            outeq_mean_aucs.insert(*outeq, vec![0.0; outeq_obs_times.len()]);
+        }
+
+        // Calculate AUC for each support point and accumulate weighted means
         for (row, weight) in problem.theta.matrix().row_iter().zip(weights.iter()) {
             let spp = row.iter().copied().collect::<Vec<f64>>();
             let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
-            let dense_concentrations = pred.0.flat_predictions();
-            let aucs = calculate_auc_at_times(&dense_times, &dense_concentrations, &obs_times);
+            let dense_predictions_with_outeq = pred.0.predictions();
 
-            for (i, &auc) in aucs.iter().enumerate() {
-                mean_aucs[i] += weight * auc;
+            // Group predictions by outeq
+            let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =
+                std::collections::HashMap::new();
+
+            for prediction in dense_predictions_with_outeq {
+                outeq_predictions
+                    .entry(prediction.outeq())
+                    .or_insert_with(Vec::new)
+                    .push(prediction.prediction());
+            }
+
+            // Calculate AUC for each outeq separately
+            for &outeq in unique_outeqs.iter() {
+                let outeq_preds = outeq_predictions.get(&outeq).ok_or_else(|| {
+                    anyhow::anyhow!("Missing predictions for outeq {}", outeq)
+                })?;
+
+                // Get observation times for this outeq only
+                let outeq_obs_times: Vec<f64> = obs_time_outeq
+                    .iter()
+                    .filter(|(_, o)| *o == outeq)
+                    .map(|(t, _)| *t)
+                    .collect();
+
+                // Calculate AUC at observation times for this outeq
+                let aucs = calculate_auc_at_times(&dense_times, outeq_preds, &outeq_obs_times);
+
+                // Accumulate weighted AUCs
+                let mean_aucs = outeq_mean_aucs.get_mut(&outeq).unwrap();
+                for (i, &auc) in aucs.iter().enumerate() {
+                    mean_aucs[i] += weight * auc;
+                }
             }
         }
 
-        Some(obs_times.into_iter().zip(mean_aucs.into_iter()).collect())
+        // Build final AUC vector in original observation order
+        let mut result_aucs = Vec::with_capacity(obs_time_outeq.len());
+        let mut outeq_counters: std::collections::HashMap<usize, usize> =
+            std::collections::HashMap::new();
+
+        for (_, outeq) in obs_time_outeq.iter() {
+            let aucs = outeq_mean_aucs
+                .get(outeq)
+                .ok_or_else(|| anyhow::anyhow!("Missing AUC for outeq {}", outeq))?;
+
+            let counter = outeq_counters.entry(*outeq).or_insert(0);
+            if *counter < aucs.len() {
+                result_aucs.push(aucs[*counter]);
+                *counter += 1;
+            } else {
+                return Err(anyhow::anyhow!(
+                    "AUC index out of bounds for outeq {}",
+                    outeq
+                ));
+            }
+        }
+
+        Some(obs_time_outeq.iter().map(|(t, _)| *t).zip(result_aucs.into_iter()).collect())
     } else {
         None
     };

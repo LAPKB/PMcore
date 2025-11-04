@@ -626,7 +626,7 @@ fn test_multi_outeq_auc_mode() -> Result<()> {
 }
 
 #[test]
-// #[ignore] // Mark as ignored - full optimization test is too slow
+#[ignore] // Mark as ignored - full optimization test is too slow
 fn test_multi_outeq_auc_optimization() -> Result<()> {
     // Full optimization test - only run when explicitly requested
     let eq = equation::ODE::new(
