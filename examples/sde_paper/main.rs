@@ -210,7 +210,8 @@ fn model_sde_no_6() -> equation::SDE {
 
             // mean reversion to V
             dx[2] = -x[2] + v0;
-            // let v = x[2];
+            // let v = x[2]; // only used in output.
+
             // user defined
             dx[0] = -ke * x[0];
             // ODE
@@ -218,6 +219,7 @@ fn model_sde_no_6() -> equation::SDE {
         },
         |p, d| {
             fetch_params!(p, _ke0, _v0, s1, s2);
+            // for fixed s1 and s2, comment out fetch_params() and let s=0.0
             // let s1 = 0.0;
             // let s2 = 0.0; 
             d[1] = s1;
@@ -226,14 +228,22 @@ fn model_sde_no_6() -> equation::SDE {
         |_p| lag! {},
         |_p| fa! {},
         |p, _t, _cov, x| {
-            // fetch_params!(p, k0, v0); // , s1, s2); // exp 1 control
-            fetch_params!(p, k0, v0, s1, s2);
+            /*
+            fetch_params!(p, k0, v0); // sigma are 0 and not optimized
+            x[0] = 20.0;
+            x[1] = k0;
+            x[2] = v0;
+            x[3] = 20.0; // ODE -- Like = ODE + SDE
+             */
+            // /*
+            fetch_params!(p, k0, v0, s1, s2); // sigma are optimized
             x[0] = 20.0;
             let normal_ke = Normal::new(k0, s1).unwrap();
-            x[1] = normal_ke.sample(&mut rand::rng()); // k0
+            x[1] = normal_ke.sample(&mut rand::rng()); // k0 +/- s1
             let normal_v = Normal::new(v0, s2).unwrap();
-            x[2] = normal_v.sample(&mut rand::rng()); // v0
+            x[2] = normal_v.sample(&mut rand::rng()); // v0 +/- s2
             x[3] = 20.0; // ODE -- Like = ODE + SDE
+            // */
             // println!("{}")
         },
         |x, p, _t, _cov, y| {
@@ -317,7 +327,7 @@ fn settings_exp6() -> Settings {
     let params = Parameters::builder()
         .add("ke0", 0.025, 1.5 + 5.0 * (1.5 - (0.5 + 3.0 * 0.05))/3.0, false)
         .add("v0", 0.0001, 2.0, false) // Base volume range
-        // Fix sigma in the model file becauase I don't know how to fix it here!
+        // Fix sigma (in the model file becauase I don't know how to fix it here!)
         // .add("s1",0.0, 1.0e-28,false)
         // .add("s2", 0.0,1.0e-28,false)
         // ... or set them in a range.
@@ -542,7 +552,7 @@ fn generate_data() {
     );
 
     //experiment 6:
-      //experiment 5: Random Ke, Volume with their sigma parameters
+      //edited experiment 5: Random Ke, Volume with their sigma parameters
     write_samples_to_file(
         "examples/sde_paper/data/experiment6.csv",
         k0_pop.clone(),
@@ -587,7 +597,7 @@ fn fit_experiment(experiment: usize) {
         let mut settings = settings_exp1();
         settings.set_output_path("examples/sde_paper/output/experiment0");
         // settings.set_error_poly((4.0, 0.32, 0.0, 0.0)); // => shrinkage, a lot!
-        settings.set_error_poly((2.0, 0.02, 0.0, 0.0));
+        settings.set_error_poly((1.0, 0.36, 0.0, 0.0));
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
         result.write_outputs().unwrap();
@@ -618,7 +628,7 @@ fn fit_experiment(experiment: usize) {
     settings.set_error_poly(match experiment {
         1..=4 => (0.0, 0.2, 0.0, 0.0),
         5 => (0.5, 0.02, 0.0, 0.0),
-        6 => (2.0, 0.02, 0.0, 0.0), // C0 in 0.4, 0.8, 1.0, 1.2, 1.6 ... min obs is approx. 2, 1/2 = 1 (our usual protocol)
+        6 => (1.0, 0.36, 0.0, 0.0), // C0 in 0.4, 0.8, 1.0, 1.2, 1.6 ... min obs is approx. 2, 1/2 = 1 (our usual protocol)
         _ => panic!("Invalid experiment"),
     });
 
