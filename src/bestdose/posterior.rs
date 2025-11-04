@@ -56,6 +56,7 @@ use faer::Mat;
 use crate::algorithms::npag::burke;
 use crate::algorithms::npag::NPAG;
 use crate::algorithms::Algorithms;
+use crate::algorithms::Status;
 use crate::prelude::*;
 use crate::structs::psi::calculate_psi;
 use crate::structs::theta::Theta;
@@ -207,7 +208,12 @@ pub fn npagfull_refinement(
 
         // Run NPAG optimization
         let refinement_result = npag.initialize().and_then(|_| {
-            while !npag.next_cycle()? {}
+            loop {
+                match npag.next_cycle()? {
+                    Status::Continue => continue,
+                    Status::Stop(_) => break,
+                }
+            }
             Ok(())
         });
 
