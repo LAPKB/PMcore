@@ -53,7 +53,6 @@ fn main() {
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();
     algorithm.initialize().unwrap();
-    while !algorithm.next_cycle().unwrap() {}
-    let result = algorithm.into_npresult();
+    let result = algorithm.fit().unwrap();
     result.write_outputs().unwrap();
 }

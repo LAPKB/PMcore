@@ -1,3 +1,4 @@
+use crate::algorithms::StopReason;
 use crate::routines::initialization::sample_space;
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
 use crate::structs::weights::Weights;
@@ -6,7 +7,7 @@ use crate::{
     prelude::{
         algorithms::Algorithms,
         routines::{
-            evaluation::{ipm::burke, qr},
+            estimation::{ipm::burke, qr},
             settings::Settings,
         },
     },
@@ -66,7 +67,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             gamma_delta: vec![0.1; settings.errormodels().len()],
             error_models: settings.errormodels().clone(),
             converged: false,
-            status: Status::Starting,
+            status: Status::Continue,
             cycle_log: CycleLog::new(),
             settings,
             data,
@@ -91,11 +92,11 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         &self.equation
     }
 
-    fn get_settings(&self) -> &Settings {
+    fn settings(&self) -> &Settings {
         &self.settings
     }
 
-    fn get_data(&self) -> &Data {
+    fn data(&self) -> &Data {
         &self.data
     }
 
@@ -103,12 +104,12 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         sample_space(&self.settings).unwrap()
     }
 
-    fn inc_cycle(&mut self) -> usize {
+    fn increment_cycle(&mut self) -> usize {
         self.cycle += 1;
         self.cycle
     }
 
-    fn get_cycle(&self) -> usize {
+    fn cycle(&self) -> usize {
         self.cycle
     }
 
@@ -136,28 +137,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         &self.status
     }
 
-    fn convergence_evaluation(&mut self) {
-        if (self.last_objf - self.objf).abs() <= THETA_F {
-            tracing::info!("Objective function convergence reached");
-            self.converged = true;
-            self.status = Status::Converged;
-        }
-
-        // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config().cycles {
-            tracing::warn!("Maximum number of cycles reached");
-            self.converged = true;
-            self.status = Status::MaxCycles;
-        }
-
-        // Stop if stopfile exists
-        if std::path::Path::new("stop").exists() {
-            tracing::warn!("Stopfile detected - breaking");
-            self.converged = true;
-            self.status = Status::ManualStop;
-        }
-
-        // Create state object
+    fn log_cycle_state(&mut self) {
         let state = NPCycle::new(
             self.cycle,
             -2. * self.objf,
@@ -167,17 +147,66 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             (self.last_objf - self.objf).abs(),
             self.status.clone(),
         );
-
-        // Write cycle log
         self.cycle_log.push(state);
         self.last_objf = self.objf;
     }
 
-    fn converged(&self) -> bool {
-        self.converged
+    fn evaluation(&mut self) -> Result<Status> {
+        tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
+        tracing::debug!("Support points: {}", self.theta.nspp());
+        self.error_models.iter().for_each(|(outeq, em)| {
+            if ErrorModel::None == *em {
+                return;
+            }
+            tracing::debug!(
+                "Error model for outeq {}: {:.16}",
+                outeq,
+                em.factor().unwrap_or_default()
+            );
+        });
+        // Increasing objf signals instability or model misspecification.
+        if self.last_objf > self.objf + 1e-4 {
+            tracing::warn!(
+                "Objective function decreased from {:.4} to {:.4} (delta = {})",
+                -2.0 * self.last_objf,
+                -2.0 * self.objf,
+                -2.0 * self.last_objf - -2.0 * self.objf
+            );
+        }
+
+        if (self.last_objf - self.objf).abs() <= THETA_F {
+            tracing::info!("Objective function convergence reached");
+            self.converged = true;
+            self.set_status(Status::Stop(StopReason::Converged));
+            self.log_cycle_state();
+            return Ok(self.status.clone());
+        }
+
+        // Stop if we have reached maximum number of cycles
+        if self.cycle >= self.settings.config().cycles {
+            tracing::warn!("Maximum number of cycles reached");
+            self.converged = true;
+            self.set_status(Status::Stop(StopReason::MaxCycles));
+            self.log_cycle_state();
+            return Ok(self.status.clone());
+        }
+
+        // Stop if stopfile exists
+        if std::path::Path::new("stop").exists() {
+            tracing::warn!("Stopfile detected - breaking");
+            self.converged = true;
+            self.set_status(Status::Stop(StopReason::Stopped));
+            self.log_cycle_state();
+            return Ok(self.status.clone());
+        }
+
+        // Continue with normal operation
+        self.status = Status::Continue;
+        self.log_cycle_state();
+        Ok(self.status.clone())
     }
 
-    fn evaluation(&mut self) -> Result<()> {
+    fn estimation(&mut self) -> Result<()> {
         let error_model: ErrorModels = self.error_models.clone();
 
         self.psi = calculate_psi(
@@ -339,30 +368,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             })?;
 
         Ok(())
-    }
-
-    fn logs(&self) {
-        tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
-        tracing::debug!("Support points: {}", self.theta.nspp());
-        self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None == *em {
-                return;
-            }
-            tracing::debug!(
-                "Error model for outeq {}: {:.16}",
-                outeq,
-                em.factor().unwrap_or_default()
-            );
-        });
-        // Increasing objf signals instability or model misspecification.
-        if self.last_objf > self.objf + 1e-4 {
-            tracing::warn!(
-                "Objective function decreased from {:.4} to {:.4} (delta = {})",
-                -2.0 * self.last_objf,
-                -2.0 * self.objf,
-                -2.0 * self.last_objf - -2.0 * self.objf
-            );
-        }
     }
 
     fn expansion(&mut self) -> Result<()> {
