@@ -50,7 +50,7 @@ fn main() -> Result<()> {
         &"examples/bimodal_ke/output/theta.csv".to_string(),
         &settings,
     )?;
-    let weights = prior.unwrap();
+    let weights = prior.as_ref().unwrap();
 
     println!("Prior: {} support points\n", theta.matrix().nrows());
 
@@ -68,16 +68,16 @@ fn main() -> Result<()> {
     println!("Creating BestDose problem with AUC targets...");
     let problem = BestDoseProblem::new(
         &theta,
-        &weights,
+        weights,
         None, // No past data - use prior directly
-        target_data,
+        target_data.clone(),
         None,
-        eq,
-        ems,
+        eq.clone(),
+        ems.clone(),
         DoseRange::new(100.0, 2000.0), // Wider range for AUC targets
         0.8,                           // for AUC targets higher bias_weight usually works best
-        settings,
-        Target::AUC,
+        settings.clone(),
+        Target::AUCFromZero, // Cumulative AUC from time 0
     )?;
 
     println!("Optimizing dose...\n");
@@ -121,6 +121,67 @@ fn main() -> Result<()> {
             );
         }
     }
+
+    // =========================================================================
+    // EXAMPLE 2: Interval AUC (AUCFromLastDose)
+    // =========================================================================
+    println!("\n\n");
+    println!("════════════════════════════════════════════════════════");
+    println!("  EXAMPLE 2: Interval AUC (AUCFromLastDose)");
+    println!("════════════════════════════════════════════════════════\n");
+
+    println!("Scenario: Loading dose + maintenance dose");
+    println!("Target: AUC₁₂₋₂₄ = 60.0 mg*h/L (interval from t=12 to t=24)\n");
+
+    let target_interval = Subject::builder("Target_Interval")
+        .bolus(0.0, 200.0, 0) // Loading dose (fixed)
+        .bolus(12.0, 0.0, 0) // Maintenance dose to be optimized
+        .observation(24.0, 60.0, 0) // Target: AUC from t=12 to t=24
+        .build();
+
+    println!("Creating BestDose problem with interval AUC target...");
+    let problem_interval = BestDoseProblem::new(
+        &theta,
+        weights,
+        None,
+        target_interval.clone(),
+        None,
+        eq.clone(),
+        ems.clone(),
+        DoseRange::new(50.0, 500.0),
+        0.8,
+        settings.clone(),
+        Target::AUCFromLastDose, // Interval AUC from last dose!
+    )?;
+
+    println!("Optimizing maintenance dose...\n");
+    let optimal_interval = problem_interval.optimize()?;
+
+    println!("=== INTERVAL AUC RESULTS ===");
+    println!(
+        "Optimal maintenance dose (at t=12h): {:.1} mg",
+        optimal_interval.dose[0]
+    );
+    println!("Cost function: {:.6}", optimal_interval.objf);
+
+    if let Some(auc_preds) = &optimal_interval.auc_predictions {
+        println!("\nInterval AUC Predictions:");
+        for (time, auc) in auc_preds {
+            let target = 60.0;
+            let error_pct = ((auc - target) / target * 100.0).abs();
+            println!(
+                "  Time: {:5.1}h | Target AUC₁₂₋₂₄: {:6.1} | Predicted: {:6.2} | Error: {:5.1}%",
+                time, target, auc, error_pct
+            );
+        }
+    }
+
+    println!("\n");
+    println!("════════════════════════════════════════════════════════");
+    println!("  KEY DIFFERENCE:");
+    println!("  - AUCFromZero:     Integrates from t=0 to observation");
+    println!("  - AUCFromLastDose: Integrates from last dose to observation");
+    println!("════════════════════════════════════════════════════════");
 
     Ok(())
 }
