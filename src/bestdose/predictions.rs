@@ -296,9 +296,9 @@ pub fn calculate_final_predictions(
 
             // Calculate AUC for each outeq separately
             for &outeq in unique_outeqs.iter() {
-                let outeq_preds = outeq_predictions.get(&outeq).ok_or_else(|| {
-                    anyhow::anyhow!("Missing predictions for outeq {}", outeq)
-                })?;
+                let outeq_preds = outeq_predictions
+                    .get(&outeq)
+                    .ok_or_else(|| anyhow::anyhow!("Missing predictions for outeq {}", outeq))?;
 
                 // Get observation times for this outeq only
                 let outeq_obs_times: Vec<f64> = obs_time_outeq
@@ -340,7 +340,13 @@ pub fn calculate_final_predictions(
             }
         }
 
-        Some(obs_time_outeq.iter().map(|(t, _)| *t).zip(result_aucs.into_iter()).collect())
+        Some(
+            obs_time_outeq
+                .iter()
+                .map(|(t, _)| *t)
+                .zip(result_aucs.into_iter())
+                .collect(),
+        )
     } else {
         None
     };
