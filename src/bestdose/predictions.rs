@@ -127,10 +127,11 @@ pub fn calculate_auc_at_times(
 
         // Check if current time matches next target time
         if target_idx < target_times.len()
-            && (dense_times[i] - target_times[target_idx]).abs() < tolerance {
-                target_aucs.push(auc);
-                target_idx += 1;
-            }
+            && (dense_times[i] - target_times[target_idx]).abs() < tolerance
+        {
+            target_aucs.push(auc);
+            target_idx += 1;
+        }
     }
 
     target_aucs
