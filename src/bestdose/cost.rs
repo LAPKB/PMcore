@@ -1,12 +1,16 @@
 //! Cost function calculation for BestDose optimization
 //!
 //! Implements the hybrid cost function that balances patient-specific performance
-//! (variance) with population-level robustness (bias).
+//! (variance) with population-level robustness (bias). Also enforces dose range
+//! constraints through penalty-based bounds checking.
 //!
 //! # Cost Function
 //!
 //! ```text
-//! Cost = (1-λ) × Variance + λ × Bias²
+//! Cost = {
+//!   (1-λ) × Variance + λ × Bias²,  if doses within bounds
+//!   1e12 + violation² × 1e6,        if any dose violates bounds
+//! }
 //! ```
 //!
 //! ## Variance Term (Patient-Specific)
@@ -48,7 +52,9 @@
 
 use anyhow::Result;
 
-use crate::bestdose::predictions::{calculate_auc_at_times, calculate_dense_times};
+use crate::bestdose::predictions::{
+    calculate_auc_at_times, calculate_dense_times, calculate_interval_auc_per_observation,
+};
 use crate::bestdose::types::{BestDoseProblem, Target};
 use pharmsol::prelude::*;
 use pharmsol::Equation;
@@ -146,6 +152,24 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
         ));
     }
 
+    // Check bounds and return penalty if violated
+    // This constrains the Nelder-Mead optimizer to search within the specified DoseRange
+    let min_dose = problem.doserange.min;
+    let max_dose = problem.doserange.max;
+
+    for &dose in candidate_doses {
+        if dose < min_dose || dose > max_dose {
+            // Return a large penalty cost to push the optimizer back into bounds
+            // The penalty grows quadratically with distance from the nearest bound
+            let violation = if dose < min_dose {
+                min_dose - dose
+            } else {
+                dose - max_dose
+            };
+            return Ok(1e12 + violation.powi(2) * 1e6);
+        }
+    }
+
     // Build target subject with candidate doses
     let mut target_subject = problem.target.clone();
     let mut optimizable_dose_number = 0; // Index into candidate_doses
@@ -227,7 +251,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                 let pred = problem.eq.simulate_subject(&target_subject, &spp, None)?;
                 pred.0.flat_predictions()
             }
-            Target::AUC => {
+            Target::AUCFromZero => {
                 // For AUC: simulate at dense time grid and calculate cumulative AUC
                 let idelta = problem.settings.predictions().idelta;
                 let start_time = 0.0; // Future starts at 0
@@ -320,6 +344,129 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
 
                     // Calculate AUC at observation times for this outeq
                     let aucs = calculate_auc_at_times(&dense_times, outeq_preds, &outeq_obs_times);
+                    outeq_aucs.insert(outeq, aucs);
+                }
+
+                // Build final AUC vector in original observation order
+                let mut result_aucs = Vec::with_capacity(obs_time_outeq.len());
+                let mut outeq_counters: std::collections::HashMap<usize, usize> =
+                    std::collections::HashMap::new();
+
+                for (_, outeq) in obs_time_outeq.iter() {
+                    let aucs = outeq_aucs
+                        .get(outeq)
+                        .ok_or_else(|| anyhow::anyhow!("Missing AUC for outeq {}", outeq))?;
+
+                    let counter = outeq_counters.entry(*outeq).or_insert(0);
+                    if *counter < aucs.len() {
+                        result_aucs.push(aucs[*counter]);
+                        *counter += 1;
+                    } else {
+                        return Err(anyhow::anyhow!(
+                            "AUC index out of bounds for outeq {}",
+                            outeq
+                        ));
+                    }
+                }
+
+                result_aucs
+            }
+            Target::AUCFromLastDose => {
+                // For interval AUC: simulate at dense time grid and calculate AUC from last dose
+                let idelta = problem.settings.predictions().idelta;
+                let end_time = obs_times.last().copied().unwrap_or(0.0);
+
+                // Generate dense time grid from 0 to end_time (need full grid for intervals)
+                let dense_times = calculate_dense_times(0.0, end_time, &obs_times, idelta as usize);
+
+                // Create temporary subject with dense time points for simulation
+                let subject_id = target_subject.id().to_string();
+                let mut builder = Subject::builder(&subject_id);
+
+                // Add all doses from original subject
+                for occasion in target_subject.occasions() {
+                    for event in occasion.events() {
+                        match event {
+                            Event::Bolus(bolus) => {
+                                builder =
+                                    builder.bolus(bolus.time(), bolus.amount(), bolus.input());
+                            }
+                            Event::Infusion(infusion) => {
+                                builder = builder.infusion(
+                                    infusion.time(),
+                                    infusion.amount(),
+                                    infusion.input(),
+                                    infusion.duration(),
+                                );
+                            }
+                            Event::Observation(_) => {} // Skip original observations
+                        }
+                    }
+                }
+
+                // Collect observations with (time, outeq) pairs to preserve original order
+                let obs_time_outeq: Vec<(f64, usize)> = target_subject
+                    .occasions()
+                    .iter()
+                    .flat_map(|occ| occ.events())
+                    .filter_map(|event| match event {
+                        Event::Observation(obs) => Some((obs.time(), obs.outeq())),
+                        _ => None,
+                    })
+                    .collect();
+
+                let mut unique_outeqs: Vec<usize> =
+                    obs_time_outeq.iter().map(|(_, outeq)| *outeq).collect();
+                unique_outeqs.sort();
+                unique_outeqs.dedup();
+
+                // Add observations at dense times
+                for outeq in unique_outeqs.iter() {
+                    for &t in &dense_times {
+                        builder = builder.missing_observation(t, *outeq);
+                    }
+                }
+
+                let dense_subject = builder.build();
+
+                // Simulate at dense times
+                let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
+                let dense_predictions_with_outeq = pred.0.predictions();
+
+                // Group predictions by outeq
+                let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =
+                    std::collections::HashMap::new();
+
+                for prediction in dense_predictions_with_outeq {
+                    outeq_predictions
+                        .entry(prediction.outeq())
+                        .or_default()
+                        .push(prediction.prediction());
+                }
+
+                // Calculate interval AUC for each outeq separately
+                let mut outeq_aucs: std::collections::HashMap<usize, Vec<f64>> =
+                    std::collections::HashMap::new();
+
+                for &outeq in unique_outeqs.iter() {
+                    let outeq_preds = outeq_predictions.get(&outeq).ok_or_else(|| {
+                        anyhow::anyhow!("Missing predictions for outeq {}", outeq)
+                    })?;
+
+                    // Get observation times for this outeq only
+                    let outeq_obs_times: Vec<f64> = obs_time_outeq
+                        .iter()
+                        .filter(|(_, o)| *o == outeq)
+                        .map(|(t, _)| *t)
+                        .collect();
+
+                    // Calculate interval AUC at observation times for this outeq
+                    let aucs = calculate_interval_auc_per_observation(
+                        &target_subject,
+                        &dense_times,
+                        outeq_preds,
+                        &outeq_obs_times,
+                    );
                     outeq_aucs.insert(outeq, aucs);
                 }
 

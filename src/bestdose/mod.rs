@@ -91,6 +91,8 @@
 //! │                                                                 │
 //! │  Calculate predictions with optimal doses                       │
 //! │  For AUC targets: Use dense time grid + trapezoidal rule      │
+//! │    - AUCFromZero: Cumulative from time 0                       │
+//! │    - AUCFromLastDose: Interval from last dose                  │
 //! │  Return: Optimal doses, cost, predictions, method used         │
 //! └─────────────────────────────────────────────────────────────────┘
 //! ```
@@ -195,7 +197,7 @@
 //!     &population_theta, &population_weights, Some(past), target, eq, error_models,
 //!     DoseRange::new(50.0, 300.0),
 //!     0.0,                             // Full personalization
-//!     settings, 500, Target::AUC,      // AUC target!
+//!     settings, Target::AUCFromZero,   // Cumulative AUC target!
 //! )?;
 //!
 //! let result = problem.optimize()?;
@@ -254,7 +256,8 @@
 //!   
 //! - **`target_type`**: Optimization target
 //!   - `Target::Concentration`: Direct concentration targets
-//!   - `Target::AUC`: Cumulative AUC targets
+//!   - `Target::AUCFromZero`: Cumulative AUC from time 0
+//!   - `Target::AUCFromLastDose`: Interval AUC from last dose
 //!
 //! ## Performance Tuning
 //!

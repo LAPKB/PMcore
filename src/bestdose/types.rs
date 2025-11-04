@@ -16,7 +16,7 @@ use pharmsol::prelude::*;
 /// Target type for dose optimization
 ///
 /// Specifies whether the optimization targets are drug concentrations at specific times
-/// or cumulative Area Under the Curve (AUC) values.
+/// or Area Under the Curve (AUC) values.
 ///
 /// # Examples
 ///
@@ -26,21 +26,30 @@ use pharmsol::prelude::*;
 /// // Optimize to achieve target concentrations
 /// let target_type = Target::Concentration;
 ///
-/// // Optimize to achieve target cumulative AUC
-/// let target_type = Target::AUC;
+/// // Optimize to achieve target cumulative AUC from time 0
+/// let target_type = Target::AUCFromZero;
+///
+/// // Optimize to achieve target interval AUC from last dose
+/// let target_type = Target::AUCFromLastDose;
 /// ```
 ///
-/// # AUC Calculation
+/// # AUC Calculation Methods
 ///
-/// When `Target::AUC` is selected:
-/// - A dense time grid is generated using the `idelta` parameter from settings
-/// - Concentrations are simulated at all dense time points
-/// - Cumulative AUC is calculated using the trapezoidal rule:
-///   ```text
-///   AUC(t) = ∫₀ᵗ C(τ) dτ ≈ Σᵢ (C[i] + C[i-1])/2 × Δt
-///   ```
-/// - AUC values at target observation times are extracted
-#[derive(Debug, Clone, Copy)]
+/// The algorithm supports two AUC calculation approaches:
+///
+/// ## AUCFromZero (Cumulative AUC)
+/// - Integrates from time 0 to the observation time
+/// - Useful for total drug exposure assessment
+/// - Formula: `AUC(t) = ∫₀ᵗ C(τ) dτ`
+///
+/// ## AUCFromLastDose (Interval AUC)
+/// - Integrates from the last dose time to the observation time
+/// - Useful for steady-state dosing intervals (e.g., AUCτ)
+/// - Formula: `AUC(t) = ∫ₜ_last_dose^t C(τ) dτ`
+/// - Automatically finds the most recent bolus/infusion before each observation
+///
+/// Both methods use trapezoidal rule on a dense time grid controlled by `settings.predictions().idelta`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Target {
     /// Target concentrations at observation times
     ///
@@ -59,8 +68,8 @@ pub enum Target {
 
     /// Target cumulative AUC values from time 0
     ///
-    /// The optimizer finds doses to achieve specified cumulative AUC values.
-    /// AUC is calculated using trapezoidal integration with a dense time grid.
+    /// The optimizer finds doses to achieve specified cumulative AUC values
+    /// calculated from the beginning of the dosing regimen (time 0).
     ///
     /// # Example Target Subject
     /// ```rust,ignore
@@ -77,13 +86,47 @@ pub enum Target {
     /// ```rust,ignore
     /// settings.predictions().idelta = 15;  // 15-minute intervals
     /// ```
-    AUC,
+    AUCFromZero,
+
+    /// Target interval AUC values from last dose to observation
+    ///
+    /// The optimizer finds doses to achieve specified interval AUC values
+    /// calculated from the most recent dose before each observation.
+    /// This is particularly useful for steady-state dosing intervals (AUCτ).
+    ///
+    /// # Example Target Subject
+    /// ```rust,ignore
+    /// let target = Subject::builder("patient")
+    ///     .bolus(0.0, 200.0, 0)         // Loading dose (fixed at 200 mg)
+    ///     .bolus(12.0, 0.0, 0)          // Maintenance dose to optimize
+    ///     .observation(24.0, 200.0, 0)  // Target: AUC₁₂₋₂₄ = 200 mg·h/L
+    ///     .build();
+    /// // The observation at t=24h targets AUC from t=12h (last dose) to t=24h
+    /// ```
+    ///
+    /// # Behavior
+    ///
+    /// For each observation at time t:
+    /// - Finds the most recent bolus or infusion before time t
+    /// - Calculates AUC from that dose time to t
+    /// - If no dose exists before t, integrates from time 0
+    ///
+    /// This allows different observations to have different integration intervals,
+    /// each relative to their respective preceding dose.
+    AUCFromLastDose,
 }
 
 /// Allowable dose range constraints
 ///
 /// Specifies minimum and maximum allowable doses for optimization.
-/// The Nelder-Mead optimizer will search within these bounds.
+/// The Nelder-Mead optimizer will search within these bounds via penalty-based
+/// constraint enforcement.
+///
+/// # Bounds Enforcement
+///
+/// When candidate doses violate the bounds, the cost function returns a large
+/// penalty value proportional to the violation distance. This effectively
+/// constrains the Nelder-Mead simplex to remain within the valid range.
 ///
 /// # Examples
 ///
@@ -105,7 +148,8 @@ pub enum Target {
 ///
 /// - Set bounds appropriate for your drug's clinical use
 /// - Consider patient-specific factors (weight, renal function, etc.)
-/// - Avoid unnecessarily wide ranges (slows convergence)
+/// - If optimization hits a bound, consider widening the range
+/// - Monitor the cost function value - sudden increases may indicate constraint violation
 /// - Default range is `[0.0, f64::MAX]` (effectively unbounded)
 #[derive(Debug, Clone)]
 pub struct DoseRange {
