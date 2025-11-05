@@ -11,8 +11,8 @@
 //! ```rust,no_run,ignore
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //!
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past_data: pharmsol::prelude::Subject,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
@@ -21,8 +21,8 @@
 //! #            -> anyhow::Result<()> {
 //! // Create optimization problem
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta,                    // Population support points from NPAG
-//!     &prior_weights,                  // Population probabilities
+//!     &population_theta,                    // Population support points from NPAG
+//!     &population_weights,                  // Population probabilities
 //!     Some(past_data),                 // Patient history (None = use prior)
 //!     target,                          // Future template with targets
 //!     eq,                              // PK/PD model
@@ -147,8 +147,8 @@
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
 //! #            error_models: pharmsol::prelude::ErrorModels,
@@ -161,7 +161,7 @@
 //!     .build();
 //!
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta, &prior_weights, Some(past), target, eq, error_models,
+//!     &population_theta, &population_weights, Some(past), target, eq, error_models,
 //!     DoseRange::new(10.0, 500.0),    // 10-500 mg allowed
 //!     0.3,                             // Slight population emphasis
 //!     settings, 500, Target::Concentration,
@@ -179,8 +179,8 @@
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
 //! #            error_models: pharmsol::prelude::ErrorModels,
@@ -194,7 +194,7 @@
 //!     .build();
 //!
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta, &prior_weights, Some(past), target, None, eq, error_models,
+//!     &population_theta, &population_weights, Some(past), target, eq, error_models,
 //!     DoseRange::new(50.0, 300.0),
 //!     0.0,                             // Full personalization
 //!     settings, Target::AUCFromZero,   // Cumulative AUC target!
@@ -214,8 +214,8 @@
 //!
 //! ```rust,no_run,ignore
 //! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
 //! #            error_models: pharmsol::prelude::ErrorModels,
@@ -223,7 +223,7 @@
 //! #            -> anyhow::Result<()> {
 //! // No patient history - use population prior directly
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta, &prior_weights,
+//!     &population_theta, &population_weights,
 //!     None,                            // No past data
 //!     target, eq, error_models,
 //!     DoseRange::new(0.0, 1000.0),
@@ -264,8 +264,8 @@
 //! For faster optimization:
 //! ```rust,no_run,ignore
 //! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
-//! # fn example(prior_theta: pmcore::structs::theta::Theta,
-//! #            prior_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::structs::theta::Theta,
+//! #            population_weights: pmcore::structs::weights::Weights,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::ODE,
 //! #            error_models: pharmsol::prelude::ErrorModels,
@@ -273,7 +273,7 @@
 //! #            -> anyhow::Result<()> {
 //! // Reduce refinement cycles
 //! let problem = BestDoseProblem::new(
-//!     &prior_theta, &prior_weights, None, target, eq, error_models,
+//!     &population_theta, &population_weights, None, target, eq, error_models,
 //!     DoseRange::new(0.0, 1000.0), 0.5,
 //!     settings.clone(),
 //!     100,                             // Faster: 100 instead of 500
@@ -306,20 +306,20 @@ pub use types::{BestDoseProblem, BestDoseResult, DoseRange, Target};
 ///
 /// This mimics Fortran's MAKETMP subroutine logic:
 /// 1. Takes doses (only doses, not observations) from past subject
-/// 2. Offsets all future subject event times by `current_time`
+/// 2. Offsets all future subject event times by `time_offset`
 /// 3. Combines into single continuous subject
 ///
 /// # Arguments
 ///
 /// * `past` - Subject with past history (only doses will be used)
 /// * `future` - Subject template for future (all events: doses + observations)
-/// * `current_time` - Time offset to apply to all future events
+/// * `time_offset` - Time offset to apply to all future events
 ///
 /// # Returns
 ///
 /// Combined subject with:
-/// - Past doses at original times [0, current_time)
-/// - Future doses + observations at offset times [current_time, ∞)
+/// - Past doses at original times [0, time_offset)
+/// - Future doses + observations at offset times [time_offset, ∞)
 ///
 /// # Example
 ///
@@ -336,7 +336,7 @@ pub use types::{BestDoseProblem, BestDoseResult, DoseRange, Target};
 ///     .observation(24.0, 10.0, 0)  // Target at t=30 absolute
 ///     .build();
 ///
-/// // Concatenate with current_time = 6.0
+/// // Concatenate with time_offset = 6.0
 /// let combined = concatenate_past_and_future(&past, &future, 6.0);
 /// // Result: dose at t=0 (fixed, 500mg), dose at t=6 (optimizable, 100mg initial),
 /// //         observation target at t=30 (10 mg/L)
@@ -344,7 +344,7 @@ pub use types::{BestDoseProblem, BestDoseResult, DoseRange, Target};
 fn concatenate_past_and_future(
     past: &pharmsol::prelude::Subject,
     future: &pharmsol::prelude::Subject,
-    current_time: f64,
+    time_offset: f64,
 ) -> pharmsol::prelude::Subject {
     use pharmsol::prelude::*;
 
@@ -374,11 +374,11 @@ fn concatenate_past_and_future(
             match event {
                 Event::Bolus(bolus) => {
                     builder =
-                        builder.bolus(bolus.time() + current_time, bolus.amount(), bolus.input());
+                        builder.bolus(bolus.time() + time_offset, bolus.amount(), bolus.input());
                 }
                 Event::Infusion(inf) => {
                     builder = builder.infusion(
-                        inf.time() + current_time,
+                        inf.time() + time_offset,
                         inf.amount(),
                         inf.input(),
                         inf.duration(),
@@ -387,7 +387,7 @@ fn concatenate_past_and_future(
                 Event::Observation(obs) => {
                     builder = match obs.value() {
                         Some(val) => {
-                            builder.observation(obs.time() + current_time, val, obs.outeq())
+                            builder.observation(obs.time() + time_offset, val, obs.outeq())
                         }
                         None => builder,
                     };
@@ -466,8 +466,8 @@ use crate::structs::weights::Weights;
 // Helper Functions for STAGE 1: Posterior Density Calculation
 // ═════════════════════════════════════════════════════════════════════════════
 
-/// Validate current_time parameter for past/future separation mode
-fn validate_current_time(current_time: f64, past_data: &Option<Subject>) -> Result<()> {
+/// Validate time_offset parameter for past/future separation mode
+fn validate_time_offset(time_offset: f64, past_data: &Option<Subject>) -> Result<()> {
     if let Some(past_subject) = past_data {
         let max_past_time = past_subject
             .occasions()
@@ -480,11 +480,11 @@ fn validate_current_time(current_time: f64, past_data: &Option<Subject>) -> Resu
             })
             .fold(0.0_f64, |max, time| max.max(time));
 
-        if current_time < max_past_time {
+        if time_offset < max_past_time {
             return Err(anyhow::anyhow!(
-                "Invalid current_time: {} is before the last past_data event at time {}. \
-                current_time must be >= the maximum time in past_data to avoid time travel!",
-                current_time,
+                "Invalid time_offset: {} is before the last past_data event at time {}. \
+                time_offset must be >= the maximum time in past_data to avoid time travel!",
+                time_offset,
                 max_past_time
             ));
         }
@@ -517,10 +517,10 @@ fn validate_current_time(current_time: f64, past_data: &Option<Subject>) -> Resu
 ///
 /// # Returns
 ///
-/// Tuple: (posterior_theta, posterior_weights, filtered_prior_weights, past_subject)
+/// Tuple: (posterior_theta, posterior_weights, filtered_population_weights, past_subject)
 fn calculate_posterior_density(
-    prior_theta: &Theta,
-    prior_weights: &Weights,
+    population_theta: &Theta,
+    population_weights: &Weights,
     past_data: Option<&Subject>,
     eq: &ODE,
     error_models: &ErrorModels,
@@ -530,9 +530,9 @@ fn calculate_posterior_density(
         None => {
             tracing::info!("  No past data → using prior directly");
             Ok((
-                prior_theta.clone(),
-                prior_weights.clone(),
-                prior_weights.clone(),
+                population_theta.clone(),
+                population_weights.clone(),
+                population_weights.clone(),
                 Subject::builder("Empty").build(),
             ))
         }
@@ -548,9 +548,9 @@ fn calculate_posterior_density(
             if !has_observations {
                 tracing::info!("  Past data has no observations → using prior directly");
                 Ok((
-                    prior_theta.clone(),
-                    prior_weights.clone(),
-                    prior_weights.clone(),
+                    population_theta.clone(),
+                    population_weights.clone(),
+                    population_weights.clone(),
                     past_subject.clone(),
                 ))
             } else {
@@ -561,10 +561,10 @@ fn calculate_posterior_density(
 
                 let past_data_obj = Data::new(vec![past_subject.clone()]);
 
-                let (posterior_theta, posterior_weights, filtered_prior_weights) =
+                let (posterior_theta, posterior_weights, filtered_population_weights) =
                     posterior::calculate_two_step_posterior(
-                        prior_theta,
-                        prior_weights,
+                        population_theta,
+                        population_weights,
                         &past_data_obj,
                         eq,
                         error_models,
@@ -574,7 +574,7 @@ fn calculate_posterior_density(
                 Ok((
                     posterior_theta,
                     posterior_weights,
-                    filtered_prior_weights,
+                    filtered_population_weights,
                     past_subject.clone(),
                 ))
             }
@@ -590,9 +590,9 @@ fn calculate_posterior_density(
 fn prepare_target_subject(
     past_subject: Subject,
     target: Subject,
-    current_time: Option<f64>,
+    time_offset: Option<f64>,
 ) -> Result<(Subject, Subject)> {
-    match current_time {
+    match time_offset {
         None => {
             tracing::info!("  Mode: Standard (single subject)");
             Ok((target, past_subject))
@@ -647,11 +647,11 @@ impl BestDoseProblem {
     ///
     /// # Parameters
     ///
-    /// * `prior_theta` - Population support points from NPAG
-    /// * `prior_weights` - Population probabilities
+    /// * `population_theta` - Population support points from NPAG
+    /// * `population_weights` - Population probabilities
     /// * `past_data` - Patient history (None = use prior directly)
     /// * `target` - Future dosing template with targets
-    /// * `current_time` - Optional time offset for concatenation (None = standard mode, Some(t) = Fortran mode)
+    /// * `time_offset` - Optional time offset for concatenation (None = standard mode, Some(t) = Fortran mode)
     /// * `eq` - Pharmacokinetic/pharmacodynamic model
     /// * `error_models` - Error model specifications
     /// * `doserange` - Allowable dose constraints
@@ -665,11 +665,11 @@ impl BestDoseProblem {
     /// BestDoseProblem ready for `optimize()`
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        prior_theta: &Theta,
-        prior_weights: &Weights,
+        population_theta: &Theta,
+        population_weights: &Weights,
         past_data: Option<Subject>,
         target: Subject,
-        current_time: Option<f64>,
+        time_offset: Option<f64>,
         eq: ODE,
         error_models: ErrorModels,
         doserange: DoseRange,
@@ -683,17 +683,17 @@ impl BestDoseProblem {
         tracing::info!("╚══════════════════════════════════════════════════════════╝");
 
         // Validate input if using past/future separation mode
-        if let Some(t) = current_time {
-            validate_current_time(t, &past_data)?;
+        if let Some(t) = time_offset {
+            validate_time_offset(t, &past_data)?;
         }
 
         // ═════════════════════════════════════════════════════════════
         // STAGE 1: Calculate Posterior Density
         // ═════════════════════════════════════════════════════════════
-        let (posterior_theta, posterior_weights, filtered_prior_weights, past_subject) =
+        let (posterior_theta, posterior_weights, filtered_population_weights, past_subject) =
             calculate_posterior_density(
-                prior_theta,
-                prior_weights,
+                population_theta,
+                population_weights,
                 past_data.as_ref(),
                 &eq,
                 &error_models,
@@ -702,7 +702,7 @@ impl BestDoseProblem {
 
         // Handle past/future concatenation if needed
         let (final_target, final_past_data) =
-            prepare_target_subject(past_subject, target, current_time)?;
+            prepare_target_subject(past_subject, target, time_offset)?;
 
         tracing::info!("╔══════════════════════════════════════════════════════════╗");
         tracing::info!("║              Stage 1 Complete - Ready for Optimization   ║");
@@ -715,8 +715,8 @@ impl BestDoseProblem {
             past_data: final_past_data,
             target: final_target,
             target_type,
-            prior_theta: prior_theta.clone(),
-            prior_weights: filtered_prior_weights,
+            population_theta: population_theta.clone(),
+            population_weights: filtered_population_weights,
             theta: posterior_theta,
             posterior: posterior_weights,
             eq,
@@ -724,7 +724,7 @@ impl BestDoseProblem {
             settings,
             doserange,
             bias_weight,
-            current_time,
+            time_offset,
         })
     }
 

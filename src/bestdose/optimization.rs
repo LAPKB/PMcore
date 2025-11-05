@@ -92,7 +92,7 @@ impl CostFunction for BestDoseProblem {
 ///
 /// This is a helper for the dual optimization approach.
 ///
-/// When `problem.current_time` is set (past/future separation mode):
+/// When `problem.time_offset` is set (past/future separation mode):
 /// - Only optimizes doses where `dose_optimization_mask[i] == true`
 /// - Creates a reduced-dimension simplex for future doses only
 /// - Maps optimized doses back to full vector (past doses unchanged)
@@ -190,14 +190,14 @@ fn run_single_optimization(
 /// │                                                 │
 /// │  OPTIMIZATION 1: Posterior Weights              │
 /// │    Use NPAGFULL11 posterior probabilities       │
-/// │    → (doses₁, cost₁)                           │
+/// │    → (doses₁, cost₁)                            │
 /// │                                                 │
 /// │  OPTIMIZATION 2: Uniform Weights                │
 /// │    Use equal weights (1/M) for all points       │
-/// │    → (doses₂, cost₂)                           │
+/// │    → (doses₂, cost₂)                            │
 /// │                                                 │
-/// │  SELECTION: Choose min(cost₁, cost₂)           │
-/// │    → (optimal_doses, optimal_cost, method)     │
+/// │  SELECTION: Choose min(cost₁, cost₂)            │
+/// │    → (optimal_doses, optimal_cost, method)      │
 /// └────────────┬────────────────────────────────────┘
 ///              ↓
 /// ┌─────────────────────────────────────────────────┐
@@ -261,34 +261,34 @@ pub fn dual_optimization(problem: &BestDoseProblem) -> Result<BestDoseResult> {
         method
     );
 
+    // Generate target subject with optimal doses
+    let mut optimal_subject = problem.target.clone();
+    let mut dose_number = 0;
+
+    for occasion in optimal_subject.iter_mut() {
+        for event in occasion.iter_mut() {
+            match event {
+                Event::Bolus(bolus) => {
+                    bolus.set_amount(final_doses[dose_number]);
+                    dose_number += 1;
+                }
+                Event::Infusion(infusion) => {
+                    infusion.set_amount(final_doses[dose_number]);
+                    dose_number += 1;
+                }
+                Event::Observation(_) => {}
+            }
+        }
+    }
+
     let (preds, auc_predictions) =
         calculate_final_predictions(problem, &final_doses, &final_weights)?;
-
-    // Extract only the optimized doses (exclude fixed past doses)
-    let original_doses: Vec<f64> = problem
-        .target
-        .iter()
-        .flat_map(|occ| {
-            occ.iter().filter_map(|event| match event {
-                Event::Bolus(bolus) => Some(bolus.amount()),
-                Event::Infusion(infusion) => Some(infusion.amount()),
-                Event::Observation(_) => None,
-            })
-        })
-        .collect();
-
-    let optimized_doses: Vec<f64> = final_doses
-        .iter()
-        .zip(original_doses.iter())
-        .filter(|(_, &orig)| orig == 0.0) // Only doses that were placeholders
-        .map(|(&opt, _)| opt)
-        .collect();
 
     tracing::info!("  ✓ Predictions complete");
     tracing::info!("─────────────────────────────────────────────────────────────");
 
     Ok(BestDoseResult {
-        dose: optimized_doses,
+        optimal_subject,
         objf: final_cost,
         status: "Converged".to_string(),
         preds,

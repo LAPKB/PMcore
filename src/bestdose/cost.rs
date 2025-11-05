@@ -76,7 +76,7 @@ use pharmsol::Equation;
 ///
 /// # Dose Masking
 ///
-/// When `problem.current_time` is set (past/future separation), only doses where
+/// When `problem.time_offset` is set (past/future separation), only doses where
 /// `dose_optimization_mask[i] == true` are updated with values from `candidate_doses`.
 /// Past doses (mask == false) remain at their historical values.
 ///
@@ -239,7 +239,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
         .matrix()
         .row_iter()
         .zip(problem.posterior.iter()) // Posterior from NPAGFULL11 (patient-specific)
-        .zip(problem.prior_weights.iter())
+        .zip(problem.population_weights.iter())
     // Prior (population)
     {
         let spp = row.iter().copied().collect::<Vec<f64>>();

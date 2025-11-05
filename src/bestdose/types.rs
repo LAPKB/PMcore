@@ -208,8 +208,8 @@ impl Default for DoseRange {
 /// - `target_type`: [`Target::Concentration`] or [`Target::AUC`]
 ///
 /// ## Population Prior
-/// - `prior_theta`: Support points from NPAG population model
-/// - `prior_weights`: Probability weights for each support point
+/// - `population_theta`: Support points from NPAG population model
+/// - `population_weights`: Probability weights for each support point
 ///
 /// ## Patient-Specific Posterior
 /// - `theta`: Refined posterior support points (from NPAGFULL11 + NPAGFULL)
@@ -229,8 +229,8 @@ impl Default for DoseRange {
 /// ```rust,no_run,ignore
 /// use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 ///
-/// # fn example(prior_theta: pmcore::structs::theta::Theta,
-/// #            prior_weights: pmcore::structs::weights::Weights,
+/// # fn example(population_theta: pmcore::structs::theta::Theta,
+/// #            population_weights: pmcore::structs::weights::Weights,
 /// #            past: pharmsol::prelude::Subject,
 /// #            target: pharmsol::prelude::Subject,
 /// #            eq: pharmsol::prelude::ODE,
@@ -238,8 +238,8 @@ impl Default for DoseRange {
 /// #            settings: pmcore::routines::settings::Settings)
 /// #            -> anyhow::Result<()> {
 /// let problem = BestDoseProblem::new(
-///     &prior_theta,
-///     &prior_weights,
+///     &population_theta,
+///     &population_weights,
 ///     Some(past),                      // Patient history
 ///     target,                          // Dosing template with targets
 ///     eq,
@@ -258,26 +258,45 @@ impl Default for DoseRange {
 #[derive(Debug, Clone)]
 pub struct BestDoseProblem {
     // Input data
-    pub past_data: Subject,
-    pub target: Subject,
-    pub target_type: Target,
+    /// Past patient data for posterior calculation
+    ///
+    /// These observations are used to refine the population prior into a
+    /// patient-specific posterior, and will be used to inform dose optimization.
+    pub(crate) past_data: Subject,
+    /// Target subject with dosing template and target observations
+    ///
+    /// This [Subject] defines the targets for optimization, including
+    /// dose events (with amounts to be optimized) and observation events
+    /// (with desired target values).
+    ///
+    /// For a `Target::Concentration`, observation values are target concentrations.
+    /// For a `Target::AUC`, observation values are target cumulative AUC.
+    ///
+    /// Only doses with a value of `0.0` will be optimized; non-zero doses remain fixed.
+    pub(crate) target: Subject,
+    /// Target type for optimization
+    ///
+    /// Specifies whether to optimize for concentrations or AUC values.
+    pub(crate) target_type: Target,
 
     // Population prior
-    pub prior_theta: Theta,
-    pub prior_weights: Weights,
+    /// The population prior support points ([Theta]), representing your previous knowledge of the population parameter distribution.
+    pub(crate) population_theta: Theta,
+    /// The population prior weights ([Weights]), representing the probability of each support point in the population.
+    pub(crate) population_weights: Weights,
 
     // Patient-specific posterior (from NPAGFULL11 + NPAGFULL)
-    pub theta: Theta,
-    pub posterior: Weights,
+    pub(crate) theta: Theta,
+    pub(crate) posterior: Weights,
 
     // Model and settings
-    pub eq: ODE,
-    pub error_models: ErrorModels,
-    pub settings: Settings,
+    pub(crate) eq: ODE,
+    pub(crate) error_models: ErrorModels,
+    pub(crate) settings: Settings,
 
     // Optimization parameters
-    pub doserange: DoseRange,
-    pub bias_weight: f64, // λ: 0=personalized, 1=population
+    pub(crate) doserange: DoseRange,
+    pub(crate) bias_weight: f64, // λ: 0=personalized, 1=population
 
     /// Time offset between past and future data (used for concatenation)
     /// When Some(t): future events were offset by this time to create continuous simulation
@@ -285,7 +304,21 @@ pub struct BestDoseProblem {
     ///
     /// This is used to track the boundary between past and future for reporting/debugging.
     /// The actual optimization mask is derived from dose amounts (0 = optimize, >0 = fixed).
-    pub current_time: Option<f64>,
+    pub(crate) time_offset: Option<f64>,
+}
+
+impl BestDoseProblem {
+    /// Validate input
+    pub(crate) fn validate(&self) -> anyhow::Result<()> {
+        if self.bias_weight <= 0.0 || self.bias_weight >= 1.0 {
+            return Err(anyhow::anyhow!(
+                "Bias weight must be between 0.0 and 1.0, got {}",
+                self.bias_weight
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 /// Result from BestDose optimization
@@ -359,13 +392,13 @@ pub struct BestDoseProblem {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BestDoseResult {
     /// Optimal dose amount(s)
     ///
     /// Vector contains one element per dose in the target subject.
     /// Order matches the dose events in the target subject.
-    pub dose: Vec<f64>,
+    pub optimal_subject: Subject,
 
     /// Final cost function value
     ///
