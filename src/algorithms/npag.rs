@@ -211,7 +211,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
         }
 
         (self.lambda, _) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda.into(), objf),
+            Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 bail!("Error in IPM during estimation: {:?}", err);
             }
@@ -274,7 +274,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
 
         self.validate_psi()?;
         (self.lambda, self.objf) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda.into(), objf),
+            Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
                 return Err(anyhow::anyhow!(
                     "Error in IPM during condensation: {:?}",
@@ -282,7 +282,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                 ));
             }
         };
-        self.w = self.lambda.clone().into();
+        self.w = self.lambda.clone();
         Ok(())
     }
 

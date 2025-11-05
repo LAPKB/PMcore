@@ -14,6 +14,7 @@ Rust library with the building blocks to create and implement new non-parametric
 - Covariate support, carry-forward or linear interpolation
 - Option to cache results for improved speed
 - Powerful simulation engine
+- Bestdose module for dose optimization
 
 ## Available algorithms
 
