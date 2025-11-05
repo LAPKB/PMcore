@@ -6,12 +6,15 @@
 //! - [`Target`]: Enum specifying concentration or AUC targets
 //! - [`DoseRange`]: Dose constraint specification
 
+use std::fmt::Display;
+
 use crate::prelude::*;
 use crate::routines::output::predictions::NPPredictions;
 use crate::routines::settings::Settings;
 use crate::structs::theta::Theta;
 use crate::structs::weights::Weights;
 use pharmsol::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Target type for dose optimization
 ///
@@ -49,7 +52,7 @@ use pharmsol::prelude::*;
 /// - Automatically finds the most recent bolus/infusion before each observation
 ///
 /// Both methods use trapezoidal rule on a dense time grid controlled by `settings.predictions().idelta`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
     /// Target concentrations at observation times
     ///
@@ -133,10 +136,10 @@ pub enum Target {
 /// ```rust,ignore
 /// use pmcore::bestdose::DoseRange;
 ///
-/// // Standard range: 0-1000 mg
+/// // Large range: 0-1000 mg
 /// let range = DoseRange::new(0.0, 1000.0);
 ///
-/// // Narrow therapeutic window
+/// // Narrow range: 50-150 mg
 /// let range = DoseRange::new(50.0, 150.0);
 ///
 /// // Access bounds
@@ -357,31 +360,31 @@ pub struct BestDoseProblem {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BestDoseResult {
-    /// Optimal dose amount(s)
+    /// Subject with optimal doses
     ///
-    /// Vector contains one element per dose in the target subject.
-    /// Order matches the dose events in the target subject.
-    pub optimal_subject: Subject,
+    /// The [Subject] contains the same events as the target subject,
+    /// but with the dose amounts updated to the optimal values.
+    pub(crate) optimal_subject: Subject,
 
     /// Final cost function value
     ///
     /// Lower is better. Represents the weighted combination of variance
     /// (patient-specific error) and bias (deviation from population).
-    pub objf: f64,
+    pub(crate) objf: f64,
 
     /// Optimization status message
     ///
     /// Examples: "converged", "maximum iterations reached", etc.
-    pub status: String,
+    pub(crate) status: BestDoseStatus,
 
     /// Concentration-time predictions for optimal doses
     ///
     /// Contains predicted concentrations at observation times using the
     /// optimal doses. Predictions use the weights from the winning optimization
     /// method (posterior or uniform).
-    pub preds: NPPredictions,
+    pub(crate) preds: NPPredictions,
 
     /// AUC values at observation times
     ///
@@ -389,7 +392,7 @@ pub struct BestDoseResult {
     /// Each tuple contains `(time, cumulative_auc)`.
     ///
     /// For [`Target::Concentration`], this field is `None`.
-    pub auc_predictions: Option<Vec<(f64, f64)>>,
+    pub(crate) auc_predictions: Option<Vec<(f64, f64)>>,
 
     /// Which optimization method produced the best result
     ///
@@ -397,5 +400,84 @@ pub struct BestDoseResult {
     /// - `"uniform"`: Population-based optimization (uses uniform weights)
     ///
     /// The algorithm runs both optimizations and selects the one with lower cost.
-    pub optimization_method: String,
+    pub(crate) optimization_method: OptimalMethod,
+}
+
+impl BestDoseResult {
+    /// Get the optimized subject
+    pub fn optimal_subject(&self) -> &Subject {
+        &self.optimal_subject
+    }
+
+    /// Get the dose amounts of the optimized subject
+    ///
+    /// This includes all doses (bolus and infusion) in the order they appear
+    /// in the optimal subject, and returns their amounts as a vector of f64.
+    pub fn doses(&self) -> Vec<f64> {
+        self.optimal_subject()
+            .iter()
+            .flat_map(|occ| {
+                occ.events()
+                    .iter()
+                    .filter_map(|event| match event {
+                        Event::Bolus(bolus) => Some(bolus.amount()),
+                        Event::Infusion(infusion) => Some(infusion.amount()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<f64>>()
+    }
+
+    /// Get the objective cost function value
+    pub fn objf(&self) -> f64 {
+        self.objf
+    }
+
+    /// Get the optimization status
+    pub fn status(&self) -> &BestDoseStatus {
+        &self.status
+    }
+
+    /// Get the concentration-time predictions
+    pub fn predictions(&self) -> &NPPredictions {
+        &self.preds
+    }
+
+    /// Get the AUC predictions, if available
+    pub fn auc_predictions(&self) -> Option<Vec<(f64, f64)>> {
+        self.auc_predictions.clone()
+    }
+
+    /// Get the optimization method used
+    pub fn optimization_method(&self) -> OptimalMethod {
+        self.optimization_method
+    }
+}
+
+/// Optimization method used in BestDose
+///
+/// This returns the type of optimization method that produced the best result:
+/// - `Posterior`: Patient-specific optimization using posterior weights
+/// - `Uniform`: Population-based optimization using uniform weights
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
+pub enum OptimalMethod {
+    Posterior,
+    Uniform,
+}
+
+impl Display for OptimalMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OptimalMethod::Posterior => write!(f, "Posterior"),
+            OptimalMethod::Uniform => write!(f, "Uniform"),
+        }
+    }
+}
+
+/// Status of the BestDose optimization
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
+pub enum BestDoseStatus {
+    Converged,
+    MaxIterations,
 }

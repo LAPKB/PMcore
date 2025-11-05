@@ -45,7 +45,7 @@ use argmin::solver::neldermead::NelderMead;
 
 use crate::bestdose::cost::calculate_cost;
 use crate::bestdose::predictions::calculate_final_predictions;
-use crate::bestdose::types::{BestDoseProblem, BestDoseResult};
+use crate::bestdose::types::{BestDoseProblem, BestDoseResult, BestDoseStatus, OptimalMethod};
 use crate::structs::weights::Weights;
 use pharmsol::prelude::*;
 
@@ -244,10 +244,15 @@ pub fn dual_optimization(problem: &BestDoseProblem) -> Result<BestDoseResult> {
 
     let (final_doses, final_cost, method, final_weights) = if cost1 <= cost2 {
         tracing::info!("     → Winner: Posterior (lower cost) ✓");
-        (doses1, cost1, "posterior", problem.posterior.clone())
+        (
+            doses1,
+            cost1,
+            OptimalMethod::Posterior,
+            problem.posterior.clone(),
+        )
     } else {
         tracing::info!("     → Winner: Uniform (lower cost) ✓");
-        (doses2, cost2, "uniform", uniform_weights)
+        (doses2, cost2, OptimalMethod::Uniform, uniform_weights)
     };
 
     // ═════════════════════════════════════════════════════════════
@@ -290,9 +295,9 @@ pub fn dual_optimization(problem: &BestDoseProblem) -> Result<BestDoseResult> {
     Ok(BestDoseResult {
         optimal_subject,
         objf: final_cost,
-        status: "Converged".to_string(),
+        status: BestDoseStatus::Converged,
         preds,
         auc_predictions,
-        optimization_method: method.to_string(),
+        optimization_method: method,
     })
 }

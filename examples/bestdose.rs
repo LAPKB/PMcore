@@ -114,35 +114,22 @@ fn main() -> Result<()> {
 
     // Print results
     for (bias_weight, optimal) in &results {
-        let opt_doses = optimal
-            .optimal_subject
-            .iter()
-            .flat_map(|occ| {
-                occ.events()
-                    .iter()
-                    .filter_map(|event| match event {
-                        Event::Bolus(bolus) => Some(bolus.amount()),
-                        Event::Infusion(infusion) => Some(infusion.amount()),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<f64>>();
+        let opt_doses = optimal.doses();
 
         println!(
             "Bias weight: {:.2}\t\t Optimal dose: {:?}\t\tCost: {:.6}\t\tln Cost: {:.4}\t\tMethod: {}",
             bias_weight,
             opt_doses,
-            optimal.objf,
-            optimal.objf.ln(),
-            optimal.optimization_method
+            optimal.objf(),
+            optimal.objf().ln(),
+            optimal.optimization_method()
         );
     }
 
     // Print concentration-time predictions for the optimal dose
     let optimal = &results.last().unwrap().1;
     println!("\nConcentration-time predictions for optimal dose:");
-    for pred in optimal.preds.predictions().into_iter() {
+    for pred in optimal.predictions().predictions().into_iter() {
         println!(
             "Time: {:.2} h, Observed: {:.2}, (Pop Mean: {:.4}, Pop Median: {:.4}, Post Mean: {:.4}, Post Median: {:.4})",
             pred.time(), pred.obs().unwrap_or(0.0), pred.pop_mean(), pred.pop_median(), pred.post_mean(), pred.post_median()

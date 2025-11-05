@@ -83,33 +83,20 @@ fn main() -> Result<()> {
     println!("Optimizing dose...\n");
     let optimal = problem.optimize()?;
 
-    let opt_doses = optimal
-        .optimal_subject
-        .iter()
-        .flat_map(|occ| {
-            occ.events()
-                .iter()
-                .filter_map(|event| match event {
-                    Event::Bolus(bolus) => Some(bolus.amount()),
-                    Event::Infusion(infusion) => Some(infusion.amount()),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<f64>>();
+    let opt_doses = optimal.doses();
 
     println!("=== RESULTS ===");
     println!("Optimal dose: {:.1} mg", opt_doses[0]);
-    println!("Cost function: {:.6}", optimal.objf);
+    println!("Cost function: {:.6}", optimal.objf());
 
-    if let Some(auc_preds) = &optimal.auc_predictions {
+    if let Some(auc_preds) = &optimal.auc_predictions() {
         println!("\nAUC Predictions:");
         let mut total_error = 0.0;
         for (time, auc) in auc_preds {
             // Find the target AUC for this time
-            let target = if (*time - 6.0).abs() < 0.1 {
+            let target = if (time - 6.0).abs() < 0.1 {
                 50.0
-            } else if (*time - 12.0).abs() < 0.1 {
+            } else if (time - 12.0).abs() < 0.1 {
                 80.0
             } else {
                 0.0
@@ -127,7 +114,7 @@ fn main() -> Result<()> {
         );
     } else {
         println!("\nConcentration Predictions:");
-        for pred in optimal.preds.predictions() {
+        for pred in optimal.predictions().predictions() {
             println!(
                 "  Time: {:5.1}h | Target: {:6.1} | Predicted: {:6.2}",
                 pred.time(),
@@ -172,30 +159,13 @@ fn main() -> Result<()> {
     println!("Optimizing maintenance dose...\n");
     let optimal_interval = problem_interval.optimize()?;
 
-    let doses: Vec<f64> = optimal_interval
-        .optimal_subject
-        .iter()
-        .map(|occ| {
-            occ.iter()
-                .filter(|event| match event {
-                    Event::Bolus(_) => true,
-                    Event::Infusion(_) => true,
-                    _ => false,
-                })
-                .map(|event| match event {
-                    Event::Bolus(bolus) => bolus.amount(),
-                    Event::Infusion(infusion) => infusion.amount(),
-                    _ => 0.0,
-                })
-        })
-        .flatten()
-        .collect();
+    let doses: Vec<f64> = optimal_interval.doses();
 
     println!("=== INTERVAL AUC RESULTS ===");
     println!("Optimal maintenance dose (at t=12h): {:.1} mg", doses[0]);
-    println!("Cost function: {:.6}", optimal_interval.objf);
+    println!("Cost function: {:.6}", optimal_interval.objf());
 
-    if let Some(auc_preds) = &optimal_interval.auc_predictions {
+    if let Some(auc_preds) = &optimal_interval.auc_predictions() {
         println!("\nInterval AUC Predictions:");
         for (time, auc) in auc_preds {
             let target = 60.0;

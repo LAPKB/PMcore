@@ -89,7 +89,7 @@ fn main() -> Result<()> {
         let result = problem.optimize()?;
 
         let doses: Vec<f64> = result
-            .optimal_subject
+            .optimal_subject()
             .iter()
             .map(|occ| {
                 occ.iter()
@@ -118,7 +118,10 @@ fn main() -> Result<()> {
 
         println!(
             "{:<30} | {:>10.1} mg | {:>10.6}{}",
-            description, doses[0], result.objf, at_bound
+            description,
+            doses[0],
+            result.objf(),
+            at_bound
         );
     }
 
