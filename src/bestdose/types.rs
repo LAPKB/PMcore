@@ -257,13 +257,6 @@ impl Default for DoseRange {
 /// ```
 #[derive(Debug, Clone)]
 pub struct BestDoseProblem {
-    // Input data
-    /// Past patient data for posterior calculation
-    ///
-    /// These observations are used to refine the population prior into a
-    /// patient-specific posterior, and will be used to inform dose optimization.
-    #[allow(dead_code)]
-    pub(crate) past_data: Subject,
     /// Target subject with dosing template and target observations
     ///
     /// This [Subject] defines the targets for optimization, including
@@ -280,10 +273,6 @@ pub struct BestDoseProblem {
     /// Specifies whether to optimize for concentrations or AUC values.
     pub(crate) target_type: Target,
 
-    // Population prior
-    /// The population prior support points ([Theta]), representing your previous knowledge of the population parameter distribution.
-    #[allow(dead_code)]
-    pub(crate) population_theta: Theta,
     /// The population prior weights ([Weights]), representing the probability of each support point in the population.
     pub(crate) population_weights: Weights,
 
@@ -293,37 +282,11 @@ pub struct BestDoseProblem {
 
     // Model and settings
     pub(crate) eq: ODE,
-    #[allow(dead_code)]
-    pub(crate) error_models: ErrorModels,
     pub(crate) settings: Settings,
 
     // Optimization parameters
     pub(crate) doserange: DoseRange,
     pub(crate) bias_weight: f64, // λ: 0=personalized, 1=population
-
-    /// Time offset between past and future data (used for concatenation)
-    /// When Some(t): future events were offset by this time to create continuous simulation
-    /// When None: no concatenation was performed (standard single-subject mode)
-    ///
-    /// This is used to track the boundary between past and future for reporting/debugging.
-    /// The actual optimization mask is derived from dose amounts (0 = optimize, >0 = fixed).
-    #[allow(dead_code)]
-    pub(crate) time_offset: Option<f64>,
-}
-
-impl BestDoseProblem {
-    /// Validate input
-    #[allow(dead_code)]
-    pub(crate) fn validate(&self) -> anyhow::Result<()> {
-        if self.bias_weight <= 0.0 || self.bias_weight >= 1.0 {
-            return Err(anyhow::anyhow!(
-                "Bias weight must be between 0.0 and 1.0, got {}",
-                self.bias_weight
-            ));
-        }
-
-        Ok(())
-    }
 }
 
 /// Result from BestDose optimization

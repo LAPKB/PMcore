@@ -701,8 +701,7 @@ impl BestDoseProblem {
             )?;
 
         // Handle past/future concatenation if needed
-        let (final_target, final_past_data) =
-            prepare_target_subject(past_subject, target, time_offset)?;
+        let (final_target, _) = prepare_target_subject(past_subject, target, time_offset)?;
 
         tracing::info!("╔══════════════════════════════════════════════════════════╗");
         tracing::info!("║              Stage 1 Complete - Ready for Optimization   ║");
@@ -712,19 +711,15 @@ impl BestDoseProblem {
         tracing::info!("  Bias weight (λ): {}", bias_weight);
 
         Ok(BestDoseProblem {
-            past_data: final_past_data,
             target: final_target,
             target_type,
-            population_theta: population_theta.clone(),
             population_weights: filtered_population_weights,
             theta: posterior_theta,
             posterior: posterior_weights,
             eq,
-            error_models,
             settings,
             doserange,
             bias_weight,
-            time_offset,
         })
     }
 
