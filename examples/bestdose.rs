@@ -129,7 +129,7 @@ fn main() -> Result<()> {
     // Print concentration-time predictions for the optimal dose
     let optimal = &results.last().unwrap().1;
     println!("\nConcentration-time predictions for optimal dose:");
-    for pred in optimal.predictions().clone().into_iter() {
+    for pred in optimal.predictions().predictions().into_iter() {
         println!(
             "Time: {:.2} h, Observed: {:.2}, (Pop Mean: {:.4}, Pop Median: {:.4}, Post Mean: {:.4}, Post Median: {:.4})",
             pred.time(), pred.obs().unwrap_or(0.0), pred.pop_mean(), pred.pop_median(), pred.post_mean(), pred.post_median()
