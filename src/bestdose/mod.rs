@@ -25,12 +25,12 @@
 //!     &population_weights,                  // Population probabilities
 //!     Some(past_data),                 // Patient history (None = use prior)
 //!     target,                          // Future template with targets
+//!     None,                            // time_offset (None = standard mode)
 //!     eq,                              // PK/PD model
 //!     error_models,                    // Error specifications
 //!     DoseRange::new(0.0, 1000.0),     // Dose constraints (0-1000 mg)
 //!     0.5,                             // bias_weight: 0=personalized, 1=population
 //!     settings,                        // NPAG settings
-//!     500,                             // NPAGFULL refinement cycles
 //!     Target::Concentration,           // Target type
 //! )?;
 //!
@@ -161,10 +161,11 @@
 //!     .build();
 //!
 //! let problem = BestDoseProblem::new(
-//!     &population_theta, &population_weights, Some(past), target, eq, error_models,
+//!     &population_theta, &population_weights, Some(past), target, None,
+//!     eq, error_models,
 //!     DoseRange::new(10.0, 500.0),    // 10-500 mg allowed
 //!     0.3,                             // Slight population emphasis
-//!     settings, 500, Target::Concentration,
+//!     settings, Target::Concentration,
 //! )?;
 //!
 //! let result = problem.optimize()?;
@@ -194,7 +195,8 @@
 //!     .build();
 //!
 //! let problem = BestDoseProblem::new(
-//!     &population_theta, &population_weights, Some(past), target, eq, error_models,
+//!     &population_theta, &population_weights, Some(past), target, None,
+//!     eq, error_models,
 //!     DoseRange::new(50.0, 300.0),
 //!     0.0,                             // Full personalization
 //!     settings, Target::AUCFromZero,   // Cumulative AUC target!
@@ -225,11 +227,11 @@
 //! let problem = BestDoseProblem::new(
 //!     &population_theta, &population_weights,
 //!     None,                            // No past data
-//!     target, eq, error_models,
+//!     target, None,                    // time_offset
+//!     eq, error_models,
 //!     DoseRange::new(0.0, 1000.0),
 //!     1.0,                             // Full population weighting
 //!     settings,
-//!     0,                               // Skip refinement
 //!     Target::Concentration,
 //! )?;
 //!
@@ -273,10 +275,10 @@
 //! #            -> anyhow::Result<()> {
 //! // Reduce refinement cycles
 //! let problem = BestDoseProblem::new(
-//!     &population_theta, &population_weights, None, target, eq, error_models,
+//!     &population_theta, &population_weights, None, target, None,
+//!     eq, error_models,
 //!     DoseRange::new(0.0, 1000.0), 0.5,
 //!     settings.clone(),
-//!     100,                             // Faster: 100 instead of 500
 //!     Target::Concentration,
 //! )?;
 //!

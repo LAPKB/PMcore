@@ -92,10 +92,10 @@ impl CostFunction for BestDoseProblem {
 ///
 /// This is a helper for the dual optimization approach.
 ///
-/// When `problem.time_offset` is set (past/future separation mode):
-/// - Only optimizes doses where `dose_optimization_mask[i] == true`
-/// - Creates a reduced-dimension simplex for future doses only
-/// - Maps optimized doses back to full vector (past doses unchanged)
+/// Only optimizes doses with `amount == 0.0` in the target subject:
+/// - Counts optimizable doses (amount == 0) vs fixed doses (amount > 0)
+/// - Creates a reduced-dimension simplex for optimizable doses only
+/// - Maps optimized doses back to full vector (fixed doses unchanged)
 ///
 /// Returns: (optimal_doses, final_cost)
 fn run_single_optimization(

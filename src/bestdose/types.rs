@@ -206,13 +206,11 @@ impl Default for DoseRange {
 /// # Fields
 ///
 /// ## Input Data
-/// - `past_data`: Patient history for posterior calculation
 /// - `target`: Future dosing template with target observations
 /// - `target_type`: [`Target::Concentration`] or [`Target::AUC`]
 ///
 /// ## Population Prior
-/// - `population_theta`: Support points from NPAG population model
-/// - `population_weights`: Probability weights for each support point
+/// - `population_weights`: Filtered population probability weights (used for bias term)
 ///
 /// ## Patient-Specific Posterior
 /// - `theta`: Refined posterior support points (from NPAGFULL11 + NPAGFULL)
@@ -220,8 +218,7 @@ impl Default for DoseRange {
 ///
 /// ## Model Components
 /// - `eq`: Pharmacokinetic/pharmacodynamic ODE model
-/// - `error_models`: Error model specifications
-/// - `settings`: NPAG configuration settings
+/// - `settings`: NPAG configuration settings (used for prediction grid)
 ///
 /// ## Optimization Parameters
 /// - `doserange`: Min/max dose constraints
