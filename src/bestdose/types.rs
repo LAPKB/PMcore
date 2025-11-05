@@ -6,6 +6,8 @@
 //! - [`Target`]: Enum specifying concentration or AUC targets
 //! - [`DoseRange`]: Dose constraint specification
 
+use std::fmt::Display;
+
 use crate::prelude::*;
 use crate::routines::output::predictions::NPPredictions;
 use crate::routines::settings::Settings;
@@ -50,7 +52,7 @@ use serde::{Deserialize, Serialize};
 /// - Automatically finds the most recent bolus/infusion before each observation
 ///
 /// Both methods use trapezoidal rule on a dense time grid controlled by `settings.predictions().idelta`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
     /// Target concentrations at observation times
     ///
@@ -134,10 +136,10 @@ pub enum Target {
 /// ```rust,ignore
 /// use pmcore::bestdose::DoseRange;
 ///
-/// // Standard range: 0-1000 mg
+/// // Large range: 0-1000 mg
 /// let range = DoseRange::new(0.0, 1000.0);
 ///
-/// // Narrow therapeutic window
+/// // Narrow range: 50-150 mg
 /// let range = DoseRange::new(50.0, 150.0);
 ///
 /// // Access bounds
@@ -401,7 +403,7 @@ pub struct BestDoseResult {
     /// - `"uniform"`: Population-based optimization (uses uniform weights)
     ///
     /// The algorithm runs both optimizations and selects the one with lower cost.
-    pub(crate) optimization_method: String,
+    pub(crate) optimization_method: OptimalMethod,
 }
 
 impl BestDoseResult {
@@ -451,7 +453,27 @@ impl BestDoseResult {
     }
 
     /// Get the optimization method used
-    pub fn optimization_method(&self) -> &str {
-        &self.optimization_method
+    pub fn optimization_method(&self) -> OptimalMethod {
+        self.optimization_method
+    }
+}
+
+/// Optimization method used in BestDose
+///
+/// This returns the type of optimization method that produced the best result:
+/// - `Posterior`: Patient-specific optimization using posterior weights
+/// - `Uniform`: Population-based optimization using uniform weights
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
+pub enum OptimalMethod {
+    Posterior,
+    Uniform,
+}
+
+impl Display for OptimalMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OptimalMethod::Posterior => write!(f, "Posterior"),
+            OptimalMethod::Uniform => write!(f, "Uniform"),
+        }
     }
 }
