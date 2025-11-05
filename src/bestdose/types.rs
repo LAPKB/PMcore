@@ -262,6 +262,7 @@ pub struct BestDoseProblem {
     ///
     /// These observations are used to refine the population prior into a
     /// patient-specific posterior, and will be used to inform dose optimization.
+    #[allow(dead_code)]
     pub(crate) past_data: Subject,
     /// Target subject with dosing template and target observations
     ///
@@ -281,6 +282,7 @@ pub struct BestDoseProblem {
 
     // Population prior
     /// The population prior support points ([Theta]), representing your previous knowledge of the population parameter distribution.
+    #[allow(dead_code)]
     pub(crate) population_theta: Theta,
     /// The population prior weights ([Weights]), representing the probability of each support point in the population.
     pub(crate) population_weights: Weights,
@@ -291,6 +293,7 @@ pub struct BestDoseProblem {
 
     // Model and settings
     pub(crate) eq: ODE,
+    #[allow(dead_code)]
     pub(crate) error_models: ErrorModels,
     pub(crate) settings: Settings,
 
@@ -304,11 +307,13 @@ pub struct BestDoseProblem {
     ///
     /// This is used to track the boundary between past and future for reporting/debugging.
     /// The actual optimization mask is derived from dose amounts (0 = optimize, >0 = fixed).
+    #[allow(dead_code)]
     pub(crate) time_offset: Option<f64>,
 }
 
 impl BestDoseProblem {
     /// Validate input
+    #[allow(dead_code)]
     pub(crate) fn validate(&self) -> anyhow::Result<()> {
         if self.bias_weight <= 0.0 || self.bias_weight >= 1.0 {
             return Err(anyhow::anyhow!(

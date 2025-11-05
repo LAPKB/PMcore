@@ -1087,20 +1087,22 @@ fn test_auc_modes_comparison() -> Result<()> {
     )?;
 
     let result_zero = problem_zero.optimize()?;
-    let doses_zero = result_zero
+    // Extract only the second dose (the optimized one at t=12)
+    let dose_zero = result_zero
         .optimal_subject
         .iter()
         .flat_map(|occ| {
             occ.events()
                 .iter()
                 .filter_map(|event| match event {
-                    Event::Infusion(inf) => Some(inf.amount()),
-                    Event::Bolus(bol) => Some(bol.amount()),
+                    Event::Bolus(bol) if bol.time() == 12.0 => Some(bol.amount()),
+                    Event::Infusion(inf) if inf.time() == 12.0 => Some(inf.amount()),
                     _ => None,
                 })
                 .collect::<Vec<_>>()
         })
-        .collect::<Vec<f64>>();
+        .next()
+        .unwrap();
 
     // Mode 2: AUCFromLastDose - target is interval AUC from t=12 to t=24
     let target_last = Subject::builder("patient_last")
@@ -1124,20 +1126,22 @@ fn test_auc_modes_comparison() -> Result<()> {
     )?;
 
     let result_last = problem_last.optimize()?;
-    let doses_last = result_last
+    // Extract only the second dose (the optimized one at t=12)
+    let dose_last = result_last
         .optimal_subject
         .iter()
         .flat_map(|occ| {
             occ.events()
                 .iter()
                 .filter_map(|event| match event {
-                    Event::Infusion(inf) => Some(inf.amount()),
-                    Event::Bolus(bol) => Some(bol.amount()),
+                    Event::Bolus(bol) if bol.time() == 12.0 => Some(bol.amount()),
+                    Event::Infusion(inf) if inf.time() == 12.0 => Some(inf.amount()),
                     _ => None,
                 })
                 .collect::<Vec<_>>()
         })
-        .collect::<Vec<f64>>();
+        .next()
+        .unwrap();
 
     // The two modes should recommend DIFFERENT doses for the same target value
     // because they're measuring different things
@@ -1146,30 +1150,30 @@ fn test_auc_modes_comparison() -> Result<()> {
     eprintln!("  Target value: 100 mg·h/L (same number, different meaning)");
     eprintln!("  ");
     eprintln!("  AUCFromZero (cumulative 0→24h):");
-    eprintln!("    Optimal 2nd dose: {:.1} mg", doses_zero[0]);
+    eprintln!("    Optimal 2nd dose: {:.1} mg", dose_zero);
     eprintln!(
         "    AUC prediction: {:.2}",
         result_zero.auc_predictions.as_ref().unwrap()[0].1
     );
     eprintln!("  ");
     eprintln!("  AUCFromLastDose (interval 12→24h):");
-    eprintln!("    Optimal 2nd dose: {:.1} mg", doses_last[0]);
+    eprintln!("    Optimal 2nd dose: {:.1} mg", dose_last);
     eprintln!(
         "    AUC prediction: {:.2}",
         result_last.auc_predictions.as_ref().unwrap()[0].1
     );
 
     // Verify both modes work
-    assert!(doses_zero[0] > 0.0);
-    assert!(doses_last[0] > 0.0);
+    assert!(dose_zero > 0.0);
+    assert!(dose_last > 0.0);
 
     // The doses should be different (cumulative includes first dose effect,
     // interval only measures second dose)
     // We expect AUCFromZero to recommend a smaller second dose since it includes
     // the AUC contribution from the first dose
     assert_ne!(
-        (doses_zero[0] * 10.0).round() / 10.0,
-        (doses_last[0] * 10.0).round() / 10.0,
+        (dose_zero * 10.0).round() / 10.0,
+        (dose_last * 10.0).round() / 10.0,
         "AUCFromZero and AUCFromLastDose should recommend different doses"
     );
 
