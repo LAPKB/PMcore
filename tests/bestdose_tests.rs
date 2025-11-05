@@ -549,7 +549,7 @@ fn test_infusion_auc_mode() -> Result<()> {
 
     // AUC values should be reasonable (finite and non-negative)
     // Note: AUC could be very small but shouldn't be exactly 0 if dose is non-zero
-    for (time, auc) in &auc_preds.clone() {
+    for (time, auc) in &auc_preds {
         assert!(auc.is_finite(), "AUC at time {} should be finite", time);
         // Be more lenient - just check it's not NaN
     }
