@@ -673,7 +673,6 @@ impl BestDoseProblem {
         target: Subject,
         time_offset: Option<f64>,
         eq: ODE,
-        error_models: ErrorModels,
         doserange: DoseRange,
         bias_weight: f64,
         settings: Settings,
@@ -698,7 +697,7 @@ impl BestDoseProblem {
                 population_weights,
                 past_data.as_ref(),
                 &eq,
-                &error_models,
+                &settings.errormodels,
                 &settings,
             )?;
 

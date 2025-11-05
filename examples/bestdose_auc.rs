@@ -73,7 +73,6 @@ fn main() -> Result<()> {
         target_data.clone(),
         None,
         eq.clone(),
-        ems.clone(),
         DoseRange::new(100.0, 2000.0), // Wider range for AUC targets
         0.8,                           // for AUC targets higher bias_weight usually works best
         settings.clone(),
@@ -149,7 +148,6 @@ fn main() -> Result<()> {
         target_interval.clone(),
         None,
         eq.clone(),
-        ems.clone(),
         DoseRange::new(50.0, 500.0),
         0.8,
         settings.clone(),

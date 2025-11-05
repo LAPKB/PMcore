@@ -79,7 +79,6 @@ fn main() -> Result<()> {
             target_data.clone(),
             None,
             eq.clone(),
-            ems.clone(),
             DoseRange::new(min, max),
             0.5,
             settings.clone(),
