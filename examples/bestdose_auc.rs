@@ -172,11 +172,27 @@ fn main() -> Result<()> {
     println!("Optimizing maintenance dose...\n");
     let optimal_interval = problem_interval.optimize()?;
 
+    let doses: Vec<f64> = optimal_interval
+        .optimal_subject
+        .iter()
+        .map(|occ| {
+            occ.iter()
+                .filter(|event| match event {
+                    Event::Bolus(_) => true,
+                    Event::Infusion(_) => true,
+                    _ => false,
+                })
+                .map(|event| match event {
+                    Event::Bolus(bolus) => bolus.amount(),
+                    Event::Infusion(infusion) => infusion.amount(),
+                    _ => 0.0,
+                })
+        })
+        .flatten()
+        .collect();
+
     println!("=== INTERVAL AUC RESULTS ===");
-    println!(
-        "Optimal maintenance dose (at t=12h): {:.1} mg",
-        optimal_interval.dose[0]
-    );
+    println!("Optimal maintenance dose (at t=12h): {:.1} mg", doses[0]);
     println!("Cost function: {:.6}", optimal_interval.objf);
 
     if let Some(auc_preds) = &optimal_interval.auc_predictions {

@@ -88,10 +88,29 @@ fn main() -> Result<()> {
 
         let result = problem.optimize()?;
 
+        let doses: Vec<f64> = result
+            .optimal_subject
+            .iter()
+            .map(|occ| {
+                occ.iter()
+                    .filter(|event| match event {
+                        Event::Bolus(_) => true,
+                        Event::Infusion(_) => true,
+                        _ => false,
+                    })
+                    .map(|event| match event {
+                        Event::Bolus(bolus) => bolus.amount(),
+                        Event::Infusion(infusion) => infusion.amount(),
+                        _ => 0.0,
+                    })
+            })
+            .flatten()
+            .collect();
+
         // Check if dose hit the bound
-        let at_bound = if (result.dose[0] - max).abs() < 1.0 {
+        let at_bound = if (doses[0] - max).abs() < 1.0 {
             " (at upper bound)"
-        } else if (result.dose[0] - min).abs() < 1.0 {
+        } else if (doses[0] - min).abs() < 1.0 {
             " (at lower bound)"
         } else {
             ""
@@ -99,7 +118,7 @@ fn main() -> Result<()> {
 
         println!(
             "{:<30} | {:>10.1} mg | {:>10.6}{}",
-            description, result.dose[0], result.objf, at_bound
+            description, doses[0], result.objf, at_bound
         );
     }
 
