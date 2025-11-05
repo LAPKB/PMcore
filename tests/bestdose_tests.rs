@@ -105,36 +105,12 @@ fn test_infusion_mask_inclusion() -> Result<()> {
 
     // We should get back 1 optimized dose (the infusion placeholder)
     assert_eq!(
-        result
-            .optimal_subject()
-            .iter()
-            .flat_map(|occ| {
-                occ.events()
-                    .iter()
-                    .filter_map(|event| match event {
-                        Event::Infusion(inf) => Some(inf.amount()),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .count(),
+        result.doses().len(),
         1,
         "Should have 1 optimized dose (the infusion)"
     );
 
-    let optinf = result
-        .optimal_subject()
-        .iter()
-        .flat_map(|occ| {
-            occ.events()
-                .iter()
-                .filter_map(|event| match event {
-                    Event::Infusion(inf) => Some(inf.amount()),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<f64>>();
+    let optinf = result.doses();
 
     // The optimized dose should be reasonable (not NaN, not infinite)
     assert!(
