@@ -76,12 +76,11 @@ use pharmsol::Equation;
 ///
 /// # Dose Masking
 ///
-/// When `problem.time_offset` is set (past/future separation), only doses where
-/// `dose_optimization_mask[i] == true` are updated with values from `candidate_doses`.
-/// Past doses (mask == false) remain at their historical values.
+/// Only doses with `amount == 0.0` in the target subject are considered optimizable.
+/// Doses with non-zero amounts remain fixed at their specified values.
 ///
-/// - **Standard mode**: All doses in `candidate_doses` → all doses updated
-/// - **Fortran mode**: Only future doses in `candidate_doses` → only future doses updated
+/// The `candidate_doses` parameter contains only the optimizable doses, which are
+/// substituted into the target subject before simulation
 ///
 /// # Cost Function Details
 ///
