@@ -45,7 +45,7 @@ use argmin::solver::neldermead::NelderMead;
 
 use crate::bestdose::cost::calculate_cost;
 use crate::bestdose::predictions::calculate_final_predictions;
-use crate::bestdose::types::{BestDoseProblem, BestDoseResult, OptimalMethod};
+use crate::bestdose::types::{BestDoseProblem, BestDoseResult, BestDoseStatus, OptimalMethod};
 use crate::structs::weights::Weights;
 use pharmsol::prelude::*;
 
@@ -295,7 +295,7 @@ pub fn dual_optimization(problem: &BestDoseProblem) -> Result<BestDoseResult> {
     Ok(BestDoseResult {
         optimal_subject,
         objf: final_cost,
-        status: "Converged".to_string(),
+        status: BestDoseStatus::Converged,
         preds,
         auc_predictions,
         optimization_method: method,

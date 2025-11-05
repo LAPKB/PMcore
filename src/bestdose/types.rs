@@ -380,7 +380,7 @@ pub struct BestDoseResult {
     /// Optimization status message
     ///
     /// Examples: "converged", "maximum iterations reached", etc.
-    pub(crate) status: String,
+    pub(crate) status: BestDoseStatus,
 
     /// Concentration-time predictions for optimal doses
     ///
@@ -438,7 +438,7 @@ impl BestDoseResult {
     }
 
     /// Get the optimization status
-    pub fn status(&self) -> &str {
+    pub fn status(&self) -> &BestDoseStatus {
         &self.status
     }
 
@@ -476,4 +476,11 @@ impl Display for OptimalMethod {
             OptimalMethod::Uniform => write!(f, "Uniform"),
         }
     }
+}
+
+/// Status of the BestDose optimization
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
+pub enum BestDoseStatus {
+    Converged,
+    MaxIterations,
 }
