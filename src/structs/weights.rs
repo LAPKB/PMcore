@@ -58,13 +58,24 @@ impl Weights {
         self.weights.nrows()
     }
 
+    /// Check if there are no weights.
+    pub fn is_empty(&self) -> bool {
+        self.weights.nrows() == 0
+    }
+
     /// Get a vector representation of the weights.
     pub fn to_vec(&self) -> Vec<f64> {
         self.weights.iter().cloned().collect()
     }
 
+    /// Get an iterator over the weights.
     pub fn iter(&self) -> impl Iterator<Item = f64> + '_ {
         self.weights.iter().cloned()
+    }
+
+    /// Get a mutable iterator over the weights.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut f64> + '_ {
+        self.weights.iter_mut()
     }
 }
 

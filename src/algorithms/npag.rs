@@ -28,47 +28,6 @@ const THETA_G: f64 = 1e-4; // Objective function convergence criteria
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-/// Calculate CHECKBIG convergence metric as in Fortran NPAGFULLA
-///
-/// Returns the median of relative parameter changes across all support points.
-/// This is calculated as: median(abs((theta_new - theta_old) / theta_old))
-///
-/// Used by Fortran as an alternative convergence criterion focusing on parameter stability
-/// rather than objective function improvement.
-fn calculate_checkbig(theta_old: &Theta, theta_new: &Theta) -> f64 {
-    let mut changes = Vec::new();
-    let old_mat = theta_old.matrix();
-    let new_mat = theta_new.matrix();
-
-    // Calculate relative change for each parameter in each support point
-    for row in 0..old_mat.nrows() {
-        for col in 0..old_mat.ncols() {
-            let old_val = old_mat.get(row, col);
-            let new_val = new_mat.get(row, col);
-
-            // Avoid division by zero for very small values
-            if old_val.abs() > 1e-10 {
-                let rel_change = ((new_val - old_val) / old_val).abs();
-                changes.push(rel_change);
-            }
-        }
-    }
-
-    if changes.is_empty() {
-        return 0.0;
-    }
-
-    // Calculate median
-    changes.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let mid = changes.len() / 2;
-
-    if changes.len() % 2 == 0 {
-        (changes[mid - 1] + changes[mid]) / 2.0
-    } else {
-        changes[mid]
-    }
-}
-
 #[derive(Debug)]
 pub struct NPAG<E: Equation + Send + 'static> {
     equation: E,
@@ -208,34 +167,43 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
 
                 // Calculate CHECKBIG if we have a previous theta
                 let checkbig = if let Some(ref old_theta) = self.theta_old {
-                    calculate_checkbig(old_theta, &self.theta)
+                    Some(self.theta.max_relative_difference(&old_theta)?)
                 } else {
-                    f64::MAX // First cycle, no previous theta
+                    None
                 };
 
                 let f1_f0_diff = (self.f1 - self.f0).abs();
 
-                // Log both convergence metrics for diagnostics
-                tracing::info!(
-                    "Cycle {}: f1-f0={:.6e} (threshold={:.6e}), CHECKBIG={:.6e} (threshold={:.6e})",
-                    self.cycle,
-                    f1_f0_diff,
-                    THETA_F,
-                    checkbig,
-                    THETA_E
-                );
-
-                // Use f1-f0 as convergence criterion (standard approach)
-                if f1_f0_diff <= THETA_F {
-                    tracing::info!(
-                        "The model converged after {} cycles (f1-f0={:.6e} < THETA_F={:.6e})",
-                        self.cycle,
+                // Log convergence metrics for diagnostics
+                match checkbig {
+                    Some(cb) => tracing::debug!(
+                        "f1-f0={:.6e} (threshold={:.6e}), CHECKBIG={:.6e} (threshold={:.6e})",
+                        f1_f0_diff,
+                        THETA_F,
+                        cb,
+                        THETA_E
+                    ),
+                    None => tracing::debug!(
+                        "f1-f0={:.6e} (threshold={:.6e}), CHECKBIG=N/A (no previous theta)",
                         f1_f0_diff,
                         THETA_F
-                    );
+                    ),
+                }
+
+                // Standard likelihood convergence check
+                if f1_f0_diff <= THETA_F {
+                    tracing::info!("The model converged according to the LIKELIHOOD criteria",);
                     self.set_status(Status::Stop(StopReason::Converged));
                     self.log_cycle_state();
                     return Ok(self.status().clone());
+                } else if let Some(cb) = checkbig {
+                    // Additional CHECKBIG convergence check
+                    if cb <= THETA_E {
+                        tracing::info!("The model converged according to the CHECKBIG criteria",);
+                        self.set_status(Status::Stop(StopReason::Converged));
+                        self.log_cycle_state();
+                        return Ok(self.status().clone());
+                    }
                 } else {
                     self.f0 = self.f1;
                     self.eps = 0.2;

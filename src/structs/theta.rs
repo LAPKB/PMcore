@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use anyhow::{bail, Result};
-use faer::Mat;
+use faer::{ColRef, Mat};
 use serde::{Deserialize, Serialize};
 
 use crate::prelude::Parameters;
@@ -201,6 +201,41 @@ impl Theta {
 
         Theta::from_parts(mat, parameters)
     }
+
+    /// Compute the maximum relative difference in medians across parameters between two Thetas
+    ///
+    /// This is useful for assessing convergence between iterations
+    /// # Errors
+    /// Returns an error if the number of parameters (columns) do not match between the two Thetas
+    pub fn max_relative_difference(&self, other: &Theta) -> Result<f64> {
+        if self.matrix.ncols() != other.matrix.ncols() {
+            bail!("Number of parameters (columns) do not match between Thetas");
+        }
+
+        fn median_col(col: ColRef<f64>) -> f64 {
+            let mut vals: Vec<&f64> = col.iter().collect();
+            vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let mid = vals.len() / 2;
+            if vals.len() % 2 == 0 {
+                (vals[mid - 1] + vals[mid]) / 2.0
+            } else {
+                *vals[mid]
+            }
+        }
+
+        let mut max_rel_diff = 0.0;
+        for i in 0..self.matrix.ncols() {
+            let current_median = median_col(self.matrix.col(i));
+            let other_median = median_col(other.matrix.col(i));
+
+            let denom = current_median.abs().max(other_median.abs()).max(1e-8); // Avoid division by zero
+            let rel_diff = ((current_median - other_median).abs()) / denom;
+            if rel_diff > max_rel_diff {
+                max_rel_diff = rel_diff;
+            }
+        }
+        Ok(max_rel_diff)
+    }
 }
 
 impl Debug for Theta {
@@ -378,5 +413,56 @@ mod tests {
         theta.matrix_mut().clone_from(&new_matrix);
 
         assert_eq!(theta.matrix(), &new_matrix);
+    }
+
+    #[test]
+    fn test_max_relative_difference() {
+        let matrix1 = mat![[2.0, 4.0], [6.0, 8.0]];
+        let matrix2 = mat![[2.0, 4.0], [8.0, 8.0]];
+        let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
+        let theta1 = Theta::from_parts(matrix1, parameters.clone()).unwrap();
+        let theta2 = Theta::from_parts(matrix2, parameters).unwrap();
+        let max_rel_diff = theta1.max_relative_difference(&theta2).unwrap();
+        println!("Max relative difference: {}", max_rel_diff);
+        assert!((max_rel_diff - 0.2).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_max_relative_difference_same_theta() {
+        let matrix1 = mat![[1.0, 2.0], [3.0, 4.0]];
+        let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
+        let theta1 = Theta::from_parts(matrix1, parameters.clone()).unwrap();
+        let theta2 = theta1.clone();
+        let max_rel_diff = theta1.max_relative_difference(&theta2).unwrap();
+        println!("Max relative difference: {}", max_rel_diff);
+        assert!((max_rel_diff - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_max_relative_difference_shape_error() {
+        let matrix1 = mat![[2.0, 4.0, 6.0], [8.0, 10.0, 12.0]];
+        let matrix2 = mat![[2.0, 4.0], [8.0, 8.0]];
+        let parameters1 = Parameters::new()
+            .add("A", 0.0, 10.0)
+            .add("B", 0.0, 10.0)
+            .add("C", 0.0, 10.0);
+        let parameters2 = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
+        let theta1 = Theta::from_parts(matrix1, parameters1).unwrap();
+        let theta2 = Theta::from_parts(matrix2, parameters2).unwrap();
+        let result = theta1.max_relative_difference(&theta2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_max_relative_difference_odd_length() {
+        let matrix1 = mat![[1.0, 2.0], [3.0, 6.0], [5.0, 10.0]];
+        let matrix2 = mat![[1.0, 2.0], [4.0, 6.0], [5.0, 10.0]];
+        let parameters = Parameters::new().add("A", 0.0, 10.0).add("B", 0.0, 10.0);
+        let theta1 = Theta::from_parts(matrix1, parameters.clone()).unwrap();
+        let theta2 = Theta::from_parts(matrix2, parameters).unwrap();
+        let max_rel_diff = theta1.max_relative_difference(&theta2).unwrap();
+        println!("Max relative difference (odd length): {}", max_rel_diff);
+
+        assert!((max_rel_diff - 0.25).abs() < 1e-6);
     }
 }
