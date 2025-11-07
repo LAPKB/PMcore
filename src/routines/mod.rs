@@ -1,7 +1,7 @@
 // Routines for condensation
 pub mod condensation;
-// Routines for evaluation
-pub mod evaluation;
+// Routines for estimation
+pub mod estimation;
 // Routines for expansion
 pub mod expansion;
 // Routines for initialization

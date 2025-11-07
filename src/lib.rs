@@ -25,6 +25,9 @@ pub mod structs;
 pub use anyhow::Result;
 pub use std::collections::HashMap;
 
+// BestDose
+pub mod bestdose;
+
 /// A collection of commonly used items to simplify imports.
 pub mod prelude {
     pub use super::HashMap;
