@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.1](https://github.com/LAPKB/PMcore/compare/v0.21.0...v0.21.1) - 2025-11-12
+
+### Other
+
+- Update field name in NPPredictionrow to cens ([#222](https://github.com/LAPKB/PMcore/pull/222))
+
 ## [0.21.0](https://github.com/LAPKB/PMcore/compare/v0.20.0...v0.21.0) - 2025-11-05
 
 ### Added
