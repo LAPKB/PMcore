@@ -34,6 +34,7 @@ pub struct NPAG<E: Equation + Send + 'static> {
     ranges: Vec<(f64, f64)>,
     psi: Psi,
     theta: Theta,
+    theta_old: Option<Theta>, // Store previous theta for CHECKBIG calculation
     lambda: Weights,
     w: Weights,
     eps: f64,
@@ -57,6 +58,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             ranges: settings.parameters().ranges(),
             psi: Psi::new(),
             theta: Theta::new(),
+            theta_old: None, // Initialize as None (no previous theta yet)
             lambda: Weights::default(),
             w: Weights::default(),
             eps: 0.2,
@@ -162,17 +164,55 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             if self.eps <= THETA_E {
                 let pyl = psi * w.weights();
                 self.f1 = pyl.iter().map(|x| x.ln()).sum();
-                if (self.f1 - self.f0).abs() <= THETA_F {
-                    tracing::info!("The model converged after {} cycles", self.cycle,);
+
+                // Calculate CHECKBIG if we have a previous theta
+                let checkbig = if let Some(ref old_theta) = self.theta_old {
+                    Some(self.theta.max_relative_difference(&old_theta)?)
+                } else {
+                    None
+                };
+
+                let f1_f0_diff = (self.f1 - self.f0).abs();
+
+                // Log convergence metrics for diagnostics
+                match checkbig {
+                    Some(cb) => tracing::debug!(
+                        "f1-f0={:.6e} (threshold={:.6e}), CHECKBIG={:.6e} (threshold={:.6e})",
+                        f1_f0_diff,
+                        THETA_F,
+                        cb,
+                        THETA_E
+                    ),
+                    None => tracing::debug!(
+                        "f1-f0={:.6e} (threshold={:.6e}), CHECKBIG=N/A (no previous theta)",
+                        f1_f0_diff,
+                        THETA_F
+                    ),
+                }
+
+                // Standard likelihood convergence check
+                if f1_f0_diff <= THETA_F {
+                    tracing::info!("The model converged according to the LIKELIHOOD criteria",);
                     self.set_status(Status::Stop(StopReason::Converged));
                     self.log_cycle_state();
                     return Ok(self.status().clone());
+                } else if let Some(cb) = checkbig {
+                    // Additional CHECKBIG convergence check
+                    if cb <= THETA_E {
+                        tracing::info!("The model converged according to the CHECKBIG criteria",);
+                        self.set_status(Status::Stop(StopReason::Converged));
+                        self.log_cycle_state();
+                        return Ok(self.status().clone());
+                    }
                 } else {
                     self.f0 = self.f1;
                     self.eps = 0.2;
                 }
             }
         }
+
+        // Save current theta for next cycle's CHECKBIG calculation
+        self.theta_old = Some(self.theta.clone());
 
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config().cycles {
