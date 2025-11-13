@@ -114,7 +114,7 @@ impl NPPredictions {
     pub fn calculate(
         equation: &impl pharmsol::prelude::simulator::Equation,
         data: &Data,
-        theta: Theta,
+        theta: &Theta,
         w: &Weights,
         posterior: &Posterior,
         idelta: f64,

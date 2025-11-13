@@ -108,7 +108,24 @@ impl<E: Equation> NPResult<E> {
         &self.w
     }
 
-    pub fn write_outputs(&self) -> Result<()> {
+    /// Calculate and store the [NPPredictions] in the [NPResult]
+    ///
+    /// This will overwrite any existing predictions stored in the result!
+    pub fn calculate_predictions(&mut self, idelta: f64, tad: f64) -> Result<()> {
+        let predictions = NPPredictions::calculate(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            &self.w,
+            &self.posterior,
+            idelta,
+            tad,
+        )?;
+        self.predictions = Some(predictions);
+        Ok(())
+    }
+
+    pub fn write_outputs(&mut self) -> Result<()> {
         if self.settings.output().write {
             tracing::debug!("Writing outputs to {:?}", self.settings.output().path);
             self.settings.write()?;
@@ -317,11 +334,9 @@ impl<E: Equation> NPResult<E> {
     pub fn write_posterior(&self) -> Result<()> {
         tracing::debug!("Writing posterior parameter probabilities...");
         let theta = &self.theta;
-        let w = &self.w;
-        let psi = &self.psi;
 
         // Calculate the posterior probabilities
-        let posterior = posterior(psi, w)?;
+        let posterior = self.posterior.clone();
 
         // Create the output folder if it doesn't exist
         let outputfile = match OutputFile::new(&self.settings.output().path, "posterior.csv") {
@@ -379,21 +394,12 @@ impl<E: Equation> NPResult<E> {
     }
 
     /// Writes the predictions
-    pub fn write_predictions(&self, idelta: f64, tad: f64) -> Result<()> {
+    pub fn write_predictions(&mut self, idelta: f64, tad: f64) -> Result<()> {
         tracing::debug!("Writing predictions...");
 
-        let posterior = posterior(&self.psi, &self.w)?;
+        self.calculate_predictions(idelta, tad)?;
 
-        // Calculate the predictions
-        let predictions = NPPredictions::calculate(
-            &self.equation,
-            &self.data,
-            self.theta.clone(),
-            &self.w,
-            &posterior,
-            idelta,
-            tad,
-        )?;
+        let predictions = self.predictions.as_ref().unwrap();
 
         // Write (full) predictions to pred.csv
         let outputfile_pred = OutputFile::new(&self.settings.output().path, "pred.csv")?;
