@@ -1,6 +1,7 @@
 use crate::algorithms::{Status, StopReason};
 use crate::prelude::*;
 use crate::routines::output::cycles::CycleLog;
+use crate::routines::output::posterior::Posterior;
 use crate::routines::output::predictions::NPPredictions;
 use crate::routines::settings::Settings;
 use crate::structs::psi::Psi;
@@ -36,15 +37,16 @@ pub struct NPResult<E: Equation> {
     objf: f64,
     cycles: usize,
     status: Status,
-    par_names: Vec<String>,
     settings: Settings,
     cyclelog: CycleLog,
+    predictions: Option<NPPredictions>,
+    posterior: Option<Posterior>,
 }
 
 #[allow(clippy::too_many_arguments)]
 impl<E: Equation> NPResult<E> {
     /// Create a new NPResult object
-    pub fn new(
+    pub(crate) fn new(
         equation: E,
         data: Data,
         theta: Theta,
@@ -56,10 +58,6 @@ impl<E: Equation> NPResult<E> {
         settings: Settings,
         cyclelog: CycleLog,
     ) -> Self {
-        // TODO: Add support for fixed and constant parameters
-
-        let par_names = settings.parameters().names();
-
         Self {
             equation,
             data,
@@ -69,9 +67,10 @@ impl<E: Equation> NPResult<E> {
             objf,
             cycles,
             status,
-            par_names,
             settings,
             cyclelog,
+            predictions: None,
+            posterior: None,
         }
     }
 
@@ -288,7 +287,7 @@ impl<E: Equation> NPResult<E> {
             .from_writer(&outputfile.file);
 
         // Create the headers
-        let mut theta_header = self.par_names.clone();
+        let mut theta_header = self.settings.parameters().names();
         theta_header.push("prob".to_string());
         writer.write_record(&theta_header)?;
 
