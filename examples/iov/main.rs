@@ -52,7 +52,7 @@ fn main() -> Result<()> {
     let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();
-    let result = algorithm.fit().unwrap();
+    let mut result = algorithm.fit().unwrap();
     result.write_outputs().unwrap();
 
     Ok(())

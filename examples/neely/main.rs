@@ -96,6 +96,6 @@ fn main() {
     settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/neely/data.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, ode, data).unwrap();
-    let result = algorithm.fit().unwrap();
+    let mut result = algorithm.fit().unwrap();
     result.write_outputs().unwrap();
 }

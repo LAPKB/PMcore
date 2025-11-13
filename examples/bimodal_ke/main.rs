@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     settings.initialize_logs()?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
     let mut algorithm = dispatch_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    let mut result = algorithm.fit()?;
     result.write_outputs()?;
 
     Ok(())

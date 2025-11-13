@@ -77,7 +77,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
     fn equation(&self) -> &E {
         &self.equation
     }
-    fn into_npresult(&self) -> NPResult<E> {
+    fn into_npresult(&self) -> Result<NPResult<E>> {
         NPResult::new(
             self.equation.clone(),
             self.data.clone(),

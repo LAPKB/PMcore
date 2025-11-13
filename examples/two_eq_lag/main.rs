@@ -89,7 +89,7 @@ fn main() {
     settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
-    let result = algorithm.fit().unwrap();
+    let mut result = algorithm.fit().unwrap();
     // algorithm.initialize().unwrap();
     // while !algorithm.next_cycle().unwrap() {}
     // let result = algorithm.into_npresult();

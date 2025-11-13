@@ -304,11 +304,11 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
                 Status::Stop(_) => break,
             }
         }
-        Ok(self.into_npresult())
+        Ok(self.into_npresult()?)
     }
 
     #[allow(clippy::wrong_self_convention)]
-    fn into_npresult(&self) -> NPResult<E>;
+    fn into_npresult(&self) -> Result<NPResult<E>>;
 }
 
 pub fn dispatch_algorithm<E: Equation + Send + 'static>(

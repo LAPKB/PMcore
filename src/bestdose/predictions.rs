@@ -319,7 +319,7 @@ pub fn calculate_final_predictions(
     let concentration_preds = NPPredictions::calculate(
         &problem.eq,
         &Data::new(vec![target_with_optimal.clone()]),
-        problem.theta.clone(),
+        &problem.theta,
         weights,
         &posterior,
         0.0,
