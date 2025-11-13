@@ -399,7 +399,10 @@ impl<E: Equation> NPResult<E> {
 
         self.calculate_predictions(idelta, tad)?;
 
-        let predictions = self.predictions.as_ref().unwrap();
+        let predictions = self
+            .predictions
+            .as_ref()
+            .expect("Predictions should have been calculated, but are of type None.");
 
         // Write (full) predictions to pred.csv
         let outputfile_pred = OutputFile::new(&self.settings.output().path, "pred.csv")?;

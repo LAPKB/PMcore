@@ -153,14 +153,14 @@ impl Theta {
     /// Write the matrix to a CSV file with weights
     pub fn write_with_weights(&self, path: &str, weights: &Weights) -> Result<()> {
         if self.nspp() != weights.len() {
-            panic!(
+            bail!(
                 "Number of support points ({}) does not match number of weights ({})",
                 self.nspp(),
                 weights.len()
             );
         }
 
-        let mut writer = csv::Writer::from_path(path).unwrap();
+        let mut writer = csv::Writer::from_path(path)?;
 
         let header: Vec<String> = self
             .parameters
@@ -170,12 +170,12 @@ impl Theta {
             .chain(std::iter::once("prob".to_string()))
             .collect();
 
-        writer.write_record(header).unwrap();
+        writer.write_record(header)?;
 
         for (row_idx, row) in self.matrix.row_iter().enumerate() {
             let mut record: Vec<String> = row.iter().map(|x| x.to_string()).collect();
             record.push(weights[row_idx].to_string());
-            writer.write_record(record).unwrap();
+            writer.write_record(record)?;
         }
         Ok(())
     }
