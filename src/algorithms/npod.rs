@@ -73,7 +73,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             data,
         }))
     }
-    fn into_npresult(&self) -> NPResult<E> {
+    fn into_npresult(&self) -> Result<NPResult<E>> {
         NPResult::new(
             self.equation.clone(),
             self.data.clone(),

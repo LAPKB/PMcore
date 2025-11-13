@@ -40,12 +40,14 @@ pub struct NPResult<E: Equation> {
     settings: Settings,
     cyclelog: CycleLog,
     predictions: Option<NPPredictions>,
-    posterior: Option<Posterior>,
+    posterior: Posterior,
 }
 
 #[allow(clippy::too_many_arguments)]
 impl<E: Equation> NPResult<E> {
     /// Create a new NPResult object
+    ///
+    /// This will also calculate the [Posterior] structure and add it to the NPResult
     pub(crate) fn new(
         equation: E,
         data: Data,
@@ -57,8 +59,12 @@ impl<E: Equation> NPResult<E> {
         status: Status,
         settings: Settings,
         cyclelog: CycleLog,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        // Calculate the posterior probabilities
+        let posterior = posterior(&psi, &w)
+            .context("Failed to calculate posterior during initialization of NPResult")?;
+
+        let result = Self {
             equation,
             data,
             theta,
@@ -70,8 +76,10 @@ impl<E: Equation> NPResult<E> {
             settings,
             cyclelog,
             predictions: None,
-            posterior: None,
-        }
+            posterior,
+        };
+
+        Ok(result)
     }
 
     pub fn cycles(&self) -> usize {

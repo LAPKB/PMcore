@@ -137,7 +137,7 @@ fn main() -> Result<()> {
     algorithm.initialize().unwrap();
     algorithm.fit().unwrap();
     // while !algorithm.next_cycle().unwrap() {}
-    let result = algorithm.into_npresult();
+    let result = algorithm.into_npresult()?;
     result.write_outputs().unwrap();
     Ok(())
 }

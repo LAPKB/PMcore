@@ -51,7 +51,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
             cyclelog: CycleLog::new(),
         }))
     }
-    fn into_npresult(&self) -> NPResult<E> {
+    fn into_npresult(&self) -> Result<NPResult<E>> {
         NPResult::new(
             self.equation.clone(),
             self.data.clone(),
