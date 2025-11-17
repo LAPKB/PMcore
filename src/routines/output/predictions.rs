@@ -64,6 +64,10 @@ impl NPPredictionRow {
     pub fn post_median(&self) -> f64 {
         self.post_median
     }
+
+    pub fn censoring(&self) -> Censor {
+        self.cens
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

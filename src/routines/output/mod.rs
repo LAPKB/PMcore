@@ -98,6 +98,18 @@ impl<E: Equation> NPResult<E> {
         &self.theta
     }
 
+    pub fn data(&self) -> &Data {
+        &self.data
+    }
+
+    pub fn cycle_log(&self) -> &CycleLog {
+        &self.cyclelog
+    }
+
+    pub fn settings(&self) -> &Settings {
+        &self.settings
+    }
+
     /// Get the [Psi] structure
     pub fn psi(&self) -> &Psi {
         &self.psi
