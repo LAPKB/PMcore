@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0](https://github.com/LAPKB/PMcore/compare/v0.21.1...v0.22.0) - 2025-11-17
+
+### Added
+
+- [**breaking**] Update NPResult to contain the posterior and predictions ([#224](https://github.com/LAPKB/PMcore/pull/224))
+
+### Other
+
+- Remove unsed dependency (argmin-math) ([#225](https://github.com/LAPKB/PMcore/pull/225))
+
 ## [0.21.1](https://github.com/LAPKB/PMcore/compare/v0.21.0...v0.21.1) - 2025-11-12
 
 ### Other
