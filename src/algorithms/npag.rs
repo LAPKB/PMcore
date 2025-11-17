@@ -329,17 +329,13 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                 let (lambda_up, objf_up) = match burke(&psi_up) {
                     Ok((lambda, objf)) => (lambda, objf),
                     Err(err) => {
-                        //todo: write out report
-                        return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
+                        bail!("Error in IPM during optim: {:?}", err);
                     }
                 };
                 let (lambda_down, objf_down) = match burke(&psi_down) {
                     Ok((lambda, objf)) => (lambda, objf),
                     Err(err) => {
-                        //todo: write out report
-                        //panic!("Error in IPM: {:?}", err);
-                        return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
-                        //(Array1::zeros(1), f64::NEG_INFINITY)
+                        bail!("Error in IPM during optim: {:?}", err);
                     }
                 };
                 if objf_up > self.objf {
