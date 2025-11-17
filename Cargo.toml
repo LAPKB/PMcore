@@ -33,7 +33,6 @@ pharmsol = "=0.20.0"
 rand = "0.9.0"
 anyhow = "1.0.100"
 rayon = "1.10.0"
-argmin-math = "0.5.0"
 
 [features]
 default = []
