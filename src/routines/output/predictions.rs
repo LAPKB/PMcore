@@ -7,7 +7,11 @@ use crate::{
     structs::{theta::Theta, weights::Weights},
 };
 
-// Structure for the output
+/// Container for the multiple model estimated predictions
+///
+/// Each row contains the predictions for a single time point for a single subject
+/// It includes the population and posterior mean and median predictions
+/// These are defined by the mean and median of the prediction for each model, weighted by the population or posterior weights
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NPPredictionRow {
     /// The subject ID
@@ -59,6 +63,10 @@ impl NPPredictionRow {
     }
     pub fn post_median(&self) -> f64 {
         self.post_median
+    }
+
+    pub fn censoring(&self) -> Censor {
+        self.cens
     }
 }
 
@@ -114,7 +122,7 @@ impl NPPredictions {
     pub fn calculate(
         equation: &impl pharmsol::prelude::simulator::Equation,
         data: &Data,
-        theta: Theta,
+        theta: &Theta,
         w: &Weights,
         posterior: &Posterior,
         idelta: f64,

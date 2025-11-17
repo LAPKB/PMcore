@@ -64,6 +64,6 @@ fn main() {
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
     // let result = algorithm.fit().unwrap();
     algorithm.initialize().unwrap();
-    let result = algorithm.fit().unwrap();
+    let mut result = algorithm.fit().unwrap();
     result.write_outputs().unwrap();
 }

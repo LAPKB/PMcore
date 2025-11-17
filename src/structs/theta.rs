@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
 
-use crate::prelude::Parameters;
+use crate::{prelude::Parameters, structs::weights::Weights};
 
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution
@@ -148,6 +148,36 @@ impl Theta {
                 .write_record(row.iter().map(|x| x.to_string()))
                 .unwrap();
         }
+    }
+
+    /// Write the matrix to a CSV file with weights
+    pub fn write_with_weights(&self, path: &str, weights: &Weights) -> Result<()> {
+        if self.nspp() != weights.len() {
+            bail!(
+                "Number of support points ({}) does not match number of weights ({})",
+                self.nspp(),
+                weights.len()
+            );
+        }
+
+        let mut writer = csv::Writer::from_path(path)?;
+
+        let header: Vec<String> = self
+            .parameters
+            .names()
+            .iter()
+            .cloned()
+            .chain(std::iter::once("prob".to_string()))
+            .collect();
+
+        writer.write_record(header)?;
+
+        for (row_idx, row) in self.matrix.row_iter().enumerate() {
+            let mut record: Vec<String> = row.iter().map(|x| x.to_string()).collect();
+            record.push(weights[row_idx].to_string());
+            writer.write_record(record)?;
+        }
+        Ok(())
     }
 
     /// Write the theta matrix to a CSV writer
