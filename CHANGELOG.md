@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1](https://github.com/LAPKB/PMcore/compare/v0.22.0...v0.22.1) - 2025-11-18
+
+### Added
+
+- methods needed to be able to separate problem from fit in Pmetrics ([#228](https://github.com/LAPKB/PMcore/pull/228))
+
 ## [0.22.0](https://github.com/LAPKB/PMcore/compare/v0.21.1...v0.22.0) - 2025-11-17
 
 ### Added
