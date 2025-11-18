@@ -785,4 +785,34 @@ impl BestDoseProblem {
         self.bias_weight = weight;
         self
     }
+
+    /// Get a reference to the refined posterior support points (Θ)
+    pub fn posterior_theta(&self) -> &Theta {
+        &self.theta
+    }
+
+    /// Get the posterior probability weights
+    pub fn posterior_weights(&self) -> &Weights {
+        &self.posterior
+    }
+
+    /// Get the filtered population weights used for the bias term
+    pub fn population_weights(&self) -> &Weights {
+        &self.population_weights
+    }
+
+    /// Get the prepared target subject
+    pub fn target_subject(&self) -> &Subject {
+        &self.target
+    }
+
+    /// Get the currently configured bias weight (λ)
+    pub fn bias_weight(&self) -> f64 {
+        self.bias_weight
+    }
+
+    /// Get the selected optimization target type
+    pub fn target_type(&self) -> Target {
+        self.target_type
+    }
 }
