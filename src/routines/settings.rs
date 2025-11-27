@@ -270,6 +270,13 @@ pub struct Advanced {
     ///
     /// This is used in the [NPOD](crate::algorithms::npod) algorithm, specifically in the [D-optimizer](crate::routines::optimization::d_optimizer)
     pub tolerance: f64,
+    /// Use log-space computations for improved numerical stability
+    ///
+    /// When true, likelihoods are computed and stored in log space throughout the algorithm.
+    /// This prevents underflow issues when dealing with many observations or extreme parameter values.
+    /// The log-sum-exp trick is used to maintain numerical stability in weighted sum operations.
+    /// Default is true for better numerical properties.
+    pub log_space: bool,
 }
 
 impl Default for Advanced {
@@ -278,6 +285,7 @@ impl Default for Advanced {
             min_distance: 1e-4,
             nm_steps: 100,
             tolerance: 1e-6,
+            log_space: true,
         }
     }
 }
