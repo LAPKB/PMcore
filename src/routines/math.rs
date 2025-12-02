@@ -36,7 +36,12 @@ pub fn logsumexp(values: &[f64]) -> f64 {
         // At least one value is +inf
         f64::INFINITY
     } else {
-        max_val + values.iter().map(|&x| (x - max_val).exp()).sum::<f64>().ln()
+        max_val
+            + values
+                .iter()
+                .map(|&x| (x - max_val).exp())
+                .sum::<f64>()
+                .ln()
     }
 }
 
@@ -161,15 +166,12 @@ mod tests {
 
     #[test]
     fn test_logsumexp_rows() {
-        let matrix = vec![
-            vec![-1.0, -2.0],
-            vec![-3.0, -4.0],
-        ];
+        let matrix = vec![vec![-1.0, -2.0], vec![-3.0, -4.0]];
         let result = logsumexp_rows(2, 2, |i, j| matrix[i][j]);
-        
+
         let expected_0 = logsumexp(&[-1.0, -2.0]);
         let expected_1 = logsumexp(&[-3.0, -4.0]);
-        
+
         assert!((result[0] - expected_0).abs() < 1e-10);
         assert!((result[1] - expected_1).abs() < 1e-10);
     }

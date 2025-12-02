@@ -101,7 +101,15 @@ pub fn npagfull11_filter(
 
     // Calculate psi matrix P(data|theta_i) for all support points
     // Use log-space or regular space based on setting
-    let psi = calculate_psi_dispatch(eq, past_data, population_theta, error_models, false, true, use_log_space)?;
+    let psi = calculate_psi_dispatch(
+        eq,
+        past_data,
+        population_theta,
+        error_models,
+        false,
+        true,
+        use_log_space,
+    )?;
 
     // First burke call to get initial posterior probabilities
     let (initial_weights, _) = burke_ipm(&psi)?;
