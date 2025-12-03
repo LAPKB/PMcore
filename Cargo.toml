@@ -44,7 +44,7 @@ opt-level = 3
 
 [dev-dependencies]
 approx = "0.5.1"
-criterion = { version = "0.7" }
+criterion = { version = "0.8" }
 
 [[bench]]
 name = "bimodal_ke"
