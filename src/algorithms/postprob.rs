@@ -2,7 +2,7 @@ use crate::{
     algorithms::{Status, StopReason},
     prelude::algorithms::Algorithms,
     structs::{
-        psi::{calculate_psi, Psi},
+        psi::{calculate_psi_dispatch, Psi},
         theta::Theta,
         weights::Weights,
     },
@@ -14,7 +14,7 @@ use pharmsol::prelude::{
     simulator::Equation,
 };
 
-use crate::routines::estimation::ipm::burke;
+use crate::routines::estimation::ipm::burke_ipm;
 use crate::routines::initialization;
 use crate::routines::output::{cycles::CycleLog, NPResult};
 use crate::routines::settings::Settings;
@@ -119,15 +119,19 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
     }
 
     fn estimation(&mut self) -> Result<()> {
-        self.psi = calculate_psi(
+        let use_log_space = self.settings.advanced().log_space;
+
+        self.psi = calculate_psi_dispatch(
             &self.equation,
             &self.data,
             &self.theta,
             &self.error_models,
             false,
             false,
+            use_log_space,
         )?;
-        (self.w, self.objf) = burke(&self.psi).context("Error in IPM")?;
+
+        (self.w, self.objf) = burke_ipm(&self.psi).context("Error in IPM")?;
         Ok(())
     }
 

@@ -4,7 +4,7 @@ use faer::Mat;
 use faer_ext::IntoFaer;
 use faer_ext::IntoNdarray;
 use ndarray::{Array2, ArrayView2};
-use pharmsol::prelude::simulator::psi;
+use pharmsol::prelude::simulator::{log_psi, psi};
 use pharmsol::Data;
 use pharmsol::Equation;
 use pharmsol::ErrorModels;
@@ -13,18 +13,39 @@ use serde::{Deserialize, Serialize};
 use super::theta::Theta;
 
 /// [Psi] is a structure that holds the likelihood for each subject (row), for each support point (column)
+///
+/// The matrix can store either regular likelihoods or log-likelihoods depending on how it was constructed.
+/// Use the `is_log_space` flag to determine which representation is stored.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Psi {
     matrix: Mat<f64>,
+    /// Whether the matrix contains log-likelihoods (true) or regular likelihoods (false)
+    is_log_space: bool,
 }
 
 impl Psi {
     pub fn new() -> Self {
-        Psi { matrix: Mat::new() }
+        Psi {
+            matrix: Mat::new(),
+            is_log_space: false,
+        }
+    }
+
+    /// Create a new Psi in log space
+    pub fn new_log() -> Self {
+        Psi {
+            matrix: Mat::new(),
+            is_log_space: true,
+        }
     }
 
     pub fn matrix(&self) -> &Mat<f64> {
         &self.matrix
+    }
+
+    /// Returns true if the matrix stores log-likelihoods
+    pub fn is_log_space(&self) -> bool {
+        self.is_log_space
     }
 
     pub fn nspp(&self) -> usize {
@@ -101,7 +122,10 @@ impl Psi {
         // Create matrix from rows
         let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
-        Ok(Psi { matrix: mat })
+        Ok(Psi {
+            matrix: mat,
+            is_log_space: false,
+        })
     }
 }
 
@@ -114,27 +138,39 @@ impl Default for Psi {
 impl From<Array2<f64>> for Psi {
     fn from(array: Array2<f64>) -> Self {
         let matrix = array.view().into_faer().to_owned();
-        Psi { matrix }
+        Psi {
+            matrix,
+            is_log_space: false,
+        }
     }
 }
 
 impl From<Mat<f64>> for Psi {
     fn from(matrix: Mat<f64>) -> Self {
-        Psi { matrix }
+        Psi {
+            matrix,
+            is_log_space: false,
+        }
     }
 }
 
 impl From<ArrayView2<'_, f64>> for Psi {
     fn from(array_view: ArrayView2<'_, f64>) -> Self {
         let matrix = array_view.into_faer().to_owned();
-        Psi { matrix }
+        Psi {
+            matrix,
+            is_log_space: false,
+        }
     }
 }
 
 impl From<&Array2<f64>> for Psi {
     fn from(array: &Array2<f64>) -> Self {
         let matrix = array.view().into_faer().to_owned();
-        Psi { matrix }
+        Psi {
+            matrix,
+            is_log_space: false,
+        }
     }
 }
 
@@ -208,7 +244,10 @@ impl<'de> Deserialize<'de> for Psi {
                 // Create matrix from rows
                 let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
-                Ok(Psi { matrix: mat })
+                Ok(Psi {
+                    matrix: mat,
+                    is_log_space: false,
+                })
             }
         }
 
@@ -216,6 +255,35 @@ impl<'de> Deserialize<'de> for Psi {
     }
 }
 
+/// Helper struct for creating Psi with log-space flag
+pub struct PsiBuilder {
+    array: Array2<f64>,
+    is_log_space: bool,
+}
+
+impl PsiBuilder {
+    pub fn new(array: Array2<f64>) -> Self {
+        Self {
+            array,
+            is_log_space: false,
+        }
+    }
+
+    pub fn log_space(mut self, is_log: bool) -> Self {
+        self.is_log_space = is_log;
+        self
+    }
+
+    pub fn build(self) -> Psi {
+        let matrix = self.array.view().into_faer().to_owned();
+        Psi {
+            matrix,
+            is_log_space: self.is_log_space,
+        }
+    }
+}
+
+/// Calculate the likelihood matrix (regular space)
 pub(crate) fn calculate_psi(
     equation: &impl Equation,
     subjects: &Data,
@@ -233,7 +301,65 @@ pub(crate) fn calculate_psi(
         cache,
     )?;
 
-    Ok(psi_ndarray.view().into())
+    Ok(PsiBuilder::new(psi_ndarray).log_space(false).build())
+}
+
+/// Calculate the log-likelihood matrix (log space)
+///
+/// This computes log-likelihoods directly, which is numerically more stable
+/// than computing likelihoods and then taking logarithms. This is especially
+/// important when dealing with many observations or extreme parameter values.
+pub(crate) fn calculate_log_psi(
+    equation: &impl Equation,
+    subjects: &Data,
+    theta: &Theta,
+    error_models: &ErrorModels,
+    progress: bool,
+    cache: bool,
+) -> Result<Psi> {
+    let log_psi_ndarray = log_psi(
+        equation,
+        subjects,
+        &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
+        error_models,
+        progress,
+        cache,
+    )?;
+
+    Ok(PsiBuilder::new(log_psi_ndarray).log_space(true).build())
+}
+
+/// Unified psi calculation that dispatches based on the `use_log_space` flag.
+///
+/// This function eliminates the need for repeated if/else blocks in algorithm code.
+///
+/// # Arguments
+///
+/// * `equation` - The model equation
+/// * `subjects` - The data
+/// * `theta` - The support points
+/// * `error_models` - The error models
+/// * `progress` - Whether to show progress
+/// * `cache` - Whether to use caching
+/// * `use_log_space` - If true, calculates log-likelihoods; otherwise, regular likelihoods
+///
+/// # Returns
+///
+/// A Psi matrix with the appropriate `is_log_space` flag set.
+pub(crate) fn calculate_psi_dispatch(
+    equation: &impl Equation,
+    subjects: &Data,
+    theta: &Theta,
+    error_models: &ErrorModels,
+    progress: bool,
+    cache: bool,
+    use_log_space: bool,
+) -> Result<Psi> {
+    if use_log_space {
+        calculate_log_psi(equation, subjects, theta, error_models, progress, cache)
+    } else {
+        calculate_psi(equation, subjects, theta, error_models, progress, cache)
+    }
 }
 
 #[cfg(test)]

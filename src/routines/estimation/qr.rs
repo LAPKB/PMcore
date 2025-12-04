@@ -3,29 +3,66 @@ use anyhow::{bail, Result};
 use faer::linalg::solvers::ColPivQr;
 use faer::Mat;
 
+/// Compute log-sum-exp of a slice for numerical stability
+#[inline]
+fn logsumexp(values: &[f64]) -> f64 {
+    let max_val = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    if max_val.is_infinite() {
+        return max_val;
+    }
+    max_val
+        + values
+            .iter()
+            .map(|&x| (x - max_val).exp())
+            .sum::<f64>()
+            .ln()
+}
+
 /// Perform a QR decomposition on the Psi matrix
 ///
 /// Normalizes each row of the matrix to sum to 1 before decomposition.
+/// For log-space matrices, applies softmax normalization (converts log-probs to probs,
+/// normalizes, then can proceed with QR).
 /// Returns the R matrix from QR decomposition and the column permutation vector.
 ///
 /// # Arguments
-/// * `psi` - The Psi matrix to decompose
+/// * `psi` - The Psi matrix to decompose (can be in regular or log space)
 ///
 /// # Returns
 /// * Tuple containing the R matrix (as [faer::Mat<f64>]) and permutation vector (as [Vec<usize>])
-/// * Error if any row in the matrix sums to zero
+/// * Error if any row in the matrix sums to zero (or has all -inf in log space)
 pub fn qrd(psi: &Psi) -> Result<(Mat<f64>, Vec<usize>)> {
     let mut mat = psi.matrix().to_owned();
 
-    // Normalize the rows to sum to 1
-    for (index, row) in mat.row_iter_mut().enumerate() {
-        let row_sum: f64 = row.as_ref().iter().sum();
+    if psi.is_log_space() {
+        // For log-space: apply softmax normalization
+        // softmax(x)_i = exp(x_i) / sum(exp(x_j)) = exp(x_i - logsumexp(x))
+        for index in 0..mat.nrows() {
+            let log_values: Vec<f64> = (0..mat.ncols()).map(|j| *mat.get(index, j)).collect();
+            let log_sum = logsumexp(&log_values);
 
-        // Check if the row sum is zero
-        if row_sum.abs() == 0.0 {
-            bail!("In psi, the row with index {} sums to zero", index);
+            if log_sum.is_infinite() && log_sum < 0.0 {
+                bail!(
+                    "In log_psi, the row with index {} has all -inf values (zero probability)",
+                    index
+                );
+            }
+
+            // Convert to normalized probabilities via softmax
+            for j in 0..mat.ncols() {
+                *mat.get_mut(index, j) = (log_values[j] - log_sum).exp();
+            }
         }
-        row.iter_mut().for_each(|x| *x /= row_sum);
+    } else {
+        // For regular space: normalize rows to sum to 1
+        for (index, row) in mat.row_iter_mut().enumerate() {
+            let row_sum: f64 = row.as_ref().iter().sum();
+
+            if row_sum.abs() == 0.0 {
+                bail!("In psi, the row with index {} sums to zero", index);
+            }
+            row.iter_mut().for_each(|x| *x /= row_sum);
+        }
     }
 
     // Perform column pivoted QR decomposition

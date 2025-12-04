@@ -22,8 +22,6 @@ pub mod cycles;
 pub mod posterior;
 pub mod predictions;
 
-use posterior::posterior;
-
 /// Defines the result objects from an NPAG run
 /// An [NPResult] contains the necessary information to generate predictions and summary statistics
 #[derive(Debug, Serialize)]
@@ -61,7 +59,7 @@ impl<E: Equation> NPResult<E> {
         cyclelog: CycleLog,
     ) -> Result<Self> {
         // Calculate the posterior probabilities
-        let posterior = posterior(&psi, &w)
+        let posterior = Posterior::calculate(&psi, &w)
             .context("Failed to calculate posterior during initialization of NPResult")?;
 
         let result = Self {

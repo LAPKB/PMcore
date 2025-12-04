@@ -8,6 +8,8 @@ pub mod expansion;
 pub mod initialization;
 // Routines for logging
 pub mod logger;
+// Mathematical utilities
+pub mod math;
 // Routines for output
 pub mod output;
 // Routines for settings

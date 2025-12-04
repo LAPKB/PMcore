@@ -1,5 +1,6 @@
 use crate::algorithms::StopReason;
 use crate::routines::initialization::sample_space;
+use crate::routines::math::logsumexp;
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
 use crate::structs::weights::Weights;
 use crate::{
@@ -7,12 +8,12 @@ use crate::{
     prelude::{
         algorithms::Algorithms,
         routines::{
-            estimation::{ipm::burke, qr},
+            estimation::{ipm::burke_ipm, qr},
             settings::Settings,
         },
     },
     structs::{
-        psi::{calculate_psi, Psi},
+        psi::{calculate_psi_dispatch, Psi},
         theta::Theta,
     },
 };
@@ -21,15 +22,12 @@ use pharmsol::SppOptimizer;
 use anyhow::bail;
 use anyhow::Result;
 use faer_ext::IntoNdarray;
+use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{prelude::ErrorModel, ErrorModels};
-use pharmsol::{
-    prelude::{data::Data, simulator::Equation},
-    Subject,
-};
 
 use ndarray::{
     parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
-    Array, Array1, ArrayBase, Dim, OwnedRepr,
+    Array1,
 };
 
 const THETA_F: f64 = 1e-2;
@@ -207,27 +205,24 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     }
 
     fn estimation(&mut self) -> Result<()> {
-        let error_model: ErrorModels = self.error_models.clone();
+        let use_log_space = self.settings.advanced().log_space;
 
-        self.psi = calculate_psi(
+        self.psi = calculate_psi_dispatch(
             &self.equation,
             &self.data,
             &self.theta,
-            &error_model,
+            &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
             self.cycle != 1,
+            use_log_space,
         )?;
 
         if let Err(err) = self.validate_psi() {
             bail!(err);
         }
 
-        (self.lambda, _) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                bail!(err);
-            }
-        };
+        (self.lambda, _) = burke_ipm(&self.psi)
+            .map_err(|err| anyhow::anyhow!("Error in IPM during estimation: {:?}", err))?;
         Ok(())
     }
 
@@ -280,17 +275,15 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         self.theta.filter_indices(keep.as_slice());
         self.psi.filter_column_indices(keep.as_slice());
 
-        (self.lambda, self.objf) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
-            }
-        };
+        (self.lambda, self.objf) = burke_ipm(&self.psi)
+            .map_err(|err| anyhow::anyhow!("Error in IPM during condensation: {:?}", err))?;
         self.w = self.lambda.clone();
         Ok(())
     }
 
     fn optimizations(&mut self) -> Result<()> {
+        let use_log_space = self.settings.advanced().log_space;
+
         self.error_models
             .clone()
             .iter_mut()
@@ -313,35 +306,31 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
                 let mut error_model_down = self.error_models.clone();
                 error_model_down.set_factor(outeq, gamma_down)?;
 
-                let psi_up = calculate_psi(
+                let psi_up = calculate_psi_dispatch(
                     &self.equation,
                     &self.data,
                     &self.theta,
                     &error_model_up,
                     false,
                     true,
+                    use_log_space,
                 )?;
-                let psi_down = calculate_psi(
+                let psi_down = calculate_psi_dispatch(
                     &self.equation,
                     &self.data,
                     &self.theta,
                     &error_model_down,
                     false,
                     true,
+                    use_log_space,
                 )?;
 
-                let (lambda_up, objf_up) = match burke(&psi_up) {
-                    Ok((lambda, objf)) => (lambda, objf),
-                    Err(err) => {
-                        bail!("Error in IPM during optim: {:?}", err);
-                    }
-                };
-                let (lambda_down, objf_down) = match burke(&psi_down) {
-                    Ok((lambda, objf)) => (lambda, objf),
-                    Err(err) => {
-                        bail!("Error in IPM during optim: {:?}", err);
-                    }
-                };
+                let (lambda_up, objf_up) = burke_ipm(&psi_up)
+                    .map_err(|err| anyhow::anyhow!("Error in IPM during optim: {:?}", err))?;
+
+                let (lambda_down, objf_down) = burke_ipm(&psi_down)
+                    .map_err(|err| anyhow::anyhow!("Error in IPM during optim: {:?}", err))?;
+
                 if objf_up > self.objf {
                     self.error_models.set_factor(outeq, gamma_up)?;
                     self.objf = objf_up;
@@ -368,9 +357,29 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
 
     fn expansion(&mut self) -> Result<()> {
         // If no stop signal, add new point to theta based on the optimization of the D function
-        let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
+        // Note: SppOptimizer expects regular-space psi for the D-optimizer
+        // If we're in log-space, we need to convert pyl to regular space
+
+        let psi_mat = self.psi().matrix().as_ref().into_ndarray().to_owned();
         let w: Array1<f64> = self.w.clone().iter().collect();
-        let pyl = psi.dot(&w);
+
+        // Compute pyl = P(Y|L) for each subject
+        // In log-space, we need to use logsumexp and then exp to get regular pyl
+        let pyl = if self.psi.is_log_space() {
+            // pyl[i] = sum_j(exp(log_psi[i,j]) * w[j]) = sum_j(exp(log_psi[i,j] + log(w[j])))
+            // Using logsumexp for stability, then exp to get regular values
+            let log_w: Array1<f64> = w.iter().map(|&x| x.ln()).collect();
+            let mut pyl = Array1::zeros(psi_mat.nrows());
+            for i in 0..psi_mat.nrows() {
+                let combined: Vec<f64> = (0..psi_mat.ncols())
+                    .map(|j| psi_mat[[i, j]] + log_w[j])
+                    .collect();
+                pyl[i] = logsumexp(&combined).exp();
+            }
+            pyl
+        } else {
+            psi_mat.dot(&w)
+        };
 
         // Add new point to theta based on the optimization of the D function
         let error_model: ErrorModels = self.error_models.clone();
@@ -394,51 +403,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         for cp in candididate_points {
             self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D)?;
         }
-        Ok(())
-    }
-}
-
-impl<E: Equation + Send + 'static> NPOD<E> {
-    fn validate_psi(&mut self) -> Result<()> {
-        let mut psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
-        // First coerce all NaN and infinite in psi to 0.0
-        if psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
-            tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
-            for i in 0..psi.nrows() {
-                for j in 0..psi.ncols() {
-                    let val = psi.get_mut((i, j)).unwrap();
-                    if val.is_nan() || val.is_infinite() {
-                        *val = 0.0;
-                    }
-                }
-            }
-        }
-
-        // Calculate the sum of each column in psi
-        let (_, col) = psi.dim();
-        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-        let plam = psi.dot(&ecol);
-        let w = 1. / &plam;
-
-        // Get the index of each element in `w` that is NaN or infinite
-        let indices: Vec<usize> = w
-            .iter()
-            .enumerate()
-            .filter(|(_, x)| x.is_nan() || x.is_infinite())
-            .map(|(i, _)| i)
-            .collect::<Vec<_>>();
-
-        // If any elements in `w` are NaN or infinite, return the subject IDs for each index
-        if !indices.is_empty() {
-            let subject: Vec<&Subject> = self.data.subjects();
-            let zero_probability_subjects: Vec<&String> =
-                indices.iter().map(|&i| subject[i].id()).collect();
-
-            return Err(anyhow::anyhow!(
-                "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects
-            ));
-        }
-
         Ok(())
     }
 }

@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use crate::routines::math::logsumexp_rows;
 use crate::routines::output::NPResult;
 use crate::routines::settings::Settings;
 use crate::structs::psi::Psi;
@@ -36,35 +37,60 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
         // Count problematic values in psi
         let mut nan_count = 0;
         let mut inf_count = 0;
+        let is_log_space = self.psi().is_log_space();
 
         let psi = self.psi().matrix().as_ref().into_ndarray();
-        // First coerce all NaN and infinite in psi to 0.0
+        // First coerce all NaN and infinite in psi to 0.0 (or NEG_INFINITY for log-space)
         for i in 0..psi.nrows() {
             for j in 0..self.psi().matrix().ncols() {
                 let val = psi.get((i, j)).unwrap();
                 if val.is_nan() {
                     nan_count += 1;
-                    // *val = 0.0;
                 } else if val.is_infinite() {
-                    inf_count += 1;
-                    // *val = 0.0;
+                    // In log-space, NEG_INFINITY is valid (represents zero probability)
+                    // Only count positive infinity as problematic
+                    if !is_log_space || val.is_sign_positive() {
+                        inf_count += 1;
+                    }
                 }
             }
         }
 
         if nan_count + inf_count > 0 {
             tracing::warn!(
-                "Psi matrix contains {} NaN, {} Infinite values of {} total values",
+                "Psi matrix contains {} NaN, {} problematic Infinite values of {} total values",
                 nan_count,
                 inf_count,
                 psi.ncols() * psi.nrows()
             );
         }
 
-        let (_, col) = psi.dim();
-        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-        let plam = psi.dot(&ecol);
-        let w = 1. / &plam;
+        // Calculate row sums: for regular space: sum; for log-space: logsumexp
+        let plam: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = if is_log_space {
+            // For log-space, use logsumexp for each row
+            Array::from_vec(logsumexp_rows(psi.nrows(), psi.ncols(), |i, j| psi[(i, j)]))
+        } else {
+            // For regular space, sum each row
+            let (_, col) = psi.dim();
+            let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
+            psi.dot(&ecol)
+        };
+
+        // Check for subjects with zero probability
+        // In log-space: -inf means zero probability
+        // In regular space: 0 means zero probability
+        let w: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = if is_log_space {
+            // For log-space, check if logsumexp result is -inf
+            Array::from_shape_fn(plam.len(), |i| {
+                if plam[i].is_infinite() && plam[i].is_sign_negative() {
+                    f64::INFINITY // Will be flagged as problematic
+                } else {
+                    1.0 // Valid
+                }
+            })
+        } else {
+            1. / &plam
+        };
 
         // Get the index of each element in `w` that is NaN or infinite
         let indices: Vec<usize> = w
