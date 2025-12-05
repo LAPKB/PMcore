@@ -1,3 +1,7 @@
+//
+// example "vanco_vpicu_v002"
+//
+
 use std::fs::File;
 // use std::intrinsics;
 use std::path::Path;
@@ -13,251 +17,53 @@ use rand_distr::weighted::WeightedIndex;
 use rand_distr::{Distribution, Normal};
 use std::io::Write;
 
-fn model_ke_ode() -> equation::ODE {
-    equation::ODE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            // automatically defined
-            fetch_params!(p, ke0, _v0);
-
-            // user defined
-            dx[0] = -ke0 * x[0];
-        },
-        |_p| lag! {},
-        |_p| fa! {},
-        |_p, _t, _cov, x| {
-            x[0] = 20.0;
-        },
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke0, v0);
-            y[0] = x[0]/v0;
-            y[1] = x[0]/v0;
-            y[2] = 0.0;
-            y[3] = 0.0;
-        },
-        (1, 4), // extra output equations are used in SDE to collect statistics
+/*
+{
+    // Here's what to do: fit the data two a two compartment IV model. Not sure how you want the model, but use this:
+ 
+mod <- PM_model$new(
+    pri = list(
+        Ke0 = ab(0, 5),
+        KCP = ab(0, 4),
+        KPC = ab(0, 10),
+        V0 = ab(0.1, 2)
+    ),
+ 
+    cov = list(
+    wt = interp(),
+    crcl = interp()
+    ),
+ 
+    sec = function(){
+        Ke = Ke0 * (wt/70)^(-0.25) * (crcl/120) 
+        V = V0 * (wt/70)
+    },
+ 
+    eqn = function(){
+        two_comp_IV
+    },
+ 
+    out = function(){
+        Y[1] = X[2]/V
+    },
+ 
+    err = list(
+        additive(2, c(0.1,0.15,0,0))
     )
+ 
+)
+    Fit the model to the data without SDE. Model will be solved algebraically.
+    You'll need Pmetrics >3.0.0 for that. Julian can help you install from r-universe.
+    I need the PMout.Rdata object in the outputs at the end.
+    Fit model to the data with SDE and Ke_sigma and V_sigma.
+    I don't know what output you generate, but I will need concentrations every 1 hour for each subject,
+    based on Ke_sigma and V_sigma set to 0, but other parameters what they were when you fit with SDE?
+    Basically I want median concentrations based on posteriors for Ke0 and V0 without any IOV.
+    Does that make sense?
+    Thanks!
+
 }
-
-fn model_ke() -> equation::SDE {
-    equation::SDE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            // automatically defined
-            fetch_params!(p, ke0, _v0);
-
-            // user defined
-            dx[0] = -ke0 * x[0];
-        },
-        |_p, _d| {},
-        |_p| lag! {},
-        |_p| fa! {},
-        |_p, _t, _cov, x| {
-            x[0] = 20.0;
-        },
-        |x, p, _t, _cov, y| {
-             fetch_params!(p, _ke0, v0);
-             y[0] = x[0]/v0;
-             y[1] = x[0]/v0;
-        },
-        (1, 4),
-        101,
-    )
-}
-
-fn model_ke_s1() -> equation::SDE {
-    equation::SDE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            // automatically defined
-            fetch_params!(p, ke0, _v0, _s1);
-
-            // mean reversion to ke0
-            dx[1] = -x[1] + ke0;
-            let ke = x[1];
-
-            // user defined
-            dx[0] = -ke * x[0];
-        },
-        |p, d| {
-            fetch_params!(p, _ke0, _v0, s1);
-            d[1] = s1;
-        },
-        |_p| lag! {},
-        |_p| fa! {},
-        |p, _t, _cov, x| {
-            fetch_params!(p, ke0, _v0, _s1);
-            x[0] = 20.0;
-            x[1] = ke0;
-        },
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke0, v0, _s1);
-            y[0] = x[0]/v0;
-            y[1] = x[0]/v0;
-        },
-        (2, 4),
-        101,
-    )
-}
-
-fn model_ke_v() -> equation::SDE {
-    equation::SDE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            // automatically defined
-            fetch_params!(p, ke, _v);
-
-            // user defined
-            dx[0] = -ke * x[0];
-        },
-        |_p, _d| {},
-        |_p| lag! {},
-        |_p| fa! {},
-        |_p, _t, _cov, x| {
-            x[0] = 20.0;
-        },
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[0] = x[0] / v;
-            y[1] = x[0] / v;
-        },
-        (1, 4),
-        1,
-    )
-}
-
-fn model_ke_v_s1() -> equation::SDE {
-    equation::SDE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            // automatically defined
-            fetch_params!(p, ke0, _v, _s1);
-
-            // mean reversion to ke0
-            dx[1] = -x[1] + ke0;
-            let ke = x[1];
-
-            // user defined
-            dx[0] = -ke * x[0];
-        },
-        |p, d| {
-            fetch_params!(p, _ke, _v, s1);
-            d[1] = s1;
-        },
-        |_p| lag! {},
-        |_p| fa! {},
-        |p, _t, _cov, x| {
-            fetch_params!(p, ke0, _v, _s1);
-            x[0] = 20.0;
-            x[1] = ke0;
-        },
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v, _s1);
-            y[0] = x[0] / v;
-            y[1] = x[0] / v;
-        },
-        (2, 4),
-        1,
-    )
-}
-
-fn model_ke_v_s1_s2() -> equation::SDE {
-    equation::SDE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            // automatically defined
-            fetch_params!(p, ke0, v0, _s1, _s2);
-            // mean reversion to ke0
-            dx[1] = -x[1] + ke0;
-            let ke = x[1];
-
-            // mean reversion to V
-            dx[2] = -x[2] + v0;
-            // let v = x[2];
-            // user defined
-            dx[0] = -ke * x[0];
-            // ODE
-            dx[3] = -ke * x[3];
-        },
-        |p, d| {
-            fetch_params!(p, _ke0, _v0, s1, s2);
-            d[1] = s1;
-            d[2] = s2;
-        },
-        |_p| lag! {},
-        |_p| fa! {},
-        |p, _t, _cov, x| {
-            fetch_params!(p, k0, v0, s1, s2);
-            x[0] = 20.0;
-            let normal_ke = Normal::new(k0, s1).unwrap();
-            x[1] = normal_ke.sample(&mut rand::rng()); // k0 + v;
-            let normal_v = Normal::new(v0, s2).unwrap();
-            x[2] = normal_v.sample(&mut rand::rng());// v0 + v;
-            x[3] = 20.0; // ODE -- Like = ODE + SDE
-            // println!("{}")
-        },
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _k0, v0, _s1, _s2);
-            let v = x[2];
-            y[0] = x[0] / v; // SDE 
-            y[1] = x[3] / v0; // ODE center
-        },
-        (4, 4),
-        47,
-    )
-}
-
-fn model_sde_no_6() -> equation::SDE {
-    equation::SDE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            // automatically defined
-            fetch_params!(p, ke0, v0); // , _s1, _s2);
-            // mean reversion to ke0
-            dx[1] = -x[1] + ke0;
-            let ke = x[1];
-
-            // mean reversion to V
-            dx[2] = -x[2] + v0;
-            // let v = x[2]; // only used in output.
-
-            // user defined
-            dx[0] = -ke * x[0];
-            // ODE
-            dx[3] = -ke * x[3];
-        },
-        |p, d| {
-            fetch_params!(p, _ke0, _v0, s1, s2);
-            // for fixed s1 and s2, comment out fetch_params() and let s=0.0
-            // let s1 = 0.0;
-            // let s2 = 0.0; 
-            d[1] = s1;
-            d[2] = s2;
-        },
-        |_p| lag! {},
-        |_p| fa! {},
-        |p, _t, _cov, x| {
-            /*
-            fetch_params!(p, k0, v0); // sigma are 0 and not optimized
-            x[0] = 20.0;
-            x[1] = k0;
-            x[2] = v0;
-            x[3] = 20.0; // ODE -- Like = ODE + SDE
-             */
-            // /*
-            fetch_params!(p, k0, v0, s1, s2); // sigma are optimized
-            x[0] = 20.0;
-            let normal_ke = Normal::new(k0, s1).unwrap();
-            x[1] = normal_ke.sample(&mut rand::rng()); // k0 +/- s1
-            let normal_v = Normal::new(v0, s2).unwrap();
-            x[2] = normal_v.sample(&mut rand::rng()); // v0 +/- s2
-            x[3] = 20.0; // ODE -- Like = ODE + SDE
-            // */
-            // println!("{}")
-        },
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _k0, v0); // , _s1, _s2);
-            let v = x[2];
-            y[0] = x[0] / v; // SDE 
-            y[1] = x[3] / v0; // ODE center
-        },
-        (4, 4),
-        47,
-    )
-}
+*/ // MN's instructions
 
 // Variables that describe the experiment;
 const S_FACTOR:f64 = 0.4;
@@ -276,6 +82,34 @@ const KE_OVERLAP: f64 = 3.0; // bimodal distribution overlaps this number of sd 
 static S2:f64 = (M2 - (M1 + KE_OVERLAP*S1))/KE_OVERLAP;
 static VAR_KE: f64 = S1*S1 + S2*S2; // i.e. make sigma average of s1 and s2
 // V is N(1.0, 0.2^2)
+
+fn model_ode() -> equation::ODE {
+    equation::ODE::new(
+        |x, p, t, dx, rateiv, cov| {
+            // automatically defined
+            fetch_params!(p, ke0, kcp, kpc, _v0);
+            fetch_cov!(cov,t,wt, crcl); // automatically interpolates, so you need t
+
+            let k_e = ke0 * (wt/70.0).powf(-0.25) * (crcl/120.0); 
+            // let V = V0 * (wt/70)
+
+            // user defined
+            dx[0] = rateiv[0] - (k_e + kcp) * x[0] + kpc * x[1];
+            dx[1] = kcp * x[0] - kpc * x[1]
+        },
+        |_p| lag! {},
+        |_p| fa! {},
+        |_p, _t, _cov, x| {
+            x[0] = 0.0;
+            x[1] = 0.0; // pretty sure these are not necesary, but I like it.
+        },
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _ke0, _kcp, _kpc, v0);
+            y[0] = x[0]/v0;
+        },
+        (2, 1), // extra output equations are used in SDE to collect statistics
+    )
+}
 
 // SO
 fn model_sde_no_7() -> equation::SDE {
@@ -580,88 +414,6 @@ fn model_sde_eq_0() -> equation::SDE {
     )
 }
 
-fn settings_exp1() -> Settings {
-    let mut settings = Settings::new();
-    let params = Parameters::builder()
-        .add("ke0", 2.5e-2, M2 + 5.0 * (M2 - (0.5 + KE_OVERLAP * 0.05))/KE_OVERLAP, false) // Range covers both normal distributions (0.5±0.05 and 1.5±0.15)
-        .add("v0", 0.0001, 2.0, false) 
-        .build()
-        .unwrap();
-
-    settings.set_parameters(params);
-    setup_common_settings(&mut settings)
-}
-
-fn settings_exp2() -> Settings {
-    let mut settings = Settings::new();
-    let params = Parameters::builder()
-        .add("ke0", 1.0e-7, 3.5, false) // Base ke range
-        .add("v0", 0.2, 1.8, false)
-        .add("s1", 0.01, 2.0, false)        // Diffusion parameter for ke
-        .build()
-        .unwrap();
-
-    settings.set_parameters(params);
-    setup_common_settings(&mut settings)
-}
-
-fn settings_exp3() -> Settings {
-    let mut settings = Settings::new();
-    let params = Parameters::builder()
-        .add("ke", 0.1, 3.1, false)
-        .add("v", 0.1, 3.1, false)
-        .build()
-        .unwrap();
-
-    settings.set_parameters(params);
-    setup_common_settings(&mut settings)
-}
-
-fn settings_exp4() -> Settings {
-    let mut settings = Settings::new();
-    let params = Parameters::builder()
-        .add("ke0", 0.1, 3.1, false)
-        .add("v", 0.1, 3.1, false) // Volume range based on V = 1 + 0.2*N(0,1)
-        .add("s1", 0.0000000001, 2.0, false) // Diffusion parameter for ke
-        .build()
-        .unwrap();
-
-    settings.set_parameters(params);
-    setup_common_settings(&mut settings)
-}
-
-fn settings_exp5() -> Settings {
-    let mut settings = Settings::new();
-    let params = Parameters::builder()
-        .add("ke0", 0.025, 1.5 + 5.0 * (1.5 - (0.5 + KE_OVERLAP * 0.05))/KE_OVERLAP, false)
-        .add("v0", 0.0001, 2.0, false) // Base volume range
-        .add("s1", 0.0, 2.877113, false) // Diffusion parameter for ke
-        .add("s2", 0.0, 2.0, false) // Diffusion parameter for volume
-        .build()
-        .unwrap();
-
-    settings.set_parameters(params);
-    setup_common_settings(&mut settings)
-}
-
-fn settings_exp6() -> Settings {
-    let mut settings = Settings::new();
-    let params = Parameters::builder()
-        .add("ke0", 0.025, 1.5 + 5.0 * (1.5 - (0.5 + KE_OVERLAP * 0.05))/KE_OVERLAP, false)
-        .add("v0", 0.0001, 2.0, false) // Base volume range
-        // Fix sigma (in the model file becauase I don't know how to fix it here!)
-        // .add("s1",0.0, 1.0e-28,false)
-        // .add("s2", 0.0,1.0e-28,false)
-        // ... or set them in a range.
-        .add("s1", 0.0, 2.877113, false) // Diffusion parameter for ke
-        .add("s2", 0.0, 2.0, false) // Diffusion parameter for volume
-        .build()
-        .unwrap();
-
-    settings.set_parameters(params);
-    setup_common_settings(&mut settings)
-}
-
 fn settings_optimize_sigma() -> Settings {
     let mut settings = Settings::new();
     let params = Parameters::builder()
@@ -691,8 +443,9 @@ fn settings_fixed_sigma() -> Settings {
 fn setup_common_settings(settings: &mut Settings) -> Settings {
     settings.set_cycles(usize::MAX);
     settings.set_cache(true);
-    settings.set_error_value(0.0); // was set to 0.0
+    settings.set_error_value(2.0); // was set to 0.0
     settings.set_error_type(ErrorType::Add);
+    settings.set_error_poly((0.1, 0.15, 0.0, 0.0));
     settings.set_prior(Prior {
         sampler: "sobol".to_string(),
         points: 8192,
@@ -1004,25 +757,24 @@ fn generate_data() {
 }
 
 fn fit_experiment(experiment: usize) {
-    // Experiment 0 is the ODE model // note: optimize on exp#5, which has stochastic r.v.s
-
+    let data = data::read_pmetrics("examples/vanco_vpicu_v02/data/vpicu.csv").unwrap();
+   
+    // Experiment 0 is the ODE model
     if experiment == 0 {
-        let data = data::read_pmetrics("examples/sde_paper/data/experiment7.csv").unwrap();
-        let eqn = model_ke_ode();
+        let eqn = model_ode();
         let mut settings = settings_exp1();
         settings.set_output_path("examples/sde_paper/output/experiment0");
-        // settings.set_error_poly((4.0, 0.32, 0.0, 0.0)); // => shrinkage, a lot!
-        settings.set_error_poly((1.0, 0.05, 0.0, 0.0));
+        // settings.set_error_poly((1.0, 0.05, 0.0, 0.0));// done in common
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
         result.write_outputs().unwrap();
         return;
     }
-    let data = data::read_pmetrics(&format!(
-        "examples/sde_paper/data/experiment{}.csv",
-        7 // experiment // 5 to have stochastic r.v.s
-    ))
-    .unwrap();
+    // let data = data::read_pmetrics(&format!(
+    //     "examples/sde_paper/data/experiment{}.csv",
+    //     7 // experiment // 5 to have stochastic r.v.s
+    // ))
+    // .unwrap();
 
     let (eqn, settings) = match experiment {
         1 => (model_ke(), settings_exp1()),
@@ -1065,12 +817,8 @@ fn main() {
         generate_data();
     // 2) Next, remove the ODE and statistical outputs in R; and set Y[1] = Y[0], i.e. both outputs are SDE
     } else {
-        fit_experiment(0);
-        fit_experiment(7);
-        fit_experiment(8);
-        fit_experiment(9);
-        fit_experiment(10);
-        fit_experiment(11);
+        fit_experiment(0); // ODE control
+        fit_experiment(1); // SDE experiments
     }
     /*
     for i in 0..=2 { // 0..=5 runs all of them
