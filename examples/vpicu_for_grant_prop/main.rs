@@ -3,7 +3,7 @@ use logger::setup_log;
 use pmcore::prelude::*;
 use settings::{Parameters, Settings};
 fn main() -> Result<()> {
-    let _eq = equation::ODE::new(
+    let eq = equation::ODE::new(
         |x, p, t, dx, rateiv, cov| {
             // automatically defined
             fetch_params!(p, ke0, kcp, kpc, _v0);
@@ -34,7 +34,7 @@ fn main() -> Result<()> {
         (2, 1), // extra output equations are used in SDE to collect statistics
     );
 
-    let eq = equation::SDE::new(
+    let _eq = equation::SDE::new(
         |x, p, t, dx, rateiv, cov| {
             fetch_params!(p, ke0, kcp, kpc, v0, ske, svol);
             fetch_cov!(cov,t,wt,crcl);
@@ -63,6 +63,16 @@ fn main() -> Result<()> {
             x[1] = v0;
             x[2] = 0.0;
             x[3] = 0.0;
+
+            // fetch_params!(p, k0, v0, s1, s2); // sigma are optimized
+            // x[0] = 20.0;
+            let normal_ke = Normal::new(k0, s1).unwrap();
+            x[1] = normal_ke.sample(&mut rand::rng()); // k0 +/- s1
+            let normal_v = Normal::new(v0, s2).unwrap();
+            x[2] = normal_v.sample(&mut rand::rng()); // v0 +/- s2
+            // x[3] = 20.0; // ODE -- Like = ODE + SDE
+
+
         },
         |x, p, t, cov, y| {
             fetch_params!(p, _ke0, _kcp, _kpc, v0);
@@ -81,21 +91,21 @@ fn main() -> Result<()> {
 
     let params = Parameters::builder()
         .add("ke0", 0.0001, 5.0, true)
-        .add("kcp", 0.0001, 4.0, true)
-        .add("kpc", 0.0001, 10.0, true)
-        .add("v0", 0.1, 12.0, true)
-        .add("ske", 0.0001, 1.0, true)
-        .add("svol", 0.0001, 1.0, true)
+        .add("kcp", 0.0001, 5.5, true)
+        .add("kpc", 0.0001, 11.0, true)
+        .add("v0", 0.1, 25.0, true)
+        // .add("ske", 0.0001, 1.0, true)
+        // .add("svol", 0.0001, 1.0, true)
         .build()
         .unwrap();
 
     settings.set_parameters(params);
-    settings.set_prior_points(4097);
+    settings.set_prior_points(16384);
     settings.set_cycles(1000);
-    settings.set_error_poly((0.1, 0.15, 0.0, 0.0));
+    settings.set_error_poly((0.0, 0.1, 0.0, 0.0)); // MN uses 0.1,0.15 ... CV%<0.1 is an acceptiable assay ... so 0, 0.1, ... is probably "right" to use for comparing SDE to ODE solutions
     settings.set_error_type(ErrorType::Add);
-    settings.set_error_value(2.0);
-    settings.set_output_path("examples/vpicu_for_grant_prop/output_sde");
+    settings.set_error_value(0.16);
+    settings.set_output_path("examples/vpicu_for_grant_prop/output_ode");
     settings.set_idelta(1.0);
 
     setup_log(&settings)?;
