@@ -27,7 +27,29 @@ fn model_ke_ode() -> equation::ODE {
             x[0] = 20.0;
         },
         |x, _p, _t, _cov, y| {
-            y[0] = x[0];
+            y[0] = x[0]; // v0 ~ N(1.0, sigma^2)
+        },
+        (1, 1),
+    )
+}
+
+fn model_ke_v_ode() -> equation::ODE {
+    equation::ODE::new(
+        |x, p, _t, dx, _rateiv, _cov| {
+            // automatically defined
+            fetch_params!(p, ke0, _v0);
+
+            // user defined
+            dx[0] = -ke0 * x[0];
+        },
+        |_p| lag! {},
+        |_p| fa! {},
+        |_p, _t, _cov, x| {
+            x[0] = 20.0;
+        },
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _ke0, v0);
+            y[0] = x[0]/v0;
         },
         (1, 1),
     )
@@ -252,6 +274,17 @@ fn settings_exp5() -> Settings {
     setup_common_settings(&mut settings)
 }
 
+fn settings_exp6() -> Settings {
+    let mut settings = Settings::new();
+    let params = Parameters::builder()
+        .add("ke0", 0.1, 3.0, false)
+        .add("v0", 0.1, 3.0, false) // Base volume range
+        .build()
+        .unwrap();
+    settings.set_parameters(params);
+    setup_common_settings(&mut settings)
+}
+
 fn setup_common_settings(settings: &mut Settings) -> Settings {
     settings.set_cycles(usize::MAX);
     settings.set_cache(true);
@@ -359,15 +392,19 @@ fn generate_data() {
 
     // plot.show();
     let mut file = File::create("examples/sde_paper/data/population.csv").unwrap();
-    writeln!(file, "index,k0,v").unwrap();
-    for (i, (k0, v)) in k0_pop.iter().zip(v_pop.iter()).enumerate() {
-        writeln!(file, "{},{},{}", i, k0, v).unwrap();
+    writeln!(file, "index,k0,v0").unwrap();
+    for (i, (k0, v0)) in k0_pop.iter().zip(v_pop.iter()).enumerate() {
+        writeln!(file, "{},{},{}", i, k0, v0).unwrap();
     }
 
     // Now, let's create the data files for each experiment
+
     // let s_ke0 = Normal::new(10.0, 2.0).unwrap(); // sigma_ke0 = ke0/s_ke0
     // let s_v0 = Normal::new(10.0, 2.0).unwrap();
-    // let s1 = s_ke0.sample(&mut rand::rng());
+    // let s1 = s_ke0.sample(&mut rand::rng()); .... this is incorrect; s1 and s2 do not have to be drawn from a distribution.
+
+     //experiment 0: Random Ke, Volume ODE
+    // uses the input file from experiment 1
 
     //experiment 1: Random Ke, ODE
     write_samples_to_file(
@@ -418,11 +455,14 @@ fn generate_data() {
         1.0e128,
         model_ke_v_s1_s2(),
     );
+
+    //experiment 6: Random Ke, Volume ODE
+    // uses the input file from experiment 3
+
 }
 
 fn fit_experiment(experiment: usize) {
-    // Experiment 0 is the ODE model
-
+    // Experiments 0 and 6 are ODE models
     if experiment == 0 {
         let data = data::read_pmetrics("examples/sde_paper/data/experiment1.csv").unwrap();
         let eqn = model_ke_ode();
@@ -434,6 +474,18 @@ fn fit_experiment(experiment: usize) {
         result.write_outputs().unwrap();
         return;
     }
+    if experiment == 6 {
+        let data = data::read_pmetrics("examples/sde_paper/data/experiment3.csv").unwrap(); // ke and v, w/sigma=0
+        let eqn = model_ke_v_ode();
+        let mut settings = settings_exp3();
+        settings.set_output_path("examples/sde_paper/output/experiment6");
+        settings.set_error_poly((0.0, 0.15, 0.0, 0.0));
+        let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
+        let result = problem.fit().unwrap();
+        result.write_outputs().unwrap();
+        return;
+    }
+
     let data = data::read_pmetrics(&format!(
         "examples/sde_paper/data/experiment{}.csv",
         experiment
@@ -468,7 +520,7 @@ fn fit_experiment(experiment: usize) {
 
 fn main() {
     generate_data();
-    for i in 0..=5 {
+    for i in 0..=6 {
         fit_experiment(i);
     }
 }
