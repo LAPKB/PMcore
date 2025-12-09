@@ -62,23 +62,25 @@ fn model_ke_s1() -> equation::SDE {
             // automatically defined
             fetch_params!(p, ke0, _s1);
 
-            // mean reversion to ke0
+            // mean reversion to ke0; ~ N(ke0,sigma=ke0/s1)
             dx[1] = -x[1] + ke0;
-            let ke = x[1];
+            let k_elim = x[1];
 
             // user defined
-            dx[0] = -ke * x[0];
+            dx[0] = -k_elim * x[0];
         },
         |p, d| {
-            fetch_params!(p, _ke0, s1);
-            d[1] = s1;
+            fetch_params!(p, ke0, s1);
+            // d[1] is the sd for the Euler Maruyama update, i.e. ~ N(mu=0,sigma=ke0/s1) 
+            d[1] = ke0 / s1; // during optimization s1 is a population r.v., but for simulation s1 is a constant.
         },
         |_p| lag! {},
         |_p| fa! {},
         |p, _t, _cov, x| {
-            fetch_params!(p, ke0, _s1);
+            fetch_params!(p, ke0, s1);
+            let k_elim0 = Normal::new(ke0, ke0/s1).unwrap();
             x[0] = 20.0;
-            x[1] = ke0;
+            x[1] = k_elim0.sample(&mut rand::rng()); // ~ N(ke0,sigma=ke0/s1)
         },
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke0, _s1);
@@ -121,21 +123,22 @@ fn model_ke_v_s1() -> equation::SDE {
 
             // mean reversion to ke0
             dx[1] = -x[1] + ke0;
-            let ke = x[1];
+            let k_elim = x[1];
 
             // user defined
-            dx[0] = -ke * x[0];
+            dx[0] = -k_elim * x[0];
         },
         |p, d| {
-            fetch_params!(p, _ke, _v, s1);
-            d[1] = s1;
+            fetch_params!(p, ke0, _v, s1);
+            d[1] = ke0 / s1; // s1;
         },
         |_p| lag! {},
         |_p| fa! {},
         |p, _t, _cov, x| {
-            fetch_params!(p, ke0, _v, _s1);
+            fetch_params!(p, ke0, _v, s1);
+            let k_elim0 = Normal::new(ke0, ke0/s1).unwrap();
             x[0] = 20.0;
-            x[1] = ke0;
+            x[1] = k_elim0.sample(&mut rand::rng()); // ~ N(ke0,sigma=ke0/s1)
         },
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v, _s1);
@@ -157,22 +160,25 @@ fn model_ke_v_s1_s2() -> equation::SDE {
 
             // mean reversion to V
             dx[2] = -x[2] + v0;
-            // let v = x[2];
+            // let v = x[2]; // but vol is only used in out
+
             // user defined
             dx[0] = -ke * x[0];
         },
         |p, d| {
-            fetch_params!(p, _ke0, _v0, s1, s2);
-            d[1] = s1;
-            d[2] = s2;
+            fetch_params!(p, ke0, v0, s1, s2);
+            d[1] = ke0 / s1;
+            d[2] = v0 / s2;
         },
         |_p| lag! {},
         |_p| fa! {},
         |p, _t, _cov, x| {
-            fetch_params!(p, k0, v, _s1, _s2);
+            fetch_params!(p, ke0, v0, s1, s2);
+            let k_elim0 = Normal::new(ke0, ke0/s1).unwrap();
+            let vol0 = Normal::new(v0, v0/s2).unwrap();
             x[0] = 20.0;
-            x[1] = k0;
-            x[2] = v;
+            x[1] = k_elim0.sample(&mut rand::rng()); // ~ N(ke0,sigma=ke0/s1)
+            x[2] = vol0.sample(&mut rand::rng());
         },
         |x, p, _t, _cov, y| {
             fetch_params!(p, _k0, _v0, _s1, _s2);
@@ -199,7 +205,7 @@ fn settings_exp2() -> Settings {
     let mut settings = Settings::new();
     let params = Parameters::builder()
         .add("ke0", 0.1, 3.0, false) // Base ke range
-        .add("s1", 0.00000000001, 2.0, false) // Diffusion parameter for ke
+        .add("s1", 2.0, 20.0, false) // Diffusion parameter for ke
         .build()
         .unwrap();
 
@@ -224,7 +230,7 @@ fn settings_exp4() -> Settings {
     let params = Parameters::builder()
         .add("ke0", 0.1, 3.0, false)
         .add("v", 0.1, 3.0, false) // Volume range based on V = 1 + 0.2*N(0,1)
-        .add("s1", 0.0000000001, 2.0, false) // Diffusion parameter for ke
+        .add("s1", 2.0, 20.0, false) // Diffusion parameter for ke
         .build()
         .unwrap();
 
@@ -237,8 +243,8 @@ fn settings_exp5() -> Settings {
     let params = Parameters::builder()
         .add("ke0", 0.1, 3.0, false)
         .add("v0", 0.1, 3.0, false) // Base volume range
-        .add("s1", 0.0000000001, 2.0, false) // Diffusion parameter for ke
-        .add("s2", 0.0000000001, 2.0, false) // Diffusion parameter for volume
+        .add("s1", 1.0, 20.0, false) // Diffusion parameter for ke
+        .add("s2", 1.0, 20.0, false) // Diffusion parameter for volume
         .build()
         .unwrap();
 
@@ -359,13 +365,17 @@ fn generate_data() {
     }
 
     // Now, let's create the data files for each experiment
+    // let s_ke0 = Normal::new(10.0, 2.0).unwrap(); // sigma_ke0 = ke0/s_ke0
+    // let s_v0 = Normal::new(10.0, 2.0).unwrap();
+    // let s1 = s_ke0.sample(&mut rand::rng());
+
     //experiment 1: Random Ke, ODE
     write_samples_to_file(
         "examples/sde_paper/data/experiment1.csv",
         k0_pop.clone(),
         None,
-        0.0, // No stochastic component
-        0.0,
+        10.0e128, // No stochastic component // ke ~ N(ke0,ke0/s1)
+        10.0e128,
         model_ke(),
     );
 
@@ -374,8 +384,8 @@ fn generate_data() {
         "examples/sde_paper/data/experiment2.csv",
         k0_pop.clone(),
         None,
-        1.0,
-        0.0,
+        1.0, // s_ke0.sample(&mut rand::rng()), // see notes in model_ke_s1(), s1 and s2 are constants
+        10.0e128,
         model_ke_s1(),
     );
 
@@ -384,8 +394,8 @@ fn generate_data() {
         "examples/sde_paper/data/experiment3.csv",
         k0_pop.clone(),
         Some(v_pop.clone()),
-        0.0, // No stochastic component
-        0.0,
+        10.0e128, // No stochastic component
+        10.0e128,
         model_ke_v(),
     );
 
@@ -395,7 +405,7 @@ fn generate_data() {
         k0_pop.clone(),
         Some(v_pop.clone()),
         1.0,
-        0.0,
+        10.0e128,
         model_ke_v(),
     );
 
@@ -404,8 +414,8 @@ fn generate_data() {
         "examples/sde_paper/data/experiment5.csv",
         k0_pop.clone(),
         Some(v_pop.clone()),
-        1.0,
-        1.0,
+        1.0e3,
+        1.0e128,
         model_ke_v_s1_s2(),
     );
 }
@@ -418,7 +428,7 @@ fn fit_experiment(experiment: usize) {
         let eqn = model_ke_ode();
         let mut settings = settings_exp1();
         settings.set_output_path("examples/sde_paper/output/experiment0");
-        settings.set_error_poly((0.0, 0.05, 0.0, 0.0));
+        settings.set_error_poly((0.0, 0.15, 0.0, 0.0));
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
         result.write_outputs().unwrap();
@@ -446,8 +456,8 @@ fn fit_experiment(experiment: usize) {
     ));
 
     settings.set_error_poly(match experiment {
-        1..=4 => (0.0, 0.05, 0.0, 0.0),
-        5 => (0.0, 0.1, 0.0, 0.0),
+        1..=4 => (0.0, 0.15, 0.0, 0.0),
+        5 => (1.0, 0.2, 0.0, 0.0),
         _ => panic!("Invalid experiment"),
     });
 
@@ -458,7 +468,7 @@ fn fit_experiment(experiment: usize) {
 
 fn main() {
     generate_data();
-    for i in 0..=0 {
+    for i in 0..=5 {
         fit_experiment(i);
     }
 }
