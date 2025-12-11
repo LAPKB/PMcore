@@ -889,7 +889,7 @@ mod tests {
         // Create the equivalent log-space matrix
         let log_mat = regular_mat.mapv(|x| x.ln());
 
-        let mat = Mat::from_fn(n_point, n_sub, |i, j| log_mat[(i, j)]);
+        let mat = Mat::from_fn(n_sub, n_point, |i, j| log_mat[(i, j)]);
         let psi = Psi::new_log(mat);
 
         // Run both algorithms
@@ -960,7 +960,7 @@ mod tests {
             }
         });
 
-        let mat = Mat::from_fn(n_point, n_sub, |i, j| log_mat[(i, j)]);
+        let mat = Mat::from_fn(n_point, n_sub, |i, j| log_mat[(j, i)]);
         let psi = Psi::new_log(mat);
 
         let (lam, obj) = burke_log(&psi).unwrap();
