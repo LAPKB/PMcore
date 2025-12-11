@@ -58,7 +58,8 @@ use crate::algorithms::Algorithms;
 use crate::algorithms::Status;
 use crate::prelude::*;
 use crate::routines::estimation::ipm::burke_ipm;
-use crate::structs::psi::calculate_psi_dispatch;
+use crate::structs::psi::calculate_psi;
+use crate::structs::psi::Space;
 use crate::structs::theta::Theta;
 use crate::structs::weights::Weights;
 use pharmsol::prelude::*;
@@ -95,20 +96,20 @@ pub fn npagfull11_filter(
     past_data: &Data,
     eq: &ODE,
     error_models: &ErrorModels,
-    use_log_space: bool,
+    space: Space,
 ) -> Result<(Theta, Weights, Weights)> {
     tracing::info!("Stage 1.1: NPAGFULL11 Bayesian filtering");
 
     // Calculate psi matrix P(data|theta_i) for all support points
     // Use log-space or regular space based on setting
-    let psi = calculate_psi_dispatch(
+    let psi = calculate_psi(
         eq,
         past_data,
         population_theta,
         error_models,
         false,
         true,
-        use_log_space,
+        space,
     )?;
 
     // First burke call to get initial posterior probabilities
@@ -327,9 +328,6 @@ pub fn calculate_two_step_posterior(
 ) -> Result<(Theta, Weights, Weights)> {
     tracing::info!("=== STAGE 1: Posterior Density Calculation ===");
 
-    // Use log-space based on settings
-    let use_log_space = settings.advanced().log_space;
-
     // Step 1.1: NPAGFULL11 filtering (returns filtered posterior AND filtered prior)
     let (filtered_theta, filtered_posterior_weights, filtered_population_weights) =
         npagfull11_filter(
@@ -338,7 +336,7 @@ pub fn calculate_two_step_posterior(
             past_data,
             eq,
             error_models,
-            use_log_space,
+            settings.advanced().space,
         )?;
 
     // Step 1.2: NPAGFULL refinement

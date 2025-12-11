@@ -2,6 +2,7 @@ use crate::algorithms::StopReason;
 use crate::routines::initialization::sample_space;
 use crate::routines::math::logsumexp;
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
+use crate::structs::psi::calculate_psi;
 use crate::structs::weights::Weights;
 use crate::{
     algorithms::Status,
@@ -12,10 +13,7 @@ use crate::{
             settings::Settings,
         },
     },
-    structs::{
-        psi::{calculate_psi_dispatch, Psi},
-        theta::Theta,
-    },
+    structs::{psi::Psi, theta::Theta},
 };
 use pharmsol::SppOptimizer;
 
@@ -205,16 +203,14 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     }
 
     fn estimation(&mut self) -> Result<()> {
-        let use_log_space = self.settings.advanced().log_space;
-
-        self.psi = calculate_psi_dispatch(
+        self.psi = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
             &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
             self.cycle != 1,
-            use_log_space,
+            self.settings.advanced().space,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -282,8 +278,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     }
 
     fn optimizations(&mut self) -> Result<()> {
-        let use_log_space = self.settings.advanced().log_space;
-
         self.error_models
             .clone()
             .iter_mut()
@@ -306,23 +300,23 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
                 let mut error_model_down = self.error_models.clone();
                 error_model_down.set_factor(outeq, gamma_down)?;
 
-                let psi_up = calculate_psi_dispatch(
+                let psi_up = calculate_psi(
                     &self.equation,
                     &self.data,
                     &self.theta,
                     &error_model_up,
                     false,
                     true,
-                    use_log_space,
+                    self.settings.advanced().space,
                 )?;
-                let psi_down = calculate_psi_dispatch(
+                let psi_down = calculate_psi(
                     &self.equation,
                     &self.data,
                     &self.theta,
                     &error_model_down,
                     false,
                     true,
-                    use_log_space,
+                    self.settings.advanced().space,
                 )?;
 
                 let (lambda_up, objf_up) = burke_ipm(&psi_up)
@@ -365,20 +359,19 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
 
         // Compute pyl = P(Y|L) for each subject
         // In log-space, we need to use logsumexp and then exp to get regular pyl
-        let pyl = if self.psi.is_log_space() {
-            // pyl[i] = sum_j(exp(log_psi[i,j]) * w[j]) = sum_j(exp(log_psi[i,j] + log(w[j])))
-            // Using logsumexp for stability, then exp to get regular values
-            let log_w: Array1<f64> = w.iter().map(|&x| x.ln()).collect();
-            let mut pyl = Array1::zeros(psi_mat.nrows());
-            for i in 0..psi_mat.nrows() {
-                let combined: Vec<f64> = (0..psi_mat.ncols())
-                    .map(|j| psi_mat[[i, j]] + log_w[j])
-                    .collect();
-                pyl[i] = logsumexp(&combined).exp();
+        let pyl = match self.settings.advanced().space {
+            crate::structs::psi::Space::Log => {
+                let log_w: Array1<f64> = w.iter().map(|&x| x.ln()).collect();
+                let mut pyl = Array1::zeros(psi_mat.nrows());
+                for i in 0..psi_mat.nrows() {
+                    let combined: Vec<f64> = (0..psi_mat.ncols())
+                        .map(|j| psi_mat[[i, j]] + log_w[j])
+                        .collect();
+                    pyl[i] = logsumexp(&combined).exp();
+                }
+                pyl
             }
-            pyl
-        } else {
-            psi_mat.dot(&w)
+            crate::structs::psi::Space::Linear => psi_mat.dot(&w),
         };
 
         // Add new point to theta based on the optimization of the D function

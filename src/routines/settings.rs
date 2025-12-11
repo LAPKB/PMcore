@@ -1,6 +1,7 @@
 use crate::algorithms::Algorithm;
 use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
+use crate::structs::psi::Space;
 use anyhow::{bail, Result};
 use pharmsol::prelude::data::ErrorModels;
 
@@ -276,7 +277,7 @@ pub struct Advanced {
     /// This prevents underflow issues when dealing with many observations or extreme parameter values.
     /// The log-sum-exp trick is used to maintain numerical stability in weighted sum operations.
     /// Default is true for better numerical properties.
-    pub log_space: bool,
+    pub space: Space,
 }
 
 impl Default for Advanced {
@@ -285,7 +286,7 @@ impl Default for Advanced {
             min_distance: 1e-4,
             nm_steps: 100,
             tolerance: 1e-6,
-            log_space: true,
+            space: Space::Log,
         }
     }
 }
