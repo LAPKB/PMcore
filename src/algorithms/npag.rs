@@ -7,7 +7,7 @@ use crate::routines::math::logsumexp;
 use crate::routines::settings::Settings;
 
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
-use crate::structs::psi::{calculate_psi_dispatch, Psi};
+use crate::structs::psi::{calculate_psi, Psi};
 use crate::structs::theta::Theta;
 use crate::structs::weights::Weights;
 
@@ -162,7 +162,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             self.eps /= 2.;
             if self.eps <= THETA_E {
                 // Compute f1 = sum(log(pyl)) where pyl = psi * w
-                self.f1 = if self.psi.is_log_space() {
+                self.f1 = if self.psi.space() == crate::structs::psi::Space::Log {
                     // For log-space: f1 = sum_i(logsumexp(log_psi[i,:] + log(w)))
                     let log_w: Vec<f64> = w.weights().iter().map(|&x| x.ln()).collect();
                     (0..psi.nrows())
@@ -214,16 +214,14 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
     }
 
     fn estimation(&mut self) -> Result<()> {
-        let use_log_space = self.settings.advanced().log_space;
-
-        self.psi = calculate_psi_dispatch(
+        self.psi = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
             &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
             self.cycle != 1,
-            use_log_space,
+            self.settings.advanced().space,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -296,8 +294,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
     }
 
     fn optimizations(&mut self) -> Result<()> {
-        let use_log_space = self.settings.advanced().log_space;
-
         self.error_models
             .clone()
             .iter_mut()
@@ -318,24 +314,24 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                 let mut error_model_down = self.error_models.clone();
                 error_model_down.set_factor(outeq, gamma_down)?;
 
-                let psi_up = calculate_psi_dispatch(
+                let psi_up = calculate_psi(
                     &self.equation,
                     &self.data,
                     &self.theta,
                     &error_model_up,
                     false,
                     true,
-                    use_log_space,
+                    self.settings.advanced().space,
                 )?;
 
-                let psi_down = calculate_psi_dispatch(
+                let psi_down = calculate_psi(
                     &self.equation,
                     &self.data,
                     &self.theta,
                     &error_model_down,
                     false,
                     true,
-                    use_log_space,
+                    self.settings.advanced().space,
                 )?;
 
                 let (lambda_up, objf_up) = burke_ipm(&psi_up)

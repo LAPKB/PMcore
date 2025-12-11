@@ -2,7 +2,7 @@ use crate::{
     algorithms::{Status, StopReason},
     prelude::algorithms::Algorithms,
     structs::{
-        psi::{calculate_psi_dispatch, Psi},
+        psi::{calculate_psi, Psi},
         theta::Theta,
         weights::Weights,
     },
@@ -119,16 +119,14 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
     }
 
     fn estimation(&mut self) -> Result<()> {
-        let use_log_space = self.settings.advanced().log_space;
-
-        self.psi = calculate_psi_dispatch(
+        self.psi = calculate_psi(
             &self.equation,
             &self.data,
             &self.theta,
             &self.error_models,
             false,
             false,
-            use_log_space,
+            self.settings.advanced().space,
         )?;
 
         (self.w, self.objf) = burke_ipm(&self.psi).context("Error in IPM")?;

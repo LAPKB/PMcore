@@ -12,6 +12,15 @@ use serde::{Deserialize, Serialize};
 
 use super::theta::Theta;
 
+/// Enum to represent whether the [Psi] matrix is in linear space or log space
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum Space {
+    /// Linear space (for regular likelihoods)
+    Linear,
+    /// Log space (for log-likelihoods)
+    Log,
+}
+
 /// [Psi] is a structure that holds the likelihood for each subject (row), for each support point (column)
 ///
 /// The matrix can store either regular likelihoods or log-likelihoods depending on how it was constructed.
@@ -19,23 +28,30 @@ use super::theta::Theta;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Psi {
     matrix: Mat<f64>,
-    /// Whether the matrix contains log-likelihoods (true) or regular likelihoods (false)
-    is_log_space: bool,
+    space: Space,
 }
 
 impl Psi {
     pub fn new() -> Self {
         Psi {
             matrix: Mat::new(),
-            is_log_space: false,
+            space: Space::Linear,
         }
     }
 
     /// Create a new Psi in log space
-    pub fn new_log() -> Self {
+    pub fn new_linear(mat: Mat<f64>) -> Self {
         Psi {
-            matrix: Mat::new(),
-            is_log_space: true,
+            matrix: mat,
+            space: Space::Linear,
+        }
+    }
+
+    /// Create a new Psi in log space
+    pub fn new_log(mat: Mat<f64>) -> Self {
+        Psi {
+            matrix: mat,
+            space: Space::Log,
         }
     }
 
@@ -43,9 +59,46 @@ impl Psi {
         &self.matrix
     }
 
-    /// Returns true if the matrix stores log-likelihoods
-    pub fn is_log_space(&self) -> bool {
-        self.is_log_space
+    /// Get the [Space] (Linear or Log) of the Psi matrix
+    pub fn space(&self) -> Space {
+        self.space
+    }
+
+    /// Set the [Space] (Linear or Log) of the Psi matrix
+    ///
+    /// Note: This does not update the actual matrix values, only the space flag.
+    pub fn set_space(&mut self, space: Space) {
+        self.space = space;
+    }
+
+    /// Convert the Psi matrix to the specified [Space] (Linear or Log)
+    /// This modifies the matrix values accordingly.
+    pub fn to_space(&mut self, space: Space) -> &mut Self {
+        match (space, self.space) {
+            (Space::Linear, Space::Log) => {
+                // Convert from log to linear
+                for col in self.matrix.col_iter_mut() {
+                    col.iter_mut().for_each(|val| {
+                        *val = val.exp();
+                    });
+                }
+            }
+            (Space::Log, Space::Linear) => {
+                // Convert from linear to log
+
+                for col in self.matrix.col_iter_mut() {
+                    col.iter_mut().for_each(|val| {
+                        *val = val.ln();
+                    });
+                }
+            }
+            _ => {
+                // No conversion needed
+            }
+        }
+
+        self.space = space;
+        self
     }
 
     pub fn nspp(&self) -> usize {
@@ -124,7 +177,7 @@ impl Psi {
 
         Ok(Psi {
             matrix: mat,
-            is_log_space: false,
+            space: Space::Linear,
         })
     }
 }
@@ -140,7 +193,7 @@ impl From<Array2<f64>> for Psi {
         let matrix = array.view().into_faer().to_owned();
         Psi {
             matrix,
-            is_log_space: false,
+            space: Space::Linear,
         }
     }
 }
@@ -149,7 +202,7 @@ impl From<Mat<f64>> for Psi {
     fn from(matrix: Mat<f64>) -> Self {
         Psi {
             matrix,
-            is_log_space: false,
+            space: Space::Linear,
         }
     }
 }
@@ -159,7 +212,7 @@ impl From<ArrayView2<'_, f64>> for Psi {
         let matrix = array_view.into_faer().to_owned();
         Psi {
             matrix,
-            is_log_space: false,
+            space: Space::Linear,
         }
     }
 }
@@ -169,7 +222,7 @@ impl From<&Array2<f64>> for Psi {
         let matrix = array.view().into_faer().to_owned();
         Psi {
             matrix,
-            is_log_space: false,
+            space: Space::Linear,
         }
     }
 }
@@ -196,7 +249,7 @@ impl Serialize for Psi {
 }
 
 impl<'de> Deserialize<'de> for Psi {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -244,42 +297,13 @@ impl<'de> Deserialize<'de> for Psi {
                 // Create matrix from rows
                 let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
-                Ok(Psi {
-                    matrix: mat,
-                    is_log_space: false,
-                })
+                let psi = Psi::new_linear(mat);
+
+                Ok(psi)
             }
         }
 
         deserializer.deserialize_seq(PsiVisitor)
-    }
-}
-
-/// Helper struct for creating Psi with log-space flag
-pub struct PsiBuilder {
-    array: Array2<f64>,
-    is_log_space: bool,
-}
-
-impl PsiBuilder {
-    pub fn new(array: Array2<f64>) -> Self {
-        Self {
-            array,
-            is_log_space: false,
-        }
-    }
-
-    pub fn log_space(mut self, is_log: bool) -> Self {
-        self.is_log_space = is_log;
-        self
-    }
-
-    pub fn build(self) -> Psi {
-        let matrix = self.array.view().into_faer().to_owned();
-        Psi {
-            matrix,
-            is_log_space: self.is_log_space,
-        }
     }
 }
 
@@ -291,75 +315,33 @@ pub(crate) fn calculate_psi(
     error_models: &ErrorModels,
     progress: bool,
     cache: bool,
+    space: Space,
 ) -> Result<Psi> {
-    let psi_ndarray = psi(
-        equation,
-        subjects,
-        &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
-        error_models,
-        progress,
-        cache,
-    )?;
+    let psi_mat = match space {
+        Space::Linear => psi(
+            equation,
+            subjects,
+            &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
+            error_models,
+            progress,
+            cache,
+        ),
+        Space::Log => log_psi(
+            equation,
+            subjects,
+            &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
+            error_models,
+            progress,
+            cache,
+        ),
+    }?;
 
-    Ok(PsiBuilder::new(psi_ndarray).log_space(false).build())
-}
+    let psi = Psi {
+        matrix: psi_mat.view().into_faer().to_owned(),
+        space,
+    };
 
-/// Calculate the log-likelihood matrix (log space)
-///
-/// This computes log-likelihoods directly, which is numerically more stable
-/// than computing likelihoods and then taking logarithms. This is especially
-/// important when dealing with many observations or extreme parameter values.
-pub(crate) fn calculate_log_psi(
-    equation: &impl Equation,
-    subjects: &Data,
-    theta: &Theta,
-    error_models: &ErrorModels,
-    progress: bool,
-    cache: bool,
-) -> Result<Psi> {
-    let log_psi_ndarray = log_psi(
-        equation,
-        subjects,
-        &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
-        error_models,
-        progress,
-        cache,
-    )?;
-
-    Ok(PsiBuilder::new(log_psi_ndarray).log_space(true).build())
-}
-
-/// Unified psi calculation that dispatches based on the `use_log_space` flag.
-///
-/// This function eliminates the need for repeated if/else blocks in algorithm code.
-///
-/// # Arguments
-///
-/// * `equation` - The model equation
-/// * `subjects` - The data
-/// * `theta` - The support points
-/// * `error_models` - The error models
-/// * `progress` - Whether to show progress
-/// * `cache` - Whether to use caching
-/// * `use_log_space` - If true, calculates log-likelihoods; otherwise, regular likelihoods
-///
-/// # Returns
-///
-/// A Psi matrix with the appropriate `is_log_space` flag set.
-pub(crate) fn calculate_psi_dispatch(
-    equation: &impl Equation,
-    subjects: &Data,
-    theta: &Theta,
-    error_models: &ErrorModels,
-    progress: bool,
-    cache: bool,
-    use_log_space: bool,
-) -> Result<Psi> {
-    if use_log_space {
-        calculate_log_psi(equation, subjects, theta, error_models, progress, cache)
-    } else {
-        calculate_psi(equation, subjects, theta, error_models, progress, cache)
-    }
+    Ok(psi)
 }
 
 #[cfg(test)]
