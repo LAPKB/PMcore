@@ -13,10 +13,10 @@ use rand_distr::{Distribution, Normal};
 use std::io::Write;
 
 static GEN_DATA_ONLY:bool = false; // in main(); if TRUE then generate_data() ELSE fit_experiments()
-static N_PARTICLES:usize = if GEN_DATA_ONLY { 3 } else { 47 }; // if model is ODE or sigma->0 then nparticles is hardcoded to 1 always
+static N_PARTICLES:usize = if GEN_DATA_ONLY { 1 } else { 47 }; // if model is ODE or sigma->0 then nparticles is hardcoded to 1 always
 
 static S_KE_FACTOR:f64 = 1.0;  // these are divisors, i.e. sigma_Ke = Ke0/S_KE_FACTOR
-static S_V_FACTOR:f64 = 5.0;  // in {1000.0, 100.0 10.0, 1.0} ... test program with 1.0 
+static S_V_FACTOR:f64 = 1.0;  // in {1000.0, 100.0 10.0, 1.0} ... test program with 1.0 
 static SDE_SIGMA_IS_ZERO:f64 = 10.0e128;
 
 // Optimization constants for ALL models
@@ -115,7 +115,7 @@ fn model_ke_s1() -> equation::SDE {
 
             // mean reversion to ke0; ~ N(ke0,sigma=ke0/s1)
             dx[1] = -x[1] + ke0;
-            let k_elim = if x[1] > KE0_LOWER { x[1] } else { KE0_LOWER }; // x[1] can be negative, but ke is >= 0.0
+            let k_elim = x[1];
 
             // user defined
             dx[0] = -k_elim * x[0];
@@ -182,7 +182,7 @@ fn model_ke_v_s1() -> equation::SDE {
 
             // mean reversion to ke0
             dx[1] = -x[1] + ke0;
-            let k_elim = if x[1] > KE0_LOWER { x[1] } else { KE0_LOWER }; // x[1] can be negative, but ke is >= 0.0
+            let k_elim = x[1];
 
             // user defined
             dx[0] = -k_elim * x[0];
@@ -219,7 +219,7 @@ fn model_ke_v_s1_s2() -> equation::SDE {
             fetch_params!(p, ke0, v0, _s1, _s2);
             // mean reversion to ke0
             dx[1] = -x[1] + ke0;
-            let ke = if x[1] > KE0_LOWER { x[1] } else { KE0_LOWER }; // x[1] can be negative, but ke is >= 0.0
+            let ke = x[1];
 
             // mean reversion to V
             dx[2] = -x[2] + v0;
@@ -245,7 +245,7 @@ fn model_ke_v_s1_s2() -> equation::SDE {
         },
         |x, _p, _t, _cov, y| {
             // fetch_params!(p, _k0, _v0, _s1, _s2);
-            let v = if x[2] > V0_LOWER { x[2] } else { V0_LOWER };
+            let v = x[2];
             if x[0] < 0.0 {
                 y[0] = 0.0; // ... negative output will screw up your fobj
             } else {
@@ -508,12 +508,11 @@ fn fit_experiment(experiment: usize) {
         return;
     }
     if experiment == 6 {
-        let data = data::read_pmetrics("examples/sde_paper/data/experiment5.csv").unwrap(); // ke, v, s1, s2
-        // let data = data::read_pmetrics("examples/sde_paper/data/experiment3.csv").unwrap(); // ke and v, w/sigma = 0
+        let data = data::read_pmetrics("examples/sde_paper/data/experiment3.csv").unwrap(); // ke and v, w/sigma=0
         let eqn = model_ke_v_ode();
-        let mut settings = settings_exp3(); // and sde w/ke and v, but w/s=0 
+        let mut settings = settings_exp3();
         settings.set_output_path("examples/sde_paper/output/experiment6");
-        settings.set_error_poly((0.0, 0.15, 0.0, 0.0));
+        settings.set_error_poly((0.0, 0.2, 0.0, 0.0));
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
         result.write_outputs().unwrap();
@@ -542,8 +541,8 @@ fn fit_experiment(experiment: usize) {
     ));
 
     settings.set_error_poly(match experiment {
-        1..=4 => (0.0, 0.15, 0.0, 0.0),
-        5 => (0.0, 0.15, 0.0, 0.0),
+        1..=4 => (0.0, 0.2, 0.0, 0.0),
+        5 => (0.0, 0.2, 0.0, 0.0),
         _ => panic!("Invalid experiment"),
     });
 
