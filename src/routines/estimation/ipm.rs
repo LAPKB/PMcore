@@ -563,10 +563,9 @@ pub fn burke_log(log_psi: &Psi) -> anyhow::Result<(Weights, f64)> {
 ///
 /// Returns an error if the underlying IPM optimization fails.
 pub fn burke_ipm(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
-    if psi.is_log_space() {
-        burke_log(psi)
-    } else {
-        burke(psi)
+    match psi.space() {
+        crate::structs::psi::Space::Linear => burke(psi),
+        crate::structs::psi::Space::Log => burke_log(psi),
     }
 }
 
@@ -813,7 +812,6 @@ mod tests {
     fn test_burke_log_identity() {
         // Test with identity matrix converted to log space
         // log(1) = 0, log(0) = -inf, but we use a small positive value instead
-        use crate::structs::psi::PsiBuilder;
         use ndarray::Array2;
 
         let n = 10;
@@ -826,7 +824,8 @@ mod tests {
             }
         });
 
-        let psi = PsiBuilder::new(log_mat).log_space(true).build();
+        let mat = Mat::from_fn(n, n, |i, j| log_mat[(i, j)]);
+        let psi = Psi::new_log(mat);
 
         let (lam, obj) = burke_log(&psi).unwrap();
 
@@ -847,14 +846,15 @@ mod tests {
     fn test_burke_log_uniform() {
         // Test with uniform matrix in log space
         // log(1) = 0 everywhere
-        use crate::structs::psi::PsiBuilder;
+
         use ndarray::Array2;
 
         let n_sub = 10;
         let n_point = 10;
         let log_mat = Array2::from_shape_fn((n_sub, n_point), |_| 0.0); // log(1) = 0
 
-        let psi = PsiBuilder::new(log_mat).log_space(true).build();
+        let mat = Mat::from_fn(n_sub, n_point, |i, j| log_mat[(i, j)]);
+        let psi = Psi::new_log(mat);
 
         let (lam, obj) = burke_log(&psi).unwrap();
 
@@ -875,7 +875,6 @@ mod tests {
     fn test_burke_log_consistency_with_regular() {
         // Test that burke_log produces the same results as burke
         // when given equivalent inputs
-        use crate::structs::psi::PsiBuilder;
         use ndarray::Array2;
 
         let n_sub = 5;
@@ -889,11 +888,13 @@ mod tests {
 
         // Create the equivalent log-space matrix
         let log_mat = regular_mat.mapv(|x| x.ln());
-        let log_psi = PsiBuilder::new(log_mat).log_space(true).build();
+
+        let mat = Mat::from_fn(n_point, n_sub, |i, j| log_mat[(i, j)]);
+        let psi = Psi::new_log(mat);
 
         // Run both algorithms
         let (lam_regular, obj_regular) = burke(&regular_psi).unwrap();
-        let (lam_log, obj_log) = burke_log(&log_psi).unwrap();
+        let (lam_log, obj_log) = burke_log(&psi).unwrap();
 
         // The weights should be very similar
         for i in 0..n_point {
@@ -908,7 +909,6 @@ mod tests {
     fn test_burke_log_handles_very_small_likelihoods() {
         // Test that log-space IPM handles very small likelihoods that would
         // underflow in regular space
-        use crate::structs::psi::PsiBuilder;
         use ndarray::Array2;
 
         let n_sub = 5;
@@ -920,7 +920,8 @@ mod tests {
             -500.0 + (i as f64) * 0.1 + (j as f64) * 0.05
         });
 
-        let psi = PsiBuilder::new(log_mat).log_space(true).build();
+        let mat = Mat::from_fn(n_point, n_sub, |i, j| log_mat[(i, j)]);
+        let psi = Psi::new_log(mat);
 
         // This should succeed without underflow issues
         let result = burke_log(&psi);
@@ -944,7 +945,6 @@ mod tests {
     #[test]
     fn test_burke_log_with_varying_magnitudes() {
         // Test with log-likelihoods of varying magnitudes
-        use crate::structs::psi::PsiBuilder;
         use ndarray::Array2;
 
         let n_sub = 8;
@@ -960,7 +960,8 @@ mod tests {
             }
         });
 
-        let psi = PsiBuilder::new(log_mat).log_space(true).build();
+        let mat = Mat::from_fn(n_point, n_sub, |i, j| log_mat[(i, j)]);
+        let psi = Psi::new_log(mat);
 
         let (lam, obj) = burke_log(&psi).unwrap();
 

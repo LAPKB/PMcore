@@ -1,5 +1,4 @@
 use anyhow::bail;
-use anyhow::Ok;
 use anyhow::Result;
 use faer::Mat;
 use faer_ext::IntoFaer;
@@ -41,9 +40,17 @@ impl Psi {
     }
 
     /// Create a new Psi in log space
-    pub fn new_log() -> Self {
+    pub fn new_linear(mat: Mat<f64>) -> Self {
         Psi {
-            matrix: Mat::new(),
+            matrix: mat,
+            space: Space::Linear,
+        }
+    }
+
+    /// Create a new Psi in log space
+    pub fn new_log(mat: Mat<f64>) -> Self {
+        Psi {
+            matrix: mat,
             space: Space::Log,
         }
     }
@@ -210,7 +217,7 @@ impl Serialize for Psi {
 }
 
 impl<'de> Deserialize<'de> for Psi {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -258,10 +265,9 @@ impl<'de> Deserialize<'de> for Psi {
                 // Create matrix from rows
                 let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
-                Ok(Psi {
-                    matrix: mat,
-                    space: Space::Linear,
-                })
+                let psi = Psi::new_linear(mat);
+
+                Ok(psi)
             }
         }
 
@@ -303,33 +309,6 @@ pub(crate) fn calculate_psi(
         space,
     };
 
-    Ok(psi)
-}
-
-/// Calculate the log-likelihood matrix (log space)
-///
-/// This computes log-likelihoods directly, which is numerically more stable
-/// than computing likelihoods and then taking logarithms. This is especially
-/// important when dealing with many observations or extreme parameter values.
-pub(crate) fn calculate_log_psi(
-    equation: &impl Equation,
-    subjects: &Data,
-    theta: &Theta,
-    error_models: &ErrorModels,
-    progress: bool,
-    cache: bool,
-) -> Result<Psi> {
-    let log_psi_ndarray = log_psi(
-        equation,
-        subjects,
-        &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
-        error_models,
-        progress,
-        cache,
-    )?;
-
-    let mut psi = Psi::from(log_psi_ndarray);
-    psi.set_space(Space::Log);
     Ok(psi)
 }
 
