@@ -38,7 +38,10 @@ impl Posterior {
         }
 
         let psi_matrix = psi.matrix();
-        let is_log_space = psi.is_log_space();
+        let is_log_space = match psi.space() {
+            crate::structs::psi::Space::Linear => false,
+            crate::structs::psi::Space::Log => true,
+        };
 
         // Calculate py[i] = sum_j(psi[i,j] * w[j]) for each subject i
         // In log-space: py[i] = logsumexp_j(log_psi[i,j] + log(w[j]))

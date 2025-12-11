@@ -37,7 +37,10 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
         // Count problematic values in psi
         let mut nan_count = 0;
         let mut inf_count = 0;
-        let is_log_space = self.psi().is_log_space();
+        let is_log_space = match self.psi().space() {
+            crate::structs::psi::Space::Linear => false,
+            crate::structs::psi::Space::Log => true,
+        };
 
         let psi = self.psi().matrix().as_ref().into_ndarray();
         // First coerce all NaN and infinite in psi to 0.0 (or NEG_INFINITY for log-space)

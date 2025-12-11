@@ -7,7 +7,7 @@ use crate::routines::math::logsumexp;
 use crate::routines::settings::Settings;
 
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
-use crate::structs::psi::{calculate_psi_dispatch, Psi};
+use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use crate::structs::weights::Weights;
 
