@@ -65,8 +65,40 @@ impl Psi {
     }
 
     /// Set the [Space] (Linear or Log) of the Psi matrix
+    ///
+    /// Note: This does not update the actual matrix values, only the space flag.
     pub fn set_space(&mut self, space: Space) {
         self.space = space;
+    }
+
+    /// Convert the Psi matrix to the specified [Space] (Linear or Log)
+    /// This modifies the matrix values accordingly.
+    pub fn to_space(&mut self, space: Space) -> &mut Self {
+        match (space, self.space) {
+            (Space::Linear, Space::Log) => {
+                // Convert from log to linear
+                for col in self.matrix.col_iter_mut() {
+                    col.iter_mut().for_each(|val| {
+                        *val = val.exp();
+                    });
+                }
+            }
+            (Space::Log, Space::Linear) => {
+                // Convert from linear to log
+
+                for col in self.matrix.col_iter_mut() {
+                    col.iter_mut().for_each(|val| {
+                        *val = val.ln();
+                    });
+                }
+            }
+            _ => {
+                // No conversion needed
+            }
+        }
+
+        self.space = space;
+        self
     }
 
     pub fn nspp(&self) -> usize {
