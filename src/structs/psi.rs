@@ -4,7 +4,7 @@ use faer::Mat;
 use faer_ext::IntoFaer;
 use faer_ext::IntoNdarray;
 use ndarray::{Array2, ArrayView2};
-use pharmsol::prelude::simulator::psi;
+use pharmsol::prelude::simulator::{log_psi, psi};
 use pharmsol::Data;
 use pharmsol::Equation;
 use pharmsol::ErrorModels;
@@ -12,19 +12,93 @@ use serde::{Deserialize, Serialize};
 
 use super::theta::Theta;
 
+/// Enum to represent whether the [Psi] matrix is in linear space or log space
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum Space {
+    /// Linear space (for regular likelihoods)
+    Linear,
+    /// Log space (for log-likelihoods)
+    Log,
+}
+
 /// [Psi] is a structure that holds the likelihood for each subject (row), for each support point (column)
+///
+/// The matrix can store either regular likelihoods or log-likelihoods depending on how it was constructed.
+/// Use the `is_log_space` flag to determine which representation is stored.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Psi {
     matrix: Mat<f64>,
+    space: Space,
 }
 
 impl Psi {
     pub fn new() -> Self {
-        Psi { matrix: Mat::new() }
+        Psi {
+            matrix: Mat::new(),
+            space: Space::Linear,
+        }
+    }
+
+    /// Create a new Psi in log space
+    pub fn new_linear(mat: Mat<f64>) -> Self {
+        Psi {
+            matrix: mat,
+            space: Space::Linear,
+        }
+    }
+
+    /// Create a new Psi in log space
+    pub fn new_log(mat: Mat<f64>) -> Self {
+        Psi {
+            matrix: mat,
+            space: Space::Log,
+        }
     }
 
     pub fn matrix(&self) -> &Mat<f64> {
         &self.matrix
+    }
+
+    /// Get the [Space] (Linear or Log) of the Psi matrix
+    pub fn space(&self) -> Space {
+        self.space
+    }
+
+    /// Set the [Space] (Linear or Log) of the Psi matrix
+    ///
+    /// Note: This does not update the actual matrix values, only the space flag.
+    pub fn set_space(&mut self, space: Space) {
+        self.space = space;
+    }
+
+    /// Convert the Psi matrix to the specified [Space] (Linear or Log)
+    /// This modifies the matrix values accordingly.
+    pub fn to_space(&mut self, space: Space) -> &mut Self {
+        match (space, self.space) {
+            (Space::Linear, Space::Log) => {
+                // Convert from log to linear
+                for col in self.matrix.col_iter_mut() {
+                    col.iter_mut().for_each(|val| {
+                        *val = val.exp();
+                    });
+                }
+            }
+            (Space::Log, Space::Linear) => {
+                // Convert from linear to log
+
+                for col in self.matrix.col_iter_mut() {
+                    col.iter_mut().for_each(|val| {
+                        *val = val.ln();
+                    });
+                }
+            }
+            _ => {
+                // No conversion needed
+            }
+        }
+
+        self.space = space;
+        self
     }
 
     pub fn nspp(&self) -> usize {
@@ -101,7 +175,10 @@ impl Psi {
         // Create matrix from rows
         let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
-        Ok(Psi { matrix: mat })
+        Ok(Psi {
+            matrix: mat,
+            space: Space::Linear,
+        })
     }
 }
 
@@ -114,27 +191,39 @@ impl Default for Psi {
 impl From<Array2<f64>> for Psi {
     fn from(array: Array2<f64>) -> Self {
         let matrix = array.view().into_faer().to_owned();
-        Psi { matrix }
+        Psi {
+            matrix,
+            space: Space::Linear,
+        }
     }
 }
 
 impl From<Mat<f64>> for Psi {
     fn from(matrix: Mat<f64>) -> Self {
-        Psi { matrix }
+        Psi {
+            matrix,
+            space: Space::Linear,
+        }
     }
 }
 
 impl From<ArrayView2<'_, f64>> for Psi {
     fn from(array_view: ArrayView2<'_, f64>) -> Self {
         let matrix = array_view.into_faer().to_owned();
-        Psi { matrix }
+        Psi {
+            matrix,
+            space: Space::Linear,
+        }
     }
 }
 
 impl From<&Array2<f64>> for Psi {
     fn from(array: &Array2<f64>) -> Self {
         let matrix = array.view().into_faer().to_owned();
-        Psi { matrix }
+        Psi {
+            matrix,
+            space: Space::Linear,
+        }
     }
 }
 
@@ -160,7 +249,7 @@ impl Serialize for Psi {
 }
 
 impl<'de> Deserialize<'de> for Psi {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -208,7 +297,9 @@ impl<'de> Deserialize<'de> for Psi {
                 // Create matrix from rows
                 let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
-                Ok(Psi { matrix: mat })
+                let psi = Psi::new_linear(mat);
+
+                Ok(psi)
             }
         }
 
@@ -216,6 +307,7 @@ impl<'de> Deserialize<'de> for Psi {
     }
 }
 
+/// Calculate the likelihood matrix (regular space)
 pub(crate) fn calculate_psi(
     equation: &impl Equation,
     subjects: &Data,
@@ -223,17 +315,33 @@ pub(crate) fn calculate_psi(
     error_models: &ErrorModels,
     progress: bool,
     cache: bool,
+    space: Space,
 ) -> Result<Psi> {
-    let psi_ndarray = psi(
-        equation,
-        subjects,
-        &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
-        error_models,
-        progress,
-        cache,
-    )?;
+    let psi_mat = match space {
+        Space::Linear => psi(
+            equation,
+            subjects,
+            &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
+            error_models,
+            progress,
+            cache,
+        ),
+        Space::Log => log_psi(
+            equation,
+            subjects,
+            &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
+            error_models,
+            progress,
+            cache,
+        ),
+    }?;
 
-    Ok(psi_ndarray.view().into())
+    let psi = Psi {
+        matrix: psi_mat.view().into_faer().to_owned(),
+        space,
+    };
+
+    Ok(psi)
 }
 
 #[cfg(test)]

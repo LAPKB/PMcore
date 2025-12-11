@@ -53,12 +53,13 @@
 use anyhow::Result;
 use faer::Mat;
 
-use crate::algorithms::npag::burke;
 use crate::algorithms::npag::NPAG;
 use crate::algorithms::Algorithms;
 use crate::algorithms::Status;
 use crate::prelude::*;
+use crate::routines::estimation::ipm::burke_ipm;
 use crate::structs::psi::calculate_psi;
+use crate::structs::psi::Space;
 use crate::structs::theta::Theta;
 use crate::structs::weights::Weights;
 use pharmsol::prelude::*;
@@ -95,14 +96,24 @@ pub fn npagfull11_filter(
     past_data: &Data,
     eq: &ODE,
     error_models: &ErrorModels,
+    space: Space,
 ) -> Result<(Theta, Weights, Weights)> {
     tracing::info!("Stage 1.1: NPAGFULL11 Bayesian filtering");
 
     // Calculate psi matrix P(data|theta_i) for all support points
-    let psi = calculate_psi(eq, past_data, population_theta, error_models, false, true)?;
+    // Use log-space or regular space based on setting
+    let psi = calculate_psi(
+        eq,
+        past_data,
+        population_theta,
+        error_models,
+        false,
+        true,
+        space,
+    )?;
 
     // First burke call to get initial posterior probabilities
-    let (initial_weights, _) = burke(&psi)?;
+    let (initial_weights, _) = burke_ipm(&psi)?;
 
     // NPAGFULL11 filtering: Keep all points within 1e-100 of the maximum weight
     // This is different from NPAG's condensation - NO QR decomposition here!
@@ -325,6 +336,7 @@ pub fn calculate_two_step_posterior(
             past_data,
             eq,
             error_models,
+            settings.advanced().space,
         )?;
 
     // Step 1.2: NPAGFULL refinement

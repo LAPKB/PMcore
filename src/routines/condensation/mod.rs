@@ -1,4 +1,4 @@
-use crate::algorithms::npag::{burke, qr};
+use crate::routines::estimation::{ipm::burke_ipm, qr};
 use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use crate::structs::weights::Weights;
@@ -93,8 +93,8 @@ pub fn condense_support_points(
     filtered_theta.filter_indices(&keep_qr);
     filtered_psi.filter_column_indices(&keep_qr);
 
-    // Step 3: Recalculate weights with Burke's IPM
-    let (final_weights, objf) = burke(&filtered_psi)?;
+    // Step 3: Recalculate weights with Burke's IPM (auto-dispatches based on psi.is_log_space())
+    let (final_weights, objf) = burke_ipm(&filtered_psi)?;
 
     tracing::debug!(
         "Condensation complete: {} -> {} support points (objective: {:.4})",

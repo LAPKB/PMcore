@@ -2,6 +2,7 @@ pub use anyhow::{bail, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
 
+use crate::routines::math::logsumexp;
 use crate::structs::{psi::Psi, weights::Weights};
 
 /// Posterior probabilities for each support points
@@ -37,10 +38,37 @@ impl Posterior {
         }
 
         let psi_matrix = psi.matrix();
-        let py = psi_matrix * w.weights();
+        let is_log_space = match psi.space() {
+            crate::structs::psi::Space::Linear => false,
+            crate::structs::psi::Space::Log => true,
+        };
 
+        // Calculate py[i] = sum_j(psi[i,j] * w[j]) for each subject i
+        // In log-space: py[i] = logsumexp_j(log_psi[i,j] + log(w[j]))
+        let py: Vec<f64> = if is_log_space {
+            let log_w: Vec<f64> = (0..w.len()).map(|j| w.weights().get(j).ln()).collect();
+            (0..psi_matrix.nrows())
+                .map(|i| {
+                    let combined: Vec<f64> = (0..psi_matrix.ncols())
+                        .map(|j| *psi_matrix.get(i, j) + log_w[j])
+                        .collect();
+                    logsumexp(&combined)
+                })
+                .collect()
+        } else {
+            let py_mat = psi_matrix * w.weights();
+            (0..py_mat.nrows()).map(|i| *py_mat.get(i)).collect()
+        };
+
+        // Calculate posterior[i,j] = psi[i,j] * w[j] / py[i]
+        // In log-space: posterior[i,j] = exp(log_psi[i,j] + log(w[j]) - log_py[i])
         let posterior = Mat::from_fn(psi_matrix.nrows(), psi_matrix.ncols(), |i, j| {
-            psi_matrix.get(i, j) * w.weights().get(j) / py.get(i)
+            if is_log_space {
+                let log_w_j = w.weights().get(j).ln();
+                (*psi_matrix.get(i, j) + log_w_j - py[i]).exp()
+            } else {
+                psi_matrix.get(i, j) * w.weights().get(j) / py[i]
+            }
         });
 
         Ok(posterior.into())
@@ -179,26 +207,4 @@ impl<'de> Deserialize<'de> for Posterior {
 
         deserializer.deserialize_seq(PosteriorVisitor)
     }
-}
-
-/// Calculates the posterior probabilities for each support point given the weights
-///
-/// The shape is the same as [Psi], and thus subjects are the rows and support points are the columns.
-pub fn posterior(psi: &Psi, w: &Weights) -> Result<Posterior> {
-    if psi.matrix().ncols() != w.len() {
-        bail!(
-            "Number of rows in psi ({}) and number of weights ({}) do not match.",
-            psi.matrix().nrows(),
-            w.len()
-        );
-    }
-
-    let psi_matrix = psi.matrix();
-    let py = psi_matrix * w.weights();
-
-    let posterior = Mat::from_fn(psi_matrix.nrows(), psi_matrix.ncols(), |i, j| {
-        psi_matrix.get(i, j) * w.weights().get(j) / py.get(i)
-    });
-
-    Ok(posterior.into())
 }

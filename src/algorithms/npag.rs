@@ -1,8 +1,9 @@
 use crate::algorithms::{Status, StopReason};
 use crate::prelude::algorithms::Algorithms;
 
-pub use crate::routines::estimation::ipm::burke;
+pub use crate::routines::estimation::ipm::{burke, burke_ipm, burke_log};
 pub use crate::routines::estimation::qr;
+use crate::routines::math::logsumexp;
 use crate::routines::settings::Settings;
 
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
@@ -160,8 +161,24 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
         if (self.last_objf - self.objf).abs() <= THETA_G && self.eps > THETA_E {
             self.eps /= 2.;
             if self.eps <= THETA_E {
-                let pyl = psi * w.weights();
-                self.f1 = pyl.iter().map(|x| x.ln()).sum();
+                // Compute f1 = sum(log(pyl)) where pyl = psi * w
+                self.f1 = if self.psi.space() == crate::structs::psi::Space::Log {
+                    // For log-space: f1 = sum_i(logsumexp(log_psi[i,:] + log(w)))
+                    let log_w: Vec<f64> = w.weights().iter().map(|&x| x.ln()).collect();
+                    (0..psi.nrows())
+                        .map(|i| {
+                            let combined: Vec<f64> = (0..psi.ncols())
+                                .map(|j| *psi.get(i, j) + log_w[j])
+                                .collect();
+                            logsumexp(&combined)
+                        })
+                        .sum()
+                } else {
+                    // For regular space: f1 = sum(log(psi * w))
+                    let pyl = psi * w.weights();
+                    pyl.iter().map(|x| x.ln()).sum()
+                };
+
                 if (self.f1 - self.f0).abs() <= THETA_F {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.set_status(Status::Stop(StopReason::Converged));
@@ -204,24 +221,20 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
             self.cycle != 1,
+            self.settings.advanced().space,
         )?;
 
         if let Err(err) = self.validate_psi() {
             bail!(err);
         }
 
-        (self.lambda, _) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                bail!("Error in IPM during estimation: {:?}", err);
-            }
-        };
+        (self.lambda, _) = burke_ipm(&self.psi)
+            .map_err(|err| anyhow::anyhow!("Error in IPM during estimation: {:?}", err))?;
         Ok(())
     }
 
     fn condensation(&mut self) -> Result<()> {
         // Filter out the support points with lambda < max(lambda)/1000
-
         let max_lambda = self
             .lambda
             .iter()
@@ -273,15 +286,9 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
         self.psi.filter_column_indices(keep.as_slice());
 
         self.validate_psi()?;
-        (self.lambda, self.objf) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                return Err(anyhow::anyhow!(
-                    "Error in IPM during condensation: {:?}",
-                    err
-                ));
-            }
-        };
+
+        (self.lambda, self.objf) = burke_ipm(&self.psi)
+            .map_err(|err| anyhow::anyhow!("Error in IPM during condensation: {:?}", err))?;
         self.w = self.lambda.clone();
         Ok(())
     }
@@ -298,8 +305,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                 }
             })
             .try_for_each(|(outeq, em)| -> Result<()> {
-                // OPTIMIZATION
-
                 let gamma_up = em.factor()? * (1.0 + self.gamma_delta[outeq]);
                 let gamma_down = em.factor()? / (1.0 + self.gamma_delta[outeq]);
 
@@ -316,7 +321,9 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                     &error_model_up,
                     false,
                     true,
+                    self.settings.advanced().space,
                 )?;
+
                 let psi_down = calculate_psi(
                     &self.equation,
                     &self.data,
@@ -324,20 +331,15 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                     &error_model_down,
                     false,
                     true,
+                    self.settings.advanced().space,
                 )?;
 
-                let (lambda_up, objf_up) = match burke(&psi_up) {
-                    Ok((lambda, objf)) => (lambda, objf),
-                    Err(err) => {
-                        bail!("Error in IPM during optim: {:?}", err);
-                    }
-                };
-                let (lambda_down, objf_down) = match burke(&psi_down) {
-                    Ok((lambda, objf)) => (lambda, objf),
-                    Err(err) => {
-                        bail!("Error in IPM during optim: {:?}", err);
-                    }
-                };
+                let (lambda_up, objf_up) = burke_ipm(&psi_up)
+                    .map_err(|err| anyhow::anyhow!("Error in IPM during optim: {:?}", err))?;
+
+                let (lambda_down, objf_down) = burke_ipm(&psi_down)
+                    .map_err(|err| anyhow::anyhow!("Error in IPM during optim: {:?}", err))?;
+
                 if objf_up > self.objf {
                     self.error_models.set_factor(outeq, gamma_up)?;
                     self.objf = objf_up;
