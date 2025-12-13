@@ -54,10 +54,11 @@ fn main() {
         .unwrap();
 
     let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
+        .set_algorithm(Algorithm::NPOD)
         .set_parameters(params)
         .set_error_models(ems)
         .build();
+    settings.set_cycles(10000);
 
     settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();

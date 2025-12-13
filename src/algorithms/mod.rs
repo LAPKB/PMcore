@@ -11,20 +11,26 @@ use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 use npag::*;
+use npcat::NPCAT;
 use npod::NPOD;
+use npsah::NPSAH;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
 use postprob::POSTPROB;
 use serde::{Deserialize, Serialize};
 
 pub mod npag;
+pub mod npcat;
 pub mod npod;
+pub mod npsah;
 pub mod postprob;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
     NPAG,
+    NPCAT,
     NPOD,
+    NPSAH,
     POSTPROB,
 }
 
@@ -318,7 +324,9 @@ pub fn dispatch_algorithm<E: Equation + Send + 'static>(
 ) -> Result<Box<dyn Algorithms<E>>> {
     match settings.config().algorithm {
         Algorithm::NPAG => Ok(NPAG::new(settings, equation, data)?),
+        Algorithm::NPCAT => Ok(NPCAT::new(settings, equation, data)?),
         Algorithm::NPOD => Ok(NPOD::new(settings, equation, data)?),
+        Algorithm::NPSAH => Ok(NPSAH::new(settings, equation, data)?),
         Algorithm::POSTPROB => Ok(POSTPROB::new(settings, equation, data)?),
     }
 }
