@@ -10,27 +10,48 @@ use anyhow::Result;
 use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
+use nexus::NEXUS;
 use npag::*;
+use npbo::NPBO;
 use npcat::NPCAT;
+use npcma::NPCMA;
 use npod::NPOD;
+use npopt::NPOPT;
+use nppso::NPPSO;
 use npsah::NPSAH;
+use npsah2::NPSAH2;
+use npxo::NPXO;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
 use postprob::POSTPROB;
 use serde::{Deserialize, Serialize};
 
+pub mod nexus;
 pub mod npag;
+pub mod npbo;
 pub mod npcat;
+pub mod npcma;
 pub mod npod;
+pub mod npopt;
+pub mod nppso;
 pub mod npsah;
+pub mod npsah2;
+pub mod npxo;
 pub mod postprob;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
     NPAG,
+    NPBO,
     NPCAT,
+    NPCMA,
     NPOD,
+    NPOPT,
+    NPPSO,
     NPSAH,
+    NPSAH2,
+    NPXO,
+    NEXUS,
     POSTPROB,
 }
 
@@ -324,9 +345,16 @@ pub fn dispatch_algorithm<E: Equation + Send + 'static>(
 ) -> Result<Box<dyn Algorithms<E>>> {
     match settings.config().algorithm {
         Algorithm::NPAG => Ok(NPAG::new(settings, equation, data)?),
+        Algorithm::NPBO => Ok(NPBO::new(settings, equation, data)?),
         Algorithm::NPCAT => Ok(NPCAT::new(settings, equation, data)?),
+        Algorithm::NPCMA => Ok(NPCMA::new(settings, equation, data)?),
         Algorithm::NPOD => Ok(NPOD::new(settings, equation, data)?),
+        Algorithm::NPOPT => Ok(NPOPT::new(settings, equation, data)?),
+        Algorithm::NPPSO => Ok(NPPSO::new(settings, equation, data)?),
         Algorithm::NPSAH => Ok(NPSAH::new(settings, equation, data)?),
+        Algorithm::NPSAH2 => Ok(NPSAH2::new(settings, equation, data)?),
+        Algorithm::NPXO => Ok(NPXO::new(settings, equation, data)?),
+        Algorithm::NEXUS => Ok(NEXUS::new(settings, equation, data)?),
         Algorithm::POSTPROB => Ok(POSTPROB::new(settings, equation, data)?),
     }
 }

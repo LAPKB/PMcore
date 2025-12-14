@@ -113,7 +113,14 @@ fn main() -> Result<()> {
         ("NPAG", Algorithm::NPAG),
         ("NPOD", Algorithm::NPOD),
         ("NPSAH", Algorithm::NPSAH),
+        ("NPSAH", Algorithm::NPSAH2),
         ("NPCAT", Algorithm::NPCAT),
+        ("NPOPT", Algorithm::NPOPT),
+        ("NPPSO", Algorithm::NPPSO),
+        ("NPXO", Algorithm::NPXO),
+        ("NPBO", Algorithm::NPBO),
+        ("NPCMA", Algorithm::NPCMA),
+        // ("NEXUS", Algorithm::NEXUS),
     ];
 
     let mut results = Vec::new();
