@@ -2,44 +2,44 @@
 //!
 //! A true PSO-based algorithm for non-parametric population modeling.
 //!
-//! ## Key Innovation: D-Criterion Guided Swarm
+//! ## Key Innovation: D-Criterion Guided Swarm + Subject Targeting
 //!
 //! Unlike standard PSO which optimizes a single objective, NPPSO particles
 //! search for regions of parameter space that maximize the D-optimality criterion.
-//! Each particle's fitness is its D-criterion value given the current support
-//! point distribution - this creates a dynamic fitness landscape that evolves
-//! as the support points change.
+//! Additionally, we target poorly-fit subjects with MAP estimation to ensure
+//! all subjects are well-represented.
 //!
 //! ## Why This Works
 //!
 //! 1. **Momentum escapes local optima**: Velocity-based movement allows particles
 //!    to overshoot and explore beyond current best positions
 //! 2. **Collective learning**: The swarm shares information about high-D regions
-//! 3. **Dynamic landscape**: As support points change, the D-criterion landscape
-//!    shifts, preventing premature convergence to suboptimal modes
-//! 4. **Parallel exploration**: Multiple particles explore simultaneously
+//! 3. **Subject targeting**: MAP injection for poorly-fit subjects ensures coverage
+//! 4. **D-optimal refinement**: COBYLA polishes support point positions
+//! 5. **Elite preservation**: Best points are preserved across cycles
 //!
 //! ## Algorithm Structure
 //!
 //! - **Warm-up (cycles 1-3)**: NPAG-style grid expansion for broad coverage
-//! - **PSO Phase**: Particles search for high D-criterion regions, best positions
-//!   become candidate support points
-//! - **Estimation**: Standard IPM to compute weights
-//! - **Condensation**: QR-based pruning of redundant points
-//! - **Optimization**: Error model refinement + swarm update based on new pyl
+//! - **PSO Phase**: Particles search for high D-criterion regions
+//! - **Subject MAP**: Inject points for poorly-fit subjects
+//! - **D-refinement**: Polish existing support points with COBYLA
+//! - **Elite preservation**: Maintain best points across cycles
 
 mod constants;
+mod optimizers;
 mod swarm;
 
 pub use constants::*;
+use optimizers::{optimize_subject_map, refine_d_optimal, ElitePoint};
 
 use crate::algorithms::StopReason;
 use crate::routines::expansion::adaptative_grid::adaptative_grid;
 use crate::routines::initialization::sample_space;
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
-use crate::structs::psi::{calculate_psi, Psi};
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::psi::{calculate_psi, Psi};
+use crate::structs::nonparametric::theta::Theta;
+use crate::structs::nonparametric::weights::Weights;
 use crate::{
     algorithms::Status,
     prelude::{
@@ -94,6 +94,12 @@ pub struct NPPSO<E: Equation + Send + 'static> {
     pyl: Array1<f64>,
     /// Phase: true = warm-up (grid expansion), false = PSO-driven
     in_warmup: bool,
+    /// Elite points preserved across cycles
+    elite_points: Vec<ElitePoint>,
+    /// SA temperature for escaping local optima
+    sa_temperature: f64,
+    /// Track stagnation for SA reheat
+    stagnation_count: usize,
 }
 
 // ============================================================================
@@ -132,6 +138,9 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPPSO<E> {
             rng: StdRng::seed_from_u64(seed),
             pyl: Array1::ones(n_subjects), // Initialize with uniform
             in_warmup: true,
+            elite_points: Vec::with_capacity(ELITE_COUNT),
+            sa_temperature: SA_INITIAL_TEMP,
+            stagnation_count: 0,
         }))
     }
 
@@ -232,6 +241,19 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPPSO<E> {
                 -2.0 * self.last_objf,
                 -2.0 * self.objf
             );
+        }
+
+        // Track stagnation for SA reheat
+        if (self.last_objf - self.objf).abs() < 1e-3 {
+            self.stagnation_count += 1;
+            // Reheat SA if stagnating and temperature is low
+            if self.stagnation_count > 5 && self.sa_temperature < SA_INITIAL_TEMP * 0.3 {
+                self.sa_temperature = (self.sa_temperature * SA_REHEAT_FACTOR).min(SA_INITIAL_TEMP);
+                self.stagnation_count = 0;
+                tracing::debug!("SA reheat to T={:.3}", self.sa_temperature);
+            }
+        } else {
+            self.stagnation_count = 0;
         }
 
         // NPAG-style convergence with eps halving
@@ -464,13 +486,27 @@ impl<E: Equation + Send + 'static> NPPSO<E> {
             }
         }
 
-        // 6. Sparse grid expansion to fill gaps every few cycles
+        // 6. Simulated Annealing injection (key for escaping local optima!)
+        self.sa_injection()?;
+
+        // 7. Subject MAP injection for poorly-fit subjects
+        self.inject_subject_maps()?;
+
+        // 8. D-optimal refinement (periodically)
+        if self.cycle % DOPT_REFINE_INTERVAL == 0 && self.cycle > WARMUP_CYCLES {
+            self.d_optimal_refinement()?;
+        }
+
+        // 9. Inject elite points
+        self.inject_elite_points()?;
+
+        // 10. Sparse grid expansion to fill gaps every few cycles
         if self.cycle % 3 == 0 {
             let sparse_eps = self.eps * 0.5;
             adaptative_grid(&mut self.theta, sparse_eps, &self.ranges, THETA_D * 2.0)?;
         }
 
-        // 7. Reinject diversity if swarm is converging
+        // 11. Reinject diversity if swarm is converging
         if self.swarm_convergence_ratio() > CONVERGENCE_THRESHOLD {
             let n_reinject = (SWARM_SIZE as f64 * REINJECT_FRACTION) as usize;
             self.swarm
@@ -478,14 +514,291 @@ impl<E: Equation + Send + 'static> NPPSO<E> {
             tracing::debug!("Swarm converging, reinjected {} particles", n_reinject);
         }
 
+        // 12. Cool SA temperature
+        self.sa_temperature = (self.sa_temperature * SA_COOLING_RATE).max(SA_MIN_TEMP);
+
         tracing::debug!(
-            "PSO expansion: {} → {} (added {})",
+            "PSO expansion: {} → {} (added {}), SA temp={:.3}",
             initial_points,
             self.theta.nspp(),
-            added
+            added,
+            self.sa_temperature
         );
 
         Ok(())
+    }
+
+    // ========================================================================
+    // SIMULATED ANNEALING INJECTION
+    // ========================================================================
+
+    /// SA-style random injection with Metropolis acceptance
+    /// This is KEY for escaping local optima that PSO can't escape
+    fn sa_injection(&mut self) -> Result<()> {
+        if self.sa_temperature < SA_MIN_TEMP {
+            return Ok(());
+        }
+
+        let mut accepted = 0;
+        let mut proposed = 0;
+
+        for _ in 0..SA_INJECT_COUNT * 3 {
+            proposed += 1;
+
+            // Generate random point with margin from boundaries
+            let point: Vec<f64> = self
+                .ranges
+                .iter()
+                .map(|(lo, hi)| {
+                    let margin = (hi - lo) * BOUNDARY_MARGIN;
+                    self.rng.random_range((lo + margin)..(hi - margin))
+                })
+                .collect();
+
+            // Compute D-criterion for this point
+            let d = match self.compute_d_criterion(&point) {
+                Ok(d) => d,
+                Err(_) => continue,
+            };
+
+            // Metropolis acceptance: always accept if D > 0,
+            // probabilistically accept if D < 0 (allows exploration)
+            let accept = if d > 0.0 {
+                true
+            } else {
+                let p_accept = (d / self.sa_temperature).exp();
+                self.rng.random::<f64>() < p_accept
+            };
+
+            if accept && self.theta.check_point(&point, THETA_D) {
+                self.theta.add_point(&point)?;
+                accepted += 1;
+            }
+
+            if accepted >= SA_INJECT_COUNT {
+                break;
+            }
+        }
+
+        if accepted > 0 {
+            tracing::debug!(
+                "SA injection: {}/{} accepted (T={:.3})",
+                accepted,
+                proposed,
+                self.sa_temperature
+            );
+        }
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // SUBJECT MAP INJECTION
+    // ========================================================================
+
+    /// Inject support points for poorly-fit subjects
+    fn inject_subject_maps(&mut self) -> Result<()> {
+        if self.theta.nspp() == 0 || self.w.len() == 0 {
+            return Ok(());
+        }
+
+        let n_subjects = self.pyl.len();
+
+        // Find worst-fit subjects (lowest P(y|G))
+        let mut indexed_pyl: Vec<(usize, f64)> = self.pyl.iter().cloned().enumerate().collect();
+        indexed_pyl.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+        let n_residual = RESIDUAL_SUBJECTS.min(n_subjects);
+        let subjects = self.data.subjects();
+
+        let mut added = 0;
+
+        for (subj_idx, pyl_val) in indexed_pyl.iter().take(n_residual) {
+            // Skip if already well-fit
+            if *pyl_val > 0.1 {
+                continue;
+            }
+
+            let subject = &subjects[*subj_idx];
+
+            // Start from weighted centroid
+            let start = self.compute_weighted_centroid();
+
+            // Find MAP estimate for this subject
+            if let Ok(map_point) = optimize_subject_map(
+                &self.equation,
+                subject,
+                &self.error_models,
+                &self.ranges,
+                &start,
+                SUBJECT_MAP_EVALS,
+            ) {
+                // Check if point improves D-criterion
+                let d = self.compute_d_criterion(&map_point)?;
+                if d > 0.0 && self.theta.check_point(&map_point, THETA_D) {
+                    self.theta.add_point(&map_point)?;
+                    added += 1;
+                    tracing::debug!(
+                        "Subject {} MAP: pyl={:.4}, D={:.4}",
+                        subject.id(),
+                        pyl_val,
+                        d
+                    );
+                }
+            }
+        }
+
+        if added > 0 {
+            tracing::debug!("Subject MAP injection: added {} points", added);
+        }
+        Ok(())
+    }
+
+    // ========================================================================
+    // D-OPTIMAL REFINEMENT
+    // ========================================================================
+
+    /// Refine existing support points using COBYLA
+    fn d_optimal_refinement(&mut self) -> Result<()> {
+        if self.theta.nspp() == 0 || self.w.len() == 0 {
+            return Ok(());
+        }
+
+        let max_weight = self.w.iter().fold(f64::NEG_INFINITY, |a, b| a.max(b));
+        let threshold = max_weight * DOPT_WEIGHT_THRESHOLD;
+
+        let n_points = self.theta.nspp().min(self.w.len());
+        let mut refined_count = 0;
+
+        for i in 0..n_points {
+            // Only refine important points
+            if self.w[i] < threshold {
+                continue;
+            }
+
+            let start: Vec<f64> = self.theta.matrix().row(i).iter().cloned().collect();
+
+            if let Ok(refined) = refine_d_optimal(
+                &self.equation,
+                &self.data,
+                &self.error_models,
+                &self.pyl,
+                &self.ranges,
+                &start,
+                DOPT_REFINE_EVALS,
+            ) {
+                // Check if refinement improves D
+                let d_old = self.compute_d_criterion(&start)?;
+                let d_new = self.compute_d_criterion(&refined)?;
+
+                if d_new > d_old && self.theta.check_point(&refined, THETA_D) {
+                    self.theta.add_point(&refined)?;
+                    refined_count += 1;
+                }
+            }
+        }
+
+        if refined_count > 0 {
+            tracing::debug!(
+                "D-optimal refinement: added {} refined points",
+                refined_count
+            );
+        }
+        Ok(())
+    }
+
+    // ========================================================================
+    // ELITE PRESERVATION
+    // ========================================================================
+
+    /// Update and inject elite points
+    fn inject_elite_points(&mut self) -> Result<()> {
+        // Age existing elite points
+        for elite in &mut self.elite_points {
+            elite.cycle_added += 1;
+        }
+
+        // Remove old elite points
+        self.elite_points
+            .retain(|e| self.cycle.saturating_sub(e.cycle_added) < ELITE_MAX_AGE);
+
+        // Find current top points by weight
+        if self.w.len() > 0 {
+            let n_spp = self.theta.nspp().min(self.w.len());
+            let mut indexed_weights: Vec<(usize, f64)> =
+                self.w.iter().enumerate().take(n_spp).collect();
+            indexed_weights.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+            for (idx, _weight) in indexed_weights.iter().take(ELITE_COUNT) {
+                if *idx >= self.theta.nspp() {
+                    continue;
+                }
+
+                let params: Vec<f64> = self.theta.matrix().row(*idx).iter().cloned().collect();
+                let d_value = self.compute_d_criterion(&params).unwrap_or(0.0);
+
+                // Check if already elite (within distance threshold)
+                let already_elite = self.elite_points.iter().any(|e| {
+                    e.params
+                        .iter()
+                        .zip(params.iter())
+                        .map(|(a, b)| (a - b).abs())
+                        .sum::<f64>()
+                        < THETA_D * 10.0
+                });
+
+                if !already_elite && self.elite_points.len() < ELITE_COUNT * 2 {
+                    self.elite_points.push(ElitePoint {
+                        params: params.clone(),
+                        d_value,
+                        cycle_added: self.cycle,
+                    });
+                }
+            }
+        }
+
+        // Re-inject elite points
+        let mut added = 0;
+        for elite in &self.elite_points {
+            if self.theta.check_point(&elite.params, THETA_D) {
+                self.theta.add_point(&elite.params)?;
+                added += 1;
+            }
+        }
+
+        if added > 0 {
+            tracing::debug!("Elite injection: {} points", added);
+        }
+        Ok(())
+    }
+
+    /// Compute weighted centroid of current support points
+    fn compute_weighted_centroid(&self) -> Vec<f64> {
+        let n_dims = self.ranges.len();
+        let mut centroid = vec![0.0; n_dims];
+        let mut total_weight = 0.0;
+
+        let n_points = self.theta.nspp().min(self.w.len());
+        for i in 0..n_points {
+            let w = self.w[i];
+            total_weight += w;
+            for d in 0..n_dims {
+                centroid[d] += w * self.theta.matrix().get(i, d);
+            }
+        }
+
+        if total_weight > 0.0 {
+            for d in 0..n_dims {
+                centroid[d] /= total_weight;
+            }
+        } else {
+            // Fallback: center of ranges
+            for d in 0..n_dims {
+                centroid[d] = (self.ranges[d].0 + self.ranges[d].1) / 2.0;
+            }
+        }
+
+        centroid
     }
 
     /// Evaluate D-criterion for all particles in parallel

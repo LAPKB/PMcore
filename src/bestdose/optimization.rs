@@ -46,7 +46,7 @@ use argmin::solver::neldermead::NelderMead;
 use crate::bestdose::cost::calculate_cost;
 use crate::bestdose::predictions::calculate_final_predictions;
 use crate::bestdose::types::{BestDoseProblem, BestDoseResult, BestDoseStatus, OptimalMethod};
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::weights::Weights;
 use pharmsol::prelude::*;
 
 /// Create initial simplex for Nelder-Mead optimization

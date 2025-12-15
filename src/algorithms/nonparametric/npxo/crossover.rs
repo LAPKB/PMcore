@@ -1,8 +1,8 @@
 //! Crossover operators for NPXO
 
 use super::constants::*;
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::theta::Theta;
+use crate::structs::nonparametric::weights::Weights;
 
 use anyhow::Result;
 use rand::prelude::*;

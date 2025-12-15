@@ -33,9 +33,9 @@ use crate::routines::expansion::adaptative_grid::adaptative_grid;
 use crate::routines::initialization::sample_space;
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
 use crate::routines::settings::Settings;
-use crate::structs::psi::{calculate_psi, Psi};
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::psi::{calculate_psi, Psi};
+use crate::structs::nonparametric::theta::Theta;
+use crate::structs::nonparametric::weights::Weights;
 
 use anyhow::{bail, Result};
 use faer_ext::IntoNdarray;

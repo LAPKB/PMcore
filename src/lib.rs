@@ -1,6 +1,22 @@
-//! PMcore is a framework for developing and running non-parametric algorithms for population pharmacokinetic modelling
+//! PMcore is a framework for developing and running population pharmacokinetic algorithms
 //!
-//! The framework is designed to be modular and flexible, allowing for easy integration of new algorithms and methods. It is heavily designed around the specifications for Pmetrics, a package for R, and is designed to be used in conjunction with it. However, as a general rust library, it can be used for a wide variety of applications, not limited to pharmacometrics.
+//! The framework supports both **non-parametric** and **parametric** approaches to population modeling,
+//! allowing for flexible estimation of population parameter distributions.
+//!
+//! # Algorithm Types
+//!
+//! ## Non-Parametric Algorithms
+//! Represent the population distribution as a discrete set of support points with associated weights.
+//! - NPAG (Non-Parametric Adaptive Grid)
+//! - NPOD (Non-Parametric Optimal Design)
+//! - And others...
+//!
+//! ## Parametric Algorithms
+//! Represent the population distribution as a continuous distribution (typically multivariate normal).
+//! - SAEM (Stochastic Approximation Expectation-Maximization)
+//! - FOCE/FOCEI (First-Order Conditional Estimation)
+//! - IT2B (Iterative Two-Stage Bayesian)
+//! - And others...
 //!
 //! # Configuration
 //!
@@ -8,17 +24,19 @@
 //!
 //! # Data format
 //!
-//! PMcore is heavily linked to [pharmsol], which provides the data structures and routines for handling pharmacokinetic data. The data is stored in a [pharmsol::Data] structure, and can either be read from a CSV file, using [pharmsol::data::parse_pmetrics::read_pmetrics], or created dynamically using the [pharmsol::data::builder::SubjectBuilder].
+//! PMcore is heavily linked to [pharmsol], which provides the data structures and routines for handling
+//! pharmacokinetic data. The data is stored in a [pharmsol::Data] structure, and can either be read
+//! from a CSV file, using [pharmsol::data::parse_pmetrics::read_pmetrics], or created dynamically
+//! using the [pharmsol::data::builder::SubjectBuilder].
 //!
 
 /// Provides the various algorithms used within the framework
-// pub mod algorithms;
 pub mod algorithms;
 
-/// Routines
+/// Routines for data processing, optimization, and output
 pub mod routines;
 
-// Structures
+/// Data structures for population modeling
 pub mod structs;
 
 // Re-export commonly used items
@@ -45,6 +63,20 @@ pub mod prelude {
 
     pub use crate::routines::settings::*;
     pub use crate::structs::*;
+
+    // Non-parametric specific (explicit imports for clarity)
+    pub use crate::structs::nonparametric::{Psi, Theta, Weights};
+
+    // Parametric specific
+    pub use crate::structs::parametric::{
+        Individual, IndividualEstimates, Population, SufficientStats,
+    };
+
+    // Output types
+    pub use crate::routines::output::{NPResult, ParametricIterationLog, ParametricResult};
+
+    // Sampling utilities (for custom parametric algorithms)
+    pub use crate::routines::sampling::{MetropolisHastings, GaussianProposal, ProposalDistribution};
 
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;

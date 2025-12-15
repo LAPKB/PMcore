@@ -1,4 +1,4 @@
-use crate::structs::theta::Theta;
+use crate::structs::nonparametric::theta::Theta;
 use anyhow::Result;
 use faer::Mat;
 

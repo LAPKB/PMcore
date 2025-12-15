@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use crate::structs::{theta::Theta, weights::Weights};
+use crate::structs::nonparametric::{theta::Theta, weights::Weights};
 use anyhow::{bail, Context, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};

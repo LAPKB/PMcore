@@ -3,56 +3,111 @@ use std::path::Path;
 
 use crate::routines::output::NPResult;
 use crate::routines::settings::Settings;
-use crate::structs::psi::Psi;
-use crate::structs::theta::Theta;
+use crate::structs::nonparametric::psi::Psi;
+use crate::structs::nonparametric::theta::Theta;
 use anyhow::Context;
 use anyhow::Result;
 use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
-use nexus::NEXUS;
-use npag::*;
-use npbo::NPBO;
-use npcat::NPCAT;
-use npcma::NPCMA;
-use npod::NPOD;
-use npopt::NPOPT;
-use nppso::NPPSO;
-use npsah::NPSAH;
-use npsah2::NPSAH2;
-use npxo::NPXO;
+use nonparametric::nexus::NEXUS;
+use nonparametric::npag::*;
+use nonparametric::npbo::NPBO;
+use nonparametric::npcat::NPCAT;
+use nonparametric::npcma::NPCMA;
+use nonparametric::npod::NPOD;
+use nonparametric::npopt::NPOPT;
+use nonparametric::nppso::NPPSO;
+use nonparametric::npsah::NPSAH;
+use nonparametric::npsah2::NPSAH2;
+use nonparametric::npxo::NPXO;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
-use postprob::POSTPROB;
+use nonparametric::postprob::POSTPROB;
 use serde::{Deserialize, Serialize};
 
-pub mod nexus;
-pub mod npag;
-pub mod npbo;
-pub mod npcat;
-pub mod npcma;
-pub mod npod;
-pub mod npopt;
-pub mod nppso;
-pub mod npsah;
-pub mod npsah2;
-pub mod npxo;
-pub mod postprob;
+// Module organization for algorithm types
+pub mod nonparametric;
+pub mod parametric;
 
+/// Algorithm type enumeration
+///
+/// This enum represents all available algorithms in PMcore, both non-parametric and parametric.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
+    // === Non-parametric algorithms ===
+    /// Non-Parametric Adaptive Grid
     NPAG,
+    /// Non-Parametric Bayesian Optimization
     NPBO,
+    /// Non-Parametric Categorical
     NPCAT,
+    /// Non-Parametric CMA-ES
     NPCMA,
+    /// Non-Parametric Optimal Design
     NPOD,
+    /// Non-Parametric Optimization
     NPOPT,
+    /// Non-Parametric Particle Swarm Optimization
     NPPSO,
+    /// Non-Parametric Simulated Annealing Hybrid
     NPSAH,
+    /// Non-Parametric Simulated Annealing Hybrid v2
     NPSAH2,
+    /// Non-Parametric Cross-Over
     NPXO,
+    /// NEXUS algorithm
     NEXUS,
+    /// Posterior Probability calculation
     POSTPROB,
+
+    // === Parametric algorithms ===
+    /// Stochastic Approximation Expectation-Maximization
+    SAEM,
+    /// First-Order Conditional Estimation
+    FOCE,
+    /// First-Order Conditional Estimation with Interaction
+    FOCEI,
+    /// First-Order (linearization) method
+    FO,
+    /// Laplacian approximation method
+    Laplacian,
+    /// Iterative Two-Stage Bayesian
+    IT2B,
+}
+
+impl Algorithm {
+    /// Check if this is a non-parametric algorithm
+    pub fn is_nonparametric(&self) -> bool {
+        matches!(
+            self,
+            Algorithm::NPAG
+                | Algorithm::NPBO
+                | Algorithm::NPCAT
+                | Algorithm::NPCMA
+                | Algorithm::NPOD
+                | Algorithm::NPOPT
+                | Algorithm::NPPSO
+                | Algorithm::NPSAH
+                | Algorithm::NPSAH2
+                | Algorithm::NPXO
+                | Algorithm::NEXUS
+                | Algorithm::POSTPROB
+        )
+    }
+
+    /// Check if this is a parametric algorithm
+    pub fn is_parametric(&self) -> bool {
+        matches!(
+            self,
+            Algorithm::SAEM
+                | Algorithm::FOCE
+                | Algorithm::FOCEI
+                | Algorithm::FO
+                | Algorithm::Laplacian
+                | Algorithm::IT2B
+        )
+    }
 }
 
 pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
@@ -338,12 +393,25 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     fn into_npresult(&self) -> Result<NPResult<E>>;
 }
 
+/// Dispatch function for non-parametric algorithms
+///
+/// Creates and returns the appropriate non-parametric algorithm based on settings.
+/// For parametric algorithms, use [`dispatch_parametric_algorithm`] instead.
 pub fn dispatch_algorithm<E: Equation + Send + 'static>(
     settings: Settings,
     equation: E,
     data: Data,
 ) -> Result<Box<dyn Algorithms<E>>> {
-    match settings.config().algorithm {
+    let algorithm = settings.config().algorithm;
+
+    if algorithm.is_parametric() {
+        anyhow::bail!(
+            "Algorithm {:?} is parametric. Use dispatch_parametric_algorithm instead.",
+            algorithm
+        );
+    }
+
+    match algorithm {
         Algorithm::NPAG => Ok(NPAG::new(settings, equation, data)?),
         Algorithm::NPBO => Ok(NPBO::new(settings, equation, data)?),
         Algorithm::NPCAT => Ok(NPCAT::new(settings, equation, data)?),
@@ -356,6 +424,7 @@ pub fn dispatch_algorithm<E: Equation + Send + 'static>(
         Algorithm::NPXO => Ok(NPXO::new(settings, equation, data)?),
         Algorithm::NEXUS => Ok(NEXUS::new(settings, equation, data)?),
         Algorithm::POSTPROB => Ok(POSTPROB::new(settings, equation, data)?),
+        _ => anyhow::bail!("Unexpected algorithm type: {:?}", algorithm),
     }
 }
 

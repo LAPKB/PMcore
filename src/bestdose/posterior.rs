@@ -53,14 +53,14 @@
 use anyhow::Result;
 use faer::Mat;
 
-use crate::algorithms::npag::burke;
-use crate::algorithms::npag::NPAG;
+use crate::algorithms::nonparametric::npag::burke;
+use crate::algorithms::nonparametric::npag::NPAG;
 use crate::algorithms::Algorithms;
 use crate::algorithms::Status;
 use crate::prelude::*;
-use crate::structs::psi::calculate_psi;
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::psi::calculate_psi;
+use crate::structs::nonparametric::theta::Theta;
+use crate::structs::nonparametric::weights::Weights;
 use pharmsol::prelude::*;
 
 // =============================================================================

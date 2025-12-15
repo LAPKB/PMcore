@@ -7,7 +7,7 @@ use crate::{
     algorithms::{Status, StopReason},
     prelude::Settings,
     routines::output::{median, OutputFile},
-    structs::theta::Theta,
+    structs::nonparametric::theta::Theta,
 };
 
 /// An [NPCycle] object contains the summary of a cycle

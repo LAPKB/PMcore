@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     routines::output::{posterior::Posterior, weighted_median},
-    structs::{theta::Theta, weights::Weights},
+    structs::nonparametric::{theta::Theta, weights::Weights},
 };
 
 /// Container for the multiple model estimated predictions

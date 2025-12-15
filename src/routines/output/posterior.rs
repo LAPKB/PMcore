@@ -2,7 +2,7 @@ pub use anyhow::{bail, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
 
-use crate::structs::{psi::Psi, weights::Weights};
+use crate::structs::nonparametric::{psi::Psi, weights::Weights};
 
 /// Posterior probabilities for each support points
 #[derive(Debug, Clone)]

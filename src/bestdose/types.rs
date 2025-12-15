@@ -11,8 +11,8 @@ use std::fmt::Display;
 use crate::prelude::*;
 use crate::routines::output::predictions::NPPredictions;
 use crate::routines::settings::Settings;
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::theta::Theta;
+use crate::structs::nonparametric::weights::Weights;
 use pharmsol::prelude::*;
 use serde::{Deserialize, Serialize};
 

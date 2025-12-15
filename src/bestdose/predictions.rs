@@ -33,7 +33,7 @@ use faer::Mat;
 use crate::bestdose::types::{BestDoseProblem, Target};
 use crate::routines::output::posterior::Posterior;
 use crate::routines::output::predictions::NPPredictions;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::weights::Weights;
 use pharmsol::prelude::*;
 use pharmsol::Equation;
 

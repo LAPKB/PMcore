@@ -1,4 +1,4 @@
-use crate::structs::psi::Psi;
+use crate::structs::nonparametric::psi::Psi;
 use anyhow::{bail, Result};
 use faer::linalg::solvers::ColPivQr;
 use faer::Mat;

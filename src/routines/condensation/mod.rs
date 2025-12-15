@@ -1,7 +1,7 @@
-use crate::algorithms::npag::{burke, qr};
-use crate::structs::psi::Psi;
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
+use crate::algorithms::nonparametric::npag::{burke, qr};
+use crate::structs::nonparametric::psi::Psi;
+use crate::structs::nonparametric::theta::Theta;
+use crate::structs::nonparametric::weights::Weights;
 use anyhow::Result;
 
 /// Apply lambda filtering and QR decomposition to condense support points

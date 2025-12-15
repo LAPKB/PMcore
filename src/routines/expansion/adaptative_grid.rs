@@ -1,4 +1,4 @@
-use crate::structs::theta::Theta;
+use crate::structs::nonparametric::theta::Theta;
 use anyhow::Result;
 use faer::Row;
 
@@ -69,7 +69,7 @@ pub fn adaptative_grid(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::structs::theta::Theta;
+    use crate::structs::nonparametric::theta::Theta;
     use faer::mat;
 
     #[test]

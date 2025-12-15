@@ -4,7 +4,8 @@ use anyhow::{bail, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
 
-use crate::{prelude::Parameters, structs::weights::Weights};
+use super::weights::Weights;
+use crate::prelude::Parameters;
 
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution

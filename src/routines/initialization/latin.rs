@@ -5,7 +5,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::prelude::Parameters;
-use crate::structs::theta::Theta;
+use crate::structs::nonparametric::theta::Theta;
 
 /// Generates an instance of [Theta] using Latin Hypercube Sampling.
 ///

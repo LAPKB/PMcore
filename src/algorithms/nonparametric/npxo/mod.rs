@@ -28,9 +28,9 @@ pub use constants::*;
 use crate::algorithms::StopReason;
 use crate::routines::initialization::sample_space;
 use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
-use crate::structs::psi::{calculate_psi, Psi};
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::psi::{calculate_psi, Psi};
+use crate::structs::nonparametric::theta::Theta;
+use crate::structs::nonparametric::weights::Weights;
 use crate::{
     algorithms::Status,
     prelude::{

@@ -4,9 +4,9 @@ use crate::routines::output::cycles::CycleLog;
 use crate::routines::output::posterior::Posterior;
 use crate::routines::output::predictions::NPPredictions;
 use crate::routines::settings::Settings;
-use crate::structs::psi::Psi;
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::psi::Psi;
+use crate::structs::nonparametric::theta::Theta;
+use crate::structs::nonparametric::weights::Weights;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
 use faer::linalg::zip::IntoView;
@@ -19,8 +19,11 @@ use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 
 pub mod cycles;
+pub mod parametric;
 pub mod posterior;
 pub mod predictions;
+
+pub use parametric::{ParametricIterationLog, ParametricResult};
 
 use posterior::posterior;
 

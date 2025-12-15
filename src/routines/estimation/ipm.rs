@@ -1,5 +1,5 @@
-use crate::structs::psi::Psi;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::psi::Psi;
+use crate::structs::nonparametric::weights::Weights;
 use anyhow::bail;
 use faer::linalg::triangular_solve::solve_lower_triangular_in_place;
 use faer::linalg::triangular_solve::solve_upper_triangular_in_place;

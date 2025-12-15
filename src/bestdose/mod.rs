@@ -461,8 +461,8 @@ use pharmsol::prelude::*;
 use pharmsol::ODE;
 
 use crate::routines::settings::Settings;
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
+use crate::structs::nonparametric::theta::Theta;
+use crate::structs::nonparametric::weights::Weights;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Helper Functions for STAGE 1: Posterior Density Calculation
