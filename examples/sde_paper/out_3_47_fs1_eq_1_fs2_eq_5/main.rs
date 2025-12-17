@@ -15,8 +15,8 @@ use std::io::Write;
 static GEN_DATA_ONLY:bool = false; // in main(); if TRUE then generate_data() ELSE fit_experiments()
 static N_PARTICLES:usize = if GEN_DATA_ONLY { 3 } else { 47 }; // if model is ODE or sigma->0 then nparticles is hardcoded to 3 always
 
-static S_KE_FACTOR:f64 = 10.0;  // these are divisors, i.e. sigma_Ke = Ke0/S_KE_FACTOR
-static S_V_FACTOR:f64 = 10.0;  // in {1000.0, 100.0 10.0, 1.0} ... test program with 1.0 
+static S_KE_FACTOR:f64 = 1.0;  // these are divisors, i.e. sigma_Ke = Ke0/S_KE_FACTOR
+static S_V_FACTOR:f64 = 5.0;  // in {1000.0, 100.0 10.0, 1.0} ... test program with 1.0 
 static SDE_SIGMA_IS_ZERO:f64 = 10.0e128;
 
 // Optimization ranges (and particle boundaries) for ALL models

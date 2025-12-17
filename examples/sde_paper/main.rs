@@ -13,16 +13,18 @@ use rand_distr::{Distribution, Normal};
 use std::io::Write;
 
 static GEN_DATA_ONLY:bool = false; // in main(); if TRUE then generate_data() ELSE fit_experiments()
-static N_PARTICLES:usize = if GEN_DATA_ONLY { 3 } else { 47 }; // if model is ODE or sigma->0 then nparticles is hardcoded to 1 always
+static N_PARTICLES:usize = if GEN_DATA_ONLY { 3 } else { 47 }; // if model is ODE or sigma->0 then nparticles is hardcoded to 3 always
 
-static S_KE_FACTOR:f64 = 1.0;  // these are divisors, i.e. sigma_Ke = Ke0/S_KE_FACTOR
-static S_V_FACTOR:f64 = 5.0;  // in {1000.0, 100.0 10.0, 1.0} ... test program with 1.0 
+static N_POPULATION:usize = 100;
+
+static S_KE_FACTOR:f64 = 10.0;  // these are divisors, i.e. sigma_Ke = Ke0/S_KE_FACTOR
+static S_V_FACTOR:f64 = 10.0;  // in {1000.0, 100.0 10.0, 1.0} ... test program with 1.0 
 static SDE_SIGMA_IS_ZERO:f64 = 10.0e128;
 
-// Optimization constants for ALL models
+// Optimization ranges (and particle boundaries) for ALL models
 static KE0_LOWER:f64 = 0.1;
 static KE0_UPPER:f64 = 3.0;
-static S1_LOWER:f64 = 0.5; // Euler Maruyama sigma for Ke = Ke0/s1
+static S1_LOWER:f64 = 0.5; // Euler Maruyama sigma for Ke = Ke0/s1, i.e. (0.5=2x,1.0e6->0.0)
 static S1_UPPER:f64 = 1.0e6;
 static V0_LOWER:f64 = 0.1;
 static V0_UPPER:f64 = 3.0;
@@ -48,6 +50,33 @@ fn model_ke_ode() -> equation::ODE {
                 y[0] = 0.0; // ... but worry about negative output, which will screw up your fobj
             } else {
                 y[0] = x[0]; // v0 ~ N(1.0, sigma^2) ... so amoutn and concentration are the same thing.
+            }
+        },
+        (1, 1),
+    )
+}
+
+fn model_v_ode() -> equation::ODE {
+    equation::ODE::new(
+        |x, _p, _t, dx, _rateiv, _cov| {
+            // automatically defined
+            // fetch_params!(p, vol);
+
+            // user defined
+            // see population definition below, (m1 + m2)/2 = 1.0
+            dx[0] = -1.0 * x[0]; // don't worry about negative amounts, they will just come back toward 0 ...
+        },
+        |_p| lag! {},
+        |_p| fa! {},
+        |_p, _t, _cov, x| {
+            x[0] = 20.0;
+        },
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, vol);
+            if x[0] < 0.0 {
+                y[0] = 0.0; // ... but worry about negative output, which will screw up your fobj
+            } else {
+                y[0] = x[0]/vol; // v0 ~ N(1.0, sigma^2) ... so amoutn and concentration are the same thing.
             }
         },
         (1, 1),
@@ -257,6 +286,44 @@ fn model_ke_v_s1_s2() -> equation::SDE {
     )
 }
 
+fn model_v_s2() -> equation::SDE {
+    equation::SDE::new(
+        |x, p, _t, dx, _rateiv, _cov| {
+            // automatically defined
+            fetch_params!(p, v0, _s2);
+
+            // mean reversion to ke0
+            dx[1] = -x[1] + v0;
+
+            // user defined
+            dx[0] = -1.0 * x[0];
+        },
+        |p, d| {
+            fetch_params!(p, v0, s2);
+            d[1] = v0 / s2; // s1;
+        },
+        |_p| lag! {},
+        |_p| fa! {},
+        |p, _t, _cov, x| {
+            fetch_params!(p, v0, s2);
+            let v0 = Normal::new(v0, v0/s2).unwrap();
+            x[0] = 20.0;
+            x[1] = v0.sample(&mut rand::rng()); // ~ N(v0,sigma=v0/s2)
+        },
+        |x, _p, _t, _cov, y| {
+            // fetch_params!(p, v0, _s2);
+            let v = if x[1] > V0_LOWER { x[1] } else { V0_LOWER }; // x[1] can be negative, but v is >= V0_LOWER
+            if x[0] < 0.0 {
+                y[0] = 0.0; // ... negative output will screw up your fobj
+            } else {
+                y[0] = x[0]/v;
+            }
+        },
+        (2, 1),
+        N_PARTICLES,
+    )
+}
+
 fn settings_exp1() -> Settings {
     let mut settings = Settings::new();
     let params = Parameters::builder()
@@ -311,6 +378,18 @@ fn settings_exp5() -> Settings {
         .add("ke0", KE0_LOWER, KE0_UPPER, false)
         .add("v0", V0_LOWER, V0_UPPER, false) // Base volume range
         .add("s1", S1_LOWER, S1_UPPER, false) // Diffusion parameter for ke
+        .add("s2", S2_LOWER, S2_UPPER, false) // Diffusion parameter for volume
+        .build()
+        .unwrap();
+
+    settings.set_parameters(params);
+    setup_common_settings(&mut settings)
+}
+
+fn settings_exp8() -> Settings {
+    let mut settings = Settings::new();
+    let params = Parameters::builder()
+        .add("v0", V0_LOWER, V0_UPPER, false) // Base volume range
         .add("s2", S2_LOWER, S2_UPPER, false) // Diffusion parameter for volume
         .build()
         .unwrap();
@@ -388,7 +467,7 @@ fn write_samples_to_file(
     let data = data::Data::new(data);
     data.write_pmetrics(&File::create(Path::new(file_name)).unwrap());
 }
-const N_SAMPLES: usize = 100;
+const N_SAMPLES: usize = N_POPULATION;
 
 fn generate_data() {
     //k0 dist according to the paper F(K0) = 0.5*N(m_1,(s_1)^2) + 0.5*N(m_2,(s_2)^2)
@@ -490,29 +569,53 @@ fn generate_data() {
     //experiment 6: Random Ke, Volume ODE
     // uses the input file from experiment 3
 
+    //experiment 7: Random Volume ODE
+    // uses the input file from experiment 8
+
+    //experiment 8: Random volume and s2
+    write_samples_to_file(
+        "examples/sde_paper/data/experiment8.csv",
+        vec![1.0;N_POPULATION],
+        Some(v_pop.clone()),
+        SDE_SIGMA_IS_ZERO,
+        S_V_FACTOR,
+        model_v_s2(),
+    );
+
 }
 
 fn fit_experiment(experiment: usize) {
 
 
-    // Experiments 0 and 6 are ODE models
+    // Experiments 0, 6 and 7 are ODE models that correspond to SDE models 1, 5 and 8, respectively.
     if experiment == 0 {
-        let data = data::read_pmetrics("examples/sde_paper/data/experiment1.csv").unwrap();
+        let data = data::read_pmetrics("examples/sde_paper/data/experiment2.csv").unwrap(); // exp 2 has SDE on Ke
         let eqn = model_ke_ode();
         let mut settings = settings_exp1();
         settings.set_output_path("examples/sde_paper/output/experiment0");
-        settings.set_error_poly((0.0, 0.2, 0.0, 0.0));
+        settings.set_error_poly((0.0, 0.15, 0.0, 0.0));
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
         result.write_outputs().unwrap();
         return;
     }
     if experiment == 6 {
-        let data = data::read_pmetrics("examples/sde_paper/data/experiment5.csv").unwrap(); // ke, v, s1, s2
+        let data = data::read_pmetrics("examples/sde_paper/data/experiment5.csv").unwrap(); // exp 5 has: ke, v, s1, s2
         // let data = data::read_pmetrics("examples/sde_paper/data/experiment3.csv").unwrap(); // ke and v, w/sigma = 0
         let eqn = model_ke_v_ode();
         let mut settings = settings_exp3(); // and sde w/ke and v, but w/s=0 
         settings.set_output_path("examples/sde_paper/output/experiment6");
+        settings.set_error_poly((0.0, 0.15, 0.0, 0.0));
+        let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
+        let result = problem.fit().unwrap();
+        result.write_outputs().unwrap();
+        return;
+    }
+    if experiment == 7 {
+        let data = data::read_pmetrics("examples/sde_paper/data/experiment8.csv").unwrap(); // exp 8 has: v, s2
+        let eqn = model_v_ode();
+        let mut settings = settings_exp8(); // and sde w/ke and v, but w/s=0 
+        settings.set_output_path("examples/sde_paper/output/experiment7");
         settings.set_error_poly((0.0, 0.15, 0.0, 0.0));
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
@@ -532,6 +635,7 @@ fn fit_experiment(experiment: usize) {
         3 => (model_ke_v(), settings_exp3()),
         4 => (model_ke_v_s1(), settings_exp4()),
         5 => (model_ke_v_s1_s2(), settings_exp5()),
+        8 => (model_v_s2(), settings_exp8()),
         _ => panic!("Invalid experiment"),
     };
 
@@ -544,6 +648,7 @@ fn fit_experiment(experiment: usize) {
     settings.set_error_poly(match experiment {
         1..=4 => (0.0, 0.15, 0.0, 0.0),
         5 => (0.0, 0.15, 0.0, 0.0),
+        8 => (0.0, 0.15, 0.0, 0.0),
         _ => panic!("Invalid experiment"),
     });
 
@@ -557,7 +662,7 @@ fn main() {
         generate_data();
     }
     else {
-        for i in 0..=6 {
+        for i in 0..=8 {
             fit_experiment(i);
         }
     }
