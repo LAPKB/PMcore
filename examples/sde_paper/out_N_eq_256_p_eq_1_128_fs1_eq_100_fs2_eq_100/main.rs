@@ -17,8 +17,8 @@ static N_PARTICLES:usize = if GEN_DATA_ONLY { 1 } else { 128 }; // if model is O
 
 static N_POPULATION:usize = 256;
 
-static S_KE_FACTOR:f64 = 1000.0;  // these are divisors, i.e. sigma_Ke = Ke0/S_KE_FACTOR
-static S_V_FACTOR:f64 = 1000.0;  // in {1000.0, 100.0 10.0, 1.0} ... test program with 1.0 
+static S_KE_FACTOR:f64 = 100.0;  // these are divisors, i.e. sigma_Ke = Ke0/S_KE_FACTOR
+static S_V_FACTOR:f64 = 100.0;  // in {1000.0, 100.0 10.0, 1.0} ... test program with 1.0 
 static SDE_SIGMA_IS_ZERO:f64 = f64::MAX;
 
 // Optimization ranges (and particle boundaries) for ALL models
@@ -636,7 +636,7 @@ fn fit_experiment(experiment: usize) {
         let eqn = model_ke_ode();
         let mut settings = settings_exp1();
         settings.set_output_path("examples/sde_paper/output/experiment0");
-        settings.set_error_poly((1.0, 0.15, 0.0, 0.0));
+        settings.set_error_poly((0.0, 0.15, 0.0, 0.0));
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
         result.write_outputs().unwrap();
@@ -648,7 +648,7 @@ fn fit_experiment(experiment: usize) {
         let eqn = model_ke_v_ode();
         let mut settings = settings_exp3(); // and sde w/ke and v, but w/s=0 
         settings.set_output_path("examples/sde_paper/output/experiment6");
-        settings.set_error_poly((1.0, 0.15, 0.0, 0.0));
+        settings.set_error_poly((0.0, 0.15, 0.0, 0.0));
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
         result.write_outputs().unwrap();
@@ -659,7 +659,7 @@ fn fit_experiment(experiment: usize) {
         let eqn = model_v_ode();
         let mut settings = settings_exp8(); // an sde w/v and s2; ke=1 and s1=0
         settings.set_output_path("examples/sde_paper/output/experiment7");
-        settings.set_error_poly((1.0, 0.15, 0.0, 0.0));
+        settings.set_error_poly((0.0, 0.15, 0.0, 0.0));
         let mut problem = dispatch_algorithm(settings, eqn, data).unwrap();
         let result = problem.fit().unwrap();
         result.write_outputs().unwrap();
@@ -689,9 +689,9 @@ fn fit_experiment(experiment: usize) {
     ));
 
     settings.set_error_poly(match experiment {
-        1..=4 => (1.0, 0.15, 0.0, 0.0),
-        5 => (1.0, 0.15, 0.0, 0.0),
-        8 => (1.0, 0.15, 0.0, 0.0),
+        1..=4 => (0.0, 0.15, 0.0, 0.0),
+        5 => (0.0, 0.15, 0.0, 0.0),
+        8 => (0.0, 0.15, 0.0, 0.0),
         _ => panic!("Invalid experiment"),
     });
 

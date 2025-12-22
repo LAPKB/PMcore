@@ -10,39 +10,31 @@ old.dir <- getwd()
 root.dir <- "~/src/lapk/PMcore/examples/sde_paper/output"
 setwd(root.dir)
 
-# Archive the run (as a precaution -- do after analysis, too)
-r.name = "out_N_eq_256_p_eq_1_128_fs1_eq_100_fs2_eq_10" # last set of graphs
-r.name = "out_N_eq_256_p_eq_1_128_fs1_eq_10_fs2_eq_10_c0eq1c1eq0pt15" # 
-r.name = "out_N_eq_256_p_eq_1_128_fs1_eq_1000_fs2_eq_1000_c0eq1c1eq0pt15" #
-{
-  gb.dir <- getwd();setwd(root.dir)
-  system(paste("cp ", root.dir, "/../main.rs ", root.dir, sep = ''))
-  save_dir = paste(root.dir,"/../",r.name,sep='')
-  system(paste("mkdir ", save_dir, sep = ''))
-  system(paste("cp -r ../output/ ", save_dir))
-  system(paste("cp -r ../data/ ", save_dir))
-  setwd(gb.dir); remove(gb.dir)
-} # cp main.rs, data, and output to sde_example/r.name/
+# Archive stuff (as a precaution)
+system(paste("cp ", root.dir, "/../main.rs ", root.dir, sep = ''))
+r.name = "out_sde_paper_sigma_eq_1pt0"
+save_dir = paste(root.dir,"/../",r.name,sep='')
+system(paste("mkdir ", save_dir, sep = ''))
+system(paste("cp -r ../output/ ", save_dir))
+system(paste("cp -r ../data/ ", save_dir))
 
-# There are nine experiments, 0..8
-# 0: ke   ODE
-# 1: ke   SDE s1=0
-# 2: ke   SDE s1
-# 3: ke,v SDE s1=0, s2=0
-# 4: ke,v SDE s1, s2=0
-# 5: ke,v SDE s1, s2
-# 6: ke,v ODE
-# 7: v    ODE
-# 8: v    SDE s2
+# There are seven experiments, 0..6
+# ke, ODE
+# ke, SDE s1=0
+# ke, SDE s1
+# ke,v SDE s1=0, s2=0
+# ke,v SDE s1, s2=0
+# ke,v SDE s1, s2 ------
+# ke,v ODE -------------
 
 { # load one ode and one sde, then go back to the root.dir
   {
-    run_name.ode <- "(0) ODE(2:Ke, s1=Ke0/10; V=1, s2=0)"
+    run_name.ode <- "SDE Paper (0); ODE(2:Ke, s1=Ke0/1; V=1, s2=0)\ns_obs = 1.0 + 0.15Y"
     outdir <- '~/src/lapk/PMcore/examples/sde_paper/output/experiment0/'
     setwd(outdir); op.ode <- read.csv("op.csv"); theta.ode <- read_csv("theta.csv")
   } # ode 0 : ke v=1 -- use data from exp 2
   {
-    run_name.sde <- "(2) SDE(Ke, s1=Ke0/10; V=1, s2=0)"
+    run_name.sde <- "SDE Paper (2)\nSDE(Ke, s1=Ke0/1; V=1, s2=0); s_obs = 1.0 + 0.15Y"
     outdir <- '~/src/lapk/PMcore/examples/sde_paper/output/experiment2/'
     setwd(outdir); op.sde <- read.csv("op.csv"); theta.sde <- read_csv("theta.csv")
   } # sde 2 : ke v=1 s1 s2=0
@@ -59,40 +51,30 @@ r.name = "out_N_eq_256_p_eq_1_128_fs1_eq_1000_fs2_eq_1000_c0eq1c1eq0pt15" #
   } # sde 4 : ke v s1 s2=0 // one off test
   #
   {
-    run_name.ode <- "(6) ODE(5:Ke0,V0,s1=Ke0/10,s2=v0/10)"
+    run_name.ode <- "SDE Paper (6)\nODE(5:Ke,V,s1=Ke0/1,s2=v0/5); s_obs=1.0+0.15Y"
     outdir <- '~/src/lapk/PMcore/examples/sde_paper/output/experiment6/'
     setwd(outdir); op.ode <- read.csv("op.csv"); theta.ode <- read_csv("theta.csv")
   } # ode 6 : ke v -- use data from exp 5
   {
-    run_name.sde <- "(5) SDE(Ke0,V0,s1=Ke0/10,s2=v0/10)"
+    run_name.sde <- "SDE Paper (5)\nSDE(Ke,V,s1=Ke0/1,s2=v0/5); s_obs=1.0+0.15Y"
     outdir <- '~/src/lapk/PMcore/examples/sde_paper/output/experiment5/'
     setwd(outdir); op.sde <- read.csv("op.csv"); theta.sde <- read_csv("theta.csv")
   } # sde 5 : ke v s1 s2
   {
-    run_name.sde <- "SDE Paper (3)\nSDE(Ke,V; s=0)"
+    run_name.sde <- "SDE Paper (3)\nSDE(Ke,V; s=0); s_obs = 1.0 + 0.2Y"
     outdir <- '~/src/lapk/PMcore/examples/sde_paper/output/experiment3/'
     setwd(outdir); op.sde <- read.csv("op.csv"); theta.sde <- read_csv("theta.csv")
   } # sde 3 : ke v s1=s2=0 // 3 and 6 should be near identical
   #
-  {
-    run_name.ode <- "(7) ODE(8:V0, s2=v0/10; Ke=1, s1=0)"
-    outdir <- '~/src/lapk/PMcore/examples/sde_paper/output/experiment7/'
-    setwd(outdir); op.ode <- read.csv("op.csv"); theta.ode <- read_csv("theta.csv")
-  } # ode 7 : v ke=-1 -- use data from exp 2
-  {
-    run_name.sde <- "(8) SDE(v0, s2=v0/10; Ke0=1, s1=0)"
-    outdir <- '~/src/lapk/PMcore/examples/sde_paper/output/experiment8/'
-    setwd(outdir); op.sde <- read.csv("op.csv"); theta.sde <- read_csv("theta.csv")
-  } # sde 8 : v s2; ke=-1 s1=0
+  setwd(root.dir)
 } # load one ode and one sde
-setwd(root.dir)
 
 {
   # outids <- unique(op$id[which(op$p    )])
   summary(op$obs)
   summary(op$post_mean)
   summary(op$pop_median)
-} # find outlier ids
+}
 
 # choose one to plot (one sde and one ode was loaded above)
 run_name <- run_name.ode
@@ -131,7 +113,6 @@ op <- op.sde # %>% filter(!id %in% outids) # c("id23"))
     } # plot reg line w/out BLQ
     # abline(h = c(BLQ), col = "grey")
   } # summary and regression line w/BLQ removed!!!
-  summary(lm(op$obs ~ against))
   # ------------------------------------------------------- POPULATION FITS ---
   against <- op$pop_mean # (op %>% filter(obs > 4))$pop_mean
   obs <- op$obs # (op%>% filter(obs > 4))$obs 
@@ -167,13 +148,12 @@ op <- op.sde # %>% filter(!id %in% outids) # c("id23"))
     )
     # abline(h = c(BLQ), col = "grey")
   } # summary
-  summary(lm(op$obs ~ against))
 } # plot op post and population mean
 
 # --- THETA ------
 
 #
-s_fact = "(10, 10)"
+s_fact = "(1.0, 5.0)"
 {
   m1 = 0.5
   m2 = 1.5
@@ -188,15 +168,14 @@ s_fact = "(10, 10)"
   setwd("/Users/wyamada/src/lapk/PMcore/examples/sde_paper/data/")
   exper2 <- read_csv("experiment2.csv") # s1
   exper5 <- read_csv("experiment5.csv") # s1 and s2
-  exper8 <- read_csv("experiment8.csv") # s1 and s2
   setwd("/Users/wyamada/src/lapk/PMcore/examples/sde_paper/")
-} # load experiments 2, 5 and 8.csv
+} # load experiments 2 and 5.csv
 # note: for vanco I had two regular outputs and a running chi^2 
 #
 d.truth <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/sde_paper/data/population.csv")
 matrix(c(mean(d.truth$k0), mean(d.truth$v0)
          ,var(d.truth$k0)^0.5,var(d.truth$v0)^0.5),byrow=T,nrow=2)
-s_fact = "/(10,10)"
+s_fact = "/(1.0,0.5)"
 #
 # !!! ARCHIVE DATA _before_ DOING ANALYSES !!! for example:
 #
@@ -208,34 +187,30 @@ s_fact = "/(10,10)"
 #
 {
   d.truth <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/sde_paper/data/population.csv")
-  names(d.truth) <- c("index","ke0","v0")
   d.ode <- theta.ode
   d.sde <- theta.sde
+  names(d.truth) <- c("index","ke0","v0")
 } # d.truth
 {
-    names(d.ode) <- c("ke0", "prob")
-    names(d.sde) <- c("ke0",   "v0",   "fs1",   "fs2",   "prob")
-} # d.ode and d.sde for 2 vs 0 -- should be OK for ALL d.ode AND d.sde
+    names(d.ode) <- c("ke0","prob")
+    names(d.sde) <- c("ke0","fs1","prob")
+} # d.ode and d.sde for 2 vs 0
 {
     names(d.ode) <- c("ke0","v0","prob")
     names(d.sde) <- c("ke0","v0","fs1","fs2","prob")
-} # d.ode and d.sde for 6 vs 5
-{
-  names(d.ode) <- c("ke0","v0","fs1","fs2" ,"prob")
-  names(d.sde) <- c("ke0","v0","fs1","fs2" ,"prob")
-} # d.ode and d.sde for 8 vs 7
+  } # d.ode and d.sde for 6 vs 5
 # d.truth,ode,sde <- population, ODE, and SDE examples 5 and 6
 #
-exp.sigma <- paste("s=mu/",s_fact,sep='')
+exp.sigma <- paste("s=mu/",s_fact,"; s_obs_err=1.0+0.15Y",sep='')
 # (1)
-ylimke = c(0,5) # ad hoc ... just depends where the data lay
-ylimv = c(0,8)
 {
   {
     col.ode <- "khaki3"; col.sde <- "indianred3"
     col.text <- paste("POP = grey/blue; ODE = ", col.ode, "; SDE = ", col.sde,sep = '')
     m.text <- paste(col.text, "\n", exp.sigma, sep = '')
   } # assign colors
+  ylimke = c(0,4) # ad hoc ... just depends where the data lay
+  ylimv = c(0,4)
   {
     bw.ke =   (max(d.truth$ke0) - min(d.truth$ke0))/(100/3); # 0.1865
     xlabke = paste("ke0(bw = (max-min of pop)/33); s_f = ",s_fact)
@@ -279,8 +254,10 @@ ylimv = c(0,8)
 # (2)
 summary(d.truth[,2:3])
 c(var(d.truth[,2])^0.5,var(d.truth[,3])^0.5)
-np.stats(d.ode)
-np.stats(d.sde)
+D<-d.ode
+np.stats(D)
+D<-d.sde
+np.stats(D)
 # (3) Wasserstein distance from population; c(ODE,SDE)
 {
   # https://alexhwilliams.info/itsneuronalblog/2020/10/09/optimal-transport/
@@ -379,5 +356,6 @@ run_name <- "(1-47) OO" # \n t_obs in (0, 2pm0.5, 5pm0.5, 8pm0.5, 1)"
 }
 # (5) if you didn't do it above, then archive the directory, e.g.
 # $cp -r ./examples/sde_paper/output/experiment<> ...
+
 
 
