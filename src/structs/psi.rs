@@ -11,6 +11,7 @@ use pharmsol::ErrorModels;
 use serde::{Deserialize, Serialize};
 
 use super::theta::Theta;
+use super::weights::Weights;
 
 /// [Psi] is a structure that holds the likelihood for each subject (row), for each support point (column)
 #[derive(Debug, Clone, PartialEq)]
@@ -102,6 +103,71 @@ impl Psi {
         let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
         Ok(Psi { matrix: mat })
+    }
+
+    /// Compute the maximum D-optimality value across all support points
+    ///
+    /// The D-optimality criterion measures convergence of the NPML/NPOD algorithm.
+    /// At optimality, this value should be close to 0, meaning no support point
+    /// can further improve the likelihood.
+    ///
+    /// # Interpretation
+    /// - **≈ 0**: Solution is optimal
+    /// - **> 0**: Not converged; some support points could still improve the objective
+    /// - **Larger values**: Further from convergence
+    pub fn d_optimality(&self, weights: &Weights) -> Result<f64> {
+        let d_values = self.d_optimality_spp(weights)?;
+        Ok(d_values.into_iter().fold(f64::NEG_INFINITY, f64::max))
+    }
+
+    /// Compute D-optimality values for each support point
+    ///
+    /// Returns the D-value for each support point in the current solution.
+    /// At convergence, all values should be close to 0.
+    ///
+    /// The D-optimality value for support point $j$ is:
+    /// $$D(\theta_j) = \sum_{i=1}^{n} \frac{\psi_{ij}}{p_\lambda(y_i)} - n$$
+    pub(crate) fn d_optimality_spp(&self, weights: &Weights) -> Result<Vec<f64>> {
+        let psi_mat = self.matrix();
+        let nsub = psi_mat.nrows();
+        let nspp = psi_mat.ncols();
+
+        if nspp != weights.len() {
+            bail!(
+                "Psi has {} columns but weights has {} elements",
+                nspp,
+                weights.len()
+            );
+        }
+
+        // Compute pyl = psi * w (weighted probability for each subject)
+        let mut pyl = vec![0.0; nsub];
+        for i in 0..nsub {
+            for (j, w_j) in weights.iter().enumerate() {
+                pyl[i] += psi_mat.get(i, j) * w_j;
+            }
+        }
+
+        // Check for zero probabilities
+        for (i, &p) in pyl.iter().enumerate() {
+            if p == 0.0 {
+                bail!("Subject {} has zero weighted probability", i);
+            }
+        }
+
+        // Compute D-value for each support point
+        let mut d_values = Vec::with_capacity(nspp);
+        let n = nsub as f64;
+
+        for j in 0..nspp {
+            let mut sum = -n;
+            for i in 0..nsub {
+                sum += psi_mat.get(i, j) / pyl[i];
+            }
+            d_values.push(sum);
+        }
+
+        Ok(d_values)
     }
 }
 
