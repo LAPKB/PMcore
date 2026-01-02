@@ -20,10 +20,14 @@ use std::path::{Path, PathBuf};
 
 pub mod cycles;
 pub mod parametric;
+pub mod parametric_predictions;
+pub mod parametric_statistics;
 pub mod posterior;
 pub mod predictions;
 
 pub use parametric::{ParametricIterationLog, ParametricResult};
+pub use parametric_predictions::ParametricPredictions;
+pub use parametric_statistics::{ParametricStatistics, ResidualErrorEstimates};
 
 use posterior::posterior;
 

@@ -326,6 +326,45 @@ impl Population {
             }
         }
     }
+
+    /// Update the mean vector
+    pub fn update_mu(&mut self, mu: Col<f64>) -> Result<()> {
+        if mu.nrows() != self.npar() {
+            bail!(
+                "Mean vector length ({}) doesn't match population size ({})",
+                mu.nrows(),
+                self.npar()
+            );
+        }
+        self.mu = mu;
+        Ok(())
+    }
+
+    /// Update the covariance matrix
+    pub fn update_omega(&mut self, omega: Mat<f64>) -> Result<()> {
+        let n = self.npar();
+        if omega.nrows() != n || omega.ncols() != n {
+            bail!(
+                "Omega dimensions ({}x{}) don't match population size ({})",
+                omega.nrows(),
+                omega.ncols(),
+                n
+            );
+        }
+        self.omega = omega;
+        self.apply_structure_constraint();
+        Ok(())
+    }
+
+    /// Get mean as Vec for logging
+    pub fn mu_as_vec(&self) -> Vec<f64> {
+        (0..self.npar()).map(|i| self.mu[i]).collect()
+    }
+
+    /// Get variances (diagonal of Ω) as Vec for logging
+    pub fn variances_as_vec(&self) -> Vec<f64> {
+        (0..self.npar()).map(|i| self.omega[(i, i)]).collect()
+    }
 }
 
 impl Default for Population {

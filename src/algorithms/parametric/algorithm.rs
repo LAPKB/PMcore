@@ -218,17 +218,19 @@ pub trait ParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send {
 /// Dispatch function for parametric algorithms
 ///
 /// Creates the appropriate algorithm instance based on settings.
-pub fn dispatch_parametric_algorithm<E: Equation + Send + 'static>(
+pub fn dispatch_parametric_algorithm<E: Equation + Clone + Send + 'static>(
     settings: Settings,
-    _equation: E,
-    _data: Data,
+    equation: E,
+    data: Data,
 ) -> Result<Box<dyn ParametricAlgorithm<E>>> {
     use crate::algorithms::Algorithm;
+    use super::saem::FSAEM;
 
     match settings.config().algorithm {
         Algorithm::SAEM => {
-            // TODO: Implement SAEM
-            anyhow::bail!("SAEM algorithm not yet implemented")
+            // Create f-SAEM using the trait's new method
+            let saem = FSAEM::new(settings, equation, data)?;
+            Ok(saem as Box<dyn ParametricAlgorithm<E>>)
         }
         Algorithm::FOCE | Algorithm::FOCEI => {
             // TODO: Implement FOCE

@@ -69,14 +69,20 @@ pub mod prelude {
 
     // Parametric specific
     pub use crate::structs::parametric::{
-        Individual, IndividualEstimates, Population, SufficientStats,
+        CovarianceStructure, CovariateModel, Individual, IndividualEstimates, ParameterTransform,
+        Population, SufficientStats,
     };
 
     // Output types
     pub use crate::routines::output::{NPResult, ParametricIterationLog, ParametricResult};
 
     // Sampling utilities (for custom parametric algorithms)
-    pub use crate::routines::sampling::{MetropolisHastings, GaussianProposal, ProposalDistribution};
+    pub use crate::routines::sampling::{
+        MetropolisHastings, GaussianProposal, ParameterTransforms, ProposalDistribution,
+    };
+
+    // Settings
+    pub use crate::routines::settings::SaemSettings;
 
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;

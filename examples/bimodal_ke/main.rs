@@ -32,7 +32,7 @@ fn main() -> Result<()> {
         .unwrap();
 
     let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NEXUS)
+        .set_algorithm(Algorithm::NPPSO)
         .set_parameters(params)
         .set_error_models(ems)
         .build();

@@ -44,16 +44,31 @@ use serde::{Deserialize, Serialize};
 ///
 /// Used primarily in the SAEM algorithm to accumulate statistics
 /// from individual parameter samples for the M-step update.
+///
+/// Based on saemix R reference, tracks:
+/// - statphi1 (s1): sum of parameters over chains
+/// - statphi2 (s2): sum of outer products over chains
+/// - statphi3 (s3): sum of squared parameters (for conditional variance)
+/// - statrese: residual error sufficient statistic
 #[derive(Debug, Clone)]
 pub struct SufficientStats {
-    /// S₁: Sum of (transformed) individual parameters
+    /// S₁: Sum of (transformed) individual parameters (statphi1 in R)
     /// Dimension: n_params × 1
     s1: Col<f64>,
-    /// S₂: Sum of outer products of (transformed) individual parameters
+    /// S₂: Sum of outer products of (transformed) individual parameters (statphi2 in R)
     /// Dimension: n_params × n_params
     s2: Mat<f64>,
-    /// Number of observations accumulated
+    /// S₃: Sum of squared parameters per component (statphi3 in R)
+    /// Used for conditional variance: var = s3 - s1²
+    /// Dimension: n_params × 1
+    s3: Col<f64>,
+    /// Residual error sufficient statistic (statrese in R)
+    /// Sum of squared residuals for residual error update
+    stat_rese: f64,
+    /// Number of observations (subjects) accumulated
     count: usize,
+    /// Number of observations (data points) for residual error
+    n_obs: usize,
 }
 
 impl SufficientStats {
@@ -62,7 +77,10 @@ impl SufficientStats {
         Self {
             s1: Col::zeros(n_params),
             s2: Mat::zeros(n_params, n_params),
+            s3: Col::zeros(n_params),
+            stat_rese: 0.0,
             count: 0,
+            n_obs: 0,
         }
     }
 
@@ -71,7 +89,10 @@ impl SufficientStats {
         let n = self.s1.nrows();
         self.s1 = Col::zeros(n);
         self.s2 = Mat::zeros(n, n);
+        self.s3 = Col::zeros(n);
+        self.stat_rese = 0.0;
         self.count = 0;
+        self.n_obs = 0;
     }
 
     /// Get the dimension (number of parameters)
@@ -99,9 +120,49 @@ impl SufficientStats {
         &mut self.s2
     }
 
-    /// Get the count of accumulated samples
+    /// Get the count of accumulated samples (subjects)
     pub fn count(&self) -> usize {
         self.count
+    }
+
+    /// Get S₃ (sum of squared parameters)
+    pub fn s3(&self) -> &Col<f64> {
+        &self.s3
+    }
+
+    /// Get a mutable reference to S₃
+    pub fn s3_mut(&mut self) -> &mut Col<f64> {
+        &mut self.s3
+    }
+
+    /// Get residual error statistic
+    pub fn stat_rese(&self) -> f64 {
+        self.stat_rese
+    }
+
+    /// Set residual error statistic
+    pub fn set_stat_rese(&mut self, value: f64) {
+        self.stat_rese = value;
+    }
+
+    /// Add to residual error statistic
+    pub fn add_stat_rese(&mut self, value: f64) {
+        self.stat_rese += value;
+    }
+
+    /// Get number of observations (data points)
+    pub fn n_obs(&self) -> usize {
+        self.n_obs
+    }
+
+    /// Set number of observations
+    pub fn set_n_obs(&mut self, n: usize) {
+        self.n_obs = n;
+    }
+
+    /// Add to observation count
+    pub fn add_n_obs(&mut self, n: usize) {
+        self.n_obs += n;
     }
 
     /// Add an individual parameter vector to the statistics
@@ -109,6 +170,7 @@ impl SufficientStats {
     /// Updates:
     /// - S₁ += h(ψ)
     /// - S₂ += h(ψ)h(ψ)ᵀ
+    /// - S₃ += h(ψ)² (element-wise)
     /// - count += 1
     ///
     /// # Arguments
@@ -137,6 +199,11 @@ impl SufficientStats {
             }
         }
 
+        // Update S₃: sum of squared parameters (for conditional variance)
+        for i in 0..n {
+            self.s3[i] += psi[i] * psi[i];
+        }
+
         self.count += 1;
 
         Ok(())
@@ -162,6 +229,7 @@ impl SufficientStats {
     /// ```
     ///
     /// This is the core of the SAEM algorithm's stochastic approximation.
+    /// Matches the R saemix reference implementation.
     ///
     /// # Arguments
     ///
@@ -176,23 +244,37 @@ impl SufficientStats {
             );
         }
 
+        // If step_size is 0, skip update (pure burn-in phase in R)
+        if step_size == 0.0 {
+            return Ok(());
+        }
+
         let n = self.npar();
 
-        // Update S₁
+        // Update S₁: statphi1 in R
         for i in 0..n {
             self.s1[i] += step_size * (new_stats.s1[i] - self.s1[i]);
         }
 
-        // Update S₂
+        // Update S₂: statphi2 in R
         for i in 0..n {
             for j in 0..n {
                 self.s2[(i, j)] += step_size * (new_stats.s2[(i, j)] - self.s2[(i, j)]);
             }
         }
 
-        // Count is a bit tricky - for SAEM we typically keep it as the effective sample size
-        // Here we use a weighted update
+        // Update S₃: statphi3 in R
+        for i in 0..n {
+            self.s3[i] += step_size * (new_stats.s3[i] - self.s3[i]);
+        }
+
+        // Update stat_rese: residual error statistic
+        self.stat_rese += step_size * (new_stats.stat_rese - self.stat_rese);
+
+        // Update counts with weighted average
         self.count = ((1.0 - step_size) * self.count as f64 + step_size * new_stats.count as f64)
+            .round() as usize;
+        self.n_obs = ((1.0 - step_size) * self.n_obs as f64 + step_size * new_stats.n_obs as f64)
             .round() as usize;
 
         Ok(())
@@ -219,9 +301,7 @@ impl SufficientStats {
         let mu = Col::from_fn(n, |i| self.s1[i] / count_f64);
 
         // Compute Ω = S₂ / n - μμᵀ
-        let omega = Mat::from_fn(n, n, |i, j| {
-            self.s2[(i, j)] / count_f64 - mu[i] * mu[j]
-        });
+        let omega = Mat::from_fn(n, n, |i, j| self.s2[(i, j)] / count_f64 - mu[i] * mu[j]);
 
         Ok((mu, omega))
     }
@@ -250,7 +330,13 @@ impl SufficientStats {
             }
         }
 
+        for i in 0..n {
+            self.s3[i] += other.s3[i];
+        }
+
+        self.stat_rese += other.stat_rese;
         self.count += other.count;
+        self.n_obs += other.n_obs;
 
         Ok(())
     }
@@ -269,7 +355,7 @@ impl Serialize for SufficientStats {
     {
         use serde::ser::SerializeStruct;
 
-        let mut state = serializer.serialize_struct("SufficientStats", 3)?;
+        let mut state = serializer.serialize_struct("SufficientStats", 6)?;
 
         // Serialize s1 as Vec<f64>
         let s1_vec: Vec<f64> = (0..self.s1.nrows()).map(|i| self.s1[i]).collect();
@@ -281,7 +367,13 @@ impl Serialize for SufficientStats {
             .collect();
         state.serialize_field("s2", &s2_vec)?;
 
+        // Serialize s3 as Vec<f64>
+        let s3_vec: Vec<f64> = (0..self.s3.nrows()).map(|i| self.s3[i]).collect();
+        state.serialize_field("s3", &s3_vec)?;
+
+        state.serialize_field("stat_rese", &self.stat_rese)?;
         state.serialize_field("count", &self.count)?;
+        state.serialize_field("n_obs", &self.n_obs)?;
 
         state.end()
     }
@@ -296,7 +388,13 @@ impl<'de> Deserialize<'de> for SufficientStats {
         struct SufficientStatsData {
             s1: Vec<f64>,
             s2: Vec<Vec<f64>>,
+            #[serde(default)]
+            s3: Option<Vec<f64>>,
+            #[serde(default)]
+            stat_rese: f64,
             count: usize,
+            #[serde(default)]
+            n_obs: usize,
         }
 
         let data = SufficientStatsData::deserialize(deserializer)?;
@@ -305,7 +403,9 @@ impl<'de> Deserialize<'de> for SufficientStats {
         let s1 = Col::from_fn(n, |i| data.s1[i]);
 
         if data.s2.len() != n {
-            return Err(serde::de::Error::custom("S2 row count doesn't match S1 length"));
+            return Err(serde::de::Error::custom(
+                "S2 row count doesn't match S1 length",
+            ));
         }
 
         let s2 = Mat::from_fn(n, n, |i, j| {
@@ -316,7 +416,20 @@ impl<'de> Deserialize<'de> for SufficientStats {
             }
         });
 
-        Ok(SufficientStats { s1, s2, count: data.count })
+        // Handle optional s3 (for backwards compatibility)
+        let s3 = match data.s3 {
+            Some(s3_data) if s3_data.len() == n => Col::from_fn(n, |i| s3_data[i]),
+            _ => Col::zeros(n),
+        };
+
+        Ok(SufficientStats {
+            s1,
+            s2,
+            s3,
+            stat_rese: data.stat_rese,
+            count: data.count,
+            n_obs: data.n_obs,
+        })
     }
 }
 
@@ -334,6 +447,16 @@ pub enum StepSizeSchedule {
 }
 
 impl StepSizeSchedule {
+    /// Create a SAEM-style step size schedule
+    ///
+    /// Uses constant step size (γ=1) during burn-in, then decreasing
+    /// step sizes during stochastic approximation phase.
+    pub fn new_saem(n_burn_in: usize, _n_stochastic: usize) -> Self {
+        StepSizeSchedule::PolyakRuppert {
+            start_averaging: n_burn_in,
+        }
+    }
+
     /// Compute the step size for iteration k (1-indexed)
     pub fn step_size(&self, k: usize) -> f64 {
         match self {
@@ -353,7 +476,9 @@ impl StepSizeSchedule {
 
 impl Default for StepSizeSchedule {
     fn default() -> Self {
-        StepSizeSchedule::PolyakRuppert { start_averaging: 100 }
+        StepSizeSchedule::PolyakRuppert {
+            start_averaging: 100,
+        }
     }
 }
 
@@ -387,7 +512,7 @@ mod tests {
             stats.accumulate(&sample).unwrap();
         }
 
-        let (mu, omega) = stats.compute_m_step().unwrap();
+        let (mu, _omega) = stats.compute_m_step().unwrap();
 
         // Mean should be [3, 4]
         assert!((mu[0] - 3.0).abs() < 1e-10);

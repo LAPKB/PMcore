@@ -7,17 +7,147 @@
 //!
 //! - [`ParametricResult`]: Main result container for parametric algorithms
 //! - [`ParametricCycleLog`]: Iteration history and convergence tracking
+//! - [`LikelihoodEstimates`]: Log-likelihood computed by different methods
+//!
+//! # Output Files
+//!
+//! When `write_outputs()` is called, the following files are created:
+//!
+//! | File | Description |
+//! |------|-------------|
+//! | `population.csv` | Population parameters (μ, Ω diag, SD, CV%) |
+//! | `correlation.csv` | Correlation matrix from Ω |
+//! | `individual.csv` | Individual estimates (η, ψ) per subject |
+//! | `iterations.csv` | Parameter history per iteration |
+//! | `pred.csv` | Predictions (PPRED, IPRED) and residuals |
+//! | `statistics.csv` | Summary stats (LL, AIC, BIC, shrinkage) |
+//! | `sigma.csv` | Residual error estimates |
+//! | `covs.csv` | Subject covariates |
+//! | `settings.json` | Run configuration |
 
 use anyhow::{Context, Result};
 use csv::WriterBuilder;
-use pharmsol::{Data, Equation};
-use serde::Serialize;
+use faer::{Col, Mat};
+use pharmsol::{Data, Equation, Event};
+use serde::{Deserialize, Serialize};
 
 use crate::algorithms::{Status, StopReason};
 use crate::routines::settings::Settings;
 use crate::structs::parametric::{IndividualEstimates, Population};
 
+use super::parametric_predictions::ParametricPredictions;
+use super::parametric_statistics::{ParametricStatistics, ResidualErrorEstimates};
 use super::OutputFile;
+
+/// Likelihood estimates computed by different methods
+///
+/// SAEM provides an approximate likelihood during optimization, but more accurate
+/// estimates can be computed post-hoc using various methods.
+///
+/// # R saemix Correspondence
+///
+/// | Method | R saemix function | Description |
+/// |--------|-------------------|-------------|
+/// | Linearization | `compute.LLlin()` | First-order Taylor approximation |
+/// | Importance Sampling | `compute.LLis()` | Monte Carlo integration |
+/// | Gaussian Quadrature | `compute.LLgq()` | Numerical integration |
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct LikelihoodEstimates {
+    /// Log-likelihood by linearization (first-order approximation)
+    /// Fast but may be biased for highly nonlinear models
+    pub ll_linearization: Option<f64>,
+
+    /// Log-likelihood by importance sampling
+    /// More accurate than linearization, requires MCMC samples
+    pub ll_importance_sampling: Option<f64>,
+
+    /// Log-likelihood by Gaussian quadrature
+    /// Most accurate for low-dimensional problems
+    pub ll_gaussian_quadrature: Option<f64>,
+
+    /// Number of samples used for importance sampling
+    pub is_n_samples: Option<usize>,
+
+    /// Number of quadrature points used
+    pub gq_n_points: Option<usize>,
+}
+
+impl LikelihoodEstimates {
+    /// Create new empty likelihood estimates
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Get the best available likelihood estimate
+    ///
+    /// Prefers Gaussian quadrature > Importance sampling > Linearization
+    pub fn best_estimate(&self) -> Option<f64> {
+        self.ll_gaussian_quadrature
+            .or(self.ll_importance_sampling)
+            .or(self.ll_linearization)
+    }
+
+    /// Get -2LL (objective function) from best available method
+    pub fn best_objf(&self) -> Option<f64> {
+        self.best_estimate().map(|ll| -2.0 * ll)
+    }
+}
+
+/// Standard errors and uncertainty quantification
+///
+/// Contains the Fisher Information Matrix (FIM) and derived standard errors
+/// for population parameters.
+#[derive(Debug, Clone, Default)]
+pub struct UncertaintyEstimates {
+    /// Fisher Information Matrix
+    /// Dimensions: (n_fixed + n_omega_elements) × (n_fixed + n_omega_elements)
+    pub fim: Option<Mat<f64>>,
+
+    /// Inverse of FIM (variance-covariance of estimates)
+    pub fim_inverse: Option<Mat<f64>>,
+
+    /// Standard errors of μ (population mean parameters)
+    pub se_mu: Option<Col<f64>>,
+
+    /// Standard errors of Ω elements (variance components)
+    pub se_omega: Option<Mat<f64>>,
+
+    /// Relative standard errors of μ (SE/estimate × 100%)
+    pub rse_mu: Option<Col<f64>>,
+
+    /// Method used to compute FIM
+    pub fim_method: Option<FimMethod>,
+}
+
+/// Method used to compute Fisher Information Matrix
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum FimMethod {
+    /// Observed FIM from Hessian of log-likelihood
+    Observed,
+    /// Expected FIM (Louis' method for EM algorithms)
+    Expected,
+    /// Stochastic approximation of FIM
+    StochasticApproximation,
+    /// Linearization-based FIM
+    Linearization,
+}
+
+impl UncertaintyEstimates {
+    /// Create new empty uncertainty estimates
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Check if FIM has been computed
+    pub fn has_fim(&self) -> bool {
+        self.fim.is_some()
+    }
+
+    /// Check if standard errors are available
+    pub fn has_standard_errors(&self) -> bool {
+        self.se_mu.is_some()
+    }
+}
 
 /// Result from a parametric algorithm run
 ///
@@ -26,7 +156,6 @@ use super::OutputFile;
 #[derive(Debug)]
 pub struct ParametricResult<E: Equation> {
     /// The equation/model used
-    #[allow(dead_code)]
     equation: E,
     /// The input data
     data: Data,
@@ -34,7 +163,7 @@ pub struct ParametricResult<E: Equation> {
     population: Population,
     /// Individual parameter estimates (EBEs)
     individual_estimates: IndividualEstimates,
-    /// Final objective function value (-2LL)
+    /// Final objective function value (-2LL) from algorithm
     objf: f64,
     /// Number of iterations
     iterations: usize,
@@ -44,6 +173,14 @@ pub struct ParametricResult<E: Equation> {
     settings: Settings,
     /// Iteration history
     iteration_log: ParametricIterationLog,
+    /// Likelihood estimates by different methods (computed post-hoc)
+    likelihood_estimates: LikelihoodEstimates,
+    /// Uncertainty quantification (FIM, standard errors)
+    uncertainty: UncertaintyEstimates,
+    /// Residual error estimates (σ)
+    sigma: ResidualErrorEstimates,
+    /// Cached predictions (computed on demand)
+    predictions: Option<ParametricPredictions>,
 }
 
 impl<E: Equation> ParametricResult<E> {
@@ -70,6 +207,41 @@ impl<E: Equation> ParametricResult<E> {
             status,
             settings,
             iteration_log,
+            likelihood_estimates: LikelihoodEstimates::new(),
+            uncertainty: UncertaintyEstimates::new(),
+            sigma: ResidualErrorEstimates::default(),
+            predictions: None,
+        }
+    }
+
+    /// Create a new parametric result with sigma estimates
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_sigma(
+        equation: E,
+        data: Data,
+        population: Population,
+        individual_estimates: IndividualEstimates,
+        objf: f64,
+        iterations: usize,
+        status: Status,
+        settings: Settings,
+        iteration_log: ParametricIterationLog,
+        sigma: ResidualErrorEstimates,
+    ) -> Self {
+        Self {
+            equation,
+            data,
+            population,
+            individual_estimates,
+            objf,
+            iterations,
+            status,
+            settings,
+            iteration_log,
+            likelihood_estimates: LikelihoodEstimates::new(),
+            uncertainty: UncertaintyEstimates::new(),
+            sigma,
+            predictions: None,
         }
     }
 
@@ -95,9 +267,16 @@ impl<E: Equation> ParametricResult<E> {
         &self.individual_estimates
     }
 
-    /// Get the final objective function value
+    /// Get the final objective function value from the algorithm
     pub fn objf(&self) -> f64 {
         self.objf
+    }
+
+    /// Get the best available objective function (-2LL)
+    ///
+    /// Prefers post-hoc likelihood estimates over the algorithm's value
+    pub fn best_objf(&self) -> f64 {
+        self.likelihood_estimates.best_objf().unwrap_or(self.objf)
     }
 
     /// Get the number of iterations
@@ -130,6 +309,58 @@ impl<E: Equation> ParametricResult<E> {
         &self.iteration_log
     }
 
+    /// Get the likelihood estimates
+    pub fn likelihood_estimates(&self) -> &LikelihoodEstimates {
+        &self.likelihood_estimates
+    }
+
+    /// Get the uncertainty estimates
+    pub fn uncertainty(&self) -> &UncertaintyEstimates {
+        &self.uncertainty
+    }
+
+    /// Get standard errors of μ if available
+    pub fn se_mu(&self) -> Option<&Col<f64>> {
+        self.uncertainty.se_mu.as_ref()
+    }
+
+    /// Get the Fisher Information Matrix if available
+    pub fn fim(&self) -> Option<&Mat<f64>> {
+        self.uncertainty.fim.as_ref()
+    }
+
+    /// Get the equation/model
+    pub fn equation(&self) -> &E {
+        &self.equation
+    }
+
+    /// Get the residual error estimates
+    pub fn sigma(&self) -> &ResidualErrorEstimates {
+        &self.sigma
+    }
+
+    /// Get the cached predictions if available
+    pub fn predictions(&self) -> Option<&ParametricPredictions> {
+        self.predictions.as_ref()
+    }
+
+    // ========== Setters for post-hoc computation ==========
+
+    /// Set likelihood estimates (computed post-hoc)
+    pub fn set_likelihood_estimates(&mut self, estimates: LikelihoodEstimates) {
+        self.likelihood_estimates = estimates;
+    }
+
+    /// Set uncertainty estimates (FIM, standard errors)
+    pub fn set_uncertainty(&mut self, uncertainty: UncertaintyEstimates) {
+        self.uncertainty = uncertainty;
+    }
+
+    /// Set residual error estimates
+    pub fn set_sigma(&mut self, sigma: ResidualErrorEstimates) {
+        self.sigma = sigma;
+    }
+
     // ========== Derived Quantities ==========
 
     /// Get the standard errors of population parameters (from Ω diagonal)
@@ -157,43 +388,212 @@ impl<E: Equation> ParametricResult<E> {
     /// Get AIC (Akaike Information Criterion)
     ///
     /// AIC = -2LL + 2k where k is the number of estimated parameters
+    /// Uses the best available likelihood estimate
     pub fn aic(&self) -> f64 {
         let n_params = self.population.npar();
         // Population mean parameters + covariance parameters
         let n_fixed = n_params;
         let n_random = n_params * (n_params + 1) / 2; // Lower triangle of Ω
         let k = n_fixed + n_random;
-        self.objf + 2.0 * k as f64
+        self.best_objf() + 2.0 * k as f64
     }
 
     /// Get BIC (Bayesian Information Criterion)
     ///
     /// BIC = -2LL + k * ln(n) where k is number of parameters, n is number of subjects
+    /// Uses the best available likelihood estimate
     pub fn bic(&self) -> f64 {
         let n_subjects = self.data.subjects().len();
         let n_params = self.population.npar();
         let n_fixed = n_params;
         let n_random = n_params * (n_params + 1) / 2;
         let k = n_fixed + n_random;
-        self.objf + (k as f64) * (n_subjects as f64).ln()
+        self.best_objf() + (k as f64) * (n_subjects as f64).ln()
     }
 
     // ========== Output Methods ==========
 
     /// Write all outputs to files
-    pub fn write_outputs(&self) -> Result<()> {
+    ///
+    /// Creates the following output files:
+    /// - `population.csv` - Population parameters (μ, Ω)
+    /// - `correlation.csv` - Correlation matrix from Ω
+    /// - `individual.csv` - Individual parameter estimates
+    /// - `iterations.csv` - Parameter history per iteration
+    /// - `pred.csv` - Predictions and residuals (if predictions calculated)
+    /// - `statistics.csv` - Summary statistics (LL, AIC, BIC, shrinkage)
+    /// - `sigma.csv` - Residual error estimates
+    /// - `covs.csv` - Subject covariates
+    /// - `settings.json` - Run configuration
+    pub fn write_outputs(&mut self) -> Result<()> {
         if !self.settings.output().write {
             return Ok(());
         }
 
         tracing::debug!("Writing outputs to {:?}", self.settings.output().path);
 
-        self.write_population().context("Failed to write population")?;
+        // Core output files (always written)
+        self.write_population()
+            .context("Failed to write population")?;
         self.write_individual_estimates()
             .context("Failed to write individual estimates")?;
         self.write_iteration_log()
             .context("Failed to write iteration log")?;
+
+        // Predictions (calculate if not already done)
+        let idelta = self.settings.predictions().idelta;
+        let tad = self.settings.predictions().tad;
+        self.calculate_predictions(idelta, tad)
+            .context("Failed to calculate predictions")?;
+        if let Some(ref preds) = self.predictions {
+            preds.write(&self.settings)
+                .context("Failed to write predictions")?;
+        }
+
+        // Statistics summary
+        self.write_statistics()
+            .context("Failed to write statistics")?;
+
+        // Residual error estimates
+        self.sigma.write(&self.settings)
+            .context("Failed to write sigma")?;
+
+        // Covariates
+        self.write_covariates()
+            .context("Failed to write covariates")?;
+
+        // Settings
         self.settings.write()?;
+
+        Ok(())
+    }
+
+    /// Calculate and cache predictions
+    ///
+    /// # Arguments
+    /// * `idelta` - Time increment for prediction grid expansion
+    /// * `tad` - Time after dose for grid expansion
+    pub fn calculate_predictions(&mut self, idelta: f64, tad: f64) -> Result<()> {
+        // Get sigma for IWRES calculation (use additive if available)
+        let sigma_val = self.sigma.additive.or(self.sigma.proportional);
+
+        let predictions = ParametricPredictions::calculate(
+            &self.equation,
+            &self.data,
+            &self.population,
+            &self.individual_estimates,
+            sigma_val,
+            idelta,
+            tad,
+        )?;
+
+        self.predictions = Some(predictions);
+        Ok(())
+    }
+
+    /// Write statistics summary file
+    pub fn write_statistics(&self) -> Result<()> {
+        // Count observations
+        let n_obs: usize = self
+            .data
+            .subjects()
+            .iter()
+            .flat_map(|s| s.occasions())
+            .flat_map(|o| o.events())
+            .filter(|e| matches!(e, Event::Observation(_)))
+            .count();
+
+        let stats = ParametricStatistics::from_result(
+            &self.population,
+            &self.individual_estimates,
+            self.objf,
+            self.iterations,
+            self.converged(),
+            self.data.len(),
+            n_obs,
+            self.likelihood_estimates.ll_importance_sampling,
+            self.likelihood_estimates.ll_linearization,
+            self.likelihood_estimates.ll_gaussian_quadrature,
+            self.sigma.as_vec(),
+        );
+
+        stats.write(&self.settings)?;
+        stats.write_shrinkage(&self.settings, &self.population.param_names())?;
+
+        Ok(())
+    }
+
+    /// Write covariates to a CSV file
+    pub fn write_covariates(&self) -> Result<()> {
+        tracing::debug!("Writing covariates...");
+
+        let outputfile = OutputFile::new(&self.settings.output().path, "covs.csv")?;
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(&outputfile.file);
+
+        // Collect all unique covariate names
+        let mut covariate_names = std::collections::HashSet::new();
+        for subject in self.data.subjects() {
+            for occasion in subject.occasions() {
+                let cov = occasion.covariates();
+                let covmap = cov.covariates();
+                for cov_name in covmap.keys() {
+                    covariate_names.insert(cov_name.clone());
+                }
+            }
+        }
+        let mut covariate_names: Vec<String> = covariate_names.into_iter().collect();
+        covariate_names.sort();
+
+        // If no covariates, skip writing
+        if covariate_names.is_empty() {
+            tracing::debug!("No covariates found, skipping covs.csv");
+            return Ok(());
+        }
+
+        // Write header
+        let mut headers = vec!["id", "time", "block"];
+        headers.extend(covariate_names.iter().map(|s| s.as_str()));
+        writer.write_record(&headers)?;
+
+        // Write data rows
+        for subject in self.data.subjects() {
+            for occasion in subject.occasions() {
+                let cov = occasion.covariates();
+                let covmap = cov.covariates();
+
+                for event in occasion.iter() {
+                    let time = match event {
+                        Event::Bolus(bolus) => bolus.time(),
+                        Event::Infusion(infusion) => infusion.time(),
+                        Event::Observation(observation) => observation.time(),
+                    };
+
+                    let mut row: Vec<String> = Vec::new();
+                    row.push(subject.id().clone());
+                    row.push(time.to_string());
+                    row.push(occasion.index().to_string());
+
+                    for cov_name in &covariate_names {
+                        if let Some(cov) = covmap.get(cov_name) {
+                            if let Ok(value) = cov.interpolate(time) {
+                                row.push(value.to_string());
+                            } else {
+                                row.push(String::new());
+                            }
+                        } else {
+                            row.push(String::new());
+                        }
+                    }
+
+                    writer.write_record(&row)?;
+                }
+            }
+        }
+
+        writer.flush()?;
+        tracing::debug!("Covariates written to {:?}", outputfile.relative_path());
 
         Ok(())
     }
