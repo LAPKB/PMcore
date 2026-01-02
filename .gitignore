@@ -9,6 +9,13 @@ time.csv
 n_psi.csv
 psi.csv
 r.csv
+correlation.csv
+individual.csv
+iterations.csv
+population.csv
+shrinkage.csv
+sigma.csv
+statistics.csv
 posterior.csv
 simulation_output.csv
 /examples/rosuva/*
