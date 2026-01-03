@@ -77,9 +77,9 @@ pub mod prelude {
     pub use crate::routines::output::{NPResult, ParametricIterationLog, ParametricResult};
 
     // Sampling utilities (for custom parametric algorithms)
-    pub use crate::routines::sampling::{
-        MetropolisHastings, GaussianProposal, ParameterTransforms, ProposalDistribution,
-    };
+    // pub use crate::routines::sampling::{
+    //     MetropolisHastings, GaussianProposal, ParameterTransforms, ProposalDistribution,
+    // };
 
     // Settings
     pub use crate::routines::settings::SaemSettings;

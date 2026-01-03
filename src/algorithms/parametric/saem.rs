@@ -52,7 +52,8 @@
 //! - Lavielle, M. (2015). "Mixed Effects Models for the Population Approach."
 //!   Chapman & Hall/CRC.
 
-use anyhow::{bail, Result};
+use anyhow::Result;
+use faer::linalg::solvers::DenseSolveCore;
 use faer::{Col, Mat};
 use ndarray::Array2;
 use pharmsol::{Data, Equation, Event, Predictions, ResidualErrorModels, Subject};
@@ -413,12 +414,13 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         let n_params = self.population.npar();
         let n_subjects = self.data.len();
 
-        // Get Cholesky of Ω for sampling from prior
+        // Get Cholesky of Ω and Ω⁻¹ using faer's built-in methods
         let omega = self.population.omega();
-        let chol_omega = cholesky_lower(omega)?;
-
-        // Get Ω⁻¹ for computing prior density
-        let omega_inv = invert_symmetric(omega)?;
+        let llt = omega
+            .llt(faer::Side::Lower)
+            .map_err(|_| anyhow::anyhow!("Omega not positive definite"))?;
+        let chol_omega = llt.L().to_owned();
+        let omega_inv = llt.inverse();
 
         // Population mean in φ space
         let mean_phi = self.population.mu();
@@ -687,7 +689,6 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
     ///
     /// This applies the transform h(ψ) = φ for each parameter.
     /// MCMC sampling happens in the unconstrained space.
-    #[allow(dead_code)]
     fn psi_to_phi(&self, psi: &Col<f64>) -> Col<f64> {
         Col::from_fn(psi.nrows(), |i| self.transforms[i].psi_to_phi(psi[i]))
     }
@@ -699,7 +700,6 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
     ///
     /// NOTE: No Jacobian correction is applied. For MCMC in φ space with prior
     /// p(φ|Ω) = N(μ_φ, Ω), we only need the likelihood p(y|ψ(φ)).
-    #[allow(dead_code)]
     fn compute_individual_log_likelihood(&self, subject: &Subject, phi: &Col<f64>) -> f64 {
         // Transform from unconstrained (φ) to constrained (ψ) space
         let psi = self.phi_to_psi(phi);
@@ -928,8 +928,8 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
                 // Add prior contribution
                 let eta = individual.eta();
                 let n = eta.nrows();
-                let omega_inv = match invert_symmetric(self.population.omega()) {
-                    Ok(inv) => inv,
+                let omega_inv = match self.population.omega().llt(faer::Side::Lower) {
+                    Ok(llt) => llt.inverse(),
                     Err(_) => continue,
                 };
 
@@ -970,8 +970,8 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         // Get population parameters
         let mu_phi = self.population.mu();
         let omega = self.population.omega();
-        let omega_inv = match invert_symmetric(omega) {
-            Ok(inv) => inv,
+        let omega_inv = match omega.llt(faer::Side::Lower) {
+            Ok(llt) => llt.inverse(),
             Err(_) => return f64::NEG_INFINITY,
         };
 
@@ -1530,10 +1530,10 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         // Generate standard normal vector
         let z: Vec<f64> = (0..n).map(|_| normal.sample(&mut self.rng)).collect();
 
-        // Compute Cholesky of Ω
+        // Compute Cholesky of Ω using faer's built-in method
         let omega = self.population.omega();
-        let chol = match cholesky_lower(omega) {
-            Ok(l) => l,
+        let chol = match omega.llt(faer::Side::Lower) {
+            Ok(llt) => llt.L().to_owned(),
             Err(_) => {
                 // Fallback to diagonal
                 let mut l = Mat::zeros(n, n);
@@ -1556,68 +1556,6 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
 }
 
 // ============== Helper Functions ==============
-
-/// Compute Cholesky decomposition (lower triangular)
-fn cholesky_lower(mat: &Mat<f64>) -> Result<Mat<f64>> {
-    let n = mat.nrows();
-    let mut l = Mat::zeros(n, n);
-
-    for i in 0..n {
-        for j in 0..=i {
-            let mut sum = mat[(i, j)];
-            for k in 0..j {
-                sum -= l[(i, k)] * l[(j, k)];
-            }
-            if i == j {
-                if sum <= 0.0 {
-                    bail!("Matrix not positive definite at index {}", i);
-                }
-                l[(i, j)] = sum.sqrt();
-            } else {
-                if l[(j, j)].abs() < 1e-10 {
-                    bail!("Near-zero diagonal in Cholesky at index {}", j);
-                }
-                l[(i, j)] = sum / l[(j, j)];
-            }
-        }
-    }
-
-    Ok(l)
-}
-
-/// Invert a symmetric positive definite matrix
-fn invert_symmetric(mat: &Mat<f64>) -> Result<Mat<f64>> {
-    let n = mat.nrows();
-    let l = cholesky_lower(mat)?;
-
-    // Invert L
-    let mut l_inv = Mat::zeros(n, n);
-    for i in 0..n {
-        l_inv[(i, i)] = 1.0 / l[(i, i)];
-        for j in (i + 1)..n {
-            let mut sum = 0.0;
-            for k in i..j {
-                sum -= l[(j, k)] * l_inv[(k, i)];
-            }
-            l_inv[(j, i)] = sum / l[(j, j)];
-        }
-    }
-
-    // A⁻¹ = L⁻ᵀ L⁻¹
-    let mut inv = Mat::zeros(n, n);
-    for i in 0..n {
-        for j in 0..=i {
-            let mut sum = 0.0;
-            for k in i.max(j)..n {
-                sum += l_inv[(k, i)] * l_inv[(k, j)];
-            }
-            inv[(i, j)] = sum;
-            inv[(j, i)] = sum;
-        }
-    }
-
-    Ok(inv)
-}
 
 /// Estimate initial residual error variance from data
 fn estimate_initial_sigma_sq(settings: &Settings) -> f64 {
@@ -1646,15 +1584,16 @@ mod tests {
     use crate::structs::parametric::sufficient_stats::StepSizeSchedule;
 
     #[test]
-    fn test_cholesky() {
+    fn test_cholesky_faer() {
+        // Test that faer's built-in Cholesky works correctly
         let mat = Mat::from_fn(2, 2, |i, j| if i == j { 2.0 } else { 0.5 });
 
-        let l = cholesky_lower(&mat).unwrap();
+        let l = mat.llt(faer::Side::Lower).unwrap().L().to_owned();
 
         // Verify L * Lᵀ = mat
         for i in 0..2 {
             for j in 0..2 {
-                let mut sum = 0.0;
+                let mut sum: f64 = 0.0;
                 for k in 0..2 {
                     sum += l[(i, k)] * l[(j, k)];
                 }
@@ -1664,19 +1603,20 @@ mod tests {
     }
 
     #[test]
-    fn test_invert_symmetric() {
+    fn test_invert_faer() {
+        // Test that faer's built-in inversion works correctly
         let mat = Mat::from_fn(2, 2, |i, j| if i == j { 2.0 } else { 0.5 });
 
-        let inv = invert_symmetric(&mat).unwrap();
+        let inv = mat.llt(faer::Side::Lower).unwrap().inverse();
 
         // Verify mat * inv = I
         for i in 0..2 {
             for j in 0..2 {
-                let mut sum = 0.0;
+                let mut sum: f64 = 0.0;
                 for k in 0..2 {
                     sum += mat[(i, k)] * inv[(k, j)];
                 }
-                let expected = if i == j { 1.0 } else { 0.0 };
+                let expected: f64 = if i == j { 1.0 } else { 0.0 };
                 assert!((sum - expected).abs() < 1e-10);
             }
         }

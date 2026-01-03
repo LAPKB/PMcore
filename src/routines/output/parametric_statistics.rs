@@ -209,7 +209,10 @@ impl ParametricStatistics {
         writer.write_record(["bic", &format!("{:.4}", self.bic)])?;
 
         // Shrinkage
-        writer.write_record(["eta_shrinkage_overall", &format!("{:.4}", self.eta_shrinkage_overall)])?;
+        writer.write_record([
+            "eta_shrinkage_overall",
+            &format!("{:.4}", self.eta_shrinkage_overall),
+        ])?;
 
         // Residual error
         for (i, s) in self.sigma.iter().enumerate() {

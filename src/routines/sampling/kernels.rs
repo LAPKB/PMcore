@@ -23,6 +23,7 @@
 //!   models using saemix." Journal of Statistical Software.
 
 use anyhow::Result;
+use faer::linalg::solvers::DenseSolveCore;
 use faer::{Col, Mat};
 use rand::Rng;
 use rand_distr::{Distribution, Normal, Uniform};
@@ -205,21 +206,21 @@ impl MapEstimate {
             }
         }
 
-        // Compute Cholesky factorization using faer's llt method
-        let chol_cov = match cov.llt(faer::Side::Lower) {
-            Ok(llt) => llt.L().to_owned(),
+        // Compute Cholesky factorization and inverse using faer's llt method
+        let (chol_cov, inv_cov) = match cov.llt(faer::Side::Lower) {
+            Ok(llt) => (llt.L().to_owned(), llt.inverse()),
             Err(_) => {
-                // Fallback: use diagonal
+                // Fallback: use diagonal for both L and inverse
                 let mut l = Mat::zeros(n, n);
+                let mut inv = Mat::zeros(n, n);
                 for i in 0..n {
-                    l[(i, i)] = cov[(i, i)].sqrt().max(eps);
+                    let diag = cov[(i, i)].sqrt().max(eps);
+                    l[(i, i)] = diag;
+                    inv[(i, i)] = 1.0 / cov[(i, i)].max(eps);
                 }
-                l
+                (l, inv)
             }
         };
-
-        // Compute inverse covariance
-        let inv_cov = invert_symmetric(&cov)?;
 
         Ok(Self {
             eta,
@@ -288,11 +289,12 @@ impl FSaemKernels {
     pub fn new(omega: Mat<f64>, config: KernelConfig) -> Result<Self> {
         let n = omega.nrows();
 
-        // Compute Cholesky of Ω
-        let chol_omega = cholesky_lower(&omega)?;
-
-        // Compute Ω⁻¹
-        let omega_inv = invert_symmetric(&omega)?;
+        // Compute Cholesky of Ω and Ω⁻¹ using faer's built-in methods
+        let llt = omega
+            .llt(faer::Side::Lower)
+            .map_err(|_| anyhow::anyhow!("Omega not positive definite"))?;
+        let chol_omega = llt.L().to_owned();
+        let omega_inv = llt.inverse();
 
         // Initialize adaptive scales
         let adaptive_scales = AdaptiveScales::new(&omega, config.rw_step_size);
@@ -310,8 +312,11 @@ impl FSaemKernels {
 
     /// Update the population covariance matrix
     pub fn update_omega(&mut self, omega: Mat<f64>) -> Result<()> {
-        self.chol_omega = cholesky_lower(&omega)?;
-        self.omega_inv = invert_symmetric(&omega)?;
+        let llt = omega
+            .llt(faer::Side::Lower)
+            .map_err(|_| anyhow::anyhow!("Omega not positive definite"))?;
+        self.chol_omega = llt.L().to_owned();
+        self.omega_inv = llt.inverse();
         self.omega = omega;
         Ok(())
     }
@@ -519,69 +524,6 @@ impl FSaemKernels {
 
 // ============== Helper Functions ==============
 
-/// Compute Cholesky decomposition (lower triangular)
-fn cholesky_lower(mat: &Mat<f64>) -> Result<Mat<f64>> {
-    let n = mat.nrows();
-    let mut l = Mat::zeros(n, n);
-
-    for i in 0..n {
-        for j in 0..=i {
-            let mut sum = mat[(i, j)];
-            for k in 0..j {
-                sum -= l[(i, k)] * l[(j, k)];
-            }
-            if i == j {
-                if sum <= 0.0 {
-                    // Not positive definite, add regularization
-                    let reg = 1e-6 - sum + 1e-10;
-                    sum = reg;
-                }
-                l[(i, j)] = sum.sqrt();
-            } else {
-                l[(i, j)] = sum / l[(j, j)];
-            }
-        }
-    }
-
-    Ok(l)
-}
-
-/// Invert a symmetric positive definite matrix
-fn invert_symmetric(mat: &Mat<f64>) -> Result<Mat<f64>> {
-    let n = mat.nrows();
-
-    // Use Cholesky-based inversion
-    let l = cholesky_lower(mat)?;
-
-    // Invert L
-    let mut l_inv = Mat::zeros(n, n);
-    for i in 0..n {
-        l_inv[(i, i)] = 1.0 / l[(i, i)];
-        for j in (i + 1)..n {
-            let mut sum = 0.0;
-            for k in i..j {
-                sum -= l[(j, k)] * l_inv[(k, i)];
-            }
-            l_inv[(j, i)] = sum / l[(j, j)];
-        }
-    }
-
-    // Compute inverse: A⁻¹ = L⁻ᵀ L⁻¹
-    let mut inv = Mat::zeros(n, n);
-    for i in 0..n {
-        for j in 0..=i {
-            let mut sum = 0.0;
-            for k in i.max(j)..n {
-                sum += l_inv[(k, i)] * l_inv[(k, j)];
-            }
-            inv[(i, j)] = sum;
-            inv[(j, i)] = sum;
-        }
-    }
-
-    Ok(inv)
-}
-
 /// Add two column vectors
 fn add_vectors(a: &Col<f64>, b: &Col<f64>) -> Col<f64> {
     let n = a.nrows();
@@ -593,16 +535,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_cholesky() {
+    fn test_cholesky_faer() {
         // Simple 2x2 positive definite matrix
         let mat = Mat::from_fn(2, 2, |i, j| if i == j { 2.0 } else { 0.5 });
 
-        let l = cholesky_lower(&mat).unwrap();
+        // Use faer's built-in Cholesky
+        let l = mat.llt(faer::Side::Lower).unwrap().L().to_owned();
 
         // Verify L * Lᵀ = mat
         for i in 0..2 {
             for j in 0..2 {
-                let mut sum = 0.0;
+                let mut sum: f64 = 0.0;
                 for k in 0..2 {
                     sum += l[(i, k)] * l[(j, k)];
                 }
@@ -612,19 +555,20 @@ mod tests {
     }
 
     #[test]
-    fn test_inversion() {
+    fn test_inversion_faer() {
         let mat = Mat::from_fn(2, 2, |i, j| if i == j { 2.0 } else { 0.5 });
 
-        let inv = invert_symmetric(&mat).unwrap();
+        // Use faer's built-in inversion via Cholesky
+        let inv = mat.llt(faer::Side::Lower).unwrap().inverse();
 
         // Verify mat * inv = I
         for i in 0..2 {
             for j in 0..2 {
-                let mut sum = 0.0;
+                let mut sum: f64 = 0.0;
                 for k in 0..2 {
                     sum += mat[(i, k)] * inv[(k, j)];
                 }
-                let expected = if i == j { 1.0 } else { 0.0 };
+                let expected: f64 = if i == j { 1.0 } else { 0.0 };
                 assert!((sum - expected).abs() < 1e-10);
             }
         }

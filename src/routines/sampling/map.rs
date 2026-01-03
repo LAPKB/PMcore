@@ -30,6 +30,7 @@
 //! where J is the Jacobian of the model predictions with respect to η.
 
 use anyhow::{bail, Result};
+use faer::linalg::solvers::DenseSolveCore;
 use faer::{Col, Mat};
 
 use super::kernels::MapEstimate;
@@ -386,25 +387,9 @@ impl MapEstimator {
             h_reg[(i, i)] += reg;
         }
 
-        // Try Cholesky decomposition
-        match self.cholesky_lower(&h_reg) {
-            Ok(l) => {
-                // Invert using Cholesky: H⁻¹ = L⁻ᵀ L⁻¹
-                let l_inv = self.invert_lower_triangular(&l)?;
-
-                let mut inv = Mat::zeros(n, n);
-                for i in 0..n {
-                    for j in 0..=i {
-                        let mut sum = 0.0;
-                        for k in i.max(j)..n {
-                            sum += l_inv[(k, i)] * l_inv[(k, j)];
-                        }
-                        inv[(i, j)] = sum;
-                        inv[(j, i)] = sum;
-                    }
-                }
-                Ok(inv)
-            }
+        // Try Cholesky-based inversion using faer
+        match h_reg.llt(faer::Side::Lower) {
+            Ok(llt) => Ok(llt.inverse()),
             Err(_) => {
                 // Fallback: diagonal approximation
                 let mut inv = Mat::zeros(n, n);
@@ -415,50 +400,6 @@ impl MapEstimator {
                 Ok(inv)
             }
         }
-    }
-
-    /// Cholesky decomposition (lower triangular)
-    fn cholesky_lower(&self, mat: &Mat<f64>) -> Result<Mat<f64>> {
-        let n = mat.nrows();
-        let mut l = Mat::zeros(n, n);
-
-        for i in 0..n {
-            for j in 0..=i {
-                let mut sum = mat[(i, j)];
-                for k in 0..j {
-                    sum -= l[(i, k)] * l[(j, k)];
-                }
-                if i == j {
-                    if sum <= 0.0 {
-                        bail!("Matrix not positive definite");
-                    }
-                    l[(i, j)] = sum.sqrt();
-                } else {
-                    l[(i, j)] = sum / l[(j, j)];
-                }
-            }
-        }
-
-        Ok(l)
-    }
-
-    /// Invert a lower triangular matrix
-    fn invert_lower_triangular(&self, l: &Mat<f64>) -> Result<Mat<f64>> {
-        let n = l.nrows();
-        let mut l_inv = Mat::zeros(n, n);
-
-        for i in 0..n {
-            l_inv[(i, i)] = 1.0 / l[(i, i)];
-            for j in (i + 1)..n {
-                let mut sum = 0.0;
-                for k in i..j {
-                    sum -= l[(j, k)] * l_inv[(k, i)];
-                }
-                l_inv[(j, i)] = sum / l[(j, j)];
-            }
-        }
-
-        Ok(l_inv)
     }
 
     /// Compute quadratic form xᵀ A x
