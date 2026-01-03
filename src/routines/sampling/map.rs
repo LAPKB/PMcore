@@ -29,7 +29,7 @@
 //!
 //! where J is the Jacobian of the model predictions with respect to η.
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use faer::linalg::solvers::DenseSolveCore;
 use faer::{Col, Mat};
 
@@ -421,68 +421,6 @@ impl MapEstimator {
     }
 }
 
-/// Batch MAP estimator for all subjects
-pub struct BatchMapEstimator {
-    /// Per-subject estimators
-    estimators: Vec<MapEstimator>,
-    /// Configuration
-    config: MapConfig,
-}
-
-impl BatchMapEstimator {
-    /// Create a batch estimator for N subjects
-    pub fn new(omega_inv: Mat<f64>, sigma_sq: f64, n_subjects: usize, config: MapConfig) -> Self {
-        let estimators = (0..n_subjects)
-            .map(|_| MapEstimator::new(omega_inv.clone(), sigma_sq, config.clone()))
-            .collect();
-
-        Self { estimators, config }
-    }
-
-    /// Update omega inverse for all subjects
-    pub fn update_omega_inv(&mut self, omega_inv: Mat<f64>) {
-        for est in &mut self.estimators {
-            est.update_omega_inv(omega_inv.clone());
-        }
-    }
-
-    /// Update sigma squared for all subjects
-    pub fn update_sigma_sq(&mut self, sigma_sq: f64) {
-        for est in &mut self.estimators {
-            est.update_sigma_sq(sigma_sq);
-        }
-    }
-
-    /// Estimate MAP for a specific subject
-    pub fn estimate_subject<F, G>(
-        &self,
-        subject_idx: usize,
-        eta_init: &Col<f64>,
-        mean_phi: &Col<f64>,
-        objective_fn: F,
-        gradient_fn: Option<G>,
-    ) -> Result<MapEstimate>
-    where
-        F: Fn(&Col<f64>) -> f64,
-        G: Fn(&Col<f64>) -> Col<f64>,
-    {
-        if subject_idx >= self.estimators.len() {
-            bail!("Subject index {} out of bounds", subject_idx);
-        }
-        self.estimators[subject_idx].estimate(eta_init, mean_phi, objective_fn, gradient_fn)
-    }
-
-    /// Get configuration
-    pub fn config(&self) -> &MapConfig {
-        &self.config
-    }
-
-    /// Get number of subjects
-    pub fn n_subjects(&self) -> usize {
-        self.estimators.len()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -510,40 +448,5 @@ mod tests {
         // Expected gradient: [2*x[0], 2*x[1]] = [2, 4]
         assert!((grad[0] - 2.0).abs() < 1e-4);
         assert!((grad[1] - 4.0).abs() < 1e-4);
-    }
-
-    #[test]
-    fn test_quadratic_minimization() {
-        // Test minimizing f(x) = 0.5 * x'Ax - b'x
-        // Minimum at x = A^{-1} b
-        let omega_inv = Mat::from_fn(2, 2, |i, j| if i == j { 2.0 } else { 0.0 });
-        let config = MapConfig::default();
-        let estimator = MapEstimator::new(omega_inv, 1.0, config);
-
-        let b = Col::from_fn(2, |i| (i + 1) as f64);
-        let mean_phi = Col::zeros(2);
-
-        // Objective: 0.5 * x'x - b'x (using identity Omega^-1)
-        let objective = |phi: &Col<f64>| {
-            let x = phi;
-            0.5 * (x[0] * x[0] + x[1] * x[1]) - b[0] * x[0] - b[1] * x[1]
-        };
-
-        let eta_init = Col::zeros(2);
-        let result = estimator
-            .estimate(
-                &eta_init,
-                &mean_phi,
-                objective,
-                None::<fn(&Col<f64>) -> Col<f64>>,
-            )
-            .unwrap();
-
-        // Minimum should be near b = [1, 2] (but adjusted by prior)
-        // With prior 0.5 * eta' omega_inv eta, the full problem becomes
-        // min 0.5*x'x - b'x + 0.5*x'(2I)x = min 1.5*x'x - b'x
-        // Solution: 3x = b => x = b/3 = [1/3, 2/3]
-        assert!((result.eta[0] - 1.0 / 3.0).abs() < 0.1);
-        assert!((result.eta[1] - 2.0 / 3.0).abs() < 0.1);
     }
 }
