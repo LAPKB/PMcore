@@ -1,0 +1,52 @@
+[package]
+name = "pmcore"
+version = "0.7.2"
+edition = "2021"
+authors = [
+    "Julián D. Otálvaro <juliandavid347@gmail.com>",
+    "Markus Hovd",
+    "Michael Neely",
+    "Walter Yamada",
+]
+description = "Rust library with the building blocks needed to create new Non-Parametric algorithms and its integration with Pmetrics."
+license = "GPL-3.0"
+documentation = "https://lapkb.github.io/PMcore/pmcore/"
+repository = "https://github.com/LAPKB/PMcore"
+exclude = [".github/*", ".vscode/*"]
+
+[dependencies]
+csv = "1.2.1"
+ndarray = { version = "0.15.6", features = ["rayon"] }
+serde = "1.0.188"
+serde_json = "1.0.66"
+sobol_burley = "0.5.0"
+ndarray-stats = "0.5.1"
+linfa-linalg = "0.1.0"
+argmin = { version = "0.10.0", features = [] }
+argmin-math = { version = "0.4.0", features = ["ndarray_v0_15-nolinalg"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.17", features = [
+    "env-filter",
+    "fmt",
+    "time",
+] }
+config = { version = "0.15", features = ["preserve_order"] }
+faer = "0.19.3"
+faer-ext = { version = "0.2.0", features = ["nalgebra", "ndarray"] }
+pharmsol ={path = "../pharmsol"} # git = "https://github.com/LAPKB/pharmsol", branch = "sde_dynamic_stepsize" }
+rand = "0.9.0"
+anyhow = "1.0.86"
+rand_distr = "0.5.1"
+
+
+[profile.release]
+codegen-units = 1
+opt-level = 3
+
+[dev-dependencies]
+criterion = { version = "0.5" }
+
+
+[[bench]]
+name = "bimodal_ke"
+harness = false

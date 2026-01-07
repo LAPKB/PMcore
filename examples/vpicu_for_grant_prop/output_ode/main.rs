@@ -6,7 +6,7 @@ use settings::{Parameters, Settings};
 use rand_distr::{Distribution, Normal};
 
 fn main() -> Result<()> {
-    let _eq = equation::ODE::new(
+    let eq = equation::ODE::new(
         |x, p, t, dx, rateiv, cov| {
             // automatically defined
             fetch_params!(p, ke0, kcp, kpc, _v0);
@@ -37,7 +37,7 @@ fn main() -> Result<()> {
         (2, 1),
     );
 
-    let eq = equation::SDE::new(
+    let _eq = equation::SDE::new(
         |x, p, t, dx, rateiv, cov| {
             fetch_params!(p, ke0, kcp, kpc, v0, _ske, _svol);
             fetch_cov!(cov,t,wt,crcl);
@@ -89,8 +89,8 @@ fn main() -> Result<()> {
         .add("kcp", 0.0001, 5.5, true)
         .add("kpc", 0.0001, 11.0, true)
         .add("v0", 0.1, 25.0, true)
-        .add("ske", 0.0001, 0.5, true)
-        .add("svol", 0.0001, 0.5, true) // SDE requires sigmas ... but ODE does not
+        // .add("ske", 0.0001, 0.5, true)
+        // .add("svol", 0.0001, 0.5, true) // SDE requires sigmas ... but ODE does not
         .build()
         .unwrap();
 
@@ -103,7 +103,7 @@ fn main() -> Result<()> {
     settings.set_idelta(1.0);
 
     // for ODE use this block:
-    /*
+    // /*
         settings.set_output_path("examples/vpicu_for_grant_prop/output_ode"); // THIS LINE OVERWRITES THIS DIRECTORY !!!
         settings.set_prior_sampler("sobol".to_string());
         settings.set_prior_points(16384);
@@ -114,18 +114,13 @@ fn main() -> Result<()> {
         //    seed: 347,
         //    file: None, // Some(String::from("examples/vpicu_for_grant_prop/output_ode/theta.csv")),
         // });
-    */
+    // */
 
     // for SDE use this block:
-    // /*
+    /*
         settings.set_output_path("examples/vpicu_for_grant_prop/output_sde_sigma_only"); // THIS LINE OVERWRITES THIS DIRECTORY !!!
         settings.set_prior_file(Some(String::from("examples/vpicu_for_grant_prop/output_sde/theta_w_sigma.csv")));
-        //
-        // to optimize ONLY the sigmas, edit src/routines/expansion/adaptive_grid.rs to only expand in the dimentions of sigma
-        //
-        // Is the AG set up to ONLY expand in dimensions of sigma? ___ YES ___
-        //
-    // */
+    */
 
     setup_log(&settings)?;
     let data = data::read_pmetrics("examples/vpicu_for_grant_prop/vpicu.csv")?;
