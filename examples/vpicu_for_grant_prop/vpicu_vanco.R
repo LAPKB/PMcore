@@ -82,7 +82,7 @@ setwd(goback)
 {
   op <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_ode/op.csv")
   BLQ = 4.0;
-  run_name <- "vpicu ODE"
+  run_name <- "vpicu ODE" # sigma only"
   {
     op.blq <- op %>% filter(obs > BLQ)
     against.blq <- op.blq$post_median
@@ -95,8 +95,8 @@ setwd(goback)
          , main = paste("post_median\n", run_name))
     lines(c(0,max(plot.lim)),c(0,max(plot.lim)),lty = 3,lwd = 2, col = "grey")
   } # ... and plot obs vs. against
+  summary(lm(op.blq$obs ~ against.blq))
   {
-    summary(lm(op.blq$obs ~ against.blq))
     {
       inter = lm(op.blq$obs ~ against.blq)[1]$coefficients[1]
       sl = lm(op.blq$obs ~ against.blq)[1]$coefficients[2]
@@ -131,8 +131,8 @@ setwd(goback)
     abline(h = c(BLQ), col = "grey")
   } # for (obs ==  BLQ) if CI95%(BLQ) covers the posterior pred, then use post instead of obs to visualize data
   # ---
+  summary(lm(obs ~ against))
   {
-    summary(lm(obs ~ against))
     inter = lm(obs ~ against)[1]$coefficients[1]
     sl = lm(obs ~ against)[1]$coefficients[2]
     lines(plot.lim,
@@ -159,8 +159,8 @@ setwd(goback)
          , main = paste("post_mean\n", run_name))
     lines(c(0,max(plot.lim)),c(0,max(plot.lim)),lty = 3,lwd = 2, col = "grey")
   } # ... and plot obs vs. against
+  summary(lm(op.blq$obs ~ against.blq))
   {
-    summary(lm(op.blq$obs ~ against.blq))
     {
       inter = lm(op.blq$obs ~ against.blq)[1]$coefficients[1]
       sl = lm(op.blq$obs ~ against.blq)[1]$coefficients[2]
@@ -195,8 +195,8 @@ setwd(goback)
     abline(h = c(BLQ), col = "grey")
   } # for (obs ==  BLQ) if CI95%(BLQ) covers the posterior pred, then overplotplot post (instead of obs, to visualize data)
   # ---
+  summary(lm(obs ~ against))
   {
-    summary(lm(obs ~ against))
     inter = lm(obs ~ against)[1]$coefficients[1]
     sl = lm(obs ~ against)[1]$coefficients[2]
     lines(plot.lim,
@@ -205,19 +205,22 @@ setwd(goback)
     )
     # abline(h = c(BLQ), col = "grey")
   } # summary obs~against
-  
 } # op plot -- mean
 {
   # run wtCov.R
   theta_ode <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_ode/theta.csv")
-  summary(theta_ode)
-  np.stats(theta_ode)
+  theta_sde_0 <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_sde/theta_w_sigma.csv")
+  theta_sde <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_sde/theta.csv")
+  theta_sde_s <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_sde_sigma_only/theta.csv")
+  theta <- theta_sde_0
+    summary(theta)
+    np.stats(theta)
 } # inspect theta
 
 {
   theta_sde <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_ode/theta.csv") %>%
-    add_column(s1 = 0.01, s2 = 0.01) %>%
-    relocate(prob, .after = s2)
+    add_column(ske = 0.01, svol = 0.01) %>%
+    relocate(prob, .after = svol)
   write_csv(theta_sde,"/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_ode/theta_w_sigma.csv", na = "." )
 }
 
