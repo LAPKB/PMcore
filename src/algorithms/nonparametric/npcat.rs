@@ -51,9 +51,9 @@ use anyhow::{bail, Result};
 use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use ndarray::Array1;
-use pharmsol::prelude::ErrorModel;
+use pharmsol::prelude::AssayErrorModel;
 use pharmsol::prelude::{
-    data::{Data, ErrorModels},
+    data::{Data, AssayErrorModels},
     simulator::Equation,
 };
 use rand::prelude::*;
@@ -179,7 +179,7 @@ pub struct NPCAT<E: Equation + Send + 'static> {
     /// Step sizes for error model optimization
     gamma_delta: Vec<f64>,
     /// Error models for observations
-    error_models: ErrorModels,
+    error_models: AssayErrorModels,
     /// Algorithm status
     status: Status,
     /// Cycle log for tracking progress
@@ -326,7 +326,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPCAT<E> {
         );
 
         self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None == *em {
+            if AssayErrorModel::None == *em {
                 return;
             }
             tracing::debug!(
@@ -1175,7 +1175,7 @@ use ndarray::Axis;
 struct NpcatOptimizer<'a, E: Equation> {
     equation: &'a E,
     data: &'a Data,
-    sig: &'a ErrorModels,
+    sig: &'a AssayErrorModels,
     pyl: &'a Array1<f64>,
     max_iters: u64,
     ranges: &'a [(f64, f64)],
@@ -1217,7 +1217,7 @@ impl<'a, E: Equation> NpcatOptimizer<'a, E> {
     fn new(
         equation: &'a E,
         data: &'a Data,
-        sig: &'a ErrorModels,
+        sig: &'a AssayErrorModels,
         pyl: &'a Array1<f64>,
         max_iters: u64,
         ranges: &'a [(f64, f64)],

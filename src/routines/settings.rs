@@ -2,7 +2,7 @@ use crate::algorithms::Algorithm;
 use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
-use pharmsol::prelude::data::{ErrorModels, ResidualErrorModels};
+use pharmsol::prelude::data::{AssayErrorModels, ResidualErrorModels};
 
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -21,7 +21,7 @@ pub struct Settings {
     ///
     /// These use observation-based sigma calculation.
     /// Required for: NPAG, NPOD, NPSAH, NPBO, etc.
-    pub(crate) errormodels: ErrorModels,
+    pub(crate) errormodels: AssayErrorModels,
     /// Residual error models for parametric algorithms
     ///
     /// These use prediction-based sigma calculation (matching R saemix).
@@ -58,7 +58,7 @@ impl Settings {
         &self.parameters
     }
 
-    pub fn errormodels(&self) -> &ErrorModels {
+    pub fn errormodels(&self) -> &AssayErrorModels {
         &self.errormodels
     }
 
@@ -766,7 +766,7 @@ impl Default for Output {
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
     parameters: Option<Parameters>,
-    errormodels: Option<ErrorModels>,
+    errormodels: Option<AssayErrorModels>,
     residual_error: Option<ResidualErrorModels>,
     predictions: Option<Predictions>,
     log: Option<Log>,
@@ -780,7 +780,7 @@ pub struct SettingsBuilder<State> {
 // Marker traits for builder states
 pub trait AlgorithmDefined {}
 pub trait ParametersDefined {}
-pub trait ErrorModelDefined {}
+pub trait AssayErrorModelDefined {}
 
 // Implement marker traits for PhantomData states
 pub struct InitialState;
@@ -881,7 +881,7 @@ impl SettingsBuilder<ParametersSet> {
     ///     .set_error_models(error_models)  // For non-parametric
     ///     .build();
     /// ```
-    pub fn set_error_models(self, ems: ErrorModels) -> SettingsBuilder<ErrorSet> {
+    pub fn set_error_models(self, ems: AssayErrorModels) -> SettingsBuilder<ErrorSet> {
         SettingsBuilder {
             config: self.config,
             parameters: self.parameters,
@@ -911,7 +911,7 @@ impl SettingsBuilder<ParametersSet> {
     ///     .set_algorithm(Algorithm::SAEM)
     ///     .set_parameters(params)
     ///     .set_residual_error(residual_error)  // For parametric
-    ///     .build();  // No ErrorModels needed for parametric!
+    ///     .build();  // No AssayErrorModels needed for parametric!
     /// ```
     pub fn set_residual_error(
         self,
@@ -935,12 +935,12 @@ impl SettingsBuilder<ParametersSet> {
 
 // Parametric path: residual error is set, can build directly or add optional error models
 impl SettingsBuilder<ParametricErrorSet> {
-    /// Build the settings (parametric algorithms don't require ErrorModels)
+    /// Build the settings (parametric algorithms don't require AssayErrorModels)
     pub fn build(self) -> Settings {
         Settings {
             config: self.config.unwrap(),
             parameters: self.parameters.unwrap(),
-            // Use empty ErrorModels for parametric algorithms
+            // Use empty AssayErrorModels for parametric algorithms
             errormodels: self.errormodels.unwrap_or_default(),
             residual_error: self.residual_error,
             predictions: self.predictions.unwrap_or_default(),
@@ -956,7 +956,7 @@ impl SettingsBuilder<ParametricErrorSet> {
     ///
     /// For parametric algorithms, observation-based error models are optional
     /// but can be useful for certain diagnostic calculations.
-    pub fn set_error_models(self, ems: ErrorModels) -> SettingsBuilder<ErrorSet> {
+    pub fn set_error_models(self, ems: AssayErrorModels) -> SettingsBuilder<ErrorSet> {
         SettingsBuilder {
             config: self.config,
             parameters: self.parameters,
@@ -1021,7 +1021,7 @@ fn parse_output_folder(path: String) -> String {
 #[cfg(test)]
 
 mod tests {
-    use pharmsol::{ErrorModel, ErrorPoly, ResidualErrorModel, ResidualErrorModels};
+    use pharmsol::{AssayErrorModel, ErrorPoly, ResidualErrorModels};
 
     use super::*;
     use crate::algorithms::Algorithm;
@@ -1030,10 +1030,10 @@ mod tests {
     fn test_builder() {
         let parameters = Parameters::new().add("Ke", 0.0, 5.0).add("V", 10.0, 200.0);
 
-        let ems = ErrorModels::new()
+        let ems = AssayErrorModels::new()
             .add(
                 0,
-                ErrorModel::Proportional {
+                AssayErrorModel::Proportional {
                     gamma: pharmsol::Factor::Variable(5.0),
                     poly: ErrorPoly::new(0.0, 0.1, 0.0, 0.0),
                 },
@@ -1060,13 +1060,13 @@ mod tests {
 
         // Create residual error models for parametric algorithms (prediction-based sigma)
         let residual_error =
-            ResidualErrorModels::new().add(0, ResidualErrorModel::combined(0.5, 0.1));
+            ResidualErrorModels::new().add(0, pharmsol::ResidualErrorModel::combined(0.5, 0.1));
 
-        // For SAEM, we still need ErrorModels for the likelihood computation
-        let ems = ErrorModels::new()
+        // For SAEM, we still need AssayErrorModels for the likelihood computation
+        let ems = AssayErrorModels::new()
             .add(
                 0,
-                ErrorModel::Proportional {
+                AssayErrorModel::Proportional {
                     gamma: pharmsol::Factor::Variable(0.1),
                     poly: ErrorPoly::new(1.0, 0.0, 0.0, 0.0),
                 },
@@ -1095,13 +1095,13 @@ mod tests {
     #[test]
     fn test_builder_saem_without_explicit_residual_error() {
         // Verify backward compatibility: SAEM works without explicit residual error
-        // (it will convert from ErrorModels internally)
+        // (it will convert from AssayErrorModels internally)
         let parameters = Parameters::new().add("Ke", 0.0, 5.0).add("V", 10.0, 200.0);
 
-        let ems = ErrorModels::new()
+        let ems = AssayErrorModels::new()
             .add(
                 0,
-                ErrorModel::Proportional {
+                AssayErrorModel::Proportional {
                     gamma: pharmsol::Factor::Variable(0.1),
                     poly: ErrorPoly::new(1.0, 0.0, 0.0, 0.0),
                 },

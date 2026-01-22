@@ -6,7 +6,7 @@ use anyhow::Result;
 use cobyla::{minimize, RhoBeg};
 use ndarray::Axis;
 use pharmsol::prelude::{
-    data::{Data, ErrorModels},
+    data::{Data, AssayErrorModels},
     simulator::Equation,
 };
 use pharmsol::Subject;
@@ -20,7 +20,7 @@ use pharmsol::Subject;
 pub fn optimize_subject_map<E: Equation>(
     equation: &E,
     subject: &Subject,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
     ranges: &[(f64, f64)],
     start: &[f64],
     max_evals: usize,
@@ -30,7 +30,7 @@ pub fn optimize_subject_map<E: Equation>(
 
     // Closure that computes -log P(y|θ) for this subject
     // We minimize this (= maximize P(y|θ))
-    let objective = |params: &[f64], _: &mut (&E, &Data, &ErrorModels)| -> f64 {
+    let objective = |params: &[f64], _: &mut (&E, &Data, &AssayErrorModels)| -> f64 {
         // Clamp to bounds
         let clamped: Vec<f64> = params
             .iter()
@@ -62,7 +62,7 @@ pub fn optimize_subject_map<E: Equation>(
 
     // Convert ranges to cobyla format
     let bounds: Vec<(f64, f64)> = ranges.to_vec();
-    let cons: Vec<fn(&[f64], &mut (&E, &Data, &ErrorModels)) -> f64> = vec![];
+    let cons: Vec<fn(&[f64], &mut (&E, &Data, &AssayErrorModels)) -> f64> = vec![];
 
     // User data for the closure (not actually used in our objective)
     let user_data = (equation, &single_data, error_models);
@@ -114,7 +114,7 @@ pub fn optimize_subject_map<E: Equation>(
 pub fn refine_d_optimal<E: Equation>(
     equation: &E,
     data: &Data,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
     pyl: &ndarray::Array1<f64>,
     ranges: &[(f64, f64)],
     start: &[f64],

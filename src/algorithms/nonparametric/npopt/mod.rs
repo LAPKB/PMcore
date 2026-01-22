@@ -50,9 +50,9 @@ use crate::structs::nonparametric::weights::Weights;
 use anyhow::{bail, Result};
 use faer_ext::IntoNdarray;
 use ndarray::Array1;
-use pharmsol::prelude::ErrorModel;
+use pharmsol::prelude::AssayErrorModel;
 use pharmsol::prelude::{
-    data::{Data, ErrorModels},
+    data::{Data, AssayErrorModels},
     simulator::Equation,
 };
 use rand::prelude::*;
@@ -132,7 +132,7 @@ pub struct NPOPT<E: Equation + Send + 'static> {
     /// Step sizes for error model optimization
     pub(crate) gamma_delta: Vec<f64>,
     /// Error models for observations
-    pub(crate) error_models: ErrorModels,
+    pub(crate) error_models: AssayErrorModels,
     /// Algorithm status
     pub(crate) status: Status,
     /// Cycle log for tracking progress
@@ -326,7 +326,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOPT<E> {
 
         // Log error models
         self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None != *em {
+            if AssayErrorModel::None != *em {
                 tracing::debug!(
                     "Error model outeq {}: {:.4}",
                     outeq,

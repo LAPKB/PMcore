@@ -75,9 +75,9 @@ use anyhow::{bail, Result};
 use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use ndarray::{Array1, Axis};
-use pharmsol::prelude::ErrorModel;
+use pharmsol::prelude::AssayErrorModel;
 use pharmsol::prelude::{
-    data::{Data, ErrorModels},
+    data::{Data, AssayErrorModels},
     simulator::Equation,
 };
 use rand::prelude::*;
@@ -523,7 +523,7 @@ pub struct NEXUS<E: Equation + Send + 'static> {
     /// Step sizes for error model optimization
     gamma_delta: Vec<f64>,
     /// Error models for observations
-    error_models: ErrorModels,
+    error_models: AssayErrorModels,
     /// Algorithm status
     status: Status,
     /// Cycle log for tracking progress
@@ -729,7 +729,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
 
         // Log error models
         self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None != *em {
+            if AssayErrorModel::None != *em {
                 tracing::debug!(
                     "Error model outeq {}: {:.4}",
                     outeq,
@@ -1549,7 +1549,7 @@ impl<E: Equation + Send + 'static> NEXUS<E> {
         &self,
         subject: &pharmsol::Subject,
         start: &[f64],
-        error_models: &ErrorModels,
+        error_models: &AssayErrorModels,
     ) -> Result<Vec<f64>, argmin::core::Error> {
         let optimizer = SubjectMapOptimizer {
             equation: &self.equation,
@@ -1755,7 +1755,7 @@ impl<E: Equation + Send + 'static> NEXUS<E> {
 struct SubjectMapOptimizer<'a, E: Equation> {
     equation: &'a E,
     subject: &'a pharmsol::Subject,
-    error_models: &'a ErrorModels,
+    error_models: &'a AssayErrorModels,
     ranges: &'a [(f64, f64)],
 }
 
@@ -1801,7 +1801,7 @@ impl<E: Equation> CostFunction for SubjectMapOptimizer<'_, E> {
 struct DOptimalOptimizer<'a, E: Equation> {
     equation: &'a E,
     data: &'a Data,
-    error_models: &'a ErrorModels,
+    error_models: &'a AssayErrorModels,
     pyl: &'a Array1<f64>,
 }
 

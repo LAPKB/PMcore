@@ -5,7 +5,7 @@ use argmin::core::{CostFunction, Error, Executor};
 use argmin::solver::neldermead::NelderMead;
 use ndarray::{Array1, Axis};
 use pharmsol::prelude::{
-    data::{Data, ErrorModels},
+    data::{Data, AssayErrorModels},
     simulator::Equation,
 };
 use pharmsol::Subject;
@@ -18,7 +18,7 @@ use pharmsol::Subject;
 pub struct DOptimalOptimizer<'a, E: Equation> {
     pub equation: &'a E,
     pub data: &'a Data,
-    pub error_models: &'a ErrorModels,
+    pub error_models: &'a AssayErrorModels,
     pub pyl: &'a Array1<f64>,
 }
 
@@ -72,7 +72,7 @@ impl<'a, E: Equation> DOptimalOptimizer<'a, E> {
 pub struct SubjectMapOptimizer<'a, E: Equation> {
     pub equation: &'a E,
     pub subject: &'a Subject,
-    pub error_models: &'a ErrorModels,
+    pub error_models: &'a AssayErrorModels,
     pub ranges: &'a [(f64, f64)],
 }
 

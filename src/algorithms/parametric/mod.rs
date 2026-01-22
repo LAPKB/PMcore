@@ -19,7 +19,7 @@
 //!
 //! # Residual Error Models
 //!
-//! For parametric algorithms, use [`pharmsol::ResidualErrorModel`] and
+//! For parametric algorithms, use [`pharmsol::ResidualAssayErrorModel`] and
 //! [`pharmsol::ResidualErrorModels`] which compute sigma from predictions (not observations).
 
 mod algorithm;

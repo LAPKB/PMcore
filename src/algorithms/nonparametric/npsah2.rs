@@ -43,9 +43,9 @@ use ndarray::parallel::prelude::{
     IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
 use ndarray::{Array1, Axis};
-use pharmsol::prelude::ErrorModel;
+use pharmsol::prelude::AssayErrorModel;
 use pharmsol::prelude::{
-    data::{Data, ErrorModels},
+    data::{Data, AssayErrorModels},
     simulator::Equation,
 };
 use rand::prelude::*;
@@ -188,7 +188,7 @@ pub struct NPSAH2<E: Equation + Send + 'static> {
     /// Step sizes for error model optimization
     gamma_delta: Vec<f64>,
     /// Error models for observations
-    error_models: ErrorModels,
+    error_models: AssayErrorModels,
     /// Algorithm status
     status: Status,
     /// Cycle log for tracking progress
@@ -340,7 +340,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPSAH2<E> {
         );
 
         self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None == *em {
+            if AssayErrorModel::None == *em {
                 return;
             }
             tracing::debug!(
@@ -849,7 +849,7 @@ impl<E: Equation + Send + 'static> NPSAH2<E> {
         let w: Array1<f64> = self.w.clone().iter().collect();
         let pyl = psi.dot(&w);
 
-        let error_model: ErrorModels = self.error_models.clone();
+        let error_model: AssayErrorModels = self.error_models.clone();
         let max_weight = self.w.iter().fold(f64::NEG_INFINITY, |acc, x| x.max(acc));
 
         let n_points_with_weights = self.w.len().min(self.theta.nspp());
@@ -1227,7 +1227,7 @@ use argmin::{
 struct SppOptimizerAdaptive<'a, E: Equation> {
     equation: &'a E,
     data: &'a Data,
-    sig: &'a ErrorModels,
+    sig: &'a AssayErrorModels,
     pyl: &'a Array1<f64>,
     max_iters: u64,
 }
@@ -1261,7 +1261,7 @@ impl<'a, E: Equation> SppOptimizerAdaptive<'a, E> {
     fn new(
         equation: &'a E,
         data: &'a Data,
-        sig: &'a ErrorModels,
+        sig: &'a AssayErrorModels,
         pyl: &'a Array1<f64>,
         max_iters: u64,
     ) -> Self {

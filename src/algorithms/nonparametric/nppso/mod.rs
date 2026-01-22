@@ -57,7 +57,7 @@ use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, Array1, ArrayBase, Axis, Dim, OwnedRepr};
 use pharmsol::prelude::data::Data;
 use pharmsol::prelude::simulator::Equation;
-use pharmsol::{prelude::ErrorModel, ErrorModels, Subject};
+use pharmsol::{prelude::AssayErrorModel, AssayErrorModels, Subject};
 use rand::prelude::*;
 use rand::SeedableRng;
 use swarm::Swarm;
@@ -80,7 +80,7 @@ pub struct NPPSO<E: Equation + Send + 'static> {
     f1: f64,
     cycle: usize,
     gamma_delta: Vec<f64>,
-    error_models: ErrorModels,
+    error_models: AssayErrorModels,
     status: Status,
     cycle_log: CycleLog,
     data: Data,
@@ -224,7 +224,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPPSO<E> {
         );
 
         self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None != *em {
+            if AssayErrorModel::None != *em {
                 tracing::debug!(
                     "Error model outeq {}: {:.4}",
                     outeq,
@@ -971,7 +971,7 @@ impl<E: Equation + Send + 'static> NPPSO<E> {
     /// Optimize error models (standard approach)
     fn optimize_error_models(&mut self) -> Result<()> {
         for (outeq, em) in self.error_models.clone().iter_mut() {
-            if *em == ErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
+            if *em == AssayErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
                 continue;
             }
 

@@ -234,7 +234,7 @@ impl Default for DoseRange {
 /// #            past: pharmsol::prelude::Subject,
 /// #            target: pharmsol::prelude::Subject,
 /// #            eq: pharmsol::prelude::ODE,
-/// #            error_models: pharmsol::prelude::ErrorModels,
+/// #            error_models: pharmsol::prelude::AssayErrorModels,
 /// #            settings: pmcore::routines::settings::Settings)
 /// #            -> anyhow::Result<()> {
 /// let problem = BestDoseProblem::new(

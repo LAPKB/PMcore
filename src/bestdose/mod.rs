@@ -16,7 +16,7 @@
 //! #            past_data: pharmsol::prelude::Subject,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            error_models: pharmsol::prelude::AssayErrorModels,
 //! #            settings: pmcore::routines::settings::Settings)
 //! #            -> anyhow::Result<()> {
 //! // Create optimization problem
@@ -151,7 +151,7 @@
 //! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            error_models: pharmsol::prelude::AssayErrorModels,
 //! #            settings: pmcore::routines::settings::Settings)
 //! #            -> anyhow::Result<()> {
 //! // Define target: 5 mg/L at 24 hours
@@ -184,7 +184,7 @@
 //! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            error_models: pharmsol::prelude::AssayErrorModels,
 //! #            settings: pmcore::routines::settings::Settings)
 //! #            -> anyhow::Result<()> {
 //! // Target: Achieve AUC₂₄ = 400 mg·h/L
@@ -220,7 +220,7 @@
 //! #            population_weights: pmcore::structs::weights::Weights,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            error_models: pharmsol::prelude::AssayErrorModels,
 //! #            settings: pmcore::routines::settings::Settings)
 //! #            -> anyhow::Result<()> {
 //! // No patient history - use population prior directly
@@ -270,7 +270,7 @@
 //! #            population_weights: pmcore::structs::weights::Weights,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::ODE,
-//! #            error_models: pharmsol::prelude::ErrorModels,
+//! #            error_models: pharmsol::prelude::AssayErrorModels,
 //! #            mut settings: pmcore::routines::settings::Settings)
 //! #            -> anyhow::Result<()> {
 //! // Reduce refinement cycles
@@ -525,7 +525,7 @@ fn calculate_posterior_density(
     population_weights: &Weights,
     past_data: Option<&Subject>,
     eq: &ODE,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
     settings: &Settings,
 ) -> Result<(Theta, Weights, Weights, Subject)> {
     match past_data {

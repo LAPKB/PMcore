@@ -21,7 +21,7 @@ use pharmsol::SppOptimizer;
 use anyhow::bail;
 use anyhow::Result;
 use faer_ext::IntoNdarray;
-use pharmsol::{prelude::ErrorModel, ErrorModels};
+use pharmsol::{prelude::AssayErrorModel, AssayErrorModels};
 use pharmsol::{
     prelude::{data::Data, simulator::Equation},
     Subject,
@@ -45,7 +45,7 @@ pub struct NPOD<E: Equation + Send + 'static> {
     objf: f64,
     cycle: usize,
     gamma_delta: Vec<f64>,
-    error_models: ErrorModels,
+    error_models: AssayErrorModels,
     converged: bool,
     status: Status,
     cycle_log: CycleLog,
@@ -155,7 +155,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.nspp());
         self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None == *em {
+            if AssayErrorModel::None == *em {
                 return;
             }
             tracing::debug!(
@@ -207,7 +207,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     }
 
     fn estimation(&mut self) -> Result<()> {
-        let error_model: ErrorModels = self.error_models.clone();
+        let error_model: AssayErrorModels = self.error_models.clone();
 
         self.psi = calculate_psi(
             &self.equation,
@@ -295,7 +295,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             .clone()
             .iter_mut()
             .filter_map(|(outeq, em)| {
-                if *em == ErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
+                if *em == AssayErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
                     None
                 } else {
                     Some((outeq, em))
@@ -373,7 +373,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         let pyl = psi.dot(&w);
 
         // Add new point to theta based on the optimization of the D function
-        let error_model: ErrorModels = self.error_models.clone();
+        let error_model: AssayErrorModels = self.error_models.clone();
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
         for spp in self.theta.matrix().row_iter() {

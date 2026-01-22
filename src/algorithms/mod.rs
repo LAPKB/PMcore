@@ -341,7 +341,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// It is typically performed after the estimation step in each cycle of the algorithm.
     fn condensation(&mut self) -> Result<()>;
 
-    /// Performs optimizations on the current [ErrorModels] and updates [Psi] accordingly
+    /// Performs optimizations on the current [AssayErrorModels] and updates [Psi] accordingly
     ///
     /// This step refines the error model parameters to better fit the data,
     /// and subsequently updates the [Psi] matrix to reflect these changes.

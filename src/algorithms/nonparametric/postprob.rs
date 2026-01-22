@@ -10,7 +10,7 @@ use crate::{
 use anyhow::{Context, Result};
 
 use pharmsol::prelude::{
-    data::{Data, ErrorModels},
+    data::{Data, AssayErrorModels},
     simulator::Equation,
 };
 
@@ -32,7 +32,7 @@ pub struct POSTPROB<E: Equation + Send + 'static> {
     data: Data,
     settings: Settings,
     cyclelog: CycleLog,
-    error_models: ErrorModels,
+    error_models: AssayErrorModels,
 }
 
 impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {

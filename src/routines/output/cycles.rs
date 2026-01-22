@@ -1,6 +1,6 @@
 use anyhow::Result;
 use csv::WriterBuilder;
-use pharmsol::{ErrorModel, ErrorModels};
+use pharmsol::{AssayErrorModel, AssayErrorModels};
 use serde::Serialize;
 
 use crate::{
@@ -23,7 +23,7 @@ use crate::{
 pub struct NPCycle {
     cycle: usize,
     objf: f64,
-    error_models: ErrorModels,
+    error_models: AssayErrorModels,
     theta: Theta,
     nspp: usize,
     delta_objf: f64,
@@ -34,7 +34,7 @@ impl NPCycle {
     pub fn new(
         cycle: usize,
         objf: f64,
-        error_models: ErrorModels,
+        error_models: AssayErrorModels,
         theta: Theta,
         nspp: usize,
         delta_objf: f64,
@@ -57,7 +57,7 @@ impl NPCycle {
     pub fn objf(&self) -> f64 {
         self.objf
     }
-    pub fn error_models(&self) -> &ErrorModels {
+    pub fn error_models(&self) -> &AssayErrorModels {
         &self.error_models
     }
     pub fn theta(&self) -> &Theta {
@@ -77,7 +77,7 @@ impl NPCycle {
         Self {
             cycle: 0,
             objf: 0.0,
-            error_models: ErrorModels::default(),
+            error_models: AssayErrorModels::default(),
             theta: Theta::new(),
             nspp: 0,
             delta_objf: 0.0,
@@ -120,15 +120,15 @@ impl CycleLog {
         writer.write_field("nspp")?;
         if let Some(first_cycle) = self.cycles.first() {
             first_cycle.error_models.iter().try_for_each(
-                |(outeq, errmod): (usize, &ErrorModel)| -> Result<(), csv::Error> {
+                |(outeq, errmod): (usize, &AssayErrorModel)| -> Result<(), csv::Error> {
                     match errmod {
-                        ErrorModel::Additive { .. } => {
+                        AssayErrorModel::Additive { .. } => {
                             writer.write_field(format!("gamlam.{}", outeq))?;
                         }
-                        ErrorModel::Proportional { .. } => {
+                        AssayErrorModel::Proportional { .. } => {
                             writer.write_field(format!("gamlam.{}", outeq))?;
                         }
-                        ErrorModel::None => {}
+                        AssayErrorModel::None => {}
                     }
                     Ok(())
                 },
@@ -158,15 +158,15 @@ impl CycleLog {
 
             // Write the error models
             cycle.error_models.iter().try_for_each(
-                |(_, errmod): (usize, &ErrorModel)| -> Result<()> {
+                |(_, errmod): (usize, &AssayErrorModel)| -> Result<()> {
                     match errmod {
-                        ErrorModel::Additive { lambda: _, poly: _ } => {
+                        AssayErrorModel::Additive { lambda: _, poly: _ } => {
                             writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
-                        ErrorModel::Proportional { gamma: _, poly: _ } => {
+                        AssayErrorModel::Proportional { gamma: _, poly: _ } => {
                             writer.write_field(format!("{:.5}", errmod.factor()?))?;
                         }
-                        ErrorModel::None => {}
+                        AssayErrorModel::None => {}
                     }
                     Ok(())
                 },

@@ -5,9 +5,9 @@ use faer_ext::IntoFaer;
 use faer_ext::IntoNdarray;
 use ndarray::{Array2, ArrayView2};
 use pharmsol::prelude::simulator::psi;
+use pharmsol::AssayErrorModels;
 use pharmsol::Data;
 use pharmsol::Equation;
-use pharmsol::ErrorModels;
 use serde::{Deserialize, Serialize};
 
 use super::theta::Theta;
@@ -220,7 +220,7 @@ pub(crate) fn calculate_psi(
     equation: &impl Equation,
     subjects: &Data,
     theta: &Theta,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
     progress: bool,
     cache: bool,
 ) -> Result<Psi> {

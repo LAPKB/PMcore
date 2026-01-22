@@ -27,12 +27,10 @@ fn main() -> Result<()> {
             0,
             ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
-        .unwrap()
-        .add(1, ErrorModel::None)
         .unwrap();
 
     let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPPSO)
+        .set_algorithm(Algorithm::NPAG)
         .set_parameters(params)
         .set_error_models(ems)
         .build();
