@@ -50,6 +50,7 @@ fn main() -> Result<()> {
     let mut algorithm = dispatch_algorithm(settings, eq, data)?;
     let mut result = algorithm.fit()?;
     result.write_outputs()?;
+    result.write_json(true)?;
 
     Ok(())
 }
