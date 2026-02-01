@@ -32,3 +32,4 @@ covs.csv
 error_theta.csv
 lcov.info
 Fortran/
+result.json
