@@ -4,7 +4,7 @@ use anyhow::bail;
 use faer::linalg::triangular_solve::solve_lower_triangular_in_place;
 use faer::linalg::triangular_solve::solve_upper_triangular_in_place;
 use faer::{Col, Mat, Row};
-use rayon::prelude::*;
+
 /// Applies Burke's Interior Point Method (IPM) to solve a convex optimization problem.
 ///
 /// The objective function to maximize is:
@@ -93,13 +93,13 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
 
     let mut psi_inner: Mat<f64> = Mat::zeros(psi.nrows(), psi.ncols());
 
-    let n_threads = faer::get_global_parallelism().degree();
-
     let rows = psi.nrows();
 
-    let mut output: Vec<Mat<f64>> = (0..n_threads).map(|_| Mat::zeros(rows, rows)).collect();
-
     let mut h: Mat<f64> = Mat::zeros(rows, rows);
+
+    // Cache-size threshold: prefer sequential for small matrices to avoid thread overhead
+    // For larger matrices, use faer's built-in parallelism which has better cache behavior
+    const PARALLEL_THRESHOLD: usize = 512;
 
     while mu > eps || norm_r > eps || gap > eps {
         let smu = sig * mu;
@@ -109,46 +109,32 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
         let w_plam = Col::from_fn(plam.nrows(), |i| plam.get(i) / w.get(i));
 
         // Scale each column of psi by the corresponding element of 'inner'
-
-        if psi.ncols() > n_threads * 128 {
-            psi_inner
-                .par_col_partition_mut(n_threads)
-                .zip(psi.par_col_partition(n_threads))
-                .zip(inner.par_partition(n_threads))
-                .zip(output.par_iter_mut())
-                .for_each(|(((mut psi_inner, psi), inner), output)| {
-                    psi_inner
-                        .as_mut()
-                        .col_iter_mut()
-                        .zip(psi.col_iter())
-                        .zip(inner.iter())
-                        .for_each(|((col, psi_col), inner_val)| {
-                            col.iter_mut().zip(psi_col.iter()).for_each(|(x, psi_val)| {
-                                *x = psi_val * inner_val;
-                            });
-                        });
-                    faer::linalg::matmul::triangular::matmul(
-                        output.as_mut(),
-                        faer::linalg::matmul::triangular::BlockStructure::TriangularLower,
-                        faer::Accum::Replace,
-                        &psi_inner,
-                        faer::linalg::matmul::triangular::BlockStructure::Rectangular,
-                        psi.transpose(),
-                        faer::linalg::matmul::triangular::BlockStructure::Rectangular,
-                        1.0,
-                        faer::Par::Seq,
-                    );
+        // Use sequential column scaling - cache-friendly access pattern
+        psi_inner
+            .as_mut()
+            .col_iter_mut()
+            .zip(psi.col_iter())
+            .zip(inner.iter())
+            .for_each(|((col, psi_col), inner_val)| {
+                col.iter_mut().zip(psi_col.iter()).for_each(|(x, psi_val)| {
+                    *x = psi_val * inner_val;
                 });
+            });
 
-            let mut first_iter = true;
-            for output in &output {
-                if first_iter {
-                    h.copy_from(output);
-                    first_iter = false;
-                } else {
-                    h += output;
-                }
-            }
+        // Use faer's built-in parallelism for matmul - it has better cache tiling
+        // than our manual partitioning which caused false sharing
+        if psi.ncols() > PARALLEL_THRESHOLD {
+            faer::linalg::matmul::triangular::matmul(
+                h.as_mut(),
+                faer::linalg::matmul::triangular::BlockStructure::TriangularLower,
+                faer::Accum::Replace,
+                &psi_inner,
+                faer::linalg::matmul::triangular::BlockStructure::Rectangular,
+                psi.transpose(),
+                faer::linalg::matmul::triangular::BlockStructure::Rectangular,
+                1.0,
+                faer::Par::rayon(0), // Let faer handle parallelism with proper cache tiling
+            );
         } else {
             psi_inner
                 .as_mut()

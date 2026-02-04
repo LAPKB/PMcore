@@ -1,6 +1,5 @@
 use crate::structs::theta::Theta;
 use anyhow::Result;
-use faer::Row;
 
 /// Implements the adaptive grid algorithm for support point expansion.
 ///
@@ -25,36 +24,52 @@ pub fn adaptative_grid(
     ranges: &[(f64, f64)],
     min_dist: f64,
 ) -> Result<()> {
-    let mut candidates = Vec::new();
+    let n_params = ranges.len();
+    let n_spp = theta.nspp();
 
-    // Collect all points first to avoid borrowing conflicts
+    // Pre-compute deltas for each dimension (cache-friendly: sequential access)
+    let deltas: Vec<f64> = ranges.iter().map(|(lo, hi)| eps * (hi - lo)).collect();
+
+    // Pre-allocate flat buffer for candidates to minimize allocations
+    // Max candidates = n_spp * n_params * 2 directions
+    let max_candidates = n_spp * n_params * 2;
+    let mut candidates: Vec<f64> = Vec::with_capacity(max_candidates * n_params);
+    let mut n_candidates = 0usize;
+
+    // Generate candidates using flat buffer
     for spp in theta.matrix().row_iter() {
-        for (j, val) in spp.iter().enumerate() {
-            let l = eps * (ranges[j].1 - ranges[j].0); //abs?
+        for (j, &val) in spp.iter().enumerate() {
+            let l = deltas[j];
+
+            // Check +delta direction
             if val + l < ranges[j].1 {
-                let mut plus = Row::zeros(spp.ncols());
-                plus[j] = l;
-                plus += spp;
-                candidates.push(plus.iter().copied().collect::<Vec<f64>>());
+                // Append candidate point to flat buffer
+                for (k, &v) in spp.iter().enumerate() {
+                    candidates.push(if k == j { v + l } else { v });
+                }
+                n_candidates += 1;
             }
+
+            // Check -delta direction
             if val - l > ranges[j].0 {
-                let mut minus = Row::zeros(spp.ncols());
-                minus[j] = -l;
-                minus += spp;
-                candidates.push(minus.iter().copied().collect::<Vec<f64>>());
+                for (k, &v) in spp.iter().enumerate() {
+                    candidates.push(if k == j { v - l } else { v });
+                }
+                n_candidates += 1;
             }
         }
     }
 
-    // Option 1: Check all points against the original theta, then add them
-    let keep = candidates
-        .iter()
-        .filter(|point| theta.check_point(point, min_dist))
-        .cloned()
-        .collect::<Vec<_>>();
+    // Filter and add valid candidates
+    // Use slice views into the flat buffer to avoid allocations
+    for i in 0..n_candidates {
+        let start = i * n_params;
+        let end = start + n_params;
+        let point = &candidates[start..end];
 
-    for point in keep {
-        theta.add_point(point.as_slice())?;
+        if theta.check_point(point, min_dist) {
+            theta.add_point(point)?;
+        }
     }
 
     Ok(())

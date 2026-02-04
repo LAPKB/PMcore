@@ -73,3 +73,9 @@ pub mod prelude {
     pub use pharmsol::fetch_params;
     pub use pharmsol::lag;
 }
+
+use tikv_jemallocator::Jemalloc;
+
+// Use jemalloc as the global allocator
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
