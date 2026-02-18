@@ -34,9 +34,13 @@ rand = "0.9.0"
 anyhow = "1.0.100"
 rayon = "1.10.0"
 
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+tikv-jemallocator = { version = "0.6", optional = true }
+
 [features]
 default = []
 exa = ["pharmsol/exa"]
+jemalloc = ["tikv-jemallocator"]
 
 [profile.release]
 codegen-units = 1
