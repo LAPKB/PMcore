@@ -95,7 +95,7 @@ fn main() -> Result<()> {
         .unwrap();
 
     settings.set_parameters(params);
-    settings.set_prior_points(8384);
+    settings.set_prior_points(16384);
     settings.set_cycles(1000);
     settings.set_error_poly((0.01, 0.1, 0.0, 0.0)); // MN uses 0.1,0.15 ... CV%<0.1 is an acceptiable assay ... so 0, 0.1, ... is probably "right" to use for comparing SDE to ODE solutions
     settings.set_error_type(ErrorType::Add);
@@ -106,7 +106,7 @@ fn main() -> Result<()> {
     /*
         settings.set_output_path("examples/vpicu_for_grant_prop/output_ode"); // THIS LINE OVERWRITES THIS DIRECTORY !!!
         settings.set_prior_sampler("sobol".to_string());
-        settings.set_prior_points(1284);
+        settings.set_prior_points(16384);
         settings.set_prior_seed(347);
         // settings.set_prior(settings::Prior {
         //    sampler: "sobol".to_string(),
@@ -116,12 +116,14 @@ fn main() -> Result<()> {
         // });
     */
 
-    // for SDE use this block (Is AG edited to expand only in dimensions of sigma? ___ YES ___):
+    // for SDE use this block:
     // /*
         settings.set_output_path("examples/vpicu_for_grant_prop/output_sde_sigma_only"); // THIS LINE OVERWRITES THIS DIRECTORY !!!
-        settings.set_prior_file(Some(String::from("examples/vpicu_for_grant_prop/output_ode/theta_w_sigma.csv")));
+        settings.set_prior_file(Some(String::from("examples/vpicu_for_grant_prop/output_sde/theta_w_sigma.csv")));
         //
         // to optimize ONLY the sigmas, edit src/routines/expansion/adaptive_grid.rs to only expand in the dimentions of sigma
+        //
+        // Is the AG set up to ONLY expand in dimensions of sigma? ___ YES ___
         //
     // */
 

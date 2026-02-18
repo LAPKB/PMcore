@@ -4,10 +4,11 @@
 goback <- getwd()
 {#
   library(tidyverse)
-  ndata_csv <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/raw_data_files/vanco-vpicu-12-3-25.csv") %>%
+  {
+  ndata_csv_old <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/raw_data_files/vanco-vpicu-12-3-25.csv") %>%
     mutate(INPUT = if_else(INPUT=="none",0.0,as.numeric(INPUT))) %>%
     mutate(CENS = if_else(CENS=="none","-99.0",'.')) %>%
-    select(ID,EVID,TIME,DUR,DOSE,ADDL,II,INPUT,OUT,OUTEQ,C0,C1,C2,C3,WT,CRCL) %>% # ,CENS,CR,HT,MALE,ABSTIME,ENCOUNTER) %>%
+    select(ID,EVID,TIME,DUR,DOSE,ADDL,II,INPUT,OUT,OUTEQ,C0,C1,C2,C3,WT,CRCL,ENCOUNTER) %>% # ,CENS,CR,HT,MALE,ABSTIME,ENCOUNTER) %>%
     filter(!ID==25) %>% # this subj has 800 hr pause in treatment, needs to be two subjects
     group_by(ID) %>%
       filter(TIME <= max(TIME[which(EVID==0)])) # remove trailing doses
@@ -47,22 +48,45 @@ goback <- getwd()
   #.   58,0,236.49999997,.,.,.,.,.,9.5,1,.,.,.,.,8.180000305,94.9899962004001
   #
   #
+  } # vanco-vpicu-12-3-25.csv
+  {
+    # ndata_csv <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/raw_data_files/vanco-vpicu-2-5-26(in).csv") %>%
+    ndata_csv <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/raw_data_files/vpicu_2_5_edited.csv") %>% 
+      mutate(INPUT = if_else(INPUT=="none",0.0,as.numeric(INPUT))) %>%
+      mutate(CENS = if_else(CENS=="none","-99.0",'.')) %>%
+      # 1) old dataset hangs at 98%, find offending objservations, and why (?):
+      # filter(ENCOUNTER %in% unique(ndata_csv_old$ENCOUNTER)) %>% # this is the old dataset (that "works")
+      # filter(ENCOUNTER %in% unique(ndata_csv_old$ENCOUNTER)[27:37]) %>%
+      filter(!ENCOUNTER==5205652082) %>% # filter(!ID==47) # above subsetting suggests this is problematic obs
+      # 2) hanging at 98%, again ... find the new subjects that are at fault (of 19):
+      # filter(!ENCOUNTER %in% unique(ndata_csv_old$ENCOUNTER)) %>% 
+      # filter(ENCOUNTER %in% c(new_encounters[1:6],new_encounters[8:11],new_encounters[12:19])) %>% # made this list in console
+      filter(!ENCOUNTER==5119935423) %>% # 7th new subjects hangs
+      filter(!ENCOUNTER==5172512816) %>% # 11th new subject hangs  (ID 35 in edited dataset)  
+      filter(!ENCOUNTER==5133458366) %>% # 28th in new subject set (data is weird, 200Hr pause, double dosing, missing dose at 480)
+      select(ID,EVID,TIME,DUR,DOSE,ADDL,II,INPUT,OUT,OUTEQ,C0,C1,C2,C3,WT,CRCL,ENCOUNTER) %>% # ,CENS,CR,HT,MALE,ABSTIME,ENCOUNTER) %>%
+      group_by(ID) %>%
+        filter(TIME <= max(TIME[which(EVID==0)])) %>% # remove trailing doses
+        mutate(DOSE=if_else(ENCOUNTER == 5204605996 & TIME == 0.0, 1000.0, as.numeric(DOSE))) # the raw record was DOSE=1
+        # Changes by hand:
+        # if(ENCOUNTER == 5211708330) {
+        #  group_modify( ~ add_row(.x,
+        #      ID=49,EVID=1,TIME=40,DUR=1,DOSE=100,ADDL='.',II='.',INPUT=1,OUT='.',OUTEQ='.',C0='.',C1='.',C2='.',C3='.',WT=6.9,CRCL=152.81,ENCOUNTER=5211708330,
+        #      .after=8)
+        #  ) # missing doses at T=40,48,...90 (copied CRCL down; *** looks suspicious ***)
+        # }
+        # ENCOUNTER = 5204605996 (ID=46 in vpicu_csv_old)
+        # ENCOUNTER = 5261750012 (ID=62 in vpicu_csv_old)
+        # ENCOUNTER = 540821547 (ID = 7 in vpicu_csv_old)
+        # ENCOUNTER = 5223781351 (ID = 54 in vpicu_csv_old)
+        # ENCOUNTER = 5176316090 (ID = 37 in vpicu_csv_old)
+        # ENCOUNTER =  (ID =  in vpicu_csv_old)
+        # 5205652082 was major problematic!!! 
+        # 5177125843 (ID=39) removed observation of 32mg/L b/c seems unreasonable AND can NOT fit
+  } # vanco-vpicu-2-5-26(in).csv [three subjects not fittable]
   write_csv(ndata_csv,"/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/vpicu.csv", na = ".")
 }# read original csv as necessary and write "vpicu.csv"
 setwd(goback)
-
-{
-  # TDs ANOVA example
-  data <- data.frame(race = c(rep(c("Black"),8), rep(c("White","Hispanic","Asian"),each=7)),
-                     eat_out = c(14,0,14,13,7,12,4,1,11,6,2,4,9,12,14,15,11,3,13,15,7,5,10,8,13,0,15,12,15));
-  summary(data);
-  data %>% group_by(race) %>%
-    summarise(mean = mean(eat_out), sd = sd(eat_out))
-  boxplot(eat_out ~ race, data = data, "Cultural proclivity to eat out", xlab = "Ethnicity", ylab = "Times per wk")
-  aov(eat_out ~ race, data = data) # print out basic results
-  mmm <- aov(eat_out ~ race, data = data) # save aov class object for further analysis
-  summary(mmm)
-} # TD 1-way ANOVA example
 
 {
   {
@@ -76,13 +100,14 @@ setwd(goback)
     print(n=26, op[which(op$obs > 15 & op$pop_mean < 5), ])
   } # looking for outliers in op
   
-} # some data debugging stuff
+} # some data debugging snippets
 
 
 {
   op <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_ode/op.csv")
+  op <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_sde_sigma_only/op.csv")
   BLQ = 4.0;
-  run_name <- "vpicu ODE" # sigma only"
+  run_name <- "vpicu SDE" # sigma only"
   {
     op.blq <- op %>% filter(obs > BLQ)
     against.blq <- op.blq$post_median
@@ -213,7 +238,7 @@ setwd(goback)
   theta_sde <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_sde/theta.csv")
   theta_sde_s <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_sde_sigma_only/theta.csv")
   theta <- theta_sde_0
-    summary(theta)
+    summary(theta_ode)
     np.stats(theta)
 } # inspect theta
 
@@ -222,6 +247,28 @@ setwd(goback)
     add_column(ske = 0.01, svol = 0.01) %>%
     relocate(prob, .after = svol)
   write_csv(theta_sde,"/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_ode/theta_w_sigma.csv", na = "." )
-}
+  write_csv(theta_sde,"/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_sde/theta_w_sigma.csv", na = "." )
+  #
+  # to run the sde:
+  # 1) set proper equation
+  # 2) add the extra parameters
+  # 3) !!! set the output path !!!
+  # 4) *** set the adaptive gtid to ONLY find new points in the dimensions of sigmas ***
+  
+} # write theta_w_sigma.csv, prior for sde run
 
 setwd(goback)
+
+# ---- 
+{
+  # TDs ANOVA example
+  data <- data.frame(race = c(rep(c("Black"),8), rep(c("White","Hispanic","Asian"),each=7)),
+                     eat_out = c(14,0,14,13,7,12,4,1,11,6,2,4,9,12,14,15,11,3,13,15,7,5,10,8,13,0,15,12,15));
+  summary(data);
+  data %>% group_by(race) %>%
+    summarise(mean = mean(eat_out), sd = sd(eat_out))
+  boxplot(eat_out ~ race, data = data, "Cultural proclivity to eat out", xlab = "Ethnicity", ylab = "Times per wk")
+  aov(eat_out ~ race, data = data) # print out basic results
+  mmm <- aov(eat_out ~ race, data = data) # save aov class object for further analysis
+  summary(mmm)
+} # TD 1-way ANOVA example
