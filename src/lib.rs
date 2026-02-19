@@ -15,11 +15,16 @@
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
+// Warn at runtime if jemalloc is requested on Windows (where it is unsupported)
 #[cfg(all(feature = "jemalloc", target_os = "windows"))]
-compile_error!(
-    "The `jemalloc` feature is not supported on Windows. \
-     Please disable the `jemalloc` feature or use a non-Windows target."
-);
+const _: () = {
+    #[deprecated(
+        note = "The `jemalloc` feature has no effect on Windows. The system allocator will be used instead."
+    )]
+    const JEMALLOC_NOT_SUPPORTED_ON_WINDOWS: () = ();
+    #[allow(deprecated)]
+    const _WARNING: () = JEMALLOC_NOT_SUPPORTED_ON_WINDOWS;
+};
 
 /// Provides the various algorithms used within the framework
 // pub mod algorithms;
