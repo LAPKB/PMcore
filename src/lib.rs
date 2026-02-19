@@ -11,20 +11,9 @@
 //! PMcore is heavily linked to [pharmsol], which provides the data structures and routines for handling pharmacokinetic data. The data is stored in a [pharmsol::Data] structure, and can either be read from a CSV file, using [pharmsol::data::parse_pmetrics::read_pmetrics], or created dynamically using the [pharmsol::data::builder::SubjectBuilder].
 //!
 
-#[cfg(all(feature = "jemalloc", not(target_os = "windows")))]
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
-static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
-
-// Warn at runtime if jemalloc is requested on Windows (where it is unsupported)
-#[cfg(all(feature = "jemalloc", target_os = "windows"))]
-const _: () = {
-    #[deprecated(
-        note = "The `jemalloc` feature has no effect on Windows. The system allocator will be used instead."
-    )]
-    const JEMALLOC_NOT_SUPPORTED_ON_WINDOWS: () = ();
-    #[allow(deprecated)]
-    const _WARNING: () = JEMALLOC_NOT_SUPPORTED_ON_WINDOWS;
-};
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 /// Provides the various algorithms used within the framework
 // pub mod algorithms;
