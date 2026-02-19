@@ -213,12 +213,7 @@ pub fn npagfull_refinement(
 
         // Run NPAG optimization
         let refinement_result = npag.initialize().and_then(|_| {
-            loop {
-                match npag.next_cycle()? {
-                    Status::Continue => continue,
-                    Status::Stop(_) => break,
-                }
-            }
+            while let Status::Continue = npag.next_cycle()? {}
             Ok(())
         });
 

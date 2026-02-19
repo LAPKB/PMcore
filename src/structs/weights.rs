@@ -58,6 +58,11 @@ impl Weights {
         self.weights.nrows()
     }
 
+    /// Check if there are no weights.
+    pub fn is_empty(&self) -> bool {
+        self.weights.nrows() == 0
+    }
+
     /// Get a vector representation of the weights.
     pub fn to_vec(&self) -> Vec<f64> {
         self.weights.iter().cloned().collect()
