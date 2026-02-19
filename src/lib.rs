@@ -15,6 +15,12 @@
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
+#[cfg(all(feature = "jemalloc", target_os = "windows"))]
+compile_error!(
+    "The `jemalloc` feature is not supported on Windows. \
+     Please disable the `jemalloc` feature or use a non-Windows target."
+);
+
 /// Provides the various algorithms used within the framework
 // pub mod algorithms;
 pub mod algorithms;
