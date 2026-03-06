@@ -1,6 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose; // bestdose new
-                      // use pmcore::bestdose::bestdose_old as bestdose; // bestdose old
+use pmcore::bestdose::{BestDosePosterior, DoseRange, Target};
 
 use pmcore::prelude::*;
 use pmcore::routines::initialization::parse_prior;
@@ -82,22 +81,15 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
-    // Example usage - using new() constructor which calculates NPAGFULL11 posterior
-    // max_cycles controls NPAGFULL refinement:
-    //   0 = NPAGFULL11 only (fast but less accurate)
-    //   100 = moderate refinement
-    //   500 = full refinement (Fortran default, slow but most accurate)
-    let problem = bestdose::BestDoseProblem::new(
+    // Example usage - two-stage API:
+    // Stage 1: Compute posterior (expensive, done once)
+    // Stage 2: Optimize doses (can be called multiple times with different params)
+    let posterior = BestDosePosterior::compute(
         &theta,
         &prior.unwrap(),
         Some(past_data.clone()), // Optional: past data for Bayesian updating
-        target_data.clone(),
-        None,
         eq.clone(),
-        bestdose::DoseRange::new(0.0, 300.0),
-        0.0,
         settings.clone(),
-        bestdose::Target::Concentration, // Target concentrations (not AUCs)
     )?;
 
     println!("Optimizing dose...");
@@ -107,7 +99,13 @@ fn main() -> Result<()> {
 
     for bias_weight in &bias_weights {
         println!("Running optimization with bias weight: {}", bias_weight);
-        let optimal = problem.clone().with_bias_weight(*bias_weight).optimize()?;
+        let optimal = posterior.optimize(
+            target_data.clone(),
+            None,
+            DoseRange::new(0.0, 300.0),
+            *bias_weight,
+            Target::Concentration,
+        )?;
         results.push((bias_weight, optimal));
     }
 

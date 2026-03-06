@@ -1,7 +1,7 @@
 //! Core data types for the BestDose algorithm
 //!
 //! This module defines the main structures used throughout the BestDose optimization:
-//! - [`BestDoseProblem`]: The complete optimization problem specification
+//! - [`BestDosePosterior`]: Two-stage API entry point — compute posterior, then optimize
 //! - [`BestDoseResult`]: Output structure containing optimal doses and predictions
 //! - [`Target`]: Enum specifying concentration or AUC targets
 //! - [`DoseRange`]: Dose constraint specification
@@ -183,51 +183,25 @@ impl Default for DoseRange {
     }
 }
 
-/// The BestDose optimization problem
+/// The computed Bayesian posterior for a patient
 ///
-/// Contains all data needed for the three-stage BestDose algorithm.
-/// Create via [`BestDoseProblem::new()`], then call [`.optimize()`](BestDoseProblem::optimize)
-/// to run the full algorithm.
+/// This is the main public entry point for the two-stage BestDose API:
 ///
-/// # Three-Stage Algorithm
-///
-/// 1. **Posterior Density Calculation** (automatic in `new()`)
+/// 1. **Stage 1: Posterior computation** ([`BestDosePosterior::compute()`])
 ///    - NPAGFULL11: Bayesian filtering of prior support points
 ///    - NPAGFULL: Local refinement of each filtered point
 ///
-/// 2. **Dual Optimization** (automatic in `optimize()`)
-///    - Optimization with posterior weights (patient-specific)
-///    - Optimization with uniform weights (population-based)
-///    - Selection of better result
+/// 2. **Stage 2: Dose optimization** ([`BestDosePosterior::optimize()`])
+///    - Dual optimization (posterior vs uniform weights)
+///    - Final predictions with optimal doses
 ///
-/// 3. **Final Predictions** (automatic in `optimize()`)
-///    - Concentration or AUC predictions with optimal doses
-///
-/// # Fields
-///
-/// ## Input Data
-/// - `target`: Future dosing template with target observations
-/// - `target_type`: [`Target::Concentration`] or [`Target::AUC`]
-///
-/// ## Population Prior
-/// - `population_weights`: Filtered population probability weights (used for bias term)
-///
-/// ## Patient-Specific Posterior
-/// - `theta`: Refined posterior support points (from NPAGFULL11 + NPAGFULL)
-/// - `posterior`: Posterior probability weights
-///
-/// ## Model Components
-/// - `eq`: Pharmacokinetic/pharmacodynamic ODE model
-/// - `settings`: NPAG configuration settings (used for prediction grid)
-///
-/// ## Optimization Parameters
-/// - `doserange`: Min/max dose constraints
-/// - `bias_weight` (λ): Personalization parameter (0=personalized, 1=population)
+/// The posterior can be reused across multiple `optimize()` calls with
+/// different targets, dose ranges, or bias weights.
 ///
 /// # Example
 ///
 /// ```rust,no_run,ignore
-/// use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
+/// use pmcore::bestdose::{BestDosePosterior, Target, DoseRange};
 ///
 /// # fn example(population_theta: pmcore::structs::theta::Theta,
 /// #            population_weights: pmcore::structs::weights::Weights,
@@ -237,56 +211,78 @@ impl Default for DoseRange {
 /// #            error_models: pharmsol::prelude::ErrorModels,
 /// #            settings: pmcore::routines::settings::Settings)
 /// #            -> anyhow::Result<()> {
-/// let problem = BestDoseProblem::new(
+/// // Stage 1: Compute posterior (expensive, done once)
+/// let posterior = BestDosePosterior::compute(
 ///     &population_theta,
 ///     &population_weights,
-///     Some(past),                      // Patient history
-///     target,                          // Dosing template with targets
+///     Some(past),
 ///     eq,
 ///     error_models,
-///     DoseRange::new(0.0, 1000.0),
-///     0.5,                             // Balanced personalization
 ///     settings,
-///     500,                             // NPAGFULL cycles
-///     Target::Concentration,
 /// )?;
 ///
-/// let result = problem.optimize()?;
+/// // Stage 2: Optimize doses (can be called multiple times)
+/// let result = posterior.optimize(
+///     target,
+///     None,                            // No time offset
+///     DoseRange::new(0.0, 1000.0),
+///     0.5,                             // bias_weight
+///     Target::Concentration,
+/// )?;
 /// # Ok(())
 /// # }
 /// ```
 #[derive(Debug, Clone)]
-pub struct BestDoseProblem {
-    /// Target subject with dosing template and target observations
-    ///
-    /// This [Subject] defines the targets for optimization, including
-    /// dose events (with amounts to be optimized) and observation events
-    /// (with desired target values).
-    ///
-    /// For a `Target::Concentration`, observation values are target concentrations.
-    /// For a `Target::AUC`, observation values are target cumulative AUC.
-    ///
-    /// Only doses with a value of `0.0` will be optimized; non-zero doses remain fixed.
-    pub(crate) target: Subject,
-    /// Target type for optimization
-    ///
-    /// Specifies whether to optimize for concentrations or AUC values.
-    pub(crate) target_type: Target,
-
-    /// The population prior weights ([Weights]), representing the probability of each support point in the population.
+pub struct BestDosePosterior {
+    /// Refined posterior support points (from NPAGFULL11 + NPAGFULL)
+    pub(crate) theta: Theta,
+    /// Posterior probability weights
+    pub(crate) posterior: Weights,
+    /// Filtered population weights (used for bias term in cost function)
     pub(crate) population_weights: Weights,
+    /// PK/PD model
+    pub(crate) eq: ODE,
+    /// Settings (used for prediction grid, error models, etc.)
+    pub(crate) settings: Settings,
+}
 
-    // Patient-specific posterior (from NPAGFULL11 + NPAGFULL)
+impl BestDosePosterior {
+    /// Get the refined posterior support points (Θ)
+    pub fn theta(&self) -> &Theta {
+        &self.theta
+    }
+
+    /// Get the posterior probability weights
+    pub fn posterior_weights(&self) -> &Weights {
+        &self.posterior
+    }
+
+    /// Get the filtered population weights used for the bias term
+    pub fn population_weights(&self) -> &Weights {
+        &self.population_weights
+    }
+
+    /// Get the number of support points in the posterior
+    pub fn n_support_points(&self) -> usize {
+        self.theta.matrix().nrows()
+    }
+}
+
+/// Internal optimization problem (not exposed in public API)
+///
+/// Contains all data needed for dose optimization.
+/// Created internally by [`BestDosePosterior::optimize()`].
+#[derive(Debug, Clone)]
+pub(crate) struct BestDoseProblem {
+    pub(crate) target: Subject,
+    pub(crate) target_type: Target,
+    pub(crate) population_weights: Weights,
     pub(crate) theta: Theta,
     pub(crate) posterior: Weights,
-
-    // Model and settings
     pub(crate) eq: ODE,
     pub(crate) settings: Settings,
-
-    // Optimization parameters
     pub(crate) doserange: DoseRange,
-    pub(crate) bias_weight: f64, // λ: 0=personalized, 1=population
+    pub(crate) bias_weight: f64,
 }
 
 /// Result from BestDose optimization

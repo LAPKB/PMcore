@@ -129,7 +129,7 @@ use pharmsol::Equation;
 /// - Model simulation fails
 /// - Prediction length doesn't match observation count
 /// - AUC calculation fails (for AUC targets)
-pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
+pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
     // Validate candidate_doses length matches expected optimizable dose count
     let expected_optimizable = problem
         .target

@@ -267,7 +267,7 @@ pub fn calculate_interval_auc_per_observation(
 ///
 /// This generates the final NPPredictions structure with the optimal doses
 /// and appropriate weights (posterior or uniform depending on which optimization won).
-pub fn calculate_final_predictions(
+pub(crate) fn calculate_final_predictions(
     problem: &BestDoseProblem,
     optimal_doses: &[f64],
     weights: &Weights,
