@@ -1,0 +1,14 @@
+experiment,dataset,algorithm,seed,cycles,time_secs,objf,n_spp,converged
+A,bimodal_ke,NPAG,42,115,4.78,-386.7063,45,true
+A,bimodal_ke,NPAG,123,243,7.25,-404.5302,46,true
+A,bimodal_ke,NPAG,456,193,6.52,-436.1845,44,true
+A,bimodal_ke,NPAG,789,190,6.27,-340.3679,43,true
+A,bimodal_ke,NPAG,1001,121,5.11,-413.9471,47,true
+A,bimodal_ke,NPOD,42,10,2.58,-412.1980,45,true
+A,bimodal_ke,NPOD,123,11,2.46,-341.4668,44,true
+A,bimodal_ke,NPOD,456,19,3.16,-437.3937,46,true
+A,bimodal_ke,NPOD,789,10,2.27,-340.3557,44,true
+A,bimodal_ke,NPOD,1001,19,2.90,-415.0834,43,true
+A,bimodal_ke,NPSAH,42,13,30.60,-387.7956,46,true
+A,bimodal_ke,NPSAH,123,14,30.42,-440.5854,45,true
+A,bimodal_ke,NPSAH,456,13,27.83,-437.8258,45,true

@@ -21,9 +21,9 @@ use nonparametric::nppso::NPPSO;
 use nonparametric::npsah::NPSAH;
 use nonparametric::npsah2::NPSAH2;
 use nonparametric::npxo::NPXO;
+use nonparametric::postprob::POSTPROB;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
-use nonparametric::postprob::POSTPROB;
 use serde::{Deserialize, Serialize};
 
 // Module organization for algorithm types
