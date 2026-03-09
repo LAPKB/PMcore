@@ -281,20 +281,24 @@ pub use types::{BestDosePosterior, BestDoseResult, DoseRange, Target};
 ///
 /// This mimics Fortran's MAKETMP subroutine logic:
 /// 1. Takes doses (only doses, not observations) from past subject
-/// 2. Offsets all future subject event times by `time_offset`
+/// 2. Offsets all future subject event times by `effective_offset` (absolute)
 /// 3. Combines into single continuous subject
+///
+/// Note: This function receives the **effective** (absolute) offset, computed
+/// by `optimize()` as `max_past_time + time_offset` where `time_offset` is the
+/// user-facing gap parameter.
 ///
 /// # Arguments
 ///
 /// * `past` - Subject with past history (only doses will be used)
 /// * `future` - Subject template for future (all events: doses + observations)
-/// * `time_offset` - Time offset to apply to all future events
+/// * `effective_offset` - Absolute time offset to apply to all future events
 ///
 /// # Returns
 ///
 /// Combined subject with:
-/// - Past doses at original times [0, time_offset)
-/// - Future doses + observations at offset times [time_offset, ∞)
+/// - Past doses at original times [0, effective_offset)
+/// - Future doses + observations at offset times [effective_offset, ∞)
 ///
 /// # Example
 ///
@@ -302,24 +306,24 @@ pub use types::{BestDosePosterior, BestDoseResult, DoseRange, Target};
 /// // Past: dose at t=0, observation at t=6 (patient has been on therapy 6 hours)
 /// let past = Subject::builder("patient")
 ///     .bolus(0.0, 500.0, 0)
-///     .observation(6.0, 15.0, 0)  // 15 mg/L at 6 hours
+///     .observation(6.0, 15.0, 0)  // 15 mg/L at 6 hours (max_past_time = 6)
 ///     .build();
 ///
 /// // Future: dose at t=0 (relative), target at t=24 (relative)
 /// let future = Subject::builder("patient")
-///     .bolus(0.0, 100.0, 0)  // Dose to optimize, will be at t=6 absolute
-///     .observation(24.0, 10.0, 0)  // Target at t=30 absolute
+///     .bolus(0.0, 100.0, 0)       // At absolute t=6 (with gap=0)
+///     .observation(24.0, 10.0, 0)  // At absolute t=30 (with gap=0)
 ///     .build();
 ///
-/// // Concatenate with time_offset = 6.0
+/// // effective_offset = max_past_time(6) + gap(0) = 6
 /// let combined = concatenate_past_and_future(&past, &future, 6.0);
-/// // Result: dose at t=0 (fixed, 500mg), dose at t=6 (optimizable, 100mg initial),
+/// // Result: dose at t=0 (fixed, 500mg), dose at t=6 (optimizable),
 /// //         observation target at t=30 (10 mg/L)
 /// ```
 fn concatenate_past_and_future(
     past: &pharmsol::prelude::Subject,
     future: &pharmsol::prelude::Subject,
-    time_offset: f64,
+    effective_offset: f64,
 ) -> pharmsol::prelude::Subject {
     use pharmsol::prelude::*;
 
@@ -343,17 +347,17 @@ fn concatenate_past_and_future(
         }
     }
 
-    // Add future events with time offset
+    // Add future events with effective offset
     for occasion in future.occasions() {
         for event in occasion.events() {
             match event {
                 Event::Bolus(bolus) => {
                     builder =
-                        builder.bolus(bolus.time() + time_offset, bolus.amount(), bolus.input());
+                        builder.bolus(bolus.time() + effective_offset, bolus.amount(), bolus.input());
                 }
                 Event::Infusion(inf) => {
                     builder = builder.infusion(
-                        inf.time() + time_offset,
+                        inf.time() + effective_offset,
                         inf.amount(),
                         inf.input(),
                         inf.duration(),
@@ -362,7 +366,7 @@ fn concatenate_past_and_future(
                 Event::Observation(obs) => {
                     builder = match obs.value() {
                         Some(val) => {
-                            builder.observation(obs.time() + time_offset, val, obs.outeq())
+                            builder.observation(obs.time() + effective_offset, val, obs.outeq())
                         }
                         None => builder,
                     };
@@ -474,7 +478,9 @@ impl BestDosePosterior {
     /// # Arguments
     ///
     /// * `target` - Future dosing template with target observations
-    /// * `time_offset` - Optional time boundary for past/future concatenation (Fortran mode)
+    /// * `time_offset` - Optional gap (in hours) between the last past event and the start of 
+    ///   the future target. 0 means the future starts immediately after the last past event.
+    ///   The effective absolute offset is `max_past_time + time_offset`.
     /// * `dose_range` - Allowable dose constraints
     /// * `bias_weight` - λ ∈ [0,1]: 0=personalized, 1=population
     /// * `target_type` - Concentration or AUC targets
@@ -509,47 +515,55 @@ impl BestDosePosterior {
         tracing::info!("  Target type: {:?}", target_type);
         tracing::info!("  Bias weight (λ): {}", bias_weight);
 
-        // Validate time_offset against past data
+        // Validate and compute effective time_offset
+        // time_offset is a gap relative to the last past event:
+        //   effective_offset = max_past_time + time_offset
+        // So time_offset=0 means "future starts right after last past event"
         if let Some(t) = time_offset {
-            if let Some(past) = &self.past_data {
-                let max_past_time = past
-                    .occasions()
-                    .iter()
-                    .flat_map(|occ| occ.events())
-                    .map(|event| match event {
-                        Event::Bolus(b) => b.time(),
-                        Event::Infusion(i) => i.time(),
-                        Event::Observation(o) => o.time(),
-                    })
-                    .fold(0.0_f64, |max, time| max.max(time));
-
-                if t < max_past_time {
-                    return Err(anyhow::anyhow!(
-                        "Invalid time_offset: {} is before the last past_data event at time {}. \
-                        time_offset must be >= the maximum time in past_data to avoid time travel!",
-                        t,
-                        max_past_time
-                    ));
-                }
+            if t < 0.0 {
+                return Err(anyhow::anyhow!(
+                    "Invalid time_offset: {} is negative. \
+                    time_offset must be >= 0 (it represents the gap after the last past event).",
+                    t
+                ));
             }
         }
 
+        // Compute the absolute offset for concatenation
+        let effective_offset = time_offset.map(|t| {
+            let max_past_time = self
+                .past_data
+                .as_ref()
+                .map(|past| {
+                    past.occasions()
+                        .iter()
+                        .flat_map(|occ| occ.events())
+                        .map(|event| match event {
+                            Event::Bolus(b) => b.time(),
+                            Event::Infusion(i) => i.time(),
+                            Event::Observation(o) => o.time(),
+                        })
+                        .fold(0.0_f64, |max, time| max.max(time))
+                })
+                .unwrap_or(0.0);
+            max_past_time + t
+        });
+
         // Handle past/future concatenation if needed
-        // When time_offset is provided, offset all target event times and
-        // prepend past doses so the simulator sees the full timeline.
-        let final_target = match time_offset {
+        // When time_offset is provided, offset all target event times by the
+        // effective offset (max_past_time + gap) and prepend past doses.
+        let final_target = match effective_offset {
             None => target,
-            Some(t) => {
-                tracing::info!("  Time offset: {} hours", t);
+            Some(eff) => {
+                tracing::info!("  Time offset gap: {:?} hours (effective absolute offset: {} hours)", time_offset, eff);
                 match &self.past_data {
                     Some(past) => {
                         tracing::info!("  Concatenating past doses with offset target events");
-                        concatenate_past_and_future(past, &target, t)
+                        concatenate_past_and_future(past, &target, eff)
                     }
                     None => {
                         tracing::info!("  No past data stored — offsetting target events only");
-                        // No past data: just offset the target times
-                        concatenate_past_and_future(&Subject::builder("empty").build(), &target, t)
+                        concatenate_past_and_future(&Subject::builder("empty").build(), &target, eff)
                     }
                 }
             }

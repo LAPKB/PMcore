@@ -1,0 +1,14 @@
+metric,value
+n_subjects,51
+n_observations,510
+n_fixed_params,2
+n_random_params,2
+n_total_params,5
+iterations,315
+converged,true
+objf,-171.285848
+ll_is,85.642924
+aic,-161.2858
+bic,-151.6267
+eta_shrinkage_overall,-0.0619
+sigma,0.111060

@@ -191,7 +191,7 @@ fn test_fixed_infusion_preservation() -> Result<()> {
 
     let result = posterior.optimize(
         target,
-        Some(2.0), // Current time = 2.0 hours
+        Some(0.0), // No gap after past (past ends at t=2.0)
         DoseRange::new(0.0, 500.0),
         0.5,
         Target::Concentration,
@@ -1330,11 +1330,11 @@ fn simple_prior(settings: &Settings) -> (Theta, Weights) {
     (theta, weights)
 }
 
-/// Test that offset=0 and offset=12 produce different results
+/// Test that gap=0 and gap=12 produce different results
 ///
-/// When time_offset is applied, all target events shift forward in absolute time.
-/// This should change the optimization outcome because the PK simulation sees
-/// different timing relative to past doses.
+/// When time_offset is applied as a gap after the last past event,
+/// different gaps change when the future dose is given relative to
+/// the past, affecting the PK simulation outcome.
 #[test]
 fn test_time_offset_zero_vs_nonzero_differ() -> Result<()> {
     let eq = one_compartment_model();
@@ -1357,47 +1357,47 @@ fn test_time_offset_zero_vs_nonzero_differ() -> Result<()> {
         .observation(1.0, 5.0, 0) // target: 5 mg/L at 1h after the future dose
         .build();
 
-    // offset=6: target dose at t=6 absolute, obs at t=7
+    // gap=0: target dose at t=6 absolute (right after past), obs at t=7
     // Past dose (500mg at t=0): C(7) = 500/50 * e^(-0.3*7) ≈ 1.22 mg/L residual
-    let result_offset6 = posterior.optimize(
+    let result_gap0 = posterior.optimize(
         target.clone(),
-        Some(6.0),
+        Some(0.0),
         DoseRange::new(10.0, 1000.0),
         0.5,
         Target::Concentration,
     )?;
 
-    // offset=18: target dose at t=18 absolute, obs at t=19
+    // gap=12: target dose at t=18 absolute, obs at t=19
     // Past dose (500mg at t=0): C(19) = 500/50 * e^(-0.3*19) ≈ 0.003 mg/L (negligible)
-    let result_offset18 = posterior.optimize(
+    let result_gap12 = posterior.optimize(
         target,
-        Some(18.0),
+        Some(12.0),
         DoseRange::new(10.0, 1000.0),
         0.5,
         Target::Concentration,
     )?;
 
-    let doses_6 = result_offset6.doses();
-    let doses_18 = result_offset18.doses();
+    let doses_gap0 = result_gap0.doses();
+    let doses_gap12 = result_gap12.doses();
 
-    eprintln!("Offset=6  doses: {:?}", doses_6);
-    eprintln!("Offset=18 doses: {:?}", doses_18);
+    eprintln!("Gap=0  doses: {:?}", doses_gap0);
+    eprintln!("Gap=12 doses: {:?}", doses_gap12);
 
-    // With offset=6, there's still significant residual from the past dose (~1.2 mg/L),
-    // so the optimizer needs less future dose. With offset=18, the past dose is negligible,
+    // With gap=0, there's still significant residual from the past dose (~1.2 mg/L),
+    // so the optimizer needs less future dose. With gap=12, the past dose is negligible,
     // so it needs more future dose. The optimizable doses should differ.
     assert!(
-        (doses_6.last().unwrap() - doses_18.last().unwrap()).abs() > 1e-3,
-        "offset=6 and offset=18 must produce different optimizable doses, \
+        (doses_gap0.last().unwrap() - doses_gap12.last().unwrap()).abs() > 1e-3,
+        "gap=0 and gap=12 must produce different optimizable doses, \
          but got {:.4} vs {:.4}",
-        doses_6.last().unwrap(),
-        doses_18.last().unwrap()
+        doses_gap0.last().unwrap(),
+        doses_gap12.last().unwrap()
     );
 
     Ok(())
 }
 
-/// Test that the first target event lands at last_past_time + offset
+/// Test that the first target event lands at last_past_time + gap
 /// and subsequent target times are shifted correctly.
 #[test]
 fn test_time_offset_event_placement() -> Result<()> {
@@ -1421,10 +1421,12 @@ fn test_time_offset_event_placement() -> Result<()> {
         .observation(24.0, 5.0, 0)
         .build();
 
-    let offset = 6.0;
+    // gap=0: future starts immediately after last past event (t=6)
+    // effective_offset = 6 + 0 = 6
+    let gap = 0.0;
     let result = posterior.optimize(
         target,
-        Some(offset),
+        Some(gap),
         DoseRange::new(10.0, 500.0),
         0.5,
         Target::Concentration,
@@ -1462,19 +1464,19 @@ fn test_time_offset_event_placement() -> Result<()> {
     // First target dose at t = 0 + 6 = 6
     assert!(
         (dose_times[1] - 6.0).abs() < 1e-10,
-        "Second dose should be at t=0+offset=6, got {}",
+        "Second dose should be at t=0+effective_offset=6, got {}",
         dose_times[1]
     );
     // Second target dose at t = 12 + 6 = 18
     assert!(
         (dose_times[2] - 18.0).abs() < 1e-10,
-        "Third dose should be at t=12+offset=18, got {}",
+        "Third dose should be at t=12+effective_offset=18, got {}",
         dose_times[2]
     );
     // Observation at t = 24 + 6 = 30
     assert!(
         (obs_times[0] - 30.0).abs() < 1e-10,
-        "Observation should be at t=24+offset=30, got {}",
+        "Observation should be at t=24+effective_offset=30, got {}",
         obs_times[0]
     );
 
