@@ -352,8 +352,11 @@ fn concatenate_past_and_future(
         for event in occasion.events() {
             match event {
                 Event::Bolus(bolus) => {
-                    builder =
-                        builder.bolus(bolus.time() + effective_offset, bolus.amount(), bolus.input());
+                    builder = builder.bolus(
+                        bolus.time() + effective_offset,
+                        bolus.amount(),
+                        bolus.input(),
+                    );
                 }
                 Event::Infusion(inf) => {
                     builder = builder.infusion(
@@ -478,7 +481,7 @@ impl BestDosePosterior {
     /// # Arguments
     ///
     /// * `target` - Future dosing template with target observations
-    /// * `time_offset` - Optional gap (in hours) between the last past event and the start of 
+    /// * `time_offset` - Optional gap (in hours) between the last past event and the start of
     ///   the future target. 0 means the future starts immediately after the last past event.
     ///   The effective absolute offset is `max_past_time + time_offset`.
     /// * `dose_range` - Allowable dose constraints
@@ -555,7 +558,11 @@ impl BestDosePosterior {
         let final_target = match effective_offset {
             None => target,
             Some(eff) => {
-                tracing::info!("  Time offset gap: {:?} hours (effective absolute offset: {} hours)", time_offset, eff);
+                tracing::info!(
+                    "  Time offset gap: {:?} hours (effective absolute offset: {} hours)",
+                    time_offset,
+                    eff
+                );
                 match &self.past_data {
                     Some(past) => {
                         tracing::info!("  Concatenating past doses with offset target events");
@@ -563,7 +570,11 @@ impl BestDosePosterior {
                     }
                     None => {
                         tracing::info!("  No past data stored — offsetting target events only");
-                        concatenate_past_and_future(&Subject::builder("empty").build(), &target, eff)
+                        concatenate_past_and_future(
+                            &Subject::builder("empty").build(),
+                            &target,
+                            eff,
+                        )
                     }
                 }
             }
