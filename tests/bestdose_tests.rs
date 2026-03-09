@@ -197,15 +197,21 @@ fn test_fixed_infusion_preservation() -> Result<()> {
         Target::Concentration,
     )?;
 
-    // Should only have the optimized future bolus (past data is not in the target)
+    // With time_offset, past doses are concatenated with future target.
+    // Result should have 2 doses: fixed past infusion + optimized future bolus.
     let doses = result.doses();
     eprintln!("Optimized doses: {:?}", doses);
     assert_eq!(
         doses.len(),
-        1,
-        "Should have 1 dose (the future bolus from target)"
+        2,
+        "Should have 2 doses (past infusion + future bolus)"
     );
-    assert!(doses[0] > 0.0, "Future bolus dose should be optimized");
+    assert!(
+        (doses[0] - 200.0).abs() < 1e-6,
+        "Past infusion should remain fixed at 200.0, got {}",
+        doses[0]
+    );
+    assert!(doses[1] > 0.0, "Future bolus dose should be optimized");
 
     Ok(())
 }
@@ -1264,6 +1270,377 @@ fn test_dose_range_bounds_respected() -> Result<()> {
         (doses[0] - 200.0).abs() < 1.0,
         "Expected dose near upper bound (200 mg), got {:.1} mg",
         doses[0]
+    );
+
+    Ok(())
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Tests for time_offset behavior
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Helper to build a simple one-compartment model used by multiple tests
+fn one_compartment_model() -> pharmsol::ODE {
+    equation::ODE::new(
+        |x, p, _t, dx, b, _rateiv, _cov| {
+            fetch_params!(p, ke, _v);
+            dx[0] = -ke * x[0] + b[0];
+        },
+        |_p, _, _| lag! {},
+        |_p, _, _| fa! {},
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _ke, v);
+            y[0] = x[0] / v;
+        },
+        (1, 1),
+    )
+}
+
+/// Helper to build minimal settings for tests (no posterior refinement)
+fn minimal_settings() -> Settings {
+    let params = Parameters::new()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+    let ems = ErrorModels::new()
+        .add(
+            0,
+            ErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
+        )
+        .unwrap();
+    let mut settings = Settings::builder()
+        .set_algorithm(Algorithm::NPAG)
+        .set_parameters(params)
+        .set_error_models(ems)
+        .build();
+    settings.disable_output();
+    settings.set_cycles(0);
+    settings
+}
+
+/// Helper to build a simple prior (single support point)
+fn simple_prior(settings: &Settings) -> (Theta, Weights) {
+    let mat = faer::Mat::from_fn(1, 2, |_r, c| match c {
+        0 => 0.3,  // ke
+        1 => 50.0, // v
+        _ => 0.0,
+    });
+    let theta = Theta::from_parts(mat, settings.parameters().clone()).unwrap();
+    let weights = Weights::uniform(1);
+    (theta, weights)
+}
+
+/// Test that offset=0 and offset=12 produce different results
+///
+/// When time_offset is applied, all target events shift forward in absolute time.
+/// This should change the optimization outcome because the PK simulation sees
+/// different timing relative to past doses.
+#[test]
+fn test_time_offset_zero_vs_nonzero_differ() -> Result<()> {
+    let eq = one_compartment_model();
+    let settings = minimal_settings();
+    let (theta, weights) = simple_prior(&settings);
+
+    // Past data: dose at t=0, observation at t=6
+    let past = Subject::builder("patient")
+        .bolus(0.0, 500.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let posterior =
+        BestDosePosterior::compute(&theta, &weights, Some(past), eq.clone(), settings.clone())?;
+
+    // Target: optimizable dose at t=0 (relative), target conc at t=1 (relative)
+    // Short observation window so residual from past dose matters
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(1.0, 5.0, 0) // target: 5 mg/L at 1h after the future dose
+        .build();
+
+    // offset=6: target dose at t=6 absolute, obs at t=7
+    // Past dose (500mg at t=0): C(7) = 500/50 * e^(-0.3*7) ≈ 1.22 mg/L residual
+    let result_offset6 = posterior.optimize(
+        target.clone(),
+        Some(6.0),
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    // offset=18: target dose at t=18 absolute, obs at t=19
+    // Past dose (500mg at t=0): C(19) = 500/50 * e^(-0.3*19) ≈ 0.003 mg/L (negligible)
+    let result_offset18 = posterior.optimize(
+        target,
+        Some(18.0),
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let doses_6 = result_offset6.doses();
+    let doses_18 = result_offset18.doses();
+
+    eprintln!("Offset=6  doses: {:?}", doses_6);
+    eprintln!("Offset=18 doses: {:?}", doses_18);
+
+    // With offset=6, there's still significant residual from the past dose (~1.2 mg/L),
+    // so the optimizer needs less future dose. With offset=18, the past dose is negligible,
+    // so it needs more future dose. The optimizable doses should differ.
+    assert!(
+        (doses_6.last().unwrap() - doses_18.last().unwrap()).abs() > 1e-3,
+        "offset=6 and offset=18 must produce different optimizable doses, \
+         but got {:.4} vs {:.4}",
+        doses_6.last().unwrap(),
+        doses_18.last().unwrap()
+    );
+
+    Ok(())
+}
+
+/// Test that the first target event lands at last_past_time + offset
+/// and subsequent target times are shifted correctly.
+#[test]
+fn test_time_offset_event_placement() -> Result<()> {
+    let eq = one_compartment_model();
+    let settings = minimal_settings();
+    let (theta, weights) = simple_prior(&settings);
+
+    // Past: dose at t=0, observation at t=6 (last event at t=6)
+    let past = Subject::builder("patient")
+        .bolus(0.0, 500.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let posterior =
+        BestDosePosterior::compute(&theta, &weights, Some(past), eq.clone(), settings.clone())?;
+
+    // Target: dose at t=0, dose at t=12, obs at t=24 (all relative)
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .bolus(12.0, 0.0, 0)
+        .observation(24.0, 5.0, 0)
+        .build();
+
+    let offset = 6.0;
+    let result = posterior.optimize(
+        target,
+        Some(offset),
+        DoseRange::new(10.0, 500.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    // After concatenation we should have:
+    //   past dose at t=0 (fixed 500mg)
+    //   target dose at t=0+6=6 (optimizable)
+    //   target dose at t=12+6=18 (optimizable)
+    //   target obs at t=24+6=30
+
+    let optimal_subject = result.optimal_subject();
+    let mut dose_times = Vec::new();
+    let mut obs_times = Vec::new();
+
+    for occ in optimal_subject.occasions() {
+        for event in occ.events() {
+            match event {
+                Event::Bolus(b) => dose_times.push(b.time()),
+                Event::Infusion(i) => dose_times.push(i.time()),
+                Event::Observation(o) => obs_times.push(o.time()),
+            }
+        }
+    }
+
+    eprintln!("Dose times: {:?}", dose_times);
+    eprintln!("Obs times: {:?}", obs_times);
+
+    // Past dose at t=0
+    assert!(
+        (dose_times[0] - 0.0).abs() < 1e-10,
+        "First dose (past) should be at t=0, got {}",
+        dose_times[0]
+    );
+    // First target dose at t = 0 + 6 = 6
+    assert!(
+        (dose_times[1] - 6.0).abs() < 1e-10,
+        "Second dose should be at t=0+offset=6, got {}",
+        dose_times[1]
+    );
+    // Second target dose at t = 12 + 6 = 18
+    assert!(
+        (dose_times[2] - 18.0).abs() < 1e-10,
+        "Third dose should be at t=12+offset=18, got {}",
+        dose_times[2]
+    );
+    // Observation at t = 24 + 6 = 30
+    assert!(
+        (obs_times[0] - 30.0).abs() < 1e-10,
+        "Observation should be at t=24+offset=30, got {}",
+        obs_times[0]
+    );
+
+    // Past dose should remain fixed at 500
+    let doses = result.doses();
+    assert!(
+        (doses[0] - 500.0).abs() < 1e-6,
+        "Past dose should be fixed at 500, got {}",
+        doses[0]
+    );
+
+    Ok(())
+}
+
+/// Test that time_offset=None leaves target events unchanged
+#[test]
+fn test_time_offset_none_no_shift() -> Result<()> {
+    let eq = one_compartment_model();
+    let settings = minimal_settings();
+    let (theta, weights) = simple_prior(&settings);
+
+    let posterior =
+        BestDosePosterior::compute(&theta, &weights, None, eq.clone(), settings.clone())?;
+
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .bolus(12.0, 0.0, 0)
+        .observation(24.0, 5.0, 0)
+        .build();
+
+    let result = posterior.optimize(
+        target,
+        None, // No offset
+        DoseRange::new(10.0, 500.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let optimal_subject = result.optimal_subject();
+    let mut dose_times = Vec::new();
+    let mut obs_times = Vec::new();
+
+    for occ in optimal_subject.occasions() {
+        for event in occ.events() {
+            match event {
+                Event::Bolus(b) => dose_times.push(b.time()),
+                Event::Infusion(i) => dose_times.push(i.time()),
+                Event::Observation(o) => obs_times.push(o.time()),
+            }
+        }
+    }
+
+    // Without offset, times should be exactly as specified in target
+    assert!((dose_times[0] - 0.0).abs() < 1e-10);
+    assert!((dose_times[1] - 12.0).abs() < 1e-10);
+    assert!((obs_times[0] - 24.0).abs() < 1e-10);
+
+    Ok(())
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Tests for multi-target / multi-dose optimization
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Test that multiple optimizable doses all get meaningful values
+#[test]
+fn test_multi_dose_all_optimized() -> Result<()> {
+    let eq = one_compartment_model();
+    let settings = minimal_settings();
+    let (theta, weights) = simple_prior(&settings);
+
+    let posterior =
+        BestDosePosterior::compute(&theta, &weights, None, eq.clone(), settings.clone())?;
+
+    // Two optimizable doses, two target concentrations
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .bolus(12.0, 0.0, 0)
+        .observation(6.0, 5.0, 0) // Target 5 mg/L at t=6
+        .observation(18.0, 5.0, 0) // Target 5 mg/L at t=18
+        .build();
+
+    let result = posterior.optimize(
+        target,
+        None,
+        DoseRange::new(10.0, 500.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let doses = result.doses();
+    eprintln!("Multi-dose optimization: {:?}", doses);
+
+    assert_eq!(doses.len(), 2, "Should optimize 2 doses");
+
+    // Both doses should be meaningful (not collapsed to minimum)
+    assert!(
+        doses[0] > 10.0 + 1.0,
+        "Dose 1 should be above minimum bound, got {}",
+        doses[0]
+    );
+    assert!(
+        doses[1] > 10.0 + 1.0,
+        "Dose 2 should be above minimum bound, got {}",
+        doses[1]
+    );
+
+    Ok(())
+}
+
+/// Test that changing target for dose 2 changes dose 2's result
+#[test]
+fn test_multi_target_second_dose_responds_to_target_change() -> Result<()> {
+    let eq = one_compartment_model();
+    let settings = minimal_settings();
+    let (theta, weights) = simple_prior(&settings);
+
+    let posterior =
+        BestDosePosterior::compute(&theta, &weights, None, eq.clone(), settings.clone())?;
+
+    // Scenario A: second target is LOW (2 mg/L)
+    let target_low = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .bolus(12.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .observation(18.0, 2.0, 0) // Low second target
+        .build();
+
+    // Scenario B: second target is HIGH (15 mg/L)
+    let target_high = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .bolus(12.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .observation(18.0, 15.0, 0) // High second target
+        .build();
+
+    let result_low = posterior.optimize(
+        target_low,
+        None,
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let result_high = posterior.optimize(
+        target_high,
+        None,
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let doses_low = result_low.doses();
+    let doses_high = result_high.doses();
+
+    eprintln!("Low second target:  doses = {:?}", doses_low);
+    eprintln!("High second target: doses = {:?}", doses_high);
+
+    // The second dose should be higher when the second target is higher
+    assert!(
+        doses_high[1] > doses_low[1],
+        "Higher second target ({}) should produce higher second dose, \
+         but got low={:.2} vs high={:.2}",
+        15.0,
+        doses_low[1],
+        doses_high[1]
     );
 
     Ok(())

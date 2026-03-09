@@ -143,32 +143,33 @@
 //! ## Single Dose Optimization
 //!
 //! ```rust,no_run,ignore
-//! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
+//! use pmcore::bestdose::{BestDosePosterior, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
 //! # fn example(population_theta: pmcore::structs::theta::Theta,
 //! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::ErrorModels,
 //! #            settings: pmcore::routines::settings::Settings)
 //! #            -> anyhow::Result<()> {
 //! // Define target: 5 mg/L at 24 hours
 //! let target = Subject::builder("patient_001")
-//!     .bolus(0.0, 100.0, 0)           // Initial dose (will be optimized)
+//!     .bolus(0.0, 0.0, 0)             // Dose placeholder (will be optimized)
 //!     .observation(24.0, 5.0, 0)      // Target: 5 mg/L at 24h
 //!     .build();
 //!
-//! let problem = BestDoseProblem::new(
-//!     &population_theta, &population_weights, Some(past), target, None,
-//!     eq, error_models,
-//!     DoseRange::new(10.0, 500.0),    // 10-500 mg allowed
-//!     0.3,                             // Slight population emphasis
-//!     settings, Target::Concentration,
+//! let posterior = BestDosePosterior::compute(
+//!     &population_theta, &population_weights, Some(past), eq, settings,
 //! )?;
 //!
-//! let result = problem.optimize()?;
-//! println!("Optimal dose: {} mg", result.dose[0]);
+//! let result = posterior.optimize(
+//!     target, None,
+//!     DoseRange::new(10.0, 500.0),    // 10-500 mg allowed
+//!     0.3,                             // Slight population emphasis
+//!     Target::Concentration,
+//! )?;
+//!
+//! println!("Optimal dose: {} mg", result.doses()[0]);
 //! # Ok(())
 //! # }
 //! ```
@@ -176,35 +177,36 @@
 //! ## Multiple Doses with AUC Target
 //!
 //! ```rust,no_run,ignore
-//! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
+//! use pmcore::bestdose::{BestDosePosterior, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
 //! # fn example(population_theta: pmcore::structs::theta::Theta,
 //! #            population_weights: pmcore::structs::weights::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::ErrorModels,
 //! #            settings: pmcore::routines::settings::Settings)
 //! #            -> anyhow::Result<()> {
 //! // Target: Achieve AUC₂₄ = 400 mg·h/L
 //! let target = Subject::builder("patient_002")
-//!     .bolus(0.0, 100.0, 0)           // Dose 1 (optimized)
-//!     .bolus(12.0, 100.0, 0)          // Dose 2 (optimized)
+//!     .bolus(0.0, 0.0, 0)             // Dose 1 placeholder (optimized)
+//!     .bolus(12.0, 0.0, 0)            // Dose 2 placeholder (optimized)
 //!     .observation(24.0, 400.0, 0)    // Target: AUC₂₄ = 400
 //!     .build();
 //!
-//! let problem = BestDoseProblem::new(
-//!     &population_theta, &population_weights, Some(past), target, None,
-//!     eq, error_models,
-//!     DoseRange::new(50.0, 300.0),
-//!     0.0,                             // Full personalization
-//!     settings, Target::AUCFromZero,   // Cumulative AUC target!
+//! let posterior = BestDosePosterior::compute(
+//!     &population_theta, &population_weights, Some(past), eq, settings,
 //! )?;
 //!
-//! let result = problem.optimize()?;
-//! println!("Dose 1: {} mg at t=0", result.dose[0]);
-//! println!("Dose 2: {} mg at t=12", result.dose[1]);
-//! if let Some(auc) = result.auc_predictions {
+//! let result = posterior.optimize(
+//!     target, None,
+//!     DoseRange::new(50.0, 300.0),
+//!     0.0,                             // Full personalization
+//!     Target::AUCFromZero,             // Cumulative AUC target!
+//! )?;
+//!
+//! println!("Dose 1: {} mg at t=0", result.doses()[0]);
+//! println!("Dose 2: {} mg at t=12", result.doses()[1]);
+//! if let Some(auc) = result.auc_predictions() {
 //!     println!("Predicted AUC₂₄: {} mg·h/L", auc[0].1);
 //! }
 //! # Ok(())
@@ -214,27 +216,26 @@
 //! ## Population-Only Optimization
 //!
 //! ```rust,no_run,ignore
-//! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
+//! # use pmcore::bestdose::{BestDosePosterior, Target, DoseRange};
 //! # fn example(population_theta: pmcore::structs::theta::Theta,
 //! #            population_weights: pmcore::structs::weights::Weights,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::ErrorModels,
 //! #            settings: pmcore::routines::settings::Settings)
 //! #            -> anyhow::Result<()> {
 //! // No patient history - use population prior directly
-//! let problem = BestDoseProblem::new(
+//! let posterior = BestDosePosterior::compute(
 //!     &population_theta, &population_weights,
-//!     None,                            // No past data
-//!     target, None,                    // time_offset
-//!     eq, error_models,
-//!     DoseRange::new(0.0, 1000.0),
-//!     1.0,                             // Full population weighting
-//!     settings,
-//!     Target::Concentration,
+//!     None,                            // No past data → use prior
+//!     eq, settings,
 //! )?;
 //!
-//! let result = problem.optimize()?;
+//! let result = posterior.optimize(
+//!     target, None,
+//!     DoseRange::new(0.0, 1000.0),
+//!     1.0,                             // Full population weighting
+//!     Target::Concentration,
+//! )?;
 //! // Returns population-typical dose
 //! # Ok(())
 //! # }
@@ -260,36 +261,9 @@
 //!   - `Target::AUCFromZero`: Cumulative AUC from time 0
 //!   - `Target::AUCFromLastDose`: Interval AUC from last dose
 //!
-//! ## Performance Tuning
-//!
-//! For faster optimization:
-//! ```rust,no_run,ignore
-//! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
-//! # fn example(population_theta: pmcore::structs::theta::Theta,
-//! #            population_weights: pmcore::structs::weights::Weights,
-//! #            target: pharmsol::prelude::Subject,
-//! #            eq: pharmsol::ODE,
-//! #            error_models: pharmsol::prelude::ErrorModels,
-//! #            mut settings: pmcore::routines::settings::Settings)
-//! #            -> anyhow::Result<()> {
-//! // Reduce refinement cycles
-//! let problem = BestDoseProblem::new(
-//!     &population_theta, &population_weights, None, target, None,
-//!     eq, error_models,
-//!     DoseRange::new(0.0, 1000.0), 0.5,
-//!     settings.clone(),
-//!     Target::Concentration,
-//! )?;
-//!
-//! // For AUC: use coarser time grid
-//! settings.predictions().idelta = 30.0;  // 30-minute intervals
-//! # Ok(())
-//! # }
-//! ```
-//!
 //! # See Also
 //!
-//! - [`BestDoseProblem`]: Main entry point for optimization
+//! - [`BestDosePosterior`]: Two-stage API entry point (compute posterior, then optimize)
 //! - [`BestDoseResult`]: Output structure with optimal doses
 //! - [`Target`]: Enum for concentration vs AUC targets
 //! - [`DoseRange`]: Dose constraint specification
@@ -400,61 +374,6 @@ fn concatenate_past_and_future(
     builder.build()
 }
 
-/// Calculate which doses are optimizable based on dose amounts
-///
-/// Returns a boolean mask where:
-/// - `true` = dose amount is 0 (placeholder, optimizable)
-/// - `false` = dose amount > 0 (fixed past dose)
-///
-/// This allows users to specify a combined subject with:
-/// - Non-zero doses for past doses (e.g., 500 mg at t=0) - these are fixed
-/// - Zero doses as placeholders for future doses (e.g., 0 mg at t=6) - these are optimized
-///
-/// # Arguments
-///
-/// * `subject` - The subject with both fixed and placeholder doses
-///
-/// # Returns
-///
-/// Vector of booleans, one per dose in the subject
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let subject = Subject::builder("patient")
-///     .bolus(0.0, 500.0, 0)    // Past dose (fixed) - mask[0] = false
-///     .bolus(6.0, 0.0, 0)      // Future dose (optimize) - mask[1] = true
-///     .observation(30.0, 10.0, 0)
-///     .build();
-/// let mask = calculate_dose_optimization_mask(&subject);
-/// assert_eq!(mask, vec![false, true]);
-/// ```
-fn calculate_dose_optimization_mask(subject: &pharmsol::prelude::Subject) -> Vec<bool> {
-    use pharmsol::prelude::*;
-
-    let mut mask = Vec::new();
-
-    for occasion in subject.occasions() {
-        for event in occasion.events() {
-            match event {
-                Event::Bolus(bolus) => {
-                    // Dose is optimizable if amount is 0 (placeholder)
-                    mask.push(bolus.amount() == 0.0);
-                }
-                Event::Infusion(infusion) => {
-                    // Infusion is optimizable if amount is 0 (placeholder)
-                    mask.push(infusion.amount() == 0.0);
-                }
-                Event::Observation(_) => {
-                    // Observations don't go in the mask
-                }
-            }
-        }
-    }
-
-    mask
-}
-
 use anyhow::Result;
 use pharmsol::prelude::*;
 use pharmsol::ODE;
@@ -540,6 +459,7 @@ impl BestDosePosterior {
             theta: posterior_theta,
             posterior: posterior_weights,
             population_weights: filtered_population_weights,
+            past_data,
             eq,
             settings,
         })
@@ -589,16 +509,49 @@ impl BestDosePosterior {
         tracing::info!("  Target type: {:?}", target_type);
         tracing::info!("  Bias weight (λ): {}", bias_weight);
 
+        // Validate time_offset against past data
+        if let Some(t) = time_offset {
+            if let Some(past) = &self.past_data {
+                let max_past_time = past
+                    .occasions()
+                    .iter()
+                    .flat_map(|occ| occ.events())
+                    .map(|event| match event {
+                        Event::Bolus(b) => b.time(),
+                        Event::Infusion(i) => i.time(),
+                        Event::Observation(o) => o.time(),
+                    })
+                    .fold(0.0_f64, |max, time| max.max(time));
+
+                if t < max_past_time {
+                    return Err(anyhow::anyhow!(
+                        "Invalid time_offset: {} is before the last past_data event at time {}. \
+                        time_offset must be >= the maximum time in past_data to avoid time travel!",
+                        t,
+                        max_past_time
+                    ));
+                }
+            }
+        }
+
         // Handle past/future concatenation if needed
-        // Note: In the two-stage API, past data was already consumed in compute().
-        // The time_offset mode concatenates a dummy empty-past with the target.
+        // When time_offset is provided, offset all target event times and
+        // prepend past doses so the simulator sees the full timeline.
         let final_target = match time_offset {
             None => target,
             Some(t) => {
-                // When using time_offset without past data in the target itself,
-                // we just use the target as-is (the user already built the combined subject)
-                tracing::info!("  Time offset: {} (events already combined)", t);
-                target
+                tracing::info!("  Time offset: {} hours", t);
+                match &self.past_data {
+                    Some(past) => {
+                        tracing::info!("  Concatenating past doses with offset target events");
+                        concatenate_past_and_future(past, &target, t)
+                    }
+                    None => {
+                        tracing::info!("  No past data stored — offsetting target events only");
+                        // No past data: just offset the target times
+                        concatenate_past_and_future(&Subject::builder("empty").build(), &target, t)
+                    }
+                }
             }
         };
 
@@ -635,32 +588,6 @@ impl BestDosePosterior {
 // ═════════════════════════════════════════════════════════════════════════════
 // Helper Functions for STAGE 1: Posterior Density Calculation
 // ═════════════════════════════════════════════════════════════════════════════
-
-/// Validate time_offset parameter for past/future separation mode
-fn validate_time_offset(time_offset: f64, past_data: &Option<Subject>) -> Result<()> {
-    if let Some(past_subject) = past_data {
-        let max_past_time = past_subject
-            .occasions()
-            .iter()
-            .flat_map(|occ| occ.events())
-            .map(|event| match event {
-                Event::Bolus(b) => b.time(),
-                Event::Infusion(i) => i.time(),
-                Event::Observation(o) => o.time(),
-            })
-            .fold(0.0_f64, |max, time| max.max(time));
-
-        if time_offset < max_past_time {
-            return Err(anyhow::anyhow!(
-                "Invalid time_offset: {} is before the last past_data event at time {}. \
-                time_offset must be >= the maximum time in past_data to avoid time travel!",
-                time_offset,
-                max_past_time
-            ));
-        }
-    }
-    Ok(())
-}
 
 /// Calculate posterior density (STAGE 1: Two-step process)
 ///
@@ -749,118 +676,5 @@ fn calculate_posterior_density(
                 ))
             }
         }
-    }
-}
-
-/// Prepare target subject by handling past/future concatenation if needed
-///
-/// # Returns
-///
-/// Tuple: (final_target, final_past_data)
-fn prepare_target_subject(
-    past_subject: Subject,
-    target: Subject,
-    time_offset: Option<f64>,
-) -> Result<(Subject, Subject)> {
-    match time_offset {
-        None => {
-            tracing::info!("  Mode: Standard (single subject)");
-            Ok((target, past_subject))
-        }
-        Some(t) => {
-            tracing::info!("  Mode: Past/Future separation (Fortran MAKETMP approach)");
-            tracing::info!("  Current time boundary: {} hours", t);
-            tracing::info!("  Concatenating past and future subjects...");
-
-            let combined = concatenate_past_and_future(&past_subject, &target, t);
-
-            // Log dose structure
-            let mask = calculate_dose_optimization_mask(&combined);
-            let num_fixed = mask.iter().filter(|&&x| !x).count();
-            let num_optimizable = mask.iter().filter(|&&x| x).count();
-            tracing::info!("    Fixed doses (from past): {}", num_fixed);
-            tracing::info!("    Optimizable doses (from future): {}", num_optimizable);
-
-            Ok((combined, past_subject))
-        }
-    }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-
-impl BestDoseProblem {
-    /// Create a BestDoseProblem directly (convenience for tests and legacy callers)
-    ///
-    /// Prefer the two-stage API: `BestDosePosterior::compute()` → `posterior.optimize()`
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
-        population_theta: &Theta,
-        population_weights: &Weights,
-        past_data: Option<Subject>,
-        target: Subject,
-        time_offset: Option<f64>,
-        eq: ODE,
-        doserange: DoseRange,
-        bias_weight: f64,
-        settings: Settings,
-        target_type: Target,
-    ) -> Result<Self> {
-        // Validate input if using past/future separation mode
-        if let Some(t) = time_offset {
-            validate_time_offset(t, &past_data)?;
-        }
-
-        let (posterior_theta, posterior_weights, filtered_population_weights, past_subject) =
-            calculate_posterior_density(
-                population_theta,
-                population_weights,
-                past_data.as_ref(),
-                &eq,
-                &settings.errormodels,
-                &settings,
-            )?;
-
-        let (final_target, _) = prepare_target_subject(past_subject, target, time_offset)?;
-
-        Ok(BestDoseProblem {
-            target: final_target,
-            target_type,
-            population_weights: filtered_population_weights,
-            theta: posterior_theta,
-            posterior: posterior_weights,
-            eq,
-            settings,
-            doserange,
-            bias_weight,
-        })
-    }
-
-    pub(crate) fn optimize(self) -> Result<BestDoseResult> {
-        optimization::dual_optimization(&self)
-    }
-
-    pub(crate) fn with_bias_weight(mut self, weight: f64) -> Self {
-        self.bias_weight = weight;
-        self
-    }
-
-    pub(crate) fn posterior_theta(&self) -> &Theta {
-        &self.theta
-    }
-
-    pub(crate) fn posterior_weights(&self) -> &Weights {
-        &self.posterior
-    }
-
-    pub(crate) fn population_weights(&self) -> &Weights {
-        &self.population_weights
-    }
-
-    pub(crate) fn bias_weight(&self) -> f64 {
-        self.bias_weight
-    }
-
-    pub(crate) fn target_type(&self) -> Target {
-        self.target_type
     }
 }

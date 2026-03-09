@@ -240,6 +240,8 @@ pub struct BestDosePosterior {
     pub(crate) posterior: Weights,
     /// Filtered population weights (used for bias term in cost function)
     pub(crate) population_weights: Weights,
+    /// Past patient data (stored for use in optimize() with time_offset)
+    pub(crate) past_data: Option<Subject>,
     /// PK/PD model
     pub(crate) eq: ODE,
     /// Settings (used for prediction grid, error models, etc.)
@@ -288,26 +290,26 @@ pub(crate) struct BestDoseProblem {
 /// Result from BestDose optimization
 ///
 /// Contains the optimal doses and associated predictions from running
-/// [`BestDoseProblem::optimize()`].
+/// [`BestDosePosterior::optimize()`].
 ///
 /// # Fields
 ///
-/// - `dose`: Optimal dose amount(s) in the same order as doses in target subject
+/// - `doses`: Optimal dose amount(s) in the same order as doses in target subject
 /// - `objf`: Final cost function value at optimal doses
-/// - `status`: Optimization status message (e.g., "converged", "max iterations")
-/// - `preds`: Concentration-time predictions using optimal doses
-/// - `auc_predictions`: AUC values at observation times (only for [`Target::AUC`])
-/// - `optimization_method`: Which method won: `"posterior"` or `"uniform"`
+/// - `status`: Optimization status (converged or max iterations)
+/// - `predictions`: Concentration-time predictions using optimal doses
+/// - `auc_predictions`: AUC values at observation times (only for AUC targets)
+/// - `optimization_method`: Which method won: `Posterior` or `Uniform`
 ///
 /// # Interpretation
 ///
 /// ## Optimization Method
 ///
-/// - **"posterior"**: Patient-specific optimization won (uses posterior weights)
+/// - **`Posterior`**: Patient-specific optimization won (uses posterior weights)
 ///   - Indicates patient differs from population or has sufficient history
 ///   - Doses are highly personalized
 ///
-/// - **"uniform"**: Population-based optimization won (uses uniform weights)
+/// - **`Uniform`**: Population-based optimization won (uses uniform weights)
 ///   - Indicates patient is population-typical or has limited history
 ///   - Doses are more conservative/robust
 ///
@@ -323,32 +325,26 @@ pub(crate) struct BestDoseProblem {
 /// ## Extracting Results
 ///
 /// ```rust,no_run,ignore
-/// # use pmcore::bestdose::BestDoseProblem;
-/// # fn example(problem: BestDoseProblem) -> anyhow::Result<()> {
-/// let result = problem.optimize()?;
+/// # use pmcore::bestdose::{BestDosePosterior, Target, DoseRange, BestDoseResult};
+/// # fn example(posterior: BestDosePosterior,
+/// #            target: pharmsol::prelude::Subject) -> anyhow::Result<()> {
+/// let result = posterior.optimize(
+///     target, None, DoseRange::new(0.0, 1000.0), 0.5, Target::Concentration,
+/// )?;
 ///
 /// // Single dose
-/// println!("Optimal dose: {} mg", result.dose[0]);
+/// println!("Optimal dose: {} mg", result.doses()[0]);
 ///
 /// // Multiple doses
-/// for (i, &dose) in result.dose.iter().enumerate() {
+/// for (i, dose) in result.doses().iter().enumerate() {
 ///     println!("Dose {}: {} mg", i + 1, dose);
 /// }
 ///
 /// // Check which method was used
-/// match result.optimization_method.as_str() {
-///     "posterior" => println!("Patient-specific optimization"),
-///     "uniform" => println!("Population-based optimization"),
-///     _ => {}
-/// }
-///
-/// // Access predictions
-/// for pred in result.preds.iter() {
-///     println!("t={:.1}h: {:.2} mg/L", pred.time(), pred.prediction());
-/// }
+/// println!("Method: {}", result.optimization_method());
 ///
 /// // For AUC targets
-/// if let Some(auc_values) = result.auc_predictions {
+/// if let Some(auc_values) = result.auc_predictions() {
 ///     for (time, auc) in auc_values {
 ///         println!("AUC at t={:.1}h: {:.1} mg·h/L", time, auc);
 ///     }
