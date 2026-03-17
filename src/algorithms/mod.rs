@@ -7,7 +7,6 @@ use crate::structs::psi::Psi;
 use crate::structs::theta::Theta;
 use anyhow::Context;
 use anyhow::Result;
-use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 
 use npag::*;
@@ -37,11 +36,11 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
         let mut nan_count = 0;
         let mut inf_count = 0;
 
-        let psi = self.psi().matrix().as_ref().into_ndarray();
+        let psi = self.psi().matrix();
         // First coerce all NaN and infinite in psi to 0.0
         for i in 0..psi.nrows() {
-            for j in 0..self.psi().matrix().ncols() {
-                let val = psi.get((i, j)).unwrap();
+            for j in 0..psi.ncols() {
+                let val = psi[(i, j)];
                 if val.is_nan() {
                     nan_count += 1;
                     // *val = 0.0;
@@ -61,7 +60,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
             );
         }
 
-        let (row, col) = psi.dim();
+        let (row, col) = (psi.nrows(), psi.ncols());
         let plam: Vec<f64> = (0..row)
             .map(|i| (0..col).map(|j| psi[(i, j)]).sum::<f64>())
             .collect();
