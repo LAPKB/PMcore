@@ -5,6 +5,7 @@ use faer_ext::IntoFaer;
 use faer_ext::IntoNdarray;
 use ndarray::{Array2, ArrayView2};
 use pharmsol::prelude::simulator::psi;
+use pharmsol::AssayErrorModels;
 use pharmsol::Data;
 use pharmsol::Equation;
 use pharmsol::ErrorModels;
@@ -220,7 +221,7 @@ pub(crate) fn calculate_psi(
     equation: &impl Equation,
     subjects: &Data,
     theta: &Theta,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
     progress: bool,
     cache: bool,
 ) -> Result<Psi> {
@@ -230,7 +231,6 @@ pub(crate) fn calculate_psi(
         &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
         error_models,
         progress,
-        cache,
     )?;
 
     Ok(psi_ndarray.view().into())

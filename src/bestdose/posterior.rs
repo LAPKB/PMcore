@@ -94,7 +94,7 @@ pub fn npagfull11_filter(
     population_weights: &Weights,
     past_data: &Data,
     eq: &ODE,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
 ) -> Result<(Theta, Weights, Weights)> {
     tracing::info!("Stage 1.1: NPAGFULL11 Bayesian filtering");
 
@@ -312,7 +312,7 @@ pub fn calculate_two_step_posterior(
     population_weights: &Weights,
     past_data: &Data,
     eq: &ODE,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
     settings: &Settings,
 ) -> Result<(Theta, Weights, Weights)> {
     tracing::info!("=== STAGE 1: Posterior Density Calculation ===");

@@ -9,7 +9,7 @@ use anyhow::Context;
 use anyhow::Result;
 use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
-use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
+
 use npag::*;
 use npod::NPOD;
 use pharmsol::prelude::{data::Data, simulator::Equation};
@@ -61,10 +61,11 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
             );
         }
 
-        let (_, col) = psi.dim();
-        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-        let plam = psi.dot(&ecol);
-        let w = 1. / &plam;
+        let (row, col) = psi.dim();
+        let plam: Vec<f64> = (0..row)
+            .map(|i| (0..col).map(|j| psi[(i, j)]).sum::<f64>())
+            .collect();
+        let w: Vec<f64> = plam.iter().map(|&x| 1.0 / x).collect();
 
         // Get the index of each element in `w` that is NaN or infinite
         let indices: Vec<usize> = w

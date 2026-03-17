@@ -525,7 +525,7 @@ fn calculate_posterior_density(
     population_weights: &Weights,
     past_data: Option<&Subject>,
     eq: &ODE,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
     settings: &Settings,
 ) -> Result<(Theta, Weights, Weights, Subject)> {
     match past_data {

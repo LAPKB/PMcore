@@ -20,17 +20,14 @@ use pharmsol::SppOptimizer;
 
 use anyhow::bail;
 use anyhow::Result;
-use faer_ext::IntoNdarray;
-use pharmsol::{prelude::ErrorModel, ErrorModels};
+use pharmsol::{prelude::AssayErrorModel, AssayErrorModels};
 use pharmsol::{
     prelude::{data::Data, simulator::Equation},
     Subject,
 };
 
-use ndarray::{
-    parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator},
-    Array, Array1, ArrayBase, Dim, OwnedRepr,
-};
+use ndarray::Array1;
+use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
@@ -45,7 +42,7 @@ pub struct NPOD<E: Equation + Send + 'static> {
     objf: f64,
     cycle: usize,
     gamma_delta: Vec<f64>,
-    error_models: ErrorModels,
+    error_models: AssayErrorModels,
     converged: bool,
     status: Status,
     cycle_log: CycleLog,
@@ -155,7 +152,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.nspp());
         self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None == *em {
+            if AssayErrorModel::None == *em {
                 return;
             }
             tracing::debug!(
@@ -207,7 +204,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     }
 
     fn estimation(&mut self) -> Result<()> {
-        let error_model: ErrorModels = self.error_models.clone();
+        let error_model: AssayErrorModels = self.error_models.clone();
 
         self.psi = calculate_psi(
             &self.equation,
@@ -295,7 +292,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             .clone()
             .iter_mut()
             .filter_map(|(outeq, em)| {
-                if *em == ErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
+                if *em == AssayErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
                     None
                 } else {
                     Some((outeq, em))
@@ -367,13 +364,12 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     }
 
     fn expansion(&mut self) -> Result<()> {
-        // If no stop signal, add new point to theta based on the optimization of the D function
-        let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
-        let w: Array1<f64> = self.w.clone().iter().collect();
-        let pyl = psi.dot(&w);
+        // Compute pyl = psi * w using faer native operations
+        let pyl_col = self.psi().matrix().as_ref() * self.w.weights().as_ref();
+        let pyl: Array1<f64> = pyl_col.iter().copied().collect();
 
         // Add new point to theta based on the optimization of the D function
-        let error_model: ErrorModels = self.error_models.clone();
+        let error_model: AssayErrorModels = self.error_models.clone();
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
         for spp in self.theta.matrix().row_iter() {
@@ -400,33 +396,32 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
 
 impl<E: Equation + Send + 'static> NPOD<E> {
     fn validate_psi(&mut self) -> Result<()> {
-        let mut psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
+        let mut psi = self.psi().matrix().to_owned();
         // First coerce all NaN and infinite in psi to 0.0
-        if psi.iter().any(|x| x.is_nan() || x.is_infinite()) {
-            tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
-            for i in 0..psi.nrows() {
-                for j in 0..psi.ncols() {
-                    let val = psi.get_mut((i, j)).unwrap();
-                    if val.is_nan() || val.is_infinite() {
-                        *val = 0.0;
-                    }
+        let mut has_bad_values = false;
+        for i in 0..psi.nrows() {
+            for j in 0..psi.ncols() {
+                let val = psi[(i, j)];
+                if val.is_nan() || val.is_infinite() {
+                    has_bad_values = true;
+                    psi[(i, j)] = 0.0;
                 }
             }
         }
+        if has_bad_values {
+            tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
+        }
 
-        // Calculate the sum of each column in psi
-        let (_, col) = psi.dim();
-        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-        let plam = psi.dot(&ecol);
-        let w = 1. / &plam;
-
-        // Get the index of each element in `w` that is NaN or infinite
-        let indices: Vec<usize> = w
-            .iter()
-            .enumerate()
-            .filter(|(_, x)| x.is_nan() || x.is_infinite())
-            .map(|(i, _)| i)
-            .collect::<Vec<_>>();
+        // Calculate row sums and check for zero-probability subjects
+        let nrows = psi.nrows();
+        let ncols = psi.ncols();
+        let indices: Vec<usize> = (0..nrows)
+            .filter(|&i| {
+                let row_sum: f64 = (0..ncols).map(|j| psi[(i, j)]).sum();
+                let w: f64 = 1.0 / row_sum;
+                w.is_nan() || w.is_infinite()
+            })
+            .collect();
 
         // If any elements in `w` are NaN or infinite, return the subject IDs for each index
         if !indices.is_empty() {
