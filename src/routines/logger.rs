@@ -25,9 +25,10 @@ pub(crate) fn setup_log(settings: &mut Settings) -> Result<()> {
         return Ok(());
     }
 
-    // Use the log level defined in configuration file
+    // Use PMCORE_LOG env var if set, otherwise fall back to the config file level
     let log_level = settings.log().level.clone();
-    let env_filter = EnvFilter::new(log_level);
+    let env_filter =
+        EnvFilter::try_from_env("PMCORE_LOG").unwrap_or_else(|_| EnvFilter::new(log_level));
 
     let timestamper = CompactTimestamp {
         start: Instant::now(),
