@@ -298,13 +298,14 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// until the algorithm converges or meets a stopping criteria.
     fn fit(&mut self) -> Result<NPResult<E>> {
         self.initialize().unwrap();
+        #[allow(clippy::while_let_loop)]
         loop {
             match self.next_cycle()? {
                 Status::Continue => continue,
                 Status::Stop(_) => break,
             }
         }
-        Ok(self.into_npresult()?)
+        self.into_npresult()
     }
 
     #[allow(clippy::wrong_self_convention)]

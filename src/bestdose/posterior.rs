@@ -213,6 +213,7 @@ pub fn npagfull_refinement(
 
         // Run NPAG optimization
         let refinement_result = npag.initialize().and_then(|_| {
+            #[allow(clippy::while_let_loop)]
             loop {
                 match npag.next_cycle()? {
                     Status::Continue => continue,
