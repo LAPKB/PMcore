@@ -27,10 +27,10 @@ fn create_parameters() -> Parameters {
         .add("v", 25.0, 250.0)
 }
 
-fn create_error_models() -> Result<ErrorModels> {
-    Ok(ErrorModels::new().add(
+fn create_error_models() -> Result<AssayErrorModels> {
+    Ok(AssayErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?)
 }
 

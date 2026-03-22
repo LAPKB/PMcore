@@ -73,10 +73,10 @@ fn main() {
         .add("tlag", 0.0, 4.0)
         .add("v", 30.0, 120.0);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+            AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
         .unwrap();
 

@@ -31,9 +31,9 @@ fn main() -> Result<()> {
 
     let params = Parameters::new().add("ke0", 0.001, 2.0);
 
-    let ems = ErrorModels::new().add(
+    let ems = AssayErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
     )?;
 
     let mut settings = Settings::builder()

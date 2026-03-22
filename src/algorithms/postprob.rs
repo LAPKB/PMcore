@@ -125,7 +125,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
             &self.theta,
             &self.error_models,
             false,
-            false,
         )?;
         (self.w, self.objf) = burke(&self.psi).context("Error in IPM")?;
         Ok(())

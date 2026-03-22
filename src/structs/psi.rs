@@ -213,7 +213,6 @@ pub(crate) fn calculate_psi(
     theta: &Theta,
     error_models: &AssayErrorModels,
     progress: bool,
-    cache: bool,
 ) -> Result<Psi> {
     let tm = theta.matrix();
     let theta_ndarray = Array2::from_shape_fn((tm.nrows(), tm.ncols()), |(i, j)| tm[(i, j)]);

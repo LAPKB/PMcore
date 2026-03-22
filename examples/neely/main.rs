@@ -66,20 +66,20 @@ fn main() {
         .add("theta1", -4.0, 2.0)
         .add("theta2", -2.0, 0.5);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
         .add(
             1,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
         .add(
             2,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap();
     let mut settings = Settings::builder()

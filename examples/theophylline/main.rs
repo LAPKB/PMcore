@@ -35,10 +35,10 @@ fn main() {
         .add("ke", 0.001, 3.0)
         .add("v", 0.001, 50.0);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
         )
         .unwrap();
 

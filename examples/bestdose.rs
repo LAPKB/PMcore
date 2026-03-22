@@ -27,9 +27,9 @@ fn main() -> Result<()> {
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = ErrorModels::new().add(
+    let ems = AssayErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
     // Make settings

@@ -203,7 +203,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             &self.theta,
             &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
-            self.cycle != 1,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -315,7 +314,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                     &self.theta,
                     &error_model_up,
                     false,
-                    true,
                 )?;
                 let psi_down = calculate_psi(
                     &self.equation,
@@ -323,7 +321,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                     &self.theta,
                     &error_model_down,
                     false,
-                    true,
                 )?;
 
                 let (lambda_up, objf_up) = match burke(&psi_up) {

@@ -99,7 +99,7 @@ pub fn npagfull11_filter(
     tracing::info!("Stage 1.1: NPAGFULL11 Bayesian filtering");
 
     // Calculate psi matrix P(data|theta_i) for all support points
-    let psi = calculate_psi(eq, past_data, population_theta, error_models, false, true)?;
+    let psi = calculate_psi(eq, past_data, population_theta, error_models, false)?;
 
     // First burke call to get initial posterior probabilities
     let (initial_weights, _) = burke(&psi)?;

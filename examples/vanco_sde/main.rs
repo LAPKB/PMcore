@@ -56,10 +56,10 @@ fn main() {
         .add("vol", 0.2, 12.0)
         .add("ske", 0.0001, 0.2);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
+            AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
         )
         .unwrap();
 

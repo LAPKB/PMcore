@@ -22,13 +22,13 @@ fn main() -> Result<()> {
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
         .unwrap()
-        .add(1, ErrorModel::None)
+        .add(1, AssayErrorModel::None)
         .unwrap();
 
     let mut settings = Settings::builder()
