@@ -6,16 +6,16 @@ fn main() -> Result<()> {
         |x, p, _t, dx, b, rateiv, _cov| {
             // fetch_cov!(cov, t, wt);
             fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + rateiv[0] + b[0];
+            dx[0] = -ke * x[0] + rateiv[1] + b[1];
         },
         |_p, _t, _cov| lag! {},
         |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
-            y[0] = x[0] / v;
+            y[1] = x[0] / v;
         },
-        (1, 1),
+        (2, 2),
     );
 
     let params = Parameters::new()
@@ -24,11 +24,9 @@ fn main() -> Result<()> {
 
     let ems = AssayErrorModels::new()
         .add(
-            0,
+            1,
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
-        .unwrap()
-        .add(1, AssayErrorModel::None)
         .unwrap();
 
     let mut settings = Settings::builder()
