@@ -1,9 +1,9 @@
 use pmcore::prelude::{simulator::Equation, *};
 fn main() {
     let eq = equation::ODE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
+        |x, p, _t, dx, b, _rateiv, _cov| {
             fetch_params!(p, ke, kcp, kpc);
-            dx[0] = -ke * x[0] - kcp * x[0] + kpc * x[1];
+            dx[0] = -ke * x[0] - kcp * x[0] + kpc * x[1] + b[0];
             dx[1] = -kpc * x[1] + kcp * x[0];
         },
         |_p, _t, _cov| lag! {},
@@ -42,7 +42,7 @@ fn main() {
         .unwrap()
         .0;
 
-    let times = op.flat_time();
+    let times = op.flat_times();
     let pred = op.flat_predictions();
 
     for (t, p) in times.iter().zip(pred.iter()) {

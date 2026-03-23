@@ -1,10 +1,13 @@
+use crate::algorithms::StopReason;
+use crate::routines::initialization::sample_space;
+use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
+use crate::structs::weights::Weights;
 use crate::{
     algorithms::Status,
     prelude::{
         algorithms::Algorithms,
         routines::{
-            evaluation::{ipm::burke, qr},
-            output::{CycleLog, NPCycle, NPResult},
+            estimation::{ipm::burke, qr},
             settings::Settings,
         },
     },
@@ -13,9 +16,10 @@ use crate::{
         theta::Theta,
     },
 };
+use pharmsol::SppOptimizer;
+
 use anyhow::bail;
 use anyhow::Result;
-use faer::Col;
 use faer_ext::IntoNdarray;
 use pharmsol::{prelude::ErrorModel, ErrorModels};
 use pharmsol::{
@@ -28,17 +32,15 @@ use ndarray::{
     Array, Array1, ArrayBase, Dim, OwnedRepr,
 };
 
-use crate::routines::{initialization, optimization::SppOptimizer};
-
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
-pub struct NPOD<E: Equation> {
+pub struct NPOD<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
     theta: Theta,
-    lambda: Col<f64>,
-    w: Col<f64>,
+    lambda: Weights,
+    w: Weights,
     last_objf: f64,
     objf: f64,
     cycle: usize,
@@ -51,27 +53,27 @@ pub struct NPOD<E: Equation> {
     settings: Settings,
 }
 
-impl<E: Equation> Algorithms<E> for NPOD<E> {
+impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
         Ok(Box::new(Self {
             equation,
             psi: Psi::new(),
             theta: Theta::new(),
-            lambda: Col::zeros(0),
-            w: Col::zeros(0),
+            lambda: Weights::default(),
+            w: Weights::default(),
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
             cycle: 0,
             gamma_delta: vec![0.1; settings.errormodels().len()],
             error_models: settings.errormodels().clone(),
             converged: false,
-            status: Status::Starting,
+            status: Status::Continue,
             cycle_log: CycleLog::new(),
             settings,
             data,
         }))
     }
-    fn into_npresult(&self) -> NPResult<E> {
+    fn into_npresult(&self) -> Result<NPResult<E>> {
         NPResult::new(
             self.equation.clone(),
             self.data.clone(),
@@ -90,24 +92,24 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         &self.equation
     }
 
-    fn get_settings(&self) -> &Settings {
+    fn settings(&self) -> &Settings {
         &self.settings
     }
 
-    fn get_data(&self) -> &Data {
+    fn data(&self) -> &Data {
         &self.data
     }
 
     fn get_prior(&self) -> Theta {
-        initialization::sample_space(&self.settings).unwrap()
+        sample_space(&self.settings).unwrap()
     }
 
-    fn inc_cycle(&mut self) -> usize {
+    fn increment_cycle(&mut self) -> usize {
         self.cycle += 1;
         self.cycle
     }
 
-    fn get_cycle(&self) -> usize {
+    fn cycle(&self) -> usize {
         self.cycle
     }
 
@@ -135,48 +137,76 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         &self.status
     }
 
-    fn convergence_evaluation(&mut self) {
+    fn log_cycle_state(&mut self) {
+        let state = NPCycle::new(
+            self.cycle,
+            -2. * self.objf,
+            self.error_models.clone(),
+            self.theta.clone(),
+            self.theta.nspp(),
+            (self.last_objf - self.objf).abs(),
+            self.status.clone(),
+        );
+        self.cycle_log.push(state);
+        self.last_objf = self.objf;
+    }
+
+    fn evaluation(&mut self) -> Result<Status> {
+        tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
+        tracing::debug!("Support points: {}", self.theta.nspp());
+        self.error_models.iter().for_each(|(outeq, em)| {
+            if ErrorModel::None == *em {
+                return;
+            }
+            tracing::debug!(
+                "Error model for outeq {}: {:.16}",
+                outeq,
+                em.factor().unwrap_or_default()
+            );
+        });
+        // Increasing objf signals instability or model misspecification.
+        if self.last_objf > self.objf + 1e-4 {
+            tracing::warn!(
+                "Objective function decreased from {:.4} to {:.4} (delta = {})",
+                -2.0 * self.last_objf,
+                -2.0 * self.objf,
+                -2.0 * self.last_objf - -2.0 * self.objf
+            );
+        }
+
         if (self.last_objf - self.objf).abs() <= THETA_F {
             tracing::info!("Objective function convergence reached");
             self.converged = true;
-            self.status = Status::Converged;
+            self.set_status(Status::Stop(StopReason::Converged));
+            self.log_cycle_state();
+            return Ok(self.status.clone());
         }
 
         // Stop if we have reached maximum number of cycles
         if self.cycle >= self.settings.config().cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
-            self.status = Status::MaxCycles;
+            self.set_status(Status::Stop(StopReason::MaxCycles));
+            self.log_cycle_state();
+            return Ok(self.status.clone());
         }
 
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
             self.converged = true;
-            self.status = Status::ManualStop;
+            self.set_status(Status::Stop(StopReason::Stopped));
+            self.log_cycle_state();
+            return Ok(self.status.clone());
         }
 
-        // Create state object
-        let state = NPCycle {
-            cycle: self.cycle,
-            objf: -2. * self.objf,
-            delta_objf: (self.last_objf - self.objf).abs(),
-            nspp: self.theta.nspp(),
-            theta: self.theta.clone(),
-            error_models: self.error_models.clone(),
-            status: self.status.clone(),
-        };
-
-        // Write cycle log
-        self.cycle_log.push(state);
-        self.last_objf = self.objf;
+        // Continue with normal operation
+        self.status = Status::Continue;
+        self.log_cycle_state();
+        Ok(self.status.clone())
     }
 
-    fn converged(&self) -> bool {
-        self.converged
-    }
-
-    fn evaluation(&mut self) -> Result<()> {
+    fn estimation(&mut self) -> Result<()> {
         let error_model: ErrorModels = self.error_models.clone();
 
         self.psi = calculate_psi(
@@ -205,11 +235,11 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         let max_lambda = self
             .lambda
             .iter()
-            .fold(f64::NEG_INFINITY, |acc, &x| x.max(acc));
+            .fold(f64::NEG_INFINITY, |acc, x| x.max(acc));
 
         let mut keep = Vec::<usize>::new();
         for (index, lam) in self.lambda.iter().enumerate() {
-            if *lam > max_lambda / 1000_f64 {
+            if lam > max_lambda / 1000_f64 {
                 keep.push(index);
             }
         }
@@ -264,9 +294,12 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         self.error_models
             .clone()
             .iter_mut()
-            .filter_map(|(outeq, em)| match em {
-                ErrorModel::None => None,
-                _ => Some((outeq, em)),
+            .filter_map(|(outeq, em)| {
+                if *em == ErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
+                    None
+                } else {
+                    Some((outeq, em))
+                }
             })
             .try_for_each(|(outeq, em)| -> Result<()> {
                 // OPTIMIZATION
@@ -300,17 +333,13 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
                 let (lambda_up, objf_up) = match burke(&psi_up) {
                     Ok((lambda, objf)) => (lambda, objf),
                     Err(err) => {
-                        //todo: write out report
-                        return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
+                        bail!("Error in IPM during optim: {:?}", err);
                     }
                 };
                 let (lambda_down, objf_down) = match burke(&psi_down) {
                     Ok((lambda, objf)) => (lambda, objf),
                     Err(err) => {
-                        //todo: write out report
-                        //panic!("Error in IPM: {:?}", err);
-                        return Err(anyhow::anyhow!("Error in IPM during optim: {:?}", err));
-                        //(Array1::zeros(1), f64::NEG_INFINITY)
+                        bail!("Error in IPM during optim: {:?}", err);
                     }
                 };
                 if objf_up > self.objf {
@@ -337,34 +366,10 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
         Ok(())
     }
 
-    fn logs(&self) {
-        tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
-        tracing::debug!("Support points: {}", self.theta.nspp());
-        self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None == *em {
-                return;
-            }
-            tracing::debug!(
-                "Error model for outeq {}: {:.16}",
-                outeq,
-                em.factor().unwrap_or_default()
-            );
-        });
-        // Increasing objf signals instability or model misspecification.
-        if self.last_objf > self.objf + 1e-4 {
-            tracing::warn!(
-                "Objective function decreased from {:.4} to {:.4} (delta = {})",
-                -2.0 * self.last_objf,
-                -2.0 * self.objf,
-                -2.0 * self.last_objf - -2.0 * self.objf
-            );
-        }
-    }
-
     fn expansion(&mut self) -> Result<()> {
         // If no stop signal, add new point to theta based on the optimization of the D function
         let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
-        let w: Array1<f64> = self.w.clone().iter().cloned().collect();
+        let w: Array1<f64> = self.w.clone().iter().collect();
         let pyl = psi.dot(&w);
 
         // Add new point to theta based on the optimization of the D function
@@ -387,13 +392,13 @@ impl<E: Equation> Algorithms<E> for NPOD<E> {
             // re-define a new optimization
         });
         for cp in candididate_points {
-            self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D);
+            self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D)?;
         }
         Ok(())
     }
 }
 
-impl<E: Equation> NPOD<E> {
+impl<E: Equation + Send + 'static> NPOD<E> {
     fn validate_psi(&mut self) -> Result<()> {
         let mut psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
         // First coerce all NaN and infinite in psi to 0.0

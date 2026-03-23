@@ -36,11 +36,7 @@ fn main() {
     let ems = ErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(
-                ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
-                0.0,
-                None,
-            ),
+            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
         .unwrap();
 
@@ -59,7 +55,6 @@ fn main() {
     let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();
-    while !algorithm.next_cycle().unwrap() {}
-    let result = algorithm.into_npresult();
+    let mut result = algorithm.fit().unwrap();
     result.write_outputs().unwrap();
 }

@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use crate::structs::theta::Theta;
+use crate::structs::{theta::Theta, weights::Weights};
 use anyhow::{bail, Context, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
@@ -94,7 +94,7 @@ pub fn sample_space(settings: &Settings) -> Result<Theta> {
     let prior = match settings.prior() {
         Prior::Sobol(points, seed) => sobol::generate(settings.parameters(), *points, *seed)?,
         Prior::Latin(points, seed) => latin::generate(settings.parameters(), *points, *seed)?,
-        Prior::File(ref path) => parse_prior(path, settings)?,
+        Prior::File(ref path) => parse_prior(path, settings)?.0,
         Prior::Theta(ref theta) => {
             // If a custom prior is provided, return it directly
             return Ok(theta.clone());
@@ -104,7 +104,7 @@ pub fn sample_space(settings: &Settings) -> Result<Theta> {
 }
 
 /// This function reads the prior distribution from a file
-pub fn parse_prior(path: &String, settings: &Settings) -> Result<Theta> {
+pub fn parse_prior(path: &String, settings: &Settings) -> Result<(Theta, Option<Weights>)> {
     tracing::info!("Reading prior from {}", path);
     let file = File::open(path).context(format!("Unable to open the prior file '{}'", path))?;
     let mut reader = csv::ReaderBuilder::new()
@@ -118,8 +118,11 @@ pub fn parse_prior(path: &String, settings: &Settings) -> Result<Theta> {
         .map(|s| s.trim().to_owned())
         .collect();
 
-    // Remove "prob" column if present
-    if let Some(index) = parameter_names.iter().position(|name| name == "prob") {
+    // Check if "prob" column is present and get its index
+    let prob_index = parameter_names.iter().position(|name| name == "prob");
+
+    // Remove "prob" column from parameter_names if present
+    if let Some(index) = prob_index {
         parameter_names.remove(index);
     }
 
@@ -130,7 +133,17 @@ pub fn parse_prior(path: &String, settings: &Settings) -> Result<Theta> {
     for random_name in &random_names {
         match parameter_names.iter().position(|name| name == random_name) {
             Some(index) => {
-                reordered_indices.push(index);
+                // Adjust index if prob column was present and came before this parameter
+                let adjusted_index = if let Some(prob_idx) = prob_index {
+                    if index >= prob_idx {
+                        index + 1 // Add 1 back since we removed prob from parameter_names
+                    } else {
+                        index
+                    }
+                } else {
+                    index
+                };
+                reordered_indices.push(adjusted_index);
             }
             None => {
                 bail!("Parameter {} is not present in the CSV file.", random_name);
@@ -147,15 +160,25 @@ pub fn parse_prior(path: &String, settings: &Settings) -> Result<Theta> {
         );
     }
 
-    // Read parameter values row by row, keeping only those associated with the reordered parameters
+    // Read parameter values and probabilities row by row
     let mut theta_values = Vec::new();
+    let mut prob_values = Vec::new();
+
     for result in reader.records() {
         let record = result.unwrap();
+
+        // Extract parameter values using reordered indices
         let values: Vec<f64> = reordered_indices
             .iter()
             .map(|&i| record[i].parse::<f64>().unwrap())
             .collect();
         theta_values.push(values);
+
+        // Extract probability value if prob column exists
+        if let Some(prob_idx) = prob_index {
+            let prob_value: f64 = record[prob_idx].parse::<f64>().unwrap();
+            prob_values.push(prob_value);
+        }
     }
 
     let n_points = theta_values.len();
@@ -167,9 +190,16 @@ pub fn parse_prior(path: &String, settings: &Settings) -> Result<Theta> {
     let theta_matrix: Mat<f64> =
         Mat::from_fn(n_points, n_params, |i, j| theta_values[i * n_params + j]);
 
-    let theta = Theta::from_parts(theta_matrix, settings.parameters().clone());
+    let theta = Theta::from_parts(theta_matrix, settings.parameters().clone())?;
 
-    Ok(theta)
+    // Create weights if prob column was present
+    let weights = if !prob_values.is_empty() {
+        Some(Weights::from_vec(prob_values))
+    } else {
+        None
+    };
+
+    Ok((theta, weights))
 }
 
 #[cfg(test)]
@@ -182,7 +212,7 @@ mod tests {
     fn create_test_settings() -> Settings {
         let parameters = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 50.0);
 
-        let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+        let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
         let ems = ErrorModels::new().add(0, em).unwrap();
 
         Settings::builder()
@@ -268,7 +298,7 @@ mod tests {
         // Create a custom theta
         let parameters = settings.parameters().clone();
         let matrix = faer::Mat::from_fn(3, 2, |i, j| (i + j) as f64);
-        let custom_theta = Theta::from_parts(matrix, parameters);
+        let custom_theta = Theta::from_parts(matrix, parameters).unwrap();
 
         let prior = Prior::Theta(custom_theta.clone());
         settings.set_prior(Prior::Theta(custom_theta.clone()));
@@ -289,7 +319,7 @@ mod tests {
             .add("ke", f64::NEG_INFINITY, 1.0) // Invalid: infinite lower bound
             .add("v", 5.0, 50.0);
 
-        let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+        let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
         let ems = ErrorModels::new().add(0, em).unwrap();
 
         let mut settings = Settings::builder()
@@ -311,7 +341,7 @@ mod tests {
             .add("ke", 1.0, 0.5) // Invalid: lower bound >= upper bound
             .add("v", 5.0, 50.0);
 
-        let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0, None);
+        let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
         let ems = ErrorModels::new().add(0, em).unwrap();
 
         let mut settings = Settings::builder()
@@ -337,9 +367,10 @@ mod tests {
         let result = parse_prior(&temp_path, &settings);
         assert!(result.is_ok());
 
-        let theta = result.unwrap();
+        let (theta, weights) = result.unwrap();
         assert_eq!(theta.nspp(), 3);
         assert_eq!(theta.matrix().ncols(), 2);
+        assert!(weights.is_none()); // No prob column, so no weights
 
         cleanup_temp_file(&temp_path);
     }
@@ -354,9 +385,17 @@ mod tests {
         let result = parse_prior(&temp_path, &settings);
         assert!(result.is_ok());
 
-        let theta = result.unwrap();
+        let (theta, weights) = result.unwrap();
         assert_eq!(theta.nspp(), 3);
         assert_eq!(theta.matrix().ncols(), 2);
+
+        // Verify that weights were read correctly
+        assert!(weights.is_some());
+        let weights = weights.unwrap();
+        assert_eq!(weights.len(), 3);
+        assert!((weights[0] - 0.5).abs() < 1e-10);
+        assert!((weights[1] - 0.3).abs() < 1e-10);
+        assert!((weights[2] - 0.2).abs() < 1e-10);
 
         cleanup_temp_file(&temp_path);
     }
@@ -418,11 +457,42 @@ mod tests {
         let result = parse_prior(&temp_path, &settings);
         assert!(result.is_ok());
 
-        let theta = result.unwrap();
+        let (theta, weights) = result.unwrap();
+        assert_eq!(theta.nspp(), 3);
+        assert_eq!(theta.matrix().ncols(), 2);
+        assert!(weights.is_none()); // No prob column, so no weights
+
+        // Verify the values are correctly reordered (ke should be first, v second)
+        let matrix = theta.matrix();
+        assert!((matrix[(0, 0)] - 0.1).abs() < 1e-10); // First row, ke value
+        assert!((matrix[(0, 1)] - 10.0).abs() < 1e-10); // First row, v value
+
+        cleanup_temp_file(&temp_path);
+    }
+
+    #[test]
+    fn test_parse_prior_with_prob_column_reordered() {
+        let csv_content = "prob,v,ke\n0.5,10.0,0.1\n0.3,15.0,0.2\n0.2,20.0,0.3\n";
+        let temp_path = create_temp_csv_file(csv_content);
+
+        let settings = create_test_settings();
+
+        let result = parse_prior(&temp_path, &settings);
+        assert!(result.is_ok());
+
+        let (theta, weights) = result.unwrap();
         assert_eq!(theta.nspp(), 3);
         assert_eq!(theta.matrix().ncols(), 2);
 
-        // Verify the values are correctly reordered (ke should be first, v second)
+        // Verify that weights were read correctly
+        assert!(weights.is_some());
+        let weights = weights.unwrap();
+        assert_eq!(weights.len(), 3);
+        assert!((weights[0] - 0.5).abs() < 1e-10);
+        assert!((weights[1] - 0.3).abs() < 1e-10);
+        assert!((weights[2] - 0.2).abs() < 1e-10);
+
+        // Verify the parameter values are correctly reordered (ke should be first, v second)
         let matrix = theta.matrix();
         assert!((matrix[(0, 0)] - 0.1).abs() < 1e-10); // First row, ke value
         assert!((matrix[(0, 1)] - 10.0).abs() < 1e-10); // First row, v value
@@ -452,7 +522,7 @@ mod tests {
     fn test_prior_theta_no_seed_panic() {
         let parameters = Parameters::new().add("ke", 0.1, 1.0);
         let matrix = faer::Mat::from_fn(1, 1, |_, _| 0.5);
-        let theta = Theta::from_parts(matrix, parameters);
+        let theta = Theta::from_parts(matrix, parameters).unwrap();
         let prior = Prior::Theta(theta);
 
         assert_eq!(prior.seed(), None, "Theta prior should not have a seed");

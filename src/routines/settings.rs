@@ -134,7 +134,7 @@ impl Settings {
         let serialized = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
 
         let outputfile = OutputFile::new(self.output.path.as_str(), "settings.json")?;
-        let mut file = outputfile.file;
+        let mut file = outputfile.file_owned();
         std::io::Write::write_all(&mut file, serialized.as_bytes())?;
         Ok(())
     }
@@ -590,7 +590,6 @@ mod tests {
                 ErrorModel::Proportional {
                     gamma: pharmsol::Factor::Variable(5.0),
                     poly: ErrorPoly::new(0.0, 0.1, 0.0, 0.0),
-                    lloq: None,
                 },
             )
             .unwrap();

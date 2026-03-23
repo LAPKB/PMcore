@@ -6,10 +6,10 @@ use pmcore::prelude::*;
 
 fn main() {
     let eq = equation::ODE::new(
-        |x, p, _t, dx, rateiv, _cov| {
+        |x, p, _t, dx, b, rateiv, _cov| {
             fetch_cov!(cov, t,);
             fetch_params!(p, ka, ke);
-            dx[0] = -ka * x[0];
+            dx[0] = -ka * x[0] + b[0];
             dx[1] = ka * x[0] - ke * x[1];
         },
         |p, _t, _cov| {
@@ -76,11 +76,7 @@ fn main() {
     let ems = ErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(
-                ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
-                0.0,
-                None,
-            ),
+            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
         .unwrap();
 
@@ -93,7 +89,7 @@ fn main() {
     settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
     let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
-    let result = algorithm.fit().unwrap();
+    let mut result = algorithm.fit().unwrap();
     // algorithm.initialize().unwrap();
     // while !algorithm.next_cycle().unwrap() {}
     // let result = algorithm.into_npresult();

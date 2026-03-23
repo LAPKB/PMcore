@@ -3,10 +3,10 @@ use pmcore::prelude::*;
 
 fn main() -> Result<()> {
     let eq = equation::ODE::new(
-        |x, p, _t, dx, rateiv, _cov| {
+        |x, p, _t, dx, b, rateiv, _cov| {
             // fetch_cov!(cov, t, wt);
             fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + rateiv[0];
+            dx[0] = -ke * x[0] + rateiv[0] + b[0];
         },
         |_p, _t, _cov| lag! {},
         |_p, _t, _cov| fa! {},
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     let ems = ErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0, None),
+            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
         .unwrap()
         .add(1, ErrorModel::None)
@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     settings.initialize_logs()?;
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
     let mut algorithm = dispatch_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    let mut result = algorithm.fit()?;
     result.write_outputs()?;
 
     Ok(())

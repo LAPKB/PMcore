@@ -1,3 +1,4 @@
+use anyhow::bail;
 use anyhow::Result;
 use faer::Mat;
 use faer_ext::IntoFaer;
@@ -7,6 +8,7 @@ use pharmsol::prelude::simulator::psi;
 use pharmsol::Data;
 use pharmsol::Equation;
 use pharmsol::ErrorModels;
+use serde::{Deserialize, Serialize};
 
 use super::theta::Theta;
 
@@ -53,6 +55,54 @@ impl Psi {
                 .unwrap();
         }
     }
+
+    /// Write the psi matrix to a CSV writer
+    /// Each row represents a subject, each column represents a support point
+    pub fn to_csv<W: std::io::Write>(&self, writer: W) -> Result<()> {
+        let mut csv_writer = csv::Writer::from_writer(writer);
+
+        // Write each row
+        for i in 0..self.matrix.nrows() {
+            let row: Vec<f64> = (0..self.matrix.ncols())
+                .map(|j| *self.matrix.get(i, j))
+                .collect();
+            csv_writer.serialize(row)?;
+        }
+
+        csv_writer.flush()?;
+        Ok(())
+    }
+
+    /// Read psi matrix from a CSV reader
+    /// Each row represents a subject, each column represents a support point
+    pub fn from_csv<R: std::io::Read>(reader: R) -> Result<Self> {
+        let mut csv_reader = csv::Reader::from_reader(reader);
+        let mut rows: Vec<Vec<f64>> = Vec::new();
+
+        for result in csv_reader.deserialize() {
+            let row: Vec<f64> = result?;
+            rows.push(row);
+        }
+
+        if rows.is_empty() {
+            bail!("CSV file is empty");
+        }
+
+        let nrows = rows.len();
+        let ncols = rows[0].len();
+
+        // Verify all rows have the same length
+        for (i, row) in rows.iter().enumerate() {
+            if row.len() != ncols {
+                bail!("Row {} has {} columns, expected {}", i, row.len(), ncols);
+            }
+        }
+
+        // Create matrix from rows
+        let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
+
+        Ok(Psi { matrix: mat })
+    }
 }
 
 impl Default for Psi {
@@ -85,6 +135,84 @@ impl From<&Array2<f64>> for Psi {
     fn from(array: &Array2<f64>) -> Self {
         let matrix = array.view().into_faer().to_owned();
         Psi { matrix }
+    }
+}
+
+impl Serialize for Psi {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+
+        let mut seq = serializer.serialize_seq(Some(self.matrix.nrows()))?;
+
+        // Serialize each row as a vector
+        for i in 0..self.matrix.nrows() {
+            let row: Vec<f64> = (0..self.matrix.ncols())
+                .map(|j| *self.matrix.get(i, j))
+                .collect();
+            seq.serialize_element(&row)?;
+        }
+
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Psi {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{SeqAccess, Visitor};
+        use std::fmt;
+
+        struct PsiVisitor;
+
+        impl<'de> Visitor<'de> for PsiVisitor {
+            type Value = Psi;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a sequence of rows (vectors of f64)")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut rows: Vec<Vec<f64>> = Vec::new();
+
+                while let Some(row) = seq.next_element::<Vec<f64>>()? {
+                    rows.push(row);
+                }
+
+                if rows.is_empty() {
+                    return Err(serde::de::Error::custom("Empty matrix not allowed"));
+                }
+
+                let nrows = rows.len();
+                let ncols = rows[0].len();
+
+                // Verify all rows have the same length
+                for (i, row) in rows.iter().enumerate() {
+                    if row.len() != ncols {
+                        return Err(serde::de::Error::custom(format!(
+                            "Row {} has {} columns, expected {}",
+                            i,
+                            row.len(),
+                            ncols
+                        )));
+                    }
+                }
+
+                // Create matrix from rows
+                let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
+
+                Ok(Psi { matrix: mat })
+            }
+        }
+
+        deserializer.deserialize_seq(PsiVisitor)
     }
 }
 

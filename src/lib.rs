@@ -28,6 +28,9 @@ pub mod mmopt;
 pub use anyhow::Result;
 pub use std::collections::HashMap;
 
+// BestDose
+pub mod bestdose;
+
 /// A collection of commonly used items to simplify imports.
 pub mod prelude {
     pub use super::HashMap;
@@ -37,6 +40,7 @@ pub mod prelude {
     pub use crate::algorithms::Algorithm;
     pub use crate::routines;
     pub use crate::routines::logger;
+    pub use pharmsol::optimize::effect::get_e2;
 
     pub use pharmsol;
 

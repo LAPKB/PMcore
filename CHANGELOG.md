@@ -7,6 +7,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.2](https://github.com/LAPKB/PMcore/compare/v0.22.1...v0.22.2) - 2025-12-12
+
+### Other
+
+- Update pharmsol dependency version to 0.22.1 ([#236](https://github.com/LAPKB/PMcore/pull/236))
+- Update criterion requirement from 0.7 to 0.8 ([#233](https://github.com/LAPKB/PMcore/pull/233))
+- Update pharmsol requirement from =0.21.0 to =0.22.0 ([#232](https://github.com/LAPKB/PMcore/pull/232))
+
+## [0.22.1](https://github.com/LAPKB/PMcore/compare/v0.22.0...v0.22.1) - 2025-11-18
+
+### Added
+
+- methods needed to be able to separate problem from fit in Pmetrics ([#228](https://github.com/LAPKB/PMcore/pull/228))
+
+## [0.22.0](https://github.com/LAPKB/PMcore/compare/v0.21.1...v0.22.0) - 2025-11-17
+
+### Added
+
+- [**breaking**] Update NPResult to contain the posterior and predictions ([#224](https://github.com/LAPKB/PMcore/pull/224))
+
+### Other
+
+- Remove unsed dependency (argmin-math) ([#225](https://github.com/LAPKB/PMcore/pull/225))
+
+## [0.21.1](https://github.com/LAPKB/PMcore/compare/v0.21.0...v0.21.1) - 2025-11-12
+
+### Other
+
+- Update field name in NPPredictionrow to cens ([#222](https://github.com/LAPKB/PMcore/pull/222))
+
+## [0.21.0](https://github.com/LAPKB/PMcore/compare/v0.20.0...v0.21.0) - 2025-11-05
+
+### Added
+
+- *(exa)* [**breaking**] exa now requires the path where the template is going to be deployed ([#219](https://github.com/LAPKB/PMcore/pull/219))
+- Implement BestDose ([#163](https://github.com/LAPKB/PMcore/pull/163))
+
+### Fixed
+
+- Remove algorithms from .gitignore ([#220](https://github.com/LAPKB/PMcore/pull/220))
+
+### Other
+
+- Refactor algorithm trait ([#196](https://github.com/LAPKB/PMcore/pull/196))
+- Algorithm is Send+static
+
+## [0.20.0](https://github.com/LAPKB/PMcore/compare/v0.19.1...v0.20.0) - 2025-10-24
+
+### Other
+
+- Update field to censoring and bump pharmsol
+- Add censoring to output data
+- Breaking Changes in Pharmsol
+- Bolus are not given automatically anymore
+
+## [0.19.1](https://github.com/LAPKB/PMcore/compare/v0.19.0...v0.19.1) - 2025-10-23
+
+### Other
+
+- Bump pharmsol ([#211](https://github.com/LAPKB/PMcore/pull/211))
+
+## [0.19.0](https://github.com/LAPKB/PMcore/compare/v0.18.1...v0.19.0) - 2025-10-22
+
+### Added
+
+- New version of pharmsol ([#208](https://github.com/LAPKB/PMcore/pull/208))
+- Implement serialize for NPResult ([#202](https://github.com/LAPKB/PMcore/pull/202))
+
+### Other
+
+- Remove writing of the op.csv ([#205](https://github.com/LAPKB/PMcore/pull/205))
+- Add more tests ([#199](https://github.com/LAPKB/PMcore/pull/199))
+- More informative error for Cholesky decomposition ([#198](https://github.com/LAPKB/PMcore/pull/198))
+
+## [0.18.1](https://github.com/LAPKB/PMcore/compare/v0.18.0...v0.18.1) - 2025-10-09
+
+### Added
+
+- Expose methods on Theta ([#200](https://github.com/LAPKB/PMcore/pull/200))
+
+## [0.18.0](https://github.com/LAPKB/PMcore/compare/v0.17.0...v0.18.0) - 2025-09-30
+
+### Added
+
+- all optimization routines moved to pharmsol, it makes more sense for them to be there since there are somoe optimization routines that belong to the model and not to a population algorithm
+
+### Other
+
+- Update argmin requirement from 0.10.0 to 0.11.0 ([#192](https://github.com/LAPKB/PMcore/pull/192))
+
+## [0.17.0](https://github.com/LAPKB/PMcore/compare/v0.16.0...v0.17.0) - 2025-09-29
+
+### Added
+
+- Refactor outputs ([#178](https://github.com/LAPKB/PMcore/pull/178))
+
+### Fixed
+
+- Duplicate predictions ([#187](https://github.com/LAPKB/PMcore/pull/187))
+
+### Other
+
+- Greco model ([#190](https://github.com/LAPKB/PMcore/pull/190))
+- Update faer requirement from 0.22.4 to 0.23.1 ([#186](https://github.com/LAPKB/PMcore/pull/186))
+
+## [0.15.1](https://github.com/LAPKB/PMcore/compare/v0.15.0...v0.16.0) - 2025-09-07
+
+### Added
+
+- Support pharmsol fixed error factors ([#176](https://github.com/LAPKB/PMcore/pull/176))
+- Update calculation of predictions ([#159](https://github.com/LAPKB/PMcore/pull/159))
+
+### Other
+
+- Drusano Greco model ([#182](https://github.com/LAPKB/PMcore/pull/182))
+- Update pharmsol requirement from =0.16.0 to =0.17.0 ([#183](https://github.com/LAPKB/PMcore/pull/183))
+- Update pharmsol requirement from =0.15.0 to =0.16.0 ([#177](https://github.com/LAPKB/PMcore/pull/177))
+- Improve test coverage ([#172](https://github.com/LAPKB/PMcore/pull/172))
+- Bump actions/checkout from 4 to 5 ([#175](https://github.com/LAPKB/PMcore/pull/175))
+- Update pharmsol requirement from =0.14.0 to =0.15.0 ([#173](https://github.com/LAPKB/PMcore/pull/173))
+- Improve benchmark coverage ([#174](https://github.com/LAPKB/PMcore/pull/174))
+- Change log-level of output folder destination ([#158](https://github.com/LAPKB/PMcore/pull/158))
+- Update criterion requirement from 0.6 to 0.7 ([#169](https://github.com/LAPKB/PMcore/pull/169))
+
 ## [0.15.0](https://github.com/LAPKB/PMcore/compare/v0.14.0...v0.15.0) - 2025-07-23
 
 ### Added

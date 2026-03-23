@@ -59,7 +59,7 @@ fn main() {
     let ems = ErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0, None),
+            ErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
         )
         .unwrap();
 
@@ -78,7 +78,6 @@ fn main() {
 
     let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
     algorithm.initialize().unwrap();
-    while !algorithm.next_cycle().unwrap() {}
-    let result = algorithm.into_npresult();
+    let mut result = algorithm.fit().unwrap();
     result.write_outputs().unwrap();
 }

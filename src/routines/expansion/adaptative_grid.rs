@@ -1,6 +1,6 @@
-use faer::Row;
-
 use crate::structs::theta::Theta;
+use anyhow::Result;
+use faer::Row;
 
 /// Implements the adaptive grid algorithm for support point expansion.
 ///
@@ -19,7 +19,12 @@ use crate::structs::theta::Theta;
 ///
 /// A 2D array containing the updated support points after the adaptive grid expansion.
 ///
-pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_dist: f64) {
+pub fn adaptative_grid(
+    theta: &mut Theta,
+    eps: f64,
+    ranges: &[(f64, f64)],
+    min_dist: f64,
+) -> Result<()> {
     let mut candidates = Vec::new();
 
     // Collect all points first to avoid borrowing conflicts
@@ -49,8 +54,10 @@ pub fn adaptative_grid(theta: &mut Theta, eps: f64, ranges: &[(f64, f64)], min_d
         .collect::<Vec<_>>();
 
     for point in keep {
-        theta.add_point(point.as_slice());
+        theta.add_point(point.as_slice())?;
     }
+
+    Ok(())
 
     // Option 2: Check and add points one by one
     // Now add all the points after the immutable borrow is released
