@@ -5,24 +5,22 @@
 use pmcore::prelude::*;
 
 fn main() {
-    let eq = equation::ODE::new(
-        |x, p, _t, dx, b, rateiv, _cov| {
+    let eq = ode! {
+        diffeq: |x, p, _t, dx, b, rateiv, _cov| {
             fetch_cov!(cov, t,);
             fetch_params!(p, ka, ke);
             dx[0] = -ka * x[0] + b[0];
             dx[1] = ka * x[0] - ke * x[1];
         },
-        |p, _t, _cov| {
+        lag: |p, _t, _cov| {
             fetch_params!(p, _ka, _ke, tlag, _v);
             lag! {0=>tlag}
         },
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
+        out: |x, p, _t, _cov, y| {
             fetch_params!(p, _ka, _ke, _tlag, v);
             y[0] = x[1] / v;
         },
-    );
+    };
     // let eq = Equation::new_analytical(
     //     one_compartment_with_absorption,
     //     |_p, _cov| {},

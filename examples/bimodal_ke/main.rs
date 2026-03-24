@@ -2,20 +2,18 @@ use anyhow::Result;
 use pmcore::prelude::*;
 
 fn main() -> Result<()> {
-    let eq = equation::ODE::new(
-        |x, p, _t, dx, b, rateiv, _cov| {
+    let eq = ode! {
+        diffeq: |x, p, _t, dx, b, rateiv, _cov| {
             // fetch_cov!(cov, t, wt);
             fetch_params!(p, ke, _v);
             dx[0] = -ke * x[0] + rateiv[1] + b[1];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
+        out: |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
             y[1] = x[0] / v;
         },
-    );
+    }
+    .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
 
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)

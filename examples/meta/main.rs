@@ -5,8 +5,8 @@
 use pmcore::{prelude::*, routines::settings};
 
 fn main() {
-    let eq = equation::ODE::new(
-        |x, p, t, dx, b, rateiv, cov| {
+    let eq = ode! {
+        diffeq: |x, p, t, dx, b, rateiv, cov| {
             fetch_cov!(cov, t, wt, pkvisit);
             fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
@@ -16,10 +16,7 @@ fn main() {
             dx[0] = rateiv[0] - ke * x[0] * (1.0 - fm) - fm * x[0] + b[0];
             dx[1] = fm * x[0] - k20 * x[1];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, t, cov, y| {
+        out: |x, p, t, cov, y| {
             fetch_cov!(cov, t, wt, pkvisit);
             fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
@@ -29,7 +26,7 @@ fn main() {
             y[0] = x[0] / v;
             y[1] = x[1] / v2;
         },
-    );
+    };
 
     let params = Parameters::new()
         .add("cls", 0.1, 10.0)

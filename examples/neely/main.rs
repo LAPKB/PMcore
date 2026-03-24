@@ -1,7 +1,7 @@
 use pmcore::prelude::*;
 fn main() {
-    let ode = equation::ODE::new(
-        |x, p, t, dx, b, rateiv, cov| {
+    let ode = ode! {
+        diffeq: |x, p, t, dx, b, rateiv, cov| {
             fetch_params!(p, cls, k30, k40, qs, vps, vs, fm1, fm2, theta1, theta2);
             fetch_cov!(cov, t, wt, pkvisit);
 
@@ -25,14 +25,7 @@ fn main() {
             dx[2] = fm1 * x[0] - k30 * x[2];
             dx[3] = fm2 * x[0] - k40 * x[3];
         },
-        |_p, _t, _cov| {
-            lag! {}
-        },
-        |_p, _t, _cov| {
-            fa! {}
-        },
-        |_p, _t, _cov, _x| {},
-        |x, p, t, cov, y| {
+        out: |x, p, t, cov, y| {
             fetch_params!(p, cls, _k30, _k40, qs, vps, vs, _fm1, _fm2, theta1, theta2);
             fetch_cov!(cov, t, wt, pkvisit);
 
@@ -52,7 +45,7 @@ fn main() {
             y[1] = x[2] / vm1;
             y[2] = x[3] / vm2;
         },
-    );
+    };
     let params = Parameters::new()
         .add("cls", 0.0, 0.4)
         .add("k30", 0.0, 0.5)

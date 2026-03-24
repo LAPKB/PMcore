@@ -7,20 +7,17 @@ use pmcore::routines::initialization::parse_prior;
 
 fn main() -> Result<()> {
     // Example model
-    let eq = equation::ODE::new(
-        |x, p, _t, dx, b, _rateiv, _cov| {
+    let eq = ode! {
+        diffeq: |x, p, _t, dx, b, _rateiv, _cov| {
             // fetch_cov!(cov, t, wt);
             fetch_params!(p, ke, _v);
             dx[0] = -ke * x[0] + b[0];
         },
-        |_p, _, _| lag! {},
-        |_p, _, _| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
+        out: |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    };
 
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)

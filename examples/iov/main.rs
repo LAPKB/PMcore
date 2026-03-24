@@ -26,7 +26,10 @@ fn main() -> Result<()> {
             y[0] = x[0] / 50.0;
         },
         10000,
-    );
+    )
+    .with_nstates(2)
+    .with_ndrugs(1)
+    .with_nout(1);
 
     let params = Parameters::new().add("ke0", 0.001, 2.0);
 
