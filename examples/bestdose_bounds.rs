@@ -10,28 +10,24 @@ fn main() -> Result<()> {
     println!("==========================================\n");
 
     // Simple one-compartment PK model
-    let eq = equation::ODE::new(
-        |x, p, _t, dx, b, _rateiv, _cov| {
+    let eq = ode! {
+        diffeq: |x, p, _t, dx, b, _rateiv, _cov| {
             fetch_params!(p, ke, _v);
             dx[0] = -ke * x[0] + b[0];
         },
-        |_p, _, _| lag! {},
-        |_p, _, _| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
+        out: |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
-    );
+    };
 
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = ErrorModels::new().add(
+    let ems = AssayErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
     let mut settings = Settings::builder()

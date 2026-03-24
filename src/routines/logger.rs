@@ -27,7 +27,7 @@ pub(crate) fn setup_log(settings: &mut Settings) -> Result<()> {
 
     // Use the log level defined in configuration file
     let log_level = settings.log().level.clone();
-    let env_filter = EnvFilter::new(log_level);
+    let env_filter = EnvFilter::new(format!("{},diffsol=off", log_level));
 
     let timestamper = CompactTimestamp {
         start: Instant::now(),
