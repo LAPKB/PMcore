@@ -510,7 +510,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             let se = (obs_val - pj).powi(2);
             sumsq_i += se;
             // Calculate population mean using PRIOR probabilities
-            y_bar[j] += prior_prob * pj;
+            y_bar[j] += post_prob * pj;
         }
 
         variance += post_prob * sumsq_i; // Weighted by posterior
