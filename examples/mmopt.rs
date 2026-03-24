@@ -1,11 +1,13 @@
 //! Replication of the experiments in Bayard & Neely (2017)
 //! "Experiment Design for Nonparametric Models Based On Minimizing Bayes Risk"
-//! J Pharmacokinet Pharmacodyn. 2017;44(2):95-111. PMCID: PMC5376526
+//! Journal of Pharmacokinetics and Pharmacodynamics.
+//! https://doi.org/10.1007/s10928-016-9498-5
 
 use anyhow::Result;
 use pmcore::mmopt::mmopt;
 use pmcore::prelude::*;
 use pmcore::structs::theta::Theta;
+use pmcore::structs::weights::Weights;
 
 /// One-compartment model: dx/dt = -K*x + input, y = x/V
 fn one_comp_model() -> equation::ODE {
@@ -66,10 +68,10 @@ fn section4() -> Result<()> {
     }
     let subject = builder.build();
 
-    let weights = vec![0.5, 0.5];
+    let weights = Weights::from_vec(vec![0.5, 0.5]);
     let analytical = (6.0_f64).ln() / 1.25;
 
-    let result = mmopt(&theta, &subject, eq, errormodel, 0, 1, weights)?;
+    let result = mmopt(&theta, &subject, eq, errormodel, 0, 1, &weights)?;
 
     println!(
         "  Analytical optimum:     t* = ln(6)/1.25 = {:.4} h",
@@ -130,7 +132,7 @@ fn section6() -> Result<()> {
     }
     let subject = builder.build();
 
-    let weights = vec![0.1; 10];
+    let weights = Weights::uniform(10);
 
     // --- 1-sample design ---
     let r1 = mmopt(
@@ -140,7 +142,7 @@ fn section6() -> Result<()> {
         errormodel.clone(),
         0,
         1,
-        weights.clone(),
+        &weights,
     )?;
     println!("  1-sample design:");
     println!("    Paper:  t* = {{4.25}},       Bayes Risk = 0.5474");
@@ -157,7 +159,7 @@ fn section6() -> Result<()> {
         errormodel.clone(),
         0,
         2,
-        weights.clone(),
+        &weights,
     )?;
     println!("\n  2-sample design:");
     println!("    Paper:  t* = {{1.0, 9.5}},   Bayes Risk = 0.2947");
@@ -167,7 +169,7 @@ fn section6() -> Result<()> {
     );
 
     // --- 3-sample design ---
-    let r3 = mmopt(&theta, &subject, eq, errormodel, 0, 3, weights)?;
+    let r3 = mmopt(&theta, &subject, eq, errormodel, 0, 3, &weights)?;
     println!("\n  3-sample design:");
     println!("    Paper:  t* = {{1.0, 1.0, 10.5}}, Bayes Risk = 0.2325");
     println!(

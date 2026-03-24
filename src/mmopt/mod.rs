@@ -4,6 +4,7 @@ use pharmsol::{Equation, ErrorModel, Predictions, Subject};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::structs::theta::Theta;
+use crate::structs::weights::Weights;
 
 /// The results of a multiple-model optimization
 ///
@@ -24,6 +25,40 @@ impl std::fmt::Display for MmoptResult {
             self.times, self.risk
         )
     }
+}
+
+/// Compute the Bayes risk overbound for the observation times in the given subject.
+///
+/// This evaluates the Bhattacharyya upper bound on the Bayes risk of misclassification
+/// between support points, using all observation times defined in the subject. Unlike
+/// [`mmopt`], this does not search over combinations — it simply scores the design
+/// represented by the subject's current observations.
+///
+/// # Arguments
+/// * `theta` - Support points (population parameter distribution)
+/// * `subject` - Subject whose observation times define the sampling design
+/// * `equation` - The pharmacometric model equation
+/// * `errormodel` - Error model for computing observation variance
+/// * `outeq` - Output equation index to evaluate
+/// * `weights` - Probability weights for each support point (must sum to ~1.0)
+pub fn bayes_risk(
+    theta: &Theta,
+    subject: &Subject,
+    equation: impl Equation,
+    errormodel: ErrorModel,
+    outeq: usize,
+    weights: &Weights,
+) -> Result<f64> {
+    let (pred_matrix, weights_vec, _) =
+        build_prediction_matrix(theta, subject, equation, outeq, weights)?;
+
+    let all_indices: Vec<usize> = (0..pred_matrix.nrows()).collect();
+    Ok(calculate_risk(
+        &all_indices,
+        &pred_matrix,
+        &errormodel,
+        &weights_vec,
+    ))
 }
 
 /// Perform multiple-model optimization to determine optimal sample times.
@@ -55,66 +90,14 @@ pub fn mmopt(
     errormodel: ErrorModel,
     outeq: usize,
     nsamp: usize,
-    weights: Vec<f64>,
+    weights: &Weights,
 ) -> Result<MmoptResult> {
-    // Validate inputs
-    if subject.occasions().len() != 1 {
-        return Err(anyhow::anyhow!("Subject must contain exactly one Occasion"));
-    }
-
-    if theta.nspp() < 2 {
-        return Err(anyhow::anyhow!(
-            "At least 2 support points are required, got {}",
-            theta.nspp()
-        ));
-    }
-
-    if weights.len() != theta.nspp() {
-        return Err(anyhow::anyhow!(
-            "Weights length ({}) must match number of support points ({})",
-            weights.len(),
-            theta.nspp()
-        ));
-    }
-
     if nsamp == 0 {
         return Err(anyhow::anyhow!("Number of samples must be at least 1"));
     }
 
-    // Generate predictions for each support point
-    let predictions = theta
-        .matrix()
-        .row_iter()
-        .enumerate()
-        .map(|(idx, theta_row)| {
-            let support_point: Vec<f64> = theta_row.iter().cloned().collect();
-            let all_preds = equation
-                .estimate_predictions(subject, &support_point)
-                .map_err(|e| {
-                    anyhow::anyhow!(
-                        "Failed to generate predictions for support point {}: {}",
-                        idx,
-                        e
-                    )
-                })?
-                .get_predictions();
-            // Filter predictions by output equation
-            Ok(all_preds
-                .into_iter()
-                .filter(|p| p.outeq() == outeq)
-                .collect::<Vec<_>>())
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    if predictions[0].is_empty() {
-        return Err(anyhow::anyhow!(
-            "No predictions found for output equation {}",
-            outeq
-        ));
-    }
-
-    // Times vector from the first support point's predictions
-    let times = predictions[0].iter().map(|p| p.time()).collect::<Vec<_>>();
+    let (pred_matrix, weights_vec, times) =
+        build_prediction_matrix(theta, subject, equation, outeq, weights)?;
 
     if nsamp > times.len() {
         return Err(anyhow::anyhow!(
@@ -138,11 +121,6 @@ pub fn mmopt(
         ));
     }
 
-    // Generate prediction matrix: rows = time points, cols = support points
-    let pred_matrix = Mat::from_fn(predictions[0].len(), theta.nspp(), |i, j| {
-        predictions[j][i].prediction()
-    });
-
     // Generate all C(m, n) sample candidate index combinations
     let candidate_indices = generate_combinations(times.len(), nsamp);
 
@@ -150,7 +128,7 @@ pub fn mmopt(
     let (best_combo, min_risk) = candidate_indices
         .par_iter()
         .map(|combo| {
-            let risk = calculate_risk(combo, &pred_matrix, &errormodel, &weights);
+            let risk = calculate_risk(combo, &pred_matrix, &errormodel, &weights_vec);
             (combo.clone(), risk)
         })
         .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Greater))
@@ -161,6 +139,80 @@ pub fn mmopt(
         times: optimal_times,
         risk: min_risk,
     })
+}
+
+/// Shared helper: validate inputs, generate predictions, and build the prediction matrix.
+///
+/// Returns `(pred_matrix, weights_vec, times)` where:
+/// - `pred_matrix` has rows = time points, cols = support points
+/// - `weights_vec` is the weight vector extracted from `Weights`
+/// - `times` is the vector of prediction times
+fn build_prediction_matrix(
+    theta: &Theta,
+    subject: &Subject,
+    equation: impl Equation,
+    outeq: usize,
+    weights: &Weights,
+) -> Result<(Mat<f64>, Vec<f64>, Vec<f64>)> {
+    if subject.occasions().len() != 1 {
+        return Err(anyhow::anyhow!("Subject must contain exactly one Occasion"));
+    }
+
+    if theta.nspp() < 2 {
+        return Err(anyhow::anyhow!(
+            "At least 2 support points are required, got {}",
+            theta.nspp()
+        ));
+    }
+
+    if weights.len() != theta.nspp() {
+        return Err(anyhow::anyhow!(
+            "Weights length ({}) must match number of support points ({})",
+            weights.len(),
+            theta.nspp()
+        ));
+    }
+
+    let weights_vec = weights.to_vec();
+
+    // Generate predictions for each support point
+    let predictions = theta
+        .matrix()
+        .row_iter()
+        .enumerate()
+        .map(|(idx, theta_row)| {
+            let support_point: Vec<f64> = theta_row.iter().cloned().collect();
+            let all_preds = equation
+                .estimate_predictions(subject, &support_point)
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to generate predictions for support point {}: {}",
+                        idx,
+                        e
+                    )
+                })?
+                .get_predictions();
+            Ok(all_preds
+                .into_iter()
+                .filter(|p| p.outeq() == outeq)
+                .collect::<Vec<_>>())
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    if predictions[0].is_empty() {
+        return Err(anyhow::anyhow!(
+            "No predictions found for output equation {}",
+            outeq
+        ));
+    }
+
+    let times: Vec<f64> = predictions[0].iter().map(|p| p.time()).collect();
+
+    let pred_matrix = Mat::from_fn(predictions[0].len(), theta.nspp(), |i, j| {
+        predictions[j][i].prediction()
+    });
+
+    Ok((pred_matrix, weights_vec, times))
 }
 
 /// Calculate the Bayes risk for a specific combination of sample time indices.

@@ -2,6 +2,7 @@ use anyhow::Result;
 use pmcore::mmopt::{mmopt, MmoptResult};
 use pmcore::prelude::*;
 use pmcore::structs::theta::Theta;
+use pmcore::structs::weights::Weights;
 
 /// Helper to create a simple one-compartment model
 fn one_comp_model() -> equation::ODE {
@@ -59,9 +60,9 @@ fn test_mmopt_basic() -> Result<()> {
         .build();
 
     let errormodel = additive_error_model();
-    let weights = vec![0.5, 0.5];
+    let weights = Weights::from_vec(vec![0.5, 0.5]);
 
-    let result = mmopt(&theta, &subject, eq, errormodel, 0, 2, weights)?;
+    let result = mmopt(&theta, &subject, eq, errormodel, 0, 2, &weights)?;
 
     assert_eq!(
         result.times.len(),
@@ -117,7 +118,7 @@ fn test_mmopt_more_samples_lower_risk() -> Result<()> {
         errormodel.clone(),
         0,
         2,
-        vec![0.5, 0.5],
+        &Weights::from_vec(vec![0.5, 0.5]),
     )?;
     let result_3 = mmopt(
         &theta,
@@ -126,7 +127,7 @@ fn test_mmopt_more_samples_lower_risk() -> Result<()> {
         errormodel.clone(),
         0,
         3,
-        vec![0.5, 0.5],
+        &Weights::from_vec(vec![0.5, 0.5]),
     )?;
 
     assert!(
@@ -165,9 +166,9 @@ fn test_mmopt_three_support_points() -> Result<()> {
         .build();
 
     let errormodel = additive_error_model();
-    let weights = vec![1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0];
+    let weights = Weights::from_vec(vec![1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]);
 
-    let result = mmopt(&theta, &subject, eq, errormodel, 0, 2, weights)?;
+    let result = mmopt(&theta, &subject, eq, errormodel, 0, 2, &weights)?;
 
     assert_eq!(result.times.len(), 2);
     assert!(result.risk >= 0.0);
@@ -199,10 +200,10 @@ fn test_mmopt_all_samples() -> Result<()> {
         .build();
 
     let errormodel = additive_error_model();
-    let weights = vec![0.5, 0.5];
+    let weights = Weights::from_vec(vec![0.5, 0.5]);
 
     // Select all 3 samples (only one combination)
-    let result = mmopt(&theta, &subject, eq, errormodel, 0, 3, weights)?;
+    let result = mmopt(&theta, &subject, eq, errormodel, 0, 3, &weights)?;
 
     assert_eq!(result.times.len(), 3);
     assert_eq!(result.times, vec![1.0, 4.0, 8.0]);
@@ -243,7 +244,7 @@ fn test_mmopt_multiple_occasions_error() {
             additive_error_model(),
             0,
             1,
-            vec![0.5, 0.5],
+            &Weights::from_vec(vec![0.5, 0.5]),
         );
         assert!(result.is_err());
     }
@@ -275,7 +276,7 @@ fn test_mmopt_single_support_point_error() {
         additive_error_model(),
         0,
         1,
-        vec![1.0],
+        &Weights::from_vec(vec![1.0]),
     );
     assert!(result.is_err());
     assert!(result
@@ -313,7 +314,7 @@ fn test_mmopt_weights_mismatch_error() {
         additive_error_model(),
         0,
         1,
-        vec![0.33, 0.33, 0.34],
+        &Weights::from_vec(vec![0.33, 0.33, 0.34]),
     );
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("Weights length"));
@@ -346,7 +347,7 @@ fn test_mmopt_zero_samples_error() {
         additive_error_model(),
         0,
         0,
-        vec![0.5, 0.5],
+        &Weights::from_vec(vec![0.5, 0.5]),
     );
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("at least 1"));
@@ -381,7 +382,7 @@ fn test_mmopt_too_many_samples_error() {
         additive_error_model(),
         0,
         5,
-        vec![0.5, 0.5],
+        &Weights::from_vec(vec![0.5, 0.5]),
     );
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("exceeds"));
@@ -420,10 +421,18 @@ fn test_mmopt_unequal_weights() -> Result<()> {
         errormodel.clone(),
         0,
         2,
-        vec![0.5, 0.5],
+        &Weights::from_vec(vec![0.5, 0.5]),
     )?;
 
-    let result_skewed = mmopt(&theta, &subject, eq, errormodel, 0, 2, vec![0.9, 0.1])?;
+    let result_skewed = mmopt(
+        &theta,
+        &subject,
+        eq,
+        errormodel,
+        0,
+        2,
+        &Weights::from_vec(vec![0.9, 0.1]),
+    )?;
 
     // Different weights should generally produce different risks
     // (or at least both should be valid)
@@ -480,7 +489,7 @@ fn test_mmopt_single_sample() -> Result<()> {
         additive_error_model(),
         0,
         1,
-        vec![0.5, 0.5],
+        &Weights::from_vec(vec![0.5, 0.5]),
     )?;
 
     assert_eq!(result.times.len(), 1);
