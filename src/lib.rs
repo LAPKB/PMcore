@@ -49,7 +49,6 @@ pub mod prelude {
     pub use crate::routines::settings::*;
     pub use crate::structs::*;
 
-
     pub use crate::mmopt::*;
 
     pub mod simulator {

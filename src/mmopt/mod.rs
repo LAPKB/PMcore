@@ -29,7 +29,7 @@ impl std::fmt::Display for MmoptResult {
 /// Perform multiple-model optimization to determine optimal sample times.
 ///
 /// This function evaluates all possible combinations of `nsamp` sample times
-/// from the candidate times defined as observations in the `subject`, and returns
+/// from the candidate times defined as [pharmsol::data::Observation]s in the [Subject], and returns
 /// the combination that minimizes the Bayes risk of misclassification between
 /// support points.
 ///
@@ -85,19 +85,26 @@ pub fn mmopt(
     let predictions = theta
         .matrix()
         .row_iter()
-        .map(|theta_row| {
+        .enumerate()
+        .map(|(idx, theta_row)| {
             let support_point: Vec<f64> = theta_row.iter().cloned().collect();
             let all_preds = equation
                 .estimate_predictions(subject, &support_point)
-                .unwrap()
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to generate predictions for support point {}: {}",
+                        idx,
+                        e
+                    )
+                })?
                 .get_predictions();
             // Filter predictions by output equation
-            all_preds
+            Ok(all_preds
                 .into_iter()
                 .filter(|p| p.outeq() == outeq)
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>())
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>>>()?;
 
     if predictions[0].is_empty() {
         return Err(anyhow::anyhow!(
@@ -117,6 +124,20 @@ pub fn mmopt(
         ));
     }
 
+    // Guard against combinatorial explosion
+    let n_combinations = n_choose_k(times.len(), nsamp);
+    const MAX_COMBINATIONS: u128 = 1_000_000;
+    if n_combinations > MAX_COMBINATIONS {
+        return Err(anyhow::anyhow!(
+            "C({}, {}) = {} exceeds the maximum allowed combinations ({}). \
+             Reduce the number of candidate times or increase nsamp.",
+            times.len(),
+            nsamp,
+            n_combinations,
+            MAX_COMBINATIONS
+        ));
+    }
+
     // Generate prediction matrix: rows = time points, cols = support points
     let pred_matrix = Mat::from_fn(predictions[0].len(), theta.nspp(), |i, j| {
         predictions[j][i].prediction()
@@ -132,8 +153,8 @@ pub fn mmopt(
             let risk = calculate_risk(combo, &pred_matrix, &errormodel, &weights);
             (combo.clone(), risk)
         })
-        .min_by(|(_, risk_a), (_, risk_b)| risk_a.partial_cmp(risk_b).unwrap())
-        .unwrap();
+        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Greater))
+        .ok_or_else(|| anyhow::anyhow!("No candidate combinations to evaluate"))?;
 
     let optimal_times = best_combo.iter().map(|&i| times[i]).collect();
     Ok(MmoptResult {
@@ -156,8 +177,7 @@ fn calculate_risk(
     let nspp = pred_matrix.ncols();
 
     (0..nspp)
-        .flat_map(|i| (0..nspp).map(move |j| (i, j)))
-        .filter(|(i, j)| i != j)
+        .flat_map(|i| ((i + 1)..nspp).map(move |j| (i, j)))
         .map(|(i, j)| {
             // Extract predictions for the selected time points
             let i_obs: Vec<f64> = combo.iter().map(|&k| pred_matrix[(k, i)]).collect();
@@ -168,8 +188,8 @@ fn calculate_risk(
                 .iter()
                 .zip(j_obs.iter())
                 .map(|(&y_i, &y_j)| {
-                    let i_var = errormodel.variance_from_value(y_i).unwrap();
-                    let j_var = errormodel.variance_from_value(y_j).unwrap();
+                    let i_var = errormodel.variance_from_value(y_i).unwrap_or(f64::EPSILON);
+                    let j_var = errormodel.variance_from_value(y_j).unwrap_or(f64::EPSILON);
                     let denominator = i_var + j_var;
 
                     let term1 = (y_i - y_j).powi(2) / (4.0 * denominator);
@@ -183,6 +203,17 @@ fn calculate_risk(
             weights[i] * weights[j] * (-sum_k_ijn).exp()
         })
         .sum()
+}
+
+/// Compute C(m, n) without overflow risk by using u128 arithmetic.
+fn n_choose_k(m: usize, n: usize) -> u128 {
+    if n > m {
+        return 0;
+    }
+    // Use the smaller of n and m-n for efficiency
+    let k = n.min(m - n) as u128;
+    let m = m as u128;
+    (0..k).fold(1u128, |acc, i| acc * (m - i) / (i + 1))
 }
 
 fn generate_combinations(m: usize, n: usize) -> Vec<Vec<usize>> {
