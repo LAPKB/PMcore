@@ -22,7 +22,6 @@ fn main() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Minimal parameter ranges

@@ -14,7 +14,6 @@ fn main() {
         |x, _p, _t, _cov, y| {
             y[0] = x[1];
         },
-        (2, 1),
     );
     // same eq but analytical
     // let eq = Equation::new_analytical(

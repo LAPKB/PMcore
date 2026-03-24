@@ -29,7 +29,6 @@ fn main() {
             y[0] = x[0] / v;
             y[1] = x[1] / v2;
         },
-        (2, 2),
     );
 
     let params = Parameters::new()

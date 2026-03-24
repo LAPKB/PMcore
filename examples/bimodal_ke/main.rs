@@ -15,7 +15,6 @@ fn main() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[1] = x[0] / v;
         },
-        (2, 2),
     );
 
     let params = Parameters::new()

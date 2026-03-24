@@ -16,7 +16,6 @@ fn test_one_compartment_npag() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Define parameters
@@ -84,7 +83,6 @@ fn test_one_compartment_npod() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Define parameters
@@ -152,7 +150,6 @@ fn test_one_compartment_postprob() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Define parameters

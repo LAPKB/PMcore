@@ -52,7 +52,6 @@ fn main() {
             y[1] = x[2] / vm1;
             y[2] = x[3] / vm2;
         },
-        (4, 3),
     );
     let params = Parameters::new()
         .add("cls", 0.0, 0.4)

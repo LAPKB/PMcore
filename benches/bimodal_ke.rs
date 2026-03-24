@@ -17,7 +17,6 @@ fn create_equation() -> equation::ODE {
             fetch_params!(p, _ke, v);
             y[1] = x[0] / v;
         },
-        (2, 2),
     )
 }
 

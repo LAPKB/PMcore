@@ -26,7 +26,6 @@ fn main() {
             fetch_cov!(cov, t, wt);
             y[0] = x[1] / (vol * wt);
         },
-        (4, 1),
         100,
     );
 

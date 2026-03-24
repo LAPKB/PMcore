@@ -25,7 +25,6 @@ fn main() {
             fetch_params!(p, _ke0, _ske);
             y[0] = x[0] / 50.0;
         },
-        (2, 1),
         11,
     );
 

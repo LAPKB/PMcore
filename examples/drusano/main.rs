@@ -71,7 +71,6 @@ fn main() -> Result<()> {
             y[3] = x[3].log10();
             y[4] = x[4].log10();
         },
-        (5, 5),
     );
 
     let params = Parameters::new()

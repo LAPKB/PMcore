@@ -22,7 +22,6 @@ fn main() {
             fetch_params!(p, _ka, _ke, _tlag, v);
             y[0] = x[1] / v;
         },
-        (3, 1),
     );
     // let eq = Equation::new_analytical(
     //     one_compartment_with_absorption,
