@@ -474,3 +474,170 @@ impl std::fmt::Display for PredictionMetrics {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Helper: build an NPPredictions from raw tuples.
+    /// Each tuple is (id, obs, cens, pop_mean, pop_median, post_mean, post_median).
+    fn make_predictions(rows: &[(&str, Option<f64>, Censor, f64, f64, f64, f64)]) -> NPPredictions {
+        let mut preds = NPPredictions::new();
+        for (id, obs, cens, pm, pmed, ptm, ptmed) in rows {
+            preds.add(NPPredictionRow {
+                id: id.to_string(),
+                time: 0.0,
+                outeq: 1,
+                block: 1,
+                obs: *obs,
+                cens: *cens,
+                pop_mean: *pm,
+                pop_median: *pmed,
+                post_mean: *ptm,
+                post_median: *ptmed,
+            });
+        }
+        preds
+    }
+
+    // ── ErrorMetrics::compute ───────────────────────────────────────────
+
+    #[test]
+    fn error_metrics_empty_input() {
+        let m = ErrorMetrics::compute(&[], &[]);
+        assert_eq!(m.n, 0);
+        assert_eq!(m.n_excluded, 0);
+        assert!(m.bias.is_nan());
+        assert!(m.rmse.is_nan());
+    }
+
+    #[test]
+    fn error_metrics_perfect_predictions() {
+        let obs = vec![1.0, 2.0, 3.0];
+        let pred = vec![1.0, 2.0, 3.0];
+        let m = ErrorMetrics::compute(&obs, &pred);
+
+        assert_eq!(m.n, 3);
+        assert_eq!(m.n_excluded, 0);
+        assert!((m.bias).abs() < 1e-12);
+        assert!((m.imprecision).abs() < 1e-12);
+        assert!((m.rmse).abs() < 1e-12);
+        assert!((m.r_squared - 1.0).abs() < 1e-12);
+        assert!((m.bias_pct).abs() < 1e-12);
+        assert!((m.imprecision_pct).abs() < 1e-12);
+        assert!((m.rmse_pct).abs() < 1e-12);
+    }
+
+    #[test]
+    fn error_metrics_constant_offset() {
+        // pred = obs + 1 for all points
+        let obs = vec![2.0, 4.0, 6.0];
+        let pred = vec![3.0, 5.0, 7.0];
+        let m = ErrorMetrics::compute(&obs, &pred);
+
+        assert_eq!(m.n, 3);
+        assert_eq!(m.n_excluded, 0);
+        assert!((m.bias - 1.0).abs() < 1e-12);
+        assert!((m.rmse - 1.0).abs() < 1e-12);
+        // Imprecision (SD of errors) should be 0 since all errors are identical
+        assert!(m.imprecision.abs() < 1e-12);
+    }
+
+    #[test]
+    fn error_metrics_excludes_non_positive_obs_from_pct() {
+        let obs = vec![0.0, -1.0, 2.0, 4.0];
+        let pred = vec![0.5, -0.5, 2.5, 4.5];
+        let m = ErrorMetrics::compute(&obs, &pred);
+
+        assert_eq!(m.n, 4);
+        assert_eq!(m.n_excluded, 2); // obs=0.0 and obs=-1.0
+
+        // Absolute metrics use all 4 pairs
+        assert!((m.bias - 0.5).abs() < 1e-12);
+
+        // Percentage metrics use only obs=2.0 and obs=4.0
+        // rel errors: 0.5/2.0 = 0.25, 0.5/4.0 = 0.125
+        let expected_bias_pct = (0.25 + 0.125) / 2.0 * 100.0;
+        assert!((m.bias_pct - expected_bias_pct).abs() < 1e-10);
+    }
+
+    #[test]
+    fn error_metrics_all_non_positive_obs() {
+        let obs = vec![0.0, -1.0];
+        let pred = vec![0.5, -0.5];
+        let m = ErrorMetrics::compute(&obs, &pred);
+
+        assert_eq!(m.n, 2);
+        assert_eq!(m.n_excluded, 2);
+        assert!(m.bias_pct.is_nan());
+        assert!(m.imprecision_pct.is_nan());
+        assert!(m.rmse_pct.is_nan());
+    }
+
+    #[test]
+    fn error_metrics_r_squared_constant_obs() {
+        // All obs the same → SS_tot = 0 → R² = NaN
+        let obs = vec![5.0, 5.0, 5.0];
+        let pred = vec![5.0, 6.0, 4.0];
+        let m = ErrorMetrics::compute(&obs, &pred);
+        assert!(m.r_squared.is_nan());
+    }
+
+    #[test]
+    fn metrics_returns_none_when_no_observations() {
+        let preds = make_predictions(&[("S1", None, Censor::None, 1.0, 1.0, 1.0, 1.0)]);
+        assert!(preds.metrics().is_none());
+    }
+
+    #[test]
+    fn metrics_skips_censored_rows() {
+        let preds = make_predictions(&[("S1", Some(10.0), Censor::BLOQ, 10.0, 10.0, 10.0, 10.0)]);
+        assert!(preds.metrics().is_none());
+    }
+
+    #[test]
+    fn metrics_counts_subjects() {
+        let preds = make_predictions(&[
+            ("S1", Some(1.0), Censor::None, 1.0, 1.0, 1.0, 1.0),
+            ("S1", Some(2.0), Censor::None, 2.0, 2.0, 2.0, 2.0),
+            ("S2", Some(3.0), Censor::None, 3.0, 3.0, 3.0, 3.0),
+        ]);
+        let m = preds.metrics().unwrap();
+        assert_eq!(m.n_subjects, 2);
+        assert_eq!(m.pop_mean.n, 3);
+    }
+
+    #[test]
+    fn metrics_routes_predictions_correctly() {
+        // Use distinct prediction values per type so we can verify routing
+        let preds = make_predictions(&[("S1", Some(10.0), Censor::None, 11.0, 12.0, 13.0, 14.0)]);
+        let m = preds.metrics().unwrap();
+
+        assert!((m.pop_mean.bias - 1.0).abs() < 1e-12);
+        assert!((m.pop_median.bias - 2.0).abs() < 1e-12);
+        assert!((m.post_mean.bias - 3.0).abs() < 1e-12);
+        assert!((m.post_median.bias - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn display_header_without_exclusions() {
+        let preds = make_predictions(&[("S1", Some(1.0), Censor::None, 1.0, 1.0, 1.0, 1.0)]);
+        let m = preds.metrics().unwrap();
+        let output = format!("{}", m);
+        assert!(output.contains("1 subjects"));
+        assert!(output.contains("1 observations"));
+        assert!(!output.contains("excluded"));
+    }
+
+    #[test]
+    fn display_header_with_exclusions() {
+        let preds = make_predictions(&[
+            ("S1", Some(0.0), Censor::None, 0.5, 0.5, 0.5, 0.5),
+            ("S1", Some(2.0), Censor::None, 2.5, 2.5, 2.5, 2.5),
+        ]);
+        let m = preds.metrics().unwrap();
+        let output = format!("{}", m);
+        assert!(output.contains("2 observations"));
+        assert!(output.contains("1 with obs <= 0 excluded from relative metrics"));
+    }
+}
