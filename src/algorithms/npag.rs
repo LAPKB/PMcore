@@ -13,11 +13,11 @@ use crate::structs::weights::Weights;
 use anyhow::bail;
 use anyhow::Result;
 use pharmsol::prelude::{
-    data::{Data, ErrorModels},
+    data::{AssayErrorModels, Data},
     simulator::Equation,
 };
 
-use pharmsol::prelude::ErrorModel;
+use pharmsol::prelude::AssayErrorModel;
 
 use crate::routines::initialization;
 
@@ -43,7 +43,7 @@ pub struct NPAG<E: Equation + Send + 'static> {
     f1: f64,
     cycle: usize,
     gamma_delta: Vec<f64>,
-    error_models: ErrorModels,
+    error_models: AssayErrorModels,
     status: Status,
     cycle_log: CycleLog,
     data: Data,
@@ -134,7 +134,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
         tracing::debug!("Support points: {}", self.theta.nspp());
 
         self.error_models.iter().for_each(|(outeq, em)| {
-            if ErrorModel::None == *em {
+            if AssayErrorModel::None == *em {
                 return;
             }
             tracing::debug!(
@@ -203,7 +203,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             &self.theta,
             &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
-            self.cycle != 1,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -315,7 +314,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                     &self.theta,
                     &error_model_up,
                     false,
-                    true,
                 )?;
                 let psi_down = calculate_psi(
                     &self.equation,
@@ -323,7 +321,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                     &self.theta,
                     &error_model_down,
                     false,
-                    true,
                 )?;
 
                 let (lambda_up, objf_up) = match burke(&psi_up) {

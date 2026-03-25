@@ -2,7 +2,7 @@ use crate::algorithms::Algorithm;
 use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
-use pharmsol::prelude::data::ErrorModels;
+use pharmsol::prelude::data::AssayErrorModels;
 
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -18,7 +18,7 @@ pub struct Settings {
     /// Parameters to be estimated
     pub(crate) parameters: Parameters,
     /// Defines the error models and polynomials to be used
-    pub(crate) errormodels: ErrorModels,
+    pub(crate) errormodels: AssayErrorModels,
     /// Configuration for predictions
     pub(crate) predictions: Predictions,
     /// Configuration for logging
@@ -48,7 +48,7 @@ impl Settings {
         &self.parameters
     }
 
-    pub fn errormodels(&self) -> &ErrorModels {
+    pub fn errormodels(&self) -> &AssayErrorModels {
         &self.errormodels
     }
 
@@ -441,7 +441,7 @@ impl Default for Output {
 pub struct SettingsBuilder<State> {
     config: Option<Config>,
     parameters: Option<Parameters>,
-    errormodels: Option<ErrorModels>,
+    errormodels: Option<AssayErrorModels>,
     predictions: Option<Predictions>,
     log: Option<Log>,
     prior: Option<Prior>,
@@ -524,7 +524,7 @@ impl SettingsBuilder<AlgorithmSet> {
 
 // Parameters are set, move to defining error model
 impl SettingsBuilder<ParametersSet> {
-    pub fn set_error_models(self, ems: ErrorModels) -> SettingsBuilder<ErrorSet> {
+    pub fn set_error_models(self, ems: AssayErrorModels) -> SettingsBuilder<ErrorSet> {
         SettingsBuilder {
             config: self.config,
             parameters: self.parameters,
@@ -575,7 +575,7 @@ fn parse_output_folder(path: String) -> String {
 #[cfg(test)]
 
 mod tests {
-    use pharmsol::{ErrorModel, ErrorPoly};
+    use pharmsol::{AssayErrorModel, AssayErrorModels, ErrorPoly};
 
     use super::*;
     use crate::algorithms::Algorithm;
@@ -584,10 +584,10 @@ mod tests {
     fn test_builder() {
         let parameters = Parameters::new().add("Ke", 0.0, 5.0).add("V", 10.0, 200.0);
 
-        let ems = ErrorModels::new()
+        let ems = AssayErrorModels::new()
             .add(
                 0,
-                ErrorModel::Proportional {
+                AssayErrorModel::Proportional {
                     gamma: pharmsol::Factor::Variable(5.0),
                     poly: ErrorPoly::new(0.0, 0.1, 0.0, 0.0),
                 },
