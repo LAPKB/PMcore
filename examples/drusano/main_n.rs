@@ -268,7 +268,6 @@ fn main() {
             y[3] = x[3].log10();
             y[4] = x[4].log10();
         },
-        (1, 1),
     );
     let settings = settings::read("examples/drusano/config.toml").unwrap();
     setup_log(&settings);

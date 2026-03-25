@@ -1,5 +1,3 @@
-use std::process::abort;
-
 use anyhow::Result;
 use pmcore::bestdose; // bestdose new
                       // use pmcore::bestdose::bestdose_old as bestdose; // bestdose old
@@ -23,16 +21,15 @@ fn main() -> Result<()> {
             let v = v * 70.0;
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)
         .add("v", 25.0 / 70.0, 250.0 / 70.0);
 
-    let ems = ErrorModels::new().add(
+    let ems = AssayErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
     // Make settings

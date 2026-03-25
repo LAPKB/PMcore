@@ -34,7 +34,6 @@ fn test_ode_predictions() {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Create a simple subject with one bolus and observations
@@ -255,7 +254,6 @@ fn test_saem_initialization() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Create test data
@@ -339,7 +337,6 @@ fn test_saem_iterations() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Create synthetic data with known parameters
@@ -469,7 +466,6 @@ fn test_validate_onecomp_iv() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Generate same data as R (from reference true values)

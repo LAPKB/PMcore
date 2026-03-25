@@ -19,7 +19,6 @@ fn create_equation() -> equation::ODE {
             fetch_params!(p, _ke, v);
             y[1] = x[1] / v;
         },
-        (2, 2),
     )
 }
 
@@ -28,10 +27,10 @@ fn create_settings(algorithm: Algorithm, output_path: &str) -> Settings {
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             1,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
         .unwrap();
 
@@ -93,11 +92,10 @@ fn run_algorithm(
 }
 
 fn main() -> Result<()> {
-    // Initialize logging once
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .with_target(false)
-        .init();
+    // Initialize logging using PMcore's logger (filters out diffsol noise)
+    let mut settings = create_settings(Algorithm::NPAG, "");
+    settings.set_log_stdout(true);
+    settings.initialize_logs()?;
 
     println!("\n");
     println!("╔══════════════════════════════════════════════════════════╗");

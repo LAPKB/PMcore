@@ -33,6 +33,12 @@ impl Psi {
         self.matrix.ncols()
     }
 
+    /// Convert the internal faer matrix to an ndarray Array2
+    pub fn to_ndarray(&self) -> Array2<f64> {
+        let m = &self.matrix;
+        Array2::from_shape_fn((m.nrows(), m.ncols()), |(i, j)| m[(i, j)])
+    }
+
     /// Modify the [Psi::matrix] to only include the columns specified by `indices`
     pub(crate) fn filter_column_indices(&mut self, indices: &[usize]) {
         let matrix = self.matrix.to_owned();

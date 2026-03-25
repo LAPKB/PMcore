@@ -4,7 +4,9 @@ use pmcore::prelude::*;
 use pmcore::routines::initialization::parse_prior;
 
 fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::new("info,diffsol=off"))
+        .init();
 
     println!("BestDose with Dose Range Bounds - Example\n");
     println!("==========================================\n");

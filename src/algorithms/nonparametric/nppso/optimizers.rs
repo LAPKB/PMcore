@@ -40,14 +40,13 @@ pub fn optimize_subject_map<E: Equation>(
 
         let theta = ndarray::Array1::from(clamped).insert_axis(Axis(0));
 
-        match pharmsol::prelude::simulator::psi(
+        match pharmsol::prelude::simulator::log_likelihood_matrix(
             equation,
             &single_data,
             &theta,
             error_models,
             false,
-            false,
-        ) {
+        ).map(|m| m.mapv(f64::exp)) {
             Ok(psi) => {
                 let p = psi.iter().next().unwrap_or(&1e-300);
                 if *p > 0.0 {
@@ -131,14 +130,13 @@ pub fn refine_d_optimal<E: Equation>(
 
         let theta = ndarray::Array1::from(clamped).insert_axis(Axis(0));
 
-        match pharmsol::prelude::simulator::psi(
+        match pharmsol::prelude::simulator::log_likelihood_matrix(
             equation,
             data,
             &theta,
             error_models,
             false,
-            false,
-        ) {
+        ).map(|m| m.mapv(f64::exp)) {
             Ok(psi) => {
                 let nsub = psi.nrows() as f64;
                 let mut d_sum = -nsub;

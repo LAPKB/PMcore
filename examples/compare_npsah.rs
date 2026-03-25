@@ -29,7 +29,6 @@ fn create_bimodal_equation() -> equation::ODE {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     )
 }
 
@@ -38,13 +37,13 @@ fn create_bimodal_settings(algorithm: Algorithm) -> Settings {
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
         .unwrap()
-        .add(1, ErrorModel::None)
+        .add(1, AssayErrorModel::None)
         .unwrap();
 
     let mut settings = Settings::builder()
@@ -80,7 +79,6 @@ fn create_two_eq_lag_equation() -> equation::ODE {
             fetch_params!(p, _ka, _ke, _tlag, v);
             y[0] = x[1] / v;
         },
-        (2, 1),
     )
 }
 
@@ -91,10 +89,10 @@ fn create_two_eq_lag_settings(algorithm: Algorithm) -> Settings {
         .add("tlag", 0.0, 4.0)
         .add("v", 30.0, 120.0);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+            AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
         .unwrap();
 
@@ -125,7 +123,6 @@ fn create_theo_equation() -> equation::Analytical {
             fetch_params!(p, _ka, _ke, v);
             y[0] = x[1] * 1000.0 / v;
         },
-        (2, 1),
     )
 }
 
@@ -135,10 +132,10 @@ fn create_theo_settings(algorithm: Algorithm) -> Settings {
         .add("ke", 0.001, 3.0)
         .add("v", 0.001, 50.0);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
         )
         .unwrap();
 
@@ -183,7 +180,7 @@ fn create_neely_equation() -> equation::ODE {
         |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, t, cov, y| {
-            fetch_params!(p, cls, _k30, _k40, qs, vps, vs, _fm1, _fm2, theta1, theta2);
+            fetch_params!(p, _cls, _k30, _k40, _qs, _vps, vs, _fm1, _fm2, _theta1, theta2);
             fetch_cov!(cov, t, wt, pkvisit);
 
             let vfrac1 = 0.068202;
@@ -196,7 +193,6 @@ fn create_neely_equation() -> equation::ODE {
             y[1] = x[2] / vm1;
             y[2] = x[3] / vm2;
         },
-        (4, 3),
     )
 }
 
@@ -213,20 +209,20 @@ fn create_neely_settings(algorithm: Algorithm) -> Settings {
         .add("theta1", -4.0, 2.0)
         .add("theta2", -2.0, 0.5);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
         .add(
             1,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
         .add(
             2,
-            ErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap();
 
@@ -307,7 +303,7 @@ fn print_section(title: &str) {
 fn main() -> Result<()> {
     // Initialize logging
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
+        .with_env_filter(tracing_subscriber::EnvFilter::new("info,diffsol=off"))
         .with_target(false)
         .init();
 

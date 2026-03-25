@@ -150,7 +150,6 @@ fn create_one_compartment_absorption_model() -> equation::ODE {
             fetch_params!(p, _ka, v, _cl);
             y[0] = x[1] / v; // Concentration = amount / volume
         },
-        (2, 1), // 2 state variables, 1 output
     )
 }
 
@@ -235,7 +234,6 @@ fn test_saem_parameter_recovery_simple() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // True population parameters
@@ -285,8 +283,8 @@ fn test_saem_parameter_recovery_simple() -> Result<()> {
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 20.0);
 
     // Error model for non-parametric
-    let em = ErrorModel::additive(ErrorPoly::new(0.5, 0.0, 0.0, 0.0), 1.0);
-    let ems = ErrorModels::new().add(0, em).unwrap();
+    let em = AssayErrorModel::additive(ErrorPoly::new(0.5, 0.0, 0.0, 0.0), 1.0);
+    let ems = AssayErrorModels::new().add(0, em).unwrap();
 
     // Create settings - use NPAG for now as SAEM isn't fully wired up
     let mut settings = Settings::builder()
@@ -380,7 +378,6 @@ fn test_saem_initialization() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Create minimal test data (3 subjects)
@@ -449,7 +446,6 @@ fn test_saem_runs_iterations() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // Create test data with multiple subjects
@@ -542,7 +538,6 @@ fn test_saem_convergence() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     );
 
     // True values for simulation

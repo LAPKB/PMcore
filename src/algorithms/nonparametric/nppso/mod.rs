@@ -52,7 +52,6 @@ use crate::{
 };
 
 use anyhow::{bail, Result};
-use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, Array1, ArrayBase, Axis, Dim, OwnedRepr};
 use pharmsol::prelude::data::Data;
@@ -315,7 +314,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPPSO<E> {
             &self.theta,
             &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
-            self.cycle != 1,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -382,7 +380,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPPSO<E> {
         self.w = self.lambda.clone();
 
         // Update pyl for D-criterion calculations
-        let psi = self.psi.matrix().as_ref().into_ndarray();
+        let psi = self.psi.to_ndarray();
         let w_arr: Array1<f64> = self.w.iter().collect();
         self.pyl = psi.dot(&w_arr);
 
@@ -822,14 +820,14 @@ impl<E: Equation + Send + 'static> NPPSO<E> {
     fn compute_d_criterion(&self, point: &[f64]) -> Result<f64> {
         let theta_single = Array1::from(point.to_vec()).insert_axis(Axis(0));
 
-        let psi_single = pharmsol::prelude::simulator::psi(
+        let psi_single = pharmsol::prelude::simulator::log_likelihood_matrix(
             &self.equation,
             &self.data,
             &theta_single,
             &self.error_models,
             false,
-            false,
-        )?;
+        )?
+        .mapv(f64::exp);
 
         let nsub = psi_single.nrows() as f64;
         let mut d_sum = -nsub;
@@ -984,16 +982,8 @@ impl<E: Equation + Send + 'static> NPPSO<E> {
             let mut em_down = self.error_models.clone();
             em_down.set_factor(outeq, gamma_down)?;
 
-            let psi_up =
-                calculate_psi(&self.equation, &self.data, &self.theta, &em_up, false, true)?;
-            let psi_down = calculate_psi(
-                &self.equation,
-                &self.data,
-                &self.theta,
-                &em_down,
-                false,
-                true,
-            )?;
+            let psi_up = calculate_psi(&self.equation, &self.data, &self.theta, &em_up, false)?;
+            let psi_down = calculate_psi(&self.equation, &self.data, &self.theta, &em_down, false)?;
 
             let (lambda_up, objf_up) = burke(&psi_up)?;
             let (lambda_down, objf_down) = burke(&psi_down)?;
@@ -1021,7 +1011,7 @@ impl<E: Equation + Send + 'static> NPPSO<E> {
 
         // Update pyl after error model changes
         if self.w.len() > 0 {
-            let psi = self.psi.matrix().as_ref().into_ndarray();
+            let psi = self.psi.to_ndarray();
             let w_arr: Array1<f64> = self.w.iter().collect();
             self.pyl = psi.dot(&w_arr);
         }
@@ -1032,7 +1022,7 @@ impl<E: Equation + Send + 'static> NPPSO<E> {
     /// Validate PSI matrix
     #[allow(dead_code)]
     fn validate_psi(&self) -> Result<()> {
-        let psi = self.psi.matrix().as_ref().into_ndarray();
+        let psi = self.psi.to_ndarray();
         let (_, col) = psi.dim();
         let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
         let plam = psi.dot(&ecol);

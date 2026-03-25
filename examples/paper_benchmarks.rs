@@ -34,7 +34,6 @@ fn bimodal_ke_equation() -> equation::ODE {
             fetch_params!(p, _ke, v);
             y[1] = x[0] / v;
         },
-        (1, 2),
     )
 }
 
@@ -49,7 +48,6 @@ fn theophylline_equation() -> equation::Analytical {
             fetch_params!(p, _ka, _ke, v);
             y[0] = x[1] * 1000.0 / v;
         },
-        (2, 1),
     )
 }
 
@@ -70,7 +68,6 @@ fn two_eq_lag_equation() -> equation::ODE {
             fetch_params!(p, _ka, _ke, _tlag, v);
             y[0] = x[1] / v;
         },
-        (20, 10),
     )
 }
 
@@ -91,14 +88,13 @@ fn meta_equation() -> equation::ODE {
         |_p, _t, _cov, _x| {},
         |x, p, t, cov, y| {
             fetch_cov!(cov, t, wt, pkvisit);
-            fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
+            fetch_params!(p, cls, _fm, _k20, relv, theta1, theta2, vs);
             let _cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let v2 = relv * v;
             y[1] = x[0] / v;
             y[2] = x[1] / v2;
         },
-        (2, 3),
     )
 }
 
@@ -138,7 +134,6 @@ fn neely_equation() -> equation::ODE {
             y[2] = x[2] / vm1;
             y[3] = x[3] / vm2;
         },
-        (4, 4),
     )
 }
 
@@ -277,20 +272,20 @@ fn create_settings(
         params = params.add(*name, *lo, *hi);
     }
 
-    let mut ems = ErrorModels::new();
+    let mut ems = AssayErrorModels::new();
     for (output, c0, c1, scale, is_proportional) in &config.error_models {
         if *is_proportional {
             ems = ems
                 .add(
                     *output,
-                    ErrorModel::proportional(ErrorPoly::new(*c0, *c1, 0.0, 0.0), *scale),
+                    AssayErrorModel::proportional(ErrorPoly::new(*c0, *c1, 0.0, 0.0), *scale),
                 )
                 .unwrap();
         } else {
             ems = ems
                 .add(
                     *output,
-                    ErrorModel::additive(ErrorPoly::new(*c0, *c1, 0.0, 0.0), *scale),
+                    AssayErrorModel::additive(ErrorPoly::new(*c0, *c1, 0.0, 0.0), *scale),
                 )
                 .unwrap();
         }
@@ -564,7 +559,7 @@ fn run_quick(results_file: &mut File) -> Result<()> {
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::WARN)
+        .with_env_filter(tracing_subscriber::EnvFilter::new("warn,diffsol=off"))
         .with_target(false)
         .init();
 

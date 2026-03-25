@@ -72,7 +72,6 @@ use crate::structs::nonparametric::theta::Theta;
 use crate::structs::nonparametric::weights::Weights;
 
 use anyhow::{bail, Result};
-use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use ndarray::{Array1, Axis};
 use pharmsol::prelude::AssayErrorModel;
@@ -811,7 +810,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
             &self.theta,
             &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
-            self.cycle != 1,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -921,7 +919,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
                     &self.theta,
                     &error_model_up,
                     false,
-                    true,
                 )?;
                 let psi_down = calculate_psi(
                     &self.equation,
@@ -929,7 +926,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
                     &self.theta,
                     &error_model_down,
                     false,
-                    true,
                 )?;
 
                 let (lambda_up, objf_up) = match burke(&psi_up) {
@@ -1037,7 +1033,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
 impl<E: Equation + Send + 'static> NEXUS<E> {
     /// Compute P(Y|G) = Psi * w for all subjects
     fn compute_pyl(&self) -> Array1<f64> {
-        let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
+        let psi = self.psi().to_ndarray();
         let w: Array1<f64> = self.w.clone().iter().collect();
         psi.dot(&w)
     }
@@ -1046,14 +1042,13 @@ impl<E: Equation + Send + 'static> NEXUS<E> {
     fn compute_d(&self, point: &[f64], pyl: &Array1<f64>) -> Result<f64> {
         let theta_single = ndarray::Array1::from(point.to_vec()).insert_axis(Axis(0));
 
-        let psi_single = pharmsol::prelude::simulator::psi(
+        let psi_single = pharmsol::prelude::simulator::log_likelihood_matrix(
             &self.equation,
             &self.data,
             &theta_single,
             &self.error_models,
             false,
-            false,
-        )?;
+        )?.mapv(f64::exp);
 
         let nsub = psi_single.nrows() as f64;
         let mut d_sum = -nsub;
@@ -1775,14 +1770,13 @@ impl<E: Equation> CostFunction for SubjectMapOptimizer<'_, E> {
         let single_data = Data::new(vec![self.subject.clone()]);
         let theta = ndarray::Array1::from(clamped).insert_axis(Axis(0));
 
-        let psi = pharmsol::prelude::simulator::psi(
+        let psi = pharmsol::prelude::simulator::log_likelihood_matrix(
             self.equation,
             &single_data,
             &theta,
             self.error_models,
             false,
-            false,
-        )?;
+        )?.mapv(f64::exp);
 
         // We want to MAXIMIZE P(y|θ), so minimize -P(y|θ)
         // Take log for numerical stability: minimize -log P(y|θ)
@@ -1812,14 +1806,13 @@ impl<E: Equation> CostFunction for DOptimalOptimizer<'_, E> {
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = Array1::from(spp.clone()).insert_axis(Axis(0));
 
-        let psi = pharmsol::prelude::simulator::psi(
+        let psi = pharmsol::prelude::simulator::log_likelihood_matrix(
             self.equation,
             self.data,
             &theta,
             self.error_models,
             false,
-            false,
-        )?;
+        )?.mapv(f64::exp);
 
         let nsub = psi.nrows() as f64;
         let mut d_sum = -nsub;

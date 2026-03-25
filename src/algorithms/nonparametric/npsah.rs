@@ -34,7 +34,6 @@ use crate::structs::nonparametric::theta::Theta;
 use crate::structs::nonparametric::weights::Weights;
 
 use anyhow::{bail, Result};
-use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use ndarray::Array1;
 use pharmsol::prelude::AssayErrorModel;
@@ -354,7 +353,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPSAH<E> {
             &self.theta,
             &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
-            self.cycle != 1,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -464,7 +462,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPSAH<E> {
                     &self.theta,
                     &error_model_up,
                     false,
-                    true,
                 )?;
                 let psi_down = calculate_psi(
                     &self.equation,
@@ -472,7 +469,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPSAH<E> {
                     &self.theta,
                     &error_model_down,
                     false,
-                    true,
                 )?;
 
                 let (lambda_up, objf_up) = match burke(&psi_up) {
@@ -590,7 +586,7 @@ impl<E: Equation + Send + 'static> NPSAH<E> {
 
     /// D-optimal refinement with adaptive iteration count based on importance
     fn d_optimal_refinement(&mut self) -> Result<()> {
-        let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
+        let psi = self.psi().to_ndarray();
         let w: Array1<f64> = self.w.clone().iter().collect();
         let pyl = psi.dot(&w);
 
@@ -649,7 +645,7 @@ impl<E: Equation + Send + 'static> NPSAH<E> {
 
     /// Simulated annealing point injection for global exploration
     fn sa_injection(&mut self) -> Result<()> {
-        let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
+        let psi = self.psi().to_ndarray();
         let w: Array1<f64> = self.w.clone().iter().collect();
         let pyl = psi.dot(&w);
 
@@ -705,14 +701,13 @@ impl<E: Equation + Send + 'static> NPSAH<E> {
     fn compute_d_criterion(&self, point: &[f64], pyl: &Array1<f64>) -> Result<f64> {
         let theta_single = ndarray::Array1::from(point.to_vec()).insert_axis(ndarray::Axis(0));
 
-        let psi_single = pharmsol::prelude::simulator::psi(
+        let psi_single = pharmsol::prelude::simulator::log_likelihood_matrix(
             &self.equation,
             &self.data,
             &theta_single,
             &self.error_models,
             false,
-            false,
-        )?;
+        )?.mapv(f64::exp);
 
         let nsub = psi_single.nrows() as f64;
         let mut d_sum = -nsub;
@@ -750,7 +745,7 @@ impl<E: Equation + Send + 'static> NPSAH<E> {
 
         // Criterion 2: Global optimality check (only if not in warmup)
         if !self.in_warmup && self.temperature > MIN_TEMPERATURE {
-            let psi = self.psi().matrix().as_ref().into_ndarray().to_owned();
+            let psi = self.psi().to_ndarray();
             let w: Array1<f64> = self.w.clone().iter().collect();
             let pyl = psi.dot(&w);
 
@@ -816,14 +811,13 @@ impl<E: Equation> CostFunction for SppOptimizerAdaptive<'_, E> {
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = Array1::from(spp.clone()).insert_axis(Axis(0));
 
-        let psi = pharmsol::prelude::simulator::psi(
+        let psi = pharmsol::prelude::simulator::log_likelihood_matrix(
             self.equation,
             self.data,
             &theta,
             self.sig,
             false,
-            false,
-        )?;
+        )?.mapv(f64::exp);
 
         let nsub = psi.nrows() as f64;
         let mut sum = -nsub;

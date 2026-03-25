@@ -20,14 +20,17 @@ use tracing_subscriber::EnvFilter;
 ///
 /// If not, the log messages are written to stdout.
 pub(crate) fn setup_log(settings: &mut Settings) -> Result<()> {
-    // If neither `stdout` nor `file` are specified, return without setting the subscriber
-    if !settings.log().stdout && !settings.log().write {
-        return Ok(());
-    }
-
     // Use the log level defined in configuration file
     let log_level = settings.log().level.clone();
     let env_filter = EnvFilter::new(format!("{},diffsol=off", log_level));
+
+    // If neither `stdout` nor `file` are specified, install a minimal subscriber
+    // that still filters out diffsol tracing messages
+    if !settings.log().stdout && !settings.log().write {
+        let subscriber = Registry::default().with(env_filter);
+        let _ = subscriber.try_init();
+        return Ok(());
+    }
 
     let timestamper = CompactTimestamp {
         start: Instant::now(),

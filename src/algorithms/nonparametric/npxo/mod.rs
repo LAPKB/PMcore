@@ -43,7 +43,6 @@ use crate::{
 };
 
 use anyhow::{bail, Result};
-use faer_ext::IntoNdarray;
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 use pharmsol::prelude::data::Data;
 use pharmsol::prelude::simulator::Equation;
@@ -225,7 +224,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPXO<E> {
             &self.theta,
             &self.error_models,
             self.cycle == 1 && self.settings.config().progress,
-            self.cycle != 1,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -371,8 +369,8 @@ impl<E: Equation + Send + 'static> NPXO<E> {
             let mut em_down = self.error_models.clone();
             em_down.set_factor(outeq, gamma_down)?;
 
-            let psi_up = calculate_psi(&self.equation, &self.data, &self.theta, &em_up, false, true)?;
-            let psi_down = calculate_psi(&self.equation, &self.data, &self.theta, &em_down, false, true)?;
+            let psi_up = calculate_psi(&self.equation, &self.data, &self.theta, &em_up, false)?;
+            let psi_down = calculate_psi(&self.equation, &self.data, &self.theta, &em_down, false)?;
 
             let (lambda_up, objf_up) = burke(&psi_up)?;
             let (lambda_down, objf_down) = burke(&psi_down)?;
@@ -403,7 +401,7 @@ impl<E: Equation + Send + 'static> NPXO<E> {
 
     #[allow(dead_code)]
     fn validate_psi(&self) -> Result<()> {
-        let psi = self.psi.matrix().as_ref().into_ndarray();
+        let psi = self.psi.to_ndarray();
         let (_, col) = psi.dim();
         let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
         let plam = psi.dot(&ecol);

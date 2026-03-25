@@ -29,14 +29,13 @@ impl<E: Equation> CostFunction for DOptimalOptimizer<'_, E> {
     fn cost(&self, spp: &Self::Param) -> Result<Self::Output, Error> {
         let theta = Array1::from(spp.clone()).insert_axis(Axis(0));
 
-        let psi = pharmsol::prelude::simulator::psi(
+        let psi = pharmsol::prelude::simulator::log_likelihood_matrix(
             self.equation,
             self.data,
             &theta,
             self.error_models,
             false,
-            false,
-        )?;
+        )?.mapv(f64::exp);
 
         let nsub = psi.nrows() as f64;
         let mut d_sum = -nsub;
@@ -92,14 +91,13 @@ impl<E: Equation> CostFunction for SubjectMapOptimizer<'_, E> {
         let single_data = Data::new(vec![self.subject.clone()]);
         let theta = ndarray::Array1::from(clamped).insert_axis(Axis(0));
 
-        let psi = pharmsol::prelude::simulator::psi(
+        let psi = pharmsol::prelude::simulator::log_likelihood_matrix(
             self.equation,
             &single_data,
             &theta,
             self.error_models,
             false,
-            false,
-        )?;
+        )?.mapv(f64::exp);
 
         // Minimize -log P(y|θ) = Maximize P(y|θ)
         let p = psi.iter().next().unwrap_or(&1e-300);

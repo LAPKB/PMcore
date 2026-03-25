@@ -40,3 +40,5 @@ error_theta.csv
 lcov.info
 Fortran/
 paper/
+docs/
+examples/**/outputs/
