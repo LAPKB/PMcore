@@ -243,11 +243,12 @@ impl NPPredictions {
     /// Only uncensored observations (`Censor::None`) with a non-`None` observed value are included.
     /// Returns `None` if there are no valid observation-prediction pairs.
     pub fn metrics(&self) -> Option<PredictionMetrics> {
-        let mut obs_vals = Vec::new();
-        let mut pop_mean_vals = Vec::new();
-        let mut pop_median_vals = Vec::new();
-        let mut post_mean_vals = Vec::new();
-        let mut post_median_vals = Vec::new();
+        let cap = self.predictions.len();
+        let mut obs_vals = Vec::with_capacity(cap);
+        let mut pop_mean_vals = Vec::with_capacity(cap);
+        let mut pop_median_vals = Vec::with_capacity(cap);
+        let mut post_mean_vals = Vec::with_capacity(cap);
+        let mut post_median_vals = Vec::with_capacity(cap);
         let mut subject_ids = std::collections::HashSet::new();
 
         for row in &self.predictions {
