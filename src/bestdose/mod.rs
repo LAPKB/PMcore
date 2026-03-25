@@ -275,7 +275,9 @@ pub(crate) mod predictions;
 mod types;
 
 // Re-export public API
-pub use types::{BestDosePosterior, BestDoseResult, BestDoseStatus, DoseRange, OptimalMethod, Target};
+pub use types::{
+    BestDosePosterior, BestDoseResult, BestDoseStatus, DoseRange, OptimalMethod, Target,
+};
 
 /// Helper function to concatenate past and future subjects (Option 3: Fortran MAKETMP approach)
 ///
