@@ -565,6 +565,7 @@ fn test_multi_outeq_auc_mode() -> Result<()> {
 
     settings.disable_output();
     settings.set_cycles(0);
+    settings.set_idelta(30.0); // 30-minute intervals for AUC calculation
 
     // Subject with fixed dose and target observations at multiple outeqs
     let target = Subject::builder("test")
@@ -1279,7 +1280,6 @@ fn one_compartment_model() -> pharmsol::ODE {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
     )
 }
 
@@ -1288,10 +1288,10 @@ fn minimal_settings() -> Settings {
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
         )
         .unwrap();
     let mut settings = Settings::builder()
@@ -1630,6 +1630,228 @@ fn test_multi_target_second_dose_responds_to_target_change() -> Result<()> {
         doses_low[1],
         doses_high[1]
     );
+
+    Ok(())
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Tests for BestDosePosterior and BestDoseResult API surface
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Test BestDosePosterior accessor methods
+#[test]
+fn test_posterior_accessors() -> Result<()> {
+    let eq = one_compartment_model();
+    let settings = minimal_settings();
+    let (theta, weights) = simple_prior(&settings);
+
+    let posterior =
+        BestDosePosterior::compute(&theta, &weights, None, eq.clone(), settings.clone())?;
+
+    // n_support_points should match the prior (no filtering with 0 cycles and no data)
+    assert!(
+        posterior.n_support_points() > 0,
+        "Posterior should have at least 1 support point"
+    );
+
+    // theta() should return a valid Theta with the correct number of rows
+    assert_eq!(
+        posterior.theta().matrix().nrows(),
+        posterior.n_support_points()
+    );
+
+    // posterior_weights() should sum to ~1
+    let weight_sum: f64 = posterior.posterior_weights().iter().sum();
+    assert!(
+        (weight_sum - 1.0).abs() < 1e-6,
+        "Posterior weights should sum to 1.0, got {}",
+        weight_sum
+    );
+
+    // population_weights() should also sum to ~1
+    let pop_weight_sum: f64 = posterior.population_weights().iter().sum();
+    assert!(
+        (pop_weight_sum - 1.0).abs() < 1e-6,
+        "Population weights should sum to 1.0, got {}",
+        pop_weight_sum
+    );
+
+    Ok(())
+}
+
+/// Test BestDoseResult accessor methods
+#[test]
+fn test_result_accessors() -> Result<()> {
+    let eq = one_compartment_model();
+    let settings = minimal_settings();
+    let (theta, weights) = simple_prior(&settings);
+
+    let posterior =
+        BestDosePosterior::compute(&theta, &weights, None, eq.clone(), settings.clone())?;
+
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let result = posterior.optimize(
+        target,
+        None,
+        DoseRange::new(10.0, 500.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    // doses() should return 1 dose
+    assert_eq!(result.doses().len(), 1);
+    assert!(result.doses()[0].is_finite());
+
+    // objf() should be finite and non-negative
+    assert!(result.objf().is_finite());
+    assert!(result.objf() >= 0.0, "Cost should be non-negative");
+
+    // status() should be Converged (1000 iterations is usually enough for 1D)
+    assert_eq!(
+        *result.status(),
+        pmcore::bestdose::BestDoseStatus::Converged
+    );
+
+    // predictions() should have predictions
+    assert!(
+        !result.predictions().predictions().is_empty(),
+        "Predictions should not be empty"
+    );
+
+    // optimization_method() should be Posterior or Uniform
+    let method = result.optimization_method();
+    assert!(
+        method == pmcore::bestdose::OptimalMethod::Posterior
+            || method == pmcore::bestdose::OptimalMethod::Uniform
+    );
+
+    // auc_predictions() should be None for concentration targets
+    assert!(
+        result.auc_predictions().is_none(),
+        "AUC predictions should be None for concentration targets"
+    );
+
+    // optimal_subject() should have the optimized dose
+    let optimal_subj = result.optimal_subject();
+    let mut found_dose = false;
+    for occ in optimal_subj.occasions() {
+        for event in occ.events() {
+            if let Event::Bolus(b) = event {
+                assert!(b.amount() > 0.0, "Optimized dose should be > 0");
+                found_dose = true;
+            }
+        }
+    }
+    assert!(
+        found_dose,
+        "Should find at least one dose in optimal subject"
+    );
+
+    Ok(())
+}
+
+/// Test that negative time_offset is rejected
+#[test]
+fn test_negative_time_offset_rejected() -> Result<()> {
+    let eq = one_compartment_model();
+    let settings = minimal_settings();
+    let (theta, weights) = simple_prior(&settings);
+
+    let posterior =
+        BestDosePosterior::compute(&theta, &weights, None, eq.clone(), settings.clone())?;
+
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let result = posterior.optimize(
+        target,
+        Some(-1.0), // Negative offset should be rejected
+        DoseRange::new(10.0, 500.0),
+        0.5,
+        Target::Concentration,
+    );
+
+    assert!(result.is_err(), "Negative time_offset should be rejected");
+    assert!(
+        result.unwrap_err().to_string().contains("negative"),
+        "Error message should mention negative time_offset"
+    );
+
+    Ok(())
+}
+
+/// Test that posterior can be reused for multiple optimizations
+/// This is the key new feature of the two-stage API
+#[test]
+fn test_posterior_reuse() -> Result<()> {
+    let eq = one_compartment_model();
+    let settings = minimal_settings();
+    let (theta, weights) = simple_prior(&settings);
+
+    // Compute posterior once
+    let posterior =
+        BestDosePosterior::compute(&theta, &weights, None, eq.clone(), settings.clone())?;
+
+    // Optimize with different dose ranges
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let result_narrow = posterior.optimize(
+        target.clone(),
+        None,
+        DoseRange::new(10.0, 100.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let result_wide = posterior.optimize(
+        target.clone(),
+        None,
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    // Both should succeed
+    assert!(result_narrow.doses()[0].is_finite());
+    assert!(result_wide.doses()[0].is_finite());
+
+    // Wide range should allow a potentially better (lower cost) result
+    assert!(
+        result_wide.objf() <= result_narrow.objf() + 1e-6,
+        "Wider dose range should give equal or better cost: wide={:.6} vs narrow={:.6}",
+        result_wide.objf(),
+        result_narrow.objf()
+    );
+
+    // Optimize with different bias weights
+    let result_personal = posterior.optimize(
+        target.clone(),
+        None,
+        DoseRange::new(10.0, 500.0),
+        0.0, // Full personalization
+        Target::Concentration,
+    )?;
+
+    let result_population = posterior.optimize(
+        target,
+        None,
+        DoseRange::new(10.0, 500.0),
+        1.0, // Full population weighting
+        Target::Concentration,
+    )?;
+
+    // Both should succeed
+    assert!(result_personal.doses()[0].is_finite());
+    assert!(result_population.doses()[0].is_finite());
 
     Ok(())
 }

@@ -80,24 +80,7 @@ fn main() -> Result<()> {
             Target::Concentration,
         )?;
 
-        let doses: Vec<f64> = result
-            .optimal_subject()
-            .iter()
-            .map(|occ| {
-                occ.iter()
-                    .filter(|event| match event {
-                        Event::Bolus(_) => true,
-                        Event::Infusion(_) => true,
-                        _ => false,
-                    })
-                    .map(|event| match event {
-                        Event::Bolus(bolus) => bolus.amount(),
-                        Event::Infusion(infusion) => infusion.amount(),
-                        _ => 0.0,
-                    })
-            })
-            .flatten()
-            .collect();
+        let doses: Vec<f64> = result.doses();
 
         // Check if dose hit the bound
         let at_bound = if (doses[0] - max).abs() < 1.0 {

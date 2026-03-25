@@ -275,7 +275,7 @@ pub(crate) mod predictions;
 mod types;
 
 // Re-export public API
-pub use types::{BestDosePosterior, BestDoseResult, DoseRange, Target};
+pub use types::{BestDosePosterior, BestDoseResult, BestDoseStatus, DoseRange, OptimalMethod, Target};
 
 /// Helper function to concatenate past and future subjects (Option 3: Fortran MAKETMP approach)
 ///
@@ -422,8 +422,7 @@ impl BestDosePosterior {
     /// * `population_weights` - Population probabilities
     /// * `past_data` - Patient history (`None` = use prior directly)
     /// * `eq` - Pharmacokinetic/pharmacodynamic model
-    /// * `error_models` - Error model specifications
-    /// * `settings` - NPAG settings for posterior refinement
+    /// * `settings` - NPAG settings (includes error models and posterior refinement config)
     ///
     /// # Example
     ///
@@ -431,7 +430,7 @@ impl BestDosePosterior {
     /// let posterior = BestDosePosterior::compute(
     ///     &theta, &weights,
     ///     Some(past_subject),
-    ///     eq, error_models, settings,
+    ///     eq, settings,
     /// )?;
     /// println!("Posterior has {} support points", posterior.n_support_points());
     /// ```
@@ -485,7 +484,7 @@ impl BestDosePosterior {
     ///   the future target. 0 means the future starts immediately after the last past event.
     ///   The effective absolute offset is `max_past_time + time_offset`.
     /// * `dose_range` - Allowable dose constraints
-    /// * `bias_weight` - λ ∈ [0,1]: 0=personalized, 1=population
+    /// * `bias_weight` - λ in \[0,1\]: 0=personalized, 1=population
     /// * `target_type` - Concentration or AUC targets
     ///
     /// # Example

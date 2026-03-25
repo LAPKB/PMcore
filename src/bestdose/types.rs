@@ -208,7 +208,6 @@ impl Default for DoseRange {
 /// #            past: pharmsol::prelude::Subject,
 /// #            target: pharmsol::prelude::Subject,
 /// #            eq: pharmsol::prelude::ODE,
-/// #            error_models: pharmsol::prelude::ErrorModels,
 /// #            settings: pmcore::routines::settings::Settings)
 /// #            -> anyhow::Result<()> {
 /// // Stage 1: Compute posterior (expensive, done once)
@@ -217,7 +216,6 @@ impl Default for DoseRange {
 ///     &population_weights,
 ///     Some(past),
 ///     eq,
-///     error_models,
 ///     settings,
 /// )?;
 ///
