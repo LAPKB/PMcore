@@ -248,6 +248,7 @@ impl NPPredictions {
         let mut pop_median_vals = Vec::new();
         let mut post_mean_vals = Vec::new();
         let mut post_median_vals = Vec::new();
+        let mut subject_ids = std::collections::HashSet::new();
 
         for row in &self.predictions {
             if row.cens != Censor::None {
@@ -259,6 +260,7 @@ impl NPPredictions {
                 pop_median_vals.push(row.pop_median);
                 post_mean_vals.push(row.post_mean);
                 post_median_vals.push(row.post_median);
+                subject_ids.insert(row.id.clone());
             }
         }
 
@@ -267,6 +269,7 @@ impl NPPredictions {
         }
 
         Some(PredictionMetrics {
+            n_subjects: subject_ids.len(),
             pop_mean: ErrorMetrics::compute(&obs_vals, &pop_mean_vals),
             pop_median: ErrorMetrics::compute(&obs_vals, &pop_median_vals),
             post_mean: ErrorMetrics::compute(&obs_vals, &post_mean_vals),
@@ -283,6 +286,8 @@ impl NPPredictions {
 pub struct ErrorMetrics {
     /// Number of observations used
     pub n: usize,
+    /// Number of observations excluded from percentage metrics (obs <= 0)
+    pub n_excluded: usize,
     /// Bias: mean(pred - obs)
     pub bias: f64,
     /// Imprecision: standard deviation of (pred - obs)
@@ -310,6 +315,7 @@ impl ErrorMetrics {
         if n == 0 {
             return ErrorMetrics {
                 n: 0,
+                n_excluded: 0,
                 bias: f64::NAN,
                 imprecision: f64::NAN,
                 rmse: f64::NAN,
@@ -361,8 +367,11 @@ impl ErrorMetrics {
             (f64::NAN, f64::NAN, f64::NAN)
         };
 
+        let n_excluded = n - rel_errors.len();
+
         ErrorMetrics {
             n,
+            n_excluded,
             bias,
             imprecision,
             rmse,
@@ -380,6 +389,8 @@ impl ErrorMetrics {
 /// population mean, population median, posterior mean, and posterior median.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PredictionMetrics {
+    /// Number of unique subjects included
+    pub n_subjects: usize,
     /// Metrics for population mean predictions
     pub pop_mean: ErrorMetrics,
     /// Metrics for population median predictions
@@ -400,7 +411,19 @@ impl std::fmt::Display for PredictionMetrics {
         ];
         let w = 14; // column width
 
-        writeln!(f, "Prediction Metrics (n={})", m[0].n)?;
+        write!(
+            f,
+            "Prediction Metrics ({} subjects, {} observations",
+            self.n_subjects, m[0].n
+        )?;
+        if m[0].n_excluded > 0 {
+            write!(
+                f,
+                ", {} with obs <= 0 excluded from relative metrics",
+                m[0].n_excluded
+            )?;
+        }
+        writeln!(f, ")")?;
         writeln!(
             f,
             "{:<16}{:>w$}{:>w$}{:>w$}{:>w$}",
