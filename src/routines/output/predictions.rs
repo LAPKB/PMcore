@@ -237,4 +237,216 @@ impl NPPredictions {
 
         Ok(container)
     }
+
+    /// Compute prediction performance metrics for all prediction types
+    ///
+    /// Only uncensored observations (`Censor::None`) with a non-`None` observed value are included.
+    /// Returns `None` if there are no valid observation-prediction pairs.
+    pub fn metrics(&self) -> Option<PredictionMetrics> {
+        let mut obs_vals = Vec::new();
+        let mut pop_mean_vals = Vec::new();
+        let mut pop_median_vals = Vec::new();
+        let mut post_mean_vals = Vec::new();
+        let mut post_median_vals = Vec::new();
+
+        for row in &self.predictions {
+            if row.cens != Censor::None {
+                continue;
+            }
+            if let Some(o) = row.obs {
+                obs_vals.push(o);
+                pop_mean_vals.push(row.pop_mean);
+                pop_median_vals.push(row.pop_median);
+                post_mean_vals.push(row.post_mean);
+                post_median_vals.push(row.post_median);
+            }
+        }
+
+        if obs_vals.is_empty() {
+            return None;
+        }
+
+        Some(PredictionMetrics {
+            pop_mean: ErrorMetrics::compute(&obs_vals, &pop_mean_vals),
+            pop_median: ErrorMetrics::compute(&obs_vals, &pop_median_vals),
+            post_mean: ErrorMetrics::compute(&obs_vals, &post_mean_vals),
+            post_median: ErrorMetrics::compute(&obs_vals, &post_median_vals),
+        })
+    }
+}
+
+/// Metrics for a single prediction type (e.g. population mean, posterior median)
+///
+/// Percentage metrics (`bias_pct`, `imprecision_pct`, `rmse_pct`) are computed only
+/// for observation-prediction pairs where obs > 0.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorMetrics {
+    /// Number of observations used
+    pub n: usize,
+    /// Bias: mean(pred - obs)
+    pub bias: f64,
+    /// Imprecision: standard deviation of (pred - obs)
+    pub imprecision: f64,
+    /// Root mean squared error: sqrt(mean((pred - obs)²))
+    pub rmse: f64,
+    /// Coefficient of determination (R²)
+    pub r_squared: f64,
+    /// Relative bias (%): mean((pred - obs) / obs) * 100, for obs > 0
+    pub bias_pct: f64,
+    /// Relative imprecision (%): SD of ((pred - obs) / obs) * 100, for obs > 0
+    pub imprecision_pct: f64,
+    /// Relative RMSE (%): sqrt(mean(((pred - obs) / obs)²)) * 100, for obs > 0
+    pub rmse_pct: f64,
+}
+
+impl ErrorMetrics {
+    /// Compute error metrics from paired observations and predictions.
+    ///
+    /// Percentage metrics only include pairs where obs > 0.
+    fn compute(obs: &[f64], pred: &[f64]) -> Self {
+        let n = obs.len();
+        assert_eq!(n, pred.len());
+
+        if n == 0 {
+            return ErrorMetrics {
+                n: 0,
+                bias: f64::NAN,
+                imprecision: f64::NAN,
+                rmse: f64::NAN,
+                r_squared: f64::NAN,
+                bias_pct: f64::NAN,
+                imprecision_pct: f64::NAN,
+                rmse_pct: f64::NAN,
+            };
+        }
+
+        let nf = n as f64;
+        let mut sum_err = 0.0;
+        let mut sum_sq_err = 0.0;
+        let mut rel_errors: Vec<f64> = Vec::new();
+
+        for (&o, &p) in obs.iter().zip(pred.iter()) {
+            let err = p - o;
+            sum_err += err;
+            sum_sq_err += err * err;
+            if o > 0.0 {
+                rel_errors.push(err / o);
+            }
+        }
+
+        let bias = sum_err / nf;
+        let imprecision = (sum_sq_err / nf - bias * bias).max(0.0).sqrt();
+        let rmse = (sum_sq_err / nf).sqrt();
+
+        // R²: 1 - SS_res / SS_tot
+        let obs_mean = obs.iter().sum::<f64>() / nf;
+        let ss_tot: f64 = obs.iter().map(|&o| (o - obs_mean).powi(2)).sum();
+        let r_squared = if ss_tot > 0.0 {
+            1.0 - sum_sq_err / ss_tot
+        } else {
+            f64::NAN
+        };
+
+        let (bias_pct, imprecision_pct, rmse_pct) = if !rel_errors.is_empty() {
+            let n_rel = rel_errors.len() as f64;
+            let mean_rel: f64 = rel_errors.iter().sum::<f64>() / n_rel;
+            let mean_sq_rel: f64 = rel_errors.iter().map(|e| e * e).sum::<f64>() / n_rel;
+            let var_rel = (mean_sq_rel - mean_rel * mean_rel).max(0.0);
+            (
+                mean_rel * 100.0,
+                var_rel.sqrt() * 100.0,
+                mean_sq_rel.sqrt() * 100.0,
+            )
+        } else {
+            (f64::NAN, f64::NAN, f64::NAN)
+        };
+
+        ErrorMetrics {
+            n,
+            bias,
+            imprecision,
+            rmse,
+            r_squared,
+            bias_pct,
+            imprecision_pct,
+            rmse_pct,
+        }
+    }
+}
+
+/// Prediction performance metrics for all prediction types
+///
+/// Contains [ErrorMetrics] for each of the four prediction types computed by `NPPredictions`:
+/// population mean, population median, posterior mean, and posterior median.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PredictionMetrics {
+    /// Metrics for population mean predictions
+    pub pop_mean: ErrorMetrics,
+    /// Metrics for population median predictions
+    pub pop_median: ErrorMetrics,
+    /// Metrics for posterior mean predictions
+    pub post_mean: ErrorMetrics,
+    /// Metrics for posterior median predictions
+    pub post_median: ErrorMetrics,
+}
+
+impl std::fmt::Display for PredictionMetrics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let m = [
+            &self.pop_mean,
+            &self.pop_median,
+            &self.post_mean,
+            &self.post_median,
+        ];
+        let w = 14; // column width
+
+        writeln!(f, "Prediction Metrics (n={})", m[0].n)?;
+        writeln!(
+            f,
+            "{:<16}{:>w$}{:>w$}{:>w$}{:>w$}",
+            "", "Pop. Mean", "Pop. Median", "Post. Mean", "Post. Median",
+        )?;
+
+        writeln!(
+            f,
+            "{:<16}{:>w$.4}{:>w$.4}{:>w$.4}{:>w$.4}",
+            "Bias", m[0].bias, m[1].bias, m[2].bias, m[3].bias,
+        )?;
+        writeln!(
+            f,
+            "{:<16}{:>w$.4}{:>w$.4}{:>w$.4}{:>w$.4}",
+            "Imprecision", m[0].imprecision, m[1].imprecision, m[2].imprecision, m[3].imprecision,
+        )?;
+        writeln!(
+            f,
+            "{:<16}{:>w$.4}{:>w$.4}{:>w$.4}{:>w$.4}",
+            "RMSE", m[0].rmse, m[1].rmse, m[2].rmse, m[3].rmse,
+        )?;
+        writeln!(
+            f,
+            "{:<16}{:>w$.4}{:>w$.4}{:>w$.4}{:>w$.4}",
+            "R²", m[0].r_squared, m[1].r_squared, m[2].r_squared, m[3].r_squared,
+        )?;
+
+        // Percentage metrics
+        writeln!(
+            f,
+            "{:<16}{:>w$.2}{:>w$.2}{:>w$.2}{:>w$.2}",
+            "Bias%", m[0].bias_pct, m[1].bias_pct, m[2].bias_pct, m[3].bias_pct,
+        )?;
+        writeln!(
+            f,
+            "{:<16}{:>w$.2}{:>w$.2}{:>w$.2}{:>w$.2}",
+            "Imprecision%",
+            m[0].imprecision_pct,
+            m[1].imprecision_pct,
+            m[2].imprecision_pct,
+            m[3].imprecision_pct,
+        )?;
+        write!(
+            f,
+            "{:<16}{:>w$.2}{:>w$.2}{:>w$.2}{:>w$.2}",
+            "RMSE%", m[0].rmse_pct, m[1].rmse_pct, m[2].rmse_pct, m[3].rmse_pct,
+        )
+    }
 }

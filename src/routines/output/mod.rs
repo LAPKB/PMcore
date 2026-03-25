@@ -483,6 +483,11 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!("Covariates written to {:?}", &outputfile.relative_path());
         Ok(())
     }
+
+    /// Get a reference to the predictions, if they have been calculated
+    pub fn predictions(&self) -> Option<&NPPredictions> {
+        self.predictions.as_ref()
+    }
 }
 
 pub(crate) fn median(data: &[f64]) -> f64 {
