@@ -2,7 +2,7 @@ use crate::algorithms::Algorithm;
 use crate::routines::initialization::Prior;
 use crate::routines::output::OutputFile;
 use anyhow::{bail, Result};
-use pharmsol::prelude::data::{AssayErrorModels, ResidualErrorModels};
+use pharmsol::prelude::data::AssayErrorModels;
 
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -17,18 +17,8 @@ pub struct Settings {
     pub(crate) config: Config,
     /// Parameters to be estimated
     pub(crate) parameters: Parameters,
-    /// Error models for non-parametric algorithms (assay/measurement error)
-    ///
-    /// These use observation-based sigma calculation.
-    /// Required for: NPAG, NPOD, NPSAH, NPBO, etc.
+    /// Defines the error models and polynomials to be used
     pub(crate) errormodels: AssayErrorModels,
-    /// Residual error models for parametric algorithms
-    ///
-    /// These use prediction-based sigma calculation (matching R saemix).
-    /// Required for: SAEM, FOCE, etc.
-    /// Parameters (a, b) are estimated during the algorithm.
-    #[serde(default)]
-    pub(crate) residual_error: Option<ResidualErrorModels>,
     /// Configuration for predictions
     pub(crate) predictions: Predictions,
     /// Configuration for logging
@@ -767,7 +757,6 @@ pub struct SettingsBuilder<State> {
     config: Option<Config>,
     parameters: Option<Parameters>,
     errormodels: Option<AssayErrorModels>,
-    residual_error: Option<ResidualErrorModels>,
     predictions: Option<Predictions>,
     log: Option<Log>,
     prior: Option<Prior>,
@@ -868,19 +857,6 @@ impl SettingsBuilder<AlgorithmSet> {
 // Parameters are set - this state allows setting either error model type
 // for backward compatibility, but documents the preferred approach
 impl SettingsBuilder<ParametersSet> {
-    /// Set error models for **non-parametric** algorithms (NPAG, NPOD, etc.)
-    ///
-    /// These error models use observation-based sigma calculation and represent
-    /// assay/measurement error.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let settings = Settings::builder()
-    ///     .set_algorithm(Algorithm::NPAG)
-    ///     .set_parameters(params)
-    ///     .set_error_models(error_models)  // For non-parametric
-    ///     .build();
-    /// ```
     pub fn set_error_models(self, ems: AssayErrorModels) -> SettingsBuilder<ErrorSet> {
         SettingsBuilder {
             config: self.config,
@@ -1021,7 +997,7 @@ fn parse_output_folder(path: String) -> String {
 #[cfg(test)]
 
 mod tests {
-    use pharmsol::{AssayErrorModel, ErrorPoly, ResidualErrorModels};
+    use pharmsol::{AssayErrorModel, AssayErrorModels, ErrorPoly};
 
     use super::*;
     use crate::algorithms::Algorithm;

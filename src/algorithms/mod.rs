@@ -7,21 +7,10 @@ use crate::structs::nonparametric::psi::Psi;
 use crate::structs::nonparametric::theta::Theta;
 use anyhow::Context;
 use anyhow::Result;
-use faer_ext::IntoNdarray;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
-use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
-use nonparametric::nexus::NEXUS;
-use nonparametric::npag::*;
-use nonparametric::npbo::NPBO;
-use nonparametric::npcat::NPCAT;
-use nonparametric::npcma::NPCMA;
-use nonparametric::npod::NPOD;
-use nonparametric::npopt::NPOPT;
-use nonparametric::nppso::NPPSO;
-use nonparametric::npsah::NPSAH;
-use nonparametric::npsah2::NPSAH2;
-use nonparametric::npxo::NPXO;
-use nonparametric::postprob::POSTPROB;
+
+use npag::*;
+use npod::NPOD;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
 use serde::{Deserialize, Serialize};
@@ -119,11 +108,11 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
         let mut nan_count = 0;
         let mut inf_count = 0;
 
-        let psi = self.psi().matrix().as_ref().into_ndarray();
+        let psi = self.psi().matrix();
         // First coerce all NaN and infinite in psi to 0.0
         for i in 0..psi.nrows() {
-            for j in 0..self.psi().matrix().ncols() {
-                let val = psi.get((i, j)).unwrap();
+            for j in 0..psi.ncols() {
+                let val = psi[(i, j)];
                 if val.is_nan() {
                     nan_count += 1;
                     // *val = 0.0;
@@ -143,10 +132,11 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
             );
         }
 
-        let (_, col) = psi.dim();
-        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-        let plam = psi.dot(&ecol);
-        let w = 1. / &plam;
+        let (row, col) = (psi.nrows(), psi.ncols());
+        let plam: Vec<f64> = (0..row)
+            .map(|i| (0..col).map(|j| psi[(i, j)]).sum::<f64>())
+            .collect();
+        let w: Vec<f64> = plam.iter().map(|&x| 1.0 / x).collect();
 
         // Get the index of each element in `w` that is NaN or infinite
         let indices: Vec<usize> = w
@@ -380,13 +370,14 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// until the algorithm converges or meets a stopping criteria.
     fn fit(&mut self) -> Result<NPResult<E>> {
         self.initialize().unwrap();
+        #[allow(clippy::while_let_loop)]
         loop {
             match self.next_cycle()? {
                 Status::Continue => continue,
                 Status::Stop(_) => break,
             }
         }
-        Ok(self.into_npresult()?)
+        self.into_npresult()
     }
 
     #[allow(clippy::wrong_self_convention)]

@@ -10,7 +10,7 @@ use crate::{
 use anyhow::{Context, Result};
 
 use pharmsol::prelude::{
-    data::{Data, AssayErrorModels},
+    data::{AssayErrorModels, Data},
     simulator::Equation,
 };
 
@@ -124,7 +124,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
             &self.data,
             &self.theta,
             &self.error_models,
-            false,
             false,
         )?;
         (self.w, self.objf) = burke(&self.psi).context("Error in IPM")?;

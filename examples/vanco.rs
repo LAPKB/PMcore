@@ -1,21 +1,18 @@
-use pmcore::prelude::{simulator::Equation, *};
+use pmcore::prelude::*;
 fn main() {
-    let eq = equation::ODE::new(
-        |x, p, _t, dx, b, _rateiv, _cov| {
+    let eq = ode! {
+        diffeq: |x, p, _t, dx, b, _rateiv, _cov| {
             fetch_params!(p, ke, kcp, kpc);
             dx[0] = -ke * x[0] - kcp * x[0] + kpc * x[1] + b[0];
             dx[1] = -kpc * x[1] + kcp * x[0];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, x| {
+        init: |_p, _t, _cov, x| {
             x[0] = 500.0;
         },
-        |x, _p, _t, _cov, y| {
+        out: |x, _p, _t, _cov, y| {
             y[0] = x[1];
         },
-        (2, 1),
-    );
+    };
     // same eq but analytical
     // let eq = Equation::new_analytical(
     //     two_compartments,

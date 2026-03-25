@@ -25,18 +25,20 @@ fn main() {
             fetch_params!(p, _ke0, _ske);
             y[0] = x[0] / 50.0;
         },
-        (2, 1),
         11,
-    );
+    )
+    .with_nstates(2)
+    .with_ndrugs(1)
+    .with_nout(1);
 
     let params = Parameters::new()
         .add("ke0", 0.0001, 2.4)
         .add("ske", 0.0001, 0.2);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+            AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
         .unwrap();
 
