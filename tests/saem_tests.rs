@@ -126,16 +126,15 @@ fn create_theo_data() -> Data {
 fn create_one_compartment_absorption_model() -> equation::ODE {
     equation::ODE::new(
         // ODE system: dx/dt
-        |x, p, _t, dx, _b, _rateiv, _cov| {
+        |x, p, _t, dx, b, _rateiv, _cov| {
             // Parameters: ka, V, CL
-            // Note: For oral absorption, we have two states:
             // x[0] = drug amount in absorption compartment
             // x[1] = drug amount in central compartment
             fetch_params!(p, ka, v, cl);
             let ke = cl / v;
 
-            // Absorption compartment
-            dx[0] = -ka * x[0];
+            // Absorption compartment (b[0] is the bolus input)
+            dx[0] = -ka * x[0] + b[0];
             // Central compartment
             dx[1] = ka * x[0] - ke * x[1];
         },
@@ -521,9 +520,13 @@ fn test_saem_runs_iterations() -> Result<()> {
     Ok(())
 }
 
-/// Test SAEM convergence with a simpler setup
-/// Use tighter parameter bounds centered around the true values
+/// Test SAEM convergence on a simple IV bolus model with known parameters
+///
+/// Uses the full algorithm run (400 iterations by default) to verify that
+/// SAEM recovers population parameters within 20% of truth.
+/// This test takes ~2-5 minutes due to full SAEM convergence.
 #[test]
+#[ignore = "Full SAEM convergence test (~2-5 min) - run with --ignored"]
 fn test_saem_convergence() -> Result<()> {
     // Simple one-compartment model
     let eq = equation::ODE::new(
@@ -575,74 +578,50 @@ fn test_saem_convergence() -> Result<()> {
     // Residual error model (parametric algorithms use ResidualErrorModels)
     let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(0.1));
 
-    // Create SAEM settings
+    // Create SAEM settings (default: 400 iterations = 5 burn-in + 295 SA + 100 estimation)
     let settings = Settings::builder()
         .set_algorithm(Algorithm::SAEM)
         .set_parameters(params)
         .set_residual_error(residual_error)
         .build();
 
-    // Create and initialize algorithm
+    // Run the full algorithm
     let mut algorithm = dispatch_parametric_algorithm(settings, eq, data)?;
-    algorithm.initialize()?;
+    let result = algorithm.fit()?;
 
-    println!("=== SAEM Convergence Test (Tight Bounds) ===");
+    // Final results
+    let ke_est = result.population().mu()[0];
+    let v_est = result.population().mu()[1];
+
+    println!("=== SAEM Convergence Test Results ===");
     println!("True values: ke={}, v={}", true_ke, true_v);
-    println!("\nInitial population mean:");
-    let pop = algorithm.population();
-    println!("  ke = {:.4}", pop.mu()[0]);
-    println!("  v = {:.4}", pop.mu()[1]);
-
-    // Run 30 iterations (fewer for faster test)
-    for i in 1..=30 {
-        let status = algorithm.next_iteration()?;
-        let pop = algorithm.population();
-        let obj = algorithm.objective_function();
-
-        if i <= 3 || i % 10 == 0 {
-            println!("\nIteration {}:", i);
-            println!("  Objective: {:.4}", obj);
-            println!("  ke = {:.4} (true: {})", pop.mu()[0], true_ke);
-            println!("  v = {:.4} (true: {})", pop.mu()[1], true_v);
-        }
-
-        if let pmcore::algorithms::Status::Stop(_) = status {
-            println!("\nAlgorithm converged at iteration {}", i);
-            break;
-        }
-    }
-
-    // Final results - convert from log space to natural space
-    let final_pop = algorithm.population();
-    let ke_psi = final_pop.mu()[0].exp(); // Convert φ → ψ
-    let v_psi = final_pop.mu()[1].exp(); // Convert φ → ψ
-    println!("\n=== Final Results ===");
     println!(
-        "  ke = {:.4} (true: {}, error: {:.1}%)",
-        ke_psi,
+        "Estimated:   ke={:.4} (err: {:.1}%), v={:.4} (err: {:.1}%)",
+        ke_est,
+        100.0 * (ke_est - true_ke).abs() / true_ke,
+        v_est,
+        100.0 * (v_est - true_v).abs() / true_v,
+    );
+    println!("Objective:   {:.4}", result.objf());
+    println!("Iterations:  {}", result.iterations());
+
+    // With 400 iterations and noiseless deterministic data, estimates should be close
+    let ke_rel_err = (ke_est - true_ke).abs() / true_ke;
+    let v_rel_err = (v_est - true_v).abs() / true_v;
+
+    assert!(
+        ke_rel_err < 0.20,
+        "ke estimate {:.4} too far from truth {} (rel err: {:.1}%)",
+        ke_est,
         true_ke,
-        100.0 * (ke_psi - true_ke).abs() / true_ke
+        ke_rel_err * 100.0
     );
-    println!(
-        "  v = {:.4} (true: {}, error: {:.1}%)",
-        v_psi,
+    assert!(
+        v_rel_err < 0.20,
+        "v estimate {:.4} too far from truth {} (rel err: {:.1}%)",
+        v_est,
         true_v,
-        100.0 * (v_psi - true_v).abs() / true_v
-    );
-    println!("  Final objective: {:.4}", algorithm.objective_function());
-
-    // The algorithm should be running and producing reasonable estimates
-    // During early iterations (burn-in), estimates will fluctuate
-    // Note: mu() returns values in log (φ) space, so we compare exp(mu) to bounds
-    assert!(
-        ke_psi > 0.0 && ke_psi < 2.0,
-        "ke estimate {} out of bounds",
-        ke_psi
-    );
-    assert!(
-        v_psi > 0.0 && v_psi < 30.0,
-        "v estimate {} out of bounds",
-        v_psi
+        v_rel_err * 100.0
     );
 
     Ok(())

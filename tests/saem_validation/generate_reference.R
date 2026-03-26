@@ -145,10 +145,12 @@ generate_one_compartment_iv_reference <- function() {
             v = true_v
         ),
 
+        # NOTE: saemix @results@fixed.effects are in PSI (natural) space,
+        # NOT in PHI (log) space. transphi() was already applied in main.R line 224.
+        # Population parameters in psi space (natural) - directly from fixed.effects
+        mu_psi = as.numeric(saemix_fit@results@fixed.effects),
         # Population parameters in phi space (log-transformed)
-        mu_phi = as.numeric(saemix_fit@results@fixed.effects),
-        # Population parameters in psi space (original)
-        mu_psi = as.numeric(exp(saemix_fit@results@fixed.effects)),
+        mu_phi = as.numeric(log(saemix_fit@results@fixed.effects)),
 
         # Covariance matrix
         omega = as.matrix(saemix_fit@results@omega),
@@ -190,8 +192,8 @@ generate_one_compartment_iv_reference <- function() {
 
     # Print summary
     cat("\n  === Results Summary ===\n")
-    cat("  True ke:", true_ke, "  Estimated:", results$mu_psi[1], "\n")
-    cat("  True V:", true_v, "  Estimated:", results$mu_psi[2], "\n")
+    cat("  True ke:", true_ke, "  Estimated (psi):", results$mu_psi[1], "\n")
+    cat("  True V:", true_v, "  Estimated (psi):", results$mu_psi[2], "\n")
     cat("  Omega diagonal:", results$omega_diag, "\n")
     cat("  Sigma:", results$sigma, "\n")
     cat("  -2LL:", results$objf, "\n\n")
@@ -253,23 +255,23 @@ generate_theophylline_reference <- function() {
     theo_model <- saemixModel(
         model = model_1cpt_oral,
         description = "One-compartment model with first-order absorption",
-        psi0 = matrix(c(1.0, 20, 0.5),
+        psi0 = matrix(c(1.5, 32, 3.0),
             ncol = 3, byrow = TRUE,
             dimnames = list(NULL, c("ka", "V", "CL"))
         ),
         transform.par = c(1, 1, 1), # All log-normal
         covariance.model = matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), ncol = 3, byrow = TRUE),
-        omega.init = matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), ncol = 3, byrow = TRUE),
+        omega.init = matrix(c(0.5, 0, 0, 0, 0.05, 0, 0, 0, 0.1), ncol = 3, byrow = TRUE),
         error.model = "constant"
     )
 
-    # SAEM options
+    # SAEM options - more burn-in for stability
     theo_options <- list(
         seed = 12345,
-        nbiter.burn = 5,
-        nbiter.saemix = c(295, 100), # 300 burn-in/SA + 100 smoothing
+        nbiter.burn = 50,
+        nbiter.saemix = c(300, 100), # 300 SA + 100 smoothing
         nb.chains = 3,
-        nbiter.mcmc = c(2, 2, 2, 0),
+        nbiter.mcmc = c(3, 3, 3, 0),
         proba.mcmc = 0.4,
         stepsize.rw = 0.4,
         alpha.sa = 0.97,
@@ -289,9 +291,11 @@ generate_theophylline_reference <- function() {
         test_case = "theophylline",
         description = "One-compartment oral absorption (ka, V, CL)",
 
-        # Population parameters
-        mu_phi = as.numeric(theo_fit@results@fixed.effects),
-        mu_psi = as.numeric(exp(theo_fit@results@fixed.effects)),
+        # NOTE: saemix fixed.effects are in PSI (natural) space
+        # Population parameters in psi space (natural)
+        mu_psi = as.numeric(theo_fit@results@fixed.effects),
+        # Population parameters in phi space (log-transformed)
+        mu_phi = as.numeric(log(theo_fit@results@fixed.effects)),
 
         # Covariance
         omega = as.matrix(theo_fit@results@omega),
@@ -312,14 +316,14 @@ generate_theophylline_reference <- function() {
         # Settings
         settings = list(
             seed = 12345,
-            n_burn = 5,
-            n_sa = 295,
+            n_burn = 50,
+            n_sa = 300,
             n_smooth = 100,
             n_chains = 3,
             transform_par = c(1, 1, 1),
             error_model = "constant",
-            initial_psi = c(1.0, 20.0, 0.5),
-            initial_omega_diag = c(1.0, 1.0, 1.0)
+            initial_psi = c(1.5, 32.0, 3.0),
+            initial_omega_diag = c(0.5, 0.05, 0.1)
         ),
 
         # Data info
@@ -331,7 +335,7 @@ generate_theophylline_reference <- function() {
     cat("  Saved results to theo_reference.json\n")
 
     cat("\n  === Results Summary ===\n")
-    cat("  ka:", results$mu_psi[1], "  V:", results$mu_psi[2], "  CL:", results$mu_psi[3], "\n")
+    cat("  ka (psi):", results$mu_psi[1], "  V (psi):", results$mu_psi[2], "  CL (psi):", results$mu_psi[3], "\n")
     cat("  Omega diagonal:", results$omega_diag, "\n")
     cat("  Sigma:", results$sigma, "\n")
     cat("  -2LL:", results$objf, "\n\n")

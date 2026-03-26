@@ -21,10 +21,14 @@ pub struct KernelConfig {
     pub n_kernel4: usize,
     /// Number of iterations to use MAP kernel (after this, revert to standard)
     pub map_iterations: usize,
-    /// Step size for random walk adaptation
+    /// Step size for random walk adaptation (stepsize.rw in R saemix)
+    /// Controls the rate of adaptation of proposal variances
     pub rw_step_size: f64,
-    /// Target acceptance probability for adaptive proposals
+    /// Target acceptance probability for adaptive proposals (proba.mcmc in R saemix)
     pub target_acceptance: f64,
+    /// Initial scaling factor for RW proposals (rw.init in R saemix, default 0.5)
+    /// domega2 is initialized as sqrt(diag(Ω)) * rw_init
+    pub rw_init: f64,
 }
 
 impl Default for KernelConfig {
@@ -38,6 +42,7 @@ impl Default for KernelConfig {
             map_iterations: 0,      // Not used when n_kernel4 = 0
             rw_step_size: 0.4,      // Match R saemix stepsize.rw
             target_acceptance: 0.4, // Match R saemix proba.mcmc
+            rw_init: 0.5,           // Match R saemix rw.init
         }
     }
 }

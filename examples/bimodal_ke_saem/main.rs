@@ -14,14 +14,19 @@ use pmcore::prelude::*;
 /// Create analytical one-compartment model (much faster than ODE)
 fn create_equation() -> equation::Analytical {
     equation::Analytical::new(
-        one_compartment, // Analytical solution: x = x0*exp(-ke*t) + rateiv/ke*(1-exp(-ke*t))
+        |x, p, t, rateiv, _cov| {
+            let mut xout = x.clone();
+            fetch_params!(p, ke, _v);
+            xout[0] = x[0] * (-ke * t).exp() + rateiv[1] / ke * (1.0 - (-ke * t).exp());
+            xout
+        },
         |_p, _t, _cov| {},
         |_p, _t, _cov| lag! {},
         |_p, _t, _cov| fa! {},
         |_p, _t, _cov, _x| {},
         |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
-            y[0] = x[0] / v;
+            y[1] = x[0] / v;
         },
     )
 }
@@ -45,7 +50,7 @@ fn main() -> Result<()> {
     // Residual error model for parametric algorithms (SAEM)
     // Uses PREDICTION-based sigma: σ = sqrt(a² + b²*f²)
     // For proportional error: σ = b * |f|, so use Proportional with b=0.1
-    let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::proportional(0.1));
+    let residual_error = ResidualErrorModels::new().add(1, ResidualErrorModel::proportional(0.1));
 
     // Create SAEM settings - parametric algorithms only need ResidualErrorModels!
     // No ErrorModels required - SAEM computes likelihood using ResidualErrorModels directly

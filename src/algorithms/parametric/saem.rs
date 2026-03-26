@@ -173,6 +173,7 @@ impl FSaemConfig {
                 map_iterations: 0,
                 rw_step_size: settings.mcmc_step_size,
                 target_acceptance: 0.4,
+                rw_init: 0.5,
             },
             n_chains: settings.n_chains,
             seed: settings.seed,
@@ -252,9 +253,15 @@ pub struct FSAEM<E: Equation> {
     rng: ChaCha8Rng,
     /// Parameter history for convergence diagnostics
     param_history: Vec<Vec<f64>>,
+    /// Objective function history (per-iteration approximate -2LL)
+    objf_history: Vec<f64>,
     /// Parameter transforms (φ ↔ ψ conversions)
     /// Maps between unconstrained space (φ) and constrained space (ψ)
     transforms: Vec<ParameterTransform>,
+    /// Adaptive proposal scales for Kernel 2 & 3 random walks (domega2 in R saemix)
+    /// Initialized as sqrt(diag(Ω)) * rw_init and adapted based on acceptance rates
+    /// This decouples proposal width from current Ω, preventing collapse
+    domega2: Col<f64>,
 }
 
 impl<E: Equation + Send + 'static> FSAEM<E> {
@@ -326,6 +333,12 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         // Initialize variance floor for simulated annealing
         let variance_floor = Col::from_fn(n_params, |i| population.omega()[(i, i)]);
 
+        // Initialize adaptive proposal scales (domega2 in R saemix)
+        // R saemix: domega2 = sqrt(diag(omega.eta)) * rw.init
+        let domega2 = Col::from_fn(n_params, |i| {
+            population.omega()[(i, i)].sqrt() * config.kernel_config.rw_init
+        });
+
         // Random number generator
         let rng = ChaCha8Rng::seed_from_u64(config.seed);
 
@@ -355,7 +368,9 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
             variance_floor,
             rng,
             param_history: Vec::new(),
+            objf_history: Vec::new(),
             transforms,
+            domega2,
         })
     }
 
@@ -498,21 +513,102 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
             }
         }
 
-        // Kernel 2: Component-wise random walk (vectorized)
-        let domega = Col::from_fn(n_params, |j| {
-            omega[(j, j)].sqrt() * self.config.kernel_config.rw_step_size
-        });
+        // Kernel 2: Component-wise random walk with adaptive scaling (vectorized)
+        // Uses self.domega2 (persistent) instead of recomputing from omega each iteration
+        if self.config.kernel_config.n_kernel2 > 0 {
+            let mut n_accepted = vec![0usize; n_params];
+            let mut n_total = vec![0usize; n_params];
 
-        for _ in 0..self.config.kernel_config.n_kernel2 {
+            for _ in 0..self.config.kernel_config.n_kernel2 {
+                for param_idx in 0..n_params {
+                    // Propose perturbation for this component for all subjects
+                    let mut proposed_eta = eta_matrix.clone();
+                    for i in 0..n_subjects {
+                        let perturbation = normal.sample(&mut self.rng) * self.domega2[param_idx];
+                        proposed_eta[[i, param_idx]] += perturbation;
+                    }
+
+                    // Compute likelihoods for all proposals
+                    let proposed_ll = self.compute_batch_log_likelihood(&proposed_eta, mean_phi)?;
+
+                    // Compute proposed log-priors
+                    let proposed_log_prior: Vec<f64> = (0..n_subjects)
+                        .map(|i| {
+                            let mut quad = 0.0;
+                            for j in 0..n_params {
+                                for k in 0..n_params {
+                                    quad += proposed_eta[[i, j]]
+                                        * omega_inv[(j, k)]
+                                        * proposed_eta[[i, k]];
+                                }
+                            }
+                            -0.5 * quad
+                        })
+                        .collect();
+
+                    // Accept/reject
+                    for i in 0..n_subjects {
+                        let log_alpha = (proposed_ll[i] + proposed_log_prior[i])
+                            - (current_ll[i] + current_log_prior[i]);
+                        let u: f64 = self.rng.random();
+                        if log_alpha.is_finite() && u.ln() < log_alpha {
+                            eta_matrix[[i, param_idx]] = proposed_eta[[i, param_idx]];
+                            current_ll[i] = proposed_ll[i];
+                            current_log_prior[i] = proposed_log_prior[i];
+                            n_accepted[param_idx] += 1;
+                        }
+                        n_total[param_idx] += 1;
+                    }
+                }
+            }
+
+            // Adapt domega2 based on acceptance rates (R saemix adaptive scaling)
+            // domega2 *= 1 + stepsize.rw * (acc_rate - proba.mcmc)
+            let stepsize_rw = self.config.kernel_config.rw_step_size;
+            let target = self.config.kernel_config.target_acceptance;
             for param_idx in 0..n_params {
-                // Propose perturbation for this component for all subjects
+                if n_total[param_idx] > 0 {
+                    let acc_rate = n_accepted[param_idx] as f64 / n_total[param_idx] as f64;
+                    self.domega2[param_idx] *= 1.0 + stepsize_rw * (acc_rate - target);
+                }
+            }
+        }
+
+        // Kernel 3: Block random walk with adaptive scaling (vectorized)
+        let block_size = (self.iteration % n_params.max(2).saturating_sub(1)).max(1) + 1;
+        let block_size = block_size.min(n_params);
+
+        if self.config.kernel_config.n_kernel3 > 0 {
+            let mut n_accepted = vec![0usize; n_params];
+            let mut n_total = vec![0usize; n_params];
+
+            for _ in 0..self.config.kernel_config.n_kernel3 {
+                // Select block of parameters
+                let block_indices: Vec<usize> = if block_size < n_params {
+                    let mut indices: Vec<usize> = (0..n_params).collect();
+                    // Shuffle first block_size elements using Fisher-Yates
+                    for k in 0..block_size {
+                        let u: f64 = self.rng.random();
+                        let remaining = n_params - k;
+                        let swap_offset = (u * remaining as f64).floor() as usize;
+                        let swap_idx = k + swap_offset.min(remaining - 1);
+                        indices.swap(k, swap_idx);
+                    }
+                    indices[..block_size].to_vec()
+                } else {
+                    (0..n_params).collect()
+                };
+
+                // Propose perturbations for the block using adaptive domega2
                 let mut proposed_eta = eta_matrix.clone();
                 for i in 0..n_subjects {
-                    let perturbation = normal.sample(&mut self.rng) * domega[param_idx];
-                    proposed_eta[[i, param_idx]] += perturbation;
+                    for &j in &block_indices {
+                        let perturbation = normal.sample(&mut self.rng) * self.domega2[j];
+                        proposed_eta[[i, j]] += perturbation;
+                    }
                 }
 
-                // Compute likelihoods for all proposals
+                // Compute likelihoods
                 let proposed_ll = self.compute_batch_log_likelihood(&proposed_eta, mean_phi)?;
 
                 // Compute proposed log-priors
@@ -535,72 +631,26 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
                         - (current_ll[i] + current_log_prior[i]);
                     let u: f64 = self.rng.random();
                     if log_alpha.is_finite() && u.ln() < log_alpha {
-                        eta_matrix[[i, param_idx]] = proposed_eta[[i, param_idx]];
+                        for &j in &block_indices {
+                            eta_matrix[[i, j]] = proposed_eta[[i, j]];
+                            n_accepted[j] += 1;
+                        }
                         current_ll[i] = proposed_ll[i];
                         current_log_prior[i] = proposed_log_prior[i];
                     }
-                }
-            }
-        }
-
-        // Kernel 3: Block random walk (vectorized)
-        let block_size = (self.iteration % n_params.max(2).saturating_sub(1)).max(1) + 1;
-        let block_size = block_size.min(n_params);
-
-        for _ in 0..self.config.kernel_config.n_kernel3 {
-            // Select block of parameters
-            let block_indices: Vec<usize> = if block_size < n_params {
-                let mut indices: Vec<usize> = (0..n_params).collect();
-                // Shuffle first block_size elements using Fisher-Yates
-                for k in 0..block_size {
-                    // Generate random index in remaining range using uniform
-                    let u: f64 = self.rng.random();
-                    let remaining = n_params - k;
-                    let swap_offset = (u * remaining as f64).floor() as usize;
-                    let swap_idx = k + swap_offset.min(remaining - 1);
-                    indices.swap(k, swap_idx);
-                }
-                indices[..block_size].to_vec()
-            } else {
-                (0..n_params).collect()
-            };
-
-            // Propose perturbations for the block
-            let mut proposed_eta = eta_matrix.clone();
-            for i in 0..n_subjects {
-                for &j in &block_indices {
-                    let perturbation = normal.sample(&mut self.rng) * domega[j];
-                    proposed_eta[[i, j]] += perturbation;
-                }
-            }
-
-            // Compute likelihoods
-            let proposed_ll = self.compute_batch_log_likelihood(&proposed_eta, mean_phi)?;
-
-            // Compute proposed log-priors
-            let proposed_log_prior: Vec<f64> = (0..n_subjects)
-                .map(|i| {
-                    let mut quad = 0.0;
-                    for j in 0..n_params {
-                        for k in 0..n_params {
-                            quad += proposed_eta[[i, j]] * omega_inv[(j, k)] * proposed_eta[[i, k]];
-                        }
-                    }
-                    -0.5 * quad
-                })
-                .collect();
-
-            // Accept/reject
-            for i in 0..n_subjects {
-                let log_alpha = (proposed_ll[i] + proposed_log_prior[i])
-                    - (current_ll[i] + current_log_prior[i]);
-                let u: f64 = self.rng.random();
-                if log_alpha.is_finite() && u.ln() < log_alpha {
                     for &j in &block_indices {
-                        eta_matrix[[i, j]] = proposed_eta[[i, j]];
+                        n_total[j] += 1;
                     }
-                    current_ll[i] = proposed_ll[i];
-                    current_log_prior[i] = proposed_log_prior[i];
+                }
+            }
+
+            // Adapt domega2 based on acceptance rates for kernel 3
+            let stepsize_rw = self.config.kernel_config.rw_step_size;
+            let target = self.config.kernel_config.target_acceptance;
+            for param_idx in 0..n_params {
+                if n_total[param_idx] > 0 {
+                    let acc_rate = n_accepted[param_idx] as f64 / n_total[param_idx] as f64;
+                    self.domega2[param_idx] *= 1.0 + stepsize_rw * (acc_rate - target);
                 }
             }
         }
@@ -710,20 +760,43 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         // Simulate to get predictions
         let predictions = match self.equation.estimate_predictions(subject, &params) {
             Ok(preds) => preds,
-            Err(_) => return f64::NEG_INFINITY,
+            Err(e) => {
+                tracing::warn!("Prediction failed for subject {}: {e}", subject.id());
+                return f64::NEG_INFINITY;
+            }
         };
 
         // Extract (outeq, observation, prediction) tuples and compute log-likelihood
-        let obs_pred_pairs = predictions
+        let obs_pred_pairs: Vec<(usize, f64, f64)> = predictions
             .get_predictions()
             .into_iter()
             .filter_map(|pred| {
                 pred.observation()
                     .map(|obs| (pred.outeq(), obs, pred.prediction()))
-            });
+            })
+            .collect();
+
+        if obs_pred_pairs.is_empty() {
+            tracing::warn!("No obs-pred pairs for subject {}", subject.id());
+            return f64::NEG_INFINITY;
+        }
+
+        // Debug: log first subject's first few pairs
+        if subject.id() == self.data.subjects()[0].id() && self.iteration <= 2 {
+            let n_models = self.residual_error_models.len();
+            tracing::info!(
+                "Subject {} - {} obs-pred pairs, {} error models, first pair: outeq={}, obs={:.4}, pred={:.4}",
+                subject.id(),
+                obs_pred_pairs.len(),
+                n_models,
+                obs_pred_pairs[0].0,
+                obs_pred_pairs[0].1,
+                obs_pred_pairs[0].2,
+            );
+        }
 
         self.residual_error_models
-            .total_log_likelihood(obs_pred_pairs)
+            .total_log_likelihood(obs_pred_pairs.into_iter())
     }
 
     /// Run M-step: Update population parameters from sufficient statistics
@@ -744,6 +817,9 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
             }
             params.push(self.sigma_sq.sqrt());
             self.param_history.push(params);
+            // Compute approximate objf even during burn-in for monitoring
+            self.objf = self.compute_approximate_objective();
+            self.objf_history.push(self.objf);
             return Ok(());
         }
 
@@ -760,7 +836,11 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
 
         // Update population parameters
         self.population.update_mu(mu)?;
-        self.population.update_omega(omega_constrained)?;
+
+        // Ensure Omega remains positive definite before updating
+        // R saemix uses cutoff on diagonal: domega <- cutoff(diag(omega), .Machine$double.eps)
+        let omega_pd = ensure_positive_definite(&omega_constrained);
+        self.population.update_omega(omega_pd)?;
 
         // Update residual error (simplified - could be more sophisticated)
         self.update_residual_error()?;
@@ -779,6 +859,7 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         // Update objective function
         self.prev_objf = self.objf;
         self.objf = self.compute_approximate_objective();
+        self.objf_history.push(self.objf);
 
         Ok(())
     }
@@ -913,35 +994,50 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
 
     /// Compute approximate objective function (approximate -2LL)
     fn compute_approximate_objective(&self) -> f64 {
-        // Use importance sampling approximation
-        // This is a simplified version - full implementation would use
-        // Monte Carlo integration over the random effects
+        // Build eta matrix from individual estimates to use the same batch path as the E-step
+        let n_subjects = self.individual_estimates.nsubjects();
+        if n_subjects == 0 {
+            return f64::INFINITY;
+        }
+        let n_params = self.population.npar();
 
-        let subjects = self.data.subjects();
+        let mut eta_matrix = ndarray::Array2::<f64>::zeros((n_subjects, n_params));
+        for i in 0..n_subjects {
+            if let Some(ind) = self.individual_estimates.get(i) {
+                for j in 0..n_params {
+                    eta_matrix[[i, j]] = ind.eta()[j];
+                }
+            }
+        }
+
+        // Use compute_batch_log_likelihood — same path the E-step uses (known correct)
+        let lls = match self.compute_batch_log_likelihood(&eta_matrix, self.population.mu()) {
+            Ok(lls) => lls,
+            Err(_) => return f64::INFINITY,
+        };
+
+        // Sum log-likelihoods + prior contributions
+        let omega_inv = match self.population.omega().llt(faer::Side::Lower) {
+            Ok(llt) => llt.inverse(),
+            Err(_) => return f64::INFINITY,
+        };
+
         let mut total_ll = 0.0;
-
-        for (i, subject) in subjects.iter().enumerate() {
-            if let Some(individual) = self.individual_estimates.get(i) {
-                // Use current individual estimate for approximation
-                let ll = self.compute_individual_log_likelihood(subject, individual.psi());
-
-                // Add prior contribution
-                let eta = individual.eta();
-                let n = eta.nrows();
-                let omega_inv = match self.population.omega().llt(faer::Side::Lower) {
-                    Ok(llt) => llt.inverse(),
-                    Err(_) => continue,
-                };
-
-                let mut prior_term = 0.0;
-                for j in 0..n {
-                    for k in 0..n {
+        for (i, ll) in lls.iter().enumerate() {
+            if !ll.is_finite() {
+                continue;
+            }
+            // Add prior contribution: -0.5 * η' Ω⁻¹ η
+            let mut prior_term = 0.0;
+            if let Some(ind) = self.individual_estimates.get(i) {
+                let eta = ind.eta();
+                for j in 0..n_params {
+                    for k in 0..n_params {
                         prior_term += eta[j] * omega_inv[(j, k)] * eta[k];
                     }
                 }
-
-                total_ll += ll - 0.5 * prior_term;
             }
+            total_ll += ll - 0.5 * prior_term;
         }
 
         -2.0 * total_ll
@@ -1011,9 +1107,8 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
                     // cond_mean in φ space = mu_phi + mean(eta)
                     Col::from_fn(n_params, |j| mu_phi[j] + mean_eta[j])
                 } else if let Some(ind) = self.individual_estimates.get(i) {
-                    // Transform psi to phi
-                    let psi = ind.psi();
-                    Col::from_fn(n_params, |j| self.transforms[j].psi_to_phi(psi[j]))
+                    // ind.psi() actually stores phi values in SAEM, use directly
+                    ind.psi().clone()
                 } else {
                     Col::from_fn(n_params, |j| mu_phi[j])
                 };
@@ -1448,7 +1543,10 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
         for (i, params) in self.param_history.iter().enumerate() {
             // Reconstruct a minimal population state for logging
             let n = self.population.npar();
-            let mu = Col::from_fn(n, |j| params.get(j).copied().unwrap_or(0.0));
+            // Transform mu from φ space to ψ space for user-facing output
+            let mu_phi = Col::from_fn(n, |j| params.get(j).copied().unwrap_or(0.0));
+            // Keep mu in φ (log) space for iteration log — consistent with nonparametric output
+            let mu = mu_phi;
             let omega = Mat::from_fn(n, n, |r, c| {
                 if r == c {
                     params.get(n + r).copied().unwrap_or(0.0)
@@ -1463,7 +1561,9 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
                 } else {
                     self.status.clone()
                 };
-                iteration_log.log_iteration(i + 1, minus2ll, &pop, &status_str);
+                // Use per-iteration objf instead of the single IS -2LL
+                let iter_objf = self.objf_history.get(i).copied().unwrap_or(minus2ll);
+                iteration_log.log_iteration(i + 1, iter_objf, &pop, &status_str);
             }
         }
 
@@ -1491,12 +1591,25 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
         // TODO: Properly detect the error model type from settings
         let sigma = ResidualErrorEstimates::additive(sigma_estimate);
 
+        // Transform individual estimates from φ space to ψ space
+        // The e-step stores phi values in the Individual's psi field
+        let mut individuals_psi = Vec::new();
+        for ind in self.individual_estimates.iter() {
+            let phi = ind.psi(); // Actually contains phi values
+            let psi = self.phi_to_psi(phi);
+            // Eta in ψ space: ψ_i - μ_ψ (individual deviation from population mean)
+            // For output purposes, we keep the phi-space eta since that's the random effect
+            let individual = Individual::new(ind.subject_id().to_string(), ind.eta().clone(), psi)?;
+            individuals_psi.push(individual);
+        }
+        let individual_estimates_psi = IndividualEstimates::from_vec(individuals_psi);
+
         // Construct result object with sigma
         let mut result = ParametricResult::with_sigma(
             self.equation.clone(),
             self.data.clone(),
             population_psi,
-            self.individual_estimates.clone(),
+            individual_estimates_psi,
             minus2ll,
             self.iteration,
             self.status.clone(),
@@ -1573,6 +1686,44 @@ fn estimate_initial_sigma_sq(settings: &Settings) -> f64 {
     } else {
         1.0 // Default
     }
+}
+
+/// Ensure a covariance matrix remains positive definite.
+///
+/// Matches R saemix's approach:
+/// 1. Ensure diagonal elements are above a minimum threshold
+/// 2. If Cholesky fails, add a small ridge to the diagonal
+fn ensure_positive_definite(omega: &Mat<f64>) -> Mat<f64> {
+    let n = omega.nrows();
+    let min_var = 1e-8; // Minimum variance (like R's .Machine$double.eps for cutoff)
+
+    let mut result = omega.clone();
+
+    // Step 1: Ensure diagonal elements are positive
+    for i in 0..n {
+        if result[(i, i)] < min_var {
+            result[(i, i)] = min_var;
+        }
+    }
+
+    // Step 2: Check if PD via Cholesky, add ridge if not
+    if result.llt(faer::Side::Lower).is_err() {
+        // Add a small ridge proportional to the diagonal
+        let ridge = result
+            .diagonal()
+            .column_vector()
+            .iter()
+            .cloned()
+            .fold(0.0_f64, f64::max)
+            * 0.01
+            + min_var;
+        for i in 0..n {
+            result[(i, i)] += ridge;
+        }
+        tracing::debug!("Added ridge {:.2e} to Omega diagonal to ensure PD", ridge);
+    }
+
+    result
 }
 
 // Type alias for backward compatibility

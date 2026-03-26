@@ -521,17 +521,16 @@ fn test_validate_onecomp_iv() -> Result<()> {
     println!("\n  === Comparison with R Reference ===");
 
     // Population mean (μ is returned in ψ space by into_result())
-    // Note: The R reference file stores mu_phi as ψ values (natural scale), not φ
     let rust_mu_psi: Vec<f64> = (0..result.population().npar())
         .map(|i| result.population().mu()[i])
         .collect();
 
     println!("  mu (ψ space, Rust): {:?}", rust_mu_psi);
-    println!("  mu (ψ space, R):    {:?}", reference.mu_phi);
+    println!("  mu (ψ space, R):    {:?}", reference.mu_psi);
 
     // Compare with tolerance (comparing ψ values)
     let mu_rtol = 0.10; // 10% relative tolerance
-    for (i, (r, ref_val)) in rust_mu_psi.iter().zip(reference.mu_phi.iter()).enumerate() {
+    for (i, (r, ref_val)) in rust_mu_psi.iter().zip(reference.mu_psi.iter()).enumerate() {
         let rel_err = (*r - *ref_val).abs() / ref_val.abs().max(1e-10);
         println!(
             "    mu[{}]: Rust={:.4}, R={:.4}, rel_err={:.2}%",
@@ -562,8 +561,7 @@ fn test_validate_onecomp_iv() -> Result<()> {
     println!("  objf rel_err: {:.2}%", objf_rel_err * 100.0);
 
     // Assertions (with generous tolerance for stochastic algorithm)
-    // Compare ψ values since that's what R reference stores as "mu_phi"
-    assert_vec_close(&rust_mu_psi, &reference.mu_phi, 0.20, "mu_psi");
+    assert_vec_close(&rust_mu_psi, &reference.mu_psi, 0.20, "mu_psi");
 
     println!("\n  ✓ One-compartment IV validation complete\n");
     Ok(())
@@ -572,8 +570,11 @@ fn test_validate_onecomp_iv() -> Result<()> {
 /// Test theophylline against R reference
 /// Requires: theo_reference.json from generate_reference.R
 #[test]
-#[ignore = "Requires R reference files - run generate_reference.R first"]
+#[ignore = "Full theophylline validation (~5 min) - run with --ignored"]
 fn test_validate_theophylline() -> Result<()> {
+    use pmcore::algorithms::parametric::dispatch_parametric_algorithm;
+    use pmcore::prelude::*;
+
     println!("=== Validating Theophylline vs R Reference ===");
 
     // Load R reference
@@ -587,15 +588,179 @@ fn test_validate_theophylline() -> Result<()> {
     );
     println!("  R results - mu_psi: {:?}", reference.mu_psi);
     println!("  R results - omega_diag: {:?}", reference.omega_diag);
+    println!("  R results - sigma: {:.4}", reference.sigma);
     println!("  R results - objf: {:.2}", reference.objf);
 
-    // TODO: Implement full theophylline test with oral absorption model
-    // This requires:
-    // 1. Two-compartment state (absorption + central)
-    // 2. Loading theo_data.csv
-    // 3. Matching all R settings
+    // One-compartment model with first-order absorption
+    // Matches R saemix model: dose*ka/(V*(ka-k))*(exp(-k*t) - exp(-ka*t))
+    let eq = equation::ODE::new(
+        |x, p, _t, dx, b, _rateiv, _cov| {
+            fetch_params!(p, ka, v, cl);
+            let ke = cl / v;
+            dx[0] = -ka * x[0] + b[0]; // absorption compartment + bolus
+            dx[1] = ka * x[0] - ke * x[1]; // central compartment
+        },
+        |_p, _t, _cov| lag! {},
+        |_p, _t, _cov| fa! {},
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _ka, v, _cl);
+            y[0] = x[1] / v;
+        },
+    );
 
-    println!("  TODO: Implement full theophylline validation\n");
+    // Theophylline data (12 subjects, same as saemix theo.saemix dataset)
+    let subjects_data: Vec<(u32, f64, Vec<f64>, Vec<f64>)> = vec![
+        (
+            1,
+            319.992,
+            vec![0.25, 0.57, 1.12, 2.02, 3.82, 5.10, 7.03, 9.05, 12.12, 24.37],
+            vec![2.84, 6.57, 10.50, 9.66, 8.58, 8.36, 7.47, 6.89, 5.94, 3.28],
+        ),
+        (
+            2,
+            318.560,
+            vec![0.27, 0.52, 1.00, 1.92, 3.50, 5.02, 7.03, 9.00, 12.00, 24.30],
+            vec![1.72, 7.91, 8.31, 8.33, 6.85, 6.08, 5.40, 4.55, 3.01, 0.90],
+        ),
+        (
+            3,
+            319.365,
+            vec![0.27, 0.58, 1.02, 2.02, 3.62, 5.08, 7.07, 9.00, 12.15, 24.17],
+            vec![4.40, 6.90, 8.20, 7.80, 7.50, 6.20, 5.30, 4.90, 3.70, 1.05],
+        ),
+        (
+            4,
+            319.992,
+            vec![0.35, 0.60, 1.07, 2.13, 3.50, 5.02, 7.02, 9.02, 11.98, 24.65],
+            vec![1.89, 4.60, 8.60, 8.38, 7.54, 6.88, 5.78, 5.33, 4.19, 1.15],
+        ),
+        (
+            5,
+            320.619,
+            vec![0.30, 0.52, 1.00, 2.02, 3.50, 5.02, 7.02, 9.10, 12.00, 24.35],
+            vec![2.02, 5.63, 11.40, 9.33, 8.74, 7.56, 7.09, 5.90, 4.37, 1.57],
+        ),
+        (
+            6,
+            320.619,
+            vec![0.27, 0.58, 1.15, 2.03, 3.57, 5.00, 7.00, 9.22, 12.10, 23.85],
+            vec![1.29, 3.08, 6.44, 6.32, 5.53, 4.94, 4.02, 3.46, 2.78, 0.92],
+        ),
+        (
+            7,
+            277.767,
+            vec![0.25, 0.50, 1.02, 2.02, 3.48, 5.00, 6.98, 9.00, 12.05, 24.22],
+            vec![3.59, 6.11, 7.56, 6.54, 5.37, 4.84, 4.02, 3.83, 2.81, 0.85],
+        ),
+        (
+            8,
+            276.514,
+            vec![0.25, 0.52, 0.98, 2.02, 3.53, 5.05, 7.15, 9.07, 12.10, 24.12],
+            vec![0.73, 4.00, 6.81, 8.00, 7.09, 5.89, 5.22, 4.75, 3.41, 0.96],
+        ),
+        (
+            9,
+            299.550,
+            vec![0.30, 0.63, 1.05, 2.02, 3.53, 5.02, 7.17, 8.80, 11.60, 24.43],
+            vec![3.15, 6.96, 9.70, 9.52, 7.17, 6.28, 5.28, 4.66, 3.82, 1.15],
+        ),
+        (
+            10,
+            298.297,
+            vec![0.37, 0.77, 1.02, 2.05, 3.55, 5.05, 7.08, 9.00, 12.12, 24.08],
+            vec![7.37, 9.03, 10.21, 9.18, 8.02, 7.14, 6.08, 5.54, 4.57, 1.17],
+        ),
+        (
+            11,
+            300.176,
+            vec![0.25, 0.50, 0.98, 1.98, 3.60, 5.02, 7.03, 9.03, 12.12, 24.28],
+            vec![0.92, 2.63, 6.85, 9.05, 7.90, 7.44, 6.13, 5.31, 4.10, 1.44],
+        ),
+        (
+            12,
+            298.297,
+            vec![0.25, 0.52, 1.00, 2.07, 3.50, 4.95, 7.00, 9.02, 12.00, 24.15],
+            vec![1.11, 6.33, 9.99, 9.37, 8.50, 6.89, 5.94, 5.26, 4.35, 1.25],
+        ),
+    ];
+
+    let subjects: Vec<Subject> = subjects_data
+        .into_iter()
+        .map(|(id, dose, times, concs)| {
+            let mut builder = Subject::builder(id.to_string()).bolus(0.0, dose, 0);
+            for (t, c) in times.into_iter().zip(concs.into_iter()) {
+                builder = builder.observation(t, c, 0);
+            }
+            builder.build()
+        })
+        .collect();
+    let data = Data::new(subjects);
+
+    // Parameter ranges (matching R saemix initial values region)
+    let params = Parameters::new()
+        .add("ka", 0.5, 3.0)
+        .add("v", 15.0, 50.0)
+        .add("cl", 0.5, 5.0);
+
+    // Residual error model (constant, matching R)
+    use pharmsol::{ResidualErrorModel, ResidualErrorModels};
+    let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(1.0));
+
+    let settings = Settings::builder()
+        .set_algorithm(Algorithm::SAEM)
+        .set_parameters(params)
+        .set_residual_error(residual_error)
+        .build();
+
+    // Run SAEM
+    let mut algorithm = dispatch_parametric_algorithm(settings, eq, data)?;
+    let result = algorithm.fit()?;
+
+    // Compare results
+    println!("\n  === Comparison with R Reference ===");
+
+    let rust_mu_psi: Vec<f64> = (0..result.population().npar())
+        .map(|i| result.population().mu()[i])
+        .collect();
+
+    println!("  mu (ψ space, Rust): {:?}", rust_mu_psi);
+    println!("  mu (ψ space, R):    {:?}", reference.mu_psi);
+
+    // Compare each parameter
+    let param_names = ["ka", "V", "CL"];
+    for (i, (r, ref_val)) in rust_mu_psi.iter().zip(reference.mu_psi.iter()).enumerate() {
+        let rel_err = (*r - *ref_val).abs() / ref_val.abs().max(1e-10);
+        println!(
+            "    {}: Rust={:.4}, R={:.4}, rel_err={:.2}%",
+            param_names[i],
+            r,
+            ref_val,
+            rel_err * 100.0
+        );
+    }
+
+    // Omega diagonal
+    let rust_omega_diag: Vec<f64> = (0..result.population().npar())
+        .map(|i| result.population().omega()[(i, i)])
+        .collect();
+    println!("  omega_diag (Rust): {:?}", rust_omega_diag);
+    println!("  omega_diag (R):    {:?}", reference.omega_diag);
+
+    // Objective function
+    println!("  objf (Rust): {:.2}", result.objf());
+    println!("  objf (R):    {:.2}", reference.objf);
+
+    // Assertions: population means should be within 25% for a 3-parameter stochastic algorithm
+    let tolerance = 0.25;
+    assert_vec_close(
+        &rust_mu_psi,
+        &reference.mu_psi,
+        tolerance,
+        "mu_psi (theophylline)",
+    );
+
+    println!("\n  ✓ Theophylline validation complete\n");
     Ok(())
 }
 
