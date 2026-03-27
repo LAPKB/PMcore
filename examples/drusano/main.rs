@@ -2,8 +2,8 @@ use anyhow::Result;
 use pmcore::prelude::*;
 #[allow(unused_variables)]
 fn main() -> Result<()> {
-    let eq = equation::ODE::new(
-        |x, p, t, dx, b, rateiv, _cov| {
+    let eq = ode! {
+        diffeq:|x, p, t, dx, b, rateiv, _cov| {
             fetch_params!(
                 p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
                 e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1,
@@ -44,9 +44,7 @@ fn main() -> Result<()> {
             let xm0best = get_e2(u_r2, v_r2, w_r2, 1.0 / h1r2, 1.0 / h2r2, alpha_s);
             dx[4] = xnr2 * (kgr2 * e - kkr2 * xm0best);
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |p, t, cov, x| {
+        init: |p, t, cov, x| {
             fetch_params!(
                 p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
                 e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1,
@@ -59,7 +57,7 @@ fn main() -> Result<()> {
             x[3] = 10.0_f64.powf(init_4);
             x[4] = 10.0_f64.powf(init_5);
         },
-        |x, p, _t, _cov, y| {
+        out: |x, p, _t, _cov, y| {
             fetch_params!(
                 p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
                 e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1,
@@ -71,8 +69,7 @@ fn main() -> Result<()> {
             y[3] = x[3].log10();
             y[4] = x[4].log10();
         },
-        (5, 5),
-    );
+    };
 
     let params = Parameters::new()
         .add("v1", 5.0, 160.0)
@@ -100,26 +97,26 @@ fn main() -> Result<()> {
         .add("h1r1", 5.0, 25.0)
         .add("h2r2", 10.0, 22.0);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
             0,
-            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .add(
             1,
-            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .add(
             2,
-            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .add(
             3,
-            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .add(
             4,
-            ErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?;
 
     let mut settings = SettingsBuilder::new()

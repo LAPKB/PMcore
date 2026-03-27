@@ -2,33 +2,28 @@ use anyhow::Result;
 use pmcore::prelude::*;
 
 fn main() -> Result<()> {
-    let eq = equation::ODE::new(
-        |x, p, _t, dx, b, rateiv, _cov| {
+    let eq = ode! {
+        diffeq: |x, p, _t, dx, b, rateiv, _cov| {
             // fetch_cov!(cov, t, wt);
             fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + rateiv[0] + b[0];
+            dx[0] = -ke * x[0] + rateiv[1] + b[1];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
+        out: |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
-            y[0] = x[0] / v;
+            y[1] = x[0] / v;
         },
-        (1, 1),
-    );
+    }
+    .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
 
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = ErrorModels::new()
+    let ems = AssayErrorModels::new()
         .add(
-            0,
-            ErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            1,
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
-        .unwrap()
-        .add(1, ErrorModel::None)
         .unwrap();
 
     let mut settings = Settings::builder()
