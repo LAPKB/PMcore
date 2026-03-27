@@ -1,7 +1,6 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseProblem, DoseRange, Target};
+use pmcore::bestdose::{BestDoseConfig, BestDoseProblem, DoseRange, Target};
 use pmcore::prelude::*;
-use pmcore::routines::initialization::parse_prior;
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -23,29 +22,21 @@ fn main() -> Result<()> {
         },
     };
 
-    let params = Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0);
+    let parameter_space = ParameterSpace::new()
+        .add(ParameterSpec::bounded("ke", 0.001, 3.0))
+        .add(ParameterSpec::bounded("v", 25.0, 250.0));
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
+    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone())
+        .with_progress(false);
 
     // Load realistic prior from previous NPAG run
     println!("Loading prior from bimodal_ke example...");
-    let (theta, prior) = parse_prior(
-        &"examples/bimodal_ke/output/theta.csv".to_string(),
-        &settings,
-    )?;
+    let (theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
     let weights = prior.as_ref().unwrap();
 
     println!("Prior: {} support points\n", theta.matrix().nrows());
@@ -79,7 +70,7 @@ fn main() -> Result<()> {
             eq.clone(),
             DoseRange::new(min, max),
             0.5,
-            settings.clone(),
+            config.clone(),
             Target::Concentration,
         )?;
 

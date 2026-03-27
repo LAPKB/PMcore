@@ -17,6 +17,72 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::time::Instant;
 
+#[derive(Clone)]
+struct ExampleRunConfig {
+    algorithm: Algorithm,
+    parameter_space: ParameterSpace,
+    assay_error_models: AssayErrorModels,
+    output: OutputPlan,
+    runtime: RuntimeOptions,
+}
+
+fn nonparametric_method(algorithm: Algorithm) -> Result<NonparametricMethod> {
+    Ok(match algorithm {
+        Algorithm::NPAG => NonparametricMethod::Npag(NpagOptions),
+        Algorithm::NPBO => NonparametricMethod::Npbo(NpboOptions),
+        Algorithm::NPCAT => NonparametricMethod::Npcat(NpcatOptions),
+        Algorithm::NPCMA => NonparametricMethod::Npcma(NpcmaOptions),
+        Algorithm::NPOD => NonparametricMethod::Npod(NpodOptions),
+        Algorithm::NPOPT => NonparametricMethod::Npopt(NpoptOptions),
+        Algorithm::NPPSO => NonparametricMethod::Nppso(NppsoOptions),
+        Algorithm::NPSAH => NonparametricMethod::Npsah(NpsahOptions),
+        Algorithm::NPSAH2 => NonparametricMethod::Npsah2(Npsah2Options),
+        Algorithm::NPXO => NonparametricMethod::Npxo(NpxoOptions),
+        Algorithm::NEXUS => NonparametricMethod::Nexus(NexusOptions),
+        Algorithm::POSTPROB => NonparametricMethod::Postprob(PostProbOptions),
+        other => anyhow::bail!("unsupported nonparametric algorithm: {:?}", other),
+    })
+}
+
+fn build_problem<E: pharmsol::Equation + Clone>(
+    equation: E,
+    data: Data,
+    config: &ExampleRunConfig,
+) -> Result<EstimationProblem<E>> {
+    let observations = config
+        .assay_error_models
+        .iter()
+        .filter(|(_, model)| !matches!(model, AssayErrorModel::None))
+        .fold(
+            ObservationSpec::new().with_assay_error_models(config.assay_error_models.clone()),
+            |spec, (outeq, _)| {
+                spec.add_channel(ObservationChannel::continuous(
+                    outeq,
+                    format!("obs_{}", outeq),
+                ))
+            },
+        );
+
+    let model = ModelDefinition::builder(equation)
+        .parameters(config.parameter_space.clone())
+        .observations(observations)
+        .build()?;
+
+    EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(nonparametric_method(
+            config.algorithm,
+        )?))
+        .output(config.output.clone())
+        .runtime(config.runtime.clone())
+        .build()
+}
+
+fn bounded_parameter_space(bounds: &[(&str, f64, f64)]) -> ParameterSpace {
+    bounds.iter().fold(ParameterSpace::new(), |space, (name, lower, upper)| {
+        space.add(ParameterSpec::bounded(*name, *lower, *upper))
+    })
+}
+
 // ============================================================================
 // MODELS
 // ============================================================================
@@ -260,17 +326,14 @@ impl BenchmarkResult {
 // BENCHMARK RUNNER
 // ============================================================================
 
-fn create_settings(
+fn create_config(
     algorithm: Algorithm,
     config: &DatasetConfig,
     seed: u64,
     max_cycles: usize,
     output_path: &str,
-) -> Settings {
-    let mut params = Parameters::new();
-    for (name, lo, hi) in &config.parameters {
-        params = params.add(*name, *lo, *hi);
-    }
+) -> ExampleRunConfig {
+    let parameter_space = bounded_parameter_space(&config.parameters);
 
     let mut ems = AssayErrorModels::new();
     for (output, c0, c1, scale, is_proportional) in &config.error_models {
@@ -291,25 +354,35 @@ fn create_settings(
         }
     }
 
-    let mut settings = Settings::builder()
-        .set_algorithm(algorithm)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(max_cycles);
-    settings.set_prior(Prior::sobol(2028, seed as usize));
-    settings.set_output_path(output_path);
-    settings.set_write_logs(false);
-
-    settings
+    ExampleRunConfig {
+        algorithm,
+        parameter_space,
+        assay_error_models: ems,
+        output: OutputPlan {
+            write: true,
+            path: Some(output_path.to_string()),
+        },
+        runtime: RuntimeOptions {
+            cycles: max_cycles,
+            cache: true,
+            progress: true,
+            idelta: 0.12,
+            tad: 0.0,
+            prior: Some(Prior::sobol(2028, seed as usize)),
+            ..RuntimeOptions::default()
+        },
+    }
 }
 
 /// Run a single benchmark, writing theta files for post-hoc analysis
 macro_rules! run_fit {
     ($settings:expr, $eq:expr, $data:expr) => {{
-        let mut alg = dispatch_algorithm($settings, $eq, $data.clone())?;
-        let result = alg.fit()?;
+        let config = $settings;
+        let equation = $eq;
+        let fit_result = fit(build_problem(equation, $data.clone(), &config)?)?;
+        let result = fit_result
+            .as_nonparametric()
+            .expect("benchmark fit should yield a nonparametric result");
         let _ = result.write_theta();
         (result.objf(), result.get_theta().nspp(), result.cycles())
     }};
@@ -330,7 +403,7 @@ fn run_single_benchmark(
     );
     fs::create_dir_all(&output_path)?;
 
-    let settings = create_settings(algorithm, dataset_config, seed, max_cycles, &output_path);
+    let config = create_config(algorithm, dataset_config, seed, max_cycles, &output_path);
 
     println!(
         "  Running {} on {} (seed {})...",
@@ -340,11 +413,11 @@ fn run_single_benchmark(
     let start = Instant::now();
 
     let (objf, n_spp, cycles) = match dataset_config.name {
-        "bimodal_ke" => run_fit!(settings, bimodal_ke_equation(), data),
-        "theophylline" => run_fit!(settings, theophylline_equation(), data),
-        "two_eq_lag" => run_fit!(settings, two_eq_lag_equation(), data),
-        "meta" => run_fit!(settings, meta_equation(), data),
-        "neely" => run_fit!(settings, neely_equation(), data),
+        "bimodal_ke" => run_fit!(config, bimodal_ke_equation(), data),
+        "theophylline" => run_fit!(config, theophylline_equation(), data),
+        "two_eq_lag" => run_fit!(config, two_eq_lag_equation(), data),
+        "meta" => run_fit!(config, meta_equation(), data),
+        "neely" => run_fit!(config, neely_equation(), data),
         _ => anyhow::bail!("Unknown dataset: {}", dataset_config.name),
     };
 

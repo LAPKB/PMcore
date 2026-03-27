@@ -6,6 +6,51 @@ use anyhow::Result;
 use pmcore::prelude::*;
 use std::time::Instant;
 
+fn build_problem<E: pharmsol::Equation + Clone>(
+    equation: E,
+    data: Data,
+    method: NonparametricMethod,
+    output_path: &str,
+    initialize_logs: bool,
+) -> Result<EstimationProblem<E>> {
+    let parameters = ParameterSpace::new()
+        .add(ParameterSpec::bounded("ke", 0.001, 3.0))
+        .add(ParameterSpec::bounded("v", 25.0, 250.0));
+
+    let assay_error_models = AssayErrorModels::new().add(
+        1,
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+
+    let observations = ObservationSpec::new()
+        .with_assay_error_models(assay_error_models)
+        .add_channel(ObservationChannel::continuous(1, "obs_1"));
+
+    let model = ModelDefinition::builder(equation)
+        .parameters(parameters)
+        .observations(observations)
+        .build()?;
+
+    EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(method))
+        .output(OutputPlan {
+            write: true,
+            path: Some(output_path.to_string()),
+        })
+        .runtime(RuntimeOptions {
+            cycles: 10_000,
+            prior: Some(Prior::sobol(2028, 22)),
+            logging: LoggingOptions {
+                initialize: initialize_logs,
+                write: false,
+                stdout: true,
+                ..LoggingOptions::default()
+            },
+            ..RuntimeOptions::default()
+        })
+        .build()
+}
+
 fn create_equation() -> equation::ODE {
     equation::ODE::new(
         |x, p, _t, dx, b, rateiv, _cov| {
@@ -22,49 +67,25 @@ fn create_equation() -> equation::ODE {
     )
 }
 
-fn create_settings(algorithm: Algorithm, output_path: &str) -> Settings {
-    let params = Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0);
-
-    let ems = AssayErrorModels::new()
-        .add(
-            1,
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )
-        .unwrap();
-
-    let mut settings = Settings::builder()
-        .set_algorithm(algorithm)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(10000); // Limit cycles for comparison
-    settings.set_prior(Prior::sobol(2028, 22));
-    settings.set_output_path(output_path);
-    settings.set_write_logs(false); // Disable file logging for cleaner comparison
-
-    settings
-}
-
 fn run_algorithm(
     name: &str,
-    algorithm: Algorithm,
+    method: NonparametricMethod,
     data: &Data,
+    initialize_logs: bool,
 ) -> Result<(f64, usize, usize, std::time::Duration)> {
     let eq = create_equation();
     let output_path = format!("examples/bimodal_ke/output_{}/", name.to_lowercase());
-    let settings = create_settings(algorithm, &output_path);
 
     println!("\n============================================================");
     println!("Running {}", name);
     println!("============================================================");
 
     let start = Instant::now();
-    let mut alg = dispatch_algorithm(settings, eq, data.clone())?;
-    let result = alg.fit()?;
+    let fit_result = fit(build_problem(eq, data.clone(), method, &output_path, initialize_logs)?)?;
     let duration = start.elapsed();
+    let result = fit_result
+        .as_nonparametric()
+        .expect("nonparametric comparison should yield a nonparametric result");
 
     let objf = result.objf();
     let n_spp = result.get_theta().nspp();
@@ -92,11 +113,6 @@ fn run_algorithm(
 }
 
 fn main() -> Result<()> {
-    // Initialize logging using PMcore's logger (filters out diffsol noise)
-    let mut settings = create_settings(Algorithm::NPAG, "");
-    settings.set_log_stdout(true);
-    settings.initialize_logs()?;
-
     println!("\n");
     println!("╔══════════════════════════════════════════════════════════╗");
     println!("║     ALGORITHM COMPARISON: Bimodal Ke Dataset             ║");
@@ -106,23 +122,23 @@ fn main() -> Result<()> {
     println!("\nDataset: {} subjects", data.len());
 
     let algorithms = [
-        ("NPAG", Algorithm::NPAG),
-        ("NPOD", Algorithm::NPOD),
-        ("NPSAH", Algorithm::NPSAH),
-        ("NPSAH", Algorithm::NPSAH2),
-        ("NPCAT", Algorithm::NPCAT),
-        ("NPOPT", Algorithm::NPOPT),
-        ("NPPSO", Algorithm::NPPSO),
-        ("NPXO", Algorithm::NPXO),
-        ("NPBO", Algorithm::NPBO),
-        ("NPCMA", Algorithm::NPCMA),
-        ("NEXUS", Algorithm::NEXUS),
+        ("NPAG", NonparametricMethod::Npag(NpagOptions::default())),
+        ("NPOD", NonparametricMethod::Npod(NpodOptions::default())),
+        ("NPSAH", NonparametricMethod::Npsah(NpsahOptions::default())),
+        ("NPSAH2", NonparametricMethod::Npsah2(Npsah2Options::default())),
+        ("NPCAT", NonparametricMethod::Npcat(NpcatOptions::default())),
+        ("NPOPT", NonparametricMethod::Npopt(NpoptOptions::default())),
+        ("NPPSO", NonparametricMethod::Nppso(NppsoOptions::default())),
+        ("NPXO", NonparametricMethod::Npxo(NpxoOptions::default())),
+        ("NPBO", NonparametricMethod::Npbo(NpboOptions::default())),
+        ("NPCMA", NonparametricMethod::Npcma(NpcmaOptions::default())),
+        ("NEXUS", NonparametricMethod::Nexus(NexusOptions::default())),
     ];
 
     let mut results = Vec::new();
 
-    for (name, alg) in &algorithms {
-        match run_algorithm(name, *alg, &data) {
+    for (index, (name, method)) in algorithms.iter().enumerate() {
+        match run_algorithm(name, *method, &data, index == 0) {
             Ok(result) => results.push((name.to_string(), result)),
             Err(e) => println!("  ERROR running {}: {}", name, e),
         }

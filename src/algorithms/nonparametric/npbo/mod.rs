@@ -17,17 +17,13 @@ mod gp;
 use constants::*;
 use gp::GaussianProcess;
 
-use crate::algorithms::{Status, StopReason};
+use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason};
+use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
 use crate::prelude::algorithms::Algorithms;
-use crate::routines::estimation::ipm::burke;
-use crate::routines::estimation::qr;
-use crate::routines::expansion::adaptative_grid::adaptative_grid;
-use crate::routines::initialization;
-use crate::routines::output::{cycles::CycleLog, NPResult};
-use crate::routines::settings::Settings;
-use crate::structs::nonparametric::psi::{calculate_psi, Psi};
-use crate::structs::nonparametric::theta::Theta;
-use crate::structs::nonparametric::weights::Weights;
+use crate::estimation::nonparametric::adaptative_grid;
+use crate::estimation::nonparametric::ipm::burke;
+use crate::estimation::nonparametric::qr;
+use crate::estimation::nonparametric::sample_space_for_parameters;
 
 use anyhow::{bail, Result};
 use pharmsol::prelude::{
@@ -64,7 +60,7 @@ pub struct NPBO<E: Equation + Send + 'static> {
     status: Status,
     cycle_log: CycleLog,
     data: Data,
-    settings: Settings,
+    config: NativeNonparametricConfig,
     // Bayesian Optimization state
     gp: GaussianProcess,
     y_best: f64,
@@ -73,43 +69,12 @@ pub struct NPBO<E: Equation + Send + 'static> {
 }
 
 impl<E: Equation + Send + 'static> Algorithms<E> for NPBO<E> {
-    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
-        let ranges = settings.parameters().ranges();
-        let n_dims = ranges.len();
-
-        Ok(Box::new(Self {
-            equation,
-            ranges: ranges.clone(),
-            psi: Psi::new(),
-            theta: Theta::new(),
-            lambda: Weights::default(),
-            w: Weights::default(),
-            eps: 0.2,
-            last_objf: -1e30,
-            objf: f64::NEG_INFINITY,
-            f0: -1e30,
-            f1: f64::default(),
-            cycle: 0,
-            gamma_delta: vec![0.1; settings.errormodels().len()],
-            error_models: settings.errormodels().clone(),
-            status: Status::Continue,
-            cycle_log: CycleLog::new(),
-            settings,
-            data,
-            // BO state
-            gp: GaussianProcess::new(n_dims, &ranges),
-            y_best: f64::NEG_INFINITY,
-            warmup_complete: false,
-            stagnation_count: 0,
-        }))
-    }
-
     fn equation(&self) -> &E {
         &self.equation
     }
 
-    fn into_npresult(&self) -> Result<NPResult<E>> {
-        NPResult::new(
+    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
+        NonparametricWorkspace::new(
             self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
@@ -118,13 +83,13 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPBO<E> {
             -2. * self.objf,
             self.cycle,
             self.status.clone(),
-            self.settings.clone(),
+            self.config.run_configuration.clone(),
             self.cycle_log.clone(),
         )
     }
 
-    fn settings(&self) -> &Settings {
-        &self.settings
+    fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
     fn data(&self) -> &Data {
@@ -133,7 +98,8 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPBO<E> {
 
     fn get_prior(&self) -> Theta {
         // Start with Sobol sampling for good initial coverage
-        initialization::sample_space(&self.settings).unwrap()
+        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior)
+            .unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -170,7 +136,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPBO<E> {
     }
 
     fn log_cycle_state(&mut self) {
-        use crate::routines::output::cycles::NPCycle;
         let state = NPCycle::new(
             self.cycle,
             -2. * self.objf,
@@ -247,7 +212,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPBO<E> {
         }
 
         // Stop if maximum cycles reached
-        if self.cycle >= self.settings.config().cycles {
+        if self.cycle >= self.config.max_cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.set_status(Status::Stop(StopReason::MaxCycles));
             self.log_cycle_state();
@@ -273,7 +238,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPBO<E> {
             &self.data,
             &self.theta,
             &self.error_models,
-            self.cycle == 1 && self.settings.config().progress,
+            self.cycle == 1 && self.config.progress,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -433,6 +398,42 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPBO<E> {
 
         // After warmup: use GP-guided Bayesian optimization
         self.bo_expansion()
+    }
+}
+
+impl<E: Equation + Send + 'static> NPBO<E> {
+    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
+        let config = input.native_config()?;
+        let ranges = config.ranges.clone();
+        let n_dims = ranges.len();
+        let error_models = input.error_models().clone();
+        let equation = input.equation;
+        let data = input.data;
+
+        Ok(Box::new(Self {
+            equation,
+            ranges: ranges.clone(),
+            psi: Psi::new(),
+            theta: Theta::new(),
+            lambda: Weights::default(),
+            w: Weights::default(),
+            eps: 0.2,
+            last_objf: -1e30,
+            objf: f64::NEG_INFINITY,
+            f0: -1e30,
+            f1: f64::default(),
+            cycle: 0,
+            gamma_delta: vec![0.1; error_models.len()],
+            error_models,
+            status: Status::Continue,
+            cycle_log: CycleLog::new(),
+            data,
+            config,
+            gp: GaussianProcess::new(n_dims, &ranges),
+            y_best: f64::NEG_INFINITY,
+            warmup_complete: false,
+            stagnation_count: 0,
+        }))
     }
 }
 

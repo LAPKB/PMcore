@@ -1,0 +1,9 @@
+{
+  "objective_function": -425.60904902364695,
+  "converged": true,
+  "iterations": 288,
+  "subject_count": 51,
+  "observation_count": 510,
+  "parameter_count": 2,
+  "algorithm": "NPAG"
+}

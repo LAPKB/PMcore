@@ -59,17 +59,13 @@
 //! 3. P(Y|L) criterion (THETA_F)
 //! 4. Multi-scale global D-criterion < threshold
 
-use crate::algorithms::{Status, StopReason};
+use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason};
+use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
 use crate::prelude::algorithms::Algorithms;
-use crate::routines::estimation::ipm::burke;
-use crate::routines::estimation::qr;
-use crate::routines::expansion::adaptative_grid::adaptative_grid;
-use crate::routines::initialization::sample_space;
-use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
-use crate::routines::settings::Settings;
-use crate::structs::nonparametric::psi::{calculate_psi, Psi};
-use crate::structs::nonparametric::theta::Theta;
-use crate::structs::nonparametric::weights::Weights;
+use crate::estimation::nonparametric::adaptative_grid;
+use crate::estimation::nonparametric::ipm::burke;
+use crate::estimation::nonparametric::qr;
+use crate::estimation::nonparametric::sample_space_for_parameters;
 
 use anyhow::{bail, Result};
 use ndarray::parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator};
@@ -529,8 +525,8 @@ pub struct NEXUS<E: Equation + Send + 'static> {
     cycle_log: CycleLog,
     /// Subject data
     data: Data,
-    /// Algorithm settings
-    settings: Settings,
+    /// Unified runtime/model-derived configuration
+    config: NativeNonparametricConfig,
 
     // NEXUS-specific fields
     /// Current algorithm phase
@@ -575,58 +571,12 @@ pub struct NEXUS<E: Equation + Send + 'static> {
 // ============================================================================
 
 impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
-    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
-        let seed = settings.prior().seed().unwrap_or(42);
-        let ranges = settings.parameters().ranges();
-
-        Ok(Box::new(Self {
-            equation,
-            ranges: ranges.clone(),
-            psi: Psi::new(),
-            theta: Theta::new(),
-            lambda: Weights::default(),
-            w: Weights::default(),
-            w_prev: Weights::default(),
-            eps: INITIAL_EPS,
-            last_objf: -1e30,
-            objf: f64::NEG_INFINITY,
-            best_objf: f64::NEG_INFINITY,
-            f0: -1e30,
-            f1: f64::default(),
-            cycle: 0,
-            gamma_delta: vec![0.1; settings.errormodels().len()],
-            error_models: settings.errormodels().clone(),
-            status: Status::Continue,
-            cycle_log: CycleLog::new(),
-            data,
-            settings,
-            // NEXUS-specific
-            phase: Phase::Warmup,
-            objf_history: Vec::with_capacity(100),
-            sobol_index: seed as u32,
-            last_global_d_max: f64::INFINITY,
-            stability_counter: 0,
-            current_global_scale: 0,
-            // Cross-Entropy
-            gmm: None, // Initialized after first cycle
-            ce_sample_size: CE_SAMPLE_SIZE as f64,
-            // Adaptive SA
-            temperature: INITIAL_TEMPERATURE,
-            cooling_rate: BASE_COOLING_RATE,
-            sa_accepted: 0,
-            sa_proposed: 0,
-            // Elite preservation
-            elite_points: Vec::with_capacity(ELITE_COUNT * 2),
-            rng: StdRng::seed_from_u64(seed as u64),
-        }))
-    }
-
     fn equation(&self) -> &E {
         &self.equation
     }
 
-    fn into_npresult(&self) -> Result<NPResult<E>> {
-        NPResult::new(
+    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
+        NonparametricWorkspace::new(
             self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
@@ -635,13 +585,13 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
             -2. * self.objf,
             self.cycle,
             self.status.clone(),
-            self.settings.clone(),
+            self.config.run_configuration.clone(),
             self.cycle_log.clone(),
         )
     }
 
-    fn settings(&self) -> &Settings {
-        &self.settings
+    fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
     fn data(&self) -> &Data {
@@ -649,7 +599,8 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        sample_space(&self.settings).unwrap()
+        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior)
+            .unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -783,7 +734,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
         }
 
         // Check maximum cycles
-        if self.cycle >= self.settings.config().cycles {
+        if self.cycle >= self.config.max_cycles {
             tracing::warn!("Maximum cycles reached");
             self.set_status(Status::Stop(StopReason::MaxCycles));
             self.log_cycle_state();
@@ -809,7 +760,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
             &self.data,
             &self.theta,
             &self.error_models,
-            self.cycle == 1 && self.settings.config().progress,
+            self.cycle == 1 && self.config.progress,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -1031,6 +982,50 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
 // ============================================================================
 
 impl<E: Equation + Send + 'static> NEXUS<E> {
+    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
+        let config = input.native_config()?;
+        let seed = config.prior.seed().unwrap_or(42);
+        let ranges = config.ranges.clone();
+        let error_models = input.error_models().clone();
+
+        Ok(Box::new(Self {
+            equation: input.equation,
+            ranges: ranges.clone(),
+            psi: Psi::new(),
+            theta: Theta::new(),
+            lambda: Weights::default(),
+            w: Weights::default(),
+            w_prev: Weights::default(),
+            eps: INITIAL_EPS,
+            last_objf: -1e30,
+            objf: f64::NEG_INFINITY,
+            best_objf: f64::NEG_INFINITY,
+            f0: -1e30,
+            f1: f64::default(),
+            cycle: 0,
+            gamma_delta: vec![0.1; error_models.len()],
+            error_models,
+            status: Status::Continue,
+            cycle_log: CycleLog::new(),
+            data: input.data,
+            config,
+            phase: Phase::Warmup,
+            objf_history: Vec::with_capacity(100),
+            sobol_index: seed as u32,
+            last_global_d_max: f64::INFINITY,
+            stability_counter: 0,
+            current_global_scale: 0,
+            gmm: None,
+            ce_sample_size: CE_SAMPLE_SIZE as f64,
+            temperature: INITIAL_TEMPERATURE,
+            cooling_rate: BASE_COOLING_RATE,
+            sa_accepted: 0,
+            sa_proposed: 0,
+            elite_points: Vec::with_capacity(ELITE_COUNT * 2),
+            rng: StdRng::seed_from_u64(seed as u64),
+        }))
+    }
+
     /// Compute P(Y|G) = Psi * w for all subjects
     fn compute_pyl(&self) -> Array1<f64> {
         let psi = self.psi().to_ndarray();

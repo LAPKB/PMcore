@@ -46,48 +46,62 @@ fn main() {
             y[2] = x[3] / vm2;
         },
     };
-    let params = Parameters::new()
-        .add("cls", 0.0, 0.4)
-        .add("k30", 0.0, 0.5)
-        .add("k40", 0.3, 1.5)
-        .add("qs", 0.0, 0.5)
-        .add("vps", 0.0, 5.0)
-        .add("vs", 0.0, 2.0)
-        .add("fm1", 0.0, 0.2)
-        .add("fm2", 0.0, 0.1)
-        .add("theta1", -4.0, 2.0)
-        .add("theta2", -2.0, 0.5);
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "cp"))
+        .add_channel(ObservationChannel::continuous(1, "m1"))
+        .add_channel(ObservationChannel::continuous(2, "m2"))
+        .with_assay_error_models(
+            AssayErrorModels::new()
+                .add(
+                    0,
+                    AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+                )
+                .unwrap()
+                .add(
+                    1,
+                    AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+                )
+                .unwrap()
+                .add(
+                    2,
+                    AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+                )
+                .unwrap(),
+        );
 
-    let ems = AssayErrorModels::new()
-        .add(
-            0,
-            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+    let model = ModelDefinition::builder(ode)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("cls", 0.0, 0.4))
+                .add(ParameterSpec::bounded("k30", 0.0, 0.5))
+                .add(ParameterSpec::bounded("k40", 0.3, 1.5))
+                .add(ParameterSpec::bounded("qs", 0.0, 0.5))
+                .add(ParameterSpec::bounded("vps", 0.0, 5.0))
+                .add(ParameterSpec::bounded("vs", 0.0, 2.0))
+                .add(ParameterSpec::bounded("fm1", 0.0, 0.2))
+                .add(ParameterSpec::bounded("fm2", 0.0, 0.1))
+                .add(ParameterSpec::bounded("theta1", -4.0, 2.0))
+                .add(ParameterSpec::bounded("theta2", -2.0, 0.5)),
         )
-        .unwrap()
-        .add(
-            1,
-            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
-        .unwrap()
-        .add(
-            2,
-            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
+        .observations(observations)
+        .build()
         .unwrap();
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPSAH)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
 
-    settings.set_cycles(1000);
-    settings.set_prior(Prior::sobol(2028, 22));
-    settings.set_output_path("examples/neely/output/");
-    settings.set_write_logs(true);
-    settings.write().unwrap();
-    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/neely/data.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, ode, data).unwrap();
-    let mut result = algorithm.fit().unwrap();
+    let mut result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npsah(
+            NpsahOptions::default(),
+        )))
+        .output(OutputPlan {
+            write: true,
+            path: Some("examples/neely/output/".to_string()),
+        })
+        .runtime(RuntimeOptions {
+            cycles: 1000,
+            prior: Some(Prior::sobol(2028, 22)),
+            ..RuntimeOptions::default()
+        })
+        .run()
+        .unwrap();
     result.write_outputs().unwrap();
 }

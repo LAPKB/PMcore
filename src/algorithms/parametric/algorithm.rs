@@ -7,13 +7,95 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use pharmsol::{Data, Equation};
+use pharmsol::{Data, Equation, ResidualErrorModels};
 
-use crate::routines::output::ParametricResult;
-use crate::routines::settings::Settings;
-use crate::structs::parametric::{IndividualEstimates, Population, SufficientStats};
+use crate::api::{
+    EstimationMethod, EstimationProblem, OutputPlan, ParametricMethod, RuntimeOptions,
+    SaemConfig,
+};
+use crate::compile::{CompiledProblem, StructuredCovariateDesign};
+use crate::estimation::parametric::{
+    IndividualEstimates, ParameterTransform as AlgorithmParameterTransform, ParametricWorkspace,
+    Population, SufficientStats,
+};
+use crate::model::{CovariateSpec, ParameterDomain, ParameterSpace};
+use crate::output::shared::RunConfiguration;
 
 use super::super::Status;
+
+#[derive(Debug, Clone)]
+pub(crate) struct ParametricAlgorithmInput<E: Equation> {
+    pub method: ParametricMethod,
+    pub equation: E,
+    pub data: Data,
+    pub parameter_space: ParameterSpace,
+    pub covariates: CovariateSpec,
+    pub structured_covariates: StructuredCovariateDesign,
+    pub residual_error_models: ResidualErrorModels,
+    pub output: OutputPlan,
+    pub runtime: RuntimeOptions,
+}
+
+impl<E: Equation> ParametricAlgorithmInput<E> {
+    pub(crate) fn from_compiled_problem(problem: CompiledProblem<E>) -> Result<Self> {
+        let method = match problem.method() {
+            EstimationMethod::Parametric(method) => method,
+            other => anyhow::bail!("parametric dispatcher received non-parametric method: {:?}", other),
+        };
+
+        let output = problem.output_plan().clone();
+        let runtime = problem.runtime_options().clone();
+        let covariates = problem.model.covariates.clone();
+        let structured_covariates = problem.design.structured_covariates.clone();
+        let (model, data) = problem.into_parts();
+
+        let residual_error_models = model
+            .observations
+            .residual_error_models
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("parametric algorithms require residual_error_models"))?;
+
+        Ok(Self {
+            method,
+            equation: model.equation,
+            data,
+            parameter_space: model.parameters,
+            covariates,
+            structured_covariates,
+            residual_error_models,
+            output,
+            runtime,
+        })
+    }
+
+    pub(crate) fn algorithm(&self) -> crate::algorithms::Algorithm {
+        self.method.algorithm()
+    }
+
+    pub(crate) fn run_configuration(&self) -> RunConfiguration {
+        RunConfiguration::new(
+            self.algorithm(),
+            &self.output,
+            &self.runtime,
+            self.parameter_space
+                .iter()
+                .map(|parameter| parameter.name.clone())
+                .collect(),
+        )
+    }
+
+    pub(crate) fn saem_config(&self) -> &SaemConfig {
+        &self.runtime.tuning.saem
+    }
+
+    pub(crate) fn initial_population(&self) -> Result<Population> {
+        Population::from_parameter_space(self.parameter_space.clone())
+    }
+
+    pub(crate) fn parameter_transforms(&self) -> Vec<AlgorithmParameterTransform> {
+        self.parameter_space.iter().map(to_parameter_transform).collect()
+    }
+}
 
 /// Configuration specific to parametric algorithms
 #[derive(Debug, Clone)]
@@ -69,22 +151,6 @@ impl Default for ParametricConfig {
 ///
 /// * `E` - The equation type implementing pharmacokinetic/pharmacodynamic model
 pub trait ParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send {
-    /// Create a new instance of the algorithm
-    ///
-    /// # Arguments
-    ///
-    /// * `settings` - Algorithm configuration and settings
-    /// * `equation` - The pharmacokinetic/pharmacodynamic model
-    /// * `data` - Population data
-    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>>
-    where
-        Self: Sized;
-
-    // ========== Accessors ==========
-
-    /// Get the algorithm settings
-    fn settings(&self) -> &Settings;
-
     /// Get the equation/model
     fn equation(&self) -> &E;
 
@@ -136,7 +202,7 @@ pub trait ParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send {
     /// This step computes or samples from the conditional distribution of
     /// individual parameters given the observations and current population parameters.
     ///
-    /// - **FOCE/Laplacian**: Finds the MAP estimate (mode) and Hessian
+    /// - **FOCEI**: Finds the MAP estimate (mode) with a local curvature approximation
     /// - **SAEM**: Samples from p(η|y,θ) using MCMC
     fn e_step(&mut self) -> Result<()>;
 
@@ -144,7 +210,7 @@ pub trait ParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send {
     ///
     /// Updates the population parameters (μ, Ω) based on the E-step results.
     ///
-    /// - **FOCE/Laplacian**: Uses the modes and Hessians
+    /// - **FOCEI**: Uses the subject modes and local curvature information
     /// - **SAEM**: Uses sufficient statistics from MCMC samples
     fn m_step(&mut self) -> Result<()>;
 
@@ -175,7 +241,7 @@ pub trait ParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send {
     /// Run the full estimation procedure
     ///
     /// Initializes the algorithm and iterates until convergence or stopping criteria.
-    fn fit(&mut self) -> Result<ParametricResult<E>> {
+    fn fit(&mut self) -> Result<ParametricWorkspace<E>> {
         self.initialize()?;
 
         loop {
@@ -189,7 +255,7 @@ pub trait ParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send {
     }
 
     /// Convert the algorithm state into a result object
-    fn into_result(&self) -> Result<ParametricResult<E>>;
+    fn into_result(&self) -> Result<ParametricWorkspace<E>>;
 
     // ========== Optional Methods ==========
 
@@ -219,35 +285,146 @@ pub trait ParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send {
 ///
 /// Creates the appropriate algorithm instance based on settings.
 pub fn dispatch_parametric_algorithm<E: Equation + Clone + Send + 'static>(
-    settings: Settings,
-    equation: E,
-    data: Data,
+    problem: EstimationProblem<E>,
 ) -> Result<Box<dyn ParametricAlgorithm<E>>> {
-    use crate::algorithms::Algorithm;
+    let compiled = problem.compile()?;
+    let input = ParametricAlgorithmInput::from_compiled_problem(compiled)?;
+
+    dispatch_parametric_algorithm_input(input)
+}
+
+pub(crate) fn dispatch_parametric_algorithm_input<E: Equation + Clone + Send + 'static>(
+    input: ParametricAlgorithmInput<E>,
+) -> Result<Box<dyn ParametricAlgorithm<E>>> {
+    use super::focei::FoceiAlgorithm;
     use super::saem::FSAEM;
 
-    match settings.config().algorithm {
-        Algorithm::SAEM => {
-            // Create f-SAEM using the trait's new method
-            let saem = FSAEM::new(settings, equation, data)?;
+    match input.method {
+        ParametricMethod::Saem(_) => {
+            let saem = FSAEM::create(input)?;
             Ok(saem as Box<dyn ParametricAlgorithm<E>>)
         }
-        Algorithm::FOCE | Algorithm::FOCEI => {
-            // TODO: Implement FOCE
-            anyhow::bail!("FOCE algorithm not yet implemented")
+        ParametricMethod::Focei(_) => {
+            let focei = FoceiAlgorithm::create(input)?;
+            Ok(focei as Box<dyn ParametricAlgorithm<E>>)
         }
-        Algorithm::FO => {
-            // TODO: Implement FO
-            anyhow::bail!("FO algorithm not yet implemented")
-        }
-        Algorithm::Laplacian => {
-            // TODO: Implement Laplacian
-            anyhow::bail!("Laplacian algorithm not yet implemented")
-        }
-        Algorithm::IT2B => {
+        ParametricMethod::It2b(_) => {
             // TODO: Implement IT2B
             anyhow::bail!("IT2B algorithm not yet implemented")
         }
-        _ => anyhow::bail!("Algorithm {:?} is not a parametric algorithm", settings.config().algorithm),
+    }
+}
+
+pub(crate) fn run_parametric_algorithm<E: Equation + Clone + Send + 'static>(
+    input: ParametricAlgorithmInput<E>,
+) -> Result<ParametricWorkspace<E>> {
+    let mut algorithm = dispatch_parametric_algorithm_input(input)?;
+    algorithm.fit()
+}
+
+fn to_parameter_transform(
+    parameter: &crate::model::ParameterSpec,
+) -> AlgorithmParameterTransform {
+    match parameter.transform {
+        crate::model::ParameterTransform::Identity => AlgorithmParameterTransform::None,
+        crate::model::ParameterTransform::LogNormal => AlgorithmParameterTransform::LogNormal,
+        crate::model::ParameterTransform::Logit => {
+            let (lower, upper) = bounded_domain(parameter);
+            AlgorithmParameterTransform::Logit { lower, upper }
+        }
+        crate::model::ParameterTransform::Probit => {
+            let (lower, upper) = bounded_domain(parameter);
+            AlgorithmParameterTransform::Probit { lower, upper }
+        }
+    }
+}
+
+fn bounded_domain(parameter: &crate::model::ParameterSpec) -> (f64, f64) {
+    match parameter.domain {
+        ParameterDomain::Bounded { lower, upper } => (lower, upper),
+        ParameterDomain::Positive { lower, upper } => {
+            (lower.unwrap_or(0.0), upper.unwrap_or(1.0))
+        }
+        ParameterDomain::Unbounded { lower, upper } => {
+            (lower.unwrap_or(0.0), upper.unwrap_or(1.0))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ParametricAlgorithmInput;
+    use anyhow::Result;
+    use pharmsol::{AssayErrorModel, ErrorPoly, ResidualErrorModel, ResidualErrorModels, Subject};
+
+    use crate::api::{EstimationMethod, EstimationProblem, ParametricMethod, SaemOptions};
+    use crate::model::{
+        CovariateEffectsSpec, CovariateSpec, ModelDefinition, ObservationChannel,
+        ObservationSpec, ParameterSpace, ParameterSpec,
+    };
+    use crate::prelude::*;
+
+    fn equation() -> equation::ODE {
+        equation::ODE::new(
+            |x, p, _t, dx, b, _rateiv, _cov| {
+                fetch_params!(p, ke);
+                dx[0] = -ke * x[0] + b[0];
+            },
+            |_p, _t, _cov| lag! {},
+            |_p, _t, _cov| fa! {},
+            |_p, _t, _cov, _x| {},
+            |x, p, _t, _cov, y| {
+                fetch_params!(p, v);
+                y[0] = x[0] / v;
+            },
+        )
+    }
+
+    #[test]
+    fn compiled_parametric_input_preserves_structured_covariates() -> Result<()> {
+        let data = pharmsol::Data::new(vec![
+            Subject::builder("1")
+                .covariate("wt", 0.0, 70.0)
+                .bolus(0.0, 100.0, 0)
+                .observation(1.0, 10.0, 0)
+                .build(),
+        ]);
+        let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
+        let residual_error =
+            ResidualErrorModels::new().add(0, ResidualErrorModel::combined(0.5, 0.1));
+        let observations = ObservationSpec::new()
+            .add_channel(ObservationChannel::continuous(0, "cp"))
+            .with_assay_error_models(AssayErrorModels::new().add(0, assay_error)?)
+            .with_residual_error_models(residual_error);
+
+        let model = ModelDefinition::builder(equation())
+            .parameters(
+                ParameterSpace::new()
+                    .add(ParameterSpec::positive("ke"))
+                    .add(ParameterSpec::positive("v")),
+            )
+            .observations(observations)
+            .covariates(CovariateSpec::Structured(CovariateEffectsSpec {
+                subject_effects: Some(CovariateModel::new(
+                    vec!["ke", "v"],
+                    vec!["wt"],
+                    vec![vec![true], vec![false]],
+                )?),
+                occasion_effects: None,
+            }))
+            .build()?;
+
+        let compiled = EstimationProblem::builder(model, data)
+            .method(EstimationMethod::Parametric(ParametricMethod::Saem(SaemOptions)))
+            .build()?
+            .compile()?;
+
+        let input = ParametricAlgorithmInput::from_compiled_problem(compiled)?;
+
+        assert!(matches!(input.covariates, CovariateSpec::Structured(_)));
+        assert_eq!(input.structured_covariates.subject_columns, vec!["wt"]);
+        assert_eq!(input.structured_covariates.subject_rows.len(), 1);
+        assert_eq!(input.structured_covariates.subject_rows[0].values, vec![Some(70.0)]);
+        Ok(())
     }
 }

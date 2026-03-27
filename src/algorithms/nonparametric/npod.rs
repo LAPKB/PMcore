@@ -1,20 +1,10 @@
-use crate::algorithms::StopReason;
-use crate::routines::initialization::sample_space;
-use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
+use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, StopReason};
+use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
+use crate::estimation::nonparametric::ipm::burke;
+use crate::estimation::nonparametric::qr;
 use crate::{
     algorithms::Status,
-    prelude::{
-        algorithms::Algorithms,
-        routines::{
-            estimation::{ipm::burke, qr},
-            settings::Settings,
-        },
-    },
-    structs::nonparametric::{
-        psi::{calculate_psi, Psi},
-        theta::Theta,
-        weights::Weights,
-    },
+    prelude::algorithms::Algorithms,
 };
 use pharmsol::SppOptimizer;
 
@@ -47,31 +37,12 @@ pub struct NPOD<E: Equation + Send + 'static> {
     status: Status,
     cycle_log: CycleLog,
     data: Data,
-    settings: Settings,
+    config: NativeNonparametricConfig,
 }
 
 impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
-    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
-        Ok(Box::new(Self {
-            equation,
-            psi: Psi::new(),
-            theta: Theta::new(),
-            lambda: Weights::default(),
-            w: Weights::default(),
-            last_objf: -1e30,
-            objf: f64::NEG_INFINITY,
-            cycle: 0,
-            gamma_delta: vec![0.1; settings.errormodels().len()],
-            error_models: settings.errormodels().clone(),
-            converged: false,
-            status: Status::Continue,
-            cycle_log: CycleLog::new(),
-            settings,
-            data,
-        }))
-    }
-    fn into_npresult(&self) -> Result<NPResult<E>> {
-        NPResult::new(
+    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
+        NonparametricWorkspace::new(
             self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
@@ -80,7 +51,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             -2. * self.objf,
             self.cycle,
             self.status.clone(),
-            self.settings.clone(),
+            self.config.run_configuration.clone(),
             self.cycle_log.clone(),
         )
     }
@@ -89,8 +60,8 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         &self.equation
     }
 
-    fn settings(&self) -> &Settings {
-        &self.settings
+    fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
     fn data(&self) -> &Data {
@@ -98,7 +69,11 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        sample_space(&self.settings).unwrap()
+        crate::estimation::nonparametric::sample_space_for_parameters(
+            &self.config.parameter_space,
+            &self.config.prior,
+        )
+        .unwrap()
     }
 
     fn increment_cycle(&mut self) -> usize {
@@ -161,7 +136,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
                 em.factor().unwrap_or_default()
             );
         });
-        // Increasing objf signals instability or model misspecification.
         if self.last_objf > self.objf + 1e-4 {
             tracing::warn!(
                 "Objective function decreased from {:.4} to {:.4} (delta = {})",
@@ -179,8 +153,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             return Ok(self.status.clone());
         }
 
-        // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config().cycles {
+        if self.cycle >= self.config.max_cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.converged = true;
             self.set_status(Status::Stop(StopReason::MaxCycles));
@@ -188,7 +161,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             return Ok(self.status.clone());
         }
 
-        // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
             self.converged = true;
@@ -197,7 +169,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             return Ok(self.status.clone());
         }
 
-        // Continue with normal operation
         self.status = Status::Continue;
         self.log_cycle_state();
         Ok(self.status.clone())
@@ -211,7 +182,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             &self.data,
             &self.theta,
             &error_model,
-            self.cycle == 1 && self.settings.config().progress,
+            self.cycle == 1 && self.config.progress,
         )?;
 
         if let Err(err) = self.validate_psi() {
@@ -249,12 +220,9 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         self.theta.filter_indices(keep.as_slice());
         self.psi.filter_column_indices(keep.as_slice());
 
-        //Rank-Revealing Factorization
         let (r, perm) = qr::qrd(&self.psi)?;
 
         let mut keep = Vec::<usize>::new();
-
-        // The minimum between the number of subjects and the actual number of support points
         let keep_n = self.psi.matrix().ncols().min(self.psi.matrix().nrows());
         for i in 0..keep_n {
             let test = r.col(i).norm_l2();
@@ -265,7 +233,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             }
         }
 
-        // If a support point is dropped, log it as a debug message
         if self.psi.matrix().ncols() != keep.len() {
             tracing::debug!(
                 "QR decomposition dropped {} support point(s)",
@@ -298,8 +265,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
                 }
             })
             .try_for_each(|(outeq, em)| -> Result<()> {
-                // OPTIMIZATION
-
                 let gamma_up = em.factor()? * (1.0 + self.gamma_delta[outeq]);
                 let gamma_down = em.factor()? / (1.0 + self.gamma_delta[outeq]);
 
@@ -361,11 +326,9 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
     }
 
     fn expansion(&mut self) -> Result<()> {
-        // Compute pyl = psi * w using faer native operations
         let pyl_col = self.psi().matrix().as_ref() * self.w.weights().as_ref();
         let pyl: Array1<f64> = pyl_col.iter().copied().collect();
 
-        // Add new point to theta based on the optimization of the D function
         let error_model: AssayErrorModels = self.error_models.clone();
 
         let mut candididate_points: Vec<Array1<f64>> = Vec::default();
@@ -378,20 +341,42 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             let optimizer = SppOptimizer::new(&self.equation, &self.data, &error_model, &pyl);
             let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
             *spp = candidate_point;
-            // add spp to theta
-            // recalculate psi
-            // re-run ipm to re-calculate w
-            // re-calculate pyl
-            // re-define a new optimization
         });
         for cp in candididate_points {
             self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D)?;
         }
         Ok(())
     }
+
 }
 
 impl<E: Equation + Send + 'static> NPOD<E> {
+    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
+        let config = input.native_config()?;
+        let error_models = input.error_models().clone();
+        let gamma_delta = vec![0.1; error_models.len()];
+        let equation = input.equation;
+        let data = input.data;
+
+        Ok(Box::new(Self {
+            equation,
+            psi: Psi::new(),
+            theta: Theta::new(),
+            lambda: Weights::default(),
+            w: Weights::default(),
+            last_objf: -1e30,
+            objf: f64::NEG_INFINITY,
+            cycle: 0,
+            gamma_delta,
+            error_models,
+            converged: false,
+            status: Status::Continue,
+            cycle_log: CycleLog::new(),
+            data,
+            config,
+        }))
+    }
+
     fn validate_psi(&mut self) -> Result<()> {
         let mut psi = self.psi().matrix().to_owned();
         // First coerce all NaN and infinite in psi to 0.0

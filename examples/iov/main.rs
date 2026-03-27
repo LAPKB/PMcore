@@ -31,30 +31,37 @@ fn main() -> Result<()> {
     .with_ndrugs(1)
     .with_nout(1);
 
-    let params = Parameters::new().add("ke0", 0.001, 2.0);
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "cp"))
+        .with_assay_error_models(AssayErrorModels::new().add(
+            0,
+            AssayErrorModel::additive(
+                ErrorPoly::new(0.0, 0.0, 0.0, 0.0),
+                0.0000757575757576,
+            ),
+        )?);
 
-    let ems = AssayErrorModels::new().add(
-        0,
-        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
-    )?;
-
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(100000);
-
-    settings.set_output_path("examples/iov/output");
-    settings.set_prior(Prior::sobol(100, 347));
-
-    settings.initialize_logs()?;
+    let model = ModelDefinition::builder(sde)
+        .parameters(ParameterSpace::new().add(ParameterSpec::bounded("ke0", 0.001, 2.0)))
+        .observations(observations)
+        .build()?;
 
     let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
-    algorithm.initialize().unwrap();
-    let mut result = algorithm.fit().unwrap();
+    let mut result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions::default(),
+        )))
+        .output(OutputPlan {
+            write: true,
+            path: Some("examples/iov/output".to_string()),
+        })
+        .runtime(RuntimeOptions {
+            cycles: 100000,
+            prior: Some(Prior::sobol(100, 347)),
+            ..RuntimeOptions::default()
+        })
+        .run()
+        .unwrap();
     result.write_outputs().unwrap();
 
     Ok(())

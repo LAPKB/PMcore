@@ -1,7 +1,6 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseProblem, DoseRange, Target};
+use pmcore::bestdose::{BestDoseConfig, BestDoseProblem, DoseRange, Target};
 use pmcore::prelude::*;
-use pmcore::routines::initialization::parse_prior;
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -24,30 +23,22 @@ fn main() -> Result<()> {
     };
 
     // Minimal parameter ranges
-    let params = Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0);
+    let parameter_space = ParameterSpace::new()
+        .add(ParameterSpec::bounded("ke", 0.001, 3.0))
+        .add(ParameterSpec::bounded("v", 25.0, 250.0));
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_idelta(60.0); // 1 hour intervals for AUC calculation
+    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone())
+        .with_progress(false)
+        .with_prediction_interval(60.0);
 
     // Load realistic prior from previous NPAG run (47 support points)
     println!("Loading prior from bimodal_ke example...");
-    let (theta, prior) = parse_prior(
-        &"examples/bimodal_ke/output/theta.csv".to_string(),
-        &settings,
-    )?;
+    let (theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
     let weights = prior.as_ref().unwrap();
 
     println!("Prior: {} support points\n", theta.matrix().nrows());
@@ -73,7 +64,7 @@ fn main() -> Result<()> {
         eq.clone(),
         DoseRange::new(100.0, 2000.0), // Wider range for AUC targets
         0.8,                           // for AUC targets higher bias_weight usually works best
-        settings.clone(),
+        config.clone(),
         Target::AUCFromZero, // Cumulative AUC from time 0
     )?;
 
@@ -148,7 +139,7 @@ fn main() -> Result<()> {
         eq.clone(),
         DoseRange::new(50.0, 500.0),
         0.8,
-        settings.clone(),
+        config.clone(),
         Target::AUCFromLastDose, // Interval AUC from last dose!
     )?;
 

@@ -56,25 +56,32 @@ use anyhow::Result;
 use faer::linalg::solvers::DenseSolveCore;
 use faer::{Col, Mat};
 use ndarray::Array2;
-use pharmsol::{Data, Equation, Event, Predictions, ResidualErrorModels, Subject};
+use pharmsol::{Data, Equation, Event, ResidualErrorModels};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use rand_distr::{Distribution, Normal};
+use std::collections::HashMap;
 
 use crate::algorithms::{Status, StopReason};
-use crate::routines::output::ParametricResult;
-use crate::routines::sampling::{ChainState, KernelConfig};
-use crate::routines::settings::Settings;
-use crate::structs::parametric::{
-    Individual, IndividualEstimates, ParameterTransform, Population, SufficientStats,
+use crate::api::SaemConfig;
+use crate::estimation::parametric::{
+    approximate_objective_from_individuals, assemble_saem_result, batch_log_likelihood_from_eta,
+    blended_subject_covariate_m_step, covariate_state, ensure_positive_definite_covariance,
+    estimate_initial_sigma_sq, initialize_population_in_phi_space, log_priors_from_eta_matrix,
+    occasion_covariate_maps, phi_to_psi, recenter_individual_estimates, saem_posthoc_likelihood,
+    sample_eta_from_population, subject_covariate_maps, subject_log_prior_from_eta,
+    subject_mean_phi, transform_label, update_residual_error_from_individuals, ChainState,
+    Individual, IndividualEstimates, KernelConfig, ParameterTransform, PhiVector, Population,
+    SaemResultInput, SufficientStats,
 };
+use crate::model::{CovariateModel, CovariateSpec};
+use crate::output::shared::RunConfiguration;
 
-use super::algorithm::{ParametricAlgorithm, ParametricConfig};
-use crate::routines::settings::SaemSettings;
+use super::algorithm::{ParametricAlgorithm, ParametricAlgorithmInput, ParametricConfig};
 
 /// f-SAEM algorithm configuration
 ///
-/// This structure can be constructed from [`SaemSettings`] to ensure
+/// This structure can be constructed from [`SaemConfig`] to ensure
 /// consistency with user-facing configuration.
 #[derive(Debug, Clone)]
 pub struct FSaemConfig {
@@ -147,44 +154,42 @@ impl Default for FSaemConfig {
 }
 
 impl FSaemConfig {
-    /// Create configuration from user-facing SaemSettings
-    ///
-    /// This ensures the algorithm uses the settings specified by the user.
-    pub fn from_settings(settings: &SaemSettings) -> Self {
-        let k1 = settings.k1_iterations;
-        let k2 = settings.k2_iterations;
+    /// Create internal configuration from the user-facing SAEM config.
+    pub fn from_saem_config(config: &SaemConfig) -> Self {
+        let k1 = config.k1_iterations;
+        let k2 = config.k2_iterations;
 
         Self {
             base: ParametricConfig {
                 max_iterations: k1 + k2,
-                burn_in: settings.burn_in,
-                n_chains: settings.n_chains,
-                n_samples: settings.mcmc_iterations,
+                burn_in: config.burn_in,
+                n_chains: config.n_chains,
+                n_samples: config.mcmc_iterations,
                 parameter_tolerance: 1e-4,
                 objective_tolerance: 1e-4,
-                use_annealing: settings.sa_iterations > 0,
+                use_annealing: config.sa_iterations > 0,
                 initial_temperature: 1.0,
             },
             kernel_config: KernelConfig {
                 n_kernel1: 2,
                 n_kernel2: 2,
                 n_kernel3: 2,
-                n_kernel4: if settings.n_kernels >= 4 { 0 } else { 0 }, // Kernel 4 disabled by default
+                n_kernel4: if config.n_kernels >= 4 { 0 } else { 0 }, // Kernel 4 disabled by default
                 map_iterations: 0,
-                rw_step_size: settings.mcmc_step_size,
+                rw_step_size: config.mcmc_step_size,
                 target_acceptance: 0.4,
                 rw_init: 0.5,
             },
-            n_chains: settings.n_chains,
-            seed: settings.seed,
-            n_pure_burn: settings.burn_in,
-            n_sa: k1.saturating_sub(settings.burn_in),
+            n_chains: config.n_chains,
+            seed: config.seed,
+            n_pure_burn: config.burn_in,
+            n_sa: k1.saturating_sub(config.burn_in),
             n_iterations: k1 + k2,
-            sa_alpha: settings.sa_cooling_factor,
-            sa_min_var: settings.omega_min_variance,
+            sa_alpha: config.sa_cooling_factor,
+            sa_min_var: config.omega_min_variance,
             // R saemix: nbiter.sa = K₁/2 for variance floor decay
-            n_sa_variance: if settings.sa_iterations > 0 {
-                settings.sa_iterations
+            n_sa_variance: if config.sa_iterations > 0 {
+                config.sa_iterations
             } else {
                 k1 / 2
             },
@@ -195,11 +200,11 @@ impl FSaemConfig {
     ///
     /// R saemix automatically increases chains when N < 50:
     /// nb.chains = ceiling(50/N)
-    pub fn from_settings_with_auto_chains(settings: &SaemSettings, n_subjects: usize) -> Self {
-        let mut config = Self::from_settings(settings);
+    pub fn from_saem_config_with_auto_chains(saem_config: &SaemConfig, n_subjects: usize) -> Self {
+        let mut config = Self::from_saem_config(saem_config);
 
         // R saemix: if N < 50, auto-increase chains
-        if n_subjects < 50 && settings.n_chains == 1 {
+        if n_subjects < 50 && saem_config.n_chains == 1 {
             config.n_chains = ((50.0 / n_subjects as f64).ceil() as usize).max(1);
             tracing::info!(
                 "Auto-scaled MCMC chains from 1 to {} for small dataset (N={})",
@@ -214,12 +219,12 @@ impl FSaemConfig {
 
 /// f-SAEM algorithm state
 pub struct FSAEM<E: Equation> {
-    /// Algorithm settings
-    settings: Settings,
     /// Pharmacokinetic/pharmacodynamic model
     equation: E,
     /// Population data
     data: Data,
+    /// Run configuration derived from the unified API surface
+    run_configuration: RunConfiguration,
     /// Current population parameters (μ, Ω)
     population: Population,
     /// Individual parameter estimates from last iteration
@@ -262,50 +267,72 @@ pub struct FSAEM<E: Equation> {
     /// Initialized as sqrt(diag(Ω)) * rw_init and adapted based on acceptance rates
     /// This decouples proposal width from current Ω, preventing collapse
     domega2: Col<f64>,
+    /// Structured subject-level covariate model used to compute subject-specific mean φ.
+    subject_covariate_model: Option<CovariateModel>,
+    /// Structured subject-level covariate values keyed by covariate name.
+    subject_covariates: Vec<HashMap<String, f64>>,
+    /// Structured occasion-level covariate model preserved in fitted state for IOV-ready paths.
+    occasion_covariate_model: Option<CovariateModel>,
+    /// Structured occasion-level covariate values keyed by covariate name.
+    occasion_covariates: Vec<HashMap<String, f64>>,
 }
 
 impl<E: Equation + Send + 'static> FSAEM<E> {
-    /// Create a new f-SAEM algorithm instance using settings
+    /// Create a new f-SAEM algorithm instance from the unified SAEM config.
     ///
-    /// This constructor reads configuration from [`SaemSettings`] to ensure
+    /// This constructor reads configuration from [`SaemConfig`] to ensure
     /// the algorithm behaves according to user-specified parameters.
     /// For small datasets (N < 50), MCMC chains are automatically scaled
     /// following R saemix behavior.
-    pub fn create(settings: Settings, equation: E, data: Data) -> Result<Self> {
-        let n_subjects = data.subjects().len();
+    pub(crate) fn create(input: ParametricAlgorithmInput<E>) -> Result<Box<Self>> {
+        let n_subjects = input.data.subjects().len();
         let config =
-            FSaemConfig::from_settings_with_auto_chains(settings.advanced().saem(), n_subjects);
-        Self::create_with_config(settings, equation, data, config)
+            FSaemConfig::from_saem_config_with_auto_chains(input.saem_config(), n_subjects);
+        Self::create_with_config(input, config)
     }
 
     /// Create with custom configuration (advanced users)
     ///
     /// Use this when you need fine-grained control over algorithm parameters
-    /// beyond what [`SaemSettings`] provides.
-    pub fn create_with_config(
-        settings: Settings,
-        equation: E,
-        data: Data,
+    /// beyond what [`SaemConfig`] provides.
+    pub(crate) fn create_with_config(
+        input: ParametricAlgorithmInput<E>,
         config: FSaemConfig,
-    ) -> Result<Self> {
-        // Initialize population from parameter settings
-        let population = Population::from_parameters(settings.parameters().clone())?;
+    ) -> Result<Box<Self>> {
+        let run_configuration = input.run_configuration();
+        // Initialize population from the unified parameter space.
+        let population = input.initial_population()?;
+        let transforms = input.parameter_transforms();
+        let ParametricAlgorithmInput {
+            equation,
+            data,
+            covariates,
+            structured_covariates,
+            residual_error_models,
+            ..
+        } = input;
+        let (
+            subject_covariate_model,
+            occasion_covariate_model,
+            subject_covariates,
+            occasion_covariates,
+        ) = match covariates {
+            CovariateSpec::InEquation => (None, None, Vec::new(), Vec::new()),
+            CovariateSpec::Structured(spec) => (
+                spec.subject_effects,
+                spec.occasion_effects,
+                subject_covariate_maps(&structured_covariates),
+                occasion_covariate_maps(&structured_covariates),
+            ),
+        };
         let n_params = population.npar();
         let n_subjects = data.subjects().len();
-
-        // Initialize parameter transforms from settings
-        // Get transform codes from SAEM settings, defaulting to LogNormal (1) for all
-        let transform_codes = settings.advanced().saem.get_transforms(n_params);
-        let transforms: Vec<ParameterTransform> = transform_codes
-            .iter()
-            .map(|&code| ParameterTransform::from_saemix_code(code))
-            .collect();
 
         // Initialize sufficient statistics
         let sufficient_stats = SufficientStats::new(n_params);
 
         // Initialize residual error variance
-        let sigma_sq = estimate_initial_sigma_sq(&settings);
+        let sigma_sq = estimate_initial_sigma_sq(&residual_error_models);
         // Initialize statrese - sufficient statistic for residual error
         // Start with initial sigma² * n_obs (will be divided back to get sigma)
         let n_obs_estimate = data
@@ -342,17 +369,10 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         // Random number generator
         let rng = ChaCha8Rng::seed_from_u64(config.seed);
 
-        // Initialize residual error models for prediction-based sigma calculation
-        // This is required for parametric algorithms
-        let residual_error_models = settings
-            .residual_error()
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("SAEM requires residual_error to be set in settings"))?;
-
-        Ok(Self {
-            settings,
+        Ok(Box::new(Self {
             equation,
             data,
+            run_configuration,
             population,
             individual_estimates: IndividualEstimates::new(),
             sufficient_stats,
@@ -371,19 +391,23 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
             objf_history: Vec::new(),
             transforms,
             domega2,
-        })
+            subject_covariate_model,
+            subject_covariates,
+            occasion_covariate_model,
+            occasion_covariates,
+        }))
     }
 
     /// Check if currently in burn-in phase (Phase 1 + Phase 2)
     /// - Phase 1: Pure burn-in (γ=0)
     /// - Phase 2: SA phase (γ=1)
-    pub fn is_burn_in(&self) -> bool {
-        self.iteration <= self.config.n_burn_in()
-    }
-
     /// Check if currently in pure burn-in phase (γ=0, no stat updates)
     pub fn is_pure_burn_in(&self) -> bool {
         self.iteration <= self.config.n_pure_burn
+    }
+
+    pub fn is_burn_in(&self) -> bool {
+        self.iteration <= self.config.n_burn_in()
     }
 
     /// Check if currently in SA phase (γ=1 with simulated annealing)
@@ -437,8 +461,13 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         let chol_omega = llt.L().to_owned();
         let omega_inv = llt.inverse();
 
-        // Population mean in φ space
-        let mean_phi = self.population.mu();
+        // Subject-specific population means in φ space.
+        let mean_phi = subject_mean_phi(
+            self.population.mu(),
+            self.data.subjects().len(),
+            self.subject_covariate_model.as_ref(),
+            &self.subject_covariates,
+        );
 
         // Current η for all subjects (N × P matrix)
         // η = φ - μ, so φ = μ + η
@@ -452,20 +481,17 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         }
 
         // Current log-likelihood for all subjects
-        let mut current_ll = self.compute_batch_log_likelihood(&eta_matrix, mean_phi)?;
+        let mut current_ll = batch_log_likelihood_from_eta(
+            &self.equation,
+            &self.data,
+            &self.residual_error_models,
+            &self.transforms,
+            &eta_matrix,
+            &mean_phi,
+        )?;
 
         // Current log-prior for all subjects: -0.5 * η' Ω⁻¹ η
-        let mut current_log_prior: Vec<f64> = (0..n_subjects)
-            .map(|i| {
-                let mut quad = 0.0;
-                for j in 0..n_params {
-                    for k in 0..n_params {
-                        quad += eta_matrix[[i, j]] * omega_inv[(j, k)] * eta_matrix[[i, k]];
-                    }
-                }
-                -0.5 * quad
-            })
-            .collect();
+        let mut current_log_prior = log_priors_from_eta_matrix(&eta_matrix, &omega_inv);
 
         let normal = Normal::new(0.0, 1.0).unwrap();
 
@@ -489,7 +515,14 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
             }
 
             // Compute likelihoods for all proposals in parallel
-            let proposed_ll = self.compute_batch_log_likelihood(&proposed_eta, mean_phi)?;
+            let proposed_ll = batch_log_likelihood_from_eta(
+                &self.equation,
+                &self.data,
+                &self.residual_error_models,
+                &self.transforms,
+                &proposed_eta,
+                &mean_phi,
+            )?;
 
             // Accept/reject (vectorized)
             for i in 0..n_subjects {
@@ -502,13 +535,7 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
                     }
                     current_ll[i] = proposed_ll[i];
                     // Update prior (all from N(0,Ω), so log_prior is the same form)
-                    let mut quad = 0.0;
-                    for j in 0..n_params {
-                        for k in 0..n_params {
-                            quad += eta_matrix[[i, j]] * omega_inv[(j, k)] * eta_matrix[[i, k]];
-                        }
-                    }
-                    current_log_prior[i] = -0.5 * quad;
+                    current_log_prior[i] = subject_log_prior_from_eta(i, &eta_matrix, &omega_inv);
                 }
             }
         }
@@ -529,22 +556,17 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
                     }
 
                     // Compute likelihoods for all proposals
-                    let proposed_ll = self.compute_batch_log_likelihood(&proposed_eta, mean_phi)?;
+                    let proposed_ll = batch_log_likelihood_from_eta(
+                        &self.equation,
+                        &self.data,
+                        &self.residual_error_models,
+                        &self.transforms,
+                        &proposed_eta,
+                        &mean_phi,
+                    )?;
 
                     // Compute proposed log-priors
-                    let proposed_log_prior: Vec<f64> = (0..n_subjects)
-                        .map(|i| {
-                            let mut quad = 0.0;
-                            for j in 0..n_params {
-                                for k in 0..n_params {
-                                    quad += proposed_eta[[i, j]]
-                                        * omega_inv[(j, k)]
-                                        * proposed_eta[[i, k]];
-                                }
-                            }
-                            -0.5 * quad
-                        })
-                        .collect();
+                    let proposed_log_prior = log_priors_from_eta_matrix(&proposed_eta, &omega_inv);
 
                     // Accept/reject
                     for i in 0..n_subjects {
@@ -609,21 +631,17 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
                 }
 
                 // Compute likelihoods
-                let proposed_ll = self.compute_batch_log_likelihood(&proposed_eta, mean_phi)?;
+                let proposed_ll = batch_log_likelihood_from_eta(
+                    &self.equation,
+                    &self.data,
+                    &self.residual_error_models,
+                    &self.transforms,
+                    &proposed_eta,
+                    &mean_phi,
+                )?;
 
                 // Compute proposed log-priors
-                let proposed_log_prior: Vec<f64> = (0..n_subjects)
-                    .map(|i| {
-                        let mut quad = 0.0;
-                        for j in 0..n_params {
-                            for k in 0..n_params {
-                                quad +=
-                                    proposed_eta[[i, j]] * omega_inv[(j, k)] * proposed_eta[[i, k]];
-                            }
-                        }
-                        -0.5 * quad
-                    })
-                    .collect();
+                let proposed_log_prior = log_priors_from_eta_matrix(&proposed_eta, &omega_inv);
 
                 // Accept/reject
                 for i in 0..n_subjects {
@@ -676,7 +694,7 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         let mut individuals = Vec::with_capacity(n_subjects);
 
         for i in 0..n_subjects {
-            let phi = Col::from_fn(n_params, |j| mean_phi[j] + eta_matrix[[i, j]]);
+            let phi = Col::from_fn(n_params, |j| mean_phi[i][j] + eta_matrix[[i, j]]);
             new_stats.accumulate(&phi)?;
 
             let eta = Col::from_fn(n_params, |j| eta_matrix[[i, j]]);
@@ -698,107 +716,6 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         Ok(())
     }
 
-    /// Compute log-likelihoods for all subjects in parallel batch
-    /// Uses prediction-based sigma (parametric formulation) to match R saemix
-    fn compute_batch_log_likelihood(
-        &self,
-        eta_matrix: &Array2<f64>,
-        mean_phi: &Col<f64>,
-    ) -> Result<Vec<f64>> {
-        let n_subjects = eta_matrix.nrows();
-        let n_params = eta_matrix.ncols();
-
-        // Build parameter matrix in ψ space (constrained) for each subject
-        let mut psi_params = Array2::<f64>::zeros((n_subjects, n_params));
-        for i in 0..n_subjects {
-            for j in 0..n_params {
-                let phi_ij = mean_phi[j] + eta_matrix[[i, j]];
-                psi_params[[i, j]] = self.transforms[j].phi_to_psi(phi_ij);
-            }
-        }
-
-        // Use pharmsol's log_likelihood_batch for parallel computation
-        pharmsol::prelude::simulator::log_likelihood_batch(
-            &self.equation,
-            &self.data,
-            &psi_params,
-            &self.residual_error_models,
-        )
-        .map_err(|e| anyhow::anyhow!("Likelihood computation failed: {}", e))
-    }
-
-    /// Transform parameters from unconstrained (φ) to constrained (ψ) space
-    ///
-    /// This applies the inverse transform h⁻¹(φ) = ψ for each parameter.
-    /// The model expects parameters in the constrained space (e.g., positive clearance).
-    fn phi_to_psi(&self, phi: &Col<f64>) -> Col<f64> {
-        Col::from_fn(phi.nrows(), |i| self.transforms[i].phi_to_psi(phi[i]))
-    }
-
-    /// Transform parameters from constrained (ψ) to unconstrained (φ) space
-    ///
-    /// This applies the transform h(ψ) = φ for each parameter.
-    /// MCMC sampling happens in the unconstrained space.
-    fn psi_to_phi(&self, psi: &Col<f64>) -> Col<f64> {
-        Col::from_fn(psi.nrows(), |i| self.transforms[i].psi_to_phi(psi[i]))
-    }
-
-    /// Compute log-likelihood for a single subject given parameters φ (unconstrained)
-    ///
-    /// This transforms φ → ψ before evaluating the model, ensuring parameters
-    /// stay in their valid domains (e.g., positive clearance).
-    ///
-    /// NOTE: No Jacobian correction is applied. For MCMC in φ space with prior
-    /// p(φ|Ω) = N(μ_φ, Ω), we only need the likelihood p(y|ψ(φ)).
-    fn compute_individual_log_likelihood(&self, subject: &Subject, phi: &Col<f64>) -> f64 {
-        // Transform from unconstrained (φ) to constrained (ψ) space
-        let psi = self.phi_to_psi(phi);
-
-        // Convert Col<f64> to Vec<f64>
-        let params: Vec<f64> = (0..psi.nrows()).map(|i| psi[i]).collect();
-
-        // Simulate to get predictions
-        let predictions = match self.equation.estimate_predictions(subject, &params) {
-            Ok(preds) => preds,
-            Err(e) => {
-                tracing::warn!("Prediction failed for subject {}: {e}", subject.id());
-                return f64::NEG_INFINITY;
-            }
-        };
-
-        // Extract (outeq, observation, prediction) tuples and compute log-likelihood
-        let obs_pred_pairs: Vec<(usize, f64, f64)> = predictions
-            .get_predictions()
-            .into_iter()
-            .filter_map(|pred| {
-                pred.observation()
-                    .map(|obs| (pred.outeq(), obs, pred.prediction()))
-            })
-            .collect();
-
-        if obs_pred_pairs.is_empty() {
-            tracing::warn!("No obs-pred pairs for subject {}", subject.id());
-            return f64::NEG_INFINITY;
-        }
-
-        // Debug: log first subject's first few pairs
-        if subject.id() == self.data.subjects()[0].id() && self.iteration <= 2 {
-            let n_models = self.residual_error_models.len();
-            tracing::info!(
-                "Subject {} - {} obs-pred pairs, {} error models, first pair: outeq={}, obs={:.4}, pred={:.4}",
-                subject.id(),
-                obs_pred_pairs.len(),
-                n_models,
-                obs_pred_pairs[0].0,
-                obs_pred_pairs[0].1,
-                obs_pred_pairs[0].2,
-            );
-        }
-
-        self.residual_error_models
-            .total_log_likelihood(obs_pred_pairs.into_iter())
-    }
-
     /// Run M-step: Update population parameters from sufficient statistics
     ///
     /// During pure burn-in (γ=0), we skip parameter updates entirely.
@@ -818,13 +735,29 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
             params.push(self.sigma_sq.sqrt());
             self.param_history.push(params);
             // Compute approximate objf even during burn-in for monitoring
-            self.objf = self.compute_approximate_objective();
+            self.objf = approximate_objective_from_individuals(
+                &self.equation,
+                &self.data,
+                &self.residual_error_models,
+                &self.transforms,
+                &self.population,
+                &self.individual_estimates,
+                &subject_mean_phi(
+                    self.population.mu(),
+                    self.data.subjects().len(),
+                    self.subject_covariate_model.as_ref(),
+                    &self.subject_covariates,
+                ),
+            );
             self.objf_history.push(self.objf);
             return Ok(());
         }
 
-        // Get M-step estimates from sufficient statistics
-        let (mu, omega) = self.sufficient_stats.compute_m_step()?;
+        let (mu, omega) = if self.subject_covariate_model.is_some() {
+            self.compute_covariate_aware_m_step()?
+        } else {
+            self.sufficient_stats.compute_m_step()?
+        };
 
         // Apply simulated annealing to variance during SA variance phase
         // R saemix: applies floor decay for nbiter.sa iterations (typically K₁/2)
@@ -839,8 +772,18 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
 
         // Ensure Omega remains positive definite before updating
         // R saemix uses cutoff on diagonal: domega <- cutoff(diag(omega), .Machine$double.eps)
-        let omega_pd = ensure_positive_definite(&omega_constrained);
+        let omega_pd = ensure_positive_definite_covariance(&omega_constrained);
         self.population.update_omega(omega_pd)?;
+
+        if self.subject_covariate_model.is_some() {
+            let subject_means = subject_mean_phi(
+                self.population.mu(),
+                self.data.subjects().len(),
+                self.subject_covariate_model.as_ref(),
+                &self.subject_covariates,
+            );
+            self.recenter_subject_effects(&subject_means)?;
+        }
 
         // Update residual error (simplified - could be more sophisticated)
         self.update_residual_error()?;
@@ -858,7 +801,20 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
 
         // Update objective function
         self.prev_objf = self.objf;
-        self.objf = self.compute_approximate_objective();
+        self.objf = approximate_objective_from_individuals(
+            &self.equation,
+            &self.data,
+            &self.residual_error_models,
+            &self.transforms,
+            &self.population,
+            &self.individual_estimates,
+            &subject_mean_phi(
+                self.population.mu(),
+                self.data.subjects().len(),
+                self.subject_covariate_model.as_ref(),
+                &self.subject_covariates,
+            ),
+        );
         self.objf_history.push(self.objf);
 
         Ok(())
@@ -898,344 +854,26 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
     /// 4. During SA phase: pres = max(pres * alpha, sqrt(sig²))
     /// 5. After SA phase: normal stochastic approximation
     fn update_residual_error(&mut self) -> Result<()> {
-        let subjects: Vec<_> = self.data.subjects().to_vec();
-        let mut sum_weighted_sq_residuals = 0.0;
-        let mut n_obs = 0;
+        let step_size = self.current_step_size();
+        let use_annealed_sigma_floor = self.is_variance_floor_active();
+        let allow_sigma_update = !self.is_pure_burn_in();
+        let update = update_residual_error_from_individuals(
+            &self.equation,
+            &self.data,
+            &mut self.residual_error_models,
+            &self.transforms,
+            &self.individual_estimates,
+            step_size,
+            self.sigma_sq,
+            self.statrese,
+            use_annealed_sigma_floor,
+            self.config.sa_alpha,
+            allow_sigma_update,
+        )?;
 
-        for (i, subject) in subjects.iter().enumerate() {
-            if let Some(individual) = self.individual_estimates.get(i) {
-                // Transform φ (unconstrained) to ψ (constrained) for model evaluation
-                let phi = individual.psi();
-                let params: Vec<f64> = (0..phi.nrows())
-                    .map(|j| self.transforms[j].phi_to_psi(phi[j]))
-                    .collect();
-
-                // Get predictions
-                if let Ok(predictions) = self.equation.estimate_predictions(&subject, &params) {
-                    // Collect observations from all occasions
-                    let observations: Vec<_> = subject
-                        .occasions()
-                        .iter()
-                        .flat_map(|occ| occ.events().iter())
-                        .filter_map(|event| {
-                            if let Event::Observation(obs) = event {
-                                obs.value().map(|v| (v, obs.outeq()))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-
-                    // Compute weighted squared residuals using PREDICTION-based weighting
-                    for ((obs_value, outeq), pred) in observations
-                        .iter()
-                        .zip(predictions.get_predictions().iter())
-                    {
-                        let prediction = pred.prediction();
-
-                        // Use residual error model to compute weighted residual
-                        // This uses PREDICTION for sigma, matching R saemix
-                        if let Some(error_model) = self.residual_error_models.get(*outeq) {
-                            let weighted_sq_res =
-                                error_model.weighted_squared_residual(*obs_value, prediction);
-                            sum_weighted_sq_residuals += weighted_sq_res;
-                        } else {
-                            // Fallback: unweighted for missing error model
-                            let residual = obs_value - prediction;
-                            sum_weighted_sq_residuals += residual * residual;
-                        }
-                        n_obs += 1;
-                    }
-                }
-            }
-        }
-
-        if n_obs > 0 {
-            // Step 1: Current iteration's residual statistic
-            let statr = sum_weighted_sq_residuals;
-
-            // Step 2: Update sufficient statistic via stochastic approximation
-            // R saemix: suffStat$statrese <- suffStat$statrese + stepsize * (statr/nchains - suffStat$statrese)
-            // We have 1 chain, so statr/nchains = statr
-            let step_size = self.current_step_size();
-            if step_size > 0.0 {
-                self.statrese = self.statrese + step_size * (statr - self.statrese);
-            }
-
-            // Step 3: Compute sig² from sufficient statistic
-            let sig2 = self.statrese / n_obs as f64;
-
-            // Step 4: Update sigma with SA floor
-            // R saemix: applies SA decay for nbiter.sa iterations
-            if self.is_variance_floor_active() {
-                // During SA variance phase: pres = max(pres * alpha, sqrt(sig2))
-                // R saemix applies SA decay to the *parameter* (pres), not the statistic
-                let decayed_sigma = self.sigma_sq.sqrt() * self.config.sa_alpha;
-                let new_sigma = sig2.sqrt();
-                self.sigma_sq = decayed_sigma.max(new_sigma).powi(2);
-            } else if !self.is_pure_burn_in() {
-                // After SA phase: use the smoothed sufficient statistic directly
-                self.sigma_sq = sig2;
-            }
-            // During pure burn-in (gamma=0): don't update sigma
-
-            // Update residual error models with new sigma
-            self.sync_error_models_with_sigma();
-        }
-
+        self.sigma_sq = update.sigma_sq;
+        self.statrese = update.statrese;
         Ok(())
-    }
-
-    /// Synchronize residual error models with the estimated σ
-    fn sync_error_models_with_sigma(&mut self) {
-        let sigma = self.sigma_sq.sqrt();
-        self.residual_error_models.update_sigma(sigma);
-    }
-
-    /// Compute approximate objective function (approximate -2LL)
-    fn compute_approximate_objective(&self) -> f64 {
-        // Build eta matrix from individual estimates to use the same batch path as the E-step
-        let n_subjects = self.individual_estimates.nsubjects();
-        if n_subjects == 0 {
-            return f64::INFINITY;
-        }
-        let n_params = self.population.npar();
-
-        let mut eta_matrix = ndarray::Array2::<f64>::zeros((n_subjects, n_params));
-        for i in 0..n_subjects {
-            if let Some(ind) = self.individual_estimates.get(i) {
-                for j in 0..n_params {
-                    eta_matrix[[i, j]] = ind.eta()[j];
-                }
-            }
-        }
-
-        // Use compute_batch_log_likelihood — same path the E-step uses (known correct)
-        let lls = match self.compute_batch_log_likelihood(&eta_matrix, self.population.mu()) {
-            Ok(lls) => lls,
-            Err(_) => return f64::INFINITY,
-        };
-
-        // Sum log-likelihoods + prior contributions
-        let omega_inv = match self.population.omega().llt(faer::Side::Lower) {
-            Ok(llt) => llt.inverse(),
-            Err(_) => return f64::INFINITY,
-        };
-
-        let mut total_ll = 0.0;
-        for (i, ll) in lls.iter().enumerate() {
-            if !ll.is_finite() {
-                continue;
-            }
-            // Add prior contribution: -0.5 * η' Ω⁻¹ η
-            let mut prior_term = 0.0;
-            if let Some(ind) = self.individual_estimates.get(i) {
-                let eta = ind.eta();
-                for j in 0..n_params {
-                    for k in 0..n_params {
-                        prior_term += eta[j] * omega_inv[(j, k)] * eta[k];
-                    }
-                }
-            }
-            total_ll += ll - 0.5 * prior_term;
-        }
-
-        -2.0 * total_ll
-    }
-
-    /// Compute -2LL using Importance Sampling (matching R saemix llis.saemix)
-    ///
-    /// This method samples from the conditional posterior p(φᵢ|yᵢ, θ̂) and uses
-    /// importance sampling to estimate the marginal likelihood p(y|θ̂).
-    ///
-    /// The importance sampling estimate is:
-    /// p(yᵢ|θ) ≈ (1/M) Σₘ [p(yᵢ|φᵢₘ) * p(φᵢₘ|θ) / q(φᵢₘ)]
-    ///
-    /// where q is the proposal distribution (conditional posterior with t-distribution tails).
-    /// Uses the same algorithm as R saemix's llis.saemix function.
-    pub fn compute_ll_importance_sampling(&self, n_samples: usize) -> f64 {
-        use rand_distr::StudentT;
-        use statrs::function::gamma::ln_gamma;
-
-        let subjects = self.data.subjects();
-        let n_params = self.population.npar();
-
-        // Degrees of freedom for t-distribution (matching R saemix default nu.is = 4)
-        let nu_is: f64 = 4.0;
-
-        // Get population parameters
-        let mu_phi = self.population.mu();
-        let omega = self.population.omega();
-        let omega_inv = match omega.llt(faer::Side::Lower) {
-            Ok(llt) => llt.inverse(),
-            Err(_) => return f64::NEG_INFINITY,
-        };
-
-        // Compute log|Omega| + p*log(2π) for population prior (multivariate normal)
-        let log_det_omega = omega.determinant().ln();
-        let log_prior_const = log_det_omega + (n_params as f64) * (2.0 * std::f64::consts::PI).ln();
-
-        // RNG for sampling
-        let mut rng = ChaCha8Rng::seed_from_u64(self.config.seed + 12345);
-
-        // StudentT distribution for sampling (like R saemix's trnd.mlx)
-        let t_dist = StudentT::new(nu_is).unwrap();
-
-        let mut total_ll = 0.0;
-
-        for (i, subject) in subjects.iter().enumerate() {
-            // Get conditional posterior parameters for this subject in φ space
-            // In R saemix: mtild.phiM1 = cond.mean.phi (conditional mean from MCMC)
-            //
-            // The chain states contain eta (random effects) in φ space
-            // cond_mean = mu_phi + eta (or just the individual's mean eta from the chain)
-            let cond_mean: Col<f64> =
-                if !self.chain_states.is_empty() && !self.chain_states[i].is_empty() {
-                    // Compute mean of chain states (which are in φ space as eta)
-                    let chain = &self.chain_states[i];
-                    let n_chain = chain.len();
-
-                    let mut mean_eta: Vec<f64> = vec![0.0; n_params];
-                    for state in chain.iter() {
-                        for j in 0..n_params {
-                            mean_eta[j] = mean_eta[j] + state.eta[j];
-                        }
-                    }
-                    for j in 0..n_params {
-                        mean_eta[j] = mean_eta[j] / n_chain as f64;
-                    }
-                    // cond_mean in φ space = mu_phi + mean(eta)
-                    Col::from_fn(n_params, |j| mu_phi[j] + mean_eta[j])
-                } else if let Some(ind) = self.individual_estimates.get(i) {
-                    // ind.psi() actually stores phi values in SAEM, use directly
-                    ind.psi().clone()
-                } else {
-                    Col::from_fn(n_params, |j| mu_phi[j])
-                };
-
-            // Compute conditional variance from chain states in φ space
-            // In R saemix: stild.phiM1 = sqrt(cond.var.phi)
-            let cond_var: Vec<f64> =
-                if !self.chain_states.is_empty() && !self.chain_states[i].is_empty() {
-                    let chain = &self.chain_states[i];
-                    let n_chain = chain.len();
-
-                    if n_chain > 1 {
-                        let mut mean: Vec<f64> = vec![0.0; n_params];
-                        for state in chain.iter() {
-                            for j in 0..n_params {
-                                mean[j] = mean[j] + state.eta[j];
-                            }
-                        }
-                        for j in 0..n_params {
-                            mean[j] = mean[j] / n_chain as f64;
-                        }
-
-                        let mut var: Vec<f64> = vec![0.0; n_params];
-                        for state in chain.iter() {
-                            for j in 0..n_params {
-                                let diff: f64 = state.eta[j] - mean[j];
-                                var[j] = var[j] + diff * diff;
-                            }
-                        }
-                        for j in 0..n_params {
-                            let val: f64 = var[j] / (n_chain - 1) as f64;
-                            var[j] = val.max(1e-6);
-                        }
-                        var
-                    } else {
-                        (0..n_params).map(|j| omega[(j, j)].max(1e-6)).collect()
-                    }
-                } else {
-                    (0..n_params).map(|j| omega[(j, j)].max(1e-6)).collect()
-                };
-
-            let mut weights = Vec::with_capacity(n_samples);
-
-            for _ in 0..n_samples {
-                // Sample r from t-distribution (like R saemix's trnd.mlx)
-                let r: Vec<f64> = (0..n_params).map(|_| t_dist.sample(&mut rng)).collect();
-
-                // phiM1 = mtild.phiM1 + stild.phiM1 * r
-                let phi_sample: Col<f64> =
-                    Col::from_fn(n_params, |j| cond_mean[j] + cond_var[j].sqrt() * r[j]);
-
-                // Transform to ψ space
-                let psi_sample: Vec<f64> = (0..n_params)
-                    .map(|j| self.transforms[j].phi_to_psi(phi_sample[j]))
-                    .collect();
-
-                // Compute log p(y|φ) - the likelihood (e1 in R saemix)
-                let log_lik = {
-                    let predictions = match self.equation.estimate_predictions(subject, &psi_sample)
-                    {
-                        Ok(preds) => preds,
-                        Err(_) => {
-                            // On error, reject this sample
-                            continue;
-                        }
-                    };
-                    let obs_pred_pairs =
-                        predictions
-                            .get_predictions()
-                            .into_iter()
-                            .filter_map(|pred| {
-                                pred.observation()
-                                    .map(|obs| (pred.outeq(), obs, pred.prediction()))
-                            });
-                    self.residual_error_models
-                        .total_log_likelihood(obs_pred_pairs)
-                };
-
-                // Compute log p(φ|Ω) - the population prior (e2 in R saemix)
-                // d2 = (-0.5)*(rowSums(dphiM*(dphiM%*%IOmega.phi1)) + c2)
-                let eta: Col<f64> = Col::from_fn(n_params, |j| phi_sample[j] - mu_phi[j]);
-                let mut quad_form = 0.0;
-                for j in 0..n_params {
-                    for k in 0..n_params {
-                        quad_form += eta[j] * omega_inv[(j, k)] * eta[k];
-                    }
-                }
-                let log_prior = -0.5 * (quad_form + log_prior_const);
-
-                // Compute log q(φ) - the proposal density using t-distribution (e3 in R saemix)
-                // pitild.phi1 = rowSums(log(tpdf.mlx(r, nu.is)))
-                // e3 = pitild.phi1 - 0.5*rowSums(log(cond.var.phi1))
-                //
-                // log pdf of t-distribution: log(Γ((ν+1)/2)) - log(Γ(ν/2)) - 0.5*log(ν*π) - ((ν+1)/2)*log(1 + r²/ν)
-                let mut log_proposal: f64 = 0.0;
-                for j in 0..n_params {
-                    // Log pdf of t-distribution at r[j]
-                    let r_val: f64 = r[j];
-                    let log_t_pdf: f64 = ln_gamma((nu_is + 1.0) / 2.0)
-                        - ln_gamma(nu_is / 2.0)
-                        - 0.5 * (nu_is * std::f64::consts::PI).ln()
-                        - ((nu_is + 1.0) / 2.0) * (1.0 + r_val * r_val / nu_is).ln();
-                    log_proposal = log_proposal + log_t_pdf;
-                }
-                // Adjust for the scale (stild.phiM1 = sqrt(cond.var))
-                // The proposal is actually t-distributed with scale sqrt(cond_var)
-                // log q(φ) = log t_pdf(r) - 0.5*sum(log(cond_var))
-                log_proposal -= 0.5 * cond_var.iter().map(|v| v.ln()).sum::<f64>();
-
-                // Importance weight: exp(log_lik + log_prior - log_proposal)
-                // sume = e1 + e2 - e3
-                let log_weight = log_lik + log_prior - log_proposal;
-                weights.push(log_weight);
-            }
-
-            // Log-sum-exp for numerical stability
-            // meana = rowMeans(exp(sume))
-            // LL = sum(log(meana))
-            let max_weight = weights.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-            if max_weight.is_finite() {
-                let sum_exp: f64 = weights.iter().map(|&w| (w - max_weight).exp()).sum();
-                let log_marginal = max_weight + sum_exp.ln() - (n_samples as f64).ln();
-                total_ll += log_marginal;
-            }
-        }
-
-        -2.0 * total_ll
     }
 
     /// Get parameter history for convergence diagnostics
@@ -1250,14 +888,6 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
 }
 
 impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
-    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>> {
-        Ok(Box::new(Self::create(settings, equation, data)?))
-    }
-
-    fn settings(&self) -> &Settings {
-        &self.settings
-    }
-
     fn equation(&self) -> &E {
         &self.equation
     }
@@ -1309,58 +939,27 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
             self.config.n_chains
         );
 
-        // Transform initial μ from ψ (natural) to φ (unconstrained) space
-        // Population was initialized with midpoints of parameter bounds (ψ space)
-        let mu_psi = self.population.mu().clone();
-        let mu_phi = self.psi_to_phi(&mu_psi);
-        if let Err(e) = self.population.update_mu(mu_phi.clone()) {
-            tracing::warn!("Failed to update initial μ to φ space: {}", e);
+        let initialized_population =
+            initialize_population_in_phi_space(&mut self.population, &self.transforms)?;
+        let mu_psi = initialized_population.mu_psi;
+        let mu_phi = initialized_population.mu_phi;
+        let omega_phi = initialized_population.omega_phi;
+
+        if let Some(model) = self.subject_covariate_model.as_mut() {
+            let initialize_intercepts =
+                (0..model.beta().nrows()).all(|index| model.beta()[index].abs() < 1e-12);
+            if initialize_intercepts {
+                let intercepts = (0..self.population.npar())
+                    .map(|index| self.population.mu()[index])
+                    .collect::<Vec<_>>();
+                model.set_intercepts(&intercepts)?;
+            }
         }
 
-        // Transform Ω to φ space as well
-        // For LogNormal: Ω in ψ space → Ω in φ space
-        // We use CV² = exp(ω²_φ) - 1, so ω²_φ = ln(1 + CV²)
-        // Initialize with CV ≈ 50% which gives ω²_φ ≈ 0.22
         let n_params = self.population.npar();
-        let mut omega_phi = self.population.omega().clone();
-        for i in 0..n_params {
-            match self.transforms[i] {
-                ParameterTransform::LogNormal => {
-                    // For LogNormal, use ω²_φ = ln(1 + CV²) with CV ≈ 0.5
-                    // This gives reasonable starting variance in φ space
-                    let cv: f64 = 0.5; // 50% CV
-                    omega_phi[(i, i)] = (1.0 + cv * cv).ln();
-                }
-                ParameterTransform::Logit { .. } | ParameterTransform::Probit { .. } => {
-                    // For bounded transforms, use moderate variance in φ space
-                    omega_phi[(i, i)] = 1.0;
-                }
-                ParameterTransform::None => {
-                    // Keep the ψ-space variance (it's already appropriate)
-                }
-            }
-            // Zero out off-diagonals for safety
-            for j in 0..n_params {
-                if i != j {
-                    omega_phi[(i, j)] = 0.0;
-                }
-            }
-        }
-        if let Err(e) = self.population.update_omega(omega_phi.clone()) {
-            tracing::warn!("Failed to update initial Ω to φ space: {}", e);
-        }
 
         // Show transforms being used
-        let transform_names: Vec<&str> = self
-            .transforms
-            .iter()
-            .map(|t| match t {
-                ParameterTransform::None => "Normal",
-                ParameterTransform::LogNormal => "LogNormal",
-                ParameterTransform::Logit { .. } => "Logit",
-                ParameterTransform::Probit { .. } => "Probit",
-            })
-            .collect();
+        let transform_names: Vec<&str> = self.transforms.iter().map(transform_label).collect();
 
         // Print to stderr for real-time feedback
         eprintln!(
@@ -1383,14 +982,18 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
         eprintln!("║ Transforms: {:?}", transform_names);
         eprintln!(
             "║ Initial μ(ψ): {:?}",
-            (0..mu_psi.nrows())
-                .map(|i| format!("{:.4}", mu_psi[i]))
+            mu_psi
+                .as_slice()
+                .iter()
+                .map(|value| format!("{:.4}", value))
                 .collect::<Vec<_>>()
         );
         eprintln!(
             "║ Initial μ(φ): {:?}",
-            (0..mu_phi.nrows())
-                .map(|i| format!("{:.4}", mu_phi[i]))
+            mu_phi
+                .as_slice()
+                .iter()
+                .map(|value| format!("{:.4}", value))
                 .collect::<Vec<_>>()
         );
         eprintln!(
@@ -1409,7 +1012,7 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
         for i in 0..subjects.len() {
             for chain_idx in 0..self.config.n_chains {
                 // Sample initial η from N(0, Ω)
-                let eta = self.sample_from_prior();
+                let eta = sample_eta_from_population(&self.population, &mut self.rng);
                 self.chain_states[i][chain_idx] = ChainState::new(eta);
             }
         }
@@ -1491,12 +1094,14 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
         if should_print {
             // Transform μ from φ space to ψ space for display
             // μ in storage is in φ space, but users want to see ψ (natural scale)
-            let mu_phi = self.population.mu();
-            let mu_psi = self.phi_to_psi(mu_phi);
+            let mu_phi = PhiVector::from(self.population.mu());
+            let mu_psi = phi_to_psi(&self.transforms, &mu_phi);
 
             // Format parameter values (showing ψ = natural scale)
-            let mu_str: Vec<String> = (0..mu_psi.nrows())
-                .map(|i| format!("{:.4}", mu_psi[i]))
+            let mu_str: Vec<String> = mu_psi
+                .as_slice()
+                .iter()
+                .map(|value| format!("{:.4}", value))
                 .collect();
             let omega_diag_str: Vec<String> = self
                 .population
@@ -1521,110 +1126,54 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
 
         if self.iteration % 10 == 0 || self.iteration <= 5 {
             // Show both φ and ψ spaces in debug
-            let mu_psi = self.phi_to_psi(self.population.mu());
-            let psi_vec: Vec<f64> = (0..mu_psi.nrows()).map(|i| mu_psi[i]).collect();
+            let mu_phi = PhiVector::from(self.population.mu());
+            let mu_psi = phi_to_psi(&self.transforms, &mu_phi);
             tracing::debug!("  μ(φ): {:?}", self.population.mu_as_vec());
-            tracing::debug!("  μ(ψ): {:?}", psi_vec);
+            tracing::debug!("  μ(ψ): {:?}", mu_psi.as_slice());
             tracing::debug!("  diag(Ω): {:?}", self.population.variances_as_vec());
         }
     }
 
-    fn into_result(&self) -> Result<ParametricResult<E>> {
-        use crate::routines::output::ResidualErrorEstimates;
-
-        // Compute -2LL using importance sampling (matching R saemix)
-        // R saemix uses 100*K samples where K is typically 100, so 10000 total
-        let n_is_samples = 10000; // Number of importance sampling samples
-        let minus2ll = self.compute_ll_importance_sampling(n_is_samples);
+    fn into_result(&self) -> Result<crate::estimation::parametric::ParametricWorkspace<E>> {
+        let eta_samples_by_subject = self
+            .chain_states
+            .iter()
+            .map(|chain_states| chain_states.iter().map(|state| state.eta.clone()).collect())
+            .collect::<Vec<Vec<Col<f64>>>>();
+        let (likelihood_estimates, minus2ll) = saem_posthoc_likelihood(
+            &self.equation,
+            &self.data,
+            &self.residual_error_models,
+            &self.transforms,
+            &self.population,
+            &self.individual_estimates,
+            &eta_samples_by_subject,
+            self.config.seed,
+        )?;
         tracing::info!("-2LL computed by importance sampling: {:.4}", minus2ll);
 
-        // Construct iteration log from parameter history
-        let mut iteration_log = crate::routines::output::ParametricIterationLog::new();
-        for (i, params) in self.param_history.iter().enumerate() {
-            // Reconstruct a minimal population state for logging
-            let n = self.population.npar();
-            // Transform mu from φ space to ψ space for user-facing output
-            let mu_phi = Col::from_fn(n, |j| params.get(j).copied().unwrap_or(0.0));
-            // Keep mu in φ (log) space for iteration log — consistent with nonparametric output
-            let mu = mu_phi;
-            let omega = Mat::from_fn(n, n, |r, c| {
-                if r == c {
-                    params.get(n + r).copied().unwrap_or(0.0)
-                } else {
-                    0.0
-                }
-            });
-
-            if let Ok(pop) = Population::new(mu, omega, self.population.parameters().clone()) {
-                let status_str = if i < self.config.n_burn_in() {
-                    Status::Continue
-                } else {
-                    self.status.clone()
-                };
-                // Use per-iteration objf instead of the single IS -2LL
-                let iter_objf = self.objf_history.get(i).copied().unwrap_or(minus2ll);
-                iteration_log.log_iteration(i + 1, iter_objf, &pop, &status_str);
-            }
-        }
-
-        // Transform population from φ (unconstrained) space back to ψ (natural) space
-        // SAEM operates internally in φ space, but results should be in ψ space
-        let mu_phi = self.population.mu();
-        let mu_psi = self.phi_to_psi(mu_phi);
-
-        // Create a new population in ψ space
-        // Note: Ω in φ space and ψ space have different interpretations
-        // For LogNormal: Var(ψ) = E[ψ]² * (exp(ω²_φ) - 1)
-        // For now, we report ω² in φ space (consistent with how NLME models typically report)
-        let population_psi = Population::new(
-            mu_psi,
-            self.population.omega().clone(),
-            self.population.parameters().clone(),
-        )?;
-
-        // Get the estimated residual error (σ = sqrt(σ²))
-        // The residual error model type depends on what was configured in settings
-        let sigma_estimate = self.sigma_sq.sqrt();
-
-        // Determine sigma type from the residual error models
-        // For now we report sigma as additive (most common for SAEM)
-        // TODO: Properly detect the error model type from settings
-        let sigma = ResidualErrorEstimates::additive(sigma_estimate);
-
-        // Transform individual estimates from φ space to ψ space
-        // The e-step stores phi values in the Individual's psi field
-        let mut individuals_psi = Vec::new();
-        for ind in self.individual_estimates.iter() {
-            let phi = ind.psi(); // Actually contains phi values
-            let psi = self.phi_to_psi(phi);
-            // Eta in ψ space: ψ_i - μ_ψ (individual deviation from population mean)
-            // For output purposes, we keep the phi-space eta since that's the random effect
-            let individual = Individual::new(ind.subject_id().to_string(), ind.eta().clone(), psi)?;
-            individuals_psi.push(individual);
-        }
-        let individual_estimates_psi = IndividualEstimates::from_vec(individuals_psi);
-
-        // Construct result object with sigma
-        let mut result = ParametricResult::with_sigma(
-            self.equation.clone(),
-            self.data.clone(),
-            population_psi,
-            individual_estimates_psi,
-            minus2ll,
-            self.iteration,
-            self.status.clone(),
-            self.settings.clone(),
-            iteration_log,
-            sigma,
-        );
-
-        // Set the likelihood estimates with IS value
-        let mut ll_estimates = crate::routines::output::parametric::LikelihoodEstimates::new();
-        ll_estimates.ll_importance_sampling = Some(-minus2ll / 2.0);
-        ll_estimates.is_n_samples = Some(n_is_samples);
-        result.set_likelihood_estimates(ll_estimates);
-
-        Ok(result)
+        assemble_saem_result(SaemResultInput {
+            equation: &self.equation,
+            data: &self.data,
+            population: &self.population,
+            individual_estimates: &self.individual_estimates,
+            objf: minus2ll,
+            iterations: self.iteration,
+            status: &self.status,
+            run_configuration: self.run_configuration.clone(),
+            likelihood_estimates,
+            param_history: &self.param_history,
+            objf_history: &self.objf_history,
+            burn_in_iterations: self.config.n_burn_in(),
+            sigma_sq: self.sigma_sq,
+            transforms: &self.transforms,
+            covariates: Some(covariate_state(
+                self.subject_covariate_model.as_ref(),
+                &self.subject_covariates,
+                self.occasion_covariate_model.as_ref(),
+                &self.occasion_covariates,
+            )),
+        })
     }
 
     fn sufficient_stats(&self) -> Option<&SufficientStats> {
@@ -1633,106 +1182,47 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
 }
 
 impl<E: Equation + Send + 'static> FSAEM<E> {
-    /// Sample from prior distribution N(0, Ω)
-    fn sample_from_prior(&mut self) -> Col<f64> {
-        use rand_distr::{Distribution, Normal};
-
-        let n = self.population.npar();
-        let normal = Normal::new(0.0, 1.0).unwrap();
-
-        // Generate standard normal vector
-        let z: Vec<f64> = (0..n).map(|_| normal.sample(&mut self.rng)).collect();
-
-        // Compute Cholesky of Ω using faer's built-in method
-        let omega = self.population.omega();
-        let chol = match omega.llt(faer::Side::Lower) {
-            Ok(llt) => llt.L().to_owned(),
-            Err(_) => {
-                // Fallback to diagonal
-                let mut l = Mat::zeros(n, n);
-                for i in 0..n {
-                    l[(i, i)] = omega[(i, i)].sqrt().max(1e-6);
-                }
-                l
-            }
+    fn compute_covariate_aware_m_step(&mut self) -> Result<(Col<f64>, Mat<f64>)> {
+        let step_size = self.current_step_size();
+        let Some(model) = self.subject_covariate_model.clone() else {
+            return self.sufficient_stats.compute_m_step();
         };
 
-        // Transform: η = L * z
-        let mut eta = Col::zeros(n);
-        for i in 0..n {
-            for j in 0..=i {
-                eta[i] += chol[(i, j)] * z[j];
+        let (updated_model, _subject_means, mu, omega) = blended_subject_covariate_m_step(
+            &model,
+            &self.subject_covariates,
+            &self.individual_estimates,
+            &self.population,
+            step_size,
+        )?;
+        self.subject_covariate_model = Some(updated_model);
+
+        Ok((mu, omega))
+    }
+
+    fn recenter_subject_effects(&mut self, subject_means: &[Col<f64>]) -> Result<()> {
+        self.individual_estimates =
+            recenter_individual_estimates(&self.individual_estimates, subject_means)?;
+
+        for (subject_index, individual) in self.individual_estimates.iter().enumerate() {
+            if let Some(chain_state) = self
+                .chain_states
+                .get_mut(subject_index)
+                .and_then(|states| states.get_mut(0))
+            {
+                chain_state.eta = individual.eta().clone();
             }
         }
-        eta
+
+        Ok(())
     }
 }
-
-// ============== Helper Functions ==============
-
-/// Estimate initial residual error variance from data
-fn estimate_initial_sigma_sq(settings: &Settings) -> f64 {
-    // Use error model initial values if available
-    let error_models = settings.errormodels();
-    if let Some((_outeq, error_model)) = error_models.iter().next() {
-        // Get error polynomial coefficients
-        if let Ok(poly) = error_model.errorpoly() {
-            // For combined error c0 + c1*f, use c0² as rough estimate of additive variance
-            let c0 = poly.c0();
-            (c0 * c0).max(0.01)
-        } else {
-            1.0
-        }
-    } else {
-        1.0 // Default
-    }
-}
-
-/// Ensure a covariance matrix remains positive definite.
-///
-/// Matches R saemix's approach:
-/// 1. Ensure diagonal elements are above a minimum threshold
-/// 2. If Cholesky fails, add a small ridge to the diagonal
-fn ensure_positive_definite(omega: &Mat<f64>) -> Mat<f64> {
-    let n = omega.nrows();
-    let min_var = 1e-8; // Minimum variance (like R's .Machine$double.eps for cutoff)
-
-    let mut result = omega.clone();
-
-    // Step 1: Ensure diagonal elements are positive
-    for i in 0..n {
-        if result[(i, i)] < min_var {
-            result[(i, i)] = min_var;
-        }
-    }
-
-    // Step 2: Check if PD via Cholesky, add ridge if not
-    if result.llt(faer::Side::Lower).is_err() {
-        // Add a small ridge proportional to the diagonal
-        let ridge = result
-            .diagonal()
-            .column_vector()
-            .iter()
-            .cloned()
-            .fold(0.0_f64, f64::max)
-            * 0.01
-            + min_var;
-        for i in 0..n {
-            result[(i, i)] += ridge;
-        }
-        tracing::debug!("Added ridge {:.2e} to Omega diagonal to ensure PD", ridge);
-    }
-
-    result
-}
-
-// Type alias for backward compatibility
-pub type SAEM<E> = FSAEM<E>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::structs::parametric::sufficient_stats::StepSizeSchedule;
+    use crate::estimation::parametric::estimate_beta;
+    use crate::estimation::parametric::StepSizeSchedule;
 
     #[test]
     fn test_cholesky_faer() {
@@ -1790,5 +1280,36 @@ mod tests {
         // step_size(150) = 1/(150-100+1) = 1/51
         assert!(schedule.step_size(150) < schedule.step_size(110));
         assert!((schedule.step_size(110) - 1.0 / 11.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_estimate_beta_recovers_subject_covariate_effects() {
+        let model = CovariateModel::new(vec!["CL", "V"], vec!["WT"], vec![vec![true], vec![false]])
+            .unwrap();
+
+        let subject_covariates = vec![
+            HashMap::from([(String::from("WT"), 60.0)]),
+            HashMap::from([(String::from("WT"), 80.0)]),
+        ];
+        let individuals = IndividualEstimates::from_vec(vec![
+            Individual::new(
+                "1",
+                Col::from_fn(2, |_| 0.0),
+                Col::from_fn(2, |index| if index == 0 { 11.0 } else { 50.0 }),
+            )
+            .unwrap(),
+            Individual::new(
+                "2",
+                Col::from_fn(2, |_| 0.0),
+                Col::from_fn(2, |index| if index == 0 { 13.0 } else { 50.0 }),
+            )
+            .unwrap(),
+        ]);
+
+        let beta = estimate_beta(&model, &subject_covariates, &individuals).unwrap();
+
+        assert!((beta[0] - 5.0).abs() < 1e-5);
+        assert!((beta[1] - 0.1).abs() < 1e-6);
+        assert!((beta[2] - 50.0).abs() < 1e-5);
     }
 }

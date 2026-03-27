@@ -45,6 +45,9 @@ exa = ["pharmsol/exa"]
 codegen-units = 1
 opt-level = 3
 
+[profile.test]
+inherits = "release"
+
 [dev-dependencies]
 approx = "0.5.1"
 criterion = { version = "0.8" }

@@ -4,6 +4,87 @@
 
 use super::reference::*;
 use anyhow::Result;
+use pharmsol::Equation;
+use pmcore::model::ParameterTransform as ModelParameterTransform;
+use pmcore::prelude::*;
+
+#[derive(Clone)]
+struct SaemValidationConfig {
+    parameter_space: ParameterSpace,
+    residual_error: ResidualErrorModels,
+    output: OutputPlan,
+    runtime: RuntimeOptions,
+}
+
+impl SaemValidationConfig {
+    fn new(parameter_space: ParameterSpace, residual_error: ResidualErrorModels) -> Self {
+        Self {
+            parameter_space,
+            residual_error,
+            output: OutputPlan {
+                write: false,
+                path: None,
+            },
+            runtime: RuntimeOptions::default(),
+        }
+    }
+}
+
+fn bounded_parameter_space(bounds: &[(&str, f64, f64)]) -> ParameterSpace {
+    bounds.iter().fold(ParameterSpace::new(), |space, (name, lower, upper)| {
+        space.add(ParameterSpec::bounded(*name, *lower, *upper))
+    })
+}
+
+fn apply_saem_transforms(parameter_space: &ParameterSpace, saem: &SaemConfig) -> ParameterSpace {
+    parameter_space
+        .iter()
+        .enumerate()
+        .fold(ParameterSpace::new(), |space, (index, parameter)| {
+            space.add(ParameterSpec {
+                transform: match saem.get_transform(index) {
+                    1 => ModelParameterTransform::LogNormal,
+                    2 => ModelParameterTransform::Probit,
+                    3 => ModelParameterTransform::Logit,
+                    _ => ModelParameterTransform::Identity,
+                },
+                ..parameter.clone()
+            })
+        })
+}
+
+fn run_saem_problem<E: Equation + Clone + Send + 'static>(
+    config: SaemValidationConfig,
+    equation: E,
+    data: Data,
+) -> Result<FitResult<E>> {
+    build_saem_problem(config, equation, data)?.run()
+}
+
+fn build_saem_problem<E: Equation + Clone + Send + 'static>(
+    config: SaemValidationConfig,
+    equation: E,
+    data: Data,
+) -> Result<EstimationProblem<E>> {
+    let parameters = apply_saem_transforms(&config.parameter_space, &config.runtime.tuning.saem);
+
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "obs"))
+        .with_residual_error_models(config.residual_error);
+
+    let model = ModelDefinition::builder(equation)
+        .parameters(parameters)
+        .observations(observations)
+        .build()?;
+
+    EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Parametric(ParametricMethod::Saem(
+            SaemOptions,
+        )))
+        .output(config.output)
+        .runtime(config.runtime)
+        .build()
+}
 
 // Path to reference data files (relative to tests/ directory)
 const VALIDATION_DIR: &str = "tests/saem_validation";
@@ -92,7 +173,7 @@ fn test_ode_predictions() {
 /// Test parameter transformations match R exactly
 #[test]
 fn test_component_transforms() {
-    use pmcore::structs::parametric::ParameterTransform;
+    use pmcore::prelude::ParameterTransform;
 
     println!("=== Testing Parameter Transforms ===");
 
@@ -134,7 +215,7 @@ fn test_component_transforms() {
 #[test]
 fn test_component_sufficient_stats() {
     use faer::Col;
-    use pmcore::structs::parametric::SufficientStats;
+    use pmcore::prelude::SufficientStats;
 
     println!("=== Testing Sufficient Statistics ===");
 
@@ -191,7 +272,7 @@ fn test_component_sufficient_stats() {
 /// Test step size schedule matches R saemix
 #[test]
 fn test_component_step_size() {
-    use pmcore::structs::parametric::sufficient_stats::StepSizeSchedule;
+    use pmcore::prelude::StepSizeSchedule;
 
     println!("=== Testing Step Size Schedule ===");
 
@@ -269,19 +350,15 @@ fn test_saem_initialization() -> Result<()> {
     let data = Data::new(subjects);
 
     // Parameters - log-normal by default
-    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 20.0);
+    let parameter_space = bounded_parameter_space(&[("ke", 0.1, 1.0), ("v", 5.0, 20.0)]);
 
     // Residual error model (parametric algorithms use ResidualErrorModels)
     use pharmsol::{ResidualErrorModel, ResidualErrorModels};
     let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(0.5));
 
-    let settings = Settings::builder()
-        .set_algorithm(Algorithm::SAEM)
-        .set_parameters(params)
-        .set_residual_error(residual_error)
-        .build();
+    let config = SaemValidationConfig::new(parameter_space, residual_error);
 
-    let mut algorithm = dispatch_parametric_algorithm(settings, eq, data)?;
+    let mut algorithm = dispatch_parametric_algorithm(build_saem_problem(config, eq, data)?)?;
 
     // Before initialization, mu is in ψ (natural) space
     // Population is initialized with midpoints: ke = (0.1+1.0)/2 = 0.55, v = (5+20)/2 = 12.5
@@ -361,19 +438,15 @@ fn test_saem_iterations() -> Result<()> {
         .collect();
     let data = Data::new(subjects);
 
-    let params = Parameters::new().add("ke", 0.1, 0.8).add("v", 5.0, 15.0);
+    let parameter_space = bounded_parameter_space(&[("ke", 0.1, 0.8), ("v", 5.0, 15.0)]);
 
     // Residual error model (parametric algorithms use ResidualErrorModels)
     use pharmsol::{ResidualErrorModel, ResidualErrorModels};
     let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(0.1));
 
-    let settings = Settings::builder()
-        .set_algorithm(Algorithm::SAEM)
-        .set_parameters(params)
-        .set_residual_error(residual_error)
-        .build();
+    let config = SaemValidationConfig::new(parameter_space, residual_error);
 
-    let mut algorithm = dispatch_parametric_algorithm(settings, eq, data)?;
+    let mut algorithm = dispatch_parametric_algorithm(build_saem_problem(config, eq, data)?)?;
     algorithm.initialize()?;
 
     // Run enough iterations to get past burn-in (default: 20 pure burn + 80 SA = 100)
@@ -437,7 +510,6 @@ fn test_saem_iterations() -> Result<()> {
 /// Requires: onecomp_iv_reference.json from generate_reference.R
 #[test]
 fn test_validate_onecomp_iv() -> Result<()> {
-    use pmcore::algorithms::parametric::dispatch_parametric_algorithm;
     use pmcore::prelude::*;
 
     println!("=== Validating One-Compartment IV vs R Reference ===");
@@ -500,22 +572,19 @@ fn test_validate_onecomp_iv() -> Result<()> {
     let data = Data::new(subjects);
 
     // Match R settings
-    let params = Parameters::new().add("ke", 0.1, 0.8).add("v", 5.0, 15.0);
+    let parameter_space = bounded_parameter_space(&[("ke", 0.1, 0.8), ("v", 5.0, 15.0)]);
 
     // Residual error model (parametric algorithms use ResidualErrorModels)
     use pharmsol::{ResidualErrorModel, ResidualErrorModels};
     let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(0.1));
 
-    let settings = Settings::builder()
-        .set_algorithm(Algorithm::SAEM)
-        .set_parameters(params)
-        .set_residual_error(residual_error)
-        // TODO: Match seed and iteration counts to R
-        .build();
+    let config = SaemValidationConfig::new(parameter_space, residual_error);
 
     // Run algorithm
-    let mut algorithm = dispatch_parametric_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    let fit_result = run_saem_problem(config, eq, data)?;
+    let result = fit_result
+        .as_parametric()
+        .expect("SAEM validation should produce a parametric result");
 
     // Compare results
     println!("\n  === Comparison with R Reference ===");
@@ -572,7 +641,6 @@ fn test_validate_onecomp_iv() -> Result<()> {
 #[test]
 #[ignore = "Full theophylline validation (~5 min) - run with --ignored"]
 fn test_validate_theophylline() -> Result<()> {
-    use pmcore::algorithms::parametric::dispatch_parametric_algorithm;
     use pmcore::prelude::*;
 
     println!("=== Validating Theophylline vs R Reference ===");
@@ -698,24 +766,23 @@ fn test_validate_theophylline() -> Result<()> {
     let data = Data::new(subjects);
 
     // Parameter ranges (matching R saemix initial values region)
-    let params = Parameters::new()
-        .add("ka", 0.5, 3.0)
-        .add("v", 15.0, 50.0)
-        .add("cl", 0.5, 5.0);
+    let parameter_space = bounded_parameter_space(&[
+        ("ka", 0.5, 3.0),
+        ("v", 15.0, 50.0),
+        ("cl", 0.5, 5.0),
+    ]);
 
     // Residual error model (constant, matching R)
     use pharmsol::{ResidualErrorModel, ResidualErrorModels};
     let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(1.0));
 
-    let settings = Settings::builder()
-        .set_algorithm(Algorithm::SAEM)
-        .set_parameters(params)
-        .set_residual_error(residual_error)
-        .build();
+    let config = SaemValidationConfig::new(parameter_space, residual_error);
 
     // Run SAEM
-    let mut algorithm = dispatch_parametric_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    let fit_result = run_saem_problem(config, eq, data)?;
+    let result = fit_result
+        .as_parametric()
+        .expect("SAEM validation should produce a parametric result");
 
     // Compare results
     println!("\n  === Comparison with R Reference ===");

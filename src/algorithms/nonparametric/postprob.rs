@@ -1,11 +1,7 @@
 use crate::{
-    algorithms::{Status, StopReason},
+    algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason},
+    estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights},
     prelude::algorithms::Algorithms,
-    structs::nonparametric::{
-        psi::{calculate_psi, Psi},
-        theta::Theta,
-        weights::Weights,
-    },
 };
 use anyhow::{Context, Result};
 
@@ -14,10 +10,8 @@ use pharmsol::prelude::{
     simulator::Equation,
 };
 
-use crate::routines::estimation::ipm::burke;
-use crate::routines::initialization;
-use crate::routines::output::{cycles::CycleLog, NPResult};
-use crate::routines::settings::Settings;
+use crate::estimation::nonparametric::ipm::burke;
+use crate::estimation::nonparametric::sample_space_for_parameters;
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
@@ -30,29 +24,14 @@ pub struct POSTPROB<E: Equation + Send + 'static> {
     cycle: usize,
     status: Status,
     data: Data,
-    settings: Settings,
+    config: NativeNonparametricConfig,
     cyclelog: CycleLog,
     error_models: AssayErrorModels,
 }
 
 impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
-    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
-        Ok(Box::new(Self {
-            equation,
-            psi: Psi::new(),
-            theta: Theta::new(),
-            w: Weights::default(),
-            objf: f64::INFINITY,
-            cycle: 0,
-            status: Status::Continue,
-            error_models: settings.errormodels().clone(),
-            settings,
-            data,
-            cyclelog: CycleLog::new(),
-        }))
-    }
-    fn into_npresult(&self) -> Result<NPResult<E>> {
-        NPResult::new(
+    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
+        NonparametricWorkspace::new(
             self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
@@ -61,12 +40,12 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
             self.objf,
             self.cycle,
             self.status.clone(),
-            self.settings.clone(),
+            self.config.run_configuration.clone(),
             self.cyclelog.clone(),
         )
     }
-    fn settings(&self) -> &Settings {
-        &self.settings
+    fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
     fn equation(&self) -> &E {
@@ -78,7 +57,8 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        initialization::sample_space(&self.settings).unwrap()
+        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior)
+            .unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -143,7 +123,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
 
     fn log_cycle_state(&mut self) {
         // Postprob doesn't track last_objf, so we use 0.0 as the delta
-        let state = crate::routines::output::cycles::NPCycle::new(
+        let state = NPCycle::new(
             self.cycle,
             self.objf,
             self.error_models.clone(),
@@ -153,5 +133,28 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
             self.status.clone(),
         );
         self.cyclelog.push(state);
+    }
+}
+
+impl<E: Equation + Send + 'static> POSTPROB<E> {
+    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
+        let config = input.native_config()?;
+        let error_models = input.error_models().clone();
+        let equation = input.equation;
+        let data = input.data;
+
+        Ok(Box::new(Self {
+            equation,
+            psi: Psi::new(),
+            theta: Theta::new(),
+            w: Weights::default(),
+            objf: f64::INFINITY,
+            cycle: 0,
+            status: Status::Continue,
+            data,
+            config,
+            cyclelog: CycleLog::new(),
+            error_models,
+        }))
     }
 }

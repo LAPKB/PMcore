@@ -2,7 +2,7 @@
 
 use super::constants::*;
 use super::{ElitePoint, NPOPT};
-use crate::routines::expansion::adaptative_grid::adaptative_grid;
+use crate::estimation::nonparametric::adaptative_grid;
 
 use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator};

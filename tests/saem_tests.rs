@@ -4,9 +4,90 @@
 //! from the saemix R package.
 
 use anyhow::Result;
-use pharmsol::{ResidualErrorModel, ResidualErrorModels};
+use pharmsol::{
+    AssayErrorModel, AssayErrorModels, Equation, ResidualErrorModel, ResidualErrorModels,
+};
 use pmcore::algorithms::parametric::dispatch_parametric_algorithm;
+use pmcore::model::ParameterTransform as ModelParameterTransform;
 use pmcore::prelude::*;
+
+#[derive(Clone)]
+struct SaemTestProblemConfig {
+    parameter_space: ParameterSpace,
+    residual_error: ResidualErrorModels,
+    output: OutputPlan,
+    runtime: RuntimeOptions,
+}
+
+impl SaemTestProblemConfig {
+    fn new(parameter_space: ParameterSpace, residual_error: ResidualErrorModels) -> Self {
+        Self {
+            parameter_space,
+            residual_error,
+            output: OutputPlan {
+                write: false,
+                path: None,
+            },
+            runtime: RuntimeOptions::default(),
+        }
+    }
+}
+
+fn bounded_parameter_space(bounds: &[(&str, f64, f64)]) -> ParameterSpace {
+    bounds.iter().fold(ParameterSpace::new(), |space, (name, lower, upper)| {
+        space.add(ParameterSpec::bounded(*name, *lower, *upper))
+    })
+}
+
+fn apply_saem_transforms(parameter_space: &ParameterSpace, saem: &SaemConfig) -> ParameterSpace {
+    parameter_space
+        .iter()
+        .enumerate()
+        .fold(ParameterSpace::new(), |space, (index, parameter)| {
+            space.add(ParameterSpec {
+                transform: match saem.get_transform(index) {
+                    1 => ModelParameterTransform::LogNormal,
+                    2 => ModelParameterTransform::Probit,
+                    3 => ModelParameterTransform::Logit,
+                    _ => ModelParameterTransform::Identity,
+                },
+                ..parameter.clone()
+            })
+        })
+}
+
+fn run_saem_problem<E: Equation + Clone + Send + 'static>(
+    config: SaemTestProblemConfig,
+    equation: E,
+    data: Data,
+) -> Result<FitResult<E>> {
+    build_saem_problem(config, equation, data)?.run()
+}
+
+fn build_saem_problem<E: Equation + Clone + Send + 'static>(
+    config: SaemTestProblemConfig,
+    equation: E,
+    data: Data,
+) -> Result<EstimationProblem<E>> {
+    let parameters = apply_saem_transforms(&config.parameter_space, &config.runtime.tuning.saem);
+
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "obs"))
+        .with_residual_error_models(config.residual_error);
+
+    let model = ModelDefinition::builder(equation)
+        .parameters(parameters)
+        .observations(observations)
+        .build()?;
+
+    EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Parametric(ParametricMethod::Saem(
+            SaemOptions,
+        )))
+        .output(config.output)
+        .runtime(config.runtime)
+        .build()
+}
 
 /// Test data: Theophylline pharmacokinetics
 /// 12 subjects with oral theophylline dosing
@@ -171,32 +252,27 @@ fn test_saem_theophylline_convergence() -> Result<()> {
     // ka: absorption rate (0.5 - 3 /hr typical)
     // V: volume of distribution (20-50 L typical for adult)
     // CL: clearance (1-5 L/hr typical)
-    let params = Parameters::new()
-        .add("ka", 0.5, 3.0)
-        .add("v", 10.0, 50.0)
-        .add("cl", 0.5, 5.0);
+    let params = bounded_parameter_space(&[("ka", 0.5, 3.0), ("v", 10.0, 50.0), ("cl", 0.5, 5.0)]);
 
     // Residual error model (parametric algorithms use ResidualErrorModels)
     let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(0.5));
 
     // Create SAEM settings
-    let settings = Settings::builder()
-        .set_algorithm(Algorithm::SAEM)
-        .set_parameters(params)
-        .set_residual_error(residual_error)
-        .build();
+    let config = SaemTestProblemConfig::new(params, residual_error);
 
-    // Run the algorithm
-    let mut algorithm = dispatch_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    // Run through the unified platform entry path.
+    let result = run_saem_problem(config, eq, data)?;
+    let result = result
+        .as_parametric()
+        .expect("SAEM should yield a parametric result");
 
     // Basic convergence checks
-    println!("SAEM completed in {} iterations", result.cycles());
+    println!("SAEM completed in {} iterations", result.iterations());
     println!("Objective function: {:.2}", result.objf());
 
     // The algorithm should complete
     assert!(
-        result.cycles() > 0,
+        result.iterations() > 0,
         "Algorithm should complete at least one cycle"
     );
 
@@ -279,24 +355,35 @@ fn test_saem_parameter_recovery_simple() -> Result<()> {
     let data = Data::new(subjects);
 
     // Set up parameters with reasonable ranges
-    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 20.0);
+    let params = bounded_parameter_space(&[("ke", 0.1, 1.0), ("v", 5.0, 20.0)]);
 
     // Error model for non-parametric
     let em = AssayErrorModel::additive(ErrorPoly::new(0.5, 0.0, 0.0, 0.0), 1.0);
     let ems = AssayErrorModels::new().add(0, em).unwrap();
 
     // Create settings - use NPAG for now as SAEM isn't fully wired up
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "obs"))
+        .with_assay_error_models(ems);
+    let model = ModelDefinition::builder(eq)
+        .parameters(params)
+        .observations(observations)
+        .build()?;
+    let mut runtime = RuntimeOptions::default();
+    runtime.cycles = 50;
 
-    settings.set_cycles(50);
-
-    // Run algorithm
-    let mut algorithm = dispatch_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    let result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(NpagOptions)))
+        .output(OutputPlan {
+            write: false,
+            path: None,
+        })
+        .runtime(runtime)
+        .build()?
+        .run()?;
+    let result = result
+        .as_nonparametric()
+        .expect("NPAG should yield a nonparametric result");
 
     println!("Test completed with objf: {:.2}", result.objf());
 
@@ -310,7 +397,7 @@ fn test_saem_parameter_recovery_simple() -> Result<()> {
 #[test]
 fn test_sufficient_statistics() {
     use faer::Col;
-    use pmcore::structs::parametric::SufficientStats;
+    use pmcore::prelude::SufficientStats;
 
     let mut stats = SufficientStats::new(2);
 
@@ -347,7 +434,7 @@ fn test_sufficient_statistics() {
 /// Unit test for stochastic approximation step size schedule
 #[test]
 fn test_step_size_schedule() {
-    use pmcore::structs::parametric::sufficient_stats::StepSizeSchedule;
+    use pmcore::prelude::StepSizeSchedule;
 
     // Test SAEM-style schedule
     let schedule = StepSizeSchedule::new_saem(100, 200);
@@ -392,20 +479,20 @@ fn test_saem_initialization() -> Result<()> {
     let data = Data::new(subjects);
 
     // Parameters
-    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 20.0);
+    let params = bounded_parameter_space(&[("ke", 0.1, 1.0), ("v", 5.0, 20.0)]);
 
     // Residual error model for SAEM (prediction-based sigma)
     let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(1.0));
 
     // Create SAEM settings
-    let settings = Settings::builder()
-        .set_algorithm(Algorithm::SAEM)
-        .set_parameters(params)
-        .set_residual_error(residual_error)
-        .build();
+    let config = SaemTestProblemConfig::new(params, residual_error);
 
     // Create algorithm via dispatch
-    let algorithm = dispatch_parametric_algorithm(settings.clone(), eq.clone(), data.clone())?;
+    let algorithm = dispatch_parametric_algorithm(build_saem_problem(
+        config.clone(),
+        eq.clone(),
+        data.clone(),
+    )?)?;
 
     // Check basic initialization
     assert_eq!(algorithm.iteration(), 0);
@@ -467,20 +554,16 @@ fn test_saem_runs_iterations() -> Result<()> {
     let data = Data::new(subjects);
 
     // Parameters
-    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 20.0);
+    let params = bounded_parameter_space(&[("ke", 0.1, 1.0), ("v", 5.0, 20.0)]);
 
     // Residual error model (parametric algorithms use ResidualErrorModels)
     let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(1.0));
 
     // Create SAEM settings
-    let settings = Settings::builder()
-        .set_algorithm(Algorithm::SAEM)
-        .set_parameters(params)
-        .set_residual_error(residual_error)
-        .build();
+    let config = SaemTestProblemConfig::new(params, residual_error);
 
     // Create algorithm
-    let mut algorithm = dispatch_parametric_algorithm(settings, eq, data)?;
+    let mut algorithm = dispatch_parametric_algorithm(build_saem_problem(config, eq, data)?)?;
 
     // Initialize
     algorithm.initialize()?;
@@ -571,23 +654,19 @@ fn test_saem_convergence() -> Result<()> {
     let data = Data::new(subjects);
 
     // Use tighter bounds centered around true values
-    let params = Parameters::new()
-        .add("ke", 0.1, 0.8) // True is 0.4, midpoint would be 0.45
-        .add("v", 5.0, 15.0); // True is 10, midpoint would be 10
+    let params = bounded_parameter_space(&[("ke", 0.1, 0.8), ("v", 5.0, 15.0)]);
 
     // Residual error model (parametric algorithms use ResidualErrorModels)
     let residual_error = ResidualErrorModels::new().add(0, ResidualErrorModel::constant(0.1));
 
     // Create SAEM settings (default: 400 iterations = 5 burn-in + 295 SA + 100 estimation)
-    let settings = Settings::builder()
-        .set_algorithm(Algorithm::SAEM)
-        .set_parameters(params)
-        .set_residual_error(residual_error)
-        .build();
+    let config = SaemTestProblemConfig::new(params, residual_error);
 
-    // Run the full algorithm
-    let mut algorithm = dispatch_parametric_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    // Run through the unified platform entry path.
+    let result = run_saem_problem(config, eq, data)?;
+    let result = result
+        .as_parametric()
+        .expect("SAEM should yield a parametric result");
 
     // Final results
     let ke_est = result.population().mu()[0];

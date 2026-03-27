@@ -1,14 +1,9 @@
-use crate::algorithms::{Status, StopReason};
+use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason};
+use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
 use crate::prelude::algorithms::Algorithms;
 
-pub use crate::routines::estimation::ipm::burke;
-pub use crate::routines::estimation::qr;
-use crate::routines::settings::Settings;
-
-use crate::routines::output::{cycles::CycleLog, cycles::NPCycle, NPResult};
-use crate::structs::nonparametric::psi::{calculate_psi, Psi};
-use crate::structs::nonparametric::theta::Theta;
-use crate::structs::nonparametric::weights::Weights;
+pub(crate) use crate::estimation::nonparametric::ipm::burke;
+pub(crate) use crate::estimation::nonparametric::qr;
 
 use anyhow::bail;
 use anyhow::Result;
@@ -19,9 +14,9 @@ use pharmsol::prelude::{
 
 use pharmsol::prelude::AssayErrorModel;
 
-use crate::routines::initialization;
+use crate::estimation::nonparametric::sample_space_for_parameters;
 
-use crate::routines::expansion::adaptative_grid::adaptative_grid;
+use crate::estimation::nonparametric::adaptative_grid;
 
 const THETA_E: f64 = 1e-4; // Convergence criteria
 const THETA_G: f64 = 1e-4; // Objective function convergence criteria
@@ -47,14 +42,22 @@ pub struct NPAG<E: Equation + Send + 'static> {
     status: Status,
     cycle_log: CycleLog,
     data: Data,
-    settings: Settings,
+    config: NativeNonparametricConfig,
 }
 
-impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
-    fn new(settings: Settings, equation: E, data: Data) -> Result<Box<Self>, anyhow::Error> {
-        Ok(Box::new(Self {
+impl<E: Equation + Send + 'static> NPAG<E> {
+    pub(crate) fn from_config(
+        equation: E,
+        data: Data,
+        error_models: AssayErrorModels,
+        config: NativeNonparametricConfig,
+    ) -> Box<Self> {
+        let ranges = config.ranges.clone();
+        let gamma_delta = vec![0.1; error_models.len()];
+
+        Box::new(Self {
             equation,
-            ranges: settings.parameters().ranges(),
+            ranges,
             psi: Psi::new(),
             theta: Theta::new(),
             lambda: Weights::default(),
@@ -65,20 +68,31 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             f0: -1e30,
             f1: f64::default(),
             cycle: 0,
-            gamma_delta: vec![0.1; settings.errormodels().len()],
-            error_models: settings.errormodels().clone(),
+            gamma_delta,
+            error_models,
             status: Status::Continue,
             cycle_log: CycleLog::new(),
-            settings,
             data,
-        }))
+            config,
+        })
     }
 
+    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
+        let config = input.native_config()?;
+        let error_models = input.error_models().clone();
+        let equation = input.equation;
+        let data = input.data;
+
+        Ok(Self::from_config(equation, data, error_models, config))
+    }
+}
+
+impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
     fn equation(&self) -> &E {
         &self.equation
     }
-    fn into_npresult(&self) -> Result<NPResult<E>> {
-        NPResult::new(
+    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
+        NonparametricWorkspace::new(
             self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
@@ -87,13 +101,13 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             -2. * self.objf,
             self.cycle,
             self.status.clone(),
-            self.settings.clone(),
+            self.config.run_configuration.clone(),
             self.cycle_log.clone(),
         )
     }
 
-    fn settings(&self) -> &Settings {
-        &self.settings
+    fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
     fn data(&self) -> &Data {
@@ -101,7 +115,8 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        initialization::sample_space(&self.settings).unwrap()
+        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior)
+            .unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -175,7 +190,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
         }
 
         // Stop if we have reached maximum number of cycles
-        if self.cycle >= self.settings.config().cycles {
+        if self.cycle >= self.config.max_cycles {
             tracing::warn!("Maximum number of cycles reached");
             self.set_status(Status::Stop(StopReason::MaxCycles));
             self.log_cycle_state();
@@ -202,7 +217,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             &self.data,
             &self.theta,
             &self.error_models,
-            self.cycle == 1 && self.settings.config().progress,
+            self.cycle == 1 && self.config.progress,
         )?;
 
         if let Err(err) = self.validate_psi() {

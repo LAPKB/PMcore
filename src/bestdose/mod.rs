@@ -11,13 +11,12 @@
 //! ```rust,no_run,ignore
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //!
-//! # fn example(population_theta: pmcore::structs::theta::Theta,
-//! #            population_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::estimation::nonparametric::Theta,
+//! #            population_weights: pmcore::estimation::nonparametric::Weights,
 //! #            past_data: pharmsol::prelude::Subject,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::AssayErrorModels,
-//! #            settings: pmcore::routines::settings::Settings)
+//! #            config: pmcore::bestdose::BestDoseConfig)
 //! #            -> anyhow::Result<()> {
 //! // Create optimization problem
 //! let problem = BestDoseProblem::new(
@@ -27,10 +26,9 @@
 //!     target,                          // Future template with targets
 //!     None,                            // time_offset (None = standard mode)
 //!     eq,                              // PK/PD model
-//!     error_models,                    // Error specifications
 //!     DoseRange::new(0.0, 1000.0),     // Dose constraints (0-1000 mg)
 //!     0.5,                             // bias_weight: 0=personalized, 1=population
-//!     settings,                        // NPAG settings
+//!     config,                          // BestDose refinement and prediction settings
 //!     Target::Concentration,           // Target type
 //! )?;
 //!
@@ -147,12 +145,11 @@
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
-//! # fn example(population_theta: pmcore::structs::theta::Theta,
-//! #            population_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::estimation::nonparametric::Theta,
+//! #            population_weights: pmcore::estimation::nonparametric::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::AssayErrorModels,
-//! #            settings: pmcore::routines::settings::Settings)
+//! #            config: pmcore::bestdose::BestDoseConfig)
 //! #            -> anyhow::Result<()> {
 //! // Define target: 5 mg/L at 24 hours
 //! let target = Subject::builder("patient_001")
@@ -162,10 +159,10 @@
 //!
 //! let problem = BestDoseProblem::new(
 //!     &population_theta, &population_weights, Some(past), target, None,
-//!     eq, error_models,
+//!     eq,
 //!     DoseRange::new(10.0, 500.0),    // 10-500 mg allowed
 //!     0.3,                             // Slight population emphasis
-//!     settings, Target::Concentration,
+//!     config, Target::Concentration,
 //! )?;
 //!
 //! let result = problem.optimize()?;
@@ -180,12 +177,11 @@
 //! use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 //! use pharmsol::prelude::Subject;
 //!
-//! # fn example(population_theta: pmcore::structs::theta::Theta,
-//! #            population_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::estimation::nonparametric::Theta,
+//! #            population_weights: pmcore::estimation::nonparametric::Weights,
 //! #            past: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::AssayErrorModels,
-//! #            settings: pmcore::routines::settings::Settings)
+//! #            config: pmcore::bestdose::BestDoseConfig)
 //! #            -> anyhow::Result<()> {
 //! // Target: Achieve AUC₂₄ = 400 mg·h/L
 //! let target = Subject::builder("patient_002")
@@ -196,10 +192,10 @@
 //!
 //! let problem = BestDoseProblem::new(
 //!     &population_theta, &population_weights, Some(past), target, None,
-//!     eq, error_models,
+//!     eq,
 //!     DoseRange::new(50.0, 300.0),
 //!     0.0,                             // Full personalization
-//!     settings, Target::AUCFromZero,   // Cumulative AUC target!
+//!     config, Target::AUCFromZero,     // Cumulative AUC target!
 //! )?;
 //!
 //! let result = problem.optimize()?;
@@ -216,22 +212,21 @@
 //!
 //! ```rust,no_run,ignore
 //! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
-//! # fn example(population_theta: pmcore::structs::theta::Theta,
-//! #            population_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::estimation::nonparametric::Theta,
+//! #            population_weights: pmcore::estimation::nonparametric::Weights,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::prelude::ODE,
-//! #            error_models: pharmsol::prelude::AssayErrorModels,
-//! #            settings: pmcore::routines::settings::Settings)
+//! #            config: pmcore::bestdose::BestDoseConfig)
 //! #            -> anyhow::Result<()> {
 //! // No patient history - use population prior directly
 //! let problem = BestDoseProblem::new(
 //!     &population_theta, &population_weights,
 //!     None,                            // No past data
 //!     target, None,                    // time_offset
-//!     eq, error_models,
+//!     eq,
 //!     DoseRange::new(0.0, 1000.0),
 //!     1.0,                             // Full population weighting
-//!     settings,
+//!     config,
 //!     Target::Concentration,
 //! )?;
 //!
@@ -249,7 +244,7 @@
 //!   - `0.0`: Minimize patient-specific variance (full personalization)
 //!   - `1.0`: Minimize deviation from population (robustness)
 //!   
-//! - **`max_cycles`**: NPAGFULL refinement iterations
+//! - **`refinement_cycles`**: NPAGFULL refinement iterations
 //!   - `0`: Skip refinement (use filtered points directly)
 //!   - `100-500`: Typical range for refinement
 //!   
@@ -266,24 +261,24 @@
 //! For faster optimization:
 //! ```rust,no_run,ignore
 //! # use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
-//! # fn example(population_theta: pmcore::structs::theta::Theta,
-//! #            population_weights: pmcore::structs::weights::Weights,
+//! # fn example(population_theta: pmcore::estimation::nonparametric::Theta,
+//! #            population_weights: pmcore::estimation::nonparametric::Weights,
 //! #            target: pharmsol::prelude::Subject,
 //! #            eq: pharmsol::ODE,
 //! #            error_models: pharmsol::prelude::AssayErrorModels,
-//! #            mut settings: pmcore::routines::settings::Settings)
+//! #            parameter_space: pmcore::prelude::ParameterSpace)
 //! #            -> anyhow::Result<()> {
-//! // Reduce refinement cycles
+//! let config = pmcore::bestdose::BestDoseConfig::new(parameter_space, error_models)
+//!     .with_refinement_cycles(100)
+//!     .with_prediction_interval(30.0);
+//!
 //! let problem = BestDoseProblem::new(
 //!     &population_theta, &population_weights, None, target, None,
-//!     eq, error_models,
+//!     eq,
 //!     DoseRange::new(0.0, 1000.0), 0.5,
-//!     settings.clone(),
+//!     config,
 //!     Target::Concentration,
 //! )?;
-//!
-//! // For AUC: use coarser time grid
-//! settings.predictions().idelta = 30.0;  // 30-minute intervals
 //! # Ok(())
 //! # }
 //! ```
@@ -302,7 +297,7 @@ pub mod predictions;
 mod types;
 
 // Re-export public API
-pub use types::{BestDoseProblem, BestDoseResult, DoseRange, Target};
+pub use types::{BestDoseConfig, BestDoseProblem, BestDoseResult, DoseRange, Target};
 
 /// Helper function to concatenate past and future subjects (Option 3: Fortran MAKETMP approach)
 ///
@@ -460,9 +455,7 @@ use anyhow::Result;
 use pharmsol::prelude::*;
 use pharmsol::ODE;
 
-use crate::routines::settings::Settings;
-use crate::structs::nonparametric::theta::Theta;
-use crate::structs::nonparametric::weights::Weights;
+use crate::estimation::nonparametric::{Theta, Weights};
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Helper Functions for STAGE 1: Posterior Density Calculation
@@ -526,7 +519,7 @@ fn calculate_posterior_density(
     past_data: Option<&Subject>,
     eq: &ODE,
     error_models: &AssayErrorModels,
-    settings: &Settings,
+    config: &BestDoseConfig,
 ) -> Result<(Theta, Weights, Weights, Subject)> {
     match past_data {
         None => {
@@ -570,7 +563,7 @@ fn calculate_posterior_density(
                         &past_data_obj,
                         eq,
                         error_models,
-                        settings,
+                        config,
                     )?;
 
                 Ok((
@@ -658,8 +651,7 @@ impl BestDoseProblem {
     /// * `error_models` - Error model specifications
     /// * `doserange` - Allowable dose constraints
     /// * `bias_weight` - λ ∈ [0,1]: 0=personalized, 1=population
-    /// * `settings` - NPAG settings for posterior refinement
-    /// * `max_cycles` - NPAGFULL cycles (0=skip refinement, 500=default)
+    /// * `config` - BestDose nonparametric configuration
     /// * `target_type` - Concentration or AUC targets
     ///
     /// # Returns
@@ -675,7 +667,7 @@ impl BestDoseProblem {
         eq: ODE,
         doserange: DoseRange,
         bias_weight: f64,
-        settings: Settings,
+        config: BestDoseConfig,
         target_type: Target,
     ) -> Result<Self> {
         tracing::info!("╔══════════════════════════════════════════════════════════╗");
@@ -697,8 +689,8 @@ impl BestDoseProblem {
                 population_weights,
                 past_data.as_ref(),
                 &eq,
-                &settings.errormodels,
-                &settings,
+                config.error_models(),
+                &config,
             )?;
 
         // Handle past/future concatenation if needed
@@ -718,7 +710,7 @@ impl BestDoseProblem {
             theta: posterior_theta,
             posterior: posterior_weights,
             eq,
-            settings,
+            config,
             doserange,
             bias_weight,
         })

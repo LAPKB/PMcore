@@ -25,15 +25,13 @@
 //!
 //! # See Also
 //!
-//! - Configuration: `settings.predictions().idelta` controls time grid resolution
+//! - Configuration: `BestDoseConfig::prediction_interval()` controls time grid resolution
 
 use anyhow::Result;
 use faer::Mat;
 
 use crate::bestdose::types::{BestDoseProblem, Target};
-use crate::routines::output::posterior::Posterior;
-use crate::routines::output::predictions::NPPredictions;
-use crate::structs::nonparametric::weights::Weights;
+use crate::estimation::nonparametric::{NPPredictions, Posterior, Weights};
 use pharmsol::prelude::*;
 use pharmsol::Equation;
 
@@ -340,7 +338,7 @@ pub fn calculate_final_predictions(
                 })
                 .collect();
 
-            let idelta = problem.settings.predictions().idelta;
+            let idelta = problem.config.prediction_interval();
             let start_time = 0.0;
             let end_time = obs_times.last().copied().unwrap_or(0.0);
             let dense_times =

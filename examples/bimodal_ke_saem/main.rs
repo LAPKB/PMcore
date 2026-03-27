@@ -6,9 +6,7 @@
 //! Run with: cargo run --example bimodal_ke_saem --release
 
 use anyhow::Result;
-use pharmsol::prelude::models::one_compartment;
 use pharmsol::{ResidualErrorModel, ResidualErrorModels};
-use pmcore::algorithms::parametric::dispatch_parametric_algorithm;
 use pmcore::prelude::*;
 
 /// Create analytical one-compartment model (much faster than ODE)
@@ -43,46 +41,49 @@ fn main() -> Result<()> {
     // NPAG found: ke mean=0.191 (range 0.01-0.98), v mean=107 (range 67-209)
     // SAEM needs reasonable starting bounds since it initializes at midpoint
     // Use ranges that center near the expected values
-    let params = Parameters::new()
-        .add("ke", 0.01, 0.5) // Midpoint ~0.255
-        .add("v", 50.0, 180.0); // Midpoint ~115
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(1, "cp"))
+        .with_residual_error_models(
+            ResidualErrorModels::new().add(1, ResidualErrorModel::proportional(0.1)),
+        );
 
-    // Residual error model for parametric algorithms (SAEM)
-    // Uses PREDICTION-based sigma: σ = sqrt(a² + b²*f²)
-    // For proportional error: σ = b * |f|, so use Proportional with b=0.1
-    let residual_error = ResidualErrorModels::new().add(1, ResidualErrorModel::proportional(0.1));
-
-    // Create SAEM settings - parametric algorithms only need ResidualErrorModels!
-    // No ErrorModels required - SAEM computes likelihood using ResidualErrorModels directly
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::SAEM)
-        .set_parameters(params)
-        .set_residual_error(residual_error)
-        .build();
-
-    settings.set_output_path("examples/bimodal_ke_saem/output/");
-    settings.set_write_logs(true);
-    settings.initialize_logs()?;
+    let model = ModelDefinition::builder(eq)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("ke", 0.01, 0.5))
+                .add(ParameterSpec::bounded("v", 50.0, 180.0)),
+        )
+        .observations(observations)
+        .build()?;
 
     println!("Running SAEM algorithm...");
 
-    // Run the algorithm
-    let mut algorithm = dispatch_parametric_algorithm(settings, eq, data)?;
-    let mut result = algorithm.fit()?;
+    let mut fit_result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Parametric(ParametricMethod::Saem(
+            SaemOptions::default(),
+        )))
+        .output(OutputPlan {
+            write: true,
+            path: Some("examples/bimodal_ke_saem/output/".to_string()),
+        })
+        .run()?;
 
     // Write all output files
-    result.write_outputs()?;
+    fit_result.write_outputs()?;
     println!("\nOutput files written to: examples/bimodal_ke_saem/output/");
 
     // Print comprehensive results summary (matching R saemix format)
-    print_saem_report(&result);
+    let result = fit_result
+        .as_parametric()
+        .expect("SAEM example should produce a parametric result");
+    print_saem_report(result);
 
     Ok(())
 }
 
 /// Print a comprehensive SAEM report matching R saemix output format
 fn print_saem_report<E: pharmsol::Equation>(
-    result: &pmcore::routines::output::ParametricResult<E>,
+    result: &pmcore::prelude::ParametricWorkspace<E>,
 ) {
     let n_subjects = result.data().len();
     // Count observations from all occasions

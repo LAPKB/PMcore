@@ -196,7 +196,7 @@ impl Swarm {
         }
     }
 
-    /// Legacy method for compatibility
+    /// Convenience wrapper that reinjects a fraction of the swarm.
     #[allow(dead_code)]
     pub fn reinject_diversity<R: Rng>(&mut self, ranges: &[(f64, f64)], rng: &mut R, fraction: f64) {
         let n_reset = (self.particles.len() as f64 * fraction) as usize;

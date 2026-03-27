@@ -114,7 +114,7 @@ use pharmsol::Equation;
 ///
 /// - **AUC** ([`Target::AUC`]):
 ///   Predictions are cumulative AUC values calculated via trapezoidal rule
-///   on a dense time grid (controlled by `settings.predictions().idelta`)
+///   on a dense time grid (controlled by `config.prediction_interval()`)
 ///
 /// # Example
 ///
@@ -252,7 +252,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             }
             Target::AUCFromZero => {
                 // For AUC: simulate at dense time grid and calculate cumulative AUC
-                let idelta = problem.settings.predictions().idelta;
+                let idelta = problem.config.prediction_interval();
                 let start_time = 0.0; // Future starts at 0
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
@@ -372,7 +372,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             }
             Target::AUCFromLastDose => {
                 // For interval AUC: simulate at dense time grid and calculate AUC from last dose
-                let idelta = problem.settings.predictions().idelta;
+                let idelta = problem.config.prediction_interval();
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
                 // Generate dense time grid from 0 to end_time (need full grid for intervals)

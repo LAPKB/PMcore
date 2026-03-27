@@ -1,0 +1,9 @@
+{
+  "objective_function": -144.18431437030802,
+  "converged": false,
+  "iterations": 400,
+  "subject_count": 51,
+  "observation_count": 510,
+  "parameter_count": 2,
+  "algorithm": "SAEM"
+}

@@ -14,13 +14,15 @@
 //! ## Parametric Algorithms
 //! Represent the population distribution as a continuous distribution (typically multivariate normal).
 //! - SAEM (Stochastic Approximation Expectation-Maximization)
-//! - FOCE/FOCEI (First-Order Conditional Estimation)
+//! - FOCEI (First-Order Conditional Estimation with Interaction)
 //! - IT2B (Iterative Two-Stage Bayesian)
 //! - And others...
 //!
-//! # Configuration
+//! # Public API
 //!
-//! PMcore is configured using [routines::settings::Settings], which specifies the settings for the program.
+//! PMcore centers on the model/problem API in [api]. Models are defined with
+//! [api::ModelDefinition], configured with [api::EstimationProblem], and executed through
+//! [api::fit].
 //!
 //! # Data format
 //!
@@ -33,11 +35,23 @@
 /// Provides the various algorithms used within the framework
 pub mod algorithms;
 
-/// Routines for data processing, optimization, and output
-pub mod routines;
+/// New public modeling and execution API.
+pub mod api;
 
-/// Data structures for population modeling
-pub mod structs;
+/// Shared preprocessing and compilation layer.
+pub mod compile;
+
+/// Estimation family boundaries for the new architecture.
+pub mod estimation;
+
+/// Public model-domain types used by the new API.
+pub mod model;
+
+/// Shared result and summary types for the new API.
+pub mod results;
+
+/// Shared output writers for the new API.
+pub mod output;
 
 // Re-export commonly used items
 pub use anyhow::Result;
@@ -51,38 +65,54 @@ pub mod prelude {
     pub use super::HashMap;
     pub use super::Result;
     pub use crate::algorithms;
-    pub use crate::algorithms::dispatch_algorithm;
     pub use crate::algorithms::Algorithm;
-    pub use crate::routines;
-    pub use crate::routines::logger;
+    pub use crate::api::fit;
+    pub use crate::api::{
+        AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, FoceiOptions,
+        It2bOptions, LoggingLevel, LoggingOptions, ModelDefinition, NexusOptions,
+        NonparametricMethod, NpagOptions, NpboOptions, NpcatOptions, NpcmaOptions, NpodOptions,
+        NpoptOptions, NppsoOptions, Npsah2Options, NpsahOptions, NpxoOptions, OutputPlan,
+        ParametricMethod, PostProbOptions, RuntimeOptions, SaemOptions,
+    };
+    pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
+    pub use crate::estimation::nonparametric::{
+        CycleLog, NPCycle, NPPredictions, NonparametricEngine, NonparametricWorkspace, Posterior,
+        Psi, Theta, Weights,
+    };
+    pub use crate::estimation::parametric::{
+        aic, bic, cache_predictions, compile_model_state, fim, fim_method, has_fim,
+        has_standard_errors, importance_sampling_likelihood_estimates, phi_to_psi, psi_to_phi,
+        se_mu, shrinkage, statistics, subject_conditionals_from_eta_samples, uncertainty_estimates,
+        write_statistics, CovarianceStructure, EtaTable, EtaVector, FixedEffects, Individual,
+        IndividualEffectsState, IndividualEstimates, KappaVector, OccasionKappa,
+        OccasionKappaTable, ParameterTransform, ParametricEngine, ParametricModelState,
+        ParametricTransformKind, ParametricWorkspace, PhiTable, PhiVector, Population, PsiTable,
+        PsiVector, RandomEffects, ResidualState, TransformSet,
+    };
+    pub use crate::model::{
+        ContinuousObservationSpec, CovariateEffectsSpec, CovariateModel, CovariateSpec,
+        ModelMetadata, ObservationChannel, ObservationLikelihood, ObservationSpec, ParameterDomain,
+        ParameterSpace, ParameterSpec, ParameterTransform as ModelParameterTransform,
+        ParameterVariability, RandomEffectsSpec, VariabilityModel,
+    };
+    pub use crate::results::{
+        ArtifactIndex, DiagnosticsBundle, FitResult, FitSummary, IndividualSummary,
+        ParameterSummary, PopulationSummary, PredictionsBundle,
+    };
     pub use pharmsol::optimize::effect::get_e2;
 
     pub use pharmsol;
 
-    pub use crate::routines::initialization::Prior;
-
-    pub use crate::routines::settings::*;
-    pub use crate::structs::*;
-
-    // Non-parametric specific (explicit imports for clarity)
-    pub use crate::structs::nonparametric::{Psi, Theta, Weights};
+    pub use crate::estimation::nonparametric::{read_prior, Prior};
 
     // Parametric specific
-    pub use crate::structs::parametric::{
-        CovarianceStructure, CovariateModel, Individual, IndividualEstimates, ParameterTransform,
-        Population, SufficientStats,
-    };
+    pub use crate::estimation::parametric::{StepSizeSchedule, SufficientStats};
 
     // Output types
-    pub use crate::routines::output::{NPResult, ParametricIterationLog, ParametricResult};
+    pub use crate::estimation::parametric::ParametricIterationLog;
 
-    // Sampling utilities (for custom parametric algorithms)
-    // pub use crate::routines::sampling::{
-    //     MetropolisHastings, GaussianProposal, ParameterTransforms, ProposalDistribution,
-    // };
-
-    // Settings
-    pub use crate::routines::settings::SaemSettings;
+    // Internal tuning types still used by the new runtime surface.
+    pub use crate::api::SaemConfig;
 
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;

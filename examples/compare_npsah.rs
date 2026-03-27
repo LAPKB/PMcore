@@ -12,6 +12,95 @@ use anyhow::Result;
 use pmcore::prelude::*;
 use std::time::Instant;
 
+#[derive(Clone)]
+struct ExampleRunConfig {
+    algorithm: Algorithm,
+    parameter_space: ParameterSpace,
+    assay_error_models: AssayErrorModels,
+    output: OutputPlan,
+    runtime: RuntimeOptions,
+}
+
+fn nonparametric_method(algorithm: Algorithm) -> Result<NonparametricMethod> {
+    Ok(match algorithm {
+        Algorithm::NPAG => NonparametricMethod::Npag(NpagOptions),
+        Algorithm::NPBO => NonparametricMethod::Npbo(NpboOptions),
+        Algorithm::NPCAT => NonparametricMethod::Npcat(NpcatOptions),
+        Algorithm::NPCMA => NonparametricMethod::Npcma(NpcmaOptions),
+        Algorithm::NPOD => NonparametricMethod::Npod(NpodOptions),
+        Algorithm::NPOPT => NonparametricMethod::Npopt(NpoptOptions),
+        Algorithm::NPPSO => NonparametricMethod::Nppso(NppsoOptions),
+        Algorithm::NPSAH => NonparametricMethod::Npsah(NpsahOptions),
+        Algorithm::NPSAH2 => NonparametricMethod::Npsah2(Npsah2Options),
+        Algorithm::NPXO => NonparametricMethod::Npxo(NpxoOptions),
+        Algorithm::NEXUS => NonparametricMethod::Nexus(NexusOptions),
+        Algorithm::POSTPROB => NonparametricMethod::Postprob(PostProbOptions),
+        other => anyhow::bail!("unsupported nonparametric algorithm: {:?}", other),
+    })
+}
+
+fn build_problem<E: pharmsol::Equation + Clone>(
+    equation: E,
+    data: Data,
+    config: &ExampleRunConfig,
+) -> Result<EstimationProblem<E>> {
+    let observations = config
+        .assay_error_models
+        .iter()
+        .filter(|(_, model)| !matches!(model, AssayErrorModel::None))
+        .fold(
+            ObservationSpec::new().with_assay_error_models(config.assay_error_models.clone()),
+            |spec, (outeq, _)| {
+                spec.add_channel(ObservationChannel::continuous(
+                    outeq,
+                    format!("obs_{}", outeq),
+                ))
+            },
+        );
+
+    let model = ModelDefinition::builder(equation)
+        .parameters(config.parameter_space.clone())
+        .observations(observations)
+        .build()?;
+
+    EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(nonparametric_method(
+            config.algorithm,
+        )?))
+        .output(config.output.clone())
+        .runtime(config.runtime.clone())
+        .build()
+}
+
+fn bounded_parameter_space(bounds: &[(&str, f64, f64)]) -> ParameterSpace {
+    bounds.iter().fold(ParameterSpace::new(), |space, (name, lower, upper)| {
+        space.add(ParameterSpec::bounded(*name, *lower, *upper))
+    })
+}
+
+fn example_run_config(
+    algorithm: Algorithm,
+    parameter_space: ParameterSpace,
+    assay_error_models: AssayErrorModels,
+    prior: Prior,
+) -> ExampleRunConfig {
+    ExampleRunConfig {
+        algorithm,
+        parameter_space,
+        assay_error_models,
+        output: OutputPlan::disabled(),
+        runtime: RuntimeOptions {
+            cycles: 500,
+            cache: true,
+            progress: true,
+            idelta: 0.12,
+            tad: 0.0,
+            prior: Some(prior),
+            ..RuntimeOptions::default()
+        },
+    }
+}
+
 // ============================================================================
 // TEST CASE 1: Bimodal Distribution (2 parameters)
 // ============================================================================
@@ -32,10 +121,8 @@ fn create_bimodal_equation() -> equation::ODE {
     )
 }
 
-fn create_bimodal_settings(algorithm: Algorithm) -> Settings {
-    let params = Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0);
+fn create_bimodal_config(algorithm: Algorithm) -> ExampleRunConfig {
+    let parameter_space = bounded_parameter_space(&[("ke", 0.001, 3.0), ("v", 25.0, 250.0)]);
 
     let ems = AssayErrorModels::new()
         .add(
@@ -46,16 +133,7 @@ fn create_bimodal_settings(algorithm: Algorithm) -> Settings {
         .add(1, AssayErrorModel::None)
         .unwrap();
 
-    let mut settings = Settings::builder()
-        .set_algorithm(algorithm)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(500);
-    settings.set_prior(Prior::sobol(2028, 22));
-    settings.set_write_logs(false);
-    settings
+    example_run_config(algorithm, parameter_space, ems, Prior::sobol(2028, 22))
 }
 
 // ============================================================================
@@ -82,12 +160,13 @@ fn create_two_eq_lag_equation() -> equation::ODE {
     )
 }
 
-fn create_two_eq_lag_settings(algorithm: Algorithm) -> Settings {
-    let params = Parameters::new()
-        .add("ka", 0.1, 0.9)
-        .add("ke", 0.001, 0.1)
-        .add("tlag", 0.0, 4.0)
-        .add("v", 30.0, 120.0);
+fn create_two_eq_lag_config(algorithm: Algorithm) -> ExampleRunConfig {
+    let parameter_space = bounded_parameter_space(&[
+        ("ka", 0.1, 0.9),
+        ("ke", 0.001, 0.1),
+        ("tlag", 0.0, 4.0),
+        ("v", 30.0, 120.0),
+    ]);
 
     let ems = AssayErrorModels::new()
         .add(
@@ -96,16 +175,7 @@ fn create_two_eq_lag_settings(algorithm: Algorithm) -> Settings {
         )
         .unwrap();
 
-    let mut settings = Settings::builder()
-        .set_algorithm(algorithm)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(500);
-    settings.set_prior(Prior::sobol(1234, 30));
-    settings.set_write_logs(false);
-    settings
+    example_run_config(algorithm, parameter_space, ems, Prior::sobol(1234, 30))
 }
 
 // ============================================================================
@@ -126,11 +196,12 @@ fn create_theo_equation() -> equation::Analytical {
     )
 }
 
-fn create_theo_settings(algorithm: Algorithm) -> Settings {
-    let params = Parameters::new()
-        .add("ka", 0.001, 3.0)
-        .add("ke", 0.001, 3.0)
-        .add("v", 0.001, 50.0);
+fn create_theo_config(algorithm: Algorithm) -> ExampleRunConfig {
+    let parameter_space = bounded_parameter_space(&[
+        ("ka", 0.001, 3.0),
+        ("ke", 0.001, 3.0),
+        ("v", 0.001, 50.0),
+    ]);
 
     let ems = AssayErrorModels::new()
         .add(
@@ -139,16 +210,7 @@ fn create_theo_settings(algorithm: Algorithm) -> Settings {
         )
         .unwrap();
 
-    let mut settings = Settings::builder()
-        .set_algorithm(algorithm)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(500);
-    settings.set_prior(Prior::sobol(1234, 30));
-    settings.set_write_logs(false);
-    settings
+    example_run_config(algorithm, parameter_space, ems, Prior::sobol(1234, 30))
 }
 
 // ============================================================================
@@ -196,18 +258,19 @@ fn create_neely_equation() -> equation::ODE {
     )
 }
 
-fn create_neely_settings(algorithm: Algorithm) -> Settings {
-    let params = Parameters::new()
-        .add("cls", 0.0, 0.4)
-        .add("k30", 0.0, 0.5)
-        .add("k40", 0.3, 1.5)
-        .add("qs", 0.0, 0.5)
-        .add("vps", 0.0, 5.0)
-        .add("vs", 0.0, 2.0)
-        .add("fm1", 0.0, 0.2)
-        .add("fm2", 0.0, 0.1)
-        .add("theta1", -4.0, 2.0)
-        .add("theta2", -2.0, 0.5);
+fn create_neely_config(algorithm: Algorithm) -> ExampleRunConfig {
+    let parameter_space = bounded_parameter_space(&[
+        ("cls", 0.0, 0.4),
+        ("k30", 0.0, 0.5),
+        ("k40", 0.3, 1.5),
+        ("qs", 0.0, 0.5),
+        ("vps", 0.0, 5.0),
+        ("vs", 0.0, 2.0),
+        ("fm1", 0.0, 0.2),
+        ("fm2", 0.0, 0.1),
+        ("theta1", -4.0, 2.0),
+        ("theta2", -2.0, 0.5),
+    ]);
 
     let ems = AssayErrorModels::new()
         .add(
@@ -226,16 +289,7 @@ fn create_neely_settings(algorithm: Algorithm) -> Settings {
         )
         .unwrap();
 
-    let mut settings = Settings::builder()
-        .set_algorithm(algorithm)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(500);
-    settings.set_prior(Prior::sobol(2028, 22));
-    settings.set_write_logs(false);
-    settings
+    example_run_config(algorithm, parameter_space, ems, Prior::sobol(2028, 22))
 }
 
 // ============================================================================
@@ -261,13 +315,12 @@ fn run_scenario<E: pharmsol::prelude::simulator::Equation + Send + 'static>(
     scenario: &str,
     n_params: usize,
     equation: E,
-    settings: Settings,
+    config: ExampleRunConfig,
     data: Data,
 ) -> Result<RunResult> {
     println!("  Running {} on {}...", name, scenario);
     let start = Instant::now();
-    let mut alg = dispatch_algorithm(settings, equation, data)?;
-    let result = match alg.fit() {
+    let fit_result = match fit(build_problem(equation, data, &config)?) {
         Ok(r) => r,
         Err(e) => {
             println!("  [ERROR] {} on {} failed: {:?}", name, scenario, e);
@@ -275,6 +328,9 @@ fn run_scenario<E: pharmsol::prelude::simulator::Equation + Send + 'static>(
         }
     };
     let duration = start.elapsed();
+    let result = fit_result
+        .as_nonparametric()
+        .expect("benchmark scenario should yield a nonparametric result");
 
     Ok(RunResult {
         name: name.to_string(),
@@ -342,7 +398,7 @@ fn main() -> Result<()> {
             "bimodal_ke",
             2,
             create_bimodal_equation(),
-            create_bimodal_settings(Algorithm::NPSAH),
+            create_bimodal_config(Algorithm::NPSAH),
             data.clone(),
         ) {
             all_results.push(r);
@@ -352,7 +408,7 @@ fn main() -> Result<()> {
             "bimodal_ke",
             2,
             create_bimodal_equation(),
-            create_bimodal_settings(Algorithm::NPSAH2),
+            create_bimodal_config(Algorithm::NPSAH2),
             data,
         ) {
             all_results.push(r);
@@ -377,7 +433,7 @@ fn main() -> Result<()> {
             "two_eq_lag",
             4,
             create_two_eq_lag_equation(),
-            create_two_eq_lag_settings(Algorithm::NPSAH),
+            create_two_eq_lag_config(Algorithm::NPSAH),
             data.clone(),
         ) {
             all_results.push(r);
@@ -387,7 +443,7 @@ fn main() -> Result<()> {
             "two_eq_lag",
             4,
             create_two_eq_lag_equation(),
-            create_two_eq_lag_settings(Algorithm::NPSAH2),
+            create_two_eq_lag_config(Algorithm::NPSAH2),
             data,
         ) {
             all_results.push(r);
@@ -412,7 +468,7 @@ fn main() -> Result<()> {
             "theophylline",
             3,
             create_theo_equation(),
-            create_theo_settings(Algorithm::NPSAH),
+            create_theo_config(Algorithm::NPSAH),
             data.clone(),
         ) {
             all_results.push(r);
@@ -422,7 +478,7 @@ fn main() -> Result<()> {
             "theophylline",
             3,
             create_theo_equation(),
-            create_theo_settings(Algorithm::NPSAH2),
+            create_theo_config(Algorithm::NPSAH2),
             data,
         ) {
             all_results.push(r);
@@ -447,7 +503,7 @@ fn main() -> Result<()> {
             "neely",
             10,
             create_neely_equation(),
-            create_neely_settings(Algorithm::NPSAH),
+            create_neely_config(Algorithm::NPSAH),
             data.clone(),
         ) {
             all_results.push(r);
@@ -457,7 +513,7 @@ fn main() -> Result<()> {
             "neely",
             10,
             create_neely_equation(),
-            create_neely_settings(Algorithm::NPSAH2),
+            create_neely_config(Algorithm::NPSAH2),
             data,
         ) {
             all_results.push(r);
