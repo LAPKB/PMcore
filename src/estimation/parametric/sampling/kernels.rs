@@ -150,7 +150,8 @@ pub(crate) fn advance_saem_chains<E: Equation>(
                 let proposed_log_prior = log_priors_from_eta_matrix(&proposed_eta, omega_inv);
 
                 for subject_index in 0..n_subjects {
-                    let log_alpha = (proposed_ll[subject_index] + proposed_log_prior[subject_index])
+                    let log_alpha = (proposed_ll[subject_index]
+                        + proposed_log_prior[subject_index])
                         - (current_ll[subject_index] + current_log_prior[subject_index]);
                     let u: f64 = rng.random();
                     if log_alpha.is_finite() && u.ln() < log_alpha {
@@ -318,8 +319,8 @@ fn adapt_proposal_scales(
     for param_index in 0..domega2.nrows() {
         if total[param_index] > 0 {
             let acc_rate = accepted[param_index] as f64 / total[param_index] as f64;
-            domega2[param_index] *= 1.0
-                + kernel_config.rw_step_size * (acc_rate - kernel_config.target_acceptance);
+            domega2[param_index] *=
+                1.0 + kernel_config.rw_step_size * (acc_rate - kernel_config.target_acceptance);
         }
     }
 }

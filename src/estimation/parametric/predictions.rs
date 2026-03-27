@@ -285,8 +285,15 @@ mod tests {
             Col::from_fn(2, |index| if index == 0 { 0.5 } else { 10.0 }),
         )?]);
 
-        let predictions =
-            ParametricPredictions::calculate(&equation(), &data(), &population, &individuals, None, 1.0, 0.0)?;
+        let predictions = ParametricPredictions::calculate(
+            &equation(),
+            &data(),
+            &population,
+            &individuals,
+            None,
+            1.0,
+            0.0,
+        )?;
 
         let first_observation = predictions
             .predictions()

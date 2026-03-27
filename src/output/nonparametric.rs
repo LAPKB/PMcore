@@ -7,24 +7,18 @@ pub(crate) fn output_file_names<E: pharmsol::Equation>(
     result: &NonparametricWorkspace<E>,
 ) -> Vec<String> {
     let mut files = shared_output_file_names();
-    files.extend([
-        "iterations.csv",
-        "theta.csv",
-        "posterior.csv",
-    ]
-    .into_iter()
-    .map(str::to_string));
+    files.extend(
+        ["iterations.csv", "theta.csv", "posterior.csv"]
+            .into_iter()
+            .map(str::to_string),
+    );
 
-    let has_covariates = result
-        .data()
-        .subjects()
-        .iter()
-        .any(|subject| {
-            subject
-                .occasions()
-                .iter()
-                .any(|occasion| !occasion.covariates().covariates().is_empty())
-        });
+    let has_covariates = result.data().subjects().iter().any(|subject| {
+        subject
+            .occasions()
+            .iter()
+            .any(|occasion| !occasion.covariates().covariates().is_empty())
+    });
     if has_covariates {
         files.push("covariates.csv".to_string());
     }

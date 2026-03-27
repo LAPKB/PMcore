@@ -47,8 +47,10 @@ impl<E: Equation> ParametricAlgorithmInput<E> {
 
         let output = problem.output_plan().clone();
         let runtime = problem.runtime_options().clone();
-        let covariate_context =
-            build_parametric_covariate_context(&problem.model.covariates, &problem.design.structured_covariates);
+        let covariate_context = build_parametric_covariate_context(
+            &problem.model.covariates,
+            &problem.design.structured_covariates,
+        );
         let (model, data) = problem.into_parts();
 
         let residual_error_models = model

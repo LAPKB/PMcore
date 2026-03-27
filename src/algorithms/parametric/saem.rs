@@ -64,15 +64,15 @@ use std::collections::HashMap;
 use crate::algorithms::{Status, StopReason};
 use crate::api::SaemConfig;
 use crate::estimation::parametric::{
-    advance_saem_chains, blended_subject_covariate_m_step,
-    covariate_state, ensure_positive_definite_covariance, estimate_initial_sigma_sq,
-    finalize_saem_result, initialize_population_in_phi_space, phi_to_psi,
-    recenter_individual_estimates, refresh_saem_objective_history, sample_eta_from_population,
-    subject_mean_phi, transform_label, update_residual_error_from_individuals, ChainState,
-    Individual, IndividualEstimates, KernelConfig, ParameterTransform,
-    ParametricCovariateContext, ParametricIterationLog, PhiVector, Population,
-    ParametricResultInput, SaemFinalizeInput, SaemMcmcState, SufficientStats,
-    UncertaintyEstimates, residual_error_estimates_from_observed_outeqs,
+    advance_saem_chains, blended_subject_covariate_m_step, covariate_state,
+    ensure_positive_definite_covariance, estimate_initial_sigma_sq, finalize_saem_result,
+    initialize_population_in_phi_space, phi_to_psi, recenter_individual_estimates,
+    refresh_saem_objective_history, residual_error_estimates_from_observed_outeqs,
+    sample_eta_from_population, subject_mean_phi, transform_label,
+    update_residual_error_from_individuals, ChainState, Individual, IndividualEstimates,
+    KernelConfig, ParameterTransform, ParametricCovariateContext, ParametricIterationLog,
+    ParametricResultInput, PhiVector, Population, SaemFinalizeInput, SaemMcmcState,
+    SufficientStats, UncertaintyEstimates,
 };
 use crate::model::CovariateModel;
 use crate::output::shared::RunConfiguration;
@@ -545,8 +545,12 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
                 &self.individual_estimates,
                 &subject_means,
             );
-            self.iteration_log
-                .log_iteration(self.iteration, self.objf, &self.population, &self.status);
+            self.iteration_log.log_iteration(
+                self.iteration,
+                self.objf,
+                &self.population,
+                &self.status,
+            );
             return Ok(());
         }
 
@@ -923,33 +927,33 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
 
         finalize_saem_result(
             ParametricResultInput {
-            equation: &self.equation,
-            data: &self.data,
-            population: &self.population,
-            individual_estimates: &self.individual_estimates,
-            objf: self.objf,
-            iterations: self.iteration,
-            status: &self.status,
-            run_configuration: self.run_configuration.clone(),
-            iteration_log: self.iteration_log.clone(),
-            likelihood_estimates: Default::default(),
-            uncertainty_estimates: UncertaintyEstimates::new(),
-            sigma: residual_error_estimates_from_observed_outeqs(
-                &self.residual_error_models,
-                &observed_outeqs,
-            ),
-            transforms: &self.transforms,
-            covariates: Some(covariate_state(
-                self.subject_covariate_model.as_ref(),
-                &self.subject_covariates,
-                self.occasion_covariate_model.as_ref(),
-                &self.occasion_covariates,
-            )),
+                equation: &self.equation,
+                data: &self.data,
+                population: &self.population,
+                individual_estimates: &self.individual_estimates,
+                objf: self.objf,
+                iterations: self.iteration,
+                status: &self.status,
+                run_configuration: self.run_configuration.clone(),
+                iteration_log: self.iteration_log.clone(),
+                likelihood_estimates: Default::default(),
+                uncertainty_estimates: UncertaintyEstimates::new(),
+                sigma: residual_error_estimates_from_observed_outeqs(
+                    &self.residual_error_models,
+                    &observed_outeqs,
+                ),
+                transforms: &self.transforms,
+                covariates: Some(covariate_state(
+                    self.subject_covariate_model.as_ref(),
+                    &self.subject_covariates,
+                    self.occasion_covariate_model.as_ref(),
+                    &self.occasion_covariates,
+                )),
             },
             SaemFinalizeInput {
-            chain_states: &self.chain_states,
-            residual_error_models: &self.residual_error_models,
-            seed: self.config.seed,
+                chain_states: &self.chain_states,
+                residual_error_models: &self.residual_error_models,
+                seed: self.config.seed,
             },
         )
     }

@@ -3,7 +3,7 @@ use pharmsol::{Data, Equation};
 
 use crate::algorithms::Status;
 use crate::estimation::parametric::{
-    ChainState, phi_to_psi_vec, CovariateState, Individual, IndividualEffectsState,
+    phi_to_psi_vec, ChainState, CovariateState, Individual, IndividualEffectsState,
     IndividualEstimates, LikelihoodEstimates, ParameterTransform, ParametricIterationLog,
     ParametricModelState, ParametricWorkspace, Population, ResidualErrorEstimates,
     UncertaintyEstimates,
@@ -271,12 +271,7 @@ mod tests {
             run_configuration,
             iteration_log: {
                 let mut log = ParametricIterationLog::new();
-                log.log_iteration(
-                    1,
-                    130.0,
-                    &population,
-                    &Status::Continue,
-                );
+                log.log_iteration(1, 130.0, &population, &Status::Continue);
                 log
             },
             likelihood_estimates: LikelihoodEstimates {

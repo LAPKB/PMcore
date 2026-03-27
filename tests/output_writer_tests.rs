@@ -89,7 +89,10 @@ fn test_fit_result_writes_shared_output_files() -> Result<()> {
     let artifacts = result.artifacts();
     assert!(artifacts.files.iter().any(|file| file == "settings.json"));
     assert!(artifacts.files.iter().any(|file| file == "predictions.csv"));
-    assert!(artifacts.expected_files.iter().any(|file| file == "settings.json"));
+    assert!(artifacts
+        .expected_files
+        .iter()
+        .any(|file| file == "settings.json"));
     assert!(artifacts
         .shared_expected_files
         .iter()
@@ -132,7 +135,9 @@ fn test_parametric_outputs_use_split_individual_files() -> Result<()> {
         .build()?;
 
     let mut result = EstimationProblem::builder(model, simple_data())
-        .method(EstimationMethod::Parametric(ParametricMethod::Focei(FoceiOptions)))
+        .method(EstimationMethod::Parametric(ParametricMethod::Focei(
+            FoceiOptions,
+        )))
         .output(OutputPlan {
             write: true,
             path: Some(output_dir.to_string_lossy().to_string()),
@@ -156,11 +161,23 @@ fn test_parametric_outputs_use_split_individual_files() -> Result<()> {
     assert!(!output_dir.join("sigma.csv").exists());
 
     let artifacts = result.artifacts();
-    assert!(artifacts.files.iter().any(|file| file == "individual_parameters.csv"));
-    assert!(artifacts.files.iter().any(|file| file == "individual_effects.csv"));
+    assert!(artifacts
+        .files
+        .iter()
+        .any(|file| file == "individual_parameters.csv"));
+    assert!(artifacts
+        .files
+        .iter()
+        .any(|file| file == "individual_effects.csv"));
     assert!(artifacts.files.iter().any(|file| file == "predictions.csv"));
-    assert!(artifacts.files.iter().any(|file| file == "residual_error.csv"));
-    assert!(artifacts.expected_files.iter().any(|file| file == "predictions.csv"));
+    assert!(artifacts
+        .files
+        .iter()
+        .any(|file| file == "residual_error.csv"));
+    assert!(artifacts
+        .expected_files
+        .iter()
+        .any(|file| file == "predictions.csv"));
     assert!(artifacts
         .shared_expected_files
         .iter()

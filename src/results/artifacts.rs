@@ -72,7 +72,11 @@ fn artifact_index(
 
     let mut files = expected_files
         .iter()
-        .filter(|file| fs::metadata(path.join(file)).map(|meta| meta.is_file()).unwrap_or(false))
+        .filter(|file| {
+            fs::metadata(path.join(file))
+                .map(|meta| meta.is_file())
+                .unwrap_or(false)
+        })
         .cloned()
         .collect::<Vec<_>>();
     files.sort();

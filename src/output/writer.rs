@@ -8,9 +8,7 @@ use crate::estimation::parametric as param_estimation;
 use crate::estimation::parametric::ParametricWorkspace;
 use crate::output::{nonparametric as np_output, parametric, shared};
 use crate::results::FitResult;
-use crate::results::{
-    nonparametric_diagnostics, parametric_diagnostics, FitSummary,
-};
+use crate::results::{nonparametric_diagnostics, parametric_diagnostics, FitSummary};
 
 #[derive(Debug, Clone, Serialize)]
 struct SharedPredictionRow {

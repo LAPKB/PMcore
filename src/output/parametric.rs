@@ -26,16 +26,12 @@ pub(crate) fn output_file_names<E: pharmsol::Equation>(
         files.push("uncertainty.csv".to_string());
     }
 
-    let has_covariates = result
-        .data()
-        .subjects()
-        .iter()
-        .any(|subject| {
-            subject
-                .occasions()
-                .iter()
-                .any(|occasion| !occasion.covariates().covariates().is_empty())
-        });
+    let has_covariates = result.data().subjects().iter().any(|subject| {
+        subject
+            .occasions()
+            .iter()
+            .any(|occasion| !occasion.covariates().covariates().is_empty())
+    });
     if has_covariates {
         files.push("covariates.csv".to_string());
     }

@@ -82,7 +82,10 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     assert_eq!(result.population_summary().parameters.len(), 2);
     assert_eq!(result.individual_summaries().len(), 1);
     let diagnostics = result.diagnostics();
-    assert_eq!(diagnostics.estimator_metadata.get("algorithm"), Some(&"NPAG".to_string()));
+    assert_eq!(
+        diagnostics.estimator_metadata.get("algorithm"),
+        Some(&"NPAG".to_string())
+    );
     assert_eq!(
         diagnostics.estimator_metadata.get("outputs_requested"),
         Some(&"false".to_string())
@@ -110,7 +113,10 @@ fn test_parametric_fit_result_diagnostics_expose_iov_boundary() -> Result<()> {
             ParameterSpace::new()
                 .add(ParameterSpec {
                     name: "ke".to_string(),
-                    domain: ParameterDomain::Bounded { lower: 0.1, upper: 1.0 },
+                    domain: ParameterDomain::Bounded {
+                        lower: 0.1,
+                        upper: 1.0,
+                    },
                     transform: ModelParameterTransform::Identity,
                     initial: Some(0.4),
                     estimate: true,
@@ -122,7 +128,9 @@ fn test_parametric_fit_result_diagnostics_expose_iov_boundary() -> Result<()> {
         .build()?;
 
     let result = EstimationProblem::builder(model, multi_occasion_data())
-        .method(EstimationMethod::Parametric(ParametricMethod::Focei(FoceiOptions)))
+        .method(EstimationMethod::Parametric(ParametricMethod::Focei(
+            FoceiOptions,
+        )))
         .output(OutputPlan::disabled())
         .runtime(RuntimeOptions {
             cycles: 1,
@@ -182,7 +190,9 @@ fn test_parametric_population_summary_uses_transform_aware_cv() -> Result<()> {
         .build()?;
 
     let result = EstimationProblem::builder(model, simple_data())
-        .method(EstimationMethod::Parametric(ParametricMethod::Focei(FoceiOptions)))
+        .method(EstimationMethod::Parametric(ParametricMethod::Focei(
+            FoceiOptions,
+        )))
         .output(OutputPlan::disabled())
         .runtime(RuntimeOptions {
             cycles: 3,

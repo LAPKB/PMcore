@@ -44,9 +44,12 @@ impl UncertaintyEstimates {
         fim_method: FimMethod,
     ) -> Self {
         let n_params = population.npar();
-        let se_mu = (fim_inverse.nrows() >= n_params && fim_inverse.ncols() >= n_params).then(|| {
-            Col::from_fn(n_params, |index| fim_inverse[(index, index)].max(0.0).sqrt())
-        });
+        let se_mu =
+            (fim_inverse.nrows() >= n_params && fim_inverse.ncols() >= n_params).then(|| {
+                Col::from_fn(n_params, |index| {
+                    fim_inverse[(index, index)].max(0.0).sqrt()
+                })
+            });
         let rse_mu = se_mu.as_ref().map(|se| {
             Col::from_fn(n_params, |index| {
                 let mu = population.mu()[index].abs();
@@ -57,10 +60,13 @@ impl UncertaintyEstimates {
                 }
             })
         });
-        let se_omega = if fim_inverse.nrows() >= 2 * n_params && fim_inverse.ncols() >= 2 * n_params {
+        let se_omega = if fim_inverse.nrows() >= 2 * n_params && fim_inverse.ncols() >= 2 * n_params
+        {
             Some(Mat::from_fn(n_params, n_params, |row, col| {
                 if row == col {
-                    fim_inverse[(n_params + row, n_params + col)].max(0.0).sqrt()
+                    fim_inverse[(n_params + row, n_params + col)]
+                        .max(0.0)
+                        .sqrt()
                 } else {
                     0.0
                 }
@@ -79,11 +85,7 @@ impl UncertaintyEstimates {
         }
     }
 
-    pub fn from_fim(
-        population: &Population,
-        fim: Mat<f64>,
-        fim_method: FimMethod,
-    ) -> Result<Self> {
+    pub fn from_fim(population: &Population, fim: Mat<f64>, fim_method: FimMethod) -> Result<Self> {
         let fim_inverse = fim
             .clone()
             .llt(faer::Side::Lower)
@@ -117,25 +119,19 @@ pub fn focei_linearization_uncertainty(
         }
     });
 
-    UncertaintyEstimates::from_fim(population, fim, FimMethod::Linearization).unwrap_or_else(
-        |_| {
-            let fim_inverse = Mat::from_fn(2 * n_params, 2 * n_params, |row, col| {
-                if row < n_params && col < n_params {
-                    population.omega()[(row, col)] / n_subjects
-                } else if row == col && row >= n_params {
-                    let variance = population.omega()[(row - n_params, row - n_params)].max(1e-8);
-                    2.0 * variance.powi(2) / n_subjects
-                } else {
-                    0.0
-                }
-            });
-            UncertaintyEstimates::from_fim_inverse(
-                population,
-                fim_inverse,
-                FimMethod::Linearization,
-            )
-        },
-    )
+    UncertaintyEstimates::from_fim(population, fim, FimMethod::Linearization).unwrap_or_else(|_| {
+        let fim_inverse = Mat::from_fn(2 * n_params, 2 * n_params, |row, col| {
+            if row < n_params && col < n_params {
+                population.omega()[(row, col)] / n_subjects
+            } else if row == col && row >= n_params {
+                let variance = population.omega()[(row - n_params, row - n_params)].max(1e-8);
+                2.0 * variance.powi(2) / n_subjects
+            } else {
+                0.0
+            }
+        });
+        UncertaintyEstimates::from_fim_inverse(population, fim_inverse, FimMethod::Linearization)
+    })
 }
 
 fn inverse_or_diagonal(matrix: &Mat<f64>) -> Mat<f64> {
@@ -205,7 +201,11 @@ mod tests {
             parameters,
         )
         .unwrap();
-        let fim_inverse = Mat::from_fn(4, 4, |row, col| if row == col { (row + 1) as f64 } else { 0.0 });
+        let fim_inverse = Mat::from_fn(
+            4,
+            4,
+            |row, col| if row == col { (row + 1) as f64 } else { 0.0 },
+        );
 
         let estimates =
             UncertaintyEstimates::from_fim_inverse(&population, fim_inverse, FimMethod::Observed);

@@ -218,8 +218,7 @@ impl<E: Equation> NonparametricWorkspace<E> {
         use pharmsol::Event;
 
         tracing::debug!("Writing covariates...");
-        let outputfile =
-            crate::output::OutputFile::new(self.output_folder(), "covariates.csv")?;
+        let outputfile = crate::output::OutputFile::new(self.output_folder(), "covariates.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(outputfile.file());

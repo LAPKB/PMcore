@@ -19,8 +19,7 @@ mod uncertainty;
 mod workspace;
 
 pub(crate) use assembler::{
-    assemble_parametric_result, finalize_saem_result, ParametricResultInput,
-    SaemFinalizeInput,
+    assemble_parametric_result, finalize_saem_result, ParametricResultInput, SaemFinalizeInput,
 };
 pub use compiler::compile_model_state;
 pub(crate) use effects::{
@@ -33,6 +32,7 @@ pub use individual::{Individual, IndividualEstimates};
 pub(crate) use integration::{
     ImportanceSamplingConfig, ImportanceSamplingEstimator, SubjectConditionalPosterior,
 };
+pub(crate) use likelihood::refresh_saem_objective_history;
 pub use likelihood::{
     approximate_objective_from_individuals, batch_log_likelihood_from_eta,
     estimate_initial_sigma_sq, importance_sampling_likelihood_estimates,
@@ -40,7 +40,6 @@ pub use likelihood::{
     subject_objective_from_eta, sync_error_models_with_sigma,
     update_residual_error_from_individuals, ResidualErrorUpdate,
 };
-pub(crate) use likelihood::refresh_saem_objective_history;
 pub(crate) use population::ensure_positive_definite_covariance;
 pub use population::{CovarianceStructure, Population};
 pub use posthoc::{aic, bic, cache_predictions, shrinkage, statistics, write_statistics};

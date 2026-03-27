@@ -13,10 +13,9 @@ use crate::estimation::parametric::{
     assemble_parametric_result, batch_log_likelihood_from_eta, covariance_from_individual_etas,
     covariance_from_subject_means, covariate_state, ensure_positive_definite_covariance,
     estimate_beta, focei_linearization_uncertainty, recenter_individual_estimates,
-    residual_error_estimates_from_models, subject_mean_phi, subject_objective_from_eta,
-    Individual, IndividualEstimates, LikelihoodEstimates, ParametricResultInput,
-    ParameterTransform, ParametricCovariateContext, ParametricIterationLog,
-    ParametricWorkspace, Population,
+    residual_error_estimates_from_models, subject_mean_phi, subject_objective_from_eta, Individual,
+    IndividualEstimates, LikelihoodEstimates, ParameterTransform, ParametricCovariateContext,
+    ParametricIterationLog, ParametricResultInput, ParametricWorkspace, Population,
 };
 use crate::model::CovariateModel;
 use crate::output::shared::RunConfiguration;
@@ -447,8 +446,10 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FoceiAlgorithm<E> 
             ll_linearization: Some(-self.objf / 2.0),
             ..LikelihoodEstimates::new()
         };
-        let uncertainty_estimates =
-            focei_linearization_uncertainty(&self.population, self.individual_estimates.nsubjects());
+        let uncertainty_estimates = focei_linearization_uncertainty(
+            &self.population,
+            self.individual_estimates.nsubjects(),
+        );
         let sigma = residual_error_estimates_from_models(&self.residual_error_models);
 
         assemble_parametric_result(ParametricResultInput {

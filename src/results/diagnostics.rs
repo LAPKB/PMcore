@@ -79,10 +79,7 @@ pub(crate) fn parametric_diagnostics<E: Equation>(
         warnings.push(
             "Occasion variability is represented in the compiled and fitted state, but occasion-level inference remains deferred; occasion_kappa entries are structural placeholders.".to_string(),
         );
-        estimator_metadata.insert(
-            "occasion_inference".to_string(),
-            "deferred".to_string(),
-        );
+        estimator_metadata.insert("occasion_inference".to_string(), "deferred".to_string());
     } else {
         estimator_metadata.insert(
             "occasion_inference".to_string(),
