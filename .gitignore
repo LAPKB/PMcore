@@ -25,6 +25,8 @@ simulation_output.csv
 /examples/data/iohexol*
 /examples/data/rosuva*
 /examples/data/vori*
+/examples/paper_benchmarks
+/examples/*/output
 /.idea
 stop
 .vscode
