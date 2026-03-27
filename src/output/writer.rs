@@ -8,7 +8,9 @@ use crate::estimation::parametric as param_estimation;
 use crate::estimation::parametric::ParametricWorkspace;
 use crate::output::{nonparametric as np_output, parametric, shared};
 use crate::results::FitResult;
-use crate::results::{DiagnosticsBundle, FitSummary};
+use crate::results::{
+    nonparametric_diagnostics, parametric_diagnostics, FitSummary,
+};
 
 #[derive(Debug, Clone, Serialize)]
 struct SharedPredictionRow {
@@ -44,7 +46,7 @@ pub fn write_nonparametric_result<E: Equation>(
     let folder = result.output_folder().to_string();
     shared::write_settings(&folder, result.run_configuration())?;
     shared::write_summary(&folder, &nonparametric_summary(result))?;
-    shared::write_diagnostics(&folder, &DiagnosticsBundle::default())?;
+    shared::write_diagnostics(&folder, &nonparametric_diagnostics(result))?;
     np_output::write_nonparametric_outputs(result)?;
 
     if let Some(predictions) = result.predictions() {
@@ -80,7 +82,7 @@ pub fn write_parametric_workspace_result<E: Equation>(
     let folder = result.output_folder().to_string();
     shared::write_settings(&folder, result.run_configuration())?;
     shared::write_summary(&folder, &parametric_summary(result))?;
-    shared::write_diagnostics(&folder, &DiagnosticsBundle::default())?;
+    shared::write_diagnostics(&folder, &parametric_diagnostics(result))?;
     parametric::write_parametric_workspace_outputs(result)?;
 
     if let Some(predictions) = result.predictions() {

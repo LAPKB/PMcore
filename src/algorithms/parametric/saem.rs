@@ -57,24 +57,24 @@ use faer::linalg::solvers::DenseSolveCore;
 use faer::{Col, Mat};
 use ndarray::Array2;
 use pharmsol::{Data, Equation, Event, ResidualErrorModels};
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
-use rand_distr::{Distribution, Normal};
 use std::collections::HashMap;
 
 use crate::algorithms::{Status, StopReason};
 use crate::api::SaemConfig;
 use crate::estimation::parametric::{
-    approximate_objective_from_individuals, assemble_saem_result, batch_log_likelihood_from_eta,
-    blended_subject_covariate_m_step, covariate_state, ensure_positive_definite_covariance,
-    estimate_initial_sigma_sq, initialize_population_in_phi_space, log_priors_from_eta_matrix,
-    occasion_covariate_maps, phi_to_psi, recenter_individual_estimates, saem_posthoc_likelihood,
-    sample_eta_from_population, subject_covariate_maps, subject_log_prior_from_eta,
+    advance_saem_chains, blended_subject_covariate_m_step,
+    covariate_state, ensure_positive_definite_covariance, estimate_initial_sigma_sq,
+    finalize_saem_result, initialize_population_in_phi_space, phi_to_psi,
+    recenter_individual_estimates, refresh_saem_objective_history, sample_eta_from_population,
     subject_mean_phi, transform_label, update_residual_error_from_individuals, ChainState,
-    Individual, IndividualEstimates, KernelConfig, ParameterTransform, PhiVector, Population,
-    SaemResultInput, SufficientStats,
+    Individual, IndividualEstimates, KernelConfig, ParameterTransform,
+    ParametricCovariateContext, ParametricIterationLog, PhiVector, Population,
+    ParametricResultInput, SaemFinalizeInput, SaemMcmcState, SufficientStats,
+    UncertaintyEstimates, residual_error_estimates_from_observed_outeqs,
 };
-use crate::model::{CovariateModel, CovariateSpec};
+use crate::model::CovariateModel;
 use crate::output::shared::RunConfiguration;
 
 use super::algorithm::{ParametricAlgorithm, ParametricAlgorithmInput, ParametricConfig};
@@ -256,10 +256,8 @@ pub struct FSAEM<E: Equation> {
     variance_floor: Col<f64>,
     /// Random number generator
     rng: ChaCha8Rng,
-    /// Parameter history for convergence diagnostics
-    param_history: Vec<Vec<f64>>,
-    /// Objective function history (per-iteration approximate -2LL)
-    objf_history: Vec<f64>,
+    /// Shared iteration log used for reporting and written outputs.
+    iteration_log: ParametricIterationLog,
     /// Parameter transforms (φ ↔ ψ conversions)
     /// Maps between unconstrained space (φ) and constrained space (ψ)
     transforms: Vec<ParameterTransform>,
@@ -306,25 +304,16 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         let ParametricAlgorithmInput {
             equation,
             data,
-            covariates,
-            structured_covariates,
+            covariate_context,
             residual_error_models,
             ..
         } = input;
-        let (
-            subject_covariate_model,
-            occasion_covariate_model,
+        let ParametricCovariateContext {
+            subject_model: subject_covariate_model,
+            occasion_model: occasion_covariate_model,
             subject_covariates,
             occasion_covariates,
-        ) = match covariates {
-            CovariateSpec::InEquation => (None, None, Vec::new(), Vec::new()),
-            CovariateSpec::Structured(spec) => (
-                spec.subject_effects,
-                spec.occasion_effects,
-                subject_covariate_maps(&structured_covariates),
-                occasion_covariate_maps(&structured_covariates),
-            ),
-        };
+        } = covariate_context;
         let n_params = population.npar();
         let n_subjects = data.subjects().len();
 
@@ -387,8 +376,7 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
             residual_error_models,
             variance_floor,
             rng,
-            param_history: Vec::new(),
-            objf_history: Vec::new(),
+            iteration_log: ParametricIterationLog::new(),
             transforms,
             domega2,
             subject_covariate_model,
@@ -462,12 +450,7 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         let omega_inv = llt.inverse();
 
         // Subject-specific population means in φ space.
-        let mean_phi = subject_mean_phi(
-            self.population.mu(),
-            self.data.subjects().len(),
-            self.subject_covariate_model.as_ref(),
-            &self.subject_covariates,
-        );
+        let mean_phi = self.current_subject_mean_phi();
 
         // Current η for all subjects (N × P matrix)
         // η = φ - μ, so φ = μ + η
@@ -480,198 +463,24 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
             }
         }
 
-        // Current log-likelihood for all subjects
-        let mut current_ll = batch_log_likelihood_from_eta(
+        let SaemMcmcState {
+            eta_matrix,
+            log_likelihoods: current_ll,
+            log_priors: current_log_prior,
+        } = advance_saem_chains(
             &self.equation,
             &self.data,
             &self.residual_error_models,
             &self.transforms,
-            &eta_matrix,
             &mean_phi,
+            &chol_omega,
+            &omega_inv,
+            &self.config.kernel_config,
+            self.iteration,
+            &mut self.domega2,
+            &mut self.rng,
+            eta_matrix,
         )?;
-
-        // Current log-prior for all subjects: -0.5 * η' Ω⁻¹ η
-        let mut current_log_prior = log_priors_from_eta_matrix(&eta_matrix, &omega_inv);
-
-        let normal = Normal::new(0.0, 1.0).unwrap();
-
-        // Kernel 1: Full proposals from prior (vectorized)
-        for _ in 0..self.config.kernel_config.n_kernel1 {
-            // Propose η ~ N(0, Ω) for all subjects
-            let mut proposed_eta = Array2::zeros((n_subjects, n_params));
-            for i in 0..n_subjects {
-                // Generate standard normal vector
-                let z: Vec<f64> = (0..n_params)
-                    .map(|_| normal.sample(&mut self.rng))
-                    .collect();
-                // Transform by Cholesky: η = L * z
-                for j in 0..n_params {
-                    let mut sum = 0.0;
-                    for k in 0..=j {
-                        sum += chol_omega[(j, k)] * z[k];
-                    }
-                    proposed_eta[[i, j]] = sum;
-                }
-            }
-
-            // Compute likelihoods for all proposals in parallel
-            let proposed_ll = batch_log_likelihood_from_eta(
-                &self.equation,
-                &self.data,
-                &self.residual_error_models,
-                &self.transforms,
-                &proposed_eta,
-                &mean_phi,
-            )?;
-
-            // Accept/reject (vectorized)
-            for i in 0..n_subjects {
-                // For kernel 1, prior ratio is 1 (both from prior)
-                let log_alpha = proposed_ll[i] - current_ll[i];
-                let u: f64 = self.rng.random();
-                if log_alpha.is_finite() && u.ln() < log_alpha {
-                    for j in 0..n_params {
-                        eta_matrix[[i, j]] = proposed_eta[[i, j]];
-                    }
-                    current_ll[i] = proposed_ll[i];
-                    // Update prior (all from N(0,Ω), so log_prior is the same form)
-                    current_log_prior[i] = subject_log_prior_from_eta(i, &eta_matrix, &omega_inv);
-                }
-            }
-        }
-
-        // Kernel 2: Component-wise random walk with adaptive scaling (vectorized)
-        // Uses self.domega2 (persistent) instead of recomputing from omega each iteration
-        if self.config.kernel_config.n_kernel2 > 0 {
-            let mut n_accepted = vec![0usize; n_params];
-            let mut n_total = vec![0usize; n_params];
-
-            for _ in 0..self.config.kernel_config.n_kernel2 {
-                for param_idx in 0..n_params {
-                    // Propose perturbation for this component for all subjects
-                    let mut proposed_eta = eta_matrix.clone();
-                    for i in 0..n_subjects {
-                        let perturbation = normal.sample(&mut self.rng) * self.domega2[param_idx];
-                        proposed_eta[[i, param_idx]] += perturbation;
-                    }
-
-                    // Compute likelihoods for all proposals
-                    let proposed_ll = batch_log_likelihood_from_eta(
-                        &self.equation,
-                        &self.data,
-                        &self.residual_error_models,
-                        &self.transforms,
-                        &proposed_eta,
-                        &mean_phi,
-                    )?;
-
-                    // Compute proposed log-priors
-                    let proposed_log_prior = log_priors_from_eta_matrix(&proposed_eta, &omega_inv);
-
-                    // Accept/reject
-                    for i in 0..n_subjects {
-                        let log_alpha = (proposed_ll[i] + proposed_log_prior[i])
-                            - (current_ll[i] + current_log_prior[i]);
-                        let u: f64 = self.rng.random();
-                        if log_alpha.is_finite() && u.ln() < log_alpha {
-                            eta_matrix[[i, param_idx]] = proposed_eta[[i, param_idx]];
-                            current_ll[i] = proposed_ll[i];
-                            current_log_prior[i] = proposed_log_prior[i];
-                            n_accepted[param_idx] += 1;
-                        }
-                        n_total[param_idx] += 1;
-                    }
-                }
-            }
-
-            // Adapt domega2 based on acceptance rates (R saemix adaptive scaling)
-            // domega2 *= 1 + stepsize.rw * (acc_rate - proba.mcmc)
-            let stepsize_rw = self.config.kernel_config.rw_step_size;
-            let target = self.config.kernel_config.target_acceptance;
-            for param_idx in 0..n_params {
-                if n_total[param_idx] > 0 {
-                    let acc_rate = n_accepted[param_idx] as f64 / n_total[param_idx] as f64;
-                    self.domega2[param_idx] *= 1.0 + stepsize_rw * (acc_rate - target);
-                }
-            }
-        }
-
-        // Kernel 3: Block random walk with adaptive scaling (vectorized)
-        let block_size = (self.iteration % n_params.max(2).saturating_sub(1)).max(1) + 1;
-        let block_size = block_size.min(n_params);
-
-        if self.config.kernel_config.n_kernel3 > 0 {
-            let mut n_accepted = vec![0usize; n_params];
-            let mut n_total = vec![0usize; n_params];
-
-            for _ in 0..self.config.kernel_config.n_kernel3 {
-                // Select block of parameters
-                let block_indices: Vec<usize> = if block_size < n_params {
-                    let mut indices: Vec<usize> = (0..n_params).collect();
-                    // Shuffle first block_size elements using Fisher-Yates
-                    for k in 0..block_size {
-                        let u: f64 = self.rng.random();
-                        let remaining = n_params - k;
-                        let swap_offset = (u * remaining as f64).floor() as usize;
-                        let swap_idx = k + swap_offset.min(remaining - 1);
-                        indices.swap(k, swap_idx);
-                    }
-                    indices[..block_size].to_vec()
-                } else {
-                    (0..n_params).collect()
-                };
-
-                // Propose perturbations for the block using adaptive domega2
-                let mut proposed_eta = eta_matrix.clone();
-                for i in 0..n_subjects {
-                    for &j in &block_indices {
-                        let perturbation = normal.sample(&mut self.rng) * self.domega2[j];
-                        proposed_eta[[i, j]] += perturbation;
-                    }
-                }
-
-                // Compute likelihoods
-                let proposed_ll = batch_log_likelihood_from_eta(
-                    &self.equation,
-                    &self.data,
-                    &self.residual_error_models,
-                    &self.transforms,
-                    &proposed_eta,
-                    &mean_phi,
-                )?;
-
-                // Compute proposed log-priors
-                let proposed_log_prior = log_priors_from_eta_matrix(&proposed_eta, &omega_inv);
-
-                // Accept/reject
-                for i in 0..n_subjects {
-                    let log_alpha = (proposed_ll[i] + proposed_log_prior[i])
-                        - (current_ll[i] + current_log_prior[i]);
-                    let u: f64 = self.rng.random();
-                    if log_alpha.is_finite() && u.ln() < log_alpha {
-                        for &j in &block_indices {
-                            eta_matrix[[i, j]] = proposed_eta[[i, j]];
-                            n_accepted[j] += 1;
-                        }
-                        current_ll[i] = proposed_ll[i];
-                        current_log_prior[i] = proposed_log_prior[i];
-                    }
-                    for &j in &block_indices {
-                        n_total[j] += 1;
-                    }
-                }
-            }
-
-            // Adapt domega2 based on acceptance rates for kernel 3
-            let stepsize_rw = self.config.kernel_config.rw_step_size;
-            let target = self.config.kernel_config.target_acceptance;
-            for param_idx in 0..n_params {
-                if n_total[param_idx] > 0 {
-                    let acc_rate = n_accepted[param_idx] as f64 / n_total[param_idx] as f64;
-                    self.domega2[param_idx] *= 1.0 + stepsize_rw * (acc_rate - target);
-                }
-            }
-        }
 
         // Update chain states with final η
         for i in 0..n_subjects {
@@ -723,33 +532,21 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
     fn m_step_impl(&mut self) -> Result<()> {
         // During pure burn-in, don't update parameters - just explore
         if self.is_pure_burn_in() {
-            // Still track history for monitoring
-            let mut params = Vec::new();
-            for i in 0..self.population.npar() {
-                params.push(self.population.mu()[i]);
-            }
-
-            for i in 0..self.population.npar() {
-                params.push(self.population.omega()[(i, i)]);
-            }
-            params.push(self.sigma_sq.sqrt());
-            self.param_history.push(params);
-            // Compute approximate objf even during burn-in for monitoring
-            self.objf = approximate_objective_from_individuals(
+            let subject_means = self.current_subject_mean_phi();
+            refresh_saem_objective_history(
+                &mut self.objf,
+                &mut self.prev_objf,
+                false,
                 &self.equation,
                 &self.data,
                 &self.residual_error_models,
                 &self.transforms,
                 &self.population,
                 &self.individual_estimates,
-                &subject_mean_phi(
-                    self.population.mu(),
-                    self.data.subjects().len(),
-                    self.subject_covariate_model.as_ref(),
-                    &self.subject_covariates,
-                ),
+                &subject_means,
             );
-            self.objf_history.push(self.objf);
+            self.iteration_log
+                .log_iteration(self.iteration, self.objf, &self.population, &self.status);
             return Ok(());
         }
 
@@ -776,46 +573,28 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         self.population.update_omega(omega_pd)?;
 
         if self.subject_covariate_model.is_some() {
-            let subject_means = subject_mean_phi(
-                self.population.mu(),
-                self.data.subjects().len(),
-                self.subject_covariate_model.as_ref(),
-                &self.subject_covariates,
-            );
+            let subject_means = self.current_subject_mean_phi();
             self.recenter_subject_effects(&subject_means)?;
         }
 
         // Update residual error (simplified - could be more sophisticated)
         self.update_residual_error()?;
 
-        // Store parameter history
-        let mut params = Vec::new();
-        for i in 0..self.population.npar() {
-            params.push(self.population.mu()[i]);
-        }
-        for i in 0..self.population.npar() {
-            params.push(self.population.omega()[(i, i)]);
-        }
-        params.push(self.sigma_sq.sqrt());
-        self.param_history.push(params);
-
-        // Update objective function
-        self.prev_objf = self.objf;
-        self.objf = approximate_objective_from_individuals(
+        let subject_means = self.current_subject_mean_phi();
+        refresh_saem_objective_history(
+            &mut self.objf,
+            &mut self.prev_objf,
+            true,
             &self.equation,
             &self.data,
             &self.residual_error_models,
             &self.transforms,
             &self.population,
             &self.individual_estimates,
-            &subject_mean_phi(
-                self.population.mu(),
-                self.data.subjects().len(),
-                self.subject_covariate_model.as_ref(),
-                &self.subject_covariates,
-            ),
+            &subject_means,
         );
-        self.objf_history.push(self.objf);
+        self.iteration_log
+            .log_iteration(self.iteration, self.objf, &self.population, &self.status);
 
         Ok(())
     }
@@ -874,11 +653,6 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         self.sigma_sq = update.sigma_sq;
         self.statrese = update.statrese;
         Ok(())
-    }
-
-    /// Get parameter history for convergence diagnostics
-    pub fn param_history(&self) -> &Vec<Vec<f64>> {
-        &self.param_history
     }
 
     /// Get current residual error standard deviation
@@ -1135,37 +909,35 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
     }
 
     fn into_result(&self) -> Result<crate::estimation::parametric::ParametricWorkspace<E>> {
-        let eta_samples_by_subject = self
-            .chain_states
+        let observed_outeqs = self
+            .data
+            .subjects()
             .iter()
-            .map(|chain_states| chain_states.iter().map(|state| state.eta.clone()).collect())
-            .collect::<Vec<Vec<Col<f64>>>>();
-        let (likelihood_estimates, minus2ll) = saem_posthoc_likelihood(
-            &self.equation,
-            &self.data,
-            &self.residual_error_models,
-            &self.transforms,
-            &self.population,
-            &self.individual_estimates,
-            &eta_samples_by_subject,
-            self.config.seed,
-        )?;
-        tracing::info!("-2LL computed by importance sampling: {:.4}", minus2ll);
+            .flat_map(|subject| subject.occasions().iter())
+            .flat_map(|occasion| occasion.iter())
+            .filter_map(|event| match event {
+                Event::Observation(observation) => Some(observation.outeq()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
 
-        assemble_saem_result(SaemResultInput {
+        finalize_saem_result(
+            ParametricResultInput {
             equation: &self.equation,
             data: &self.data,
             population: &self.population,
             individual_estimates: &self.individual_estimates,
-            objf: minus2ll,
+            objf: self.objf,
             iterations: self.iteration,
             status: &self.status,
             run_configuration: self.run_configuration.clone(),
-            likelihood_estimates,
-            param_history: &self.param_history,
-            objf_history: &self.objf_history,
-            burn_in_iterations: self.config.n_burn_in(),
-            sigma_sq: self.sigma_sq,
+            iteration_log: self.iteration_log.clone(),
+            likelihood_estimates: Default::default(),
+            uncertainty_estimates: UncertaintyEstimates::new(),
+            sigma: residual_error_estimates_from_observed_outeqs(
+                &self.residual_error_models,
+                &observed_outeqs,
+            ),
             transforms: &self.transforms,
             covariates: Some(covariate_state(
                 self.subject_covariate_model.as_ref(),
@@ -1173,7 +945,13 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
                 self.occasion_covariate_model.as_ref(),
                 &self.occasion_covariates,
             )),
-        })
+            },
+            SaemFinalizeInput {
+            chain_states: &self.chain_states,
+            residual_error_models: &self.residual_error_models,
+            seed: self.config.seed,
+            },
+        )
     }
 
     fn sufficient_stats(&self) -> Option<&SufficientStats> {
@@ -1182,6 +960,15 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
 }
 
 impl<E: Equation + Send + 'static> FSAEM<E> {
+    fn current_subject_mean_phi(&self) -> Vec<Col<f64>> {
+        subject_mean_phi(
+            self.population.mu(),
+            self.data.subjects().len(),
+            self.subject_covariate_model.as_ref(),
+            &self.subject_covariates,
+        )
+    }
+
     fn compute_covariate_aware_m_step(&mut self) -> Result<(Col<f64>, Mat<f64>)> {
         let step_size = self.current_step_size();
         let Some(model) = self.subject_covariate_model.clone() else {

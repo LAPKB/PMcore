@@ -244,6 +244,12 @@ fn test_acceptance_baseline_focei_onecomp() -> Result<()> {
     saem_reference::assert_close(result.objf(), 73.802216624458, 1e-9, "focei.objf");
     saem_reference::assert_vec_close(&mu, &[1.0, 10.5], 1e-12, "focei.mu");
     saem_reference::assert_vec_close(&omega_diag, &[1e-8, 1e-8], 1e-12, "focei.omega_diag");
-    assert!(result.sigma().as_vec().is_empty());
+    assert_eq!(result.sigma().combined, Some((0.5, 0.1)));
+    assert!(has_fim(result));
+    assert_eq!(fim_method(result), Some(FimMethod::Linearization));
+    let se_mu = se_mu(result).expect("FOCEI should expose standard errors on the shared surface");
+    assert_eq!(se_mu.nrows(), 2);
+    assert!(se_mu[0].is_finite());
+    assert!(se_mu[1].is_finite());
     Ok(())
 }

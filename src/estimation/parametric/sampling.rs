@@ -2,4 +2,6 @@
 
 mod kernels;
 
-pub(crate) use kernels::{sample_eta_from_population, ChainState, KernelConfig};
+pub(crate) use kernels::{
+    advance_saem_chains, sample_eta_from_population, ChainState, KernelConfig, SaemMcmcState,
+};

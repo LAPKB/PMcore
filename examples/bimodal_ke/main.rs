@@ -46,6 +46,10 @@ fn main() -> Result<()> {
         })
         .runtime(RuntimeOptions {
             cycles: 1000,
+            logging: LoggingOptions {
+                initialize: true,
+                ..LoggingOptions::default()
+            },
             ..RuntimeOptions::default()
         })
         .run()?;

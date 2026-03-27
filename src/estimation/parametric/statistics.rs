@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use csv::WriterBuilder;
+use pharmsol::{ResidualErrorModel, ResidualErrorModels};
 use serde::Serialize;
 
 use crate::estimation::parametric::{IndividualEstimates, Population};
@@ -52,17 +53,10 @@ impl ParametricStatistics {
         let mu: Vec<f64> = (0..n_fixed).map(|i| population.mu()[i]).collect();
         let omega_diag: Vec<f64> = (0..n_fixed).map(|i| population.omega()[(i, i)]).collect();
         let omega_sd: Vec<f64> = omega_diag.iter().map(|v| v.sqrt()).collect();
-
-        let cv_percent: Vec<f64> = mu
+        let cv_percent: Vec<f64> = population
+            .coefficient_of_variation()
             .iter()
-            .zip(omega_sd.iter())
-            .map(|(m, s)| {
-                if m.abs() > 1e-10 {
-                    100.0 * s / m.abs()
-                } else {
-                    f64::NAN
-                }
-            })
+            .copied()
             .collect();
 
         let pop_var = faer::Col::from_fn(n_fixed, |i| omega_diag[i]);
@@ -216,7 +210,7 @@ impl ResidualErrorEstimates {
     }
 
     pub fn write(&self, folder: &str) -> Result<()> {
-        let outputfile = OutputFile::new(folder, "sigma.csv")?;
+        let outputfile = OutputFile::new(folder, "residual_error.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(outputfile.file());
@@ -243,5 +237,61 @@ impl ResidualErrorEstimates {
         writer.flush()?;
         tracing::debug!("Sigma written to {:?}", outputfile.relative_path());
         Ok(())
+    }
+}
+
+pub fn residual_error_estimates_from_models(
+    error_models: &ResidualErrorModels,
+) -> ResidualErrorEstimates {
+    let models = error_models
+        .iter()
+        .map(|(_, model)| *model)
+        .collect::<Vec<_>>();
+
+    let Some(first) = models.first().copied() else {
+        return ResidualErrorEstimates::default();
+    };
+
+    if !models.iter().all(|model| *model == first) {
+        return ResidualErrorEstimates::default();
+    }
+
+    match first {
+        ResidualErrorModel::Constant { a } => ResidualErrorEstimates::additive(a),
+        ResidualErrorModel::Proportional { b } => ResidualErrorEstimates::proportional(b),
+        ResidualErrorModel::Combined { a, b } => ResidualErrorEstimates::combined(a, b),
+        ResidualErrorModel::Exponential { .. } => ResidualErrorEstimates {
+            model_type: "exponential".to_string(),
+            ..ResidualErrorEstimates::default()
+        },
+    }
+}
+
+pub fn residual_error_estimates_from_observed_outeqs(
+    error_models: &ResidualErrorModels,
+    observed_outeqs: &[usize],
+) -> ResidualErrorEstimates {
+    let models = error_models
+        .iter()
+        .filter(|(outeq, _)| observed_outeqs.contains(outeq))
+        .map(|(_, model)| *model)
+        .collect::<Vec<_>>();
+
+    let Some(first) = models.first().copied() else {
+        return ResidualErrorEstimates::default();
+    };
+
+    if !models.iter().all(|model| *model == first) {
+        return ResidualErrorEstimates::default();
+    }
+
+    match first {
+        ResidualErrorModel::Constant { a } => ResidualErrorEstimates::additive(a),
+        ResidualErrorModel::Proportional { b } => ResidualErrorEstimates::proportional(b),
+        ResidualErrorModel::Combined { a, b } => ResidualErrorEstimates::combined(a, b),
+        ResidualErrorModel::Exponential { .. } => ResidualErrorEstimates {
+            model_type: "exponential".to_string(),
+            ..ResidualErrorEstimates::default()
+        },
     }
 }

@@ -51,20 +51,6 @@ pub enum FimMethod {
     Linearization,
 }
 
-impl UncertaintyEstimates {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn has_fim(&self) -> bool {
-        self.fim.is_some()
-    }
-
-    pub fn has_standard_errors(&self) -> bool {
-        self.se_mu.is_some()
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct ParametricIterationLog {
     iterations: Vec<usize>,

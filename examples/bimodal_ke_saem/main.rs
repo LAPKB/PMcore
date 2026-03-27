@@ -194,10 +194,7 @@ fn print_saem_report<E: pharmsol::Equation>(result: &pmcore::prelude::Parametric
     println!("\n{}", "-".repeat(60));
     println!("{:^60}", "Residual Error");
     println!("{}", "-".repeat(60));
-    // Get sigma from settings or result (assuming additive error model)
-    // Note: In SAEM, sigma is estimated during M-step
-    println!("  σ (residual SD): Not directly available in result");
-    println!("  (See iteration output for current σ estimate)");
+    println!("  σ estimates:          {:?}", result.sigma().as_vec());
 
     // Statistical criteria
     println!("\n{}", "-".repeat(60));
@@ -217,9 +214,7 @@ fn print_saem_report<E: pharmsol::Equation>(result: &pmcore::prelude::Parametric
     println!("  AIC  = {:.4}", aic);
     println!("  BIC  = {:.4}", bic);
 
-    // Individual parameters (first 10 subjects)
-    // Note: SAEM stores individual estimates in φ space (unconstrained)
-    // For lognormal parameters, ψ = exp(φ)
+    // Individual parameters (first 10 subjects) on the canonical ψ-space result surface.
     println!("\n{}", "-".repeat(60));
     println!("{:^60}", "Individual Parameters (first 10 subjects)");
     println!("{}", "-".repeat(60));
@@ -238,11 +233,8 @@ fn print_saem_report<E: pharmsol::Equation>(result: &pmcore::prelude::Parametric
     for i in 0..show_count {
         if let Some(ind) = individuals.get(i) {
             print!("  {:>4}", i + 1);
-            let phi = ind.psi(); // Note: psi() returns φ (unconstrained) for SAEM
             for j in 0..n_params {
-                // Transform phi to psi for lognormal parameters
-                let psi_val = phi[j].exp();
-                print!(" {:>12.6}", psi_val);
+                print!(" {:>12.6}", ind.psi()[j]);
             }
             println!();
         }
@@ -254,13 +246,10 @@ fn print_saem_report<E: pharmsol::Equation>(result: &pmcore::prelude::Parametric
     println!("{}", "-".repeat(60));
 
     for (p, name) in param_names.iter().enumerate() {
-        // Collect all individual values for this parameter (transformed to natural space)
         let mut values: Vec<f64> = Vec::new();
         for i in 0..individuals.nsubjects() {
             if let Some(ind) = individuals.get(i) {
-                let phi = ind.psi();
-                let psi_val = phi[p].exp(); // Transform to natural space
-                values.push(psi_val);
+                values.push(ind.psi()[p]);
             }
         }
 
@@ -297,12 +286,11 @@ fn print_saem_report<E: pharmsol::Equation>(result: &pmcore::prelude::Parametric
     println!("{}", "-".repeat(60));
     println!("  {:12} {:>10} {:>10}", "Parameter", "SD(ω)", "CV(%)");
     println!("  {:12} {:>10} {:>10}", "---------", "------", "-----");
+    let cvs = result.cv_percent();
     for (i, name) in param_names.iter().enumerate() {
         let omega2 = omega[(i, i)];
         let sd = omega2.sqrt();
-        // For lognormal: CV% = 100 * sqrt(exp(ω²) - 1) ≈ 100 * ω for small ω
-        let cv = 100.0 * (omega2.exp() - 1.0).sqrt();
-        println!("  {:12} {:>10.4} {:>10.1}", name, sd, cv);
+        println!("  {:12} {:>10.4} {:>10.1}", name, sd, cvs[i]);
     }
 
     println!("\n{}", "=".repeat(60));

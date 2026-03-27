@@ -186,7 +186,8 @@ impl<E: Equation> ParametricWorkspace<E> {
 
         tracing::debug!("Writing covariates...");
 
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "covs.csv")?;
+        let outputfile =
+            crate::output::OutputFile::new(self.output_folder(), "covariates.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(outputfile.file());
@@ -294,10 +295,79 @@ impl<E: Equation> ParametricWorkspace<E> {
         Ok(())
     }
 
-    pub fn write_individual_estimates(&self) -> anyhow::Result<()> {
+    pub fn write_uncertainty(&self) -> anyhow::Result<()> {
         use csv::WriterBuilder;
 
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "individual.csv")?;
+        if !self.uncertainty.has_fim() && !self.uncertainty.has_standard_errors() {
+            return Ok(());
+        }
+
+        let outputfile = crate::output::OutputFile::new(self.output_folder(), "uncertainty.csv")?;
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(outputfile.file());
+        writer.write_record(["kind", "parameter", "value"])?;
+
+        if let Some(method) = self.uncertainty.fim_method() {
+            writer.write_record(["fim_method", "", &format!("{:?}", method)])?;
+        }
+
+        for (index, name) in self.population.param_names().iter().enumerate() {
+            writer.write_record(["mu", name, &format!("{:.6}", self.population.mu()[index])])?;
+
+            if let Some(se_mu) = self.uncertainty.se_mu() {
+                writer.write_record(["se_mu", name, &format!("{:.6}", se_mu[index])])?;
+            }
+
+            if let Some(rse_mu) = self.uncertainty.rse_mu() {
+                writer.write_record(["rse_mu", name, &format!("{:.6}", rse_mu[index])])?;
+            }
+
+            if let Some(se_omega) = self.uncertainty.se_omega() {
+                writer.write_record([
+                    "se_omega_diag",
+                    name,
+                    &format!("{:.6}", se_omega[(index, index)]),
+                ])?;
+            }
+        }
+
+        writer.flush()?;
+        Ok(())
+    }
+
+    pub fn write_individual_parameters(&self) -> anyhow::Result<()> {
+        use csv::WriterBuilder;
+
+        let outputfile =
+            crate::output::OutputFile::new(self.output_folder(), "individual_parameters.csv")?;
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(outputfile.file());
+
+        let names = self.population.param_names();
+        let mut header = vec!["id".to_string()];
+        for name in &names {
+            header.push(format!("psi_{}", name));
+        }
+        writer.write_record(&header)?;
+
+        for ind in self.individual_estimates.iter() {
+            let mut row = vec![ind.subject_id().to_string()];
+            for i in 0..ind.npar() {
+                row.push(ind.psi()[i].to_string());
+            }
+            writer.write_record(&row)?;
+        }
+        writer.flush()?;
+        Ok(())
+    }
+
+    pub fn write_individual_effects(&self) -> anyhow::Result<()> {
+        use csv::WriterBuilder;
+
+        let outputfile =
+            crate::output::OutputFile::new(self.output_folder(), "individual_effects.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(outputfile.file());
@@ -306,9 +376,6 @@ impl<E: Equation> ParametricWorkspace<E> {
         let mut header = vec!["id".to_string()];
         for name in &names {
             header.push(format!("eta_{}", name));
-        }
-        for name in &names {
-            header.push(format!("psi_{}", name));
         }
         if self
             .individual_estimates
@@ -323,9 +390,6 @@ impl<E: Equation> ParametricWorkspace<E> {
             let mut row = vec![ind.subject_id().to_string()];
             for i in 0..ind.npar() {
                 row.push(ind.eta()[i].to_string());
-            }
-            for i in 0..ind.npar() {
-                row.push(ind.psi()[i].to_string());
             }
             if let Some(objf) = ind.objective_function() {
                 row.push(objf.to_string());

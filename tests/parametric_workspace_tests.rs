@@ -99,5 +99,7 @@ fn test_parametric_workspace_preserves_occasion_effect_slots() -> Result<()> {
             .enabled_for,
         vec![true, false]
     );
+    assert_eq!(workspace.sigma().combined, Some((0.5, 0.1)));
+    assert!(workspace.uncertainty().has_standard_errors());
     Ok(())
 }

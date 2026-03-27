@@ -1,34 +1,18 @@
 use anyhow::Result;
-use faer::{Col, Mat};
 use pharmsol::{Data, Equation};
 
 use crate::algorithms::Status;
 use crate::estimation::parametric::{
-    phi_to_psi_vec, CovariateState, Individual, IndividualEffectsState, IndividualEstimates,
-    LikelihoodEstimates, ParameterTransform, ParametricIterationLog, ParametricModelState,
-    ParametricWorkspace, Population, ResidualErrorEstimates, UncertaintyEstimates,
+    ChainState, phi_to_psi_vec, CovariateState, Individual, IndividualEffectsState,
+    IndividualEstimates, LikelihoodEstimates, ParameterTransform, ParametricIterationLog,
+    ParametricModelState, ParametricWorkspace, Population, ResidualErrorEstimates,
+    UncertaintyEstimates,
 };
 use crate::output::shared::RunConfiguration;
 
-pub(crate) struct SaemResultInput<'a, E: Equation> {
-    pub equation: &'a E,
-    pub data: &'a Data,
-    pub population: &'a Population,
-    pub individual_estimates: &'a IndividualEstimates,
-    pub objf: f64,
-    pub iterations: usize,
-    pub status: &'a Status,
-    pub run_configuration: RunConfiguration,
-    pub likelihood_estimates: LikelihoodEstimates,
-    pub param_history: &'a [Vec<f64>],
-    pub objf_history: &'a [f64],
-    pub burn_in_iterations: usize,
-    pub sigma_sq: f64,
-    pub transforms: &'a [ParameterTransform],
-    pub covariates: Option<CovariateState>,
-}
+use super::posthoc::{eta_samples_by_subject, saem_posthoc_likelihood};
 
-pub(crate) struct FoceiResultInput<'a, E: Equation> {
+pub(crate) struct ParametricResultInput<'a, E: Equation> {
     pub equation: &'a E,
     pub data: &'a Data,
     pub population: &'a Population,
@@ -39,42 +23,20 @@ pub(crate) struct FoceiResultInput<'a, E: Equation> {
     pub run_configuration: RunConfiguration,
     pub iteration_log: ParametricIterationLog,
     pub likelihood_estimates: LikelihoodEstimates,
+    pub uncertainty_estimates: UncertaintyEstimates,
+    pub sigma: ResidualErrorEstimates,
     pub transforms: &'a [ParameterTransform],
     pub covariates: Option<CovariateState>,
 }
 
-pub(crate) fn assemble_saem_result<E: Equation + Clone>(
-    input: SaemResultInput<'_, E>,
-) -> Result<ParametricWorkspace<E>> {
-    let iteration_log = build_iteration_log(
-        input.population,
-        input.param_history,
-        input.objf_history,
-        input.objf,
-        input.status,
-        input.burn_in_iterations,
-    );
-
-    assemble_parametric_workspace(ParametricWorkspaceInput {
-        equation: input.equation,
-        data: input.data,
-        population: input.population,
-        individual_estimates: input.individual_estimates,
-        objf: input.objf,
-        iterations: input.iterations,
-        status: input.status,
-        run_configuration: input.run_configuration,
-        iteration_log,
-        likelihood_estimates: input.likelihood_estimates,
-        uncertainty_estimates: UncertaintyEstimates::new(),
-        sigma: ResidualErrorEstimates::additive(input.sigma_sq.sqrt()),
-        transforms: input.transforms,
-        covariates: input.covariates,
-    })
+pub(crate) struct SaemFinalizeInput<'a> {
+    pub chain_states: &'a [Vec<ChainState>],
+    pub residual_error_models: &'a pharmsol::ResidualErrorModels,
+    pub seed: u64,
 }
 
-pub(crate) fn assemble_focei_result<E: Equation + Clone>(
-    input: FoceiResultInput<'_, E>,
+pub(crate) fn assemble_parametric_result<E: Equation + Clone>(
+    input: ParametricResultInput<'_, E>,
 ) -> Result<ParametricWorkspace<E>> {
     assemble_parametric_workspace(ParametricWorkspaceInput {
         equation: input.equation,
@@ -87,8 +49,43 @@ pub(crate) fn assemble_focei_result<E: Equation + Clone>(
         run_configuration: input.run_configuration,
         iteration_log: input.iteration_log,
         likelihood_estimates: input.likelihood_estimates,
-        uncertainty_estimates: UncertaintyEstimates::new(),
-        sigma: ResidualErrorEstimates::default(),
+        uncertainty_estimates: input.uncertainty_estimates,
+        sigma: input.sigma,
+        transforms: input.transforms,
+        covariates: input.covariates,
+    })
+}
+
+pub(crate) fn finalize_saem_result<E: Equation + Clone>(
+    input: ParametricResultInput<'_, E>,
+    finalize: SaemFinalizeInput<'_>,
+) -> Result<ParametricWorkspace<E>> {
+    let eta_samples = eta_samples_by_subject(finalize.chain_states);
+    let (likelihood_estimates, minus2ll) = saem_posthoc_likelihood(
+        input.equation,
+        input.data,
+        finalize.residual_error_models,
+        input.transforms,
+        input.population,
+        input.individual_estimates,
+        &eta_samples,
+        finalize.seed,
+    )?;
+    tracing::info!("-2LL computed by importance sampling: {:.4}", minus2ll);
+
+    assemble_parametric_result(ParametricResultInput {
+        equation: input.equation,
+        data: input.data,
+        population: input.population,
+        individual_estimates: input.individual_estimates,
+        objf: minus2ll,
+        iterations: input.iterations,
+        status: input.status,
+        run_configuration: input.run_configuration,
+        iteration_log: input.iteration_log,
+        likelihood_estimates,
+        uncertainty_estimates: input.uncertainty_estimates,
+        sigma: input.sigma,
         transforms: input.transforms,
         covariates: input.covariates,
     })
@@ -142,43 +139,6 @@ fn assemble_parametric_workspace<E: Equation + Clone>(
     ))
 }
 
-fn build_iteration_log(
-    population: &Population,
-    param_history: &[Vec<f64>],
-    objf_history: &[f64],
-    fallback_objf: f64,
-    final_status: &Status,
-    burn_in_iterations: usize,
-) -> ParametricIterationLog {
-    let mut iteration_log = ParametricIterationLog::new();
-    let n_parameters = population.npar();
-
-    for (index, parameters) in param_history.iter().enumerate() {
-        let mu_phi = Col::from_fn(n_parameters, |j| parameters.get(j).copied().unwrap_or(0.0));
-        let omega = Mat::from_fn(n_parameters, n_parameters, |row, col| {
-            if row == col {
-                parameters.get(n_parameters + row).copied().unwrap_or(0.0)
-            } else {
-                0.0
-            }
-        });
-
-        if let Ok(population_snapshot) =
-            Population::new(mu_phi, omega, population.parameters().clone())
-        {
-            let status = if index < burn_in_iterations {
-                Status::Continue
-            } else {
-                final_status.clone()
-            };
-            let iteration_objf = objf_history.get(index).copied().unwrap_or(fallback_objf);
-            iteration_log.log_iteration(index + 1, iteration_objf, &population_snapshot, &status);
-        }
-    }
-
-    iteration_log
-}
-
 fn build_population_in_psi_space(
     population: &Population,
     transforms: &[ParameterTransform],
@@ -216,7 +176,7 @@ fn build_individual_estimates_in_psi_space(
 
 #[cfg(test)]
 mod tests {
-    use super::{assemble_saem_result, SaemResultInput};
+    use super::{assemble_parametric_result, ParametricResultInput};
     use anyhow::Result;
     use faer::{Col, Mat};
     use pharmsol::{Data, Subject};
@@ -228,6 +188,7 @@ mod tests {
     };
     use crate::estimation::parametric::{
         Individual, IndividualEstimates, LikelihoodEstimates, ParameterTransform, Population,
+        ResidualErrorEstimates, UncertaintyEstimates,
     };
     use crate::model::{ParameterSpace, ParameterSpec};
     use crate::output::shared::RunConfiguration;
@@ -299,7 +260,7 @@ mod tests {
         let data = data();
         let individual_estimates = IndividualEstimates::from_vec(vec![individual]);
 
-        let result = assemble_saem_result(SaemResultInput {
+        let result = assemble_parametric_result(ParametricResultInput {
             equation: &equation,
             data: &data,
             population: &population,
@@ -308,15 +269,23 @@ mod tests {
             iterations: 12,
             status: &Status::Stop(StopReason::Converged),
             run_configuration,
+            iteration_log: {
+                let mut log = ParametricIterationLog::new();
+                log.log_iteration(
+                    1,
+                    130.0,
+                    &population,
+                    &Status::Continue,
+                );
+                log
+            },
             likelihood_estimates: LikelihoodEstimates {
                 ll_importance_sampling: Some(-60.0),
                 is_n_samples: Some(1000),
                 ..LikelihoodEstimates::new()
             },
-            param_history: &[vec![0.0, 2.0, 0.25, 0.25]],
-            objf_history: &[130.0],
-            burn_in_iterations: 5,
-            sigma_sq: 0.25,
+            uncertainty_estimates: UncertaintyEstimates::new(),
+            sigma: ResidualErrorEstimates::additive(0.5),
             transforms: &[ParameterTransform::LogNormal, ParameterTransform::LogNormal],
             covariates: None,
         })?;

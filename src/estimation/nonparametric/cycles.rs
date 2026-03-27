@@ -97,7 +97,7 @@ impl CycleLog {
 
     pub fn write(&self, folder: &str, parameter_names: &[String]) -> Result<()> {
         tracing::debug!("Writing cycles...");
-        let outputfile = OutputFile::new(folder, "cycles.csv")?;
+        let outputfile = OutputFile::new(folder, "iterations.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(false)
             .from_writer(outputfile.file());

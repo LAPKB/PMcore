@@ -109,6 +109,33 @@ pub fn approximate_objective_from_individuals<E: Equation>(
     -2.0 * total_ll
 }
 
+pub(crate) fn refresh_saem_objective_history<E: Equation>(
+    objf: &mut f64,
+    prev_objf: &mut f64,
+    preserve_previous: bool,
+    equation: &E,
+    data: &Data,
+    error_models: &ResidualErrorModels,
+    transforms: &[ParameterTransform],
+    population: &Population,
+    individual_estimates: &IndividualEstimates,
+    mean_phi: &[Col<f64>],
+) {
+    if preserve_previous {
+        *prev_objf = *objf;
+    }
+
+    *objf = approximate_objective_from_individuals(
+        equation,
+        data,
+        error_models,
+        transforms,
+        population,
+        individual_estimates,
+        mean_phi,
+    );
+}
+
 pub fn subject_objective_from_eta(
     subject_index: usize,
     eta_matrix: &Array2<f64>,

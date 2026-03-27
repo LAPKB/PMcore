@@ -7,6 +7,19 @@ use crate::api::{OutputPlan, RuntimeOptions};
 use crate::output::OutputFile;
 use crate::results::{DiagnosticsBundle, FitSummary};
 
+pub(crate) fn shared_output_file_names() -> Vec<String> {
+    vec![
+        "settings.json",
+        "summary.json",
+        "summary.csv",
+        "diagnostics.json",
+        "predictions.csv",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect()
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct RunConfiguration {
     pub algorithm: Algorithm,

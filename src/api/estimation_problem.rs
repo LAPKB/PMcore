@@ -169,7 +169,7 @@ pub struct LoggingOptions {
 impl Default for LoggingOptions {
     fn default() -> Self {
         Self {
-            initialize: true,
+            initialize: false,
             level: LoggingLevel::Info,
             write: false,
             stdout: true,

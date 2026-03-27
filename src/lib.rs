@@ -80,14 +80,14 @@ pub mod prelude {
         Psi, Theta, Weights,
     };
     pub use crate::estimation::parametric::{
-        aic, bic, cache_predictions, compile_model_state, fim, fim_method, has_fim,
+        aic, bic, cache_predictions, compile_model_state, fim, fim_inverse, fim_method, has_fim,
         has_standard_errors, importance_sampling_likelihood_estimates, phi_to_psi, psi_to_phi,
-        se_mu, shrinkage, statistics, subject_conditionals_from_eta_samples, uncertainty_estimates,
-        write_statistics, CovarianceStructure, EtaTable, EtaVector, FixedEffects, Individual,
-        IndividualEffectsState, IndividualEstimates, KappaVector, OccasionKappa,
-        OccasionKappaTable, ParameterTransform, ParametricEngine, ParametricModelState,
-        ParametricTransformKind, ParametricWorkspace, PhiTable, PhiVector, Population, PsiTable,
-        PsiVector, RandomEffects, ResidualState, TransformSet,
+        rse_mu, se_mu, se_omega, shrinkage, statistics, subject_conditionals_from_eta_samples,
+        uncertainty_estimates, write_statistics, CovarianceStructure, EtaTable, EtaVector,
+        FimMethod, FixedEffects, Individual, IndividualEffectsState, IndividualEstimates,
+        KappaVector, OccasionKappa, OccasionKappaTable, ParameterTransform, ParametricEngine,
+        ParametricModelState, ParametricTransformKind, ParametricWorkspace, PhiTable, PhiVector,
+        Population, PsiTable, PsiVector, RandomEffects, ResidualState, TransformSet,
     };
     pub use crate::model::{
         ContinuousObservationSpec, CovariateEffectsSpec, CovariateModel, CovariateSpec,

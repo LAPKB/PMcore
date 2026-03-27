@@ -3,7 +3,7 @@ use faer::Col;
 use pharmsol::{Data, Equation, Event, ResidualErrorModels};
 
 use crate::estimation::parametric::{
-    importance_sampling_likelihood_estimates, subject_conditionals_from_eta_samples,
+    importance_sampling_likelihood_estimates, subject_conditionals_from_eta_samples, ChainState,
     ImportanceSamplingConfig, IndividualEstimates, LikelihoodEstimates, ParameterTransform,
     ParametricPredictions, ParametricStatistics, ParametricWorkspace, Population,
 };
@@ -57,6 +57,13 @@ pub fn write_statistics<E: Equation>(result: &ParametricWorkspace<E>) -> Result<
     stats.write(result.output_folder())?;
     stats.write_shrinkage(result.output_folder(), &result.population().param_names())?;
     Ok(())
+}
+
+pub(crate) fn eta_samples_by_subject(chain_states: &[Vec<ChainState>]) -> Vec<Vec<Col<f64>>> {
+    chain_states
+        .iter()
+        .map(|states| states.iter().map(|state| state.eta.clone()).collect())
+        .collect()
 }
 
 pub(crate) fn saem_posthoc_likelihood<E: Equation>(
@@ -115,4 +122,36 @@ pub fn bic<E: Equation>(result: &ParametricWorkspace<E>) -> f64 {
     let n_random = n_params * (n_params + 1) / 2;
     let k = n_fixed + n_random;
     result.best_objf() + (k as f64) * (n_subjects as f64).ln()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::eta_samples_by_subject;
+    use crate::estimation::parametric::ChainState;
+    use faer::Col;
+
+    #[test]
+    fn test_eta_samples_by_subject_preserves_chain_order() {
+        let chain_states = vec![
+            vec![
+                ChainState::new(Col::from_fn(2, |index| if index == 0 { 1.0 } else { 2.0 })),
+                ChainState::new(Col::from_fn(2, |index| if index == 0 { 3.0 } else { 4.0 })),
+            ],
+            vec![ChainState::new(Col::from_fn(2, |index| {
+                if index == 0 {
+                    5.0
+                } else {
+                    6.0
+                }
+            }))],
+        ];
+
+        let samples = eta_samples_by_subject(&chain_states);
+
+        assert_eq!(samples.len(), 2);
+        assert_eq!(samples[0].len(), 2);
+        assert_eq!(samples[0][0][0], 1.0);
+        assert_eq!(samples[0][1][1], 4.0);
+        assert_eq!(samples[1][0][0], 5.0);
+    }
 }

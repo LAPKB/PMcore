@@ -213,36 +213,13 @@ impl<E: Equation> NonparametricWorkspace<E> {
         Ok(())
     }
 
-    pub fn write_predictions(&mut self, idelta: f64, tad: f64) -> anyhow::Result<()> {
-        use csv::WriterBuilder;
-
-        tracing::debug!("Writing predictions...");
-        self.calculate_predictions(idelta, tad)?;
-
-        let predictions = self
-            .predictions
-            .as_ref()
-            .expect("Predictions should have been calculated, but are of type None.");
-
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "pred.csv")?;
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(outputfile.file());
-
-        for row in predictions.predictions() {
-            writer.serialize(row)?;
-        }
-
-        writer.flush()?;
-        Ok(())
-    }
-
-    pub fn write_covs(&self) -> anyhow::Result<()> {
+    pub fn write_covariates(&self) -> anyhow::Result<()> {
         use csv::WriterBuilder;
         use pharmsol::Event;
 
         tracing::debug!("Writing covariates...");
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "covs.csv")?;
+        let outputfile =
+            crate::output::OutputFile::new(self.output_folder(), "covariates.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(outputfile.file());

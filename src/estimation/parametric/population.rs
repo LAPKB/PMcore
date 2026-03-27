@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use faer::{Col, Mat};
 use serde::{Deserialize, Serialize};
 
-use crate::model::{ParameterDomain, ParameterSpace};
+use crate::model::{ParameterDomain, ParameterSpace, ParameterTransform};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum CovarianceStructure {
@@ -171,7 +171,19 @@ impl Population {
     pub fn coefficient_of_variation(&self) -> Col<f64> {
         Col::from_fn(self.npar(), |i| {
             let omega_ii = self.omega[(i, i)];
-            ((omega_ii.exp() - 1.0).sqrt()) * 100.0
+            let sd = omega_ii.sqrt();
+            match self.parameters.items[i].transform {
+                ParameterTransform::Identity => {
+                    let mu = self.mu[i].abs();
+                    if mu > 1e-10 {
+                        100.0 * sd / mu
+                    } else {
+                        f64::NAN
+                    }
+                }
+                ParameterTransform::LogNormal => ((omega_ii.exp() - 1.0).sqrt()) * 100.0,
+                ParameterTransform::Logit | ParameterTransform::Probit => f64::NAN,
+            }
         })
     }
 
@@ -391,5 +403,39 @@ mod tests {
         assert_eq!(*pop.structure(), CovarianceStructure::Diagonal);
         assert_eq!(pop.omega()[(0, 1)], 0.0);
         assert_eq!(pop.omega()[(1, 0)], 0.0);
+    }
+
+    #[test]
+    fn test_coefficient_of_variation_uses_identity_formula_for_identity_parameters() {
+        let params =
+            ParameterSpace::new().add(crate::model::ParameterSpec::bounded("V", 50.0, 180.0));
+
+        let population = Population::new(
+            Col::from_fn(1, |_| 100.0),
+            Mat::from_fn(1, 1, |_, _| 25.0),
+            params,
+        )
+        .unwrap();
+
+        let cv = population.coefficient_of_variation();
+
+        assert!((cv[0] - 5.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_coefficient_of_variation_uses_lognormal_formula_for_lognormal_parameters() {
+        let params = ParameterSpace::new().add(crate::model::ParameterSpec::positive("V"));
+
+        let population = Population::new(
+            Col::from_fn(1, |_| 4.0),
+            Mat::from_fn(1, 1, |_, _| 0.25),
+            params,
+        )
+        .unwrap();
+
+        let cv = population.coefficient_of_variation();
+        let expected = ((0.25_f64.exp() - 1.0).sqrt()) * 100.0;
+
+        assert!((cv[0] - expected).abs() < 1e-10);
     }
 }

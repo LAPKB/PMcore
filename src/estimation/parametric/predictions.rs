@@ -1,12 +1,10 @@
 //! Parametric algorithm predictions.
 
 use anyhow::{Context, Result};
-use csv::WriterBuilder;
 use pharmsol::{Censor, Data, Equation, Predictions as PredTrait};
 use serde::{Deserialize, Serialize};
 
 use crate::estimation::parametric::{IndividualEstimates, Population};
-use crate::output::OutputFile;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParametricPredictionRow {
@@ -122,7 +120,7 @@ impl ParametricPredictions {
                 .find(|ind| ind.subject_id() == subject.id());
 
             let psi: Vec<f64> = match individual {
-                Some(ind) => (0..ind.npar()).map(|i| ind.psi()[i].exp()).collect(),
+                Some(ind) => (0..ind.npar()).map(|i| ind.psi()[i]).collect(),
                 None => mu.clone(),
             };
 
@@ -168,37 +166,6 @@ impl ParametricPredictions {
         }
 
         Ok(container)
-    }
-
-    pub fn write(&self, folder: &str) -> Result<()> {
-        let outputfile = OutputFile::new(folder, "pred.csv")?;
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(outputfile.file());
-
-        writer.write_record([
-            "id", "time", "outeq", "block", "obs", "cens", "ppred", "ipred", "ires", "iwres",
-        ])?;
-
-        for row in &self.predictions {
-            writer.write_record([
-                row.id.clone(),
-                row.time.to_string(),
-                row.outeq.to_string(),
-                row.block.to_string(),
-                row.obs.map_or("NA".to_string(), |v| v.to_string()),
-                format!("{:?}", row.cens),
-                row.ppred.to_string(),
-                row.ipred.to_string(),
-                row.ires.map_or("NA".to_string(), |v| format!("{:.6}", v)),
-                row.iwres.map_or("NA".to_string(), |v| format!("{:.6}", v)),
-            ])?;
-        }
-
-        writer.flush()?;
-        tracing::debug!("Predictions written to {:?}", outputfile.relative_path());
-
-        Ok(())
     }
 }
 
@@ -265,5 +232,69 @@ impl ParametricPredictions {
             rmse_ipred: (sum_sq_ires / n as f64).sqrt(),
             corr_obs_ipred: corr,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ParametricPredictions;
+    use crate::estimation::parametric::{Individual, IndividualEstimates, Population};
+    use crate::model::{ParameterSpace, ParameterSpec};
+    use crate::prelude::*;
+    use anyhow::Result;
+    use faer::{Col, Mat};
+    use pharmsol::{Data, Subject};
+
+    fn equation() -> equation::ODE {
+        equation::ODE::new(
+            |x, p, _t, dx, b, _rateiv, _cov| {
+                fetch_params!(p, ke);
+                dx[0] = -ke * x[0] + b[0];
+            },
+            |_p, _t, _cov| lag! {},
+            |_p, _t, _cov| fa! {},
+            |_p, _t, _cov, _x| {},
+            |x, p, _t, _cov, y| {
+                fetch_params!(p, v);
+                y[0] = x[0] / v;
+            },
+        )
+    }
+
+    fn data() -> Data {
+        let subject = Subject::builder("1")
+            .bolus(0.0, 100.0, 0)
+            .observation(1.0, 10.0, 0)
+            .build();
+        Data::new(vec![subject])
+    }
+
+    #[test]
+    fn calculate_uses_canonical_psi_space_individual_parameters() -> Result<()> {
+        let parameters = ParameterSpace::new()
+            .add(ParameterSpec::bounded("ke", 0.1, 1.0))
+            .add(ParameterSpec::bounded("v", 1.0, 20.0));
+        let population = Population::new(
+            Col::from_fn(2, |index| if index == 0 { 0.5 } else { 10.0 }),
+            Mat::from_fn(2, 2, |row, col| if row == col { 0.1 } else { 0.0 }),
+            parameters,
+        )?;
+        let individuals = IndividualEstimates::from_vec(vec![Individual::new(
+            "1",
+            Col::from_fn(2, |_| 0.0),
+            Col::from_fn(2, |index| if index == 0 { 0.5 } else { 10.0 }),
+        )?]);
+
+        let predictions =
+            ParametricPredictions::calculate(&equation(), &data(), &population, &individuals, None, 1.0, 0.0)?;
+
+        let first_observation = predictions
+            .predictions()
+            .iter()
+            .find(|row| row.obs().is_some())
+            .expect("prediction row with observation");
+
+        assert!((first_observation.ipred() - first_observation.ppred()).abs() < 1e-12);
+        Ok(())
     }
 }

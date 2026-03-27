@@ -2,8 +2,6 @@
 /Cargo.lock
 *.log
 theta.csv
-cycles.csv
-pred.csv
 obs.csv
 time.csv
 n_psi.csv
@@ -15,11 +13,9 @@ diagnostics.json
 predictions.csv
 summary.csv
 summary.json
-individual.csv
 iterations.csv
 population.csv
 shrinkage.csv
-sigma.csv
 statistics.csv
 posterior.csv
 simulation_output.csv
@@ -40,7 +36,10 @@ settings.json
 log.txt
 op.csv
 *results.txt
-covs.csv
+covariates.csv
+individual_effects.csv
+individual_parameters.csv
+residual_error.csv
 error_theta.csv
 lcov.info
 Fortran/

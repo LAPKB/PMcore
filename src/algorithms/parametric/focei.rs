@@ -10,14 +10,15 @@ use pharmsol::{Data, Equation, ResidualErrorModels};
 
 use crate::algorithms::{Status, StopReason};
 use crate::estimation::parametric::{
-    assemble_focei_result, batch_log_likelihood_from_eta, covariance_from_individual_etas,
+    assemble_parametric_result, batch_log_likelihood_from_eta, covariance_from_individual_etas,
     covariance_from_subject_means, covariate_state, ensure_positive_definite_covariance,
-    estimate_beta, occasion_covariate_maps, recenter_individual_estimates, subject_covariate_maps,
-    subject_mean_phi, subject_objective_from_eta, FoceiResultInput, Individual,
-    IndividualEstimates, LikelihoodEstimates, ParameterTransform, ParametricIterationLog,
+    estimate_beta, focei_linearization_uncertainty, recenter_individual_estimates,
+    residual_error_estimates_from_models, subject_mean_phi, subject_objective_from_eta,
+    Individual, IndividualEstimates, LikelihoodEstimates, ParametricResultInput,
+    ParameterTransform, ParametricCovariateContext, ParametricIterationLog,
     ParametricWorkspace, Population,
 };
-use crate::model::{CovariateModel, CovariateSpec};
+use crate::model::CovariateModel;
 use crate::output::shared::RunConfiguration;
 
 use super::algorithm::{ParametricAlgorithm, ParametricAlgorithmInput, ParametricConfig};
@@ -56,24 +57,15 @@ impl<E: Equation + Send + 'static> FoceiAlgorithm<E> {
         let ParametricAlgorithmInput {
             equation,
             data,
-            covariates,
-            structured_covariates,
+            covariate_context,
             ..
         } = input;
-        let (
-            mut subject_covariate_model,
-            occasion_covariate_model,
+        let ParametricCovariateContext {
+            subject_model: mut subject_covariate_model,
+            occasion_model: occasion_covariate_model,
             subject_covariates,
             occasion_covariates,
-        ) = match covariates {
-            CovariateSpec::InEquation => (None, None, Vec::new(), Vec::new()),
-            CovariateSpec::Structured(spec) => (
-                spec.subject_effects,
-                spec.occasion_effects,
-                subject_covariate_maps(&structured_covariates),
-                occasion_covariate_maps(&structured_covariates),
-            ),
-        };
+        } = covariate_context;
 
         if let Some(model) = subject_covariate_model.as_mut() {
             let initialize_intercepts =
@@ -455,8 +447,11 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FoceiAlgorithm<E> 
             ll_linearization: Some(-self.objf / 2.0),
             ..LikelihoodEstimates::new()
         };
+        let uncertainty_estimates =
+            focei_linearization_uncertainty(&self.population, self.individual_estimates.nsubjects());
+        let sigma = residual_error_estimates_from_models(&self.residual_error_models);
 
-        assemble_focei_result(FoceiResultInput {
+        assemble_parametric_result(ParametricResultInput {
             equation: &self.equation,
             data: &self.data,
             population: &self.population,
@@ -467,6 +462,8 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FoceiAlgorithm<E> 
             run_configuration: self.run_configuration.clone(),
             iteration_log: self.iteration_log.clone(),
             likelihood_estimates: likelihoods,
+            uncertainty_estimates,
+            sigma,
             transforms: &self.transforms,
             covariates: Some(covariate_state(
                 self.subject_covariate_model.as_ref(),

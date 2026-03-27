@@ -5,8 +5,9 @@ use crate::estimation::nonparametric::NonparametricWorkspace;
 use crate::estimation::parametric::ParametricWorkspace;
 use crate::estimation::{nonparametric, parametric};
 use crate::results::{
-    ArtifactIndex, DiagnosticsBundle, FitSummary, IndividualSummary, PopulationSummary,
-    PredictionsBundle,
+    nonparametric_artifacts, nonparametric_diagnostics, nonparametric_predictions,
+    parametric_artifacts, parametric_diagnostics, parametric_predictions, ArtifactIndex,
+    DiagnosticsBundle, FitSummary, IndividualSummary, PopulationSummary, PredictionsBundle,
 };
 
 #[derive(Debug)]
@@ -56,15 +57,24 @@ impl<E: Equation> FitResult<E> {
     }
 
     pub fn diagnostics(&self) -> DiagnosticsBundle {
-        DiagnosticsBundle::default()
+        match self {
+            Self::Nonparametric(result) => nonparametric_diagnostics(result),
+            Self::Parametric(result) => parametric_diagnostics(result),
+        }
     }
 
     pub fn predictions(&self) -> PredictionsBundle {
-        PredictionsBundle { available: false }
+        match self {
+            Self::Nonparametric(result) => nonparametric_predictions(result),
+            Self::Parametric(result) => parametric_predictions(result),
+        }
     }
 
     pub fn artifacts(&self) -> ArtifactIndex {
-        ArtifactIndex::default()
+        match self {
+            Self::Nonparametric(result) => nonparametric_artifacts(result),
+            Self::Parametric(result) => parametric_artifacts(result),
+        }
     }
 
     pub fn as_nonparametric(&self) -> Option<&NonparametricWorkspace<E>> {

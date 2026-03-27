@@ -6,9 +6,32 @@ use faer::{Col, Mat};
 
 use crate::compile::StructuredCovariateDesign;
 use crate::estimation::parametric::{IndividualEstimates, Population};
-use crate::model::CovariateModel;
+use crate::model::{CovariateModel, CovariateSpec};
 
 use super::state::{CovariateEffectsSnapshot, CovariateState};
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ParametricCovariateContext {
+    pub subject_model: Option<CovariateModel>,
+    pub subject_covariates: Vec<HashMap<String, f64>>,
+    pub occasion_model: Option<CovariateModel>,
+    pub occasion_covariates: Vec<HashMap<String, f64>>,
+}
+
+pub(crate) fn build_parametric_covariate_context(
+    covariates: &CovariateSpec,
+    structured_covariates: &StructuredCovariateDesign,
+) -> ParametricCovariateContext {
+    match covariates {
+        CovariateSpec::InEquation => ParametricCovariateContext::default(),
+        CovariateSpec::Structured(spec) => ParametricCovariateContext {
+            subject_model: spec.subject_effects.clone(),
+            subject_covariates: subject_covariate_maps(structured_covariates),
+            occasion_model: spec.occasion_effects.clone(),
+            occasion_covariates: occasion_covariate_maps(structured_covariates),
+        },
+    }
+}
 
 pub(crate) fn recenter_individual_estimates(
     individual_estimates: &IndividualEstimates,

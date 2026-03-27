@@ -12,12 +12,13 @@ use pharmsol::{Data, Equation, ResidualErrorModels};
 use crate::api::{
     EstimationMethod, EstimationProblem, OutputPlan, ParametricMethod, RuntimeOptions, SaemConfig,
 };
-use crate::compile::{CompiledProblem, StructuredCovariateDesign};
+use crate::compile::CompiledProblem;
 use crate::estimation::parametric::{
-    IndividualEstimates, ParameterTransform as AlgorithmParameterTransform, ParametricWorkspace,
-    Population, SufficientStats,
+    build_parametric_covariate_context, IndividualEstimates,
+    ParameterTransform as AlgorithmParameterTransform, ParametricCovariateContext,
+    ParametricWorkspace, Population, SufficientStats,
 };
-use crate::model::{CovariateSpec, ParameterDomain, ParameterSpace};
+use crate::model::{ParameterDomain, ParameterSpace};
 use crate::output::shared::RunConfiguration;
 
 use super::super::Status;
@@ -28,8 +29,7 @@ pub(crate) struct ParametricAlgorithmInput<E: Equation> {
     pub equation: E,
     pub data: Data,
     pub parameter_space: ParameterSpace,
-    pub covariates: CovariateSpec,
-    pub structured_covariates: StructuredCovariateDesign,
+    pub covariate_context: ParametricCovariateContext,
     pub residual_error_models: ResidualErrorModels,
     pub output: OutputPlan,
     pub runtime: RuntimeOptions,
@@ -47,8 +47,8 @@ impl<E: Equation> ParametricAlgorithmInput<E> {
 
         let output = problem.output_plan().clone();
         let runtime = problem.runtime_options().clone();
-        let covariates = problem.model.covariates.clone();
-        let structured_covariates = problem.design.structured_covariates.clone();
+        let covariate_context =
+            build_parametric_covariate_context(&problem.model.covariates, &problem.design.structured_covariates);
         let (model, data) = problem.into_parts();
 
         let residual_error_models = model
@@ -64,8 +64,7 @@ impl<E: Equation> ParametricAlgorithmInput<E> {
             equation: model.equation,
             data,
             parameter_space: model.parameters,
-            covariates,
-            structured_covariates,
+            covariate_context,
             residual_error_models,
             output,
             runtime,
@@ -354,6 +353,8 @@ fn bounded_domain(parameter: &crate::model::ParameterSpec) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::ParametricAlgorithmInput;
     use anyhow::Result;
     use pharmsol::{AssayErrorModel, ErrorPoly, ResidualErrorModel, ResidualErrorModels, Subject};
@@ -385,8 +386,14 @@ mod tests {
     fn compiled_parametric_input_preserves_structured_covariates() -> Result<()> {
         let data = pharmsol::Data::new(vec![Subject::builder("1")
             .covariate("wt", 0.0, 70.0)
+            .covariate("study_day", 0.0, 1.0)
             .bolus(0.0, 100.0, 0)
             .observation(1.0, 10.0, 0)
+            .reset()
+            .covariate("wt", 0.0, 70.0)
+            .covariate("study_day", 0.0, 2.0)
+            .bolus(0.0, 100.0, 0)
+            .observation(1.0, 8.0, 0)
             .build()]);
         let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
         let residual_error =
@@ -409,7 +416,11 @@ mod tests {
                     vec!["wt"],
                     vec![vec![true], vec![false]],
                 )?),
-                occasion_effects: None,
+                occasion_effects: Some(CovariateModel::new(
+                    vec!["ke", "v"],
+                    vec!["study_day"],
+                    vec![vec![true], vec![false]],
+                )?),
             }))
             .build()?;
 
@@ -422,12 +433,20 @@ mod tests {
 
         let input = ParametricAlgorithmInput::from_compiled_problem(compiled)?;
 
-        assert!(matches!(input.covariates, CovariateSpec::Structured(_)));
-        assert_eq!(input.structured_covariates.subject_columns, vec!["wt"]);
-        assert_eq!(input.structured_covariates.subject_rows.len(), 1);
+        assert!(input.covariate_context.subject_model.is_some());
+        assert!(input.covariate_context.occasion_model.is_some());
+        assert_eq!(input.covariate_context.subject_covariates.len(), 1);
+        assert_eq!(input.covariate_context.occasion_covariates.len(), 2);
+
+        let expected = HashMap::from([(String::from("wt"), 70.0)]);
+        assert_eq!(input.covariate_context.subject_covariates[0], expected);
         assert_eq!(
-            input.structured_covariates.subject_rows[0].values,
-            vec![Some(70.0)]
+            input.covariate_context.occasion_covariates[0],
+            HashMap::from([(String::from("study_day"), 1.0)])
+        );
+        assert_eq!(
+            input.covariate_context.occasion_covariates[1],
+            HashMap::from([(String::from("study_day"), 2.0)])
         );
         Ok(())
     }
