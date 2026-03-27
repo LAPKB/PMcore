@@ -175,10 +175,14 @@ impl<'a, E: Equation> ImportanceSamplingEstimator<'a, E> {
 
             let log_lik = match self.equation.estimate_predictions(subject, &psi_sample) {
                 Ok(predictions) => {
-                    let obs_pred_pairs = predictions
-                        .get_predictions()
-                        .into_iter()
-                        .filter_map(|pred| pred.observation().map(|obs| (pred.outeq(), obs, pred.prediction())));
+                    let obs_pred_pairs =
+                        predictions
+                            .get_predictions()
+                            .into_iter()
+                            .filter_map(|pred| {
+                                pred.observation()
+                                    .map(|obs| (pred.outeq(), obs, pred.prediction()))
+                            });
                     self.error_models.total_log_likelihood(obs_pred_pairs)
                 }
                 Err(_) => continue,
@@ -210,7 +214,10 @@ impl<'a, E: Equation> ImportanceSamplingEstimator<'a, E> {
             return f64::NEG_INFINITY;
         }
 
-        let max_weight = log_weights.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let max_weight = log_weights
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
         if !max_weight.is_finite() {
             return f64::NEG_INFINITY;
         }

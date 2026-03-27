@@ -17,17 +17,21 @@ mod gp;
 use constants::*;
 use gp::GaussianProcess;
 
-use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason};
-use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
-use crate::prelude::algorithms::Algorithms;
+use crate::algorithms::{
+    NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason,
+};
 use crate::estimation::nonparametric::adaptative_grid;
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::qr;
 use crate::estimation::nonparametric::sample_space_for_parameters;
+use crate::estimation::nonparametric::{
+    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
+};
+use crate::prelude::algorithms::Algorithms;
 
 use anyhow::{bail, Result};
 use pharmsol::prelude::{
-    data::{Data, AssayErrorModels},
+    data::{AssayErrorModels, Data},
     simulator::Equation,
     AssayErrorModel,
 };
@@ -98,8 +102,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPBO<E> {
 
     fn get_prior(&self) -> Theta {
         // Start with Sobol sampling for good initial coverage
-        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior)
-            .unwrap()
+        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior).unwrap()
     }
 
     fn likelihood(&self) -> f64 {

@@ -2,10 +2,12 @@ use faer::{Col, Mat};
 use serde::{Deserialize, Serialize};
 
 use crate::compile::OccasionDesign;
-use crate::estimation::parametric::{IndividualEstimates, Population};
 use crate::estimation::parametric::transforms::ParameterTransform;
 use crate::estimation::parametric::ResidualErrorEstimates;
-use crate::model::{CovariateModel, ParameterTransform as ModelParameterTransform, VariabilityModel};
+use crate::estimation::parametric::{IndividualEstimates, Population};
+use crate::model::{
+    CovariateModel, ParameterTransform as ModelParameterTransform, VariabilityModel,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PhiVector(pub Vec<f64>);
@@ -147,7 +149,9 @@ impl CovariateEffectsSnapshot {
             parameter_names: model.param_names().to_vec(),
             column_names: model.covariate_names().to_vec(),
             covariate_mask: model.covariate_mask().to_vec(),
-            coefficients: (0..model.beta().nrows()).map(|index| model.beta()[index]).collect(),
+            coefficients: (0..model.beta().nrows())
+                .map(|index| model.beta()[index])
+                .collect(),
             estimate_coefficients: model.estimate_beta().to_vec(),
             values,
         }

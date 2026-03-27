@@ -1,4 +1,4 @@
-pub use anyhow::{Result, bail};
+pub use anyhow::{bail, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
 

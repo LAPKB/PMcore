@@ -214,7 +214,11 @@ pub struct PredictionSummary {
 
 impl ParametricPredictions {
     pub fn summary(&self) -> PredictionSummary {
-        let obs_rows: Vec<_> = self.predictions.iter().filter(|r| r.obs.is_some()).collect();
+        let obs_rows: Vec<_> = self
+            .predictions
+            .iter()
+            .filter(|r| r.obs.is_some())
+            .collect();
         let n = obs_rows.len();
 
         if n == 0 {
@@ -223,7 +227,10 @@ impl ParametricPredictions {
 
         let sum_ppred: f64 = obs_rows.iter().map(|r| r.ppred).sum();
         let sum_ipred: f64 = obs_rows.iter().map(|r| r.ipred).sum();
-        let sum_abs_ires: f64 = obs_rows.iter().filter_map(|r| r.ires.map(|v| v.abs())).sum();
+        let sum_abs_ires: f64 = obs_rows
+            .iter()
+            .filter_map(|r| r.ires.map(|v| v.abs()))
+            .sum();
         let sum_sq_ires: f64 = obs_rows.iter().filter_map(|r| r.ires.map(|v| v * v)).sum();
 
         let obs_vec: Vec<f64> = obs_rows.iter().filter_map(|r| r.obs).collect();

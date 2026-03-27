@@ -378,12 +378,8 @@ mod tests {
 
     #[test]
     fn test_compute_mu() {
-        let mut model = CovariateModel::new(
-            vec!["CL", "V"],
-            vec!["WT"],
-            vec![vec![true], vec![true]],
-        )
-        .unwrap();
+        let mut model =
+            CovariateModel::new(vec!["CL", "V"], vec!["WT"], vec![vec![true], vec![true]]).unwrap();
 
         model
             .set_beta(Col::from_fn(4, |i| match i {

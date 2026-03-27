@@ -35,7 +35,9 @@ pub fn population_summary<E: Equation>(result: &ParametricWorkspace<E>) -> Popul
     PopulationSummary { parameters }
 }
 
-pub fn individual_summaries<E: Equation>(result: &ParametricWorkspace<E>) -> Vec<IndividualSummary> {
+pub fn individual_summaries<E: Equation>(
+    result: &ParametricWorkspace<E>,
+) -> Vec<IndividualSummary> {
     let parameter_names = result.population().param_names();
 
     result

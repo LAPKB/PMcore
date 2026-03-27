@@ -59,20 +59,24 @@
 //! 3. P(Y|L) criterion (THETA_F)
 //! 4. Multi-scale global D-criterion < threshold
 
-use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason};
-use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
-use crate::prelude::algorithms::Algorithms;
+use crate::algorithms::{
+    NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason,
+};
 use crate::estimation::nonparametric::adaptative_grid;
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::qr;
 use crate::estimation::nonparametric::sample_space_for_parameters;
+use crate::estimation::nonparametric::{
+    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
+};
+use crate::prelude::algorithms::Algorithms;
 
 use anyhow::{bail, Result};
 use ndarray::parallel::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use ndarray::{Array1, Axis};
 use pharmsol::prelude::AssayErrorModel;
 use pharmsol::prelude::{
-    data::{Data, AssayErrorModels},
+    data::{AssayErrorModels, Data},
     simulator::Equation,
 };
 use rand::prelude::*;
@@ -599,8 +603,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NEXUS<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior)
-            .unwrap()
+        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior).unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -1043,7 +1046,8 @@ impl<E: Equation + Send + 'static> NEXUS<E> {
             &theta_single,
             &self.error_models,
             false,
-        )?.mapv(f64::exp);
+        )?
+        .mapv(f64::exp);
 
         let nsub = psi_single.nrows() as f64;
         let mut d_sum = -nsub;
@@ -1771,7 +1775,8 @@ impl<E: Equation> CostFunction for SubjectMapOptimizer<'_, E> {
             &theta,
             self.error_models,
             false,
-        )?.mapv(f64::exp);
+        )?
+        .mapv(f64::exp);
 
         // We want to MAXIMIZE P(y|θ), so minimize -P(y|θ)
         // Take log for numerical stability: minimize -log P(y|θ)
@@ -1807,7 +1812,8 @@ impl<E: Equation> CostFunction for DOptimalOptimizer<'_, E> {
             &theta,
             self.error_models,
             false,
-        )?.mapv(f64::exp);
+        )?
+        .mapv(f64::exp);
 
         let nsub = psi.nrows() as f64;
         let mut d_sum = -nsub;

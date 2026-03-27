@@ -34,15 +34,14 @@ pub use constants::*;
 use optimizers::{optimize_subject_map, refine_d_optimal, ElitePoint};
 
 use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, StopReason};
-use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
 use crate::estimation::nonparametric::adaptative_grid;
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::qr;
 use crate::estimation::nonparametric::sample_space_for_parameters;
-use crate::{
-    algorithms::Status,
-    prelude::algorithms::Algorithms,
+use crate::estimation::nonparametric::{
+    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
 };
+use crate::{algorithms::Status, prelude::algorithms::Algorithms};
 
 use anyhow::{bail, Result};
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
@@ -112,8 +111,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPPSO<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior)
-            .unwrap()
+        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior).unwrap()
     }
 
     fn likelihood(&self) -> f64 {

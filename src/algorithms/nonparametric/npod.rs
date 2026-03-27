@@ -1,11 +1,10 @@
 use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, StopReason};
-use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::qr;
-use crate::{
-    algorithms::Status,
-    prelude::algorithms::Algorithms,
+use crate::estimation::nonparametric::{
+    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
 };
+use crate::{algorithms::Status, prelude::algorithms::Algorithms};
 use pharmsol::SppOptimizer;
 
 use anyhow::bail;
@@ -347,7 +346,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         }
         Ok(())
     }
-
 }
 
 impl<E: Equation + Send + 'static> NPOD<E> {

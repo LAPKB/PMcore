@@ -131,7 +131,9 @@ impl IndividualEstimates {
     }
 
     pub fn get_by_id(&self, id: &str) -> Option<&Individual> {
-        self.estimates.iter().find(|estimate| estimate.subject_id() == id)
+        self.estimates
+            .iter()
+            .find(|estimate| estimate.subject_id() == id)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Individual> {
@@ -173,7 +175,11 @@ impl IndividualEstimates {
         let n_params = self.estimates[0].npar();
 
         Some(Col::from_fn(n_params, |j| {
-            self.estimates.iter().map(|estimate| estimate.eta()[j]).sum::<f64>() / n_subjects
+            self.estimates
+                .iter()
+                .map(|estimate| estimate.eta()[j])
+                .sum::<f64>()
+                / n_subjects
         }))
     }
 

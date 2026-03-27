@@ -111,7 +111,6 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
             run_configuration: self.run_configuration(),
         })
     }
-
 }
 
 /// Algorithm type enumeration
@@ -176,12 +175,7 @@ impl Algorithm {
 
     /// Check if this is a parametric algorithm
     pub fn is_parametric(&self) -> bool {
-        matches!(
-            self,
-            Algorithm::SAEM
-                | Algorithm::FOCEI
-                | Algorithm::IT2B
-        )
+        matches!(self, Algorithm::SAEM | Algorithm::FOCEI | Algorithm::IT2B)
     }
 }
 

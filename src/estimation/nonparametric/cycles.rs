@@ -6,8 +6,8 @@ use serde::Serialize;
 use crate::{
     algorithms::{Status, StopReason},
     estimation::nonparametric::median,
-    output::OutputFile,
     estimation::nonparametric::theta::Theta,
+    output::OutputFile,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -140,7 +140,9 @@ impl CycleLog {
             ))?;
             writer.write_field(format!("{}", cycle.status))?;
             writer.write_field(format!("{}", cycle.objf))?;
-            writer.write_field(format!("{}", cycle.theta.nspp())).unwrap();
+            writer
+                .write_field(format!("{}", cycle.theta.nspp()))
+                .unwrap();
 
             cycle.error_models.iter().try_for_each(
                 |(_, errmod): (usize, &AssayErrorModel)| -> Result<()> {

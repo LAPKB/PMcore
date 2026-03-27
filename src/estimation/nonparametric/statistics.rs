@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use ndarray::{Array, Array1, Array2, Axis};
 
 pub fn median(data: &[f64]) -> f64 {
@@ -56,7 +56,10 @@ pub fn weighted_median(data: &[f64], weights: &[f64]) -> f64 {
     unreachable!("The function should have returned a value before reaching this point.");
 }
 
-pub fn population_mean_median(theta: &Array2<f64>, w: &Array1<f64>) -> Result<(Array1<f64>, Array1<f64>)> {
+pub fn population_mean_median(
+    theta: &Array2<f64>,
+    w: &Array1<f64>,
+) -> Result<(Array1<f64>, Array1<f64>)> {
     let w = if w.is_empty() {
         tracing::warn!("w.len() == 0, setting all weights to 1/n");
         Array1::from_elem(theta.nrows(), 1.0 / theta.nrows() as f64)

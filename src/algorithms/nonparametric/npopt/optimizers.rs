@@ -5,7 +5,7 @@ use argmin::core::{CostFunction, Error, Executor};
 use argmin::solver::neldermead::NelderMead;
 use ndarray::{Array1, Axis};
 use pharmsol::prelude::{
-    data::{Data, AssayErrorModels},
+    data::{AssayErrorModels, Data},
     simulator::Equation,
 };
 use pharmsol::Subject;
@@ -35,7 +35,8 @@ impl<E: Equation> CostFunction for DOptimalOptimizer<'_, E> {
             &theta,
             self.error_models,
             false,
-        )?.mapv(f64::exp);
+        )?
+        .mapv(f64::exp);
 
         let nsub = psi.nrows() as f64;
         let mut d_sum = -nsub;
@@ -97,7 +98,8 @@ impl<E: Equation> CostFunction for SubjectMapOptimizer<'_, E> {
             &theta,
             self.error_models,
             false,
-        )?.mapv(f64::exp);
+        )?
+        .mapv(f64::exp);
 
         // Minimize -log P(y|θ) = Maximize P(y|θ)
         let p = psi.iter().next().unwrap_or(&1e-300);

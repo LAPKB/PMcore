@@ -137,7 +137,11 @@ pub(crate) fn parse_prior_for_parameters(
         match parameter_names.iter().position(|name| name == random_name) {
             Some(index) => {
                 let adjusted_index = if let Some(prob_idx) = prob_index {
-                    if index >= prob_idx { index + 1 } else { index }
+                    if index >= prob_idx {
+                        index + 1
+                    } else {
+                        index
+                    }
                 } else {
                     index
                 };
@@ -232,7 +236,8 @@ mod tests {
         let matrix = Mat::from_fn(3, 2, |i, j| (i + j) as f64);
         let custom = Theta::from_parts(matrix, parameters).unwrap();
 
-        let theta = sample_space_for_parameters(parameter_space(), &Prior::Theta(custom.clone())).unwrap();
+        let theta =
+            sample_space_for_parameters(parameter_space(), &Prior::Theta(custom.clone())).unwrap();
         assert_eq!(theta.matrix(), custom.matrix());
     }
 

@@ -10,7 +10,7 @@ mod algorithm;
 pub mod focei;
 pub mod saem;
 
-pub use algorithm::{dispatch_parametric_algorithm, ParametricAlgorithm, ParametricConfig};
-pub(crate) use algorithm::ParametricAlgorithmInput;
 pub(crate) use algorithm::run_parametric_algorithm;
+pub(crate) use algorithm::ParametricAlgorithmInput;
+pub use algorithm::{dispatch_parametric_algorithm, ParametricAlgorithm, ParametricConfig};
 pub use saem::{FSaemConfig, FSAEM};

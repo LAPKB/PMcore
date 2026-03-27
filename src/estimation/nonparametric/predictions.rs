@@ -1,10 +1,10 @@
-use anyhow::{Result, bail};
-use pharmsol::{Censor, Data, Predictions as PredTrait, prelude::simulator::Prediction};
+use anyhow::{bail, Result};
+use pharmsol::{prelude::simulator::Prediction, Censor, Data, Predictions as PredTrait};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    estimation::nonparametric::{Posterior, weighted_median},
     estimation::nonparametric::{theta::Theta, weights::Weights},
+    estimation::nonparametric::{weighted_median, Posterior},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

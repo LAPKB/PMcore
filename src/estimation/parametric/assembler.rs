@@ -199,8 +199,11 @@ fn build_individual_estimates_in_psi_space(
         .iter()
         .map(|individual| {
             let psi = phi_to_psi_vec(transforms, individual.psi());
-            let mut rebuilt =
-                Individual::new(individual.subject_id().to_string(), individual.eta().clone(), psi)?;
+            let mut rebuilt = Individual::new(
+                individual.subject_id().to_string(),
+                individual.eta().clone(),
+                psi,
+            )?;
             if let Some(objf) = individual.objective_function() {
                 rebuilt.set_objective_function(objf);
             }
@@ -219,13 +222,16 @@ mod tests {
     use pharmsol::{Data, Subject};
 
     use crate::algorithms::{Status, StopReason};
-    use crate::prelude::*;
-    use crate::model::{ParameterSpace, ParameterSpec};
-    use crate::api::{AlgorithmTuning, ConvergenceOptions, LoggingOptions, LoggingLevel, OutputPlan, RuntimeOptions};
-    use crate::output::shared::RunConfiguration;
+    use crate::api::{
+        AlgorithmTuning, ConvergenceOptions, LoggingLevel, LoggingOptions, OutputPlan,
+        RuntimeOptions,
+    };
     use crate::estimation::parametric::{
         Individual, IndividualEstimates, LikelihoodEstimates, ParameterTransform, Population,
     };
+    use crate::model::{ParameterSpace, ParameterSpec};
+    use crate::output::shared::RunConfiguration;
+    use crate::prelude::*;
 
     fn equation() -> equation::ODE {
         equation::ODE::new(
@@ -311,10 +317,7 @@ mod tests {
             objf_history: &[130.0],
             burn_in_iterations: 5,
             sigma_sq: 0.25,
-            transforms: &[
-                ParameterTransform::LogNormal,
-                ParameterTransform::LogNormal,
-            ],
+            transforms: &[ParameterTransform::LogNormal, ParameterTransform::LogNormal],
             covariates: None,
         })?;
 

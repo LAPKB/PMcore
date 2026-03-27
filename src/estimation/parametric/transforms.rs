@@ -17,14 +17,8 @@ pub(crate) struct InitializedPopulationInPhiSpace {
 pub enum ParameterTransform {
     None,
     LogNormal,
-    Logit {
-        lower: f64,
-        upper: f64,
-    },
-    Probit {
-        lower: f64,
-        upper: f64,
-    },
+    Logit { lower: f64, upper: f64 },
+    Probit { lower: f64, upper: f64 },
 }
 
 impl Default for ParameterTransform {
@@ -88,9 +82,7 @@ impl ParameterTransform {
                 let denom = (1.0 + exp_phi).powi(2);
                 (upper - lower) * exp_phi / denom
             }
-            ParameterTransform::Probit { lower, upper } => {
-                (upper - lower) * normal_pdf(phi)
-            }
+            ParameterTransform::Probit { lower, upper } => (upper - lower) * normal_pdf(phi),
         }
     }
 
@@ -159,11 +151,15 @@ pub fn transforms_from_saemix_codes(codes: &[u8]) -> Vec<ParameterTransform> {
 }
 
 pub fn phi_to_psi_vec(transforms: &[ParameterTransform], phi: &Col<f64>) -> Col<f64> {
-    Col::from_fn(phi.nrows(), |index| transforms[index].phi_to_psi(phi[index]))
+    Col::from_fn(phi.nrows(), |index| {
+        transforms[index].phi_to_psi(phi[index])
+    })
 }
 
 pub fn psi_to_phi_vec(transforms: &[ParameterTransform], psi: &Col<f64>) -> Col<f64> {
-    Col::from_fn(psi.nrows(), |index| transforms[index].psi_to_phi(psi[index]))
+    Col::from_fn(psi.nrows(), |index| {
+        transforms[index].psi_to_phi(psi[index])
+    })
 }
 
 pub fn phi_to_psi(transforms: &[ParameterTransform], phi: &PhiVector) -> PsiVector {
@@ -251,8 +247,8 @@ fn probit(p: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{ParameterSpace, ParameterSpec};
     use crate::estimation::parametric::Population;
+    use crate::model::{ParameterSpace, ParameterSpec};
 
     const EPSILON: f64 = 1e-10;
 

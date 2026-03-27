@@ -259,7 +259,11 @@ impl Serialize for Theta {
         use serde::ser::SerializeStruct;
 
         let rows: Vec<Vec<f64>> = (0..self.matrix.nrows())
-            .map(|i| (0..self.matrix.ncols()).map(|j| *self.matrix.get(i, j)).collect())
+            .map(|i| {
+                (0..self.matrix.ncols())
+                    .map(|j| *self.matrix.get(i, j))
+                    .collect()
+            })
             .collect();
 
         let mut state = serializer.serialize_struct("Theta", 2)?;

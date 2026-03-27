@@ -16,7 +16,10 @@ impl NonparametricEngine {
     ) -> Result<NonparametricWorkspace<E>> {
         let method = match problem.method() {
             EstimationMethod::Nonparametric(method) => method,
-            other => anyhow::bail!("nonparametric engine received parametric method: {:?}", other),
+            other => anyhow::bail!(
+                "nonparametric engine received parametric method: {:?}",
+                other
+            ),
         };
         let output = problem.output_plan().clone();
         let runtime = problem.runtime_options().clone();
@@ -26,7 +29,9 @@ impl NonparametricEngine {
     }
 }
 
-pub fn fit<E: Equation + Clone + Send + 'static>(problem: CompiledProblem<E>) -> Result<FitResult<E>> {
+pub fn fit<E: Equation + Clone + Send + 'static>(
+    problem: CompiledProblem<E>,
+) -> Result<FitResult<E>> {
     let workspace = NonparametricEngine::fit(problem)?;
     Ok(workspace.into_fit_result())
 }

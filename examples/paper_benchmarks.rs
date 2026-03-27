@@ -78,9 +78,11 @@ fn build_problem<E: pharmsol::Equation + Clone>(
 }
 
 fn bounded_parameter_space(bounds: &[(&str, f64, f64)]) -> ParameterSpace {
-    bounds.iter().fold(ParameterSpace::new(), |space, (name, lower, upper)| {
-        space.add(ParameterSpec::bounded(*name, *lower, *upper))
-    })
+    bounds
+        .iter()
+        .fold(ParameterSpace::new(), |space, (name, lower, upper)| {
+            space.add(ParameterSpec::bounded(*name, *lower, *upper))
+        })
 }
 
 // ============================================================================

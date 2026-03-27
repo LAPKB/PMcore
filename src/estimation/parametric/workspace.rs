@@ -1,13 +1,13 @@
 use pharmsol::Equation;
 
+use crate::algorithms::{Status, StopReason};
 use crate::compile::OccasionDesign;
 use crate::estimation::parametric::{
-    IndividualEstimates, LikelihoodEstimates, ParametricIterationLog, Population,
-    ParametricPredictions, ResidualErrorEstimates, UncertaintyEstimates,
+    IndividualEstimates, LikelihoodEstimates, ParametricIterationLog, ParametricPredictions,
+    Population, ResidualErrorEstimates, UncertaintyEstimates,
 };
 use crate::output::shared::RunConfiguration;
 use crate::results::FitResult;
-use crate::algorithms::{Status, StopReason};
 use pharmsol::Data;
 
 use super::state::{IndividualEffectsState, ParametricModelState};
@@ -126,7 +126,10 @@ impl<E: Equation> ParametricWorkspace<E> {
     }
 
     pub(crate) fn prediction_interval(&self) -> (f64, f64) {
-        (self.run_configuration.runtime.idelta, self.run_configuration.runtime.tad)
+        (
+            self.run_configuration.runtime.idelta,
+            self.run_configuration.runtime.tad,
+        )
     }
 
     pub fn data(&self) -> &Data {
@@ -307,7 +310,11 @@ impl<E: Equation> ParametricWorkspace<E> {
         for name in &names {
             header.push(format!("psi_{}", name));
         }
-        if self.individual_estimates.iter().any(|i| i.objective_function().is_some()) {
+        if self
+            .individual_estimates
+            .iter()
+            .any(|i| i.objective_function().is_some())
+        {
             header.push("objf".to_string());
         }
         writer.write_record(&header)?;
@@ -330,8 +337,10 @@ impl<E: Equation> ParametricWorkspace<E> {
     }
 
     pub fn write_iteration_log(&self) -> anyhow::Result<()> {
-        self.iteration_log
-            .write(self.output_folder(), &self.run_configuration.parameter_names)
+        self.iteration_log.write(
+            self.output_folder(),
+            &self.run_configuration.parameter_names,
+        )
     }
 
     pub fn with_compiled_state(

@@ -73,10 +73,12 @@ impl Particle {
             let hi_bound = hi - margin;
 
             if self.position[i] < lo_bound {
-                self.position[i] = lo_bound + (lo_bound - self.position[i]).min(hi_bound - lo_bound);
+                self.position[i] =
+                    lo_bound + (lo_bound - self.position[i]).min(hi_bound - lo_bound);
                 self.velocity[i] *= -0.5; // Bounce with damping
             } else if self.position[i] > hi_bound {
-                self.position[i] = hi_bound - (self.position[i] - hi_bound).min(hi_bound - lo_bound);
+                self.position[i] =
+                    hi_bound - (self.position[i] - hi_bound).min(hi_bound - lo_bound);
                 self.velocity[i] *= -0.5;
             }
         }
@@ -181,7 +183,12 @@ impl Swarm {
     }
 
     /// Reinject random particles to maintain diversity
-    pub fn reinject_random<R: Rng>(&mut self, ranges: &[(f64, f64)], rng: &mut R, n_reinject: usize) {
+    pub fn reinject_random<R: Rng>(
+        &mut self,
+        ranges: &[(f64, f64)],
+        rng: &mut R,
+        n_reinject: usize,
+    ) {
         // Sort by fitness, reset worst performers
         let mut indices: Vec<usize> = (0..self.particles.len()).collect();
         indices.sort_by(|&a, &b| {
@@ -198,7 +205,12 @@ impl Swarm {
 
     /// Convenience wrapper that reinjects a fraction of the swarm.
     #[allow(dead_code)]
-    pub fn reinject_diversity<R: Rng>(&mut self, ranges: &[(f64, f64)], rng: &mut R, fraction: f64) {
+    pub fn reinject_diversity<R: Rng>(
+        &mut self,
+        ranges: &[(f64, f64)],
+        rng: &mut R,
+        fraction: f64,
+    ) {
         let n_reset = (self.particles.len() as f64 * fraction) as usize;
         self.reinject_random(ranges, rng, n_reset);
     }

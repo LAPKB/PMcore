@@ -10,6 +10,11 @@ n_psi.csv
 psi.csv
 r.csv
 correlation.csv
+/docs
+diagnostics.json
+predictions.csv
+summary.csv
+summary.json
 individual.csv
 iterations.csv
 population.csv

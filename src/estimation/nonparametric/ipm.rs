@@ -142,7 +142,8 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
         let dw = dw.col(0);
         let dy = -(psi.transpose() * dw);
         let inner_times_dy = Col::from_fn(ecol.nrows(), |i| inner[i] * dy[i]);
-        let dlam: Row<f64> = Row::from_fn(ecol.nrows(), |i| smuyinv[i] - lam[i] - inner_times_dy[i]);
+        let dlam: Row<f64> =
+            Row::from_fn(ecol.nrows(), |i| smuyinv[i] - lam[i] - inner_times_dy[i]);
 
         let ratio_dlam_lam = Row::from_fn(lam.nrows(), |i| dlam[i] / lam[i]);
         let min_ratio_dlam = ratio_dlam_lam.iter().cloned().fold(f64::INFINITY, f64::min);
@@ -228,7 +229,13 @@ mod tests {
     fn test_burke_with_non_finite_values() {
         let n_sub = 10;
         let n_point = 10;
-        let mat = Mat::from_fn(n_sub, n_point, |i, j| if i == 0 && j == 0 { f64::NAN } else { 1.0 });
+        let mat = Mat::from_fn(n_sub, n_point, |i, j| {
+            if i == 0 && j == 0 {
+                f64::NAN
+            } else {
+                1.0
+            }
+        });
         let psi = Psi::from(mat);
         assert!(burke(&psi).is_err());
     }

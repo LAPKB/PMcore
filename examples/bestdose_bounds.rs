@@ -31,8 +31,7 @@ fn main() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone())
-        .with_progress(false);
+    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone()).with_progress(false);
 
     // Load realistic prior from previous NPAG run
     println!("Loading prior from bimodal_ke example...");

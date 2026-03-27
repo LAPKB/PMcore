@@ -108,7 +108,11 @@ fn main() -> Result<()> {
                 .add(ParameterSpec::bounded("cl1", 4.0, 9.0))
                 .add(ParameterSpec::bounded("v2", 100.0, 200.0))
                 .add(ParameterSpec::bounded("cl2", 25.0, 35.0))
-                .add(ParameterSpec::bounded("popmax", 100000000.0, 100000000000.0))
+                .add(ParameterSpec::bounded(
+                    "popmax",
+                    100000000.0,
+                    100000000000.0,
+                ))
                 .add(ParameterSpec::bounded("kgs", 0.01, 0.25))
                 .add(ParameterSpec::bounded("kks", 0.01, 0.5))
                 .add(ParameterSpec::bounded("e50_1s", 0.1, 2.5))

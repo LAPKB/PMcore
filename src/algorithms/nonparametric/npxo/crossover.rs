@@ -95,24 +95,19 @@ fn blx_alpha_crossover<R: Rng>(
             let (min_val, max_val) = if a < b { (a, b) } else { (b, a) };
             let range = max_val - min_val;
             let extension = range * BLX_ALPHA;
-            
+
             let lower = (min_val - extension).max(*lo);
             let upper = (max_val + extension).min(*hi);
-            
+
             rng.random_range(lower..=upper)
         })
         .collect()
 }
 
 /// Simulated Binary Crossover (SBX)
-fn sbx_crossover<R: Rng>(
-    p1: &[f64],
-    p2: &[f64],
-    ranges: &[(f64, f64)],
-    rng: &mut R,
-) -> Vec<f64> {
+fn sbx_crossover<R: Rng>(p1: &[f64], p2: &[f64], ranges: &[(f64, f64)], rng: &mut R) -> Vec<f64> {
     let eta = SBX_ETA;
-    
+
     p1.iter()
         .zip(p2.iter())
         .zip(ranges.iter())
@@ -122,7 +117,7 @@ fn sbx_crossover<R: Rng>(
             }
 
             let (y1, y2) = if y1 < y2 { (y1, y2) } else { (y2, y1) };
-            
+
             let u: f64 = rng.random();
             let beta = if u <= 0.5 {
                 (2.0 * u).powf(1.0 / (eta + 1.0))

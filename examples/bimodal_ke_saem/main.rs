@@ -82,9 +82,7 @@ fn main() -> Result<()> {
 }
 
 /// Print a comprehensive SAEM report matching R saemix output format
-fn print_saem_report<E: pharmsol::Equation>(
-    result: &pmcore::prelude::ParametricWorkspace<E>,
-) {
+fn print_saem_report<E: pharmsol::Equation>(result: &pmcore::prelude::ParametricWorkspace<E>) {
     let n_subjects = result.data().len();
     // Count observations from all occasions
     let n_obs: usize = result

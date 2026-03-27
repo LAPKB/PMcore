@@ -2,7 +2,9 @@ use anyhow::Result;
 
 use crate::estimation::parametric::{self as posthoc, ParametricWorkspace};
 
-pub fn write_parametric_workspace_outputs<E: pharmsol::Equation>(result: &mut ParametricWorkspace<E>) -> Result<()> {
+pub fn write_parametric_workspace_outputs<E: pharmsol::Equation>(
+    result: &mut ParametricWorkspace<E>,
+) -> Result<()> {
     let (idelta, tad) = result.prediction_interval();
     result.write_population()?;
     result.write_individual_estimates()?;

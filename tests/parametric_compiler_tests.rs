@@ -92,7 +92,9 @@ fn test_parametric_compiler_extracts_model_intent() -> Result<()> {
         .build()?;
 
     let compiled = EstimationProblem::builder(model, simple_data())
-        .method(EstimationMethod::Parametric(ParametricMethod::Saem(SaemOptions)))
+        .method(EstimationMethod::Parametric(ParametricMethod::Saem(
+            SaemOptions,
+        )))
         .output(OutputPlan::disabled())
         .build()?
         .compile()?;
@@ -101,8 +103,14 @@ fn test_parametric_compiler_extracts_model_intent() -> Result<()> {
 
     assert_eq!(state.fixed_effects.parameter_names, vec!["ke", "v"]);
     assert_eq!(state.fixed_effects.population_mean.0, vec![0.4, 10.5]);
-    assert_eq!(state.transforms.transforms[0], ParametricTransformKind::LogNormal);
-    assert_eq!(state.transforms.transforms[1], ParametricTransformKind::Identity);
+    assert_eq!(
+        state.transforms.transforms[0],
+        ParametricTransformKind::LogNormal
+    );
+    assert_eq!(
+        state.transforms.transforms[1],
+        ParametricTransformKind::Identity
+    );
     assert_eq!(state.variability.subject.enabled_for, vec![true, false]);
     assert_eq!(
         state
@@ -116,15 +124,30 @@ fn test_parametric_compiler_extracts_model_intent() -> Result<()> {
     assert!(state.covariates.subject_effects.is_some());
     assert!(state.covariates.occasion_effects.is_none());
     assert_eq!(
-        state.covariates.subject_effects.as_ref().unwrap().column_names,
+        state
+            .covariates
+            .subject_effects
+            .as_ref()
+            .unwrap()
+            .column_names,
         vec!["wt"]
     );
     assert_eq!(
-        state.covariates.subject_effects.as_ref().unwrap().parameter_names,
+        state
+            .covariates
+            .subject_effects
+            .as_ref()
+            .unwrap()
+            .parameter_names,
         vec!["ke", "v"]
     );
     assert_eq!(
-        state.covariates.subject_effects.as_ref().unwrap().covariate_mask,
+        state
+            .covariates
+            .subject_effects
+            .as_ref()
+            .unwrap()
+            .covariate_mask,
         vec![vec![true], vec![false]]
     );
     assert_eq!(
@@ -165,7 +188,9 @@ fn test_parametric_compiler_extracts_occasion_covariates() -> Result<()> {
         .build()?;
 
     let compiled = EstimationProblem::builder(model, multi_occasion_covariate_data())
-        .method(EstimationMethod::Parametric(ParametricMethod::Saem(SaemOptions)))
+        .method(EstimationMethod::Parametric(ParametricMethod::Saem(
+            SaemOptions,
+        )))
         .output(OutputPlan::disabled())
         .build()?
         .compile()?;

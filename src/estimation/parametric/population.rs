@@ -23,7 +23,11 @@ pub struct Population {
 }
 
 impl Population {
-    pub fn new(mu: Col<f64>, omega: Mat<f64>, parameters: impl Into<ParameterSpace>) -> Result<Self> {
+    pub fn new(
+        mu: Col<f64>,
+        omega: Mat<f64>,
+        parameters: impl Into<ParameterSpace>,
+    ) -> Result<Self> {
         let parameters = parameters.into();
         let n = mu.nrows();
 
@@ -171,7 +175,10 @@ impl Population {
         })
     }
 
-    pub fn update_from_sufficient_stats(&mut self, stats: &crate::estimation::parametric::SufficientStats) {
+    pub fn update_from_sufficient_stats(
+        &mut self,
+        stats: &crate::estimation::parametric::SufficientStats,
+    ) {
         let n = stats.count() as f64;
 
         for i in 0..self.npar() {
@@ -324,7 +331,11 @@ impl Serialize for Population {
         state.serialize_field("mu", &mu_vec)?;
 
         let omega_vec: Vec<Vec<f64>> = (0..self.omega.nrows())
-            .map(|i| (0..self.omega.ncols()).map(|j| self.omega[(i, j)]).collect())
+            .map(|i| {
+                (0..self.omega.ncols())
+                    .map(|j| self.omega[(i, j)])
+                    .collect()
+            })
             .collect();
         state.serialize_field("omega", &omega_vec)?;
 

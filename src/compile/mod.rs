@@ -29,10 +29,16 @@ impl<E: Equation + Clone> EstimationProblem<E> {
     }
 }
 
-pub fn compile_problem<E: Equation + Clone>(problem: EstimationProblem<E>) -> Result<CompiledProblem<E>> {
+pub fn compile_problem<E: Equation + Clone>(
+    problem: EstimationProblem<E>,
+) -> Result<CompiledProblem<E>> {
     validate_problem(&problem)?;
 
-    let design = build_design_context(&problem.model.parameters, &problem.model.covariates, &problem.data);
+    let design = build_design_context(
+        &problem.model.parameters,
+        &problem.model.covariates,
+        &problem.data,
+    );
     let observation_index = build_observation_index(&problem.data);
     let caches = ExecutionCaches {
         prediction_cache_enabled: problem.runtime.cache,
@@ -105,13 +111,18 @@ fn build_design_context(
 
     let structured_covariates = match covariates {
         CovariateSpec::InEquation => StructuredCovariateDesign::default(),
-        CovariateSpec::Structured(spec) => {
-            build_structured_covariate_design(&spec.subject_columns(), &spec.occasion_columns(), data)
-        }
+        CovariateSpec::Structured(spec) => build_structured_covariate_design(
+            &spec.subject_columns(),
+            &spec.occasion_columns(),
+            data,
+        ),
     };
 
     DesignContext {
-        parameter_names: parameter_space.iter().map(|item| item.name.clone()).collect(),
+        parameter_names: parameter_space
+            .iter()
+            .map(|item| item.name.clone())
+            .collect(),
         subjects: subject_design,
         occasions: occasion_design,
         structured_covariates,
@@ -205,29 +216,27 @@ fn occasion_anchor_time(occasion: &pharmsol::Occasion) -> f64 {
 }
 
 fn build_observation_index(data: &Data) -> ObservationIndex {
-    let records = data
-        .subjects()
-        .iter()
-        .enumerate()
-        .flat_map(|(subject_index, subject)| {
-            subject.occasions().into_iter().flat_map(move |occasion| {
-                occasion
-                    .events()
-                    .into_iter()
-                    .enumerate()
-                    .filter_map(move |(event_index, event)| match event {
-                        Event::Observation(observation) => Some(ObservationRecord {
-                            subject_index,
-                            occasion_index: occasion.index(),
-                            event_index,
-                            outeq: observation.outeq(),
-                            time: observation.time(),
-                        }),
-                        _ => None,
-                    })
+    let records =
+        data.subjects()
+            .iter()
+            .enumerate()
+            .flat_map(|(subject_index, subject)| {
+                subject.occasions().into_iter().flat_map(move |occasion| {
+                    occasion.events().into_iter().enumerate().filter_map(
+                        move |(event_index, event)| match event {
+                            Event::Observation(observation) => Some(ObservationRecord {
+                                subject_index,
+                                occasion_index: occasion.index(),
+                                event_index,
+                                outeq: observation.outeq(),
+                                time: observation.time(),
+                            }),
+                            _ => None,
+                        },
+                    )
+                })
             })
-        })
-        .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
     ObservationIndex { records }
 }

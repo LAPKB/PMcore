@@ -35,10 +35,7 @@ fn main() -> Result<()> {
         .add_channel(ObservationChannel::continuous(0, "cp"))
         .with_assay_error_models(AssayErrorModels::new().add(
             0,
-            AssayErrorModel::additive(
-                ErrorPoly::new(0.0, 0.0, 0.0, 0.0),
-                0.0000757575757576,
-            ),
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
         )?);
 
     let model = ModelDefinition::builder(sde)

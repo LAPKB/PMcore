@@ -152,12 +152,27 @@ fn test_acceptance_baseline_npag_bimodal_ke() -> Result<()> {
         .expect("NPAG acceptance baseline should yield a nonparametric result");
 
     // This is the canonical rewrite-blocking nonparametric baseline for the bimodal_ke example.
-    saem_reference::assert_close(summary.objective_function, -425.60904902364695, 1e-6, "npag.objf");
+    saem_reference::assert_close(
+        summary.objective_function,
+        -425.60904902364695,
+        1e-6,
+        "npag.objf",
+    );
     assert!(summary.converged);
     assert_eq!(summary.iterations, 288);
     assert_eq!(result.get_theta().nspp(), 46);
-    saem_reference::assert_close(population.parameters[0].mean, 0.187047284678325, 1e-6, "npag.ke.mean");
-    saem_reference::assert_close(population.parameters[1].mean, 107.94241284196241, 1e-6, "npag.v.mean");
+    saem_reference::assert_close(
+        population.parameters[0].mean,
+        0.187047284678325,
+        1e-6,
+        "npag.ke.mean",
+    );
+    saem_reference::assert_close(
+        population.parameters[1].mean,
+        107.94241284196241,
+        1e-6,
+        "npag.v.mean",
+    );
     Ok(())
 }
 
@@ -177,7 +192,12 @@ fn test_acceptance_baseline_saem_bimodal_ke() -> Result<()> {
         .collect();
 
     // This is the canonical rewrite-blocking parametric baseline for the bimodal_ke example.
-    saem_reference::assert_close(summary.objective_function, -144.18431437030802, 1e-6, "saem.objf");
+    saem_reference::assert_close(
+        summary.objective_function,
+        -144.18431437030802,
+        1e-6,
+        "saem.objf",
+    );
     assert!(!summary.converged);
     assert_eq!(summary.iterations, 400);
     saem_reference::assert_vec_close(
@@ -192,12 +212,7 @@ fn test_acceptance_baseline_saem_bimodal_ke() -> Result<()> {
         1e-6,
         "saem.omega_diag",
     );
-    saem_reference::assert_close(
-        result.sigma().as_vec()[0],
-        0.102540,
-        1e-4,
-        "saem.sigma",
-    );
+    saem_reference::assert_close(result.sigma().as_vec()[0], 0.102540, 1e-4, "saem.sigma");
     Ok(())
 }
 

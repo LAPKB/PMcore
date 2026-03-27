@@ -61,10 +61,7 @@ impl ChainState {
     }
 }
 
-pub(crate) fn sample_eta_from_population(
-    population: &Population,
-    rng: &mut impl Rng,
-) -> Col<f64> {
+pub(crate) fn sample_eta_from_population(population: &Population, rng: &mut impl Rng) -> Col<f64> {
     let n = population.npar();
     let normal = Normal::new(0.0, 1.0).unwrap();
     let z: Vec<f64> = (0..n).map(|_| normal.sample(rng)).collect();
@@ -94,8 +91,8 @@ pub(crate) fn sample_eta_from_population(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{ParameterSpace, ParameterSpec};
     use crate::estimation::parametric::Population;
+    use crate::model::{ParameterSpace, ParameterSpec};
     use faer::Mat;
 
     #[test]

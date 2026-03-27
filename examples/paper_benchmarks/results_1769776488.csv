@@ -1,4 +1,0 @@
-experiment,dataset,algorithm,seed,cycles,time_secs,objf,n_spp,converged
-quick,bimodal_ke,NPAG,42,152,6.75,-332.1774,45,true
-quick,bimodal_ke,NPOD,42,17,3.50,-332.7816,44,true
-quick,bimodal_ke,NPSAH2,42,36,124.08,-424.0185,47,true

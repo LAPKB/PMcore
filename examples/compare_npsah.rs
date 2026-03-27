@@ -73,9 +73,11 @@ fn build_problem<E: pharmsol::Equation + Clone>(
 }
 
 fn bounded_parameter_space(bounds: &[(&str, f64, f64)]) -> ParameterSpace {
-    bounds.iter().fold(ParameterSpace::new(), |space, (name, lower, upper)| {
-        space.add(ParameterSpec::bounded(*name, *lower, *upper))
-    })
+    bounds
+        .iter()
+        .fold(ParameterSpace::new(), |space, (name, lower, upper)| {
+            space.add(ParameterSpec::bounded(*name, *lower, *upper))
+        })
 }
 
 fn example_run_config(
@@ -197,11 +199,8 @@ fn create_theo_equation() -> equation::Analytical {
 }
 
 fn create_theo_config(algorithm: Algorithm) -> ExampleRunConfig {
-    let parameter_space = bounded_parameter_space(&[
-        ("ka", 0.001, 3.0),
-        ("ke", 0.001, 3.0),
-        ("v", 0.001, 50.0),
-    ]);
+    let parameter_space =
+        bounded_parameter_space(&[("ka", 0.001, 3.0), ("ke", 0.001, 3.0), ("v", 0.001, 50.0)]);
 
     let ems = AssayErrorModels::new()
         .add(

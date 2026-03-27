@@ -55,8 +55,8 @@ use faer::Mat;
 
 use crate::algorithms::nonparametric::npag::burke;
 use crate::algorithms::nonparametric::npag::NPAG;
-use crate::algorithms::NativeNonparametricConfig;
 use crate::algorithms::Algorithms;
+use crate::algorithms::NativeNonparametricConfig;
 use crate::algorithms::Status;
 use crate::bestdose::types::BestDoseConfig;
 use crate::estimation::nonparametric::{calculate_psi, Prior, Theta, Weights};

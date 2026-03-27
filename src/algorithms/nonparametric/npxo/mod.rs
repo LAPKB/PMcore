@@ -26,14 +26,13 @@ mod crossover;
 pub use constants::*;
 
 use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, StopReason};
-use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::qr;
 use crate::estimation::nonparametric::sample_space_for_parameters;
-use crate::{
-    algorithms::Status,
-    prelude::algorithms::Algorithms,
+use crate::estimation::nonparametric::{
+    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
 };
+use crate::{algorithms::Status, prelude::algorithms::Algorithms};
 
 use anyhow::{bail, Result};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
@@ -88,8 +87,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPXO<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior)
-            .unwrap()
+        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior).unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -214,7 +212,10 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPXO<E> {
 
     fn condensation(&mut self) -> Result<()> {
         // Lambda threshold pruning
-        let max_lambda = self.lambda.iter().fold(f64::NEG_INFINITY, |acc, x| x.max(acc));
+        let max_lambda = self
+            .lambda
+            .iter()
+            .fold(f64::NEG_INFINITY, |acc, x| x.max(acc));
         let mut keep: Vec<usize> = self
             .lambda
             .iter()
@@ -342,7 +343,13 @@ impl<E: Equation + Send + 'static> NPXO<E> {
             return false;
         }
 
-        let recent: Vec<f64> = self.objf_history.iter().rev().take(STABLE_CYCLES).copied().collect();
+        let recent: Vec<f64> = self
+            .objf_history
+            .iter()
+            .rev()
+            .take(STABLE_CYCLES)
+            .copied()
+            .collect();
         let max_val = recent.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let min_val = recent.iter().cloned().fold(f64::INFINITY, f64::min);
 
@@ -411,7 +418,8 @@ impl<E: Equation + Send + 'static> NPXO<E> {
 
         if !bad_indices.is_empty() {
             let subjects: Vec<&Subject> = self.data.subjects();
-            let bad_subjects: Vec<&String> = bad_indices.iter().map(|&i| subjects[i].id()).collect();
+            let bad_subjects: Vec<&String> =
+                bad_indices.iter().map(|&i| subjects[i].id()).collect();
             bail!("Zero probability for subjects: {:?}", bad_subjects);
         }
 

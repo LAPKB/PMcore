@@ -81,7 +81,13 @@ fn run_algorithm(
     println!("============================================================");
 
     let start = Instant::now();
-    let fit_result = fit(build_problem(eq, data.clone(), method, &output_path, initialize_logs)?)?;
+    let fit_result = fit(build_problem(
+        eq,
+        data.clone(),
+        method,
+        &output_path,
+        initialize_logs,
+    )?)?;
     let duration = start.elapsed();
     let result = fit_result
         .as_nonparametric()
@@ -125,7 +131,10 @@ fn main() -> Result<()> {
         ("NPAG", NonparametricMethod::Npag(NpagOptions::default())),
         ("NPOD", NonparametricMethod::Npod(NpodOptions::default())),
         ("NPSAH", NonparametricMethod::Npsah(NpsahOptions::default())),
-        ("NPSAH2", NonparametricMethod::Npsah2(Npsah2Options::default())),
+        (
+            "NPSAH2",
+            NonparametricMethod::Npsah2(Npsah2Options::default()),
+        ),
         ("NPCAT", NonparametricMethod::Npcat(NpcatOptions::default())),
         ("NPOPT", NonparametricMethod::Npopt(NpoptOptions::default())),
         ("NPPSO", NonparametricMethod::Nppso(NppsoOptions::default())),

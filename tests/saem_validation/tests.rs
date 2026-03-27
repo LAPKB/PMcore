@@ -31,9 +31,11 @@ impl SaemValidationConfig {
 }
 
 fn bounded_parameter_space(bounds: &[(&str, f64, f64)]) -> ParameterSpace {
-    bounds.iter().fold(ParameterSpace::new(), |space, (name, lower, upper)| {
-        space.add(ParameterSpec::bounded(*name, *lower, *upper))
-    })
+    bounds
+        .iter()
+        .fold(ParameterSpace::new(), |space, (name, lower, upper)| {
+            space.add(ParameterSpec::bounded(*name, *lower, *upper))
+        })
 }
 
 fn apply_saem_transforms(parameter_space: &ParameterSpace, saem: &SaemConfig) -> ParameterSpace {
@@ -766,11 +768,8 @@ fn test_validate_theophylline() -> Result<()> {
     let data = Data::new(subjects);
 
     // Parameter ranges (matching R saemix initial values region)
-    let parameter_space = bounded_parameter_space(&[
-        ("ka", 0.5, 3.0),
-        ("v", 15.0, 50.0),
-        ("cl", 0.5, 5.0),
-    ]);
+    let parameter_space =
+        bounded_parameter_space(&[("ka", 0.5, 3.0), ("v", 15.0, 50.0), ("cl", 0.5, 5.0)]);
 
     // Residual error model (constant, matching R)
     use pharmsol::{ResidualErrorModel, ResidualErrorModels};

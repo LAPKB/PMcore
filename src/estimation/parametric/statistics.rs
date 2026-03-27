@@ -56,7 +56,13 @@ impl ParametricStatistics {
         let cv_percent: Vec<f64> = mu
             .iter()
             .zip(omega_sd.iter())
-            .map(|(m, s)| if m.abs() > 1e-10 { 100.0 * s / m.abs() } else { f64::NAN })
+            .map(|(m, s)| {
+                if m.abs() > 1e-10 {
+                    100.0 * s / m.abs()
+                } else {
+                    f64::NAN
+                }
+            })
             .collect();
 
         let pop_var = faer::Col::from_fn(n_fixed, |i| omega_diag[i]);

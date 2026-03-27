@@ -10,8 +10,7 @@ use anyhow::{Context, Result};
 use pharmsol::{Data, Equation, ResidualErrorModels};
 
 use crate::api::{
-    EstimationMethod, EstimationProblem, OutputPlan, ParametricMethod, RuntimeOptions,
-    SaemConfig,
+    EstimationMethod, EstimationProblem, OutputPlan, ParametricMethod, RuntimeOptions, SaemConfig,
 };
 use crate::compile::{CompiledProblem, StructuredCovariateDesign};
 use crate::estimation::parametric::{
@@ -40,7 +39,10 @@ impl<E: Equation> ParametricAlgorithmInput<E> {
     pub(crate) fn from_compiled_problem(problem: CompiledProblem<E>) -> Result<Self> {
         let method = match problem.method() {
             EstimationMethod::Parametric(method) => method,
-            other => anyhow::bail!("parametric dispatcher received non-parametric method: {:?}", other),
+            other => anyhow::bail!(
+                "parametric dispatcher received non-parametric method: {:?}",
+                other
+            ),
         };
 
         let output = problem.output_plan().clone();
@@ -53,7 +55,9 @@ impl<E: Equation> ParametricAlgorithmInput<E> {
             .observations
             .residual_error_models
             .clone()
-            .ok_or_else(|| anyhow::anyhow!("parametric algorithms require residual_error_models"))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!("parametric algorithms require residual_error_models")
+            })?;
 
         Ok(Self {
             method,
@@ -93,7 +97,10 @@ impl<E: Equation> ParametricAlgorithmInput<E> {
     }
 
     pub(crate) fn parameter_transforms(&self) -> Vec<AlgorithmParameterTransform> {
-        self.parameter_space.iter().map(to_parameter_transform).collect()
+        self.parameter_space
+            .iter()
+            .map(to_parameter_transform)
+            .collect()
     }
 }
 
@@ -322,9 +329,7 @@ pub(crate) fn run_parametric_algorithm<E: Equation + Clone + Send + 'static>(
     algorithm.fit()
 }
 
-fn to_parameter_transform(
-    parameter: &crate::model::ParameterSpec,
-) -> AlgorithmParameterTransform {
+fn to_parameter_transform(parameter: &crate::model::ParameterSpec) -> AlgorithmParameterTransform {
     match parameter.transform {
         crate::model::ParameterTransform::Identity => AlgorithmParameterTransform::None,
         crate::model::ParameterTransform::LogNormal => AlgorithmParameterTransform::LogNormal,
@@ -342,12 +347,8 @@ fn to_parameter_transform(
 fn bounded_domain(parameter: &crate::model::ParameterSpec) -> (f64, f64) {
     match parameter.domain {
         ParameterDomain::Bounded { lower, upper } => (lower, upper),
-        ParameterDomain::Positive { lower, upper } => {
-            (lower.unwrap_or(0.0), upper.unwrap_or(1.0))
-        }
-        ParameterDomain::Unbounded { lower, upper } => {
-            (lower.unwrap_or(0.0), upper.unwrap_or(1.0))
-        }
+        ParameterDomain::Positive { lower, upper } => (lower.unwrap_or(0.0), upper.unwrap_or(1.0)),
+        ParameterDomain::Unbounded { lower, upper } => (lower.unwrap_or(0.0), upper.unwrap_or(1.0)),
     }
 }
 
@@ -359,8 +360,8 @@ mod tests {
 
     use crate::api::{EstimationMethod, EstimationProblem, ParametricMethod, SaemOptions};
     use crate::model::{
-        CovariateEffectsSpec, CovariateSpec, ModelDefinition, ObservationChannel,
-        ObservationSpec, ParameterSpace, ParameterSpec,
+        CovariateEffectsSpec, CovariateSpec, ModelDefinition, ObservationChannel, ObservationSpec,
+        ParameterSpace, ParameterSpec,
     };
     use crate::prelude::*;
 
@@ -382,13 +383,11 @@ mod tests {
 
     #[test]
     fn compiled_parametric_input_preserves_structured_covariates() -> Result<()> {
-        let data = pharmsol::Data::new(vec![
-            Subject::builder("1")
-                .covariate("wt", 0.0, 70.0)
-                .bolus(0.0, 100.0, 0)
-                .observation(1.0, 10.0, 0)
-                .build(),
-        ]);
+        let data = pharmsol::Data::new(vec![Subject::builder("1")
+            .covariate("wt", 0.0, 70.0)
+            .bolus(0.0, 100.0, 0)
+            .observation(1.0, 10.0, 0)
+            .build()]);
         let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
         let residual_error =
             ResidualErrorModels::new().add(0, ResidualErrorModel::combined(0.5, 0.1));
@@ -415,7 +414,9 @@ mod tests {
             .build()?;
 
         let compiled = EstimationProblem::builder(model, data)
-            .method(EstimationMethod::Parametric(ParametricMethod::Saem(SaemOptions)))
+            .method(EstimationMethod::Parametric(ParametricMethod::Saem(
+                SaemOptions,
+            )))
             .build()?
             .compile()?;
 
@@ -424,7 +425,10 @@ mod tests {
         assert!(matches!(input.covariates, CovariateSpec::Structured(_)));
         assert_eq!(input.structured_covariates.subject_columns, vec!["wt"]);
         assert_eq!(input.structured_covariates.subject_rows.len(), 1);
-        assert_eq!(input.structured_covariates.subject_rows[0].values, vec![Some(70.0)]);
+        assert_eq!(
+            input.structured_covariates.subject_rows[0].values,
+            vec![Some(70.0)]
+        );
         Ok(())
     }
 }

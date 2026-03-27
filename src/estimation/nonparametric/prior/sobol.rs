@@ -5,7 +5,11 @@ use sobol_burley::sample;
 use crate::estimation::nonparametric::Theta;
 use crate::model::ParameterSpace;
 
-pub fn generate(parameters: impl Into<ParameterSpace>, points: usize, seed: usize) -> Result<Theta> {
+pub fn generate(
+    parameters: impl Into<ParameterSpace>,
+    points: usize,
+    seed: usize,
+) -> Result<Theta> {
     let parameters = parameters.into();
     let seed = seed as u32;
     let ranges = parameters.finite_ranges()?;

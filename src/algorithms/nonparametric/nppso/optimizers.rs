@@ -6,7 +6,7 @@ use anyhow::Result;
 use cobyla::{minimize, RhoBeg};
 use ndarray::Axis;
 use pharmsol::prelude::{
-    data::{Data, AssayErrorModels},
+    data::{AssayErrorModels, Data},
     simulator::Equation,
 };
 use pharmsol::Subject;
@@ -46,7 +46,9 @@ pub fn optimize_subject_map<E: Equation>(
             &theta,
             error_models,
             false,
-        ).map(|m| m.mapv(f64::exp)) {
+        )
+        .map(|m| m.mapv(f64::exp))
+        {
             Ok(psi) => {
                 let p = psi.iter().next().unwrap_or(&1e-300);
                 if *p > 0.0 {
@@ -136,7 +138,9 @@ pub fn refine_d_optimal<E: Equation>(
             &theta,
             error_models,
             false,
-        ).map(|m| m.mapv(f64::exp)) {
+        )
+        .map(|m| m.mapv(f64::exp))
+        {
             Ok(psi) => {
                 let nsub = psi.nrows() as f64;
                 let mut d_sum = -nsub;

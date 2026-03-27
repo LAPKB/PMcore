@@ -1,7 +1,9 @@
 use pharmsol::Equation;
 
 use crate::algorithms::{Status, StopReason};
-use crate::estimation::nonparametric::{posterior, CycleLog, NPPredictions, Posterior, Psi, Theta, Weights};
+use crate::estimation::nonparametric::{
+    posterior, CycleLog, NPPredictions, Posterior, Psi, Theta, Weights,
+};
 use crate::output::shared::RunConfiguration;
 use crate::results::FitResult;
 use pharmsol::Data;
@@ -95,7 +97,10 @@ impl<E: Equation> NonparametricWorkspace<E> {
     }
 
     pub(crate) fn prediction_interval(&self) -> (f64, f64) {
-        (self.run_configuration.runtime.idelta, self.run_configuration.runtime.tad)
+        (
+            self.run_configuration.runtime.idelta,
+            self.run_configuration.runtime.tad,
+        )
     }
 
     pub fn predictions(&self) -> Option<&NPPredictions> {
@@ -143,11 +148,8 @@ impl<E: Equation> NonparametricWorkspace<E> {
             );
         }
 
-        let outputfile = crate::output::OutputFile::new(
-            self.output_folder(),
-            "theta.csv",
-        )
-        .context("Failed to create output file for theta")?;
+        let outputfile = crate::output::OutputFile::new(self.output_folder(), "theta.csv")
+            .context("Failed to create output file for theta")?;
 
         let mut writer = WriterBuilder::new()
             .has_headers(true)
@@ -171,10 +173,7 @@ impl<E: Equation> NonparametricWorkspace<E> {
 
         tracing::debug!("Writing posterior parameter probabilities...");
 
-        let outputfile = crate::output::OutputFile::new(
-            self.output_folder(),
-            "posterior.csv",
-        )?;
+        let outputfile = crate::output::OutputFile::new(self.output_folder(), "posterior.csv")?;
 
         let mut writer = WriterBuilder::new()
             .has_headers(true)

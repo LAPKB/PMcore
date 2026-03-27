@@ -32,13 +32,17 @@ mod constants;
 use cma::CmaState;
 pub use constants::*;
 
-use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason};
-use crate::estimation::nonparametric::{calculate_psi, CycleLog, NonparametricWorkspace, NPCycle, Psi, Theta, Weights};
-use crate::prelude::algorithms::Algorithms;
+use crate::algorithms::{
+    NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason,
+};
 use crate::estimation::nonparametric::adaptative_grid;
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::qr;
 use crate::estimation::nonparametric::sample_space_for_parameters;
+use crate::estimation::nonparametric::{
+    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
+};
+use crate::prelude::algorithms::Algorithms;
 
 use anyhow::{bail, Result};
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
@@ -100,8 +104,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPCMA<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior)
-            .unwrap()
+        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior).unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -505,7 +508,8 @@ impl<E: Equation + Send + 'static> NPCMA<E> {
             &theta_single,
             &self.error_models,
             false,
-        )?.mapv(f64::exp);
+        )?
+        .mapv(f64::exp);
 
         let nsub = psi_single.nrows() as f64;
         let mut d_sum = -nsub;
@@ -570,15 +574,8 @@ impl<E: Equation + Send + 'static> NPCMA<E> {
             let mut em_down = self.error_models.clone();
             em_down.set_factor(outeq, gamma_down)?;
 
-            let psi_up =
-                calculate_psi(&self.equation, &self.data, &self.theta, &em_up, false)?;
-            let psi_down = calculate_psi(
-                &self.equation,
-                &self.data,
-                &self.theta,
-                &em_down,
-                false,
-            )?;
+            let psi_up = calculate_psi(&self.equation, &self.data, &self.theta, &em_up, false)?;
+            let psi_down = calculate_psi(&self.equation, &self.data, &self.theta, &em_down, false)?;
 
             let (lambda_up, objf_up) = burke(&psi_up)?;
             let (lambda_down, objf_down) = burke(&psi_down)?;

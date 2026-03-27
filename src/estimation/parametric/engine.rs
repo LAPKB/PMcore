@@ -18,7 +18,10 @@ impl ParametricEngine {
         let compiled_state = compile_model_state(&problem);
         let occasion_design = problem.design.occasions.clone();
         if !matches!(problem.method(), EstimationMethod::Parametric(_)) {
-            anyhow::bail!("parametric engine received non-parametric method: {:?}", problem.method());
+            anyhow::bail!(
+                "parametric engine received non-parametric method: {:?}",
+                problem.method()
+            );
         }
         let input = ParametricAlgorithmInput::from_compiled_problem(problem)?;
         let workspace = run_parametric_algorithm(input)?;
@@ -26,7 +29,9 @@ impl ParametricEngine {
     }
 }
 
-pub fn fit<E: Equation + Clone + Send + 'static>(problem: CompiledProblem<E>) -> Result<FitResult<E>> {
+pub fn fit<E: Equation + Clone + Send + 'static>(
+    problem: CompiledProblem<E>,
+) -> Result<FitResult<E>> {
     let workspace = ParametricEngine::fit(problem)?;
     Ok(workspace.into_fit_result())
 }

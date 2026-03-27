@@ -31,8 +31,8 @@ fn main() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let config = bestdose::BestDoseConfig::new(parameter_space.clone(), ems.clone())
-        .with_progress(false);
+    let config =
+        bestdose::BestDoseConfig::new(parameter_space.clone(), ems.clone()).with_progress(false);
 
     // Generate a patient with known parameters
     // Ke = 0.5, V = 50

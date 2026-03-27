@@ -2,13 +2,13 @@ use anyhow::Result;
 use pharmsol::{Censor, Equation};
 use serde::Serialize;
 
-use crate::estimation::nonparametric::NonparametricWorkspace;
-use crate::estimation::parametric::ParametricWorkspace;
 use crate::estimation::nonparametric as np_estimation;
+use crate::estimation::nonparametric::NonparametricWorkspace;
 use crate::estimation::parametric as param_estimation;
+use crate::estimation::parametric::ParametricWorkspace;
 use crate::output::{nonparametric as np_output, parametric, shared};
-use crate::results::{DiagnosticsBundle, FitSummary};
 use crate::results::FitResult;
+use crate::results::{DiagnosticsBundle, FitSummary};
 
 #[derive(Debug, Clone, Serialize)]
 struct SharedPredictionRow {
@@ -34,7 +34,9 @@ pub fn write_result<E: Equation>(result: &mut FitResult<E>) -> Result<()> {
     Ok(())
 }
 
-pub fn write_nonparametric_result<E: Equation>(result: &mut NonparametricWorkspace<E>) -> Result<()> {
+pub fn write_nonparametric_result<E: Equation>(
+    result: &mut NonparametricWorkspace<E>,
+) -> Result<()> {
     if !result.should_write_outputs() {
         return Ok(());
     }
@@ -46,26 +48,31 @@ pub fn write_nonparametric_result<E: Equation>(result: &mut NonparametricWorkspa
     np_output::write_nonparametric_outputs(result)?;
 
     if let Some(predictions) = result.predictions() {
-        let rows = predictions.predictions().iter().map(|row| SharedPredictionRow {
-            id: row.id().to_string(),
-            time: row.time(),
-            outeq: row.outeq(),
-            block: row.block(),
-            obs: row.obs(),
-            cens: row.censoring(),
-            pred_population: row.pop_mean(),
-            pred_individual: row.post_mean(),
-            residual_population: row.obs().map(|obs| obs - row.pop_mean()),
-            residual_individual: row.obs().map(|obs| obs - row.post_mean()),
-            source_method: "nonparametric".to_string(),
-        });
+        let rows = predictions
+            .predictions()
+            .iter()
+            .map(|row| SharedPredictionRow {
+                id: row.id().to_string(),
+                time: row.time(),
+                outeq: row.outeq(),
+                block: row.block(),
+                obs: row.obs(),
+                cens: row.censoring(),
+                pred_population: row.pop_mean(),
+                pred_individual: row.post_mean(),
+                residual_population: row.obs().map(|obs| obs - row.pop_mean()),
+                residual_individual: row.obs().map(|obs| obs - row.post_mean()),
+                source_method: "nonparametric".to_string(),
+            });
         shared::write_csv_rows(&folder, "predictions.csv", rows)?;
     }
 
     Ok(())
 }
 
-pub fn write_parametric_workspace_result<E: Equation>(result: &mut ParametricWorkspace<E>) -> Result<()> {
+pub fn write_parametric_workspace_result<E: Equation>(
+    result: &mut ParametricWorkspace<E>,
+) -> Result<()> {
     if !result.should_write_outputs() {
         return Ok(());
     }
@@ -77,19 +84,22 @@ pub fn write_parametric_workspace_result<E: Equation>(result: &mut ParametricWor
     parametric::write_parametric_workspace_outputs(result)?;
 
     if let Some(predictions) = result.predictions() {
-        let rows = predictions.predictions().iter().map(|row| SharedPredictionRow {
-            id: row.id().to_string(),
-            time: row.time(),
-            outeq: row.outeq(),
-            block: row.block(),
-            obs: row.obs(),
-            cens: row.censoring(),
-            pred_population: row.ppred(),
-            pred_individual: row.ipred(),
-            residual_population: row.obs().map(|obs| obs - row.ppred()),
-            residual_individual: row.ires(),
-            source_method: "parametric".to_string(),
-        });
+        let rows = predictions
+            .predictions()
+            .iter()
+            .map(|row| SharedPredictionRow {
+                id: row.id().to_string(),
+                time: row.time(),
+                outeq: row.outeq(),
+                block: row.block(),
+                obs: row.obs(),
+                cens: row.censoring(),
+                pred_population: row.ppred(),
+                pred_individual: row.ipred(),
+                residual_population: row.obs().map(|obs| obs - row.ppred()),
+                residual_individual: row.ires(),
+                source_method: "parametric".to_string(),
+            });
         shared::write_csv_rows(&folder, "predictions.csv", rows)?;
     }
 

@@ -470,7 +470,10 @@ fn test_problem_compile_preserves_runtime_configuration() -> Result<()> {
     assert!(!compiled.runtime_options().progress);
     assert_eq!(compiled.runtime_options().idelta, 0.5);
     assert_eq!(compiled.runtime_options().tad, 24.0);
-    assert_eq!(compiled.runtime_options().logging.level, LoggingLevel::Debug);
+    assert_eq!(
+        compiled.runtime_options().logging.level,
+        LoggingLevel::Debug
+    );
     assert!(compiled.runtime_options().logging.write);
     assert!(!compiled.runtime_options().logging.stdout);
     assert_eq!(compiled.runtime_options().convergence.likelihood, 1e-5);
