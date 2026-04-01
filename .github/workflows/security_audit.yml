@@ -1,7 +1,9 @@
 name: Security Audit
 
-'on':
+"on":
   workflow_dispatch:
+  schedule:
+    - cron: "0 6 1,15 * *"
 
 permissions:
   contents: read
@@ -12,15 +14,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-      - name: Setup cache
-        uses: actions/cache@v5
+      - name: Security audit
+        uses: rustsec/audit-check@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-      - name: Run security audit
-        run: cargo audit
+          token: ${{ secrets.GITHUB_TOKEN }}
