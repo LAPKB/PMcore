@@ -13,29 +13,34 @@ fn main() {
         },
     );
 
-    let params = Parameters::new()
-        .add("ka", 0.001, 3.0)
-        .add("ke", 0.001, 3.0)
-        .add("v", 0.001, 50.0);
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "cp"))
+        .with_assay_error_models(
+            AssayErrorModels::new()
+                .add(
+                    0,
+                    AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
+                )
+                .unwrap(),
+        );
 
-    let ems = AssayErrorModels::new()
-        .add(
-            0,
-            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
+    let model = ModelDefinition::builder(analytical)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("ka", 0.001, 3.0))
+                .add(ParameterSpec::bounded("ke", 0.001, 3.0))
+                .add(ParameterSpec::bounded("v", 0.001, 50.0)),
         )
+        .observations(observations)
+        .build()
         .unwrap();
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, analytical, data).unwrap();
-    // let result = algorithm.fit().unwrap();
-    algorithm.initialize().unwrap();
-    let mut result = algorithm.fit().unwrap();
+    let mut result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions::default(),
+        )))
+        .run()
+        .unwrap();
     result.write_outputs().unwrap();
 }

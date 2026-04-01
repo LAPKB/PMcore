@@ -1,8 +1,6 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDosePosterior, DoseRange, Target};
-
+use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, DoseRange, Target};
 use pmcore::prelude::*;
-use pmcore::routines::initialization::parse_prior;
 
 fn main() -> Result<()> {
     // Example model
@@ -18,23 +16,15 @@ fn main() -> Result<()> {
         },
     };
 
-    let params = Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0);
+    let parameter_space = ParameterSpace::new()
+        .add(ParameterSpec::bounded("ke", 0.001, 3.0))
+        .add(ParameterSpec::bounded("v", 25.0, 250.0));
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
-
-    // Make settings
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
+    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone()).with_progress(false);
 
     // Generate a patient with known parameters
     // Ke = 0.5, V = 50
@@ -71,21 +61,14 @@ fn main() -> Result<()> {
         .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
         .build();
 
-    let (theta, prior) = parse_prior(
-        &"examples/bimodal_ke/output/theta.csv".to_string(),
-        &settings,
-    )
-    .unwrap();
+    let (theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
 
-    // Example usage - two-stage API:
-    // Stage 1: Compute posterior (expensive, done once)
-    // Stage 2: Optimize doses (can be called multiple times with different params)
     let posterior = BestDosePosterior::compute(
         &theta,
         &prior.unwrap(),
         Some(past_data.clone()), // Optional: past data for Bayesian updating
         eq.clone(),
-        settings.clone(),
+        config.clone(),
     )?;
 
     println!("Optimizing dose...");

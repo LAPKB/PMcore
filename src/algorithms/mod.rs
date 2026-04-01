@@ -1,46 +1,195 @@
 use std::fs;
 use std::path::Path;
 
-use crate::routines::output::NPResult;
-use crate::routines::settings::Settings;
-use crate::structs::psi::Psi;
-use crate::structs::theta::Theta;
+use crate::api::{NonparametricMethod, OutputPlan, RuntimeOptions};
+use crate::estimation::nonparametric::{NonparametricWorkspace, Prior, Psi, Theta};
+use crate::model::{ModelDefinition, ObservationSpec, ParameterSpace};
+use crate::output::shared::RunConfiguration;
 use anyhow::Context;
 use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
-
-use npag::*;
-use npod::NPOD;
+use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
+use nonparametric::nexus::NEXUS;
+use nonparametric::npag::*;
+use nonparametric::npbo::NPBO;
+use nonparametric::npcat::NPCAT;
+use nonparametric::npcma::NPCMA;
+use nonparametric::npod::NPOD;
+use nonparametric::npopt::NPOPT;
+use nonparametric::nppso::NPPSO;
+use nonparametric::npsah::NPSAH;
+use nonparametric::npsah2::NPSAH2;
+use nonparametric::npxo::NPXO;
+use nonparametric::postprob::POSTPROB;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
-use postprob::POSTPROB;
 use serde::{Deserialize, Serialize};
 
-pub mod npag;
-pub mod npod;
-pub mod postprob;
+// Module organization for algorithm types
+pub mod nonparametric;
+pub mod parametric;
 
+#[derive(Debug, Clone)]
+pub(crate) struct NonparametricAlgorithmInput<E: Equation> {
+    pub method: NonparametricMethod,
+    pub equation: E,
+    pub data: Data,
+    pub parameter_space: ParameterSpace,
+    pub observations: ObservationSpec,
+    pub output: OutputPlan,
+    pub runtime: RuntimeOptions,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct NativeNonparametricConfig {
+    pub parameter_space: ParameterSpace,
+    pub ranges: Vec<(f64, f64)>,
+    pub prior: Prior,
+    pub max_cycles: usize,
+    pub progress: bool,
+    pub run_configuration: RunConfiguration,
+}
+
+impl<E: Equation> NonparametricAlgorithmInput<E> {
+    pub(crate) fn new(
+        method: NonparametricMethod,
+        model: ModelDefinition<E>,
+        data: Data,
+        output: OutputPlan,
+        runtime: RuntimeOptions,
+    ) -> Self {
+        Self {
+            method,
+            equation: model.equation,
+            data,
+            parameter_space: model.parameters,
+            observations: model.observations,
+            output,
+            runtime,
+        }
+    }
+
+    pub(crate) fn algorithm(&self) -> Algorithm {
+        self.method.algorithm()
+    }
+
+    pub(crate) fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels {
+        &self.observations.assay_error_models
+    }
+
+    pub(crate) fn max_cycles(&self) -> usize {
+        self.runtime.cycles
+    }
+
+    pub(crate) fn progress_enabled(&self) -> bool {
+        self.runtime.progress
+    }
+
+    pub(crate) fn prior(&self) -> Prior {
+        self.runtime.prior.clone().unwrap_or_default()
+    }
+
+    pub(crate) fn run_configuration(&self) -> RunConfiguration {
+        RunConfiguration::new(
+            self.algorithm(),
+            &self.output,
+            &self.runtime,
+            self.parameter_space
+                .iter()
+                .map(|parameter| parameter.name.clone())
+                .collect(),
+        )
+    }
+
+    pub(crate) fn native_config(&self) -> Result<NativeNonparametricConfig> {
+        Ok(NativeNonparametricConfig {
+            ranges: self.parameter_space.finite_ranges()?,
+            parameter_space: self.parameter_space.clone(),
+            prior: self.prior(),
+            max_cycles: self.max_cycles(),
+            progress: self.progress_enabled(),
+            run_configuration: self.run_configuration(),
+        })
+    }
+}
+
+/// Algorithm type enumeration
+///
+/// This enum represents all available algorithms in PMcore, both non-parametric and parametric.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
+    // === Non-parametric algorithms ===
+    /// Non-Parametric Adaptive Grid
     NPAG,
+    /// Non-Parametric Bayesian Optimization
+    NPBO,
+    /// Non-Parametric Categorical
+    NPCAT,
+    /// Non-Parametric CMA-ES
+    NPCMA,
+    /// Non-Parametric Optimal Design
     NPOD,
+    /// Non-Parametric Optimization
+    NPOPT,
+    /// Non-Parametric Particle Swarm Optimization
+    NPPSO,
+    /// Non-Parametric Simulated Annealing Hybrid
+    NPSAH,
+    /// Non-Parametric Simulated Annealing Hybrid v2
+    NPSAH2,
+    /// Non-Parametric Cross-Over
+    NPXO,
+    /// NEXUS algorithm
+    NEXUS,
+    /// Posterior Probability calculation
     POSTPROB,
+
+    // === Parametric algorithms ===
+    /// Stochastic Approximation Expectation-Maximization
+    SAEM,
+    /// First-Order Conditional Estimation with Interaction
+    FOCEI,
+    /// Iterative Two-Stage Bayesian
+    IT2B,
+}
+
+impl Algorithm {
+    /// Check if this is a non-parametric algorithm
+    pub fn is_nonparametric(&self) -> bool {
+        matches!(
+            self,
+            Algorithm::NPAG
+                | Algorithm::NPBO
+                | Algorithm::NPCAT
+                | Algorithm::NPCMA
+                | Algorithm::NPOD
+                | Algorithm::NPOPT
+                | Algorithm::NPPSO
+                | Algorithm::NPSAH
+                | Algorithm::NPSAH2
+                | Algorithm::NPXO
+                | Algorithm::NEXUS
+                | Algorithm::POSTPROB
+        )
+    }
+
+    /// Check if this is a parametric algorithm
+    pub fn is_parametric(&self) -> bool {
+        matches!(self, Algorithm::SAEM | Algorithm::FOCEI | Algorithm::IT2B)
+    }
 }
 
 pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
-    fn new(config: Settings, equation: E, data: Data) -> Result<Box<Self>>
-    where
-        Self: Sized;
     fn validate_psi(&mut self) -> Result<()> {
         // Count problematic values in psi
         let mut nan_count = 0;
         let mut inf_count = 0;
 
-        let psi = self.psi().matrix();
+        let psi = self.psi().to_ndarray();
         // First coerce all NaN and infinite in psi to 0.0
         for i in 0..psi.nrows() {
-            for j in 0..psi.ncols() {
-                let val = psi[(i, j)];
+            for j in 0..self.psi().matrix().ncols() {
+                let val = psi.get((i, j)).unwrap();
                 if val.is_nan() {
                     nan_count += 1;
                     // *val = 0.0;
@@ -60,11 +209,10 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
             );
         }
 
-        let (row, col) = (psi.nrows(), psi.ncols());
-        let plam: Vec<f64> = (0..row)
-            .map(|i| (0..col).map(|j| psi[(i, j)]).sum::<f64>())
-            .collect();
-        let w: Vec<f64> = plam.iter().map(|&x| 1.0 / x).collect();
+        let (_, col) = psi.dim();
+        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
+        let plam = psi.dot(&ecol);
+        let w = 1. / &plam;
 
         // Get the index of each element in `w` that is NaN or infinite
         let indices: Vec<usize> = w
@@ -89,7 +237,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
             for index in &indices {
                 tracing::debug!("Subject with zero probability: {}", subject[*index].id());
 
-                let error_model = self.settings().errormodels().clone();
+                let error_model = self.error_models().clone();
 
                 // Simulate all support points in parallel
                 let spp_results: Vec<_> = self
@@ -208,7 +356,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
         Ok(())
     }
 
-    fn settings(&self) -> &Settings;
+    fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels;
     /// Get the equation used in the algorithm
     fn equation(&self) -> &E;
     /// Get the data used in the algorithm
@@ -259,7 +407,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// It is typically performed after the estimation step in each cycle of the algorithm.
     fn condensation(&mut self) -> Result<()>;
 
-    /// Performs optimizations on the current [ErrorModels] and updates [Psi] accordingly
+    /// Performs optimizations on the current [AssayErrorModels] and updates [Psi] accordingly
     ///
     /// This step refines the error model parameters to better fit the data,
     /// and subsequently updates the [Psi] matrix to reflect these changes.
@@ -296,31 +444,73 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// This method runs the full fitting process, starting with initialization,
     /// followed by iterative cycles of estimation, condensation, optimization, and evaluation
     /// until the algorithm converges or meets a stopping criteria.
-    fn fit(&mut self) -> Result<NPResult<E>> {
+    fn fit(&mut self) -> Result<NonparametricWorkspace<E>> {
         self.initialize().unwrap();
-        #[allow(clippy::while_let_loop)]
         loop {
             match self.next_cycle()? {
                 Status::Continue => continue,
                 Status::Stop(_) => break,
             }
         }
-        self.into_npresult()
+        self.into_workspace()
     }
 
     #[allow(clippy::wrong_self_convention)]
-    fn into_npresult(&self) -> Result<NPResult<E>>;
+    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>>;
 }
 
-pub fn dispatch_algorithm<E: Equation + Send + 'static>(
-    settings: Settings,
-    equation: E,
-    data: Data,
-) -> Result<Box<dyn Algorithms<E>>> {
-    match settings.config().algorithm {
-        Algorithm::NPAG => Ok(NPAG::new(settings, equation, data)?),
-        Algorithm::NPOD => Ok(NPOD::new(settings, equation, data)?),
-        Algorithm::POSTPROB => Ok(POSTPROB::new(settings, equation, data)?),
+pub(crate) fn run_nonparametric_algorithm<E: Equation + Send + 'static>(
+    input: NonparametricAlgorithmInput<E>,
+) -> Result<NonparametricWorkspace<E>> {
+    match input.method {
+        NonparametricMethod::Npag(_) => {
+            let mut algorithm = NPAG::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Npbo(_) => {
+            let mut algorithm = NPBO::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Npcat(_) => {
+            let mut algorithm = NPCAT::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Npcma(_) => {
+            let mut algorithm = NPCMA::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Npod(_) => {
+            let mut algorithm = NPOD::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Npopt(_) => {
+            let mut algorithm = NPOPT::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Nppso(_) => {
+            let mut algorithm = NPPSO::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Npxo(_) => {
+            let mut algorithm = NPXO::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Npsah(_) => {
+            let mut algorithm = NPSAH::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Npsah2(_) => {
+            let mut algorithm = NPSAH2::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Nexus(_) => {
+            let mut algorithm = NEXUS::from_input(input)?;
+            algorithm.fit()
+        }
+        NonparametricMethod::Postprob(_) => {
+            let mut algorithm = POSTPROB::from_input(input)?;
+            algorithm.fit()
+        }
     }
 }
 

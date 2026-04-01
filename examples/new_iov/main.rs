@@ -31,32 +31,46 @@ fn main() {
     .with_ndrugs(1)
     .with_nout(1);
 
-    let params = Parameters::new()
-        .add("ke0", 0.0001, 2.4)
-        .add("ske", 0.0001, 0.2);
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "central"))
+        .with_assay_error_models(
+            AssayErrorModels::new()
+                .add(
+                    0,
+                    AssayErrorModel::additive(
+                        ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
+                        0.0,
+                    ),
+                )
+                .unwrap(),
+        );
 
-    let ems = AssayErrorModels::new()
-        .add(
-            0,
-            AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+    let model = ModelDefinition::builder(sde)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("ke0", 0.0001, 2.4))
+                .add(ParameterSpec::bounded("ske", 0.0001, 0.2)),
         )
+        .observations(observations)
+        .build()
         .unwrap();
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(1000);
-    settings.set_cache(true);
-    settings.set_output_path("examples/new_iov/output");
-    settings.set_prior(Prior::sobol(100, 347));
-
-    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
-    algorithm.initialize().unwrap();
-    let mut result = algorithm.fit().unwrap();
+    let mut result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions::default(),
+        )))
+        .output(OutputPlan {
+            write: true,
+            path: Some("examples/new_iov/output".to_string()),
+        })
+        .runtime(RuntimeOptions {
+            cycles: 1000,
+            cache: true,
+            prior: Some(Prior::sobol(100, 347)),
+            ..RuntimeOptions::default()
+        })
+        .run()
+        .unwrap();
     result.write_outputs().unwrap();
 }

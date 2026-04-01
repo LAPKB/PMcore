@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-use pmcore::{prelude::*, routines::settings};
+use pmcore::prelude::*;
 
 fn main() {
     let eq = ode! {
@@ -28,38 +28,48 @@ fn main() {
         },
     };
 
-    let params = Parameters::new()
-        .add("cls", 0.1, 10.0)
-        .add("fm", 0.0, 1.0)
-        .add("k20", 0.01, 1.0)
-        .add("relv", 0.1, 1.0)
-        .add("theta1", 0.1, 10.0)
-        .add("theta2", 0.1, 10.0)
-        .add("vs", 1.0, 10.0);
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(1, "cp"))
+        .add_channel(ObservationChannel::continuous(2, "metabolite"))
+        .with_assay_error_models(
+            AssayErrorModels::new()
+                .add(
+                    1,
+                    AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+                )
+                .unwrap()
+                .add(
+                    2,
+                    AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+                )
+                .unwrap(),
+        );
 
-    let ems = AssayErrorModels::new()
-        .add(
-            1,
-            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+    let model = ModelDefinition::builder(eq)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("cls", 0.1, 10.0))
+                .add(ParameterSpec::bounded("fm", 0.0, 1.0))
+                .add(ParameterSpec::bounded("k20", 0.01, 1.0))
+                .add(ParameterSpec::bounded("relv", 0.1, 1.0))
+                .add(ParameterSpec::bounded("theta1", 0.1, 10.0))
+                .add(ParameterSpec::bounded("theta2", 0.1, 10.0))
+                .add(ParameterSpec::bounded("vs", 1.0, 10.0)),
         )
-        .unwrap()
-        .add(
-            2,
-            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
+        .observations(observations)
+        .build()
         .unwrap();
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
-    // let result = algorithm.fit().unwrap();
-    algorithm.initialize().unwrap();
-    let mut result = algorithm.fit().unwrap();
+    let mut result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(
+            NpodOptions::default(),
+        )))
+        .runtime(RuntimeOptions {
+            cycles: 10000,
+            ..RuntimeOptions::default()
+        })
+        .run()
+        .unwrap();
     result.write_outputs().unwrap();
 }

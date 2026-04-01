@@ -20,10 +20,10 @@ fn create_equation() -> equation::ODE {
     )
 }
 
-fn create_parameters() -> Parameters {
-    Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0)
+fn create_parameter_space() -> ParameterSpace {
+    ParameterSpace::new()
+        .add(ParameterSpec::bounded("ke", 0.001, 3.0))
+        .add(ParameterSpec::bounded("v", 25.0, 250.0))
 }
 
 fn create_error_models() -> Result<AssayErrorModels> {
@@ -37,51 +37,50 @@ fn load_data() -> Result<data::Data> {
     Ok(data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?)
 }
 
-fn setup_with_algorithm(algorithm: Algorithm) -> Result<(Settings, equation::ODE, data::Data)> {
-    let params = create_parameters();
+fn setup_with_algorithm(method: NonparametricMethod) -> Result<EstimationProblem<equation::ODE>> {
     let ems = create_error_models()?;
-
-    let mut settings = Settings::builder()
-        .set_algorithm(algorithm)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(1000);
-    settings.set_prior(Prior::sobol(2048, 22));
-    settings.disable_output();
-    settings.set_progress(false);
-
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(1, "cp"))
+        .with_assay_error_models(ems);
+    let model = ModelDefinition::builder(create_equation())
+        .parameters(create_parameter_space())
+        .observations(observations)
+        .build()?;
     let data = load_data()?;
-    Ok((settings, create_equation(), data))
+    EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(method))
+        .output(OutputPlan::disabled())
+        .runtime(RuntimeOptions {
+            cycles: 1000,
+            progress: false,
+            prior: Some(Prior::sobol(2048, 22)),
+            ..RuntimeOptions::default()
+        })
+        .build()
 }
 
-fn setup_npag() -> Result<(Settings, equation::ODE, data::Data)> {
-    setup_with_algorithm(Algorithm::NPAG)
+fn setup_npag() -> Result<EstimationProblem<equation::ODE>> {
+    setup_with_algorithm(NonparametricMethod::Npag(NpagOptions))
 }
 
-fn setup_npod() -> Result<(Settings, equation::ODE, data::Data)> {
-    setup_with_algorithm(Algorithm::NPOD)
+fn setup_npod() -> Result<EstimationProblem<equation::ODE>> {
+    setup_with_algorithm(NonparametricMethod::Npod(NpodOptions))
 }
 
-fn setup_postprob() -> Result<(Settings, equation::ODE, data::Data)> {
-    setup_with_algorithm(Algorithm::POSTPROB)
+fn setup_postprob() -> Result<EstimationProblem<equation::ODE>> {
+    setup_with_algorithm(NonparametricMethod::Postprob(PostProbOptions))
 }
 
 fn benchmark_algorithm<F>(c: &mut Criterion, bench_name: &str, setup_fn: F)
 where
-    F: Fn() -> Result<(Settings, equation::ODE, data::Data)>,
+    F: Fn() -> Result<EstimationProblem<equation::ODE>>,
 {
-    let (settings, eq, data) = setup_fn().unwrap();
+    let problem = setup_fn().unwrap();
 
     c.bench_function(bench_name, |b| {
         b.iter_with_setup(
-            || (settings.clone(), eq.clone(), data.clone()),
-            |(s, e, d)| {
-                let mut algorithm = dispatch_algorithm(s, e, d).unwrap();
-                let result = algorithm.fit().unwrap();
-                black_box(result)
-            },
+            || problem.clone(),
+            |problem| black_box(problem.run().unwrap()),
         )
     });
 }
