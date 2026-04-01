@@ -298,8 +298,8 @@ mod types;
 
 // Re-export public API
 pub use types::{
-    BestDoseConfig, BestDosePosterior, BestDoseProblem, BestDoseResult, BestDoseStatus,
-    DoseRange, OptimalMethod, Target,
+    BestDoseConfig, BestDosePosterior, BestDoseProblem, BestDoseResult, BestDoseStatus, DoseRange,
+    OptimalMethod, Target,
 };
 
 /// Helper function to concatenate past and future subjects (Option 3: Fortran MAKETMP approach)

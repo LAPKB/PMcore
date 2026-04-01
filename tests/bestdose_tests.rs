@@ -1275,7 +1275,10 @@ fn test_posterior_accessors() -> Result<()> {
     let posterior = BestDosePosterior::compute(&theta, &weights, None, eq, config)?;
 
     assert!(posterior.n_support_points() > 0);
-    assert_eq!(posterior.theta().matrix().nrows(), posterior.n_support_points());
+    assert_eq!(
+        posterior.theta().matrix().nrows(),
+        posterior.n_support_points()
+    );
 
     let posterior_sum: f64 = posterior.posterior_weights().iter().sum();
     assert!((posterior_sum - 1.0).abs() < 1e-6);
@@ -1310,7 +1313,10 @@ fn test_result_accessors_for_two_stage_api() -> Result<()> {
     assert!(result.doses()[0].is_finite());
     assert!(result.objf().is_finite());
     assert!(result.objf() >= 0.0);
-    assert_eq!(*result.status(), pmcore::bestdose::BestDoseStatus::Converged);
+    assert_eq!(
+        *result.status(),
+        pmcore::bestdose::BestDoseStatus::Converged
+    );
     assert!(!result.predictions().predictions().is_empty());
     assert!(result.auc_predictions().is_none());
 
