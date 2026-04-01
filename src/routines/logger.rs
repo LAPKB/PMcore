@@ -14,7 +14,7 @@ use tracing_subscriber::EnvFilter;
 ///
 /// This function sets up logging for the library. It uses the `tracing` crate, and the `tracing-subscriber` crate for formatting.
 ///
-/// The log level is defined in the configuration file, and defaults to `INFO`.
+/// The effective log level is determined by the `PMCORE_LOG` environment variable, if set; otherwise it falls back to the level from the configuration file, which itself defaults to `INFO`.
 ///
 /// If `log_out` is specifified in the configuration file, a log file is created with the specified name.
 ///
