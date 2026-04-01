@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0](https://github.com/LAPKB/PMcore/compare/v0.23.0...v0.24.0) - 2026-04-01
+
+### Added
+
+- new bestdose API ([#247](https://github.com/LAPKB/PMcore/pull/247))
+
+### Other
+
+- Update CI workflows ([#258](https://github.com/LAPKB/PMcore/pull/258))
+- fix examples to match the data ([#259](https://github.com/LAPKB/PMcore/pull/259))
+
 ## [0.23.0](https://github.com/LAPKB/PMcore/compare/v0.22.2...v0.23.0) - 2026-03-24
 
 ### Other
