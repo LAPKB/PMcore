@@ -1,13 +1,11 @@
 use anyhow::bail;
 use anyhow::Result;
 use faer::Mat;
-use faer_ext::IntoFaer;
-use faer_ext::IntoNdarray;
-use ndarray::{Array2, ArrayView2};
-use pharmsol::prelude::simulator::psi;
+use ndarray::Array2;
+use pharmsol::prelude::simulator::log_likelihood_matrix;
+use pharmsol::AssayErrorModels;
 use pharmsol::Data;
 use pharmsol::Equation;
-use pharmsol::ErrorModels;
 use serde::{Deserialize, Serialize};
 
 use super::theta::Theta;
@@ -179,7 +177,7 @@ impl Default for Psi {
 
 impl From<Array2<f64>> for Psi {
     fn from(array: Array2<f64>) -> Self {
-        let matrix = array.view().into_faer().to_owned();
+        let matrix = Mat::from_fn(array.nrows(), array.ncols(), |i, j| array[(i, j)]);
         Psi { matrix }
     }
 }
@@ -190,16 +188,9 @@ impl From<Mat<f64>> for Psi {
     }
 }
 
-impl From<ArrayView2<'_, f64>> for Psi {
-    fn from(array_view: ArrayView2<'_, f64>) -> Self {
-        let matrix = array_view.into_faer().to_owned();
-        Psi { matrix }
-    }
-}
-
 impl From<&Array2<f64>> for Psi {
     fn from(array: &Array2<f64>) -> Self {
-        let matrix = array.view().into_faer().to_owned();
+        let matrix = Mat::from_fn(array.nrows(), array.ncols(), |i, j| array[(i, j)]);
         Psi { matrix }
     }
 }
@@ -286,20 +277,16 @@ pub(crate) fn calculate_psi(
     equation: &impl Equation,
     subjects: &Data,
     theta: &Theta,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
     progress: bool,
-    cache: bool,
 ) -> Result<Psi> {
-    let psi_ndarray = psi(
-        equation,
-        subjects,
-        &theta.matrix().clone().as_ref().into_ndarray().to_owned(),
-        error_models,
-        progress,
-        cache,
-    )?;
+    let tm = theta.matrix();
+    let theta_ndarray = Array2::from_shape_fn((tm.nrows(), tm.ncols()), |(i, j)| tm[(i, j)]);
+    let log_psi =
+        log_likelihood_matrix(equation, subjects, &theta_ndarray, error_models, progress)?;
+    let psi_ndarray = log_psi.mapv(f64::exp);
 
-    Ok(psi_ndarray.view().into())
+    Ok(Psi::from(psi_ndarray))
 }
 
 #[cfg(test)]
@@ -318,11 +305,11 @@ mod tests {
         assert_eq!(psi.nspp(), 2);
         assert_eq!(psi.nsub(), 3);
 
-        // Check values by converting back to ndarray and comparing
-        let result_array = psi.matrix().as_ref().into_ndarray();
+        // Check values using faer matrix directly
+        let m = psi.matrix();
         for i in 0..2 {
             for j in 0..3 {
-                assert_eq!(result_array[[i, j]], array[[i, j]]);
+                assert_eq!(m[(i, j)], array[[i, j]]);
             }
         }
     }
@@ -339,11 +326,11 @@ mod tests {
         assert_eq!(psi.nspp(), 3);
         assert_eq!(psi.nsub(), 2);
 
-        // Check values by converting back to ndarray and comparing
-        let result_array = psi.matrix().as_ref().into_ndarray();
+        // Check values using faer matrix directly
+        let m = psi.matrix();
         for i in 0..3 {
             for j in 0..2 {
-                assert_eq!(result_array[[i, j]], array[[i, j]]);
+                assert_eq!(m[(i, j)], array[[i, j]]);
             }
         }
     }
@@ -416,12 +403,12 @@ mod tests {
         assert_eq!(psi_from_owned.nsub(), psi_from_ref.nsub());
 
         // And the same values
-        let owned_array = psi_from_owned.matrix().as_ref().into_ndarray();
-        let ref_array = psi_from_ref.matrix().as_ref().into_ndarray();
+        let owned_m = psi_from_owned.matrix();
+        let ref_m = psi_from_ref.matrix();
 
         for i in 0..2 {
             for j in 0..3 {
-                assert_eq!(owned_array[[i, j]], ref_array[[i, j]]);
+                assert_eq!(owned_m[(i, j)], ref_m[(i, j)]);
             }
         }
     }

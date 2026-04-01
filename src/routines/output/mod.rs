@@ -9,8 +9,6 @@ use crate::structs::theta::Theta;
 use crate::structs::weights::Weights;
 use anyhow::{bail, Context, Result};
 use csv::WriterBuilder;
-use faer::linalg::zip::IntoView;
-use faer_ext::IntoNdarray;
 use ndarray::{Array, Array1, Array2, Axis};
 use pharmsol::prelude::data::*;
 use pharmsol::prelude::simulator::Equation;
@@ -171,22 +169,11 @@ impl<E: Equation> NPResult<E> {
             post_median: f64,
         }
 
-        let theta: Array2<f64> = self
-            .theta
-            .matrix()
-            .clone()
-            .as_mut()
-            .into_ndarray()
-            .to_owned();
-        let w: Array1<f64> = self
-            .w
-            .weights()
-            .clone()
-            .into_view()
-            .iter()
-            .cloned()
-            .collect();
-        let psi: Array2<f64> = self.psi.matrix().as_ref().into_ndarray().to_owned();
+        let tm = self.theta.matrix();
+        let theta = Array2::from_shape_fn((tm.nrows(), tm.ncols()), |(i, j)| tm[(i, j)]);
+        let w: Array1<f64> = self.w.iter().collect();
+        let pm = self.psi.matrix();
+        let psi = Array2::from_shape_fn((pm.nrows(), pm.ncols()), |(i, j)| pm[(i, j)]);
 
         let (post_mean, post_median) = posterior_mean_median(&theta, &psi, &w)
             .context("Failed to calculate posterior mean and median")?;
@@ -299,14 +286,7 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!("Writing population parameter distribution...");
 
         let theta = &self.theta;
-        let w: Vec<f64> = self
-            .w
-            .weights()
-            .clone()
-            .into_view()
-            .iter()
-            .cloned()
-            .collect();
+        let w: Vec<f64> = self.w.to_vec();
 
         if w.len() != theta.matrix().nrows() {
             bail!(
