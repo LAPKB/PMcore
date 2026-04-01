@@ -95,13 +95,27 @@ pub fn find_last_dose_time_before(subject: &Subject, obs_time: f64) -> f64 {
 ///
 /// # Returns
 /// Sorted, unique time vector suitable for AUC calculation
+fn prediction_interval_hours(interval: f64) -> f64 {
+    if interval <= 0.0 {
+        return 1.0 / 60.0;
+    }
+
+    if interval < 1.0 {
+        interval
+    } else {
+        interval / 60.0
+    }
+}
+
 pub fn calculate_dense_times(
     start_time: f64,
     end_time: f64,
     obs_times: &[f64],
-    idelta: usize,
+    idelta: f64,
 ) -> Vec<f64> {
-    let idelta_hours = (idelta as f64) / 60.0;
+    // BestDose historically used both sub-hour values like 0.12 and minute-style
+    // values like 60.0. Treat values below 1.0 as hours and larger values as minutes.
+    let idelta_hours = prediction_interval_hours(idelta);
     let mut times = Vec::new();
 
     // Add observation times
@@ -265,7 +279,8 @@ pub fn calculate_interval_auc_per_observation(
 ///
 /// This generates the final NPPredictions structure with the optimal doses
 /// and appropriate weights (posterior or uniform depending on which optimization won).
-pub fn calculate_final_predictions(
+#[allow(clippy::type_complexity)]
+pub(crate) fn calculate_final_predictions(
     problem: &BestDoseProblem,
     optimal_doses: &[f64],
     weights: &Weights,
@@ -341,8 +356,7 @@ pub fn calculate_final_predictions(
             let idelta = problem.config.prediction_interval();
             let start_time = 0.0;
             let end_time = obs_times.last().copied().unwrap_or(0.0);
-            let dense_times =
-                calculate_dense_times(start_time, end_time, &obs_times, idelta as usize);
+            let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
 
             let subject_id = target_with_optimal.id().to_string();
             let mut builder = Subject::builder(&subject_id);

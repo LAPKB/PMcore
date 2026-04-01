@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseConfig, BestDoseProblem, DoseRange, Target};
+use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, DoseRange, Target};
 use pmcore::prelude::*;
 
 fn main() -> Result<()> {
@@ -55,25 +55,20 @@ fn main() -> Result<()> {
         (50.0, 2000.0, "Wide range (50-2000 mg)"),
     ];
 
+    let posterior = BestDosePosterior::compute(&theta, weights, None, eq.clone(), config.clone())?;
+
     println!("\nTesting optimization with different dose range constraints:\n");
     println!("{:<30} | {:>12} | {:>10}", "Range", "Optimal Dose", "Cost");
     println!("{}", "-".repeat(60));
 
     for (min, max, description) in dose_ranges {
-        let problem = BestDoseProblem::new(
-            &theta,
-            weights,
-            None,
+        let result = posterior.optimize(
             target_data.clone(),
             None,
-            eq.clone(),
             DoseRange::new(min, max),
             0.5,
-            config.clone(),
             Target::Concentration,
         )?;
-
-        let result = problem.optimize()?;
 
         let doses: Vec<f64> = result
             .optimal_subject()

@@ -297,7 +297,10 @@ pub mod predictions;
 mod types;
 
 // Re-export public API
-pub use types::{BestDoseConfig, BestDoseProblem, BestDoseResult, DoseRange, Target};
+pub use types::{
+    BestDoseConfig, BestDosePosterior, BestDoseProblem, BestDoseResult, BestDoseStatus,
+    DoseRange, OptimalMethod, Target,
+};
 
 /// Helper function to concatenate past and future subjects (Option 3: Fortran MAKETMP approach)
 ///
@@ -456,6 +459,146 @@ use pharmsol::prelude::*;
 use pharmsol::ODE;
 
 use crate::estimation::nonparametric::{Theta, Weights};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// BestDosePosterior: Public two-stage API
+// ═════════════════════════════════════════════════════════════════════════════
+
+impl BestDosePosterior {
+    /// Stage 1: compute the reusable posterior density from the population prior and patient data.
+    pub fn compute(
+        population_theta: &Theta,
+        population_weights: &Weights,
+        past_data: Option<Subject>,
+        eq: ODE,
+        config: BestDoseConfig,
+    ) -> Result<Self> {
+        tracing::info!("╔══════════════════════════════════════════════════════════╗");
+        tracing::info!("║            BestDose Algorithm: STAGE 1                   ║");
+        tracing::info!("║           Posterior Density Calculation                  ║");
+        tracing::info!("╚══════════════════════════════════════════════════════════╝");
+
+        let (posterior_theta, posterior_weights, filtered_population_weights, _past_subject) =
+            calculate_posterior_density(
+                population_theta,
+                population_weights,
+                past_data.as_ref(),
+                &eq,
+                config.error_models(),
+                &config,
+            )?;
+
+        tracing::info!("╔══════════════════════════════════════════════════════════╗");
+        tracing::info!("║              Stage 1 Complete - Posterior Ready           ║");
+        tracing::info!("╚══════════════════════════════════════════════════════════╝");
+        tracing::info!("  Support points: {}", posterior_theta.matrix().nrows());
+
+        Ok(BestDosePosterior {
+            theta: posterior_theta,
+            posterior: posterior_weights,
+            population_weights: filtered_population_weights,
+            past_data,
+            eq,
+            config,
+        })
+    }
+
+    /// Stage 2: optimize future doses against the computed posterior.
+    pub fn optimize(
+        &self,
+        target: Subject,
+        time_offset: Option<f64>,
+        dose_range: DoseRange,
+        bias_weight: f64,
+        target_type: Target,
+    ) -> Result<BestDoseResult> {
+        tracing::info!("╔══════════════════════════════════════════════════════════╗");
+        tracing::info!("║            BestDose Algorithm: STAGE 2 & 3               ║");
+        tracing::info!("║        Dual Optimization + Final Predictions             ║");
+        tracing::info!("╚══════════════════════════════════════════════════════════╝");
+        tracing::info!("  Target type: {:?}", target_type);
+        tracing::info!("  Bias weight (λ): {}", bias_weight);
+
+        if let Some(t) = time_offset {
+            if t < 0.0 {
+                return Err(anyhow::anyhow!(
+                    "Invalid time_offset: {} is negative. \
+                    time_offset must be >= 0 (it represents the gap after the last past event).",
+                    t
+                ));
+            }
+        }
+
+        let effective_offset = time_offset.map(|t| {
+            let max_past_time = self
+                .past_data
+                .as_ref()
+                .map(|past| {
+                    past.occasions()
+                        .iter()
+                        .flat_map(|occ| occ.events())
+                        .map(|event| match event {
+                            Event::Bolus(b) => b.time(),
+                            Event::Infusion(i) => i.time(),
+                            Event::Observation(o) => o.time(),
+                        })
+                        .fold(0.0_f64, |max, time| max.max(time))
+                })
+                .unwrap_or(0.0);
+            max_past_time + t
+        });
+
+        let final_target = match effective_offset {
+            None => target,
+            Some(eff) => {
+                tracing::info!(
+                    "  Time offset gap: {:?} hours (effective absolute offset: {} hours)",
+                    time_offset,
+                    eff
+                );
+                match &self.past_data {
+                    Some(past) => {
+                        tracing::info!("  Concatenating past doses with offset target events");
+                        concatenate_past_and_future(past, &target, eff)
+                    }
+                    None => {
+                        tracing::info!("  No past data stored — offsetting target events only");
+                        concatenate_past_and_future(
+                            &Subject::builder("empty").build(),
+                            &target,
+                            eff,
+                        )
+                    }
+                }
+            }
+        };
+
+        let has_observations = final_target
+            .occasions()
+            .iter()
+            .flat_map(|occ| occ.events())
+            .any(|event| matches!(event, Event::Observation(_)));
+        if !has_observations {
+            return Err(anyhow::anyhow!(
+                "Target subject has no observations. At least one observation is required for dose optimization."
+            ));
+        }
+
+        let problem = BestDoseProblem {
+            target: final_target,
+            target_type,
+            population_weights: self.population_weights.clone(),
+            theta: self.theta.clone(),
+            posterior: self.posterior.clone(),
+            eq: self.eq.clone(),
+            config: self.config.clone(),
+            doserange: dose_range,
+            bias_weight,
+        };
+
+        optimization::dual_optimization(&problem)
+    }
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Helper Functions for STAGE 1: Posterior Density Calculation

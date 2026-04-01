@@ -1,6 +1,7 @@
 //! Core data types for the BestDose algorithm
 //!
 //! This module defines the main structures used throughout the BestDose optimization:
+//! - [`BestDosePosterior`]: Reusable posterior from stage 1
 //! - [`BestDoseProblem`]: The complete optimization problem specification
 //! - [`BestDoseResult`]: Output structure containing optimal doses and predictions
 //! - [`Target`]: Enum specifying concentration or AUC targets
@@ -253,6 +254,38 @@ impl BestDoseConfig {
             .iter()
             .map(|parameter| parameter.name.clone())
             .collect()
+    }
+}
+
+/// The computed Bayesian posterior for a patient.
+///
+/// This reusable object is the public two-stage BestDose entry point:
+/// first compute the posterior once, then optimize multiple future targets.
+#[derive(Debug, Clone)]
+pub struct BestDosePosterior {
+    pub(crate) theta: Theta,
+    pub(crate) posterior: Weights,
+    pub(crate) population_weights: Weights,
+    pub(crate) past_data: Option<Subject>,
+    pub(crate) eq: ODE,
+    pub(crate) config: BestDoseConfig,
+}
+
+impl BestDosePosterior {
+    pub fn theta(&self) -> &Theta {
+        &self.theta
+    }
+
+    pub fn posterior_weights(&self) -> &Weights {
+        &self.posterior
+    }
+
+    pub fn population_weights(&self) -> &Weights {
+        &self.population_weights
+    }
+
+    pub fn n_support_points(&self) -> usize {
+        self.theta.matrix().nrows()
     }
 }
 

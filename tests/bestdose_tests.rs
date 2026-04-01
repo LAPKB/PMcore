@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseConfig, BestDoseProblem, DoseRange, Target};
+use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, BestDoseProblem, DoseRange, Target};
 use pmcore::estimation::nonparametric::{Theta, Weights};
 use pmcore::prelude::*;
 
@@ -19,6 +19,43 @@ fn bestdose_config(
         .with_refinement_cycles(refinement_cycles)
         .with_progress(false)
         .with_prediction_interval(prediction_interval)
+}
+
+fn one_compartment_model() -> pharmsol::ODE {
+    equation::ODE::new(
+        |x, p, _t, dx, b, _rateiv, _cov| {
+            fetch_params!(p, ke, _v);
+            dx[0] = -ke * x[0] + b[0];
+        },
+        |_p, _, _| lag! {},
+        |_p, _, _| fa! {},
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _ke, v);
+            y[0] = x[0] / v;
+        },
+    )
+}
+
+fn minimal_config() -> BestDoseConfig {
+    let params = pk_parameter_space(0.001, 3.0, 25.0, 250.0);
+    let ems = AssayErrorModels::new()
+        .add(
+            0,
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
+        )
+        .unwrap();
+    bestdose_config(&params, ems, 0, 0.12)
+}
+
+fn simple_prior(config: &BestDoseConfig) -> Result<(Theta, Weights)> {
+    let mat = faer::Mat::from_fn(1, 2, |_r, c| match c {
+        0 => 0.3,
+        1 => 50.0,
+        _ => 0.0,
+    });
+    let theta = Theta::from_parts(mat, config.parameter_space().clone())?;
+    Ok((theta, Weights::uniform(1)))
 }
 
 /// Test that infusions are properly included in the dose optimization mask
@@ -1225,6 +1262,184 @@ fn test_dose_range_bounds_respected() -> Result<()> {
         "Expected dose near upper bound (200 mg), got {:.1} mg",
         doses[0]
     );
+
+    Ok(())
+}
+
+#[test]
+fn test_posterior_accessors() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, None, eq, config)?;
+
+    assert!(posterior.n_support_points() > 0);
+    assert_eq!(posterior.theta().matrix().nrows(), posterior.n_support_points());
+
+    let posterior_sum: f64 = posterior.posterior_weights().iter().sum();
+    assert!((posterior_sum - 1.0).abs() < 1e-6);
+
+    let population_sum: f64 = posterior.population_weights().iter().sum();
+    assert!((population_sum - 1.0).abs() < 1e-6);
+
+    Ok(())
+}
+
+#[test]
+fn test_result_accessors_for_two_stage_api() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, None, eq, config)?;
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let result = posterior.optimize(
+        target,
+        None,
+        DoseRange::new(10.0, 500.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    assert_eq!(result.doses().len(), 1);
+    assert!(result.doses()[0].is_finite());
+    assert!(result.objf().is_finite());
+    assert!(result.objf() >= 0.0);
+    assert_eq!(*result.status(), pmcore::bestdose::BestDoseStatus::Converged);
+    assert!(!result.predictions().predictions().is_empty());
+    assert!(result.auc_predictions().is_none());
+
+    let method = result.optimization_method();
+    assert!(
+        method == pmcore::bestdose::OptimalMethod::Posterior
+            || method == pmcore::bestdose::OptimalMethod::Uniform
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_negative_time_offset_rejected() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, None, eq, config)?;
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let result = posterior.optimize(
+        target,
+        Some(-1.0),
+        DoseRange::new(10.0, 500.0),
+        0.5,
+        Target::Concentration,
+    );
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("negative"));
+
+    Ok(())
+}
+
+#[test]
+fn test_time_offset_zero_vs_nonzero_differ() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let past = Subject::builder("patient")
+        .bolus(0.0, 500.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, Some(past), eq, config)?;
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(1.0, 5.0, 0)
+        .build();
+
+    let result_gap0 = posterior.optimize(
+        target.clone(),
+        Some(0.0),
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let result_gap12 = posterior.optimize(
+        target,
+        Some(12.0),
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let doses_gap0 = result_gap0.doses();
+    let doses_gap12 = result_gap12.doses();
+
+    assert!((doses_gap0.last().unwrap() - doses_gap12.last().unwrap()).abs() > 1e-3);
+
+    Ok(())
+}
+
+#[test]
+fn test_posterior_reuse() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, None, eq, config)?;
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let result_narrow = posterior.optimize(
+        target.clone(),
+        None,
+        DoseRange::new(10.0, 100.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let result_wide = posterior.optimize(
+        target.clone(),
+        None,
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    assert!(result_narrow.doses()[0].is_finite());
+    assert!(result_wide.doses()[0].is_finite());
+    assert!(result_wide.objf() <= result_narrow.objf() + 1e-6);
+
+    let result_personal = posterior.optimize(
+        target.clone(),
+        None,
+        DoseRange::new(10.0, 500.0),
+        0.0,
+        Target::Concentration,
+    )?;
+
+    let result_population = posterior.optimize(
+        target,
+        None,
+        DoseRange::new(10.0, 500.0),
+        1.0,
+        Target::Concentration,
+    )?;
+
+    assert!(result_personal.doses()[0].is_finite());
+    assert!(result_population.doses()[0].is_finite());
 
     Ok(())
 }

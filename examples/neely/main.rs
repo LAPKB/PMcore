@@ -18,9 +18,9 @@ fn main() {
             let k21 = q / vp;
 
             //</tem>
-            dx[0] = rateiv[0] - ke * x[0] * (1.0 - fm1 - fm2) - (fm1 + fm2) * x[0] - k12 * x[0]
+            dx[0] = rateiv[1] - ke * x[0] * (1.0 - fm1 - fm2) - (fm1 + fm2) * x[0] - k12 * x[0]
                 + k21 * x[1]
-                + b[0];
+                + b[1];
             dx[1] = k12 * x[0] - k21 * x[1];
             dx[2] = fm1 * x[0] - k30 * x[2];
             dx[3] = fm2 * x[0] - k40 * x[3];
@@ -41,22 +41,17 @@ fn main() {
             let _k12 = q / v;
             let _k21 = q / vp;
 
-            y[0] = x[0] / v;
-            y[1] = x[2] / vm1;
-            y[2] = x[3] / vm2;
+            y[1] = x[0] / v;
+            y[2] = x[2] / vm1;
+            y[3] = x[3] / vm2;
         },
     };
     let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .add_channel(ObservationChannel::continuous(1, "m1"))
-        .add_channel(ObservationChannel::continuous(2, "m2"))
+        .add_channel(ObservationChannel::continuous(1, "cp"))
+        .add_channel(ObservationChannel::continuous(2, "m1"))
+        .add_channel(ObservationChannel::continuous(3, "m2"))
         .with_assay_error_models(
             AssayErrorModels::new()
-                .add(
-                    0,
-                    AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-                )
-                .unwrap()
                 .add(
                     1,
                     AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
@@ -64,6 +59,11 @@ fn main() {
                 .unwrap()
                 .add(
                     2,
+                    AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+                )
+                .unwrap()
+                .add(
+                    3,
                     AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
                 )
                 .unwrap(),

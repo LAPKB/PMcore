@@ -13,7 +13,7 @@ fn main() {
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let ke = cl / v;
             let v2 = relv * v;
-            dx[0] = rateiv[0] - ke * x[0] * (1.0 - fm) - fm * x[0] + b[0];
+            dx[0] = rateiv[1] - ke * x[0] * (1.0 - fm) - fm * x[0] + b[1];
             dx[1] = fm * x[0] - k20 * x[1];
         },
         out: |x, p, t, cov, y| {
@@ -23,23 +23,23 @@ fn main() {
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let ke = cl / v;
             let v2 = relv * v;
-            y[0] = x[0] / v;
-            y[1] = x[1] / v2;
+            y[1] = x[0] / v;
+            y[2] = x[1] / v2;
         },
     };
 
     let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .add_channel(ObservationChannel::continuous(1, "metabolite"))
+        .add_channel(ObservationChannel::continuous(1, "cp"))
+        .add_channel(ObservationChannel::continuous(2, "metabolite"))
         .with_assay_error_models(
             AssayErrorModels::new()
                 .add(
-                    0,
+                    1,
                     AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
                 )
                 .unwrap()
                 .add(
-                    1,
+                    2,
                     AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
                 )
                 .unwrap(),

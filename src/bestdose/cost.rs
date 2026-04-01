@@ -257,8 +257,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
                 // Generate dense time grid
-                let dense_times =
-                    calculate_dense_times(start_time, end_time, &obs_times, idelta as usize);
+                let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
 
                 // Create temporary subject with dense time points for simulation
                 let subject_id = target_subject.id().to_string();
@@ -376,7 +375,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
                 // Generate dense time grid from 0 to end_time (need full grid for intervals)
-                let dense_times = calculate_dense_times(0.0, end_time, &obs_times, idelta as usize);
+                let dense_times = calculate_dense_times(0.0, end_time, &obs_times, idelta);
 
                 // Create temporary subject with dense time points for simulation
                 let subject_id = target_subject.id().to_string();
@@ -509,7 +508,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             let pj = preds_i[j];
             let se = (obs_val - pj).powi(2);
             sumsq_i += se;
-            // Calculate population mean using PRIOR probabilities
+            // Calculate population mean using population probabilities
             y_bar[j] += prior_prob * pj;
         }
 

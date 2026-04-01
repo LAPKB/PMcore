@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseConfig, BestDoseProblem, DoseRange, Target};
+use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, DoseRange, Target};
 use pmcore::prelude::*;
 
 fn main() -> Result<()> {
@@ -54,22 +54,23 @@ fn main() -> Result<()> {
         .observation(12.0, 80.0, 0) // Target AUC at 12h
         .build();
 
-    println!("Creating BestDose problem with AUC targets...");
-    let problem = BestDoseProblem::new(
+    println!("Creating BestDose posterior (no past data - use prior directly)...");
+    let posterior = BestDosePosterior::compute(
         &theta,
         weights,
         None, // No past data - use prior directly
-        target_data.clone(),
-        None,
         eq.clone(),
-        DoseRange::new(100.0, 2000.0), // Wider range for AUC targets
-        0.8,                           // for AUC targets higher bias_weight usually works best
         config.clone(),
-        Target::AUCFromZero, // Cumulative AUC from time 0
     )?;
 
     println!("Optimizing dose...\n");
-    let optimal = problem.optimize()?;
+    let optimal = posterior.optimize(
+        target_data.clone(),
+        None,
+        DoseRange::new(100.0, 2000.0),
+        0.8,
+        Target::AUCFromZero,
+    )?;
 
     let opt_doses = optimal.doses();
 
@@ -130,21 +131,13 @@ fn main() -> Result<()> {
         .build();
 
     println!("Creating BestDose problem with interval AUC target...");
-    let problem_interval = BestDoseProblem::new(
-        &theta,
-        weights,
-        None,
+    let optimal_interval = posterior.optimize(
         target_interval.clone(),
         None,
-        eq.clone(),
         DoseRange::new(50.0, 500.0),
         0.8,
-        config.clone(),
-        Target::AUCFromLastDose, // Interval AUC from last dose!
+        Target::AUCFromLastDose,
     )?;
-
-    println!("Optimizing maintenance dose...\n");
-    let optimal_interval = problem_interval.optimize()?;
 
     let doses: Vec<f64> = optimal_interval.doses();
 
