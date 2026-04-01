@@ -206,14 +206,14 @@ pub fn parse_prior(path: &String, settings: &Settings) -> Result<(Theta, Option<
 mod tests {
     use super::*;
     use crate::prelude::*;
-    use pharmsol::{ErrorModel, ErrorModels, ErrorPoly};
+    use pharmsol::{AssayErrorModel, AssayErrorModels, ErrorPoly};
     use std::fs;
 
     fn create_test_settings() -> Settings {
         let parameters = Parameters::new().add("ke", 0.1, 1.0).add("v", 5.0, 50.0);
 
-        let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-        let ems = ErrorModels::new().add(0, em).unwrap();
+        let em = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
+        let ems = AssayErrorModels::new().add(0, em).unwrap();
 
         Settings::builder()
             .set_algorithm(Algorithm::NPAG)
@@ -319,8 +319,8 @@ mod tests {
             .add("ke", f64::NEG_INFINITY, 1.0) // Invalid: infinite lower bound
             .add("v", 5.0, 50.0);
 
-        let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-        let ems = ErrorModels::new().add(0, em).unwrap();
+        let em = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
+        let ems = AssayErrorModels::new().add(0, em).unwrap();
 
         let mut settings = Settings::builder()
             .set_algorithm(Algorithm::NPAG)
@@ -341,8 +341,8 @@ mod tests {
             .add("ke", 1.0, 0.5) // Invalid: lower bound >= upper bound
             .add("v", 5.0, 50.0);
 
-        let em = ErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-        let ems = ErrorModels::new().add(0, em).unwrap();
+        let em = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
+        let ems = AssayErrorModels::new().add(0, em).unwrap();
 
         let mut settings = Settings::builder()
             .set_algorithm(Algorithm::NPAG)
