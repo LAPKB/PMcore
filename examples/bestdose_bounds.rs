@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseProblem, DoseRange, Target};
+use pmcore::bestdose::{BestDosePosterior, DoseRange, Target};
 use pmcore::prelude::*;
 use pmcore::routines::initialization::parse_prior;
 
@@ -67,40 +67,20 @@ fn main() -> Result<()> {
     println!("{:<30} | {:>12} | {:>10}", "Range", "Optimal Dose", "Cost");
     println!("{}", "-".repeat(60));
 
+    // Compute posterior once, reuse for all dose ranges
+    let posterior =
+        BestDosePosterior::compute(&theta, weights, None, eq.clone(), settings.clone())?;
+
     for (min, max, description) in dose_ranges {
-        let problem = BestDoseProblem::new(
-            &theta,
-            weights,
-            None,
+        let result = posterior.optimize(
             target_data.clone(),
             None,
-            eq.clone(),
             DoseRange::new(min, max),
             0.5,
-            settings.clone(),
             Target::Concentration,
         )?;
 
-        let result = problem.optimize()?;
-
-        let doses: Vec<f64> = result
-            .optimal_subject()
-            .iter()
-            .map(|occ| {
-                occ.iter()
-                    .filter(|event| match event {
-                        Event::Bolus(_) => true,
-                        Event::Infusion(_) => true,
-                        _ => false,
-                    })
-                    .map(|event| match event {
-                        Event::Bolus(bolus) => bolus.amount(),
-                        Event::Infusion(infusion) => infusion.amount(),
-                        _ => 0.0,
-                    })
-            })
-            .flatten()
-            .collect();
+        let doses: Vec<f64> = result.doses();
 
         // Check if dose hit the bound
         let at_bound = if (doses[0] - max).abs() < 1.0 {
