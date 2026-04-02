@@ -22,7 +22,16 @@ impl EstimationMethod {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NonparametricMethod {
     Npag(NpagOptions),
+    Npbo(NpboOptions),
+    Npcat(NpcatOptions),
+    Npcma(NpcmaOptions),
     Npod(NpodOptions),
+    Npopt(NpoptOptions),
+    Nppso(NppsoOptions),
+    Npsah(NpsahOptions),
+    Npsah2(Npsah2Options),
+    Nexus(NexusOptions),
+    Npxo(NpxoOptions),
     Postprob(PostProbOptions),
 }
 
@@ -30,7 +39,16 @@ impl NonparametricMethod {
     pub fn algorithm(self) -> Algorithm {
         match self {
             NonparametricMethod::Npag(_) => Algorithm::NPAG,
+            NonparametricMethod::Npbo(_) => Algorithm::NPBO,
+            NonparametricMethod::Npcat(_) => Algorithm::NPCAT,
+            NonparametricMethod::Npcma(_) => Algorithm::NPCMA,
             NonparametricMethod::Npod(_) => Algorithm::NPOD,
+            NonparametricMethod::Npopt(_) => Algorithm::NPOPT,
+            NonparametricMethod::Nppso(_) => Algorithm::NPPSO,
+            NonparametricMethod::Npsah(_) => Algorithm::NPSAH,
+            NonparametricMethod::Npsah2(_) => Algorithm::NPSAH2,
+            NonparametricMethod::Nexus(_) => Algorithm::NEXUS,
+            NonparametricMethod::Npxo(_) => Algorithm::NPXO,
             NonparametricMethod::Postprob(_) => Algorithm::POSTPROB,
         }
     }
@@ -40,7 +58,34 @@ impl NonparametricMethod {
 pub struct NpagOptions;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NpboOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NpcatOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NpcmaOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct NpodOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NpoptOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NppsoOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NpsahOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Npsah2Options;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NexusOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NpxoOptions;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PostProbOptions;
