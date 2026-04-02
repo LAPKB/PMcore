@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 
 // Module organization for algorithm types
 pub mod nonparametric;
+pub mod parametric;
 
 #[derive(Debug, Clone)]
 pub(crate) struct NonparametricAlgorithmInput<E: Equation> {
@@ -105,26 +106,38 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
 
 /// Algorithm type enumeration
 ///
-/// This enum represents the algorithms available in the structure branch.
+/// This enum represents all available algorithms in PMcore, both non-parametric and parametric.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
+    // === Non-parametric algorithms ===
     /// Non-Parametric Adaptive Grid
     NPAG,
     /// Non-Parametric Optimal Design
     NPOD,
     /// Posterior Probability calculation
     POSTPROB,
+
+    // === Parametric algorithms ===
+    /// Stochastic Approximation Expectation-Maximization
+    SAEM,
+    /// First-Order Conditional Estimation with Interaction
+    FOCEI,
+    /// Iterative Two-Stage Bayesian
+    IT2B,
 }
 
 impl Algorithm {
     /// Check if this is a non-parametric algorithm
     pub fn is_nonparametric(&self) -> bool {
-        matches!(self, Algorithm::NPAG | Algorithm::NPOD | Algorithm::POSTPROB)
+        matches!(
+            self,
+            Algorithm::NPAG | Algorithm::NPOD | Algorithm::POSTPROB
+        )
     }
 
     /// Check if this is a parametric algorithm
     pub fn is_parametric(&self) -> bool {
-        false
+        matches!(self, Algorithm::SAEM | Algorithm::FOCEI | Algorithm::IT2B)
     }
 }
 

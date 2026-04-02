@@ -3,18 +3,21 @@ use pharmsol::{Data, Equation};
 use serde::Serialize;
 
 use crate::algorithms::Algorithm;
+use crate::api::SaemConfig;
 use crate::estimation::nonparametric::Prior;
 use crate::model::ModelDefinition;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EstimationMethod {
     Nonparametric(NonparametricMethod),
+    Parametric(ParametricMethod),
 }
 
 impl EstimationMethod {
     pub fn algorithm(self) -> Algorithm {
         match self {
             EstimationMethod::Nonparametric(method) => method.algorithm(),
+            EstimationMethod::Parametric(method) => method.algorithm(),
         }
     }
 }
@@ -36,6 +39,23 @@ impl NonparametricMethod {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParametricMethod {
+    Saem(SaemOptions),
+    Focei(FoceiOptions),
+    It2b(It2bOptions),
+}
+
+impl ParametricMethod {
+    pub fn algorithm(self) -> Algorithm {
+        match self {
+            ParametricMethod::Saem(_) => Algorithm::SAEM,
+            ParametricMethod::Focei(_) => Algorithm::FOCEI,
+            ParametricMethod::It2b(_) => Algorithm::IT2B,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct NpagOptions;
 
@@ -44,6 +64,15 @@ pub struct NpodOptions;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PostProbOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SaemOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FoceiOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct It2bOptions;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct OutputPlan {
@@ -125,6 +154,7 @@ pub struct AlgorithmTuning {
     pub min_distance: f64,
     pub nm_steps: usize,
     pub tolerance: f64,
+    pub saem: SaemConfig,
 }
 
 impl Default for AlgorithmTuning {
@@ -133,6 +163,7 @@ impl Default for AlgorithmTuning {
             min_distance: 1e-4,
             nm_steps: 100,
             tolerance: 1e-6,
+            saem: SaemConfig::default(),
         }
     }
 }

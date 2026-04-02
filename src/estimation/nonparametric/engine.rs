@@ -14,7 +14,13 @@ impl NonparametricEngine {
     pub fn fit<E: Equation + Clone + Send + 'static>(
         problem: CompiledProblem<E>,
     ) -> Result<NonparametricWorkspace<E>> {
-        let EstimationMethod::Nonparametric(method) = problem.method();
+        let method = match problem.method() {
+            EstimationMethod::Nonparametric(method) => method,
+            other => anyhow::bail!(
+                "nonparametric engine received parametric method: {:?}",
+                other
+            ),
+        };
         let output = problem.output_plan().clone();
         let runtime = problem.runtime_options().clone();
         let (model, data) = problem.into_parts();
