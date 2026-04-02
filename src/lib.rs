@@ -58,8 +58,8 @@ pub mod prelude {
     pub use crate::api::fit;
     pub use crate::api::{
         AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, LoggingLevel,
-        LoggingOptions, ModelDefinition, NonparametricMethod, NpagOptions, NpodOptions,
-        OutputPlan, PostProbOptions, RuntimeOptions,
+        LoggingOptions, ModelDefinition, NonparametricMethod, NpagOptions, NpodOptions, OutputPlan,
+        PostProbOptions, RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
