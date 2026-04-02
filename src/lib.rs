@@ -63,8 +63,7 @@ pub mod prelude {
         AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, LoggingLevel,
         LoggingOptions, ModelDefinition, NexusOptions, NonparametricMethod, NpagOptions,
         NpboOptions, NpcatOptions, NpcmaOptions, NpodOptions, NpoptOptions, NppsoOptions,
-        Npsah2Options, NpsahOptions, NpxoOptions, OutputPlan, PostProbOptions,
-        RuntimeOptions,
+        Npsah2Options, NpsahOptions, NpxoOptions, OutputPlan, PostProbOptions, RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
