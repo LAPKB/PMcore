@@ -70,8 +70,8 @@ pub mod prelude {
     pub use crate::api::{
         AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, FoceiOptions,
         It2bOptions, LoggingLevel, LoggingOptions, ModelDefinition, NonparametricMethod,
-        NpagOptions, NpodOptions, OutputPlan,
-        ParametricMethod, PostProbOptions, RuntimeOptions, SaemOptions,
+        NpagOptions, NpodOptions, OutputPlan, ParametricMethod, PostProbOptions, RuntimeOptions,
+        SaemOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
