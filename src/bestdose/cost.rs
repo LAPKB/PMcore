@@ -114,7 +114,7 @@ use pharmsol::Equation;
 ///
 /// - **AUC** ([`Target::AUC`]):
 ///   Predictions are cumulative AUC values calculated via trapezoidal rule
-///   on a dense time grid (controlled by `settings.predictions().idelta`)
+///   on a dense time grid (controlled by `config.prediction_interval()`)
 ///
 /// # Example
 ///
@@ -129,7 +129,7 @@ use pharmsol::Equation;
 /// - Model simulation fails
 /// - Prediction length doesn't match observation count
 /// - AUC calculation fails (for AUC targets)
-pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
+pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
     // Validate candidate_doses length matches expected optimizable dose count
     let expected_optimizable = problem
         .target
@@ -233,7 +233,7 @@ pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64])
 
     // Calculate variance (using posterior weights) and population mean (using prior weights)
 
-    for ((row, post_prob), _prior_prob) in problem
+    for ((row, post_prob), prior_prob) in problem
         .theta
         .matrix()
         .row_iter()
@@ -252,13 +252,12 @@ pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64])
             }
             Target::AUCFromZero => {
                 // For AUC: simulate at dense time grid and calculate cumulative AUC
-                let idelta = problem.settings.predictions().idelta;
+                let idelta = problem.config.prediction_interval();
                 let start_time = 0.0; // Future starts at 0
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
                 // Generate dense time grid
-                let dense_times =
-                    calculate_dense_times(start_time, end_time, &obs_times, idelta as usize);
+                let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
 
                 // Create temporary subject with dense time points for simulation
                 let subject_id = target_subject.id().to_string();
@@ -372,11 +371,11 @@ pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64])
             }
             Target::AUCFromLastDose => {
                 // For interval AUC: simulate at dense time grid and calculate AUC from last dose
-                let idelta = problem.settings.predictions().idelta;
+                let idelta = problem.config.prediction_interval();
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
                 // Generate dense time grid from 0 to end_time (need full grid for intervals)
-                let dense_times = calculate_dense_times(0.0, end_time, &obs_times, idelta as usize);
+                let dense_times = calculate_dense_times(0.0, end_time, &obs_times, idelta);
 
                 // Create temporary subject with dense time points for simulation
                 let subject_id = target_subject.id().to_string();
@@ -509,8 +508,8 @@ pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64])
             let pj = preds_i[j];
             let se = (obs_val - pj).powi(2);
             sumsq_i += se;
-            // Calculate population mean using POSTERIOR probabilities
-            y_bar[j] += post_prob * pj;
+            // Calculate population mean using population probabilities
+            y_bar[j] += prior_prob * pj;
         }
 
         variance += post_prob * sumsq_i; // Weighted by posterior

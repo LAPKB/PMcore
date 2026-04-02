@@ -47,36 +47,47 @@ fn main() {
     //     (3, 1),
     // );
 
-    let params = Parameters::new()
-        .add("ka", 0.0001, 2.4)
-        .add("ke0", 0.0001, 2.7)
-        .add("kcp", 0.0001, 2.4)
-        .add("kpc", 0.0001, 2.4)
-        .add("vol", 0.2, 12.0)
-        .add("ske", 0.0001, 0.2);
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "central"))
+        .with_assay_error_models(
+            AssayErrorModels::new()
+                .add(
+                    0,
+                    AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
+                )
+                .unwrap(),
+        );
 
-    let ems = AssayErrorModels::new()
-        .add(
-            0,
-            AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
+    let model = ModelDefinition::builder(sde)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("ka", 0.0001, 2.4))
+                .add(ParameterSpec::bounded("ke0", 0.0001, 2.7))
+                .add(ParameterSpec::bounded("kcp", 0.0001, 2.4))
+                .add(ParameterSpec::bounded("kpc", 0.0001, 2.4))
+                .add(ParameterSpec::bounded("vol", 0.2, 12.0))
+                .add(ParameterSpec::bounded("ske", 0.0001, 0.2)),
         )
+        .observations(observations)
+        .build()
         .unwrap();
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(usize::MAX);
-    settings.set_cache(true);
-    settings.set_output_path("examples/vanco_sde/output");
-    settings.set_prior(Prior::sobol(100, 347));
-    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
-
-    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
-    algorithm.initialize().unwrap();
-    let mut result = algorithm.fit().unwrap();
+    let mut result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions::default(),
+        )))
+        .output(OutputPlan {
+            write: true,
+            path: Some("examples/vanco_sde/output".to_string()),
+        })
+        .runtime(RuntimeOptions {
+            cycles: usize::MAX,
+            cache: true,
+            prior: Some(Prior::sobol(100, 347)),
+            ..RuntimeOptions::default()
+        })
+        .run()
+        .unwrap();
     result.write_outputs().unwrap();
 }

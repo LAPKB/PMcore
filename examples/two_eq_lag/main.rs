@@ -64,31 +64,38 @@ fn main() {
     //     (2, 1),
     // );
 
-    let params = Parameters::new()
-        .add("ka", 0.1, 0.9)
-        .add("ke", 0.001, 0.1)
-        .add("tlag", 0.0, 4.0)
-        .add("v", 30.0, 120.0);
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(1, "cp"))
+        .with_assay_error_models(
+            AssayErrorModels::new()
+                .add(
+                    1,
+                    AssayErrorModel::additive(
+                        ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
+                        0.0,
+                    ),
+                )
+                .unwrap(),
+        );
 
-    let ems = AssayErrorModels::new()
-        .add(
-            1,
-            AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+    let model = ModelDefinition::builder(eq)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("ka", 0.1, 0.9))
+                .add(ParameterSpec::bounded("ke", 0.001, 0.1))
+                .add(ParameterSpec::bounded("tlag", 0.0, 4.0))
+                .add(ParameterSpec::bounded("v", 30.0, 120.0)),
         )
+        .observations(observations)
+        .build()
         .unwrap();
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.initialize_logs().unwrap();
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
-    let mut result = algorithm.fit().unwrap();
-    // algorithm.initialize().unwrap();
-    // while !algorithm.next_cycle().unwrap() {}
-    // let result = algorithm.into_npresult();
+    let mut result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions::default(),
+        )))
+        .run()
+        .unwrap();
     result.write_outputs().unwrap();
 }

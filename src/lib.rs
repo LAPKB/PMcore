@@ -1,25 +1,46 @@
-//! PMcore is a framework for developing and running non-parametric algorithms for population pharmacokinetic modelling
+//! PMcore is a framework for developing and running population pharmacokinetic algorithms
 //!
-//! The framework is designed to be modular and flexible, allowing for easy integration of new algorithms and methods. It is heavily designed around the specifications for Pmetrics, a package for R, and is designed to be used in conjunction with it. However, as a general rust library, it can be used for a wide variety of applications, not limited to pharmacometrics.
+//! The framework exposes a unified modeling platform for PMcore algorithms.
 //!
-//! # Configuration
+//! # Algorithm Types
 //!
-//! PMcore is configured using [routines::settings::Settings], which specifies the settings for the program.
+//! The structure branch keeps the unified modeling/compilation layer and the baseline
+//! non-parametric algorithms already present in PMcore.
+//!
+//! # Public API
+//!
+//! PMcore centers on the model/problem API in [api]. Models are defined with
+//! [api::ModelDefinition], configured with [api::EstimationProblem], and executed through
+//! [api::fit].
 //!
 //! # Data format
 //!
-//! PMcore is heavily linked to [pharmsol], which provides the data structures and routines for handling pharmacokinetic data. The data is stored in a [pharmsol::Data] structure, and can either be read from a CSV file, using [pharmsol::data::parse_pmetrics::read_pmetrics], or created dynamically using the [pharmsol::data::builder::SubjectBuilder].
+//! PMcore is heavily linked to [pharmsol], which provides the data structures and routines for handling
+//! pharmacokinetic data. The data is stored in a [pharmsol::Data] structure, and can either be read
+//! from a CSV file, using [pharmsol::data::parse_pmetrics::read_pmetrics], or created dynamically
+//! using the [pharmsol::data::builder::SubjectBuilder].
 //!
 
 /// Provides the various algorithms used within the framework
-// pub mod algorithms;
 pub mod algorithms;
 
-/// Routines
-pub mod routines;
+/// New public modeling and execution API.
+pub mod api;
 
-// Structures
-pub mod structs;
+/// Shared preprocessing and compilation layer.
+pub mod compile;
+
+/// Estimation family boundaries for the new architecture.
+pub mod estimation;
+
+/// Public model-domain types used by the new API.
+pub mod model;
+
+/// Shared result and summary types for the new API.
+pub mod results;
+
+/// Shared output writers for the new API.
+pub mod output;
 
 // Re-export commonly used items
 pub use anyhow::Result;
@@ -33,18 +54,33 @@ pub mod prelude {
     pub use super::HashMap;
     pub use super::Result;
     pub use crate::algorithms;
-    pub use crate::algorithms::dispatch_algorithm;
     pub use crate::algorithms::Algorithm;
-    pub use crate::routines;
-    pub use crate::routines::logger;
+    pub use crate::api::fit;
+    pub use crate::api::{
+        AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, LoggingLevel,
+        LoggingOptions, ModelDefinition, NonparametricMethod, NpagOptions, NpodOptions, OutputPlan,
+        PostProbOptions, RuntimeOptions,
+    };
+    pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
+    pub use crate::estimation::nonparametric::{
+        CycleLog, NPCycle, NPPredictions, NonparametricEngine, NonparametricWorkspace, Posterior,
+        Psi, Theta, Weights,
+    };
+    pub use crate::model::{
+        ContinuousObservationSpec, CovariateEffectsSpec, CovariateModel, CovariateSpec,
+        ModelMetadata, ObservationChannel, ObservationLikelihood, ObservationSpec, ParameterDomain,
+        ParameterSpace, ParameterSpec, ParameterTransform as ModelParameterTransform,
+        ParameterVariability, RandomEffectsSpec, VariabilityModel,
+    };
+    pub use crate::results::{
+        ArtifactIndex, DiagnosticsBundle, FitResult, FitSummary, IndividualSummary,
+        ParameterSummary, PopulationSummary, PredictionsBundle,
+    };
     pub use pharmsol::optimize::effect::get_e2;
 
     pub use pharmsol;
 
-    pub use crate::routines::initialization::Prior;
-
-    pub use crate::routines::settings::*;
-    pub use crate::structs::*;
+    pub use crate::estimation::nonparametric::{read_prior, Prior};
 
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;

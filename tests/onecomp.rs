@@ -18,22 +18,19 @@ fn test_one_compartment_npag() -> Result<()> {
         },
     );
 
-    // Define parameters
-    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
-
     let em = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let ems = AssayErrorModels::new().add(0, em).unwrap();
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "cp"))
+        .with_assay_error_models(AssayErrorModels::new().add(0, em).unwrap());
 
-    // Create settings
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_prior(Prior::sobol(64, 22));
-
-    settings.set_cycles(100);
+    let model = ModelDefinition::builder(eq)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("ke", 0.1, 1.0))
+                .add(ParameterSpec::bounded("v", 1.0, 20.0)),
+        )
+        .observations(observations)
+        .build()?;
 
     // Let known support points
     let spps: Vec<(f64, f64)> = vec![(0.85, 12.0), (0.52, 5.0), (0.15, 3.0)];
@@ -57,9 +54,20 @@ fn test_one_compartment_npag() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    // Run the algorithm
-    let mut algorithm = dispatch_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    let result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions::default(),
+        )))
+        .output(OutputPlan::disabled())
+        .runtime(RuntimeOptions {
+            cycles: 100,
+            prior: Some(Prior::sobol(64, 22)),
+            ..RuntimeOptions::default()
+        })
+        .run()?;
+    let result = result
+        .as_nonparametric()
+        .expect("NPAG should yield a nonparametric result");
 
     // Check the results
     assert_eq!(result.cycles(), 32);
@@ -85,22 +93,19 @@ fn test_one_compartment_npod() -> Result<()> {
         },
     );
 
-    // Define parameters
-    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
-
     let em = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let ems = AssayErrorModels::new().add(0, em).unwrap();
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "cp"))
+        .with_assay_error_models(AssayErrorModels::new().add(0, em).unwrap());
 
-    // Create settings
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPOD)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_prior(Prior::sobol(64, 22));
-
-    settings.set_cycles(100);
+    let model = ModelDefinition::builder(eq)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("ke", 0.1, 1.0))
+                .add(ParameterSpec::bounded("v", 1.0, 20.0)),
+        )
+        .observations(observations)
+        .build()?;
 
     // Let known support points
     let spps: Vec<(f64, f64)> = vec![(0.85, 12.0), (0.52, 5.0), (0.15, 3.0)];
@@ -124,9 +129,20 @@ fn test_one_compartment_npod() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    // Run the algorithm
-    let mut algorithm = dispatch_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    let result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(
+            NpodOptions::default(),
+        )))
+        .output(OutputPlan::disabled())
+        .runtime(RuntimeOptions {
+            cycles: 100,
+            prior: Some(Prior::sobol(64, 22)),
+            ..RuntimeOptions::default()
+        })
+        .run()?;
+    let result = result
+        .as_nonparametric()
+        .expect("NPOD should yield a nonparametric result");
 
     // Check the results
     assert_eq!(result.cycles(), 11);
@@ -152,22 +168,19 @@ fn test_one_compartment_postprob() -> Result<()> {
         },
     );
 
-    // Define parameters
-    let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
-
     let em = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let ems = AssayErrorModels::new().add(0, em).unwrap();
+    let observations = ObservationSpec::new()
+        .add_channel(ObservationChannel::continuous(0, "cp"))
+        .with_assay_error_models(AssayErrorModels::new().add(0, em).unwrap());
 
-    // Create settings
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::POSTPROB)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_prior(Prior::sobol(64, 22));
-
-    settings.set_cycles(100);
+    let model = ModelDefinition::builder(eq)
+        .parameters(
+            ParameterSpace::new()
+                .add(ParameterSpec::bounded("ke", 0.1, 1.0))
+                .add(ParameterSpec::bounded("v", 1.0, 20.0)),
+        )
+        .observations(observations)
+        .build()?;
 
     // Let known support points
     let spps: Vec<(f64, f64)> = vec![(0.85, 12.0), (0.52, 5.0), (0.15, 3.0)];
@@ -191,9 +204,20 @@ fn test_one_compartment_postprob() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    // Run the algorithm
-    let mut algorithm = dispatch_algorithm(settings, eq, data)?;
-    let result = algorithm.fit()?;
+    let result = EstimationProblem::builder(model, data)
+        .method(EstimationMethod::Nonparametric(
+            NonparametricMethod::Postprob(PostProbOptions::default()),
+        ))
+        .output(OutputPlan::disabled())
+        .runtime(RuntimeOptions {
+            cycles: 100,
+            prior: Some(Prior::sobol(64, 22)),
+            ..RuntimeOptions::default()
+        })
+        .run()?;
+    let result = result
+        .as_nonparametric()
+        .expect("POSTPROB should yield a nonparametric result");
 
     // Check the results
     assert_eq!(result.cycles(), 0);
