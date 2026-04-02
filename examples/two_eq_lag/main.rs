@@ -92,8 +92,8 @@ fn main() {
 
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npsah(
-            NpsahOptions::default(),
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions::default(),
         )))
         .run()
         .unwrap();

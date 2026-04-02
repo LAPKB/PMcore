@@ -89,8 +89,8 @@ fn main() {
 
     let data = data::read_pmetrics("examples/neely/data.csv").unwrap();
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npsah(
-            NpsahOptions::default(),
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions::default(),
         )))
         .output(OutputPlan {
             write: true,

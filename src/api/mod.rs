@@ -1,15 +1,11 @@
 pub mod estimation_problem;
 pub mod fit;
 pub mod model_definition;
-pub mod saem_config;
 
 pub use estimation_problem::{
     AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem,
-    EstimationProblemBuilder, FoceiOptions, It2bOptions, LoggingLevel, LoggingOptions,
-    NexusOptions, NonparametricMethod, NpagOptions, NpboOptions, NpcatOptions, NpcmaOptions,
-    NpodOptions, NpoptOptions, NppsoOptions, Npsah2Options, NpsahOptions, NpxoOptions, OutputPlan,
-    ParametricMethod, PostProbOptions, RuntimeOptions, SaemOptions,
+    EstimationProblemBuilder, LoggingLevel, LoggingOptions, NonparametricMethod, NpagOptions,
+    NpodOptions, OutputPlan, PostProbOptions, RuntimeOptions,
 };
 pub use fit::fit;
 pub use model_definition::{ModelDefinition, ModelDefinitionBuilder};
-pub use saem_config::SaemConfig;

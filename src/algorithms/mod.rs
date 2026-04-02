@@ -9,17 +9,8 @@ use anyhow::Context;
 use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
-use nonparametric::nexus::NEXUS;
 use nonparametric::npag::*;
-use nonparametric::npbo::NPBO;
-use nonparametric::npcat::NPCAT;
-use nonparametric::npcma::NPCMA;
 use nonparametric::npod::NPOD;
-use nonparametric::npopt::NPOPT;
-use nonparametric::nppso::NPPSO;
-use nonparametric::npsah::NPSAH;
-use nonparametric::npsah2::NPSAH2;
-use nonparametric::npxo::NPXO;
 use nonparametric::postprob::POSTPROB;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
@@ -27,7 +18,6 @@ use serde::{Deserialize, Serialize};
 
 // Module organization for algorithm types
 pub mod nonparametric;
-pub mod parametric;
 
 #[derive(Debug, Clone)]
 pub(crate) struct NonparametricAlgorithmInput<E: Equation> {
@@ -115,67 +105,26 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
 
 /// Algorithm type enumeration
 ///
-/// This enum represents all available algorithms in PMcore, both non-parametric and parametric.
+/// This enum represents the algorithms available in the structure branch.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
-    // === Non-parametric algorithms ===
     /// Non-Parametric Adaptive Grid
     NPAG,
-    /// Non-Parametric Bayesian Optimization
-    NPBO,
-    /// Non-Parametric Categorical
-    NPCAT,
-    /// Non-Parametric CMA-ES
-    NPCMA,
     /// Non-Parametric Optimal Design
     NPOD,
-    /// Non-Parametric Optimization
-    NPOPT,
-    /// Non-Parametric Particle Swarm Optimization
-    NPPSO,
-    /// Non-Parametric Simulated Annealing Hybrid
-    NPSAH,
-    /// Non-Parametric Simulated Annealing Hybrid v2
-    NPSAH2,
-    /// Non-Parametric Cross-Over
-    NPXO,
-    /// NEXUS algorithm
-    NEXUS,
     /// Posterior Probability calculation
     POSTPROB,
-
-    // === Parametric algorithms ===
-    /// Stochastic Approximation Expectation-Maximization
-    SAEM,
-    /// First-Order Conditional Estimation with Interaction
-    FOCEI,
-    /// Iterative Two-Stage Bayesian
-    IT2B,
 }
 
 impl Algorithm {
     /// Check if this is a non-parametric algorithm
     pub fn is_nonparametric(&self) -> bool {
-        matches!(
-            self,
-            Algorithm::NPAG
-                | Algorithm::NPBO
-                | Algorithm::NPCAT
-                | Algorithm::NPCMA
-                | Algorithm::NPOD
-                | Algorithm::NPOPT
-                | Algorithm::NPPSO
-                | Algorithm::NPSAH
-                | Algorithm::NPSAH2
-                | Algorithm::NPXO
-                | Algorithm::NEXUS
-                | Algorithm::POSTPROB
-        )
+        matches!(self, Algorithm::NPAG | Algorithm::NPOD | Algorithm::POSTPROB)
     }
 
     /// Check if this is a parametric algorithm
     pub fn is_parametric(&self) -> bool {
-        matches!(self, Algorithm::SAEM | Algorithm::FOCEI | Algorithm::IT2B)
+        false
     }
 }
 
@@ -467,44 +416,8 @@ pub(crate) fn run_nonparametric_algorithm<E: Equation + Send + 'static>(
             let mut algorithm = NPAG::from_input(input)?;
             algorithm.fit()
         }
-        NonparametricMethod::Npbo(_) => {
-            let mut algorithm = NPBO::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npcat(_) => {
-            let mut algorithm = NPCAT::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npcma(_) => {
-            let mut algorithm = NPCMA::from_input(input)?;
-            algorithm.fit()
-        }
         NonparametricMethod::Npod(_) => {
             let mut algorithm = NPOD::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npopt(_) => {
-            let mut algorithm = NPOPT::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Nppso(_) => {
-            let mut algorithm = NPPSO::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npxo(_) => {
-            let mut algorithm = NPXO::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npsah(_) => {
-            let mut algorithm = NPSAH::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npsah2(_) => {
-            let mut algorithm = NPSAH2::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Nexus(_) => {
-            let mut algorithm = NEXUS::from_input(input)?;
             algorithm.fit()
         }
         NonparametricMethod::Postprob(_) => {

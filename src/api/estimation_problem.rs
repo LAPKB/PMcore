@@ -3,21 +3,18 @@ use pharmsol::{Data, Equation};
 use serde::Serialize;
 
 use crate::algorithms::Algorithm;
-use crate::api::SaemConfig;
 use crate::estimation::nonparametric::Prior;
 use crate::model::ModelDefinition;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EstimationMethod {
     Nonparametric(NonparametricMethod),
-    Parametric(ParametricMethod),
 }
 
 impl EstimationMethod {
     pub fn algorithm(self) -> Algorithm {
         match self {
             EstimationMethod::Nonparametric(method) => method.algorithm(),
-            EstimationMethod::Parametric(method) => method.algorithm(),
         }
     }
 }
@@ -25,16 +22,7 @@ impl EstimationMethod {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NonparametricMethod {
     Npag(NpagOptions),
-    Npbo(NpboOptions),
-    Npcat(NpcatOptions),
-    Npcma(NpcmaOptions),
     Npod(NpodOptions),
-    Npopt(NpoptOptions),
-    Nppso(NppsoOptions),
-    Npsah(NpsahOptions),
-    Npsah2(Npsah2Options),
-    Nexus(NexusOptions),
-    Npxo(NpxoOptions),
     Postprob(PostProbOptions),
 }
 
@@ -42,34 +30,8 @@ impl NonparametricMethod {
     pub fn algorithm(self) -> Algorithm {
         match self {
             NonparametricMethod::Npag(_) => Algorithm::NPAG,
-            NonparametricMethod::Npbo(_) => Algorithm::NPBO,
-            NonparametricMethod::Npcat(_) => Algorithm::NPCAT,
-            NonparametricMethod::Npcma(_) => Algorithm::NPCMA,
             NonparametricMethod::Npod(_) => Algorithm::NPOD,
-            NonparametricMethod::Npopt(_) => Algorithm::NPOPT,
-            NonparametricMethod::Nppso(_) => Algorithm::NPPSO,
-            NonparametricMethod::Npsah(_) => Algorithm::NPSAH,
-            NonparametricMethod::Npsah2(_) => Algorithm::NPSAH2,
-            NonparametricMethod::Nexus(_) => Algorithm::NEXUS,
-            NonparametricMethod::Npxo(_) => Algorithm::NPXO,
             NonparametricMethod::Postprob(_) => Algorithm::POSTPROB,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ParametricMethod {
-    Saem(SaemOptions),
-    Focei(FoceiOptions),
-    It2b(It2bOptions),
-}
-
-impl ParametricMethod {
-    pub fn algorithm(self) -> Algorithm {
-        match self {
-            ParametricMethod::Saem(_) => Algorithm::SAEM,
-            ParametricMethod::Focei(_) => Algorithm::FOCEI,
-            ParametricMethod::It2b(_) => Algorithm::IT2B,
         }
     }
 }
@@ -78,46 +40,10 @@ impl ParametricMethod {
 pub struct NpagOptions;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct NpboOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct NpcatOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct NpcmaOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct NpodOptions;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct NpoptOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct NppsoOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct NpsahOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Npsah2Options;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct NexusOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct NpxoOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PostProbOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct SaemOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct FoceiOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct It2bOptions;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct OutputPlan {
@@ -199,7 +125,6 @@ pub struct AlgorithmTuning {
     pub min_distance: f64,
     pub nm_steps: usize,
     pub tolerance: f64,
-    pub saem: SaemConfig,
 }
 
 impl Default for AlgorithmTuning {
@@ -208,7 +133,6 @@ impl Default for AlgorithmTuning {
             min_distance: 1e-4,
             nm_steps: 100,
             tolerance: 1e-6,
-            saem: SaemConfig::default(),
         }
     }
 }

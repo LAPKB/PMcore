@@ -1,22 +1,11 @@
 //! PMcore is a framework for developing and running population pharmacokinetic algorithms
 //!
-//! The framework supports both **non-parametric** and **parametric** approaches to population modeling,
-//! allowing for flexible estimation of population parameter distributions.
+//! The framework exposes a unified modeling platform for PMcore algorithms.
 //!
 //! # Algorithm Types
 //!
-//! ## Non-Parametric Algorithms
-//! Represent the population distribution as a discrete set of support points with associated weights.
-//! - NPAG (Non-Parametric Adaptive Grid)
-//! - NPOD (Non-Parametric Optimal Design)
-//! - And others...
-//!
-//! ## Parametric Algorithms
-//! Represent the population distribution as a continuous distribution (typically multivariate normal).
-//! - SAEM (Stochastic Approximation Expectation-Maximization)
-//! - FOCEI (First-Order Conditional Estimation with Interaction)
-//! - IT2B (Iterative Two-Stage Bayesian)
-//! - And others...
+//! The structure branch keeps the unified modeling/compilation layer and the baseline
+//! non-parametric algorithms already present in PMcore.
 //!
 //! # Public API
 //!
@@ -68,26 +57,14 @@ pub mod prelude {
     pub use crate::algorithms::Algorithm;
     pub use crate::api::fit;
     pub use crate::api::{
-        AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, FoceiOptions,
-        It2bOptions, LoggingLevel, LoggingOptions, ModelDefinition, NexusOptions,
-        NonparametricMethod, NpagOptions, NpboOptions, NpcatOptions, NpcmaOptions, NpodOptions,
-        NpoptOptions, NppsoOptions, Npsah2Options, NpsahOptions, NpxoOptions, OutputPlan,
-        ParametricMethod, PostProbOptions, RuntimeOptions, SaemOptions,
+        AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, LoggingLevel,
+        LoggingOptions, ModelDefinition, NonparametricMethod, NpagOptions, NpodOptions,
+        OutputPlan, PostProbOptions, RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
         CycleLog, NPCycle, NPPredictions, NonparametricEngine, NonparametricWorkspace, Posterior,
         Psi, Theta, Weights,
-    };
-    pub use crate::estimation::parametric::{
-        aic, bic, cache_predictions, compile_model_state, fim, fim_inverse, fim_method, has_fim,
-        has_standard_errors, importance_sampling_likelihood_estimates, phi_to_psi, psi_to_phi,
-        rse_mu, se_mu, se_omega, shrinkage, statistics, subject_conditionals_from_eta_samples,
-        uncertainty_estimates, write_statistics, CovarianceStructure, EtaTable, EtaVector,
-        FimMethod, FixedEffects, Individual, IndividualEffectsState, IndividualEstimates,
-        KappaVector, OccasionKappa, OccasionKappaTable, ParameterTransform, ParametricEngine,
-        ParametricModelState, ParametricTransformKind, ParametricWorkspace, PhiTable, PhiVector,
-        Population, PsiTable, PsiVector, RandomEffects, ResidualState, TransformSet,
     };
     pub use crate::model::{
         ContinuousObservationSpec, CovariateEffectsSpec, CovariateModel, CovariateSpec,
@@ -104,15 +81,6 @@ pub mod prelude {
     pub use pharmsol;
 
     pub use crate::estimation::nonparametric::{read_prior, Prior};
-
-    // Parametric specific
-    pub use crate::estimation::parametric::{StepSizeSchedule, SufficientStats};
-
-    // Output types
-    pub use crate::estimation::parametric::ParametricIterationLog;
-
-    // Internal tuning types still used by the new runtime surface.
-    pub use crate::api::SaemConfig;
 
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;
