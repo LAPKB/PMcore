@@ -35,6 +35,7 @@ fn nonparametric_method(algorithm: Algorithm) -> Result<NonparametricMethod> {
         Algorithm::NPXO => NonparametricMethod::Npxo(NpxoOptions),
         Algorithm::NEXUS => NonparametricMethod::Nexus(NexusOptions),
         Algorithm::POSTPROB => NonparametricMethod::Postprob(PostProbOptions),
+        other => anyhow::bail!("unsupported nonparametric algorithm: {:?}", other),
     })
 }
 
