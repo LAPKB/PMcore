@@ -416,7 +416,22 @@ impl<E: Equation> NPResult<E> {
         Ok(())
     }
 
-    /// Writes the covariates
+    /// Writes the entire NPResult to a JSON file
+    ///
+    /// This will not calculate predictions automatically, to do so, call [NPResult::calculate_predictions] first
+    pub fn write_json(&mut self) -> Result<()> {
+        tracing::debug!("Writing NPResult to JSON...");
+
+        let outputfile = OutputFile::new(&self.settings.output().path, "result.json")
+            .context("Failed to create output file for JSON")?;
+
+        serde_json::to_writer_pretty(&outputfile.file, self)
+            .context("Failed to serialize NPResult to JSON")?;
+
+        tracing::debug!("NPResult written to {:?}", &outputfile.relative_path());
+        Ok(())
+    }
+
     pub fn write_covs(&self) -> Result<()> {
         tracing::debug!("Writing covariates...");
         let outputfile = OutputFile::new(&self.settings.output().path, "covs.csv")?;
