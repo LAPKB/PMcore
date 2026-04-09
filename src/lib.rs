@@ -67,12 +67,13 @@ pub mod prelude {
     pub use crate::algorithms;
     pub use crate::algorithms::Algorithm;
     pub use crate::api::fit;
+    pub use crate::api::fit_with_progress;
     pub use crate::api::{
-        AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, FoceiOptions,
-        It2bOptions, LoggingLevel, LoggingOptions, ModelDefinition, NexusOptions,
-        NonparametricMethod, NpagOptions, NpboOptions, NpcatOptions, NpcmaOptions, NpodOptions,
-        NpoptOptions, NppsoOptions, Npsah2Options, NpsahOptions, NpxoOptions, OutputPlan,
-        ParametricMethod, PostProbOptions, RuntimeOptions, SaemOptions,
+        AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, FitProgress,
+        FoceiOptions, It2bOptions, LoggingLevel, LoggingOptions, ModelDefinition, NexusOptions,
+        NonparametricCycleProgress, NonparametricMethod, NpagOptions, NpboOptions, NpcatOptions,
+        NpcmaOptions, NpodOptions, NpoptOptions, NppsoOptions, Npsah2Options, NpsahOptions,
+        NpxoOptions, OutputPlan, ParametricMethod, PostProbOptions, RuntimeOptions, SaemOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{

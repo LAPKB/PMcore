@@ -28,7 +28,7 @@ tracing-subscriber = { version = "0.3.19", features = [
     "time",
 ] }
 faer = "0.23.1"
-pharmsol = "=0.24.1"
+pharmsol = { path = "../pharmsol" }
 rand = "0.9.0"
 anyhow = "1.0.100"
 rayon = "1.10.0"
@@ -39,6 +39,7 @@ statrs = "0.18"
 
 [features]
 default = []
+json = ["pharmsol/json"]
 exa = ["pharmsol/exa"]
 
 [profile.release]

@@ -76,6 +76,10 @@ impl<E: Equation> NonparametricWorkspace<E> {
         &self.data
     }
 
+    pub fn equation(&self) -> &E {
+        &self.equation
+    }
+
     pub fn cycle_log(&self) -> &CycleLog {
         &self.cyclelog
     }

@@ -1,6 +1,7 @@
 pub mod estimation_problem;
 pub mod fit;
 pub mod model_definition;
+pub mod progress;
 pub mod saem_config;
 
 pub use estimation_problem::{
@@ -10,6 +11,7 @@ pub use estimation_problem::{
     NpodOptions, NpoptOptions, NppsoOptions, Npsah2Options, NpsahOptions, NpxoOptions, OutputPlan,
     ParametricMethod, PostProbOptions, RuntimeOptions, SaemOptions,
 };
-pub use fit::fit;
+pub use fit::{fit, fit_with_progress};
 pub use model_definition::{ModelDefinition, ModelDefinitionBuilder};
+pub use progress::{FitProgress, NonparametricCycleProgress};
 pub use saem_config::SaemConfig;

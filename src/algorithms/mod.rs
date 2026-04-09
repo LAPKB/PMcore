@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::time::Instant;
 
 use crate::api::{NonparametricMethod, OutputPlan, RuntimeOptions};
 use crate::estimation::nonparametric::{NonparametricWorkspace, Prior, Psi, Theta};
@@ -331,10 +332,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
                         .collect::<Vec<Option<f64>>>();
                     let predictions = preds.iter().map(|x| x.prediction()).collect::<Vec<f64>>();
                     let outeqs = preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>();
-                    let states = preds
-                        .iter()
-                        .map(|x| x.state().clone())
-                        .collect::<Vec<Vec<f64>>>();
+                    let states: Vec<&[f64]> = preds.iter().map(|x| x.state().clone()).collect();
 
                     tracing::debug!("\t\tTimes: {:?}", times);
                     tracing::debug!("\t\tObservations: {:?}", observations);
@@ -459,59 +457,102 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     fn into_workspace(&self) -> Result<NonparametricWorkspace<E>>;
 }
 
+pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
+    input: NonparametricAlgorithmInput<E>,
+) -> Result<Box<dyn Algorithms<E>>> {
+    match input.method {
+        NonparametricMethod::Npag(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPAG::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npbo(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPBO::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npcat(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPCAT::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npcma(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPCMA::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npod(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPOD::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npopt(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPOPT::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Nppso(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPPSO::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npxo(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPXO::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npsah(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPSAH::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npsah2(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPSAH2::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Nexus(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NEXUS::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Postprob(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = POSTPROB::from_input(input)?;
+            Ok(algorithm)
+        }
+    }
+}
+
+pub(crate) fn run_nonparametric_algorithm_with_progress<E, F>(
+    input: NonparametricAlgorithmInput<E>,
+    mut on_progress: F,
+) -> Result<NonparametricWorkspace<E>>
+where
+    E: Equation + Send + 'static,
+    F: FnMut(usize, f64, Option<f64>, u64, Status),
+{
+    let mut algorithm = dispatch_nonparametric_algorithm(input)?;
+    algorithm.initialize()?;
+
+    let mut previous_objective: Option<f64> = None;
+
+    loop {
+        let cycle_started = Instant::now();
+        let status = algorithm.next_cycle()?;
+        let objective = algorithm.n2ll();
+        let objective_delta = previous_objective.map(|prev| objective - prev);
+        previous_objective = Some(objective);
+
+        on_progress(
+            algorithm.cycle(),
+            objective,
+            objective_delta,
+            cycle_started.elapsed().as_millis() as u64,
+            status.clone(),
+        );
+
+        if matches!(status, Status::Stop(_)) {
+            break;
+        }
+    }
+
+    algorithm.into_workspace()
+}
+
 pub(crate) fn run_nonparametric_algorithm<E: Equation + Send + 'static>(
     input: NonparametricAlgorithmInput<E>,
 ) -> Result<NonparametricWorkspace<E>> {
-    match input.method {
-        NonparametricMethod::Npag(_) => {
-            let mut algorithm = NPAG::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npbo(_) => {
-            let mut algorithm = NPBO::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npcat(_) => {
-            let mut algorithm = NPCAT::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npcma(_) => {
-            let mut algorithm = NPCMA::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npod(_) => {
-            let mut algorithm = NPOD::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npopt(_) => {
-            let mut algorithm = NPOPT::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Nppso(_) => {
-            let mut algorithm = NPPSO::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npxo(_) => {
-            let mut algorithm = NPXO::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npsah(_) => {
-            let mut algorithm = NPSAH::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Npsah2(_) => {
-            let mut algorithm = NPSAH2::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Nexus(_) => {
-            let mut algorithm = NEXUS::from_input(input)?;
-            algorithm.fit()
-        }
-        NonparametricMethod::Postprob(_) => {
-            let mut algorithm = POSTPROB::from_input(input)?;
-            algorithm.fit()
-        }
-    }
+    let mut algorithm = dispatch_nonparametric_algorithm(input)?;
+    algorithm.fit()
 }
 
 /// Represents the status/result of the algorithm

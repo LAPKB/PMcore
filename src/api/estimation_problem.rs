@@ -267,6 +267,13 @@ impl<E: Equation + Clone + Send + 'static> EstimationProblem<E> {
     pub fn run(self) -> Result<crate::results::FitResult<E>> {
         crate::api::fit(self)
     }
+
+    pub fn run_with_progress<F>(self, on_progress: F) -> Result<crate::results::FitResult<E>>
+    where
+        F: FnMut(crate::api::FitProgress),
+    {
+        crate::api::fit_with_progress(self, on_progress)
+    }
 }
 
 pub struct EstimationProblemBuilder<E: Equation> {
