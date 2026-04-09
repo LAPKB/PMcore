@@ -46,10 +46,8 @@ fn main() -> Result<()> {
     let mut result = algorithm.fit()?;
     result.write_outputs()?;
 
-    if let Some(predictions) = result.predictions() {
-        if let Some(m) = predictions.metrics() {
-            println!("{}", m);
-        }
+    if let Some(m) = result.metrics() {
+        println!("{}", m);
     }
 
     Ok(())
