@@ -1,35 +1,30 @@
 use anyhow::Result;
-use pmcore::bestdose; // bestdose new
-                      // use pmcore::bestdose::bestdose_old as bestdose; // bestdose old
+use pmcore::bestdose::{BestDosePosterior, DoseRange, Target};
 
 use pmcore::prelude::*;
 use pmcore::routines::initialization::parse_prior;
 
 fn main() -> Result<()> {
     // Example model
-    let eq = equation::ODE::new(
-        |x, p, _t, dx, b, _rateiv, _cov| {
+    let eq = ode! {
+        diffeq: |x, p, _t, dx, b, _rateiv, _cov| {
             // fetch_cov!(cov, t, wt);
             fetch_params!(p, ke, _v);
             dx[0] = -ke * x[0] + b[0];
         },
-        |_p, _, _| lag! {},
-        |_p, _, _| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
+        out: |x, p, _t, _cov, y| {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-        (1, 1),
-    );
+    };
 
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = ErrorModels::new().add(
+    let ems = AssayErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
     // Make settings
@@ -82,22 +77,15 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
-    // Example usage - using new() constructor which calculates NPAGFULL11 posterior
-    // max_cycles controls NPAGFULL refinement:
-    //   0 = NPAGFULL11 only (fast but less accurate)
-    //   100 = moderate refinement
-    //   500 = full refinement (Fortran default, slow but most accurate)
-    let problem = bestdose::BestDoseProblem::new(
+    // Example usage - two-stage API:
+    // Stage 1: Compute posterior (expensive, done once)
+    // Stage 2: Optimize doses (can be called multiple times with different params)
+    let posterior = BestDosePosterior::compute(
         &theta,
         &prior.unwrap(),
         Some(past_data.clone()), // Optional: past data for Bayesian updating
-        target_data.clone(),
-        None,
         eq.clone(),
-        bestdose::DoseRange::new(0.0, 300.0),
-        0.0,
         settings.clone(),
-        bestdose::Target::Concentration, // Target concentrations (not AUCs)
     )?;
 
     println!("Optimizing dose...");
@@ -107,7 +95,13 @@ fn main() -> Result<()> {
 
     for bias_weight in &bias_weights {
         println!("Running optimization with bias weight: {}", bias_weight);
-        let optimal = problem.clone().with_bias_weight(*bias_weight).optimize()?;
+        let optimal = posterior.optimize(
+            target_data.clone(),
+            None,
+            DoseRange::new(0.0, 300.0),
+            *bias_weight,
+            Target::Concentration,
+        )?;
         results.push((bias_weight, optimal));
     }
 
@@ -128,7 +122,7 @@ fn main() -> Result<()> {
     // Print concentration-time predictions for the optimal dose
     let optimal = &results.last().unwrap().1;
     println!("\nConcentration-time predictions for optimal dose:");
-    for pred in optimal.predictions().predictions().into_iter() {
+    for pred in optimal.predictions().predictions().iter() {
         println!(
             "Time: {:.2} h, Observed: {:.2}, (Pop Mean: {:.4}, Pop Median: {:.4}, Post Mean: {:.4}, Post Median: {:.4})",
             pred.time(), pred.obs().unwrap_or(0.0), pred.pop_mean(), pred.pop_median(), pred.post_mean(), pred.post_median()
