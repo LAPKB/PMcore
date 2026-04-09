@@ -18,6 +18,7 @@ fn create_equation() -> equation::ODE {
             y[1] = x[0] / v;
         },
     )
+    .with_default_cache()
 }
 
 fn create_parameters() -> Parameters {

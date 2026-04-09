@@ -29,7 +29,9 @@ fn main() {
     )
     .with_nstates(2)
     .with_ndrugs(1)
-    .with_nout(1);
+    .with_nout(1)
+    .with_default_cache();
+    .with_default_cache();
 
     let params = Parameters::new()
         .add("ke0", 0.0001, 2.4)
