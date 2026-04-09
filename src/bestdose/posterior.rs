@@ -94,12 +94,12 @@ pub fn npagfull11_filter(
     population_weights: &Weights,
     past_data: &Data,
     eq: &ODE,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
 ) -> Result<(Theta, Weights, Weights)> {
     tracing::info!("Stage 1.1: NPAGFULL11 Bayesian filtering");
 
     // Calculate psi matrix P(data|theta_i) for all support points
-    let psi = calculate_psi(eq, past_data, population_theta, error_models, false, true)?;
+    let psi = calculate_psi(eq, past_data, population_theta, error_models, false)?;
 
     // First burke call to get initial posterior probabilities
     let (initial_weights, _) = burke(&psi)?;
@@ -213,6 +213,7 @@ pub fn npagfull_refinement(
 
         // Run NPAG optimization
         let refinement_result = npag.initialize().and_then(|_| {
+            #[allow(clippy::while_let_loop)]
             loop {
                 match npag.next_cycle()? {
                     Status::Continue => continue,
@@ -312,7 +313,7 @@ pub fn calculate_two_step_posterior(
     population_weights: &Weights,
     past_data: &Data,
     eq: &ODE,
-    error_models: &ErrorModels,
+    error_models: &AssayErrorModels,
     settings: &Settings,
 ) -> Result<(Theta, Weights, Weights)> {
     tracing::info!("=== STAGE 1: Posterior Density Calculation ===");
