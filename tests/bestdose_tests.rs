@@ -711,7 +711,8 @@ fn test_auc_from_zero_single_dose() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
 
@@ -795,7 +796,8 @@ fn test_auc_from_last_dose_maintenance() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
 
@@ -883,7 +885,8 @@ fn test_auc_modes_comparison() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.3, 0.3).add("v", 50.0, 50.0);
 
@@ -1012,7 +1015,8 @@ fn test_auc_from_last_dose_multiple_observations() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
 
@@ -1106,7 +1110,8 @@ fn test_auc_from_last_dose_no_prior_dose() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
 
@@ -1195,7 +1200,8 @@ fn test_dose_range_bounds_respected() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
 
@@ -1289,6 +1295,7 @@ fn one_compartment_model() -> pharmsol::ODE {
             y[0] = x[0] / v;
         },
     )
+    .with_default_cache()
 }
 
 /// Helper to build minimal settings for tests (no posterior refinement)
