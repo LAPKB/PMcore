@@ -13,18 +13,17 @@ fn main() -> Result<()> {
             y[1] = x[0] / v;
         },
     }
-    .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
+    .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45))
+    .with_default_cache();
 
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = AssayErrorModels::new()
-        .add(
-            1,
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )
-        .unwrap();
+    let ems = AssayErrorModels::new().add(
+        1,
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)

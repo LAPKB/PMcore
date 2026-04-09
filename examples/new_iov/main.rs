@@ -49,7 +49,6 @@ fn main() {
         .build();
 
     settings.set_cycles(1000);
-    settings.set_cache(true);
     settings.set_output_path("examples/new_iov/output");
     settings.set_prior(Prior::sobol(100, 347));
 

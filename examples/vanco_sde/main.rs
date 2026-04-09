@@ -27,7 +27,8 @@ fn main() {
             y[0] = x[1] / (vol * wt);
         },
         100,
-    );
+    )
+    .with_default_cache();
 
     // let ode = equation::ODE::new(
     //     |x, p, _t, dx, _rateiv, _cov| {
@@ -69,7 +70,6 @@ fn main() {
         .build();
 
     settings.set_cycles(usize::MAX);
-    settings.set_cache(true);
     settings.set_output_path("examples/vanco_sde/output");
     settings.set_prior(Prior::sobol(100, 347));
     settings.initialize_logs().unwrap();

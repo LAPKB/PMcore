@@ -84,10 +84,6 @@ impl Settings {
         self.config.algorithm = algorithm;
     }
 
-    pub fn set_cache(&mut self, cache: bool) {
-        self.config.cache = cache;
-    }
-
     pub fn set_idelta(&mut self, idelta: f64) {
         self.predictions.idelta = idelta;
     }
@@ -148,8 +144,6 @@ pub struct Config {
     pub cycles: usize,
     /// Denotes the algorithm to use
     pub algorithm: Algorithm,
-    /// If true (default), cache predicted values
-    pub cache: bool,
     /// Should a progress bar be displayed for the first cycle
     ///
     /// The progress bar is not written to logs, but is written to stdout. It incurs a minor performance penalty.
@@ -161,7 +155,6 @@ impl Default for Config {
         Config {
             cycles: 100,
             algorithm: Algorithm::NPAG,
-            cache: true,
             progress: true,
         }
     }
@@ -603,7 +596,6 @@ mod tests {
 
         assert_eq!(settings.config.algorithm, Algorithm::NPAG);
         assert_eq!(settings.config.cycles, 100);
-        assert_eq!(settings.config.cache, true);
         assert_eq!(settings.parameters().names(), vec!["Ke", "V"]);
     }
 }
