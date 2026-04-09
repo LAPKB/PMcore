@@ -483,6 +483,24 @@ impl<E: Equation> NPResult<E> {
         tracing::debug!("Covariates written to {:?}", &outputfile.relative_path());
         Ok(())
     }
+
+    /// Get a reference to the predictions, if they have been calculated
+    pub fn predictions(&self) -> Option<&NPPredictions> {
+        self.predictions.as_ref()
+    }
+
+    /// Compute prediction metrics, calculating predictions first if needed
+    ///
+    /// Uses the `idelta` and `tad` values from the current [Settings].
+    /// Returns `None` if there are no valid observation-prediction pairs.
+    pub fn metrics(&mut self) -> Option<predictions::PredictionMetrics> {
+        if self.predictions.is_none() {
+            let idelta = self.settings.predictions().idelta;
+            let tad = self.settings.predictions().tad;
+            self.calculate_predictions(idelta, tad).ok()?;
+        }
+        self.predictions.as_ref().and_then(|p| p.metrics())
+    }
 }
 
 pub(crate) fn median(data: &[f64]) -> f64 {

@@ -46,5 +46,9 @@ fn main() -> Result<()> {
     let mut result = algorithm.fit()?;
     result.write_outputs()?;
 
+    if let Some(m) = result.metrics() {
+        println!("{}", m);
+    }
+
     Ok(())
 }
