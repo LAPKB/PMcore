@@ -25,15 +25,17 @@ fn main() -> Result<()> {
             fetch_params!(p, _ke0);
             y[0] = x[0] / 50.0;
         },
-        (2, 1),
         10000,
-    );
+    )
+    .with_nstates(2)
+    .with_ndrugs(1)
+    .with_nout(1);
 
     let params = Parameters::new().add("ke0", 0.001, 2.0);
 
-    let ems = ErrorModels::new().add(
+    let ems = AssayErrorModels::new().add(
         0,
-        ErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
     )?;
 
     let mut settings = Settings::builder()
