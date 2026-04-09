@@ -185,7 +185,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
                     let outeqs = preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>();
                     let states = preds
                         .iter()
-                        .map(|x| x.state().clone())
+                        .map(|x| x.state().to_vec())
                         .collect::<Vec<Vec<f64>>>();
 
                     tracing::debug!("\t\tTimes: {:?}", times);
