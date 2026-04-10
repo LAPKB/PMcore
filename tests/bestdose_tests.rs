@@ -21,7 +21,8 @@ fn test_infusion_mask_inclusion() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
 
@@ -136,7 +137,8 @@ fn test_fixed_infusion_preservation() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)
@@ -229,7 +231,8 @@ fn test_dose_count_validation() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
     let ems = AssayErrorModels::new().add(
@@ -299,7 +302,8 @@ fn test_empty_observations_validation() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
     let ems = AssayErrorModels::new().add(
@@ -359,7 +363,8 @@ fn test_basic_auc_mode() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
 
@@ -444,7 +449,8 @@ fn test_infusion_auc_mode() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
 
@@ -548,7 +554,8 @@ fn test_multi_outeq_auc_mode() -> Result<()> {
             y[0] = x[0] / v; // outeq 0: concentration
             y[1] = x[0]; // outeq 1: amount
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
 
@@ -618,7 +625,8 @@ fn test_multi_outeq_auc_optimization() -> Result<()> {
             y[0] = x[0] / v;
             y[1] = x[0];
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
     let error_model = AssayErrorModel::additive(ErrorPoly::new(0.0, 5.0, 0.0, 0.0), 0.0);
@@ -703,7 +711,8 @@ fn test_auc_from_zero_single_dose() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
 
@@ -787,7 +796,8 @@ fn test_auc_from_last_dose_maintenance() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
 
@@ -875,7 +885,8 @@ fn test_auc_modes_comparison() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.3, 0.3).add("v", 50.0, 50.0);
 
@@ -1004,7 +1015,8 @@ fn test_auc_from_last_dose_multiple_observations() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
 
@@ -1098,7 +1110,8 @@ fn test_auc_from_last_dose_no_prior_dose() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
 
@@ -1187,7 +1200,8 @@ fn test_dose_range_bounds_respected() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
 
@@ -1281,6 +1295,7 @@ fn one_compartment_model() -> pharmsol::ODE {
             y[0] = x[0] / v;
         },
     )
+    .with_default_cache()
 }
 
 /// Helper to build minimal settings for tests (no posterior refinement)

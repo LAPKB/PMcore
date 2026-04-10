@@ -16,7 +16,8 @@ fn test_one_compartment_npag() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     // Define parameters
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
@@ -83,7 +84,8 @@ fn test_one_compartment_npod() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     // Define parameters
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
@@ -150,7 +152,8 @@ fn test_one_compartment_postprob() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-    );
+    )
+    .with_default_cache();
 
     // Define parameters
     let params = Parameters::new().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);

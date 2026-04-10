@@ -26,7 +26,8 @@ fn main() {
             y[1] = x[0] / v;
             y[2] = x[1] / v2;
         },
-    };
+    }
+    .with_default_cache();
 
     let params = Parameters::new()
         .add("cls", 0.1, 10.0)
