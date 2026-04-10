@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0](https://github.com/LAPKB/PMcore/compare/v0.24.0...v0.25.0) - 2026-04-10
+
+### Added
+
+- Use pharmsol 0.25 ([#268](https://github.com/LAPKB/PMcore/pull/268))
+
+### Other
+
+- Update faer requirement from 0.23.1 to 0.24.0 ([#241](https://github.com/LAPKB/PMcore/pull/241))
+- Update rand requirement from 0.9.0 to 0.10.0 ([#244](https://github.com/LAPKB/PMcore/pull/244))
+
 ## [0.24.0](https://github.com/LAPKB/PMcore/compare/v0.23.0...v0.24.0) - 2026-04-01
 
 ### Added
