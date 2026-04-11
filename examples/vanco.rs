@@ -12,8 +12,7 @@ fn main() {
         out: |x, _p, _t, _cov, y| {
             y[0] = x[1];
         },
-    }
-    .with_default_cache();
+    };
     // same eq but analytical
     // let eq = Equation::new_analytical(
     //     two_compartments,

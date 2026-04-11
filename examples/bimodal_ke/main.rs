@@ -13,8 +13,7 @@ fn main() -> Result<()> {
             y[1] = x[0] / v;
         },
     }
-    .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45))
-    .with_default_cache();
+    .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
 
     let params = Parameters::new()
         .add("ke", 0.001, 3.0)

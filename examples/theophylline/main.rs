@@ -11,8 +11,7 @@ fn main() {
             fetch_params!(p, _ka, _ke, v);
             y[0] = x[1] * 1000.0 / v;
         },
-    )
-    .with_default_cache();
+    );
 
     let params = Parameters::new()
         .add("ka", 0.001, 3.0)

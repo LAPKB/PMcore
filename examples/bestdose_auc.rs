@@ -19,8 +19,7 @@ fn main() -> Result<()> {
             fetch_params!(p, _ke, v);
             y[0] = x[0] / v;
         },
-    }
-    .with_default_cache();
+    };
 
     // Minimal parameter ranges
     let params = Parameters::new()

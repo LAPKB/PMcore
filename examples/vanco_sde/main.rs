@@ -27,8 +27,7 @@ fn main() {
             y[0] = x[1] / (vol * wt);
         },
         100,
-    )
-    .with_default_cache();
+    );
 
     // let ode = equation::ODE::new(
     //     |x, p, _t, dx, _rateiv, _cov| {
