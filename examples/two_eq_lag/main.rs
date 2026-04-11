@@ -20,8 +20,7 @@ fn main() {
             fetch_params!(p, _ka, _ke, _tlag, v);
             y[1] = x[1] / v;
         },
-    }
-    .with_default_cache();
+    };
     // let eq = Equation::new_analytical(
     //     one_compartment_with_absorption,
     //     |_p, _cov| {},

@@ -69,8 +69,7 @@ fn main() -> Result<()> {
             y[3] = x[3].log10();
             y[4] = x[4].log10();
         },
-    }
-    .with_default_cache();
+    };
 
     let params = Parameters::new()
         .add("v1", 5.0, 160.0)
