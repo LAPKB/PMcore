@@ -66,13 +66,21 @@ impl From<&ParameterSpace> for ParameterSpace {
     }
 }
 
+fn default_estimate() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ParameterSpec {
     pub name: String,
     pub domain: ParameterDomain,
+    #[serde(default)]
     pub transform: ParameterTransform,
+    #[serde(default)]
     pub initial: Option<f64>,
+    #[serde(default = "default_estimate")]
     pub estimate: bool,
+    #[serde(default)]
     pub variability: ParameterVariability,
 }
 
@@ -119,17 +127,19 @@ pub enum ParameterDomain {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum ParameterTransform {
+    #[default]
     Identity,
     LogNormal,
     Probit,
     Logit,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum ParameterVariability {
     FixedOnly,
+    #[default]
     Subject,
     Occasion,
     SubjectAndOccasion,

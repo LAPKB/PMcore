@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct ObservationSpec {
     pub channels: Vec<ObservationChannel>,
     pub assay_error_models: AssayErrorModels,
+    #[serde(default)]
     pub residual_error_models: Option<ResidualErrorModels>,
 }
 
@@ -46,6 +47,7 @@ impl Default for ObservationSpec {
 pub struct ObservationChannel {
     pub outeq: usize,
     pub name: String,
+    #[serde(default)]
     pub likelihood: ObservationLikelihood,
 }
 
@@ -62,6 +64,12 @@ impl ObservationChannel {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ObservationLikelihood {
     Continuous(ContinuousObservationSpec),
+}
+
+impl Default for ObservationLikelihood {
+    fn default() -> Self {
+        Self::Continuous(ContinuousObservationSpec::default())
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

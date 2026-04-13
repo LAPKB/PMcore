@@ -9,13 +9,64 @@ use serde::{Deserialize, Serialize};
 pub mod latin;
 pub mod sobol;
 
-#[derive(Debug, Deserialize, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub enum Prior {
     Sobol(usize, usize),
     Latin(usize, usize),
     File(String),
-    #[serde(skip)]
     Theta(Theta),
+}
+
+impl Serialize for Prior {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        #[serde(tag = "kind", rename_all = "snake_case")]
+        enum Ref<'a> {
+            Sobol { points: usize, seed: usize },
+            Latin { points: usize, seed: usize },
+            File { path: &'a str },
+        }
+        let wire = match self {
+            Prior::Sobol(points, seed) => Ref::Sobol {
+                points: *points,
+                seed: *seed,
+            },
+            Prior::Latin(points, seed) => Ref::Latin {
+                points: *points,
+                seed: *seed,
+            },
+            Prior::File(path) => Ref::File { path },
+            Prior::Theta(_) => {
+                return Err(serde::ser::Error::custom(
+                    "Prior::Theta cannot be serialized",
+                ))
+            }
+        };
+        wire.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Prior {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(tag = "kind", rename_all = "snake_case")]
+        enum Wire {
+            Sobol { points: usize, seed: usize },
+            Latin { points: usize, seed: usize },
+            File { path: String },
+        }
+        match Wire::deserialize(deserializer)? {
+            Wire::Sobol { points, seed } => Ok(Prior::Sobol(points, seed)),
+            Wire::Latin { points, seed } => Ok(Prior::Latin(points, seed)),
+            Wire::File { path } => Ok(Prior::File(path)),
+        }
+    }
 }
 
 impl Prior {
