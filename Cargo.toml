@@ -29,7 +29,7 @@ tracing-subscriber = { version = "0.3.19", features = [
 ] }
 faer = "0.24.0"
 pharmsol = "=0.26"
-rand = "0.9.0"
+rand = "0.10.1"
 anyhow = "1.0.100"
 rayon = "1.10.0"
 
