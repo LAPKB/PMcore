@@ -31,6 +31,7 @@ faer = "0.24.0"
 pharmsol = { git = "https://github.com/LAPKB/pharmsol", branch = "fix/pmetrics-analytical" }
 anyhow = "1.0.100"
 rayon = "1.10.0"
+rand = "0.9.0"
 
 [features]
 default = []
