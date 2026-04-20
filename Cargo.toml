@@ -28,7 +28,7 @@ tracing-subscriber = { version = "0.3.19", features = [
     "time",
 ] }
 faer = "0.24.0"
-pharmsol = { git = "https://github.com/LAPKB/pharmsol", branch = "fix/pmetrics-analytical" }
+pharmsol = "=0.26.1"
 anyhow = "1.0.100"
 rayon = "1.10.0"
 rand = "0.9.0"
