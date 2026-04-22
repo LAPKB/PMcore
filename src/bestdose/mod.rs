@@ -347,6 +347,13 @@ fn concatenate_past_and_future(
                 }
             }
         }
+
+        // Copy past covariates at their original times
+        for (name, covariate) in occasion.covariates().covariates() {
+            for (time, value) in covariate.observations() {
+                builder = builder.covariate(name.as_str(), time, value);
+            }
+        }
     }
 
     // Add future events with effective offset
@@ -376,6 +383,13 @@ fn concatenate_past_and_future(
                         None => builder,
                     };
                 }
+            }
+        }
+
+        // Copy future covariates with their times shifted by the effective offset
+        for (name, covariate) in occasion.covariates().covariates() {
+            for (time, value) in covariate.observations() {
+                builder = builder.covariate(name.as_str(), time + effective_offset, value);
             }
         }
     }
