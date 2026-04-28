@@ -48,7 +48,13 @@ impl NonparametricEngine {
 fn input_from_compiled_problem<E: Equation + Clone + Send + 'static>(
     problem: CompiledProblem<E>,
 ) -> Result<NonparametricAlgorithmInput<E>> {
-    let EstimationMethod::Nonparametric(method) = problem.method();
+    let method = match problem.method() {
+        EstimationMethod::Nonparametric(method) => method,
+        other => anyhow::bail!(
+            "nonparametric engine received parametric method: {:?}",
+            other
+        ),
+    };
     let output = problem.output_plan().clone();
     let runtime = problem.runtime_options().clone();
     let (model, data) = problem.into_parts();

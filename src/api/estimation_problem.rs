@@ -17,12 +17,14 @@ use crate::model::ModelDefinition;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EstimationMethod {
     Nonparametric(NonparametricMethod),
+    Parametric(ParametricMethod),
 }
 
 impl EstimationMethod {
     pub fn algorithm(self) -> Algorithm {
         match self {
             EstimationMethod::Nonparametric(method) => method.algorithm(),
+            EstimationMethod::Parametric(method) => method.algorithm(),
         }
     }
 }
@@ -39,6 +41,7 @@ impl Serialize for EstimationMethod {
         }
         let (family, algorithm) = match self {
             EstimationMethod::Nonparametric(np) => ("nonparametric", np.name()),
+            EstimationMethod::Parametric(p) => ("parametric", p.name()),
         };
         Wire { family, algorithm }.serialize(serializer)
     }
@@ -64,9 +67,14 @@ impl<'de> Deserialize<'de> for EstimationMethod {
                         wire.algorithm
                     ))
                 }),
-            "parametric" => Err(serde::de::Error::custom(
-                "parametric methods are not available in unified-platform-structure",
-            )),
+            "parametric" => ParametricMethod::from_name(&wire.algorithm)
+                .map(EstimationMethod::Parametric)
+                .ok_or_else(|| {
+                    serde::de::Error::custom(format!(
+                        "unknown parametric algorithm: {}",
+                        wire.algorithm
+                    ))
+                }),
             other => Err(serde::de::Error::custom(format!(
                 "unknown method family: {}",
                 other
@@ -111,6 +119,42 @@ impl NonparametricMethod {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParametricMethod {
+    Saem(SaemOptions),
+    Focei(FoceiOptions),
+    It2b(It2bOptions),
+}
+
+impl ParametricMethod {
+    pub fn algorithm(self) -> Algorithm {
+        match self {
+            ParametricMethod::Saem(_) => Algorithm::SAEM,
+            ParametricMethod::Focei(_) => Algorithm::FOCEI,
+            ParametricMethod::It2b(_) => Algorithm::IT2B,
+        }
+    }
+
+    /// Wire name for this algorithm (lowercase).
+    pub fn name(&self) -> &'static str {
+        match self {
+            ParametricMethod::Saem(_) => "saem",
+            ParametricMethod::Focei(_) => "focei",
+            ParametricMethod::It2b(_) => "it2b",
+        }
+    }
+
+    /// Construct from a wire name (case-insensitive).
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name.to_lowercase().as_str() {
+            "saem" => Some(ParametricMethod::Saem(SaemOptions)),
+            "focei" => Some(ParametricMethod::Focei(FoceiOptions)),
+            "it2b" => Some(ParametricMethod::It2b(It2bOptions)),
+            _ => None,
+        }
+    }
+}
+
 // =============================================================================
 // Algorithm option marker types
 // =============================================================================
@@ -123,6 +167,15 @@ pub struct NpodOptions;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PostProbOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SaemOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FoceiOptions;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct It2bOptions;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]

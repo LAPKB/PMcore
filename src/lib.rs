@@ -1,7 +1,6 @@
 //! PMcore is a framework for developing and running population pharmacokinetic algorithms.
 //!
-//! The structure branch keeps the refactored platform surface together with the baseline
-//! non-parametric workflows that existed on `main`.
+//! This branch layers the parametric estimators onto the structure-branch baseline.
 //!
 //! # Algorithm Types
 //!
@@ -10,6 +9,12 @@
 //! - NPAG (Non-Parametric Adaptive Grid)
 //! - NPOD (Non-Parametric Optimal Design)
 //! - POSTPROB (Posterior probability reweighting)
+//!
+//! ## Parametric Algorithms
+//! Represent the population distribution as a continuous distribution.
+//! - SAEM (Stochastic Approximation Expectation-Maximization)
+//! - FOCEI (First-Order Conditional Estimation with Interaction)
+//! - IT2B (Iterative Two-Stage Bayesian)
 //!
 //! # Public API
 //!
@@ -63,14 +68,24 @@ pub mod prelude {
     pub use crate::api::fit_with_progress;
     pub use crate::api::{
         AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, FitProgress,
-        LoggingLevel, LoggingOptions, ModelDefinition, NonparametricCycleProgress,
-        NonparametricMethod, NpagOptions, NpodOptions, OutputPlan, PostProbOptions,
-        RuntimeOptions,
+        FoceiOptions, It2bOptions, LoggingLevel, LoggingOptions, ModelDefinition,
+        NonparametricCycleProgress, NonparametricMethod, NpagOptions, NpodOptions, OutputPlan,
+        ParametricMethod, PostProbOptions, RuntimeOptions, SaemOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
         CycleLog, NPCycle, NPPredictions, NonparametricEngine, NonparametricWorkspace, Posterior,
         Psi, Theta, Weights,
+    };
+    pub use crate::estimation::parametric::{
+        aic, bic, cache_predictions, compile_model_state, fim, fim_inverse, fim_method, has_fim,
+        has_standard_errors, importance_sampling_likelihood_estimates, phi_to_psi, psi_to_phi,
+        rse_mu, se_mu, se_omega, shrinkage, statistics, subject_conditionals_from_eta_samples,
+        uncertainty_estimates, write_statistics, CovarianceStructure, EtaTable, EtaVector,
+        FimMethod, FixedEffects, Individual, IndividualEffectsState, IndividualEstimates,
+        KappaVector, OccasionKappa, OccasionKappaTable, ParameterTransform, ParametricEngine,
+        ParametricModelState, ParametricTransformKind, ParametricWorkspace, PhiTable, PhiVector,
+        Population, PsiTable, PsiVector, RandomEffects, ResidualState, TransformSet,
     };
     pub use crate::model::{
         ContinuousObservationSpec, CovariateEffectsSpec, CovariateModel, CovariateSpec,
@@ -88,6 +103,7 @@ pub mod prelude {
 
     pub use crate::estimation::nonparametric::{read_prior, Prior};
     pub use crate::api::SaemConfig;
+    pub use crate::estimation::parametric::{ParametricIterationLog, StepSizeSchedule, SufficientStats};
 
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;

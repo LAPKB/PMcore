@@ -5,6 +5,7 @@ use pharmsol::Equation;
 use serde::{Deserialize, Serialize};
 
 use crate::estimation::nonparametric::NonparametricWorkspace;
+use crate::estimation::parametric::ParametricWorkspace;
 use crate::output::shared::shared_output_file_names;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -23,6 +24,14 @@ pub(crate) fn nonparametric_artifacts<E: Equation>(
         result.output_folder(),
         result.should_write_outputs(),
         crate::output::nonparametric::output_file_names(result),
+    )
+}
+
+pub(crate) fn parametric_artifacts<E: Equation>(result: &ParametricWorkspace<E>) -> ArtifactIndex {
+    artifact_index(
+        result.output_folder(),
+        result.should_write_outputs(),
+        crate::output::parametric::output_file_names(result),
     )
 }
 
