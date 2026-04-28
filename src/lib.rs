@@ -1,7 +1,6 @@
 //! PMcore is a framework for developing and running population pharmacokinetic algorithms.
 //!
-//! The structure branch keeps the refactored platform surface together with the baseline
-//! non-parametric workflows that existed on `main`.
+//! This branch layers the expanded non-parametric family onto the structure-branch baseline.
 //!
 //! # Algorithm Types
 //!
@@ -10,6 +9,7 @@
 //! - NPAG (Non-Parametric Adaptive Grid)
 //! - NPOD (Non-Parametric Optimal Design)
 //! - POSTPROB (Posterior probability reweighting)
+//! - NPBO, NPCAT, NPCMA, NPOPT, NPPSO, NPSAH, NPSAH2, NPXO, NEXUS
 //!
 //! # Public API
 //!
@@ -63,9 +63,10 @@ pub mod prelude {
     pub use crate::api::fit_with_progress;
     pub use crate::api::{
         AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, FitProgress,
-        LoggingLevel, LoggingOptions, ModelDefinition, NonparametricCycleProgress,
-        NonparametricMethod, NpagOptions, NpodOptions, OutputPlan, PostProbOptions,
-        RuntimeOptions,
+        LoggingLevel, LoggingOptions, ModelDefinition, NexusOptions, NonparametricCycleProgress,
+        NonparametricMethod, NpagOptions, NpboOptions, NpcatOptions, NpcmaOptions,
+        NpodOptions, NpoptOptions, NppsoOptions, Npsah2Options, NpsahOptions, NpxoOptions,
+        OutputPlan, PostProbOptions, RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
