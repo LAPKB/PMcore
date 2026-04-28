@@ -11,6 +11,17 @@ use rand_distr::{Distribution, Normal};
 const MIC:f64 = 10.0;
 const LLQ:f64 = 4.0;
 
+/* fn drug_effect_on_k() returns the k + a standard e50 model
+ */
+fn drug_effect_on_k(alpha:f64, p:f64, e50:f64, e_now:f64, slope:f64) -> f64 {
+    // p in (0,1)
+    // other parameter range and error checking is not necesssary
+    if p < 0.0 || p > 1.0 {
+        println!("invalid p <p>; returns 0.0");
+    }
+    1.0 + alpha * p /(1.0 + ((e50 - e_now)/slope).exp())
+}
+
 fn main() -> Result<()> {
     let _eq = equation::ODE::new(
         |x, p, t, dx, rateiv, cov| {
@@ -111,46 +122,81 @@ fn main() -> Result<()> {
 
     let eq = equation::SDE::new(
         |x, p, t, dx, rateiv, cov| {
-            /*
-            prior to working on drift:
-            fetch_params!(p, ke0, kcp, kpc, v0, _ske, _svol);
-            fetch_cov!(cov,t,wt,crcl);
-            dx[0] = ke0 - x[0]; // mean reverting sde
-            dx[1] = v0 - x[1];
-            let ke = x[0]; // use ke = ke0, if SDE in only on volume.
-            let _vol = x[1]* (wt/70.0);
-            // let kpc = well * kcp;
-            // let norm_wt = wt/70.0;
-            // let kel = ke * norm_wt.powf(-0.25) * (0.2145/scr).powf(1.1776);
-            let k_e = ke * (wt/70.0).powf(-0.25) * (crcl/120.0); 
-            dx[2] = rateiv[0] - ( k_e + kcp) * x[2] + kpc * x[3];
-            dx[3] = kcp * x[2] - kpc * x[3];
-            */
-            fetch_params!(p, ke0, kcp0, v0, alpha_ke, conc_central_eff, tau_kel_reversion, ke_slope, ke_vs_crcl, conc_peri_eff, tau_auc, tau_mic, tau_p_periph_eff, _p_periph_eff_0, _ske, _svol); // , conc_peri_eff); // , alpha_ke, conc_peri_eff);
+            fetch_params!(p, v0, ke0, kcp0, kpc0 // non-infected state
+                , ke_vs_crcl // dependence on covariates
+                , _p_periph_eff_0 // prob of infection effect on pk parameters at start of treatment
+                , tau_p_periph_eff // x_7(t=0); relative strength of infection
+                , _p_cent_eff_0
+                , tau_p_cent_eff
+                , tau_mic // strength of infection (t) is ~ percent time above or below MIC
+                , conc_central_eff // drug E50 for k_e and k_cp
+                , alpha_ke , ke_slope 
+                , alpha_kcp, kcp_slope
+                , tau_auc // peripheral drug exposure is related to integrated difference in drug concentration between periphery and center
+                , conc_peri_eff // drug E50 for kpc
+                , alpha_kpc // kpc_slope=1.75
+                , kpc_e50
+                , tau_kel_reversion, tau_kcp_reversion, tau_kpc_reversion
+                // , _ske
+                // , _svol
+                );
             fetch_cov!(cov,t,wt,crcl); // automatically interpolates, so you need t
 
             dx[1] = v0 - x[1]; // mean reverting sde
             let vol = x[1] * (wt/70.0);
             let vanc_conc = x[2]/vol;
-            let k_e_mean = ke0 * ke_vs_crcl * crcl * (wt/70.0).powf(-0.25)
-                * (1.0 + alpha_ke/(1.0 + ((conc_central_eff - vanc_conc)/ke_slope).exp()));
-            // dx[0] = ke0 - x[0]; // mean reverting to ke0
-            dx[0] =  (k_e_mean - x[0])/tau_kel_reversion; // 168  336  504  672  840 1008 1176 1344 1512 1680
-            let k_e = x[0]; //  * (wt/70.0).powf(-0.25) * ke_vs_crcl * crcl; // k_e_mean is normalized to wt and crcl
+
+            let p_inf_periph = 1.0 /(1.0 + ((x[7] - 0.5)/0.08).exp()); // map x[7] in (-infty,+infty) to (1,0); for effect fully on until treatment is efficacious; 
+            let p_inf_central = 1.0 /(1.0 + ((0.5 - x[11])/0.08).exp()); // map x[11] to (0,1)
+
+            let k_e_mean = ke0 * ke_vs_crcl * crcl * (wt/70.0).powf(-0.25) // k_e_mean is normalized to wt and crcl
+                * drug_effect_on_k(alpha_ke,p_inf_central,conc_central_eff,vanc_conc,ke_slope);
+            dx[0] =  (k_e_mean - x[0])/tau_kel_reversion;
+            let k_e = x[0];
+
             /*
-                For k_e we can have two more r.v.s, slope of effect in k_e_mean and integration tau in mean reversion
-            */
-            // /*
-                let a_kcp = x[7] / (1.0 + x[5]); // or this: 
                 // let a_kcp = x[7] * conc_peri_eff / (conc_peri_eff + x[5]);
+                let a_kcp = x[7] / (1.0 + x[5]); // or this: 
                 let k_cp = kcp0 * a_kcp;
                 let k_pc = 1.0; 
-            // */ // This block is for the effect on kcp; below code rewrites the above.
-            /* // parameter names are still w.r.t effect on k_cp, so the only change outside of this function is
-            // the parameter ranges.
-            let a_k_cp = x[7];
-            let a_kpc = x[5]/conc_peri_eff; // ~ (AUC_Dt /IC)
-            */
+            */ // This block is for the effect on kcp only; below code rewrites the above to have effect on kcp and kpc.
+            /* This block has notes
+            4/3/2026 to 4/10/2026
+                k_cp should be modeled similar to k_el, with a delayed response to a concentration dependent expected effect (exposure)
+                k_pc should be modeled with an AUC/MIC model, b/c the amount that enters the periphery (exposure) is
+                    dependent on the integrated difference of peripheral and blood concentrations (but peripheral
+                    concentration is an `imagined' variable.)
+                note: https://www.sciencedirect.com/topics/medicine-and-dentistry/vancomycin 
+                      https://pharmacologymentor.com/pharmacology-of-vancomycin/
+                      1) vancomycin is large, not readily absobed. AUC/MIC effect on gram+ (thick cell walled pathogens)
+                      2) 80-90% renal excretion (unchanged)
+                      3) typically: 25-30mg/kg loading dose, 15-20mg/kg maintenance; troughs of 10-20mg/kg or AUC/MIC>400
+                          monitored after 3-5 doses
+                      4) 
+                equations:
+                {
+                    let k_cp_mean = kcp0
+                            * x[7] // positive dependence on %t<C_eff, IF there is a blood infection.
+                            * (1.0 + alpha_kcp/(1.0 + ((conc_cp_eff - vanc_conc)/kcp_slope).exp()));
+                        dx[8] =  (k_cp_mean - x[8])/tau_kcp_reversion;
+                        k_cp = x[8];
+                    let a_kpc = x[5] / conc_peri_eff; // AUC_Dt/C_eff ... this needs to be sigmoidal, too ... w/eff-> k_pc0
+                    let k_pc = a_kpc * k_pc0;
+                } // conceptual development
+            */ //
+            let k_cp_mean = kcp0 *
+                    drug_effect_on_k(alpha_kcp,p_inf_central,conc_central_eff,vanc_conc,kcp_slope);
+                dx[8] =  (k_cp_mean - x[8])/tau_kcp_reversion;
+            let k_cp = x[8];
+
+            let kpc_slope = 3.5;
+            let kpc_eff_e50 = kpc_e50;
+            let k_pc_mean = kpc0 *
+                    drug_effect_on_k(alpha_kpc,p_inf_periph,kpc_eff_e50,x[5]/conc_peri_eff,kpc_slope);
+            let _k_pc_mean = if t > 40.0 {kpc0} else {alpha_kpc * kpc0};
+                dx[9] =  (k_pc_mean - x[9])/tau_kpc_reversion;
+            let k_pc = x[9];
+            // */
 
 
             // user defined two-comp model
@@ -158,52 +204,120 @@ fn main() -> Result<()> {
             dx[2] =  d_mg;
             dx[3] = k_cp * x[2] - k_pc * x[3];
 
-            // time>MIC, running AUC, other stats
+            // time> or time< MIC, running AUC, other stats
             dx[5] = (d_mg/vol) - x[5]/tau_auc; //  "/4.8;" // AUC(t-24) total  
-            let tau_gt_conc_eff = tau_mic; // 2.4; // tau_auc; // 2.4; 2.4 was for all subjects prior to 8
+            
+            let tau_gt_conc_eff = tau_mic; // 
+            let x_4 = if x[4] < 0.0 { 0.0 } else { x[4] };
+            let x_6 = if x[6] < 0.0 { 0.0 } else { x[6] };
             if vanc_conc >= conc_peri_eff {
-                dx[4] = 1.0 - x[4]/tau_gt_conc_eff; // 33.6Hr is a leaky integrator w/5*tau ~ 1 week
-                dx[6] = -1.0 * x[6]/tau_gt_conc_eff; 
+                dx[4] = 1.0 - x_4/tau_gt_conc_eff; // 33.6Hr is a leaky integrator w/5*tau ~ 1 week
+                dx[6] = -1.0 * x_6/tau_gt_conc_eff; 
             } else {
-                dx[4] = -1.0 * x[4]/tau_gt_conc_eff;
-                dx[6] = 1.0 - x[6]/tau_gt_conc_eff;
-            }         
-            // if t > 24.0 { // this has to start from t=0, so initialize x_6 = 1.0e-8 float at t=0.
-                if x[7] > 0.05 {
-                    dx[7] = x[6]/(x[4] + x[6]) - x[7] / tau_p_periph_eff;
+                dx[4] = -1.0 * x_4/tau_gt_conc_eff;
+                dx[6] = 1.0 - x_6/tau_gt_conc_eff;
+            }  
+            // let tau_gt_conc_eff = tau_mic; // all time constants on EC are the same
+            let x_10 = if x[10] < 0.0 { 0.0 } else { x[10] };
+            let x_12 = if x[12] < 0.0 { 0.0 } else { x[12] };
+            if vanc_conc >= conc_central_eff {
+                dx[10] = 1.0 - x_10/tau_gt_conc_eff;
+                dx[12] = -1.0 * x_12/tau_gt_conc_eff; 
+            } else {
+                dx[10] = -1.0 * x_10/tau_gt_conc_eff;
+                dx[12] = 1.0 - x_12/tau_gt_conc_eff;
+            }
+            //
+            // if t > 24.0 { // this has to start from t=0, so initialize x_6 = 1.0e-8 and x_4 = 0.0 at t=0.
+                if x[7] > 0.05 { // infection can't recover at this point
+                    let _rel_time_lt_eff = x_6/(x_4 + x_6); // relative %time < concentration required _in_blood_ to have a _peripheral_ kill effect on pathogen
+                    let rel_time_gt_eff = x_4/(x_4 + x_6);
+                    let delta_eff = 1.0 /(1.0 + ((0.5 - rel_time_gt_eff)/0.08).exp()); // map to (0,1)
+                    dx[7] =  delta_eff - x[7] / tau_p_periph_eff; // *** fix the potental division by zero ***
                 } else {
                     dx[7] = - x[7] / tau_p_periph_eff; // if EFF resolved, do not allow to recur
                 }
             // } else {
             //    dx[7] = 0.0;
-            // }     
+            // }
+                if x[11] > 0.05 {
+                    let rel_time_lt_eff = x_12/(x_10 + x_12);
+                    let _rel_time_gt_eff = x_10/(x_10 + x_12);
+                    let delta_eff = 1.0/(1.0 + ((0.5 - rel_time_lt_eff)/0.08).exp());
+                    dx[11] = delta_eff - x[11] / tau_p_cent_eff;
+                } else {
+                    dx[11] = - x[11] / tau_p_cent_eff;
+                }
+            // } // if t > 24
         },
         |p, d| {
-            fetch_params!(p, _ke0, _kcp, _v0, _alpha_ke, _conc_central_eff, _tau_kel_reversion, _ke_slope, _ke_vs_crcl, _conc_peri_eff, _tau_auc, _tau_mic, _tau_p_periph_eff, _p_periph_eff_0, ske, svol);
-            d[0] = ske; // 0.0; // ske * ke0;
-            d[1] = svol; // 0.0; // svol * v0;
+            fetch_params!(p, _v0, _ke0, _kcp0, _kpc0 // non-infected state
+                , _ke_vs_crcl // dependence on covariates
+                , _p_periph_eff_0 // prob of infection effect on pk parameters at start of treatment
+                , _tau_p_periph_eff // x_7(t=0); relative strength of infection
+                , _p_cent_eff_0
+                , _tau_p_cent_eff
+                , _tau_mic // strength of infection (t) is ~ percent time above or below MIC
+                , _conc_central_eff // drug E50 for k_e and k_cp
+                , _alpha_ke , _ke_slope 
+                , _alpha_kcp, _kcp_slope
+                , _tau_auc // peripheral drug exposure is related to integrated difference in drug concentration between periphery and center
+                , _conc_peri_eff // drug E50 for kpc
+                , _alpha_kpc // kpc_slope=1.75
+                , _kpc_e50
+                , _tau_kel_reversion, _tau_kcp_reversion, _tau_kpc_reversion
+                // , _ske
+                // , svol
+                );
+            d[0] = 0.0; // ske * ke0;
+            d[1] = 0.0; // svol * v0; // svol; // svol * v0;
             // the above increments MUST match the state increments of x
         },
         |_p| lag! {},
         |_p| fa! {},
         |p, t, cov, x| {
-            fetch_params!(p, ke0, _kcp0, v0, alpha_ke, conc_central_eff, _tau_kel_reversion, ke_slope, ke_vs_crcl, _conc_peri_eff, _tau_auc, _tau_mic, _tau_p_periph_eff, p_periph_eff_0, _ske, svol); // , conc_peri_eff); // , alpha_ke, conc_peri_eff);
+            fetch_params!(p, v0, ke0, kcp0, kpc0 // non-infected state
+                , ke_vs_crcl // dependence on covariates
+                , p_periph_eff_0 // prob of infection effect on pk parameters at start of treatment
+                , _tau_p_periph_eff // x_7(t=0); relative strength of infection
+                , p_cent_eff_0
+                , _tau_p_cent_eff
+                , _tau_mic // strength of infection (t) is ~ percent time above or below MIC
+                , conc_central_eff // drug E50 for k_e and k_cp
+                , alpha_ke , ke_slope 
+                , alpha_kcp, kcp_slope
+                , _tau_auc // peripheral drug exposure is related to integrated difference in drug concentration between periphery and center
+                , _conc_peri_eff // drug E50 for kpc; AUC/conc_peri_eff ... but because AUC=0 during init conc_peri_eff is not needed
+                , alpha_kpc // kpc_slope=1.75
+                , kpc_e50
+                , _tau_kel_reversion, _tau_kcp_reversion, _tau_kpc_reversion
+                // , _ske
+                // , svol
+                );
             fetch_cov!(cov,t,wt,crcl); // automatically interpolates, so you need t
             /*
             let normal_ke = Normal::new(ke0, ske*ke0).unwrap();
             x[0] = normal_ke.sample(&mut rand::rng()); // k0 +/- s1
             */
-            let normal_v = Normal::new(v0, svol*v0).unwrap();
-            x[1] = normal_v.sample(&mut rand::rng()); // v0 +/- s2
-            
             x[0] = ke0 * (1.0 + alpha_ke/(1.0 + (conc_central_eff/ke_slope).exp())) * ke_vs_crcl * crcl * (wt/70.0).powf(-0.25);
-            // x[1] = v0;
+            // let normal_v = Normal::new(v0, svol*v0).unwrap();
+            // x[1] = normal_v.sample(&mut rand::rng()); // v0 +/- s2
+            x[1] = v0;
             x[2] = 0.0; // central compartment
             x[3] = 0.0; // peripheral compartment
             x[4] = 0.0; // time >= conc_peri_eff
-            x[5] = 0.0; // (total AUC / 4.8) -> AUC(t-24Hr)
-            x[6] = 1.0e-8; // time < conc_peri_eff
-            x[7] = p_periph_eff_0;
+            x[5] = 0.0; // (total AUC / tau_auc) if (tau_auc == 4.8) -> AUC(t-24Hr)
+            x[6] = 1.0e-8; // time < or > conc_peri_eff
+            x[7] = p_periph_eff_0; // -> x_6/(x_4 + x_6)
+            x[8] = kcp0 *
+                    drug_effect_on_k(alpha_kcp,x[7],conc_central_eff,0.0,kcp_slope); // k_cp_mean
+            let kpc_slope = 1.75;
+            let kpc_eff_e50 = kpc_e50; // units in AUC/C_eff
+            x[9] = kpc0 *
+                    drug_effect_on_k(alpha_kpc,x[7],kpc_eff_e50,0.0,kpc_slope);
+            x[10] = 0.0;
+            x[11] = p_cent_eff_0;
+            x[12] = 1.0e-8;
         },
         |x, _p, t, cov, y| {
             // fetch_params!(p, _ke0, _kcp, _kpc, v0);
@@ -214,8 +328,8 @@ fn main() -> Result<()> {
 
             y[0] = x[2]/vol;
         },
-        (8, 1),
-        271,
+        (13, 1),
+        1,
     );
 /*
     let supp_point = vec![0.0676, 0.00108, 2.06, 55.1, 4.50, 18.4, 229.0, 0.396]; 
@@ -232,176 +346,162 @@ fn main() -> Result<()> {
    for s in sim{
     println!("time {} : {}", s.time(), s.prediction());
    }
+*/ // simulate a single point
+
+let mut settings = Settings::new();
+
+// First pass for the drug effect on both kcp and kpc for ID5 
+/*
+let params = Parameters::builder()
+        .add("v0", 20.0, 170.0, true) //
+        .add("ke0", 1.0e-4, 5.0, true)
+        .add("kcp0", 1.0e-4, 5.0, true)
+        .add("kpc0", 1.0e-4, 5.0, true)
+        .add("ke_vs_crcl", 1.0e-2, 1.0, true)
+        .add("p_periph_eff_0", 0.0, 1.0, true)
+        .add("tau_p_periph_eff", 12.0, 36.0, true) 
+        .add("p_cent_eff_0", 0.0, 1.0, true)
+        .add("tau_p_cent_eff", 1.2, 4.8, true) 
+        .add("tau_mic", 1.2, 12.0, true) // 4.8
+        .add("conc_central_eff", LLQ, 2.5*MIC, true)
+        .add("alpha_ke", -1.0, 0.0, true)//
+        .add("ke_slope", 1.0e-3, 2.0, true) // 2.0
+        .add("alpha_kcp", -1.0, 2.0, true)//
+        .add("kcp_slope", 1.0e-3, 2.0, true) // 2.0
+        .add("tau_auc", 1.2, 4.8, true) // 9.6
+        .add("conc_peri_eff", LLQ, 2.5*MIC, true) // 2.5*MIC
+        .add("alpha_kpc", -1.0, 0.0, true)//
+        .add("kpc_E50", 25.0,200.0, true)
+        .add("tau_kel_reversion", 1.2, 4.8, true) // 1.2,(4.8, 16.0)
+        .add("tau_kcp_reversion", 1.2, 4.8, true) // 1.2,(4.8, 16.0)
+        .add("tau_kpc_reversion", 1.2, 4.8, true) // 1.2,(4.8, 16.0)
+        // .add("ske", 0.0001, 0.5, true)
+        // .add("svol", 0.0001, 2.5, true) // SDE requires sigmas ... but ODE does not
+        .build()
+        .unwrap();
+
+    /* These values are promising. But has bias to lower predction than desirable.
+v0                  67.31542 <- (20, 170)
+ke0               0.01040365 <- (1e-4, 5.0)
+kcp0                0.890867
+kpc0               0.9596441
+ke_vs_crcl        0.09530507
+p_periph_eff_0     0.4765192
+tau_p_periph_eff    13.96161
+p_cent_eff_0       0.4965554
+tau_p_cent_eff      3.404261
+tau_mic             6.679888
+conc_central_eff    24.84556
+alpha_ke          -0.6692032
+ke_slope            1.141451
+alpha_kcp           1.889691
+kcp_slope          0.2936495
+tau_auc             2.009533
+conc_peri_eff        14.4272
+alpha_kpc         -0.3333533
+kpc_E50             38.14727
+tau_kel_reversion   1.556242
+tau_kcp_reversion   3.267712
+tau_kpc_reversion   3.823672
+svol                    0.25  
+     */
 */
-    let mut settings = Settings::new();
+// /* 
+let params = Parameters::builder()
+        // .add("v0", 67.3, 67.33084, true) //
+        .add("v0", 20.0, 67.33084, true) //
+        .add("ke0", 1.0e-2, 1.08073e-2, true)
+        .add("kcp0", 8.9e-1, 8.91734e-1, true)
+        .add("kpc0", 9.59e-1, 9.602881e-1, true)
+        .add("ke_vs_crcl", 9.5e-2, 9.561014e-2, true)
+        .add("p_periph_eff_0", 0.47, 0.4830382, true)
+        .add("tau_p_periph_eff", 13.9, 14.92322, true) 
+        .add("p_cent_eff_0", 0.49, 0.5031108, true)
+        .add("tau_p_cent_eff", 3.4, 3.408522, true) 
+        .add("tau_mic", 6.67, 6.89776, true) // 4.8
+        .add("conc_central_eff", 24.8, 24.89112, true)
+        .add("alpha_ke", -0.6784064, -0.66, true)//
+        .add("ke_slope", 1.14, 1.142902, true) // 2.0
+        .add("alpha_kcp", 1.8, 1.979382, true)//
+        .add("kcp_slope", 0.29, 0.2972990, true) // 2.0
+        .add("tau_auc", 2.0, 2.019066, true) // 9.6
+        .add("conc_peri_eff", 14.0, 14.8344, true) // 2.5*MIC
+        .add("alpha_kpc", -0.3367066, -0.33, true)//
+        .add("kpc_E50", 38.0,38.29454, true)
+        .add("tau_kel_reversion", 1.5, 1.612484, true) // 1.2,(4.8, 16.0)
+        .add("tau_kcp_reversion", 3.2, 3.335424, true) // 1.2,(4.8, 16.0)
+        .add("tau_kpc_reversion", 3.8, 3.847344, true) // 1.2,(4.8, 16.0)
+        // .add("ske", 0.0001, 0.5, true)
+        // .add("svol", 0.0001, 2.5, true) // SDE requires sigmas ... but ODE does not
+        .build()
+        .unwrap();
+   // */ // before playing w/the tau_..._reversions
+
 
 /*
-    let params = Parameters::builder()
-        .add("ke0", 1.023e-6, 1.027, true)
-        .add("kcp", 1.0e-8, 1.5, true)
-        // .add("kpc", 0.01, 4.0, true) // fix at 1.0 because all that matters is ratio
-        .add("v0", 14.7, 75.1, true)
-        .add("alpha_ke", -0.5, 4.5, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
-        .add("conc_central_eff", MIC, 3.0*MIC, true)
-        .add("tau_kel_reversion", 4.8,67.2 , true)
-        .add("ke_slope", 1.5, 6.0, true)
-        .add("conc_peri_eff", MIC, 3.0*MIC, true)
-        .add("tau_auc", 4.8, 33.6, true)
-        .add("tau_p_periph_eff", 4.8, 33.6, true)
-        .add("p_periph_eff_0", 1.0e-12, 1.0, true)
-        // .add("ncrcl", 20.0, 150.0, true)
-        // .add("ske", 0.0001, 0.5, true)
-        // .add("svol", 0.0001, 0.5, true) // SDE requires sigmas ... but ODE does not
-        .build()
-        .unwrap();
- */    // ID 2 and 3
-
-/* ID 5 temp values for first 6 observations
-0.16842868441205025,0.6186445989606953,59.12515146613121,2.0393963661193846,15.019012093544006,
-6.8912396383285515,3.087835167527199,0.0022051507949068425,23.218577980995178,14.402883982658388,
-10.4601893863678,5.298442543029785,0.9373295783996582,1
-
-ID 5 middle observations
-0.02086441670963287,1.1940279259089468,59.12837776947021,1.396260947098732,18.37471956611872,
-15.88111696639061,2.4628564720749857,0.010865467841494083,15.112705895018578,16.283026878643035,
-24.604715196418763,27.4619341135025,0.6004384756088257,1
-
-0.020864515166282654,1.1934531061649323,59.11203517913818,1.4309060943126677,25.968996047973633
-15.825645852088929,2.4720661640167236,0.010862913467884063,15.258760118484497,16.28193719983101,
-24.622047674655914,27.426012539863585,0.2510455846786499,1
-
- */
-/* best description for ID 5
-
-    let params = Parameters::builder()
-        .add("ke0", 5.92768892e-4, 5.92768893e-4, true)
-        .add("kcp0", 2.0181786680221, 2.0181786680222, true)
-        .add("v0", 119.60780, 119.60781, true)
-        .add("alpha_ke", 1.69322331571, 1.69322331572, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
-        .add("conc_central_eff", 11.565801143, 11.565801144, true)
-        .add("tau_kel_reversion", 1.2501105308,1.2501105309, true)
-        .add("ke_slope", 0.5532256007194, 0.5532256007195, true)
-        .add("ke_vs_crcl", 0.30805915, 0.30805916, true)
-        .add("conc_peri_eff", 7.75372576713,7.75372576714, true)
-        .add("tau_auc", 1.667665243148803, 1.667665243148804, true) // 10.4 to 2.4
-        .add("tau_mic", 2.644729700088, 2.644729700089, true)
-        .add("tau_p_periph_eff", 3.222090, 3.222100, true)
-        .add("p_periph_eff_0", 0.86, 0.8628, true)
-        // .add("ske", 0.0001, 0.5, true)
-        // .add("svol", 0.0001, 0.5, true) // SDE requires sigmas ... but ODE does not
-        .build()
-        .unwrap();
-
-ke0,kcp0,
-0.00058462845993042,1.9300028228759765,
-v0,
-119.60780568122864,
-alpha_ke,conc_central_eff,tau_kel_reversion,ke_slope,ke_vs_crcl,
-1.6932233157157899,11.56580114364624,1.2501105308532707,0.5532256007194519,0.3080591559410095,
-conc_peri_eff,tau_auc,tau_mic,tau_p_periph_eff,p_periph_eff_0,prob
-7.75372576713562,1.6676652431488035,2.6447297000885013,3.354799690246582,0.8614429724216461,1
- */
-
-// FITS ID 2 (op plot w/slope approx. 1, and small shift to underprediction; but
-//.   still w/+ slope in (pred - out) ~ time, approx. (+1 - -1)/171Hrs)
-// ke0,kcp0,v0,
-// alpha_ke,conc_central_eff,tau_kel_reversion,ke_slope,ke_vs_crcl,
-// conc_peri_eff,tau_auc,tau_mic,tau_p_periph_eff,p_periph_eff_0,prob
-//
-// 0.9853662637182236,0.008041634697699546,38.87368631362915,
-// 0.13532614707946777,24.79432713985443,1.3187536239624023,0.9581841584613323,0.0014065953274965284,
-// 23.284181237220764,43.27419118881226,18.824203491210938,58.64706716537476,0.5600688934326172,1
-//
-// FITS ID 3 (only two obs, not perfect, not perfect, but w/approx -0.145 pred-obs error)
-// 0.19902523983359335,0.014635046225619315,31.540117263793945,
-// 0.10625600814819336,14.706377744674683,8.262526702880859,0.15960874462008479,0.006551186282753944,
-// 14.514846563339233,63.44421129226685,50.554429721832285,4.794456052780152,0.17287707328796387,1
-//
-// FITS ID 5 (slope near 1), error in (-4,4)
-    /*
-     let params = Parameters::builder()
-        .add("ke0", 1.82180e-3, 1.8218034e-3, true)
-        .add("kcp0", 1.0e-2, 1.0, true)
-        // .add("kpc", 0.01, 4.0, true) // fix at 1.0 because all that matters is ratio
-        .add("v0", 100.0, 200.0, true)
-        .add("alpha_ke", 0.0, 2.0, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
-        .add("conc_central_eff", LLQ, MIC, true)
-        .add("tau_kel_reversion", 1.2, 12.0, true) // 1.2,(4.8, 16.0)
-        .add("ke_slope", 1.0, 4.0, true) // 2.0
-        .add("ke_vs_crcl", 1.0e-2, 1.0, true)
-        .add("conc_peri_eff", MIC, 2.5*MIC, true) // 2.5*MIC
-        .add("tau_auc", 1.2, 48.0, true) // 9.6
-        .add("tau_mic", 1.2, 48.0, true) // 4.8
-        .add("tau_p_periph_eff", 1.2, 72.0, true) // 4.8
-        .add("p_periph_eff_0", 0.0, 1.0, true)
-        // .add("ske", 0.0001, 0.5, true)
-        // .add("svol", 0.0001, 0.5, true) // SDE requires sigmas ... but ODE does not
-        .build()
-        .unwrap();
-    */
-// range above gets this, nice fit w/slope almost 1 and err in (-4,5):
-// 0.0018218021402074526,0.5832987687587737,154.68374252319336,
-// 0.3833851337432862,9.18260145187378,9.559475784301759,1.159221792221069,0.1383254086971283,
-// 10.671962022781372,19.351201400756835,9.106321506500244,28.16787202835083,0.2264639377593994,1
-//
-// restricted to above point and got this w/(p(periph eff) in (0,1))
-// 0.001821800010631876,0.5832987687167709,154.68374280158494,
-// 0.3833887740838528,9.182601460600615,9.55947883309126,1.1592217919900196,0.13832540903716903,
-// 10.671962021821093,19.351201401305868,9.10632150602916,28.167872028336106,0.09113597869873047,1
-
-// /* Final parameter ranges for ID 5: 3/31/2026 ... add the stochastic element:
-     let params = Parameters::builder()
-        .add("ke0", 1.82180e-3, 1.82180428e-3, true)
-        .add("kcp0", 5.832987687e-1, 5.832987688e-1, true)
-        // .add("kpc", 0.01, 4.0, true) // fix at 1.0 because all that matters is ratio
-        .add("v0", 154.683742, 154.683743, true)
-        .add("alpha_ke", 0.38338, 0.38339, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
-        .add("conc_central_eff", 9.1826014, 9.1826015, true)
-        .add("tau_kel_reversion", 9.55947, 9.55948, true) // 1.2,(4.8, 16.0)
-        .add("ke_slope", 1.15922179, 1.15922179444, true) // 2.0
-        .add("ke_vs_crcl", 1.38325408e-1, 1.38325409394e-1, true)
-        .add("conc_peri_eff", 10.67196202, 10.67196202556, true) // 2.5*MIC
-        .add("tau_auc", 19.35120140, 19.3512014015, true) // 9.6
-        .add("tau_mic", 9.106321506, 9.106321507, true) // 4.8
-        .add("tau_p_periph_eff", 28.1678720283, 28.1678720284, true) // 4.8
-        .add("p_periph_eff_0", 0.0, 1.0, true)
-        .add("ske", 0.1, 2.0, true)
-        .add("svol", 0.0001, 0.00025, true) // SDE requires sigmas ... but ODE does not
-        .build()
-        .unwrap();
-// */
-
-/* First, naive optimization to guess good set point/s:
-    // tau imply equilibrium w/in 6Hrs to 2 weeks
-    // alpha in (-1, 2.0) ~ (No renal function,  3x normal)
-    //.   renal function goes from kel0 to kel0*(1.0 + alpha)
-    // p_peripheral_eff ~ initial relative magnitude of k_cp [unobserved covariate]
-
-    let params = Parameters::builder()
-        .add("ke0", 1.0e-6, 2.0, true)
-        .add("kcp0", 1.0e-8, 1.0, true)
-        // .add("kpc", 0.01, 4.0, true) // fix at 1.0 because all that matters is ratio
-        .add("v0", 20.0, 190.0, true)
-        .add("alpha_ke", -1.0, 10.0, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+let params = Parameters::builder()
+        .add("v0", 42.0, 46.5, true)
+        .add("ke0", 7.3e-2, 7.9e-2, true)
+        .add("kcp0", 1.25, 1.31, true)
+        .add("kpc0", 3.2e-1, 3.6e-1, true)
+        .add("ke_vs_crcl", 1.0e-2, 3.0e-2, true)
+        .add("p_periph_eff_0", 0.0, 1.0, true) // x[7]
+        .add("tau_p_periph_eff", 19.2, 67.2, true)
+        .add("tau_mic", 1.2, 4.8, true) // 4.8
         .add("conc_central_eff", LLQ, 2.5*MIC, true)
-        .add("tau_kel_reversion", 1.2, 66.4, true) // 1.2,(4.8, 16.0)
-        .add("ke_slope", 1.0e-2, 4.0, true) // 2.0
-        .add("ke_vs_crcl", 1.0e-3, 2.0, true)
-        .add("conc_peri_eff", MIC, 3.5*MIC, true) // 2.5*MIC
-        .add("tau_auc", 1.2, 48.0, true) // 9.6
-        .add("tau_mic", 1.2, 48.0, true) // 4.8
-        .add("tau_p_periph_eff", 9.6, 72.0, true) // 4.8
-        .add("p_periph_eff_0", 0.0, 1.0, true)
+        .add("alpha_ke", -1.0, 0.0, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+        .add("ke_slope", 1.0e-3, 2.0, true) // 2.0
+        .add("alpha_kcp", -1.0, 0.0, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+        .add("kcp_slope", 1.0e-3, 2.0, true) // 2.0
+        .add("tau_auc", 1.2, 9.6, true) // 9.6
+        .add("conc_peri_eff", LLQ, 3.0*MIC, true) // 2.5*MIC
+        .add("alpha_kpc", -1.0, 2.0, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+        .add("kpc_E50", 25.0,200.0, true)
+        .add("tau_kel_reversion", 1.2, 4.80, true) // 1.2,(4.8, 16.0)
+        .add("tau_kcp_reversion", 1.2, 9.6, true) // 1.2,(4.8, 16.0)
+        .add("tau_kpc_reversion", 1.2, 4.80, true) // 1.2,(4.8, 16.0)
         // .add("ske", 0.0001, 0.5, true)
-        // .add("svol", 0.0001, 0.5, true) // SDE requires sigmas ... but ODE does not
+        .add("svol", 0.0001, 1.0, true) // SDE requires sigmas ... but ODE does not
         .build()
         .unwrap();
+*/ // IOS and SDE model for ID5
+
+/* // ODE model (w/alot of overhead from IOS) for subject 5
+let params = Parameters::builder()
+        .add("v0", 20.0, 120.0, true)
+        .add("ke0", 1.0e-5, 2.0, true)
+        .add("kcp0", 1.0e-4, 2.0, true)
+        .add("kpc0", 1.0e-4, 2.0, true)
+        .add("ke_vs_crcl", 1.0e-4, 2.0, true)
+        .add("p_periph_eff_0", 0.0, 1.0, true) // x[7]
+        .add("tau_p_periph_eff", 19.2, 67.2, true)
+        .add("tau_mic", 1.2, 4.8, true) // 4.8
+        .add("conc_central_eff", LLQ, 2.5*MIC, true)
+        // .add("alpha_ke", -1.0, 0.0, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+        .add("alpha_ke", -0.00001, 0.00001, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+        .add("ke_slope", 1.0e-3, 2.0, true) // 2.0
+        // .add("alpha_kcp", -1.0, 0.0, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+        .add("alpha_kcp", -0.00001, 0.00001, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+        .add("kcp_slope", 1.0e-3, 2.0, true) // 2.0
+        .add("tau_auc", 1.2, 9.6, true) // 9.6
+        .add("conc_peri_eff", LLQ, 3.0*MIC, true) // 2.5*MIC
+        // .add("alpha_kpc", -1.0, 2.0, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+        .add("alpha_kpc", -0.00001, 0.00001, true)// ke_mu in (1/2, 2x)ke0, w/E50=conc_peri_eff
+        .add("kpc_E50", 25.0,200.0, true)
+        .add("tau_kel_reversion", 1.2, 4.80, true) // 1.2,(4.8, 16.0)
+        .add("tau_kcp_reversion", 1.2, 9.6, true) // 1.2,(4.8, 16.0)
+        .add("tau_kpc_reversion", 1.2, 4.80, true) // 1.2,(4.8, 16.0)
+        // .add("ske", 0.0001, 0.5, true)
+        // .add("svol", 0.0001, 2.5, true) // SDE requires sigmas ... but ODE does not
+        .build()
+        .unwrap();
+
 */
     settings.set_parameters(params);
 
-    settings.set_prior_sampler("sobol".to_string());
-    settings.set_prior_points(147000);
-    settings.set_prior_seed(347);
+    // settings.set_prior_sampler("sobol".to_string());
+    // settings.set_prior_points(147000);
+    // settings.set_prior_seed(347);
 
     settings.set_cycles(1000);
     // settings.set_error_poly((0.1, 0.075, -0.00165, 0.0)); // MN uses 0.1,0.15 ... CV%<0.1 is an acceptiable assay ... so 0, 0.1, ... is probably "right" to use for comparing SDE to ODE solutions
@@ -411,10 +511,10 @@ conc_peri_eff,tau_auc,tau_mic,tau_p_periph_eff,p_periph_eff_0,prob
     settings.set_idelta(1.0);
 
     // for ODE use this block:
-    /*
-        settings.set_output_path("examples/vpicu_for_grant_prop/output_ode_arc"); // THIS LINE OVERWRITES THIS DIRECTORY !!!
+   //  /*
+        settings.set_output_path("examples/vpicu_for_grant_prop/output_ios_tmp"); // _arc_kel_kcp_kpc"); // THIS LINE OVERWRITES THIS DIRECTORY !!!
         settings.set_prior_sampler("sobol".to_string());
-        settings.set_prior_points(46657);
+        settings.set_prior_points(146657);
         settings.set_prior_seed(347);
         // settings.set_prior(settings::Prior {
         //    sampler: "sobol".to_string(),
@@ -422,19 +522,19 @@ conc_peri_eff,tau_auc,tau_mic,tau_p_periph_eff,p_periph_eff_0,prob
         //    seed: 347,
         //    file: None, // Some(String::from("examples/vpicu_for_grant_prop/output_ode/theta.csv")),
         // });
-    */
+    // */
 
     // for SDE use this block (Verify AG is edited to expand only in dimensions of sigma: ___ YES ___):
-    // /*
-        settings.set_output_path("examples/vpicu_for_grant_prop/output_sde_arc"); // THIS LINE OVERWRITES THIS DIRECTORY !!!
-        settings.set_prior_file(Some(String::from("examples/vpicu_for_grant_prop/output_ode_arc/theta_add_sigma.csv")));
+    /*
+        settings.set_output_path("examples/vpicu_for_grant_prop/output_ode_arc_kel_kcp_kpc"); // THIS LINE OVERWRITES THIS DIRECTORY !!!
+        settings.set_prior_file(Some(String::from("examples/vpicu_for_grant_prop/output_ode_arc_kel_kcp_kpc/theta_add_sigma.csv")));
         // settings.set_prior_file(Some(String::from("examples/vpicu_for_grant_prop/prior_first_six.csv")));
         // settings.set_prior_file(Some(String::from("examples/vpicu_for_grant_prop/output_ode/theta_w_sigma.csv")));
         // settings.set_prior_file(Some(String::from("examples/vpicu_for_grant_prop/output_ode_arc/theta.csv")));
         //
         // to optimize ONLY the sigmas, edit src/routines/expansion/adaptive_grid.rs to only expand in the dimentions of sigma
         //
-    // */
+    */
 
     setup_log(&settings)?;
     let data = data::read_pmetrics("examples/vpicu_for_grant_prop/vpicu_5.csv")?; // subj1to6.csv")?;

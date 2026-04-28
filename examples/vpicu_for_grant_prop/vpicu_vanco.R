@@ -317,7 +317,7 @@ setwd(goback)
 
 {
   theta_sde <- read_csv("/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_ode_arc/theta.csv") %>%
-    add_column(ske = 0.25, svol = 0.0000025) %>%
+    add_column(ske = 1.5, svol = 0.00025) %>%
     relocate(prob, .after = svol)
   write_csv(theta_sde,"/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_ode_arc/theta_add_sigma.csv", na = "." )
   write_csv(theta_sde,"/Users/wyamada/src/lapk/PMcore/examples/vpicu_for_grant_prop/output_sde/theta_w_sigma.csv", na = "." )
@@ -363,6 +363,15 @@ setwd(goback)
 {
   ke0 =1.0; alpha_ke = 2.0; conc_arc = 10; vanc_conc = seq(1,40)
   plot(vanc_conc, ke0 * (1.0 + alpha_ke/(1.0 + exp((conc_arc - vanc_conc))) ) )
+  
+  kpc0 = 0.5; alpha_kpc = -1;
+  x_5 = seq(1,600,2); # AUC_Dt in the rust code
+  c_periph_eff = 1.0; x_7 = 1.0; # x_7 ~ prob infection ~ (time < C_eff)_Dt
+  A = x_5 / c_periph_eff # AUC/C_eff ... vancomycin is an AUC/MIC drug
+  AUC_Dt_50 = 100
+  lines(x_5,kpc0 * (1.0 + (alpha_kpc * x_7 )/(1.0 + exp((AUC_Dt_50/c_periph_eff - A)/1.0) )))
+  abline(v = c(AUC_Dt_50))
+  
 } # -- Playing w/functions for drift equation
 
 
@@ -378,6 +387,20 @@ setwd(goback)
   aov(eat_out ~ race, data = data) # print out basic results
   mmm <- aov(eat_out ~ race, data = data) # save aov class object for further analysis
   summary(mmm)
+  
+  link="https://docs.google.com/spreadsheets/d/e/2PACX-1vQWnBpYBocA-haYIfL4H89IYNsAy490fFYlDkN8LPF-dtwLsN3bQBxEkT35CrV0HyeZTyrN7VdU8cne/pub?output=csv"
+  data <- read.csv(link, header=TRUE) %>%
+    pivot_longer(cols = c("Delta","American","United","JetBlue"), names_to = "Airline", values_to = "Flights")
+  head(data, n = 12L)
+  boxplot(Flights ~ Airline, data = data, "Flights", xlab = "Airline", ylab = "Cardinal")
+  aov(Flights ~ Airline, data = data)
+  # glm(formula = Flights ~ Airline, data = data) # nonsense. 
+  
+  
+  x1=data$Delta
+  x2=data$American
+  x3=data$United
+
 } # TD 1-way ANOVA example
 {
   t.test(x <- rnorm(n = 23, mean = 1, sd = 1.0), y = NULL,
@@ -409,6 +432,7 @@ setwd(goback)
 {
   library(factoextra)
   library(cluster)
+  library(tidyverse)
   
   link="https://docs.google.com/spreadsheets/d/e/2PACX-1vR7xrN8VKL8LUZJPYkKn303V8Tv3js6SmTn5KCiK0UO7uWEh66uHXBkczgPgo-tbO3s8iiU9GKbIxgE/pub?output=csv"
   data=read.csv(link, header=TRUE)
@@ -417,13 +441,13 @@ setwd(goback)
   y=data $ Height
   #
   plot(x,y); abline(v = c(5,12))
-  new_data <- data %>% filter(Hand > 5) %>% filter( Hand < 12)
+  new_data <- data %>% filter(Hand > 5) %>% filter( Hand < 5)
   points(new_data$Hand,new_data$Height, col = "cyan", pch = 17)
   
   set.seed(1)
   km <- kmeans(data %>% select(Height,Hand), centers = 4)
-  fviz_cluster(km, data = df[, -5],
-               palette = c("#2E9FDF", "#00AFBB", "#E7B800"), 
+  fviz_cluster(km, data = data %>% select(Hand,Height),
+               # palette = c("#2E9FDF", "#00AFBB", "#E7B800","red"), 
                geom = "point",
                ellipse.type = "convex", 
                ggtheme = theme_bw()
