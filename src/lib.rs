@@ -64,8 +64,7 @@ pub mod prelude {
     pub use crate::api::{
         AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, FitProgress,
         LoggingLevel, LoggingOptions, ModelDefinition, NonparametricCycleProgress,
-        NonparametricMethod, NpagOptions, NpodOptions, OutputPlan, PostProbOptions,
-        RuntimeOptions,
+        NonparametricMethod, NpagOptions, NpodOptions, OutputPlan, PostProbOptions, RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
@@ -86,8 +85,8 @@ pub mod prelude {
 
     pub use pharmsol;
 
-    pub use crate::estimation::nonparametric::{read_prior, Prior};
     pub use crate::api::SaemConfig;
+    pub use crate::estimation::nonparametric::{read_prior, Prior};
 
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;
