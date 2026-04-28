@@ -2,7 +2,6 @@ use anyhow::Result;
 use faer::Mat;
 use rand::prelude::*;
 use rand::rngs::StdRng;
-use rand::Rng;
 
 use crate::estimation::nonparametric::Theta;
 use crate::model::ParameterSpace;
