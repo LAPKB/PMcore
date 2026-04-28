@@ -1,8 +1,8 @@
 use anyhow::Result;
 use pharmsol::Equation;
 
-use crate::estimation::nonparametric::NonparametricWorkspace;
 use crate::estimation::nonparametric;
+use crate::estimation::nonparametric::NonparametricWorkspace;
 use crate::results::{
     nonparametric_artifacts, nonparametric_diagnostics, nonparametric_predictions, ArtifactIndex,
     DiagnosticsBundle, FitSummary, IndividualSummary, PopulationSummary, PredictionsBundle,
