@@ -10,8 +10,17 @@ use anyhow::Context;
 use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
+use nonparametric::nexus::NEXUS;
 use nonparametric::npag::*;
+use nonparametric::npbo::NPBO;
+use nonparametric::npcat::NPCAT;
+use nonparametric::npcma::NPCMA;
 use nonparametric::npod::NPOD;
+use nonparametric::npopt::NPOPT;
+use nonparametric::nppso::NPPSO;
+use nonparametric::npsah::NPSAH;
+use nonparametric::npsah2::NPSAH2;
+use nonparametric::npxo::NPXO;
 use nonparametric::postprob::POSTPROB;
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
@@ -111,8 +120,26 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
 pub enum Algorithm {
     /// Non-Parametric Adaptive Grid
     NPAG,
+    /// Non-Parametric Bayesian Optimization
+    NPBO,
+    /// Non-Parametric Categorical
+    NPCAT,
+    /// Non-Parametric CMA-ES
+    NPCMA,
     /// Non-Parametric Optimal Design
     NPOD,
+    /// Non-Parametric Optimization
+    NPOPT,
+    /// Non-Parametric Particle Swarm Optimization
+    NPPSO,
+    /// Non-Parametric Simulated Annealing Hybrid
+    NPSAH,
+    /// Non-Parametric Simulated Annealing Hybrid v2
+    NPSAH2,
+    /// Non-Parametric Cross-Over
+    NPXO,
+    /// NEXUS algorithm
+    NEXUS,
     /// Posterior Probability calculation
     POSTPROB,
 }
@@ -120,7 +147,21 @@ pub enum Algorithm {
 impl Algorithm {
     /// Check if this is a non-parametric algorithm
     pub fn is_nonparametric(&self) -> bool {
-        matches!(self, Algorithm::NPAG | Algorithm::NPOD | Algorithm::POSTPROB)
+        matches!(
+            self,
+            Algorithm::NPAG
+                | Algorithm::NPBO
+                | Algorithm::NPCAT
+                | Algorithm::NPCMA
+                | Algorithm::NPOD
+                | Algorithm::NPOPT
+                | Algorithm::NPPSO
+                | Algorithm::NPSAH
+                | Algorithm::NPSAH2
+                | Algorithm::NPXO
+                | Algorithm::NEXUS
+                | Algorithm::POSTPROB
+        )
     }
 
     /// Check if this is a parametric algorithm
@@ -417,8 +458,44 @@ pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
             let algorithm: Box<dyn Algorithms<E>> = NPAG::from_input(input)?;
             Ok(algorithm)
         }
+        NonparametricMethod::Npbo(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPBO::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npcat(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPCAT::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npcma(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPCMA::from_input(input)?;
+            Ok(algorithm)
+        }
         NonparametricMethod::Npod(_) => {
             let algorithm: Box<dyn Algorithms<E>> = NPOD::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npopt(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPOPT::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Nppso(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPPSO::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npxo(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPXO::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npsah(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPSAH::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Npsah2(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NPSAH2::from_input(input)?;
+            Ok(algorithm)
+        }
+        NonparametricMethod::Nexus(_) => {
+            let algorithm: Box<dyn Algorithms<E>> = NEXUS::from_input(input)?;
             Ok(algorithm)
         }
         NonparametricMethod::Postprob(_) => {
