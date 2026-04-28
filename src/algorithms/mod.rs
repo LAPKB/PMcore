@@ -130,7 +130,10 @@ pub enum Algorithm {
 impl Algorithm {
     /// Check if this is a non-parametric algorithm
     pub fn is_nonparametric(&self) -> bool {
-        matches!(self, Algorithm::NPAG | Algorithm::NPOD | Algorithm::POSTPROB)
+        matches!(
+            self,
+            Algorithm::NPAG | Algorithm::NPOD | Algorithm::POSTPROB
+        )
     }
 
     /// Check if this is a parametric algorithm
