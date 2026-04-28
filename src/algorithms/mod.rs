@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 
 // Module organization for algorithm types
 pub mod nonparametric;
+pub mod parametric;
 
 #[derive(Debug, Clone)]
 pub(crate) struct NonparametricAlgorithmInput<E: Equation> {
@@ -106,7 +107,7 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
 
 /// Algorithm type enumeration
 ///
-/// This enum represents the baseline algorithms available on the structure branch.
+/// This enum represents the baseline algorithms plus the parametric family.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
     /// Non-Parametric Adaptive Grid
@@ -115,6 +116,12 @@ pub enum Algorithm {
     NPOD,
     /// Posterior Probability calculation
     POSTPROB,
+    /// Stochastic Approximation Expectation-Maximization
+    SAEM,
+    /// First-Order Conditional Estimation with Interaction
+    FOCEI,
+    /// Iterative Two-Stage Bayesian
+    IT2B,
 }
 
 impl Algorithm {
@@ -125,7 +132,7 @@ impl Algorithm {
 
     /// Check if this is a parametric algorithm
     pub fn is_parametric(&self) -> bool {
-        false
+        matches!(self, Algorithm::SAEM | Algorithm::FOCEI | Algorithm::IT2B)
     }
 }
 
