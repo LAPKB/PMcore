@@ -57,8 +57,8 @@ use faer::linalg::solvers::DenseSolveCore;
 use faer::{Col, Mat};
 use ndarray::Array2;
 use pharmsol::{Data, Equation, Event, ResidualErrorModels};
+use rand::rngs::StdRng;
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
 use std::collections::HashMap;
 
 use crate::algorithms::{Status, StopReason};
@@ -255,7 +255,7 @@ pub struct FSAEM<E: Equation> {
     /// Variance floor for simulated annealing
     variance_floor: Col<f64>,
     /// Random number generator
-    rng: ChaCha8Rng,
+    rng: StdRng,
     /// Shared iteration log used for reporting and written outputs.
     iteration_log: ParametricIterationLog,
     /// Parameter transforms (φ ↔ ψ conversions)
@@ -356,7 +356,7 @@ impl<E: Equation + Send + 'static> FSAEM<E> {
         });
 
         // Random number generator
-        let rng = ChaCha8Rng::seed_from_u64(config.seed);
+        let rng = StdRng::seed_from_u64(config.seed);
 
         Ok(Box::new(Self {
             equation,

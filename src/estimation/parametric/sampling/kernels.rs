@@ -5,7 +5,7 @@ use faer::Col;
 use faer::Mat;
 use ndarray::Array2;
 use pharmsol::{Data, Equation, ResidualErrorModels};
-use rand::Rng;
+use rand::{Rng, RngExt};
 use rand_distr::{Distribution, Normal};
 
 use crate::estimation::parametric::{

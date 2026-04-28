@@ -6,8 +6,8 @@
 use anyhow::Result;
 use faer::linalg::solvers::DenseSolveCore;
 use faer::{Col, Mat};
+use rand::rngs::StdRng;
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
 use rand_distr::{Distribution, StudentT};
 use statrs::function::gamma::ln_gamma;
 
@@ -231,7 +231,7 @@ impl<'a, E: Equation> ImportanceSamplingEstimator<'a, E> {
         subjects: Vec<&Subject>,
         conditionals: &[SubjectConditionalPosterior],
     ) -> f64 {
-        let mut rng = ChaCha8Rng::seed_from_u64(self.config.seed);
+        let mut rng = StdRng::seed_from_u64(self.config.seed);
         let mut total_ll = 0.0;
 
         for (subject, conditional) in subjects.iter().zip(conditionals.iter()) {

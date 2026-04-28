@@ -332,7 +332,10 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
                         .collect::<Vec<Option<f64>>>();
                     let predictions = preds.iter().map(|x| x.prediction()).collect::<Vec<f64>>();
                     let outeqs = preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>();
-                    let states: Vec<&[f64]> = preds.iter().map(|x| x.state()).collect();
+                    let states = preds
+                        .iter()
+                        .map(|x| x.state().to_vec())
+                        .collect::<Vec<Vec<f64>>>();
 
                     tracing::debug!("\t\tTimes: {:?}", times);
                     tracing::debug!("\t\tObservations: {:?}", observations);

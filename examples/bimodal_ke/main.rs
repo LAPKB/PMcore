@@ -21,7 +21,7 @@ fn main() -> Result<()> {
             AssayErrorModels::new()
                 .add(
                     1,
-                    AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0),
+                    AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
                 )
                 .unwrap(),
         );

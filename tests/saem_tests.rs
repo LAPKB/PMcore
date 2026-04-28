@@ -320,11 +320,11 @@ fn test_saem_parameter_recovery_simple() -> Result<()> {
     let true_omega_v: f64 = 0.09; // ~30% CV for V
 
     // Generate synthetic subjects with random effects
+    use rand::rngs::StdRng;
     use rand::SeedableRng;
-    use rand_chacha::ChaCha8Rng;
     use rand_distr::{Distribution, Normal};
 
-    let mut rng = ChaCha8Rng::seed_from_u64(42);
+    let mut rng = StdRng::seed_from_u64(42);
     let normal = Normal::new(0.0, 1.0).unwrap();
 
     let n_subjects = 20;
