@@ -84,40 +84,6 @@ impl<'de> Deserialize<'de> for EstimationMethod {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ParametricMethod {
-    Saem(SaemOptions),
-    Focei(FoceiOptions),
-    It2b(It2bOptions),
-}
-
-impl ParametricMethod {
-    pub fn algorithm(self) -> Algorithm {
-        match self {
-            ParametricMethod::Saem(_) => Algorithm::SAEM,
-            ParametricMethod::Focei(_) => Algorithm::FOCEI,
-            ParametricMethod::It2b(_) => Algorithm::IT2B,
-        }
-    }
-
-    pub fn name(&self) -> &'static str {
-        match self {
-            ParametricMethod::Saem(_) => "saem",
-            ParametricMethod::Focei(_) => "focei",
-            ParametricMethod::It2b(_) => "it2b",
-        }
-    }
-
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name.to_lowercase().as_str() {
-            "saem" => Some(ParametricMethod::Saem(SaemOptions)),
-            "focei" => Some(ParametricMethod::Focei(FoceiOptions)),
-            "it2b" => Some(ParametricMethod::It2b(It2bOptions)),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NonparametricMethod {
     Npag(NpagOptions),
     Npod(NpodOptions),
@@ -148,6 +114,42 @@ impl NonparametricMethod {
             "npag" => Some(NonparametricMethod::Npag(NpagOptions)),
             "npod" => Some(NonparametricMethod::Npod(NpodOptions)),
             "postprob" => Some(NonparametricMethod::Postprob(PostProbOptions)),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParametricMethod {
+    Saem(SaemOptions),
+    Focei(FoceiOptions),
+    It2b(It2bOptions),
+}
+
+impl ParametricMethod {
+    pub fn algorithm(self) -> Algorithm {
+        match self {
+            ParametricMethod::Saem(_) => Algorithm::SAEM,
+            ParametricMethod::Focei(_) => Algorithm::FOCEI,
+            ParametricMethod::It2b(_) => Algorithm::IT2B,
+        }
+    }
+
+    /// Wire name for this algorithm (lowercase).
+    pub fn name(&self) -> &'static str {
+        match self {
+            ParametricMethod::Saem(_) => "saem",
+            ParametricMethod::Focei(_) => "focei",
+            ParametricMethod::It2b(_) => "it2b",
+        }
+    }
+
+    /// Construct from a wire name (case-insensitive).
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name.to_lowercase().as_str() {
+            "saem" => Some(ParametricMethod::Saem(SaemOptions)),
+            "focei" => Some(ParametricMethod::Focei(FoceiOptions)),
+            "it2b" => Some(ParametricMethod::It2b(It2bOptions)),
             _ => None,
         }
     }

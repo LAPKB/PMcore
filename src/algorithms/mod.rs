@@ -107,15 +107,18 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
 
 /// Algorithm type enumeration
 ///
-/// This enum represents the baseline algorithms plus the parametric family.
+/// This enum represents all available algorithms in PMcore, both non-parametric and parametric.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
+    // === Non-parametric algorithms ===
     /// Non-Parametric Adaptive Grid
     NPAG,
     /// Non-Parametric Optimal Design
     NPOD,
     /// Posterior Probability calculation
     POSTPROB,
+
+    // === Parametric algorithms ===
     /// Stochastic Approximation Expectation-Maximization
     SAEM,
     /// First-Order Conditional Estimation with Interaction
