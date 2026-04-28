@@ -17,14 +17,12 @@ use crate::model::ModelDefinition;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EstimationMethod {
     Nonparametric(NonparametricMethod),
-    Parametric(ParametricMethod),
 }
 
 impl EstimationMethod {
     pub fn algorithm(self) -> Algorithm {
         match self {
             EstimationMethod::Nonparametric(method) => method.algorithm(),
-            EstimationMethod::Parametric(method) => method.algorithm(),
         }
     }
 }
@@ -41,7 +39,6 @@ impl Serialize for EstimationMethod {
         }
         let (family, algorithm) = match self {
             EstimationMethod::Nonparametric(np) => ("nonparametric", np.name()),
-            EstimationMethod::Parametric(p) => ("parametric", p.name()),
         };
         Wire { family, algorithm }.serialize(serializer)
     }
@@ -67,14 +64,9 @@ impl<'de> Deserialize<'de> for EstimationMethod {
                         wire.algorithm
                     ))
                 }),
-            "parametric" => ParametricMethod::from_name(&wire.algorithm)
-                .map(EstimationMethod::Parametric)
-                .ok_or_else(|| {
-                    serde::de::Error::custom(format!(
-                        "unknown parametric algorithm: {}",
-                        wire.algorithm
-                    ))
-                }),
+            "parametric" => Err(serde::de::Error::custom(
+                "parametric methods are not available in unified-platform-structure",
+            )),
             other => Err(serde::de::Error::custom(format!(
                 "unknown method family: {}",
                 other
@@ -86,16 +78,7 @@ impl<'de> Deserialize<'de> for EstimationMethod {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NonparametricMethod {
     Npag(NpagOptions),
-    Npbo(NpboOptions),
-    Npcat(NpcatOptions),
-    Npcma(NpcmaOptions),
     Npod(NpodOptions),
-    Npopt(NpoptOptions),
-    Nppso(NppsoOptions),
-    Npsah(NpsahOptions),
-    Npsah2(Npsah2Options),
-    Nexus(NexusOptions),
-    Npxo(NpxoOptions),
     Postprob(PostProbOptions),
 }
 
@@ -103,16 +86,7 @@ impl NonparametricMethod {
     pub fn algorithm(self) -> Algorithm {
         match self {
             NonparametricMethod::Npag(_) => Algorithm::NPAG,
-            NonparametricMethod::Npbo(_) => Algorithm::NPBO,
-            NonparametricMethod::Npcat(_) => Algorithm::NPCAT,
-            NonparametricMethod::Npcma(_) => Algorithm::NPCMA,
             NonparametricMethod::Npod(_) => Algorithm::NPOD,
-            NonparametricMethod::Npopt(_) => Algorithm::NPOPT,
-            NonparametricMethod::Nppso(_) => Algorithm::NPPSO,
-            NonparametricMethod::Npsah(_) => Algorithm::NPSAH,
-            NonparametricMethod::Npsah2(_) => Algorithm::NPSAH2,
-            NonparametricMethod::Nexus(_) => Algorithm::NEXUS,
-            NonparametricMethod::Npxo(_) => Algorithm::NPXO,
             NonparametricMethod::Postprob(_) => Algorithm::POSTPROB,
         }
     }
@@ -121,16 +95,7 @@ impl NonparametricMethod {
     pub fn name(&self) -> &'static str {
         match self {
             NonparametricMethod::Npag(_) => "npag",
-            NonparametricMethod::Npbo(_) => "npbo",
-            NonparametricMethod::Npcat(_) => "npcat",
-            NonparametricMethod::Npcma(_) => "npcma",
             NonparametricMethod::Npod(_) => "npod",
-            NonparametricMethod::Npopt(_) => "npopt",
-            NonparametricMethod::Nppso(_) => "nppso",
-            NonparametricMethod::Npsah(_) => "npsah",
-            NonparametricMethod::Npsah2(_) => "npsah2",
-            NonparametricMethod::Nexus(_) => "nexus",
-            NonparametricMethod::Npxo(_) => "npxo",
             NonparametricMethod::Postprob(_) => "postprob",
         }
     }
@@ -139,53 +104,8 @@ impl NonparametricMethod {
     pub fn from_name(name: &str) -> Option<Self> {
         match name.to_lowercase().as_str() {
             "npag" => Some(NonparametricMethod::Npag(NpagOptions)),
-            "npbo" => Some(NonparametricMethod::Npbo(NpboOptions)),
-            "npcat" => Some(NonparametricMethod::Npcat(NpcatOptions)),
-            "npcma" => Some(NonparametricMethod::Npcma(NpcmaOptions)),
             "npod" => Some(NonparametricMethod::Npod(NpodOptions)),
-            "npopt" => Some(NonparametricMethod::Npopt(NpoptOptions)),
-            "nppso" => Some(NonparametricMethod::Nppso(NppsoOptions)),
-            "npsah" => Some(NonparametricMethod::Npsah(NpsahOptions)),
-            "npsah2" => Some(NonparametricMethod::Npsah2(Npsah2Options)),
-            "nexus" => Some(NonparametricMethod::Nexus(NexusOptions)),
-            "npxo" => Some(NonparametricMethod::Npxo(NpxoOptions)),
             "postprob" => Some(NonparametricMethod::Postprob(PostProbOptions)),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ParametricMethod {
-    Saem(SaemOptions),
-    Focei(FoceiOptions),
-    It2b(It2bOptions),
-}
-
-impl ParametricMethod {
-    pub fn algorithm(self) -> Algorithm {
-        match self {
-            ParametricMethod::Saem(_) => Algorithm::SAEM,
-            ParametricMethod::Focei(_) => Algorithm::FOCEI,
-            ParametricMethod::It2b(_) => Algorithm::IT2B,
-        }
-    }
-
-    /// Wire name for this algorithm (lowercase).
-    pub fn name(&self) -> &'static str {
-        match self {
-            ParametricMethod::Saem(_) => "saem",
-            ParametricMethod::Focei(_) => "focei",
-            ParametricMethod::It2b(_) => "it2b",
-        }
-    }
-
-    /// Construct from a wire name (case-insensitive).
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name.to_lowercase().as_str() {
-            "saem" => Some(ParametricMethod::Saem(SaemOptions)),
-            "focei" => Some(ParametricMethod::Focei(FoceiOptions)),
-            "it2b" => Some(ParametricMethod::It2b(It2bOptions)),
             _ => None,
         }
     }
@@ -199,46 +119,10 @@ impl ParametricMethod {
 pub struct NpagOptions;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpboOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpcatOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpcmaOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NpodOptions;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpoptOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NppsoOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpsahOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Npsah2Options;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NexusOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpxoOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PostProbOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SaemOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FoceiOptions;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct It2bOptions;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]

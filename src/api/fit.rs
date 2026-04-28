@@ -3,7 +3,7 @@ use pharmsol::equation::Equation;
 
 use crate::api::estimation_problem::{EstimationMethod, EstimationProblem};
 use crate::api::progress::FitProgress;
-use crate::estimation::{nonparametric, parametric};
+use crate::estimation::nonparametric;
 use crate::results::FitResult;
 
 pub fn fit<E: Equation + Clone + Send + 'static>(
@@ -18,7 +18,6 @@ pub fn fit<E: Equation + Clone + Send + 'static>(
 
     match method {
         EstimationMethod::Nonparametric(_) => nonparametric::fit(compiled),
-        EstimationMethod::Parametric(_) => parametric::fit(compiled),
     }
 }
 
@@ -41,7 +40,6 @@ where
         EstimationMethod::Nonparametric(_) => nonparametric::fit_with_progress(compiled, |event| {
             on_progress(FitProgress::NonparametricCycle(event));
         }),
-        EstimationMethod::Parametric(_) => parametric::fit(compiled),
     }
 }
 
