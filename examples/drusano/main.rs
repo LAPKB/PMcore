@@ -126,7 +126,9 @@ fn main() -> Result<()> {
 
     let data = data::read_pmetrics("examples/drusano/data.csv").unwrap();
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(NpagOptions)))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions,
+        )))
         .output(OutputPlan {
             write: true,
             path: Some("examples/drusano/output".to_string()),

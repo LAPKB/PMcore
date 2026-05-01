@@ -53,7 +53,9 @@ fn bimodal_npag_model() -> Result<ModelDefinition<equation::ODE>> {
 #[test]
 fn test_acceptance_baseline_npag_bimodal_ke() -> Result<()> {
     let result = EstimationProblem::builder(bimodal_npag_model()?, bimodal_data()?)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(NpagOptions)))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions,
+        )))
         .output(OutputPlan::disabled())
         .runtime(RuntimeOptions {
             cycles: 1000,

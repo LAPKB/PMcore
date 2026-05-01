@@ -65,7 +65,9 @@ fn main() {
 
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(NpodOptions)))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(
+            NpodOptions,
+        )))
         .runtime(RuntimeOptions {
             cycles: 10000,
             ..RuntimeOptions::default()

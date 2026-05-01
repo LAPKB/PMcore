@@ -45,7 +45,9 @@ fn main() -> Result<()> {
 
     let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(NpagOptions)))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions,
+        )))
         .output(OutputPlan {
             write: true,
             path: Some("examples/iov/output".to_string()),

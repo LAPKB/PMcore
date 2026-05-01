@@ -182,7 +182,9 @@ fn test_burke_ipm_with_nan() {
 #[test]
 fn test_burke_ipm_high_dimensional() -> Result<()> {
     // Create a larger matrix (20 subjects, 50 support points)
-    let mat = Mat::from_fn(20, 50, |i, j| ((i * 11 + j * 17) % 1000) as f64 / 1000.0 + 0.001);
+    let mat = Mat::from_fn(20, 50, |i, j| {
+        ((i * 11 + j * 17) % 1000) as f64 / 1000.0 + 0.001
+    });
 
     let psi = Psi::from(mat);
 

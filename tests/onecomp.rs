@@ -55,7 +55,9 @@ fn test_one_compartment_npag() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(NpagOptions)))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions,
+        )))
         .output(OutputPlan::disabled())
         .runtime(RuntimeOptions {
             cycles: 100,
@@ -128,7 +130,9 @@ fn test_one_compartment_npod() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(NpodOptions)))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(
+            NpodOptions,
+        )))
         .output(OutputPlan::disabled())
         .runtime(RuntimeOptions {
             cycles: 100,
@@ -201,9 +205,9 @@ fn test_one_compartment_postprob() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Postprob(
-            PostProbOptions,
-        )))
+        .method(EstimationMethod::Nonparametric(
+            NonparametricMethod::Postprob(PostProbOptions),
+        ))
         .output(OutputPlan::disabled())
         .runtime(RuntimeOptions {
             cycles: 100,

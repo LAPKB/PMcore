@@ -41,7 +41,9 @@ fn main() -> Result<()> {
 
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(NpagOptions)))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
+            NpagOptions,
+        )))
         .output(OutputPlan {
             write: true,
             path: Some("examples/bimodal_ke/output/".to_string()),
