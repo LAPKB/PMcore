@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ParameterSpace {
-    pub items: Vec<ParameterSpec>,
+    pub items: Vec<Parameter>,
 }
 
 impl ParameterSpace {
@@ -11,9 +11,13 @@ impl ParameterSpace {
         Self { items: Vec::new() }
     }
 
-    #[allow(clippy::should_implement_trait)]
-    pub fn add(mut self, item: ParameterSpec) -> Self {
+    pub fn push(&mut self, item: Parameter) {
         self.items.push(item);
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    pub fn add(mut self, item: Parameter) -> Self {
+        self.push(item);
         self
     }
 
@@ -25,7 +29,7 @@ impl ParameterSpace {
         self.items.is_empty()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, ParameterSpec> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Parameter> {
         self.items.iter()
     }
 
@@ -72,7 +76,7 @@ fn default_estimate() -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ParameterSpec {
+pub struct Parameter {
     pub name: String,
     pub domain: ParameterDomain,
     #[serde(default)]
@@ -85,7 +89,7 @@ pub struct ParameterSpec {
     pub variability: ParameterVariability,
 }
 
-impl ParameterSpec {
+impl Parameter {
     pub fn bounded(name: impl Into<String>, lower: f64, upper: f64) -> Self {
         Self {
             name: name.into(),

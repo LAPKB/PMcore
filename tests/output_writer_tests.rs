@@ -18,6 +18,17 @@ fn simple_equation() -> equation::ODE {
             y[0] = x[0] / v;
         },
     )
+    .with_nstates(1)
+    .with_ndrugs(1)
+    .with_nout(1)
+    .with_metadata(
+        equation::metadata::new("output_writer")
+            .parameters(["ke", "v"])
+            .states(["central"])
+            .outputs(["0"])
+            .route(equation::Route::bolus("0").to_state("central")),
+    )
+    .expect("metadata attachment should validate")
 }
 
 fn simple_data() -> Data {
@@ -42,39 +53,15 @@ fn temp_output_dir() -> PathBuf {
 fn test_fit_result_writes_shared_output_files() -> Result<()> {
     let output_dir = temp_output_dir();
     let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .with_assay_error_models(AssayErrorModels::new().add(0, assay_error)?);
-
-    let model = ModelDefinition::builder(simple_equation())
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ke", 0.1, 1.0))
-                .add(ParameterSpec::bounded("v", 1.0, 20.0)),
-        )
-        .observations(observations)
-        .build()?;
-
-    let mut result = EstimationProblem::builder(model, simple_data())
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions,
-        )))
-        .output(OutputPlan {
-            write: true,
-            path: Some(output_dir.to_string_lossy().to_string()),
-        })
-        .runtime(RuntimeOptions {
-            cycles: 1,
-            cache: true,
-            progress: false,
-            idelta: 0.12,
-            tad: 0.0,
-            prior: None,
-            ..RuntimeOptions::default()
-        })
-        .run()?;
-
-    result.write_outputs()?;
+    let result = EstimationProblem::builder(simple_equation(), simple_data())
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
+        .parameter(Parameter::bounded("v", 1.0, 20.0))?
+        .method(Npag::new())
+        .error("0", assay_error)?
+        .output_dir(output_dir.to_string_lossy().to_string())
+        .cycles(1)
+        .progress(false)
+        .fit()?;
 
     assert!(output_dir.join("settings.json").exists());
     assert!(output_dir.join("summary.json").exists());

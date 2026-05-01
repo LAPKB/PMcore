@@ -63,82 +63,51 @@ fn main() -> Result<()> {
         },
     };
 
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "drug_1"))
-        .add_channel(ObservationChannel::continuous(1, "drug_2"))
-        .add_channel(ObservationChannel::continuous(2, "total"))
-        .add_channel(ObservationChannel::continuous(3, "resistant_1"))
-        .with_assay_error_models(
-            AssayErrorModels::new()
-                .add(
-                    0,
-                    AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
-                )?
-                .add(
-                    1,
-                    AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
-                )?
-                .add(
-                    2,
-                    AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
-                )?
-                .add(
-                    3,
-                    AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
-                )?,
-        );
-
-    let model = ModelDefinition::builder(eq)
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("v1", 5.0, 160.0))
-                .add(ParameterSpec::bounded("cl1", 4.0, 9.0))
-                .add(ParameterSpec::bounded("v2", 100.0, 200.0))
-                .add(ParameterSpec::bounded("cl2", 25.0, 35.0))
-                .add(ParameterSpec::bounded(
-                    "popmax",
-                    100000000.0,
-                    100000000000.0,
-                ))
-                .add(ParameterSpec::bounded("kgs", 0.01, 0.25))
-                .add(ParameterSpec::bounded("kks", 0.01, 0.5))
-                .add(ParameterSpec::bounded("e50_1s", 0.1, 2.5))
-                .add(ParameterSpec::bounded("e50_2s", 0.1, 10.0))
-                .add(ParameterSpec::bounded("alpha_s", -8.0, 5.0))
-                .add(ParameterSpec::bounded("kgr1", 0.004, 0.1))
-                .add(ParameterSpec::bounded("kkr1", 0.08, 0.4))
-                .add(ParameterSpec::bounded("e50_1r1", 8.0, 17.0))
-                .add(ParameterSpec::bounded("alpha_r1", -8.0, 5.0))
-                .add(ParameterSpec::bounded("kgr2", 0.004, 0.3))
-                .add(ParameterSpec::bounded("kkr2", 0.1, 0.5))
-                .add(ParameterSpec::bounded("e50_2r2", 5.0, 8.0))
-                .add(ParameterSpec::bounded("alpha_r2", -5.0, 5.0))
-                .add(ParameterSpec::bounded("init_4", -1.0, 4.0))
-                .add(ParameterSpec::bounded("init_5", -1.0, 3.0))
-                .add(ParameterSpec::bounded("h1s", 0.5, 8.0))
-                .add(ParameterSpec::bounded("h2s", 0.1, 4.0))
-                .add(ParameterSpec::bounded("h1r1", 5.0, 25.0))
-                .add(ParameterSpec::bounded("h2r2", 10.0, 22.0)),
-        )
-        .observations(observations)
-        .build()
-        .unwrap();
-
-    let data = data::read_pmetrics("examples/drusano/data.csv").unwrap();
-    let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions,
-        )))
-        .output(OutputPlan {
-            write: true,
-            path: Some("examples/drusano/output".to_string()),
-        })
-        .runtime(RuntimeOptions {
-            prior: Some(Prior::sobol(212900, 347)),
-            ..RuntimeOptions::default()
-        })
-        .run()
-        .unwrap();
-    result.write_outputs().unwrap();
+    let data = data::read_pmetrics("examples/drusano/data.csv")?;
+    EstimationProblem::builder(eq, data)
+        .parameter(Parameter::bounded("v1", 5.0, 160.0))?
+        .parameter(Parameter::bounded("cl1", 4.0, 9.0))?
+        .parameter(Parameter::bounded("v2", 100.0, 200.0))?
+        .parameter(Parameter::bounded("cl2", 25.0, 35.0))?
+        .parameter(Parameter::bounded("popmax", 100000000.0, 100000000000.0))?
+        .parameter(Parameter::bounded("kgs", 0.01, 0.25))?
+        .parameter(Parameter::bounded("kks", 0.01, 0.5))?
+        .parameter(Parameter::bounded("e50_1s", 0.1, 2.5))?
+        .parameter(Parameter::bounded("e50_2s", 0.1, 10.0))?
+        .parameter(Parameter::bounded("alpha_s", -8.0, 5.0))?
+        .parameter(Parameter::bounded("kgr1", 0.004, 0.1))?
+        .parameter(Parameter::bounded("kkr1", 0.08, 0.4))?
+        .parameter(Parameter::bounded("e50_1r1", 8.0, 17.0))?
+        .parameter(Parameter::bounded("alpha_r1", -8.0, 5.0))?
+        .parameter(Parameter::bounded("kgr2", 0.004, 0.3))?
+        .parameter(Parameter::bounded("kkr2", 0.1, 0.5))?
+        .parameter(Parameter::bounded("e50_2r2", 5.0, 8.0))?
+        .parameter(Parameter::bounded("alpha_r2", -5.0, 5.0))?
+        .parameter(Parameter::bounded("init_4", -1.0, 4.0))?
+        .parameter(Parameter::bounded("init_5", -1.0, 3.0))?
+        .parameter(Parameter::bounded("h1s", 0.5, 8.0))?
+        .parameter(Parameter::bounded("h2s", 0.1, 4.0))?
+        .parameter(Parameter::bounded("h1r1", 5.0, 25.0))?
+        .parameter(Parameter::bounded("h2r2", 10.0, 22.0))?
+        .method(Npag::new())
+        .error(
+            "1",
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .error(
+            "2",
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .error(
+            "3",
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .error(
+            "4",
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
+        )?
+        .output_dir("examples/drusano/output")
+        .prior(Prior::sobol(212900, 347))
+        .fit()?;
     Ok(())
 }

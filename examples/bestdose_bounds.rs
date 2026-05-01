@@ -28,8 +28,8 @@ fn main() -> Result<()> {
     };
 
     let parameter_space = ParameterSpace::new()
-        .add(ParameterSpec::bounded("ke", 0.001, 3.0))
-        .add(ParameterSpec::bounded("v", 25.0, 250.0));
+        .add(Parameter::bounded("ke", 0.001, 3.0))
+        .add(Parameter::bounded("v", 25.0, 250.0));
 
     let ems = AssayErrorModels::new().add(
         0,

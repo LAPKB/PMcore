@@ -63,9 +63,9 @@ pub mod prelude {
     pub use crate::api::fit;
     pub use crate::api::fit_with_progress;
     pub use crate::api::{
-        AlgorithmTuning, ConvergenceOptions, EstimationMethod, EstimationProblem, FitProgress,
-        LoggingLevel, LoggingOptions, ModelDefinition, NonparametricCycleProgress,
-        NonparametricMethod, NpagOptions, NpodOptions, OutputPlan, PostProbOptions, RuntimeOptions,
+        AlgorithmTuning, ConvergenceOptions, ErrorModels, EstimationProblem, FitProgress,
+        LoggingLevel, LoggingOptions, MethodSpec, ModelDefinition, NonparametricCycleProgress,
+        Npag, Npod, OutputPlan, PostProb, RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
@@ -73,9 +73,8 @@ pub mod prelude {
         Psi, Theta, Weights,
     };
     pub use crate::model::{
-        ContinuousObservationSpec, CovariateEffectsSpec, CovariateModel, CovariateSpec,
-        ModelMetadata, ObservationChannel, ObservationLikelihood, ObservationSpec, ParameterDomain,
-        ParameterSpace, ParameterSpec, ParameterTransform as ModelParameterTransform,
+        CovariateEffectsSpec, CovariateModel, CovariateSpec, EquationMetadataSource, ModelMetadata,
+        Parameter, ParameterDomain, ParameterSpace, ParameterTransform as ModelParameterTransform,
         ParameterVariability, RandomEffectsSpec, VariabilityModel,
     };
     pub use crate::results::{

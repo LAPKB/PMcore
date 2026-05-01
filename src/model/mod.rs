@@ -1,21 +1,18 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use pharmsol::equation::Equation;
+use pharmsol::{Analytical, ValidatedModelMetadata, ODE, SDE};
 
 pub mod covariate_model;
 pub mod covariates;
 pub mod metadata;
-pub mod observation_spec;
 pub mod parameter_space;
 pub mod variability;
 
 pub use covariate_model::CovariateModel;
 pub use covariates::{CovariateEffectsSpec, CovariateSpec};
 pub use metadata::ModelMetadata;
-pub use observation_spec::{
-    ContinuousObservationSpec, ObservationChannel, ObservationLikelihood, ObservationSpec,
-};
 pub use parameter_space::{
-    ParameterDomain, ParameterSpace, ParameterSpec, ParameterTransform, ParameterVariability,
+    Parameter, ParameterDomain, ParameterSpace, ParameterTransform, ParameterVariability,
 };
 pub use variability::{CovarianceStructure, RandomEffectsSpec, VariabilityModel};
 
@@ -23,7 +20,6 @@ pub use variability::{CovarianceStructure, RandomEffectsSpec, VariabilityModel};
 pub struct ModelDefinition<E: Equation> {
     pub equation: E,
     pub parameters: ParameterSpace,
-    pub observations: ObservationSpec,
     pub variability: VariabilityModel,
     pub covariates: CovariateSpec,
     pub metadata: ModelMetadata,
@@ -33,8 +29,7 @@ impl<E: Equation> ModelDefinition<E> {
     pub fn builder(equation: E) -> ModelDefinitionBuilder<E> {
         ModelDefinitionBuilder {
             equation,
-            parameters: None,
-            observations: None,
+            parameters: ParameterSpace::new(),
             variability: Some(VariabilityModel::default()),
             covariates: Some(CovariateSpec::InEquation),
             metadata: Some(ModelMetadata::default()),
@@ -42,24 +37,62 @@ impl<E: Equation> ModelDefinition<E> {
     }
 }
 
+impl<E: EquationMetadataSource> ModelDefinition<E> {
+    pub fn parameter_count(&self) -> usize {
+        self.equation
+            .equation_metadata()
+            .map_or(0, |metadata| metadata.parameters().len())
+    }
+
+    pub fn parameter_name(&self, index: usize) -> Option<&str> {
+        self.equation
+            .equation_metadata()
+            .and_then(|metadata| metadata.parameters().get(index))
+            .map(|parameter| parameter.name())
+    }
+
+    pub fn parameter_index(&self, name: &str) -> Option<usize> {
+        self.equation
+            .equation_metadata()
+            .and_then(|metadata| metadata.parameter_index(name))
+    }
+
+    pub fn output_count(&self) -> usize {
+        self.equation
+            .equation_metadata()
+            .map_or(0, |metadata| metadata.outputs().len())
+    }
+
+    pub fn output_name(&self, outeq: usize) -> Option<&str> {
+        self.equation
+            .equation_metadata()
+            .and_then(|metadata| metadata.outputs().get(outeq))
+            .map(|output| output.name())
+    }
+
+    pub fn output_index(&self, name: &str) -> Option<usize> {
+        self.equation
+            .equation_metadata()
+            .and_then(|metadata| metadata.output_index(name))
+    }
+}
+
 pub struct ModelDefinitionBuilder<E: Equation> {
     equation: E,
-    parameters: Option<ParameterSpace>,
-    observations: Option<ObservationSpec>,
+    parameters: ParameterSpace,
     variability: Option<VariabilityModel>,
     covariates: Option<CovariateSpec>,
     metadata: Option<ModelMetadata>,
 }
 
 impl<E: Equation> ModelDefinitionBuilder<E> {
-    pub fn parameters(mut self, parameters: ParameterSpace) -> Self {
-        self.parameters = Some(parameters);
-        self
-    }
-
-    pub fn observations(mut self, observations: ObservationSpec) -> Self {
-        self.observations = Some(observations);
-        self
+    pub fn parameter(mut self, parameter: Parameter) -> Result<Self>
+    where
+        E: EquationMetadataSource,
+    {
+        validate_parameter(&self.equation, &self.parameters, &parameter)?;
+        self.parameters.push(parameter);
+        Ok(self)
     }
 
     pub fn variability(mut self, variability: VariabilityModel) -> Self {
@@ -77,21 +110,85 @@ impl<E: Equation> ModelDefinitionBuilder<E> {
         self
     }
 
-    pub fn build(self) -> Result<ModelDefinition<E>> {
-        let parameters = self
-            .parameters
-            .ok_or_else(|| anyhow::anyhow!("model parameters are required"))?;
+    pub fn build(self) -> Result<ModelDefinition<E>>
+    where
+        E: EquationMetadataSource,
+    {
+        let ModelDefinitionBuilder {
+            equation,
+            parameters,
+            variability,
+            covariates,
+            metadata,
+        } = self;
+
         if parameters.is_empty() {
             bail!("model parameters cannot be empty");
         }
 
         Ok(ModelDefinition {
-            equation: self.equation,
+            equation,
             parameters,
-            observations: self.observations.unwrap_or_default(),
-            variability: self.variability.unwrap_or_default(),
-            covariates: self.covariates.unwrap_or_default(),
-            metadata: self.metadata.unwrap_or_default(),
+            variability: variability.unwrap_or_default(),
+            covariates: covariates.unwrap_or_default(),
+            metadata: metadata.unwrap_or_default(),
         })
+    }
+}
+
+impl<E: EquationMetadataSource> ModelDefinitionBuilder<E> {
+    pub(crate) fn output_index(&self, name: &str) -> Option<usize> {
+        self.equation
+            .equation_metadata()
+            .and_then(|metadata| metadata.output_index(name))
+    }
+}
+
+fn validate_parameter<E: EquationMetadataSource>(
+    equation: &E,
+    existing: &ParameterSpace,
+    parameter: &Parameter,
+) -> Result<()> {
+    let metadata = equation
+        .equation_metadata()
+        .ok_or_else(|| anyhow!("equation metadata is required to define model parameters"))?;
+
+    if parameter.name.trim().is_empty() {
+        bail!("model parameter name cannot be empty");
+    }
+
+    if metadata.parameter_index(&parameter.name).is_none() {
+        bail!("unknown equation parameter: {}", parameter.name);
+    }
+
+    if existing
+        .iter()
+        .any(|existing_parameter| existing_parameter.name == parameter.name)
+    {
+        bail!("duplicate model parameter: {}", parameter.name);
+    }
+
+    Ok(())
+}
+
+pub trait EquationMetadataSource: Equation {
+    fn equation_metadata(&self) -> Option<&ValidatedModelMetadata>;
+}
+
+impl EquationMetadataSource for ODE {
+    fn equation_metadata(&self) -> Option<&ValidatedModelMetadata> {
+        self.metadata()
+    }
+}
+
+impl EquationMetadataSource for Analytical {
+    fn equation_metadata(&self) -> Option<&ValidatedModelMetadata> {
+        self.metadata()
+    }
+}
+
+impl EquationMetadataSource for SDE {
+    fn equation_metadata(&self) -> Option<&ValidatedModelMetadata> {
+        self.metadata()
     }
 }

@@ -5,7 +5,7 @@ use crate::algorithms::{
     run_nonparametric_algorithm, run_nonparametric_algorithm_with_progress,
     NonparametricAlgorithmInput,
 };
-use crate::api::{EstimationMethod, NonparametricCycleProgress};
+use crate::api::NonparametricCycleProgress;
 use crate::compile::CompiledProblem;
 use crate::estimation::nonparametric::workspace::NonparametricWorkspace;
 use crate::results::FitResult;
@@ -48,12 +48,18 @@ impl NonparametricEngine {
 fn input_from_compiled_problem<E: Equation + Clone + Send + 'static>(
     problem: CompiledProblem<E>,
 ) -> Result<NonparametricAlgorithmInput<E>> {
-    let EstimationMethod::Nonparametric(method) = problem.method();
+    let method = problem.method();
+    let error_models = problem.error_models().models().clone();
     let output = problem.output_plan().clone();
     let runtime = problem.runtime_options().clone();
     let (model, data) = problem.into_parts();
     Ok(NonparametricAlgorithmInput::new(
-        method, model, data, output, runtime,
+        method,
+        model,
+        data,
+        error_models,
+        output,
+        runtime,
     ))
 }
 

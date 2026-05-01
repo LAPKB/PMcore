@@ -27,7 +27,17 @@ fn main() {
             y[0] = x[1] / (vol * wt);
         },
         100,
-    );
+    )
+    .with_metadata(
+        equation::metadata::new("vanco_sde")
+            .parameters(["ka", "ke0", "kcp", "kpc", "vol", "ske"])
+            .covariates([equation::Covariate::continuous("wt")])
+            .states(["depot", "central", "peripheral", "ke_latent"])
+            .outputs(["1"])
+            .route(equation::Route::bolus("1").to_state("depot"))
+            .particles(100),
+    )
+    .unwrap();
 
     // let ode = equation::ODE::new(
     //     |x, p, _t, dx, _rateiv, _cov| {
@@ -47,47 +57,29 @@ fn main() {
     //     (3, 1),
     // );
 
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "central"))
-        .with_assay_error_models(
-            AssayErrorModels::new()
-                .add(
-                    0,
-                    AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
-                )
-                .unwrap(),
-        );
-
-    let model = ModelDefinition::builder(sde)
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ka", 0.0001, 2.4))
-                .add(ParameterSpec::bounded("ke0", 0.0001, 2.7))
-                .add(ParameterSpec::bounded("kcp", 0.0001, 2.4))
-                .add(ParameterSpec::bounded("kpc", 0.0001, 2.4))
-                .add(ParameterSpec::bounded("vol", 0.2, 12.0))
-                .add(ParameterSpec::bounded("ske", 0.0001, 0.2)),
-        )
-        .observations(observations)
-        .build()
-        .unwrap();
-
     let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
-    let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions,
-        )))
-        .output(OutputPlan {
-            write: true,
-            path: Some("examples/vanco_sde/output".to_string()),
-        })
-        .runtime(RuntimeOptions {
-            cycles: usize::MAX,
-            cache: true,
-            prior: Some(Prior::sobol(100, 347)),
-            ..RuntimeOptions::default()
-        })
-        .run()
+    EstimationProblem::builder(sde, data)
+        .parameter(Parameter::bounded("ka", 0.0001, 2.4))
+        .unwrap()
+        .parameter(Parameter::bounded("ke0", 0.0001, 2.7))
+        .unwrap()
+        .parameter(Parameter::bounded("kcp", 0.0001, 2.4))
+        .unwrap()
+        .parameter(Parameter::bounded("kpc", 0.0001, 2.4))
+        .unwrap()
+        .parameter(Parameter::bounded("vol", 0.2, 12.0))
+        .unwrap()
+        .parameter(Parameter::bounded("ske", 0.0001, 0.2))
+        .unwrap()
+        .method(Npag::new())
+        .error(
+            "1",
+            AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
+        )
+        .unwrap()
+        .output_dir("examples/vanco_sde/output")
+        .cycles(usize::MAX)
+        .prior(Prior::sobol(100, 347))
+        .fit()
         .unwrap();
-    result.write_outputs().unwrap();
 }

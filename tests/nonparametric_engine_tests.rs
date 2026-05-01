@@ -16,6 +16,17 @@ fn simple_equation() -> equation::ODE {
             y[0] = x[0] / v;
         },
     )
+    .with_nstates(1)
+    .with_ndrugs(1)
+    .with_nout(1)
+    .with_metadata(
+        equation::metadata::new("nonparametric_engine")
+            .parameters(["ke", "v"])
+            .states(["central"])
+            .outputs(["0"])
+            .route(equation::Route::bolus("0").to_state("central")),
+    )
+    .expect("metadata attachment should validate")
 }
 
 fn simple_data() -> Data {
@@ -31,33 +42,13 @@ fn simple_data() -> Data {
 #[test]
 fn test_nonparametric_engine_returns_workspace() -> Result<()> {
     let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .with_assay_error_models(AssayErrorModels::new().add(0, assay_error)?);
-
-    let model = ModelDefinition::builder(simple_equation())
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ke", 0.1, 1.0))
-                .add(ParameterSpec::bounded("v", 1.0, 20.0)),
-        )
-        .observations(observations)
-        .build()?;
-
-    let compiled = EstimationProblem::builder(model, simple_data())
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions,
-        )))
-        .output(OutputPlan::disabled())
-        .runtime(RuntimeOptions {
-            cycles: 1,
-            cache: true,
-            progress: false,
-            idelta: 0.12,
-            tad: 0.0,
-            prior: None,
-            ..RuntimeOptions::default()
-        })
+    let compiled = EstimationProblem::builder(simple_equation(), simple_data())
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
+        .parameter(Parameter::bounded("v", 1.0, 20.0))?
+        .method(Npag::new())
+        .error("0", assay_error)?
+        .cycles(1)
+        .progress(false)
         .build()?
         .compile()?;
 

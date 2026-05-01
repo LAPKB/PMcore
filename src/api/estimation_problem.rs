@@ -1,128 +1,93 @@
-use anyhow::{bail, Result};
-use pharmsol::{Data, Equation};
+use anyhow::Result;
+use pharmsol::{AssayErrorModel, AssayErrorModels, Data, Equation};
 use serde::{Deserialize, Serialize};
 
 use crate::algorithms::Algorithm;
+use crate::api::error_models::ErrorModels;
 use crate::api::SaemConfig;
 use crate::estimation::nonparametric::Prior;
-use crate::model::ModelDefinition;
+use crate::model::{
+    CovariateSpec, EquationMetadataSource, ModelDefinition, ModelDefinitionBuilder, ModelMetadata,
+    Parameter, VariabilityModel,
+};
 
 // =============================================================================
-// Estimation method selection
+// Method selection
 // =============================================================================
 
-/// Estimation method family and algorithm.
-///
-/// Serializes to `{"family": "nonparametric", "algorithm": "npag"}`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EstimationMethod {
-    Nonparametric(NonparametricMethod),
+pub trait MethodSpec {
+    type Builder<E: Equation>;
+
+    fn attach<E: Equation>(self, builder: EstimationProblemBuilder<E>) -> Self::Builder<E>;
 }
 
-impl EstimationMethod {
-    pub fn algorithm(self) -> Algorithm {
-        match self {
-            EstimationMethod::Nonparametric(method) => method.algorithm(),
-        }
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Npag;
+
+impl Npag {
+    pub fn new() -> Self {
+        Self
     }
 }
 
-impl Serialize for EstimationMethod {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        #[derive(Serialize)]
-        struct Wire<'a> {
-            family: &'a str,
-            algorithm: &'a str,
-        }
-        let (family, algorithm) = match self {
-            EstimationMethod::Nonparametric(np) => ("nonparametric", np.name()),
-        };
-        Wire { family, algorithm }.serialize(serializer)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Npod;
+
+impl Npod {
+    pub fn new() -> Self {
+        Self
     }
 }
 
-impl<'de> Deserialize<'de> for EstimationMethod {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct Wire {
-            family: String,
-            algorithm: String,
-        }
-        let wire = Wire::deserialize(deserializer)?;
-        match wire.family.to_lowercase().as_str() {
-            "nonparametric" => NonparametricMethod::from_name(&wire.algorithm)
-                .map(EstimationMethod::Nonparametric)
-                .ok_or_else(|| {
-                    serde::de::Error::custom(format!(
-                        "unknown nonparametric algorithm: {}",
-                        wire.algorithm
-                    ))
-                }),
-            "parametric" => Err(serde::de::Error::custom(
-                "parametric methods are not available in unified-platform-structure",
-            )),
-            other => Err(serde::de::Error::custom(format!(
-                "unknown method family: {}",
-                other
-            ))),
-        }
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PostProb;
+
+impl PostProb {
+    pub fn new() -> Self {
+        Self
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NonparametricMethod {
-    Npag(NpagOptions),
-    Npod(NpodOptions),
-    Postprob(PostProbOptions),
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum NonparametricMethod {
+    Npag(Npag),
+    Npod(Npod),
+    PostProb(PostProb),
 }
 
 impl NonparametricMethod {
     pub fn algorithm(self) -> Algorithm {
         match self {
-            NonparametricMethod::Npag(_) => Algorithm::NPAG,
-            NonparametricMethod::Npod(_) => Algorithm::NPOD,
-            NonparametricMethod::Postprob(_) => Algorithm::POSTPROB,
-        }
-    }
-
-    /// Wire name for this algorithm (lowercase).
-    pub fn name(&self) -> &'static str {
-        match self {
-            NonparametricMethod::Npag(_) => "npag",
-            NonparametricMethod::Npod(_) => "npod",
-            NonparametricMethod::Postprob(_) => "postprob",
-        }
-    }
-
-    /// Construct from a wire name (case-insensitive).
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name.to_lowercase().as_str() {
-            "npag" => Some(NonparametricMethod::Npag(NpagOptions)),
-            "npod" => Some(NonparametricMethod::Npod(NpodOptions)),
-            "postprob" => Some(NonparametricMethod::Postprob(PostProbOptions)),
-            _ => None,
+            Self::Npag(_) => Algorithm::NPAG,
+            Self::Npod(_) => Algorithm::NPOD,
+            Self::PostProb(_) => Algorithm::POSTPROB,
         }
     }
 }
 
-// =============================================================================
-// Algorithm option marker types
-// =============================================================================
+impl MethodSpec for Npag {
+    type Builder<E: Equation> = NonparametricEstimationProblemBuilder<E>;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpagOptions;
+    fn attach<E: Equation>(self, builder: EstimationProblemBuilder<E>) -> Self::Builder<E> {
+        NonparametricEstimationProblemBuilder::new(builder, NonparametricMethod::Npag(self))
+    }
+}
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpodOptions;
+impl MethodSpec for Npod {
+    type Builder<E: Equation> = NonparametricEstimationProblemBuilder<E>;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PostProbOptions;
+    fn attach<E: Equation>(self, builder: EstimationProblemBuilder<E>) -> Self::Builder<E> {
+        NonparametricEstimationProblemBuilder::new(builder, NonparametricMethod::Npod(self))
+    }
+}
+
+impl MethodSpec for PostProb {
+    type Builder<E: Equation> = NonparametricEstimationProblemBuilder<E>;
+
+    fn attach<E: Equation>(self, builder: EstimationProblemBuilder<E>) -> Self::Builder<E> {
+        NonparametricEstimationProblemBuilder::new(builder, NonparametricMethod::PostProb(self))
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -142,10 +107,7 @@ impl OutputPlan {
 
 impl Default for OutputPlan {
     fn default() -> Self {
-        Self {
-            write: true,
-            path: None,
-        }
+        Self::disabled()
     }
 }
 
@@ -250,31 +212,31 @@ impl Default for RuntimeOptions {
 
 #[derive(Debug, Clone)]
 pub struct EstimationProblem<E: Equation> {
-    pub model: ModelDefinition<E>,
-    pub data: Data,
-    pub method: EstimationMethod,
-    pub output: OutputPlan,
-    pub runtime: RuntimeOptions,
+    pub(crate) model: ModelDefinition<E>,
+    pub(crate) data: Data,
+    pub(crate) error_models: ErrorModels,
+    pub(crate) method: NonparametricMethod,
+    pub(crate) output: OutputPlan,
+    pub(crate) runtime: RuntimeOptions,
 }
 
 impl<E: Equation> EstimationProblem<E> {
-    pub fn builder(model: ModelDefinition<E>, data: Data) -> EstimationProblemBuilder<E> {
+    pub fn builder(equation: E, data: Data) -> EstimationProblemBuilder<E> {
         EstimationProblemBuilder {
-            model,
+            model: ModelDefinition::builder(equation),
             data,
-            method: None,
             output: Some(OutputPlan::default()),
             runtime: Some(RuntimeOptions::default()),
         }
     }
 }
 
-impl<E: Equation + Clone + Send + 'static> EstimationProblem<E> {
-    pub fn run(self) -> Result<crate::results::FitResult<E>> {
+impl<E: Equation + Clone + Send + 'static + EquationMetadataSource> EstimationProblem<E> {
+    pub fn fit(self) -> Result<crate::results::FitResult<E>> {
         crate::api::fit(self)
     }
 
-    pub fn run_with_progress<F>(self, on_progress: F) -> Result<crate::results::FitResult<E>>
+    pub fn fit_with_progress<F>(self, on_progress: F) -> Result<crate::results::FitResult<E>>
     where
         F: FnMut(crate::api::FitProgress),
     {
@@ -283,49 +245,314 @@ impl<E: Equation + Clone + Send + 'static> EstimationProblem<E> {
 }
 
 pub struct EstimationProblemBuilder<E: Equation> {
-    model: ModelDefinition<E>,
+    model: ModelDefinitionBuilder<E>,
     data: Data,
-    method: Option<EstimationMethod>,
     output: Option<OutputPlan>,
     runtime: Option<RuntimeOptions>,
 }
 
 impl<E: Equation> EstimationProblemBuilder<E> {
-    pub fn method(mut self, method: EstimationMethod) -> Self {
-        self.method = Some(method);
+    pub fn method<M: MethodSpec>(self, method: M) -> M::Builder<E> {
+        method.attach(self)
+    }
+
+    pub fn output_dir(self, path: impl Into<String>) -> Self {
+        self.with_output_plan(|output| {
+            output.write = true;
+            output.path = Some(path.into());
+        })
+    }
+
+    pub fn no_output(self) -> Self {
+        self.with_output_plan(|output| {
+            output.write = false;
+            output.path = None;
+        })
+    }
+
+    pub fn cycles(self, cycles: usize) -> Self {
+        self.with_runtime_options(|runtime| runtime.cycles = cycles)
+    }
+
+    pub fn cache(self, enabled: bool) -> Self {
+        self.with_runtime_options(|runtime| runtime.cache = enabled)
+    }
+
+    pub fn progress(self, enabled: bool) -> Self {
+        self.with_runtime_options(|runtime| runtime.progress = enabled)
+    }
+
+    pub fn idelta(self, value: f64) -> Self {
+        self.with_runtime_options(|runtime| runtime.idelta = value)
+    }
+
+    pub fn tad(self, value: f64) -> Self {
+        self.with_runtime_options(|runtime| runtime.tad = value)
+    }
+
+    pub fn prior(self, prior: Prior) -> Self {
+        self.with_runtime_options(|runtime| runtime.prior = Some(prior))
+    }
+
+    pub fn initialize_logs(self) -> Self {
+        self.with_runtime_options(|runtime| runtime.logging.initialize = true)
+    }
+
+    pub fn log_level(self, level: LoggingLevel) -> Self {
+        self.with_runtime_options(|runtime| runtime.logging.level = level)
+    }
+
+    pub fn write_logs(self, enabled: bool) -> Self {
+        self.with_runtime_options(|runtime| runtime.logging.write = enabled)
+    }
+
+    pub fn stdout_logs(self, enabled: bool) -> Self {
+        self.with_runtime_options(|runtime| runtime.logging.stdout = enabled)
+    }
+
+    pub fn convergence(self, convergence: ConvergenceOptions) -> Self {
+        self.with_runtime_options(|runtime| runtime.convergence = convergence)
+    }
+
+    pub fn tuning(self, tuning: AlgorithmTuning) -> Self {
+        self.with_runtime_options(|runtime| runtime.tuning = tuning)
+    }
+}
+
+impl<E: Equation + EquationMetadataSource> EstimationProblemBuilder<E> {
+    pub fn parameter(self, parameter: Parameter) -> Result<Self> {
+        self.map_model_builder(|model| model.parameter(parameter))
+    }
+
+    pub fn variability(self, variability: VariabilityModel) -> Self {
+        self.with_model_builder(|model| model.variability(variability))
+    }
+
+    pub fn covariates(self, covariates: CovariateSpec) -> Self {
+        self.with_model_builder(|model| model.covariates(covariates))
+    }
+
+    pub fn metadata(self, metadata: ModelMetadata) -> Self {
+        self.with_model_builder(|model| model.metadata(metadata))
+    }
+
+    fn map_model_builder(
+        self,
+        map: impl FnOnce(ModelDefinitionBuilder<E>) -> Result<ModelDefinitionBuilder<E>>,
+    ) -> Result<Self> {
+        let EstimationProblemBuilder {
+            model,
+            data,
+            output,
+            runtime,
+        } = self;
+
+        Ok(Self {
+            model: map(model)?,
+            data,
+            output,
+            runtime,
+        })
+    }
+
+    fn with_model_builder(
+        self,
+        map: impl FnOnce(ModelDefinitionBuilder<E>) -> ModelDefinitionBuilder<E>,
+    ) -> Self {
+        let EstimationProblemBuilder {
+            model,
+            data,
+            output,
+            runtime,
+        } = self;
+
+        Self {
+            model: map(model),
+            data,
+            output,
+            runtime,
+        }
+    }
+}
+
+impl<E: Equation> EstimationProblemBuilder<E> {
+    fn with_output_plan(mut self, map: impl FnOnce(&mut OutputPlan)) -> Self {
+        map(self.output.get_or_insert_with(OutputPlan::default));
         self
     }
 
-    pub fn output(mut self, output: OutputPlan) -> Self {
-        self.output = Some(output);
+    fn with_runtime_options(mut self, map: impl FnOnce(&mut RuntimeOptions)) -> Self {
+        map(self.runtime.get_or_insert_with(RuntimeOptions::default));
         self
     }
+}
 
-    pub fn runtime(mut self, runtime: RuntimeOptions) -> Self {
-        self.runtime = Some(runtime);
-        self
+pub struct NonparametricEstimationProblemBuilder<E: Equation> {
+    builder: EstimationProblemBuilder<E>,
+    method: NonparametricMethod,
+    error_models: Option<AssayErrorModels>,
+}
+
+impl<E: Equation> NonparametricEstimationProblemBuilder<E> {
+    fn new(builder: EstimationProblemBuilder<E>, method: NonparametricMethod) -> Self {
+        Self {
+            builder,
+            method,
+            error_models: None,
+        }
+    }
+
+    pub fn output_dir(self, path: impl Into<String>) -> Self {
+        self.with_builder(|builder| builder.output_dir(path))
+    }
+
+    pub fn no_output(self) -> Self {
+        self.with_builder(|builder| builder.no_output())
+    }
+
+    pub fn cycles(self, cycles: usize) -> Self {
+        self.with_builder(|builder| builder.cycles(cycles))
+    }
+
+    pub fn cache(self, enabled: bool) -> Self {
+        self.with_builder(|builder| builder.cache(enabled))
+    }
+
+    pub fn progress(self, enabled: bool) -> Self {
+        self.with_builder(|builder| builder.progress(enabled))
+    }
+
+    pub fn idelta(self, value: f64) -> Self {
+        self.with_builder(|builder| builder.idelta(value))
+    }
+
+    pub fn tad(self, value: f64) -> Self {
+        self.with_builder(|builder| builder.tad(value))
+    }
+
+    pub fn prior(self, prior: Prior) -> Self {
+        self.with_builder(|builder| builder.prior(prior))
+    }
+
+    pub fn initialize_logs(self) -> Self {
+        self.with_builder(|builder| builder.initialize_logs())
+    }
+
+    pub fn log_level(self, level: LoggingLevel) -> Self {
+        self.with_builder(|builder| builder.log_level(level))
+    }
+
+    pub fn write_logs(self, enabled: bool) -> Self {
+        self.with_builder(|builder| builder.write_logs(enabled))
+    }
+
+    pub fn stdout_logs(self, enabled: bool) -> Self {
+        self.with_builder(|builder| builder.stdout_logs(enabled))
+    }
+
+    pub fn convergence(self, convergence: ConvergenceOptions) -> Self {
+        self.with_builder(|builder| builder.convergence(convergence))
+    }
+
+    pub fn tuning(self, tuning: AlgorithmTuning) -> Self {
+        self.with_builder(|builder| builder.tuning(tuning))
+    }
+
+    fn with_builder(
+        self,
+        map: impl FnOnce(EstimationProblemBuilder<E>) -> EstimationProblemBuilder<E>,
+    ) -> Self {
+        let NonparametricEstimationProblemBuilder {
+            builder,
+            method,
+            error_models,
+        } = self;
+
+        Self {
+            builder: map(builder),
+            method,
+            error_models,
+        }
+    }
+}
+
+impl<E: Equation + EquationMetadataSource> NonparametricEstimationProblemBuilder<E> {
+    pub fn parameter(self, parameter: Parameter) -> Result<Self> {
+        self.map_builder(|builder| builder.parameter(parameter))
+    }
+
+    pub fn variability(self, variability: VariabilityModel) -> Self {
+        self.with_builder(|builder| builder.variability(variability))
+    }
+
+    pub fn covariates(self, covariates: CovariateSpec) -> Self {
+        self.with_builder(|builder| builder.covariates(covariates))
+    }
+
+    pub fn metadata(self, metadata: ModelMetadata) -> Self {
+        self.with_builder(|builder| builder.metadata(metadata))
+    }
+
+    pub fn error(mut self, name: &str, model: AssayErrorModel) -> Result<Self> {
+        let outeq = self
+            .builder
+            .model
+            .output_index(name)
+            .ok_or_else(|| anyhow::anyhow!("unknown equation output label: {name}"))?;
+
+        self.error_models = Some(match self.error_models.take() {
+            None => AssayErrorModels::new().add(outeq, model)?,
+            Some(models) => models.add(outeq, model)?,
+        });
+
+        Ok(self)
     }
 
     pub fn build(self) -> Result<EstimationProblem<E>> {
-        let method = self
-            .method
-            .ok_or_else(|| anyhow::anyhow!("estimation method is required"))?;
-        if self.model.parameters.is_empty() {
-            bail!("estimation problem requires at least one parameter");
-        }
+        let model = self.builder.model.build()?;
+        let error_models = self
+            .error_models
+            .ok_or_else(|| anyhow::anyhow!("error models are required"))?;
 
         Ok(EstimationProblem {
-            model: self.model,
-            data: self.data,
+            model,
+            data: self.builder.data,
+            error_models: ErrorModels::Nonparametric(error_models),
+            method: self.method,
+            output: self.builder.output.unwrap_or_default(),
+            runtime: self.builder.runtime.unwrap_or_default(),
+        })
+    }
+
+    fn map_builder(
+        self,
+        map: impl FnOnce(EstimationProblemBuilder<E>) -> Result<EstimationProblemBuilder<E>>,
+    ) -> Result<Self> {
+        let NonparametricEstimationProblemBuilder {
+            builder,
             method,
-            output: self.output.unwrap_or_default(),
-            runtime: self.runtime.unwrap_or_default(),
+            error_models,
+        } = self;
+
+        Ok(Self {
+            builder: map(builder)?,
+            method,
+            error_models,
         })
     }
 }
 
-impl<E: Equation + Clone + Send + 'static> EstimationProblemBuilder<E> {
-    pub fn run(self) -> Result<crate::results::FitResult<E>> {
-        self.build()?.run()
+impl<E: Equation + Clone + Send + 'static + EquationMetadataSource>
+    NonparametricEstimationProblemBuilder<E>
+{
+    pub fn fit(self) -> Result<crate::results::FitResult<E>> {
+        self.build()?.fit()
+    }
+
+    pub fn fit_with_progress<F>(self, on_progress: F) -> Result<crate::results::FitResult<E>>
+    where
+        F: FnMut(crate::api::FitProgress),
+    {
+        self.build()?.fit_with_progress(on_progress)
     }
 }

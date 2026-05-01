@@ -2,9 +2,10 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::api::{NonparametricMethod, OutputPlan, RuntimeOptions};
+use crate::api::estimation_problem::NonparametricMethod;
+use crate::api::{OutputPlan, RuntimeOptions};
 use crate::estimation::nonparametric::{NonparametricWorkspace, Prior, Psi, Theta};
-use crate::model::{ModelDefinition, ObservationSpec, ParameterSpace};
+use crate::model::{ModelDefinition, ParameterSpace};
 use crate::output::shared::RunConfiguration;
 use anyhow::Context;
 use anyhow::Result;
@@ -14,6 +15,7 @@ use nonparametric::npag::*;
 use nonparametric::npod::NPOD;
 use nonparametric::postprob::POSTPROB;
 use pharmsol::prelude::{data::Data, simulator::Equation};
+use pharmsol::AssayErrorModels;
 use pharmsol::{Predictions, Subject};
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +28,7 @@ pub(crate) struct NonparametricAlgorithmInput<E: Equation> {
     pub equation: E,
     pub data: Data,
     pub parameter_space: ParameterSpace,
-    pub observations: ObservationSpec,
+    pub error_models: AssayErrorModels,
     pub output: OutputPlan,
     pub runtime: RuntimeOptions,
 }
@@ -46,15 +48,22 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
         method: NonparametricMethod,
         model: ModelDefinition<E>,
         data: Data,
+        error_models: AssayErrorModels,
         output: OutputPlan,
         runtime: RuntimeOptions,
     ) -> Self {
+        let ModelDefinition {
+            equation,
+            parameters,
+            ..
+        } = model;
+
         Self {
             method,
-            equation: model.equation,
+            equation,
             data,
-            parameter_space: model.parameters,
-            observations: model.observations,
+            parameter_space: parameters,
+            error_models,
             output,
             runtime,
         }
@@ -65,7 +74,7 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
     }
 
     pub(crate) fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels {
-        &self.observations.assay_error_models
+        &self.error_models
     }
 
     pub(crate) fn max_cycles(&self) -> usize {
@@ -124,11 +133,6 @@ impl Algorithm {
             self,
             Algorithm::NPAG | Algorithm::NPOD | Algorithm::POSTPROB
         )
-    }
-
-    /// Check if this is a parametric algorithm
-    pub fn is_parametric(&self) -> bool {
-        false
     }
 }
 
@@ -419,7 +423,7 @@ pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
             let algorithm: Box<dyn Algorithms<E>> = NPOD::from_input(input)?;
             Ok(algorithm)
         }
-        NonparametricMethod::Postprob(_) => {
+        NonparametricMethod::PostProb(_) => {
             let algorithm: Box<dyn Algorithms<E>> = POSTPROB::from_input(input)?;
             Ok(algorithm)
         }

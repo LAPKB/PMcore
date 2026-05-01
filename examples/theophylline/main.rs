@@ -11,36 +11,34 @@ fn main() {
             fetch_params!(p, _ka, _ke, v);
             y[0] = x[1] * 1000.0 / v;
         },
-    );
-
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .with_assay_error_models(
-            AssayErrorModels::new()
-                .add(
-                    0,
-                    AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
-                )
-                .unwrap(),
-        );
-
-    let model = ModelDefinition::builder(analytical)
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ka", 0.001, 3.0))
-                .add(ParameterSpec::bounded("ke", 0.001, 3.0))
-                .add(ParameterSpec::bounded("v", 0.001, 50.0)),
-        )
-        .observations(observations)
-        .build()
-        .unwrap();
+    )
+    .with_nstates(2)
+    .with_ndrugs(1)
+    .with_nout(1)
+    .with_metadata(
+        equation::metadata::new("theophylline")
+            .parameters(["ka", "ke", "v"])
+            .states(["depot", "central"])
+            .outputs(["0"])
+            .route(equation::Route::bolus("0").to_state("depot"))
+            .analytical_kernel(AnalyticalKernel::OneCompartmentWithAbsorption),
+    )
+    .unwrap();
 
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
-    let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions,
-        )))
-        .run()
+    EstimationProblem::builder(analytical, data)
+        .parameter(Parameter::bounded("ka", 0.001, 3.0))
+        .unwrap()
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .unwrap()
+        .parameter(Parameter::bounded("v", 0.001, 50.0))
+        .unwrap()
+        .method(Npag::new())
+        .error(
+            "0",
+            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
+        )
+        .unwrap()
+        .fit()
         .unwrap();
-    result.write_outputs().unwrap();
 }

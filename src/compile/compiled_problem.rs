@@ -1,6 +1,8 @@
 use pharmsol::equation::Equation;
 
-use crate::api::{EstimationMethod, OutputPlan, RuntimeOptions};
+use crate::algorithms::Algorithm;
+use crate::api::estimation_problem::NonparametricMethod;
+use crate::api::{ErrorModels, OutputPlan, RuntimeOptions};
 use crate::compile::{DesignContext, ExecutionCaches, ObservationIndex};
 use crate::model::ModelDefinition;
 use pharmsol::Data;
@@ -9,7 +11,8 @@ use pharmsol::Data;
 pub struct CompiledProblem<E: Equation> {
     pub model: ModelDefinition<E>,
     pub data: Data,
-    method: EstimationMethod,
+    error_models: ErrorModels,
+    method: NonparametricMethod,
     output: OutputPlan,
     runtime: RuntimeOptions,
     pub design: DesignContext,
@@ -19,10 +22,11 @@ pub struct CompiledProblem<E: Equation> {
 
 impl<E: Equation> CompiledProblem<E> {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub(crate) fn new(
         model: ModelDefinition<E>,
         data: Data,
-        method: EstimationMethod,
+        error_models: ErrorModels,
+        method: NonparametricMethod,
         output: OutputPlan,
         runtime: RuntimeOptions,
         design: DesignContext,
@@ -32,6 +36,7 @@ impl<E: Equation> CompiledProblem<E> {
         Self {
             model,
             data,
+            error_models,
             method,
             output,
             runtime,
@@ -41,8 +46,16 @@ impl<E: Equation> CompiledProblem<E> {
         }
     }
 
-    pub fn method(&self) -> EstimationMethod {
+    pub(crate) fn method(&self) -> NonparametricMethod {
         self.method
+    }
+
+    pub fn algorithm(&self) -> Algorithm {
+        self.method.algorithm()
+    }
+
+    pub fn error_models(&self) -> &ErrorModels {
+        &self.error_models
     }
 
     pub fn output_plan(&self) -> &OutputPlan {

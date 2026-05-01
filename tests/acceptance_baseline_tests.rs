@@ -32,37 +32,19 @@ fn bimodal_data() -> Result<Data> {
     Ok(data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?)
 }
 
-fn bimodal_npag_model() -> Result<ModelDefinition<equation::ODE>> {
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .with_assay_error_models(AssayErrorModels::new().add(
-            0,
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )?);
-
-    ModelDefinition::builder(bimodal_ode_equation())
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ke", 0.001, 3.0))
-                .add(ParameterSpec::bounded("v", 25.0, 250.0)),
-        )
-        .observations(observations)
-        .build()
-}
-
 #[test]
 fn test_acceptance_baseline_npag_bimodal_ke() -> Result<()> {
-    let result = EstimationProblem::builder(bimodal_npag_model()?, bimodal_data()?)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions,
-        )))
-        .output(OutputPlan::disabled())
-        .runtime(RuntimeOptions {
-            cycles: 1000,
-            progress: false,
-            ..RuntimeOptions::default()
-        })
-        .run()?;
+    let result = EstimationProblem::builder(bimodal_ode_equation(), bimodal_data()?)
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
+        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .method(Npag::new())
+        .error(
+            "1",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+        )?
+        .cycles(1000)
+        .progress(false)
+        .fit()?;
     let summary = result.summary();
     let population = result.population_summary();
     let result = result

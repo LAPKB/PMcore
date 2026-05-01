@@ -29,48 +29,32 @@ fn main() {
     )
     .with_nstates(2)
     .with_ndrugs(1)
-    .with_nout(1);
-
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "central"))
-        .with_assay_error_models(
-            AssayErrorModels::new()
-                .add(
-                    0,
-                    AssayErrorModel::additive(
-                        ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
-                        0.0,
-                    ),
-                )
-                .unwrap(),
-        );
-
-    let model = ModelDefinition::builder(sde)
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ke0", 0.0001, 2.4))
-                .add(ParameterSpec::bounded("ske", 0.0001, 0.2)),
-        )
-        .observations(observations)
-        .build()
-        .unwrap();
+    .with_nout(1)
+    .with_metadata(
+        equation::metadata::new("new_iov")
+            .parameters(["ke0", "ske"])
+            .states(["central", "ke_latent"])
+            .outputs(["1"])
+            .route(equation::Route::bolus("1").to_state("central"))
+            .particles(11),
+    )
+    .unwrap();
 
     let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
-    let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions,
-        )))
-        .output(OutputPlan {
-            write: true,
-            path: Some("examples/new_iov/output".to_string()),
-        })
-        .runtime(RuntimeOptions {
-            cycles: 1000,
-            cache: true,
-            prior: Some(Prior::sobol(100, 347)),
-            ..RuntimeOptions::default()
-        })
-        .run()
+    EstimationProblem::builder(sde, data)
+        .parameter(Parameter::bounded("ke0", 0.0001, 2.4))
+        .unwrap()
+        .parameter(Parameter::bounded("ske", 0.0001, 0.2))
+        .unwrap()
+        .method(Npag::new())
+        .error(
+            "1",
+            AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+        )
+        .unwrap()
+        .output_dir("examples/new_iov/output")
+        .cycles(1000)
+        .prior(Prior::sobol(100, 347))
+        .fit()
         .unwrap();
-    result.write_outputs().unwrap();
 }

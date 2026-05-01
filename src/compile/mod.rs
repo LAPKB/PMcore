@@ -2,7 +2,7 @@ use anyhow::Result;
 use pharmsol::{Data, Equation, Event};
 
 use crate::api::EstimationProblem;
-use crate::model::{CovariateSpec, ParameterSpace};
+use crate::model::{CovariateSpec, EquationMetadataSource, ParameterSpace};
 
 mod caches;
 mod compiled_problem;
@@ -19,7 +19,7 @@ pub use design_context::{
 pub use observation_index::{ObservationIndex, ObservationRecord};
 pub use validation::validate_problem;
 
-impl<E: Equation + Clone> EstimationProblem<E> {
+impl<E: Equation + Clone + EquationMetadataSource> EstimationProblem<E> {
     pub fn compile(self) -> Result<CompiledProblem<E>> {
         compile_problem(self)
     }
@@ -29,7 +29,7 @@ impl<E: Equation + Clone> EstimationProblem<E> {
     }
 }
 
-pub fn compile_problem<E: Equation + Clone>(
+pub fn compile_problem<E: Equation + Clone + EquationMetadataSource>(
     problem: EstimationProblem<E>,
 ) -> Result<CompiledProblem<E>> {
     validate_problem(&problem)?;
@@ -47,6 +47,7 @@ pub fn compile_problem<E: Equation + Clone>(
     Ok(CompiledProblem::new(
         problem.model,
         problem.data,
+        problem.error_models,
         problem.method,
         problem.output,
         problem.runtime,

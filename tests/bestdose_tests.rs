@@ -5,8 +5,8 @@ use pmcore::prelude::*;
 
 fn pk_parameter_space(ke_lower: f64, ke_upper: f64, v_lower: f64, v_upper: f64) -> ParameterSpace {
     ParameterSpace::new()
-        .add(ParameterSpec::bounded("ke", ke_lower, ke_upper))
-        .add(ParameterSpec::bounded("v", v_lower, v_upper))
+        .add(Parameter::bounded("ke", ke_lower, ke_upper))
+        .add(Parameter::bounded("v", v_lower, v_upper))
 }
 
 fn bestdose_config(

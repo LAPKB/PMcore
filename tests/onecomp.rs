@@ -1,6 +1,14 @@
 use anyhow::Result;
 use pmcore::prelude::*;
 
+fn one_compartment_metadata() -> pharmsol::equation::ModelMetadata {
+    equation::metadata::new("one_compartment")
+        .parameters(["ke", "v"])
+        .states(["central"])
+        .outputs(["0"])
+        .route(equation::Route::bolus("0").to_state("central"))
+}
+
 #[test]
 fn test_one_compartment_npag() -> Result<()> {
     // Create a simple one-compartment model
@@ -16,21 +24,11 @@ fn test_one_compartment_npag() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-    );
-
-    let em = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .with_assay_error_models(AssayErrorModels::new().add(0, em).unwrap());
-
-    let model = ModelDefinition::builder(eq)
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ke", 0.1, 1.0))
-                .add(ParameterSpec::bounded("v", 1.0, 20.0)),
-        )
-        .observations(observations)
-        .build()?;
+    )
+    .with_nstates(1)
+    .with_ndrugs(1)
+    .with_nout(1)
+    .with_metadata(one_compartment_metadata())?;
 
     // Let known support points
     let spps: Vec<(f64, f64)> = vec![(0.85, 12.0), (0.52, 5.0), (0.15, 3.0)];
@@ -54,17 +52,17 @@ fn test_one_compartment_npag() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    let result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions,
-        )))
-        .output(OutputPlan::disabled())
-        .runtime(RuntimeOptions {
-            cycles: 100,
-            prior: Some(Prior::sobol(64, 22)),
-            ..RuntimeOptions::default()
-        })
-        .run()?;
+    let result = EstimationProblem::builder(eq, data)
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
+        .parameter(Parameter::bounded("v", 1.0, 20.0))?
+        .method(Npag::new())
+        .error(
+            "0",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
+        )?
+        .cycles(100)
+        .prior(Prior::sobol(64, 22))
+        .fit()?;
     let result = result
         .as_nonparametric()
         .expect("NPAG should yield a nonparametric result");
@@ -91,21 +89,11 @@ fn test_one_compartment_npod() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-    );
-
-    let em = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .with_assay_error_models(AssayErrorModels::new().add(0, em).unwrap());
-
-    let model = ModelDefinition::builder(eq)
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ke", 0.1, 1.0))
-                .add(ParameterSpec::bounded("v", 1.0, 20.0)),
-        )
-        .observations(observations)
-        .build()?;
+    )
+    .with_nstates(1)
+    .with_ndrugs(1)
+    .with_nout(1)
+    .with_metadata(one_compartment_metadata())?;
 
     // Let known support points
     let spps: Vec<(f64, f64)> = vec![(0.85, 12.0), (0.52, 5.0), (0.15, 3.0)];
@@ -129,17 +117,17 @@ fn test_one_compartment_npod() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    let result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(
-            NpodOptions,
-        )))
-        .output(OutputPlan::disabled())
-        .runtime(RuntimeOptions {
-            cycles: 100,
-            prior: Some(Prior::sobol(64, 22)),
-            ..RuntimeOptions::default()
-        })
-        .run()?;
+    let result = EstimationProblem::builder(eq, data)
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
+        .parameter(Parameter::bounded("v", 1.0, 20.0))?
+        .method(Npod::new())
+        .error(
+            "0",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
+        )?
+        .cycles(100)
+        .prior(Prior::sobol(64, 22))
+        .fit()?;
     let result = result
         .as_nonparametric()
         .expect("NPOD should yield a nonparametric result");
@@ -166,21 +154,11 @@ fn test_one_compartment_postprob() -> Result<()> {
             fetch_params!(p, v);
             y[0] = x[0] / v;
         },
-    );
-
-    let em = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .with_assay_error_models(AssayErrorModels::new().add(0, em).unwrap());
-
-    let model = ModelDefinition::builder(eq)
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ke", 0.1, 1.0))
-                .add(ParameterSpec::bounded("v", 1.0, 20.0)),
-        )
-        .observations(observations)
-        .build()?;
+    )
+    .with_nstates(1)
+    .with_ndrugs(1)
+    .with_nout(1)
+    .with_metadata(one_compartment_metadata())?;
 
     // Let known support points
     let spps: Vec<(f64, f64)> = vec![(0.85, 12.0), (0.52, 5.0), (0.15, 3.0)];
@@ -204,17 +182,17 @@ fn test_one_compartment_postprob() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    let result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(
-            NonparametricMethod::Postprob(PostProbOptions),
-        ))
-        .output(OutputPlan::disabled())
-        .runtime(RuntimeOptions {
-            cycles: 100,
-            prior: Some(Prior::sobol(64, 22)),
-            ..RuntimeOptions::default()
-        })
-        .run()?;
+    let result = EstimationProblem::builder(eq, data)
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
+        .parameter(Parameter::bounded("v", 1.0, 20.0))?
+        .method(PostProb::new())
+        .error(
+            "0",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
+        )?
+        .cycles(100)
+        .prior(Prior::sobol(64, 22))
+        .fit()?;
     let result = result
         .as_nonparametric()
         .expect("POSTPROB should yield a nonparametric result");

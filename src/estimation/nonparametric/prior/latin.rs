@@ -36,14 +36,14 @@ pub fn generate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{ParameterSpace, ParameterSpec};
+    use crate::model::{Parameter, ParameterSpace};
 
     #[test]
     fn latin_generate_produces_requested_shape() {
         let params = ParameterSpace::new()
-            .add(ParameterSpec::bounded("a", 0.0, 1.0))
-            .add(ParameterSpec::bounded("b", 0.0, 1.0))
-            .add(ParameterSpec::bounded("c", 0.0, 1.0));
+            .add(Parameter::bounded("a", 0.0, 1.0))
+            .add(Parameter::bounded("b", 0.0, 1.0))
+            .add(Parameter::bounded("c", 0.0, 1.0));
 
         let theta = generate(&params, 10, 22).unwrap();
         assert_eq!(theta.nspp(), 10);

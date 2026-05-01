@@ -1,24 +1,23 @@
 use anyhow::Result;
 use pharmsol::equation::Equation;
 
-use crate::api::estimation_problem::{EstimationMethod, EstimationProblem};
+use crate::api::estimation_problem::EstimationProblem;
 use crate::api::progress::FitProgress;
 use crate::estimation::nonparametric;
+use crate::model::EquationMetadataSource;
 use crate::results::FitResult;
 
-pub fn fit<E: Equation + Clone + Send + 'static>(
+pub fn fit<E: Equation + Clone + Send + 'static + EquationMetadataSource>(
     problem: EstimationProblem<E>,
 ) -> Result<FitResult<E>> {
     if problem.runtime.logging.initialize {
         problem.initialize_logs()?;
     }
 
-    let method = problem.method;
     let compiled = problem.compile()?;
-
-    match method {
-        EstimationMethod::Nonparametric(_) => nonparametric::fit(compiled),
-    }
+    let mut result = nonparametric::fit(compiled)?;
+    result.write_outputs()?;
+    Ok(result)
 }
 
 pub fn fit_with_progress<E, F>(
@@ -26,7 +25,7 @@ pub fn fit_with_progress<E, F>(
     mut on_progress: F,
 ) -> Result<FitResult<E>>
 where
-    E: Equation + Clone + Send + 'static,
+    E: Equation + Clone + Send + 'static + EquationMetadataSource,
     F: FnMut(FitProgress),
 {
     if problem.runtime.logging.initialize {
@@ -34,13 +33,11 @@ where
     }
 
     let compiled = problem.compile()?;
-    let method = compiled.method();
-
-    match method {
-        EstimationMethod::Nonparametric(_) => nonparametric::fit_with_progress(compiled, |event| {
-            on_progress(FitProgress::NonparametricCycle(event));
-        }),
-    }
+    let mut result = nonparametric::fit_with_progress(compiled, |event| {
+        on_progress(FitProgress::NonparametricCycle(event));
+    })?;
+    result.write_outputs()?;
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -50,13 +47,7 @@ mod tests {
 
     use super::{fit_with_progress, FitProgress};
     use crate::algorithms::Status;
-    use crate::api::{
-        EstimationMethod, EstimationProblem, LoggingOptions, NonparametricMethod, NpagOptions,
-        RuntimeOptions,
-    };
-    use crate::model::{
-        ModelDefinition, ObservationChannel, ObservationSpec, ParameterSpace, ParameterSpec,
-    };
+    use crate::api::{EstimationProblem, LoggingOptions, Npag};
     use crate::prelude::*;
 
     fn equation() -> equation::ODE {
@@ -73,6 +64,17 @@ mod tests {
                 y[0] = x[0] / v;
             },
         )
+        .with_nstates(1)
+        .with_ndrugs(1)
+        .with_nout(1)
+        .with_metadata(
+            equation::metadata::new("fit_progress")
+                .parameters(["ke", "v"])
+                .states(["central"])
+                .outputs(["0"])
+                .route(equation::Route::bolus("0").to_state("central")),
+        )
+        .expect("metadata attachment should validate")
     }
 
     #[test]
@@ -84,35 +86,16 @@ mod tests {
             .build()]);
 
         let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-        let observations = ObservationSpec::new()
-            .add_channel(ObservationChannel::continuous(0, "cp"))
-            .with_assay_error_models(AssayErrorModels::new().add(0, assay_error)?);
 
-        let model = ModelDefinition::builder(equation())
-            .parameters(
-                ParameterSpace::new()
-                    .add(ParameterSpec::bounded("ke", 0.05, 1.0))
-                    .add(ParameterSpec::bounded("v", 5.0, 50.0)),
-            )
-            .observations(observations)
-            .build()?;
-
-        let runtime = RuntimeOptions {
-            cycles: 2,
-            progress: false,
-            prior: Some(Prior::sobol(8, 7)),
-            logging: LoggingOptions {
-                initialize: false,
-                ..LoggingOptions::default()
-            },
-            ..RuntimeOptions::default()
-        };
-
-        let problem = EstimationProblem::builder(model, data)
-            .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-                NpagOptions,
-            )))
-            .runtime(runtime)
+        let problem = EstimationProblem::builder(equation(), data)
+            .parameter(Parameter::bounded("ke", 0.05, 1.0))?
+            .parameter(Parameter::bounded("v", 5.0, 50.0))?
+            .method(Npag::new())
+            .error("0", assay_error)?
+            .cycles(2)
+            .progress(false)
+            .prior(Prior::sobol(8, 7))
+            .log_level(LoggingOptions::default().level)
             .build()?;
 
         let mut progress_events = Vec::new();

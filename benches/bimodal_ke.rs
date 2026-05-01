@@ -18,57 +18,67 @@ fn create_equation() -> equation::ODE {
             y[1] = x[0] / v;
         },
     )
+    .with_nstates(1)
+    .with_ndrugs(2)
+    .with_nout(2)
+    .with_metadata(
+        equation::metadata::new("bimodal_ke")
+            .parameters(["ke", "v"])
+            .states(["central"])
+            .outputs(["0", "1"])
+            .routes([
+                equation::Route::bolus("0").to_state("central"),
+                equation::Route::infusion("1").to_state("central"),
+            ]),
+    )
+    .expect("metadata attachment should validate")
 }
 
-fn create_parameter_space() -> ParameterSpace {
-    ParameterSpace::new()
-        .add(ParameterSpec::bounded("ke", 0.001, 3.0))
-        .add(ParameterSpec::bounded("v", 25.0, 250.0))
-}
-
-fn create_error_models() -> Result<AssayErrorModels> {
-    Ok(AssayErrorModels::new().add(
-        1,
-        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-    )?)
+fn create_error_model() -> AssayErrorModel {
+    AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0)
 }
 
 fn load_data() -> Result<data::Data> {
     Ok(data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?)
 }
 
-fn setup_with_algorithm(method: NonparametricMethod) -> Result<EstimationProblem<equation::ODE>> {
-    let ems = create_error_models()?;
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(1, "cp"))
-        .with_assay_error_models(ems);
-    let model = ModelDefinition::builder(create_equation())
-        .parameters(create_parameter_space())
-        .observations(observations)
-        .build()?;
+fn setup_npag() -> Result<EstimationProblem<equation::ODE>> {
     let data = load_data()?;
-    EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(method))
-        .output(OutputPlan::disabled())
-        .runtime(RuntimeOptions {
-            cycles: 1000,
-            progress: false,
-            prior: Some(Prior::sobol(2048, 22)),
-            ..RuntimeOptions::default()
-        })
+    EstimationProblem::builder(create_equation(), data)
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
+        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .method(Npag::new())
+        .error("1", create_error_model())?
+        .cycles(1000)
+        .progress(false)
+        .prior(Prior::sobol(2048, 22))
         .build()
 }
 
-fn setup_npag() -> Result<EstimationProblem<equation::ODE>> {
-    setup_with_algorithm(NonparametricMethod::Npag(NpagOptions))
-}
-
 fn setup_npod() -> Result<EstimationProblem<equation::ODE>> {
-    setup_with_algorithm(NonparametricMethod::Npod(NpodOptions))
+    let data = load_data()?;
+    EstimationProblem::builder(create_equation(), data)
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
+        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .method(Npod::new())
+        .error("1", create_error_model())?
+        .cycles(1000)
+        .progress(false)
+        .prior(Prior::sobol(2048, 22))
+        .build()
 }
 
 fn setup_postprob() -> Result<EstimationProblem<equation::ODE>> {
-    setup_with_algorithm(NonparametricMethod::Postprob(PostProbOptions))
+    let data = load_data()?;
+    EstimationProblem::builder(create_equation(), data)
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
+        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .method(PostProb::new())
+        .error("1", create_error_model())?
+        .cycles(1000)
+        .progress(false)
+        .prior(Prior::sobol(2048, 22))
+        .build()
 }
 
 fn benchmark_algorithm<F>(c: &mut Criterion, bench_name: &str, setup_fn: F)
@@ -80,7 +90,7 @@ where
     c.bench_function(bench_name, |b| {
         b.iter_with_setup(
             || problem.clone(),
-            |problem| black_box(problem.run().unwrap()),
+            |problem| black_box(problem.fit().unwrap()),
         )
     });
 }

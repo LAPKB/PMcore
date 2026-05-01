@@ -246,13 +246,13 @@ pub(crate) fn parse_prior_for_parameters(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{ParameterSpace, ParameterSpec};
+    use crate::model::{Parameter, ParameterSpace};
     use std::fs;
 
     fn parameter_space() -> ParameterSpace {
         ParameterSpace::new()
-            .add(ParameterSpec::bounded("ke", 0.1, 1.0))
-            .add(ParameterSpec::bounded("v", 5.0, 50.0))
+            .add(Parameter::bounded("ke", 0.1, 1.0))
+            .add(Parameter::bounded("v", 5.0, 50.0))
     }
 
     fn temp_csv_path() -> String {

@@ -31,48 +31,34 @@ fn main() {
         },
     };
 
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(0, "cp"))
-        .add_channel(ObservationChannel::continuous(1, "metabolite"))
-        .with_assay_error_models(
-            AssayErrorModels::new()
-                .add(
-                    0,
-                    AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-                )
-                .unwrap()
-                .add(
-                    1,
-                    AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-                )
-                .unwrap(),
-        );
-
-    let model = ModelDefinition::builder(eq)
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("cls", 0.1, 10.0))
-                .add(ParameterSpec::bounded("fm", 0.0, 1.0))
-                .add(ParameterSpec::bounded("k20", 0.01, 1.0))
-                .add(ParameterSpec::bounded("relv", 0.1, 1.0))
-                .add(ParameterSpec::bounded("theta1", 0.1, 10.0))
-                .add(ParameterSpec::bounded("theta2", 0.1, 10.0))
-                .add(ParameterSpec::bounded("vs", 1.0, 10.0)),
-        )
-        .observations(observations)
-        .build()
-        .unwrap();
-
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
-    let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(
-            NpodOptions,
-        )))
-        .runtime(RuntimeOptions {
-            cycles: 10000,
-            ..RuntimeOptions::default()
-        })
-        .run()
+    EstimationProblem::builder(eq, data)
+        .parameter(Parameter::bounded("cls", 0.1, 10.0))
+        .unwrap()
+        .parameter(Parameter::bounded("fm", 0.0, 1.0))
+        .unwrap()
+        .parameter(Parameter::bounded("k20", 0.01, 1.0))
+        .unwrap()
+        .parameter(Parameter::bounded("relv", 0.1, 1.0))
+        .unwrap()
+        .parameter(Parameter::bounded("theta1", 0.1, 10.0))
+        .unwrap()
+        .parameter(Parameter::bounded("theta2", 0.1, 10.0))
+        .unwrap()
+        .parameter(Parameter::bounded("vs", 1.0, 10.0))
+        .unwrap()
+        .method(Npod::new())
+        .error(
+            "1",
+            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+        )
+        .unwrap()
+        .error(
+            "2",
+            AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
+        )
+        .unwrap()
+        .cycles(10000)
+        .fit()
         .unwrap();
-    result.write_outputs().unwrap();
 }
