@@ -3,71 +3,63 @@ use pmcore::prelude::*;
 #[allow(unused_variables)]
 fn main() -> Result<()> {
     let eq = ode! {
-        diffeq:|x, p, t, dx, b, rateiv, _cov| {
-            fetch_params!(
-                p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
-                e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1,
-                h2r2
-            );
+        name: "drusano",
+        params: [
+            v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1, e50_1r1,
+            alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1, h2r2
+        ],
+        covariates: [ic_t],
+        states: [drug_1_amount, drug_2_amount, total_bacteria, resistant_1, resistant_2],
+        outputs: [1, 2, 3, 4],
+        routes: [
+            bolus(1) -> drug_1_amount,
+            bolus(2) -> drug_2_amount,
+        ],
+        diffeq: |x, _t, dx| {
 
             let e50_2r1 = e50_2s;
             let e50_1r2 = e50_1s;
             let h2r1 = h2s;
             let h1r2 = h1s;
 
-            dx[0] = rateiv[0] - cl1 * x[0] / v1;
-            dx[1] = rateiv[1] - cl2 * x[1] / v2;
+            dx[drug_1_amount] = -cl1 * x[drug_1_amount] / v1;
+            dx[drug_2_amount] = -cl2 * x[drug_2_amount] / v2;
 
-            let xns = x[2];
-            let xnr1 = x[3];
-            let xnr2 = x[4];
+            let xns = x[total_bacteria];
+            let xnr1 = x[resistant_1];
+            let xnr2 = x[resistant_2];
             let e = 1.0 - (xns + xnr1 + xnr2) / popmax;
 
-            // Case s
-            let u_s = x[0] / (v1 * e50_1s);
-            let v_s = x[1] / (v2 * e50_2s);
+            let u_s = x[drug_1_amount] / (v1 * e50_1s);
+            let v_s = x[drug_2_amount] / (v2 * e50_2s);
             let w_s = alpha_s * u_s * v_s / (e50_1s * e50_2s);
             let xm0best = get_e2(u_s, v_s, w_s, 1.0 / h1s, 1.0 / h2s, alpha_s);
-            dx[2] = xns * (kgs * e - kks * xm0best);
+            dx[total_bacteria] = xns * (kgs * e - kks * xm0best);
 
-            // Case r1
-            let u_r1 = x[0] / (v1 * e50_1r1);
-            let v_r1 = x[1] / (v2 * e50_2r1);
+            let u_r1 = x[drug_1_amount] / (v1 * e50_1r1);
+            let v_r1 = x[drug_2_amount] / (v2 * e50_2r1);
             let w_r1 = alpha_r1 * u_r1 * v_r1 / (e50_1r1 * e50_2r1);
             let xm0best = get_e2(u_r1, v_r1, w_r1, 1.0 / h1r1, 1.0 / h2r1, alpha_s);
-            dx[3] = xnr1 * (kgr1 * e - kkr1 * xm0best);
+            dx[resistant_1] = xnr1 * (kgr1 * e - kkr1 * xm0best);
 
-            // Case r2
-            let u_r2 = x[0] / (v1 * e50_1r2);
-            let v_r2 = x[1] / (v2 * e50_2r2);
+            let u_r2 = x[drug_1_amount] / (v1 * e50_1r2);
+            let v_r2 = x[drug_2_amount] / (v2 * e50_2r2);
             let w_r2 = alpha_r2 * u_r2 * v_r2 / (e50_1r2 * e50_2r2);
             let xm0best = get_e2(u_r2, v_r2, w_r2, 1.0 / h1r2, 1.0 / h2r2, alpha_s);
-            dx[4] = xnr2 * (kgr2 * e - kkr2 * xm0best);
+            dx[resistant_2] = xnr2 * (kgr2 * e - kkr2 * xm0best);
         },
-        init: |p, t, cov, x| {
-            fetch_params!(
-                p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
-                e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1,
-                h2r2
-            );
-            fetch_cov!(cov, t, ic_t);
-            x[0] = 0.0;
-            x[1] = 0.0;
-            x[2] = 10.0_f64.powf(ic_t);
-            x[3] = 10.0_f64.powf(init_4);
-            x[4] = 10.0_f64.powf(init_5);
+        init: |_t, x| {
+            x[drug_1_amount] = 0.0;
+            x[drug_2_amount] = 0.0;
+            x[total_bacteria] = 10.0_f64.powf(ic_t);
+            x[resistant_1] = 10.0_f64.powf(init_4);
+            x[resistant_2] = 10.0_f64.powf(init_5);
         },
-        out: |x, p, _t, _cov, y| {
-            fetch_params!(
-                p, v1, cl1, v2, cl2, popmax, kgs, kks, e50_1s, e50_2s, alpha_s, kgr1, kkr1,
-                e50_1r1, alpha_r1, kgr2, kkr2, e50_2r2, alpha_r2, init_4, init_5, h1s, h2s, h1r1,
-                h2r2
-            );
-            y[0] = x[0] / v1;
-            y[1] = x[1] / v2;
-            y[2] = (x[2] + x[3] + x[4]).log10();
-            y[3] = x[3].log10();
-            y[4] = x[4].log10();
+        out: |x, _t, y| {
+            y[1] = x[drug_1_amount] / v1;
+            y[2] = x[drug_2_amount] / v2;
+            y[3] = (x[total_bacteria] + x[resistant_1] + x[resistant_2]).log10();
+            y[4] = x[resistant_1].log10();
         },
     };
 
@@ -76,7 +68,6 @@ fn main() -> Result<()> {
         .add_channel(ObservationChannel::continuous(1, "drug_2"))
         .add_channel(ObservationChannel::continuous(2, "total"))
         .add_channel(ObservationChannel::continuous(3, "resistant_1"))
-        .add_channel(ObservationChannel::continuous(4, "resistant_2"))
         .with_assay_error_models(
             AssayErrorModels::new()
                 .add(
@@ -93,10 +84,6 @@ fn main() -> Result<()> {
                 )?
                 .add(
                     3,
-                    AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
-                )?
-                .add(
-                    4,
                     AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
                 )?,
         );
@@ -139,9 +126,7 @@ fn main() -> Result<()> {
 
     let data = data::read_pmetrics("examples/drusano/data.csv").unwrap();
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions::default(),
-        )))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(NpagOptions)))
         .output(OutputPlan {
             write: true,
             path: Some("examples/drusano/output".to_string()),

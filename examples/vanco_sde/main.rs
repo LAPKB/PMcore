@@ -74,9 +74,7 @@ fn main() {
 
     let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions::default(),
-        )))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(NpagOptions)))
         .output(OutputPlan {
             write: true,
             path: Some("examples/vanco_sde/output".to_string()),

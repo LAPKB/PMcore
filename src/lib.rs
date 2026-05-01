@@ -54,6 +54,7 @@ pub use std::collections::HashMap;
 pub mod bestdose;
 
 /// A collection of commonly used items to simplify imports.
+#[allow(ambiguous_glob_reexports)]
 pub mod prelude {
     pub use super::HashMap;
     pub use super::Result;

@@ -399,12 +399,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// until the algorithm converges or meets a stopping criteria.
     fn fit(&mut self) -> Result<NonparametricWorkspace<E>> {
         self.initialize().unwrap();
-        loop {
-            match self.next_cycle()? {
-                Status::Continue => continue,
-                Status::Stop(_) => break,
-            }
-        }
+        while let Status::Continue = self.next_cycle()? {}
         self.into_workspace()
     }
 

@@ -37,9 +37,7 @@ fn main() {
 
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(
-            NpagOptions::default(),
-        )))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npag(NpagOptions)))
         .run()
         .unwrap();
     result.write_outputs().unwrap();

@@ -387,10 +387,19 @@ pub(crate) fn calculate_final_predictions(
                 .iter()
                 .flat_map(|occ| occ.events())
                 .filter_map(|event| match event {
-                    Event::Observation(obs) => Some((obs.time(), obs.outeq())),
+                    Event::Observation(obs) => Some(
+                        obs.outeq_index()
+                            .map(|outeq| (obs.time(), outeq))
+                            .ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "BestDose predictions require numeric observation output labels; got `{}`",
+                                    obs.outeq()
+                                )
+                            }),
+                    ),
                     _ => None,
                 })
-                .collect();
+                .collect::<Result<Vec<_>>>()?;
 
             let mut unique_outeqs: Vec<usize> =
                 obs_time_outeq.iter().map(|(_, outeq)| *outeq).collect();

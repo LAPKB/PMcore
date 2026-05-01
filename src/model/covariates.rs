@@ -2,6 +2,7 @@ use serde::Serialize;
 
 use crate::model::CovariateModel;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Default, Serialize)]
 pub enum CovariateSpec {
     #[default]

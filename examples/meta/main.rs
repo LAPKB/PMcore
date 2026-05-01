@@ -6,40 +6,43 @@ use pmcore::prelude::*;
 
 fn main() {
     let eq = ode! {
-        diffeq: |x, p, t, dx, b, rateiv, cov| {
-            fetch_cov!(cov, t, wt, pkvisit);
-            fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
+        name: "meta",
+        params: [cls, fm, k20, relv, theta1, theta2, vs],
+        covariates: [wt, pkvisit],
+        states: [central, metabolite],
+        outputs: [1, 2],
+        routes: [
+            infusion(1) -> central,
+        ],
+        diffeq: |x, _t, dx| {
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let ke = cl / v;
-            let v2 = relv * v;
-            dx[0] = rateiv[1] - ke * x[0] * (1.0 - fm) - fm * x[0] + b[1];
-            dx[1] = fm * x[0] - k20 * x[1];
+            dx[central] = -ke * x[central] * (1.0 - fm) - fm * x[central];
+            dx[metabolite] = fm * x[central] - k20 * x[metabolite];
         },
-        out: |x, p, t, cov, y| {
-            fetch_cov!(cov, t, wt, pkvisit);
-            fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
+        out: |x, _t, y| {
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
-            let ke = cl / v;
             let v2 = relv * v;
-            y[1] = x[0] / v;
-            y[2] = x[1] / v2;
+            let _ke = cl / v;
+            y[1] = x[central] / v;
+            y[2] = x[metabolite] / v2;
         },
     };
 
     let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(1, "cp"))
-        .add_channel(ObservationChannel::continuous(2, "metabolite"))
+        .add_channel(ObservationChannel::continuous(0, "cp"))
+        .add_channel(ObservationChannel::continuous(1, "metabolite"))
         .with_assay_error_models(
             AssayErrorModels::new()
                 .add(
-                    1,
+                    0,
                     AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
                 )
                 .unwrap()
                 .add(
-                    2,
+                    1,
                     AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
                 )
                 .unwrap(),
@@ -62,9 +65,7 @@ fn main() {
 
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
     let mut result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(
-            NpodOptions::default(),
-        )))
+        .method(EstimationMethod::Nonparametric(NonparametricMethod::Npod(NpodOptions)))
         .runtime(RuntimeOptions {
             cycles: 10000,
             ..RuntimeOptions::default()

@@ -28,7 +28,7 @@ tracing-subscriber = { version = "0.3.19", features = [
     "time",
 ] }
 faer = "0.24.0"
-pharmsol = "=0.26.1"
+pharmsol = { git = "https://github.com/LAPKB/pharmsol.git", branch = "feat/data-mapping-routes" }
 anyhow = "1.0.100"
 rayon = "1.10.0"
 rand = "0.10.1"
@@ -38,8 +38,13 @@ statrs = "0.18"
 
 [features]
 default = []
-json = ["pharmsol/json"]
-exa = ["pharmsol/exa"]
+json = []
+exa = []
+dsl-core = ["pharmsol/dsl-core"]
+dsl-jit = ["pharmsol/dsl-jit"]
+dsl-aot = ["pharmsol/dsl-aot"]
+dsl-aot-load = ["pharmsol/dsl-aot-load"]
+dsl-wasm = ["pharmsol/dsl-wasm"]
 
 [profile.release]
 codegen-units = 1

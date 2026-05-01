@@ -18,6 +18,7 @@ pub struct CompiledProblem<E: Equation> {
 }
 
 impl<E: Equation> CompiledProblem<E> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         model: ModelDefinition<E>,
         data: Data,

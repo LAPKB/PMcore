@@ -49,11 +49,7 @@ fn test_burke_ipm_simple() -> Result<()> {
 #[test]
 fn test_burke_ipm_larger() -> Result<()> {
     // Create a 5x10 psi matrix with random-like values
-    let mat = Mat::from_fn(5, 10, |i, j| {
-        // Generate deterministic "random-like" values
-        let val = ((i * 7 + j * 13) % 100) as f64 / 100.0 + 0.01;
-        val
-    });
+    let mat = Mat::from_fn(5, 10, |i, j| ((i * 7 + j * 13) % 100) as f64 / 100.0 + 0.01);
 
     let psi = Psi::from(mat);
 
@@ -186,11 +182,7 @@ fn test_burke_ipm_with_nan() {
 #[test]
 fn test_burke_ipm_high_dimensional() -> Result<()> {
     // Create a larger matrix (20 subjects, 50 support points)
-    let mat = Mat::from_fn(20, 50, |i, j| {
-        // Generate deterministic values
-        let val = ((i * 11 + j * 17) % 1000) as f64 / 1000.0 + 0.001;
-        val
-    });
+    let mat = Mat::from_fn(20, 50, |i, j| ((i * 11 + j * 17) % 1000) as f64 / 1000.0 + 0.001);
 
     let psi = Psi::from(mat);
 

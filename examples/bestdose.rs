@@ -5,14 +5,18 @@ use pmcore::prelude::*;
 fn main() -> Result<()> {
     // Example model
     let eq = ode! {
-        diffeq: |x, p, _t, dx, b, _rateiv, _cov| {
-            // fetch_cov!(cov, t, wt);
-            fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + b[0];
+        name: "bestdose_one_compartment",
+        params: [ke, v],
+        states: [central],
+        outputs: [cp],
+        routes: [
+            bolus(dose) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        out: |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[0] = x[0] / v;
+        out: |x, _t, y| {
+            y[cp] = x[central] / v;
         },
     };
 

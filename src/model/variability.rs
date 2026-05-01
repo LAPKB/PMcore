@@ -1,18 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct VariabilityModel {
     pub subject: RandomEffectsSpec,
     pub occasion: Option<RandomEffectsSpec>,
-}
-
-impl Default for VariabilityModel {
-    fn default() -> Self {
-        Self {
-            subject: RandomEffectsSpec::default(),
-            occasion: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

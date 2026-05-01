@@ -11,6 +11,7 @@ impl ParameterSpace {
         Self { items: Vec::new() }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn add(mut self, item: ParameterSpec) -> Self {
         self.items.push(item);
         self
