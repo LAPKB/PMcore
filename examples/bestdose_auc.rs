@@ -1,51 +1,49 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDosePosterior, DoseRange, Target};
+use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, DoseRange, Target};
 use pmcore::prelude::*;
-use pmcore::routines::initialization::parse_prior;
 
 fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::new("info,diffsol=off"))
+        .init();
 
     println!("BestDose AUC Target - Minimal Example\n");
     println!("======================================\n");
 
     // Simple one-compartment PK model
     let eq = ode! {
-        diffeq: |x, p, _t, dx, b, _rateiv, _cov| {
-            fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + b[0];
+        name: "bestdose_auc_one_compartment",
+        params: [ke, v],
+        states: [central],
+        outputs: [cp],
+        routes: [
+            bolus(dose) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        out: |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[0] = x[0] / v;
+        out: |x, _t, y| {
+            y[cp] = x[central] / v;
         },
     };
 
     // Minimal parameter ranges
-    let params = Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0);
+    let parameter_space = ParameterSpace::new()
+        .add(Parameter::bounded("ke", 0.001, 3.0))
+        .add(Parameter::bounded("v", 25.0, 250.0));
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_idelta(60.0); // 1 hour intervals for AUC calculation
+    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone())
+        .with_progress(false)
+        .with_prediction_interval(60.0);
 
     // Load realistic prior from previous NPAG run (47 support points)
     println!("Loading prior from bimodal_ke example...");
-    let (theta, prior) = parse_prior(
-        &"examples/bimodal_ke/output/theta.csv".to_string(),
-        &settings,
-    )?;
+    let (theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
     let weights = prior.as_ref().unwrap();
 
     println!("Prior: {} support points\n", theta.matrix().nrows());
@@ -67,16 +65,16 @@ fn main() -> Result<()> {
         weights,
         None, // No past data - use prior directly
         eq.clone(),
-        settings.clone(),
+        config.clone(),
     )?;
 
     println!("Optimizing dose...\n");
     let optimal = posterior.optimize(
         target_data.clone(),
         None,
-        DoseRange::new(100.0, 2000.0), // Wider range for AUC targets
-        0.8,                           // for AUC targets higher bias_weight usually works best
-        Target::AUCFromZero,           // Cumulative AUC from time 0
+        DoseRange::new(100.0, 2000.0),
+        0.8,
+        Target::AUCFromZero,
     )?;
 
     let opt_doses = optimal.doses();
@@ -143,7 +141,7 @@ fn main() -> Result<()> {
         None,
         DoseRange::new(50.0, 500.0),
         0.8,
-        Target::AUCFromLastDose, // Interval AUC from last dose!
+        Target::AUCFromLastDose,
     )?;
 
     let doses: Vec<f64> = optimal_interval.doses();

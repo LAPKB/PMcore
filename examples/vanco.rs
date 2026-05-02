@@ -1,16 +1,22 @@
 use pmcore::prelude::*;
 fn main() {
     let eq = ode! {
-        diffeq: |x, p, _t, dx, b, _rateiv, _cov| {
-            fetch_params!(p, ke, kcp, kpc);
-            dx[0] = -ke * x[0] - kcp * x[0] + kpc * x[1] + b[0];
-            dx[1] = -kpc * x[1] + kcp * x[0];
+        name: "vanco_two_compartment",
+        params: [ke, kcp, kpc],
+        states: [central, peripheral],
+        outputs: [peripheral_amount],
+        routes: [
+            bolus(dose) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central] - kcp * x[central] + kpc * x[peripheral];
+            dx[peripheral] = -kpc * x[peripheral] + kcp * x[central];
         },
-        init: |_p, _t, _cov, x| {
-            x[0] = 500.0;
+        init: |_t, x| {
+            x[central] = 500.0;
         },
-        out: |x, _p, _t, _cov, y| {
-            y[0] = x[1];
+        out: |x, _t, y| {
+            y[peripheral_amount] = x[peripheral];
         },
     };
     // same eq but analytical
@@ -35,7 +41,7 @@ fn main() {
         .build();
 
     let op = eq
-        .simulate_subject(&subject, &vec![0.3, 0.2, 0.5], None)
+        .simulate_subject(&subject, &[0.3, 0.2, 0.5], None)
         .unwrap()
         .0;
 

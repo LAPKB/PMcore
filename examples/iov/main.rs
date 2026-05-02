@@ -29,33 +29,30 @@ fn main() -> Result<()> {
     )
     .with_nstates(2)
     .with_ndrugs(1)
-    .with_nout(1);
-
-    let params = Parameters::new().add("ke0", 0.001, 2.0);
-
-    let ems = AssayErrorModels::new().add(
-        0,
-        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
-    )?;
-
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(100000);
-
-    settings.set_output_path("examples/iov/output");
-    settings.set_prior(Prior::sobol(100, 347));
-
-    settings.initialize_logs()?;
+    .with_nout(1)
+    .with_metadata(
+        equation::metadata::new("iov")
+            .parameters(["ke0"])
+            .states(["central", "ke_latent"])
+            .outputs(["1"])
+            .route(equation::Route::bolus("1").to_state("central"))
+            .particles(10000),
+    )
+    .unwrap();
 
     let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
-    algorithm.initialize().unwrap();
-    let mut result = algorithm.fit().unwrap();
-    result.write_outputs().unwrap();
+    EstimationProblem::builder(sde, data)
+        .parameter(Parameter::bounded("ke0", 0.001, 2.0))?
+        .method(Npag::new())
+        .error(
+            "1",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
+        )?
+        .output_dir("examples/iov/output")
+        .cycles(100000)
+        .prior(Prior::sobol(100, 347))
+        .fit()
+        .unwrap();
 
     Ok(())
 }

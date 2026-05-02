@@ -27,7 +27,17 @@ fn main() {
             y[0] = x[1] / (vol * wt);
         },
         100,
-    );
+    )
+    .with_metadata(
+        equation::metadata::new("vanco_sde")
+            .parameters(["ka", "ke0", "kcp", "kpc", "vol", "ske"])
+            .covariates([equation::Covariate::continuous("wt")])
+            .states(["depot", "central", "peripheral", "ke_latent"])
+            .outputs(["1"])
+            .route(equation::Route::bolus("1").to_state("depot"))
+            .particles(100),
+    )
+    .unwrap();
 
     // let ode = equation::ODE::new(
     //     |x, p, _t, dx, _rateiv, _cov| {
@@ -47,35 +57,29 @@ fn main() {
     //     (3, 1),
     // );
 
-    let params = Parameters::new()
-        .add("ka", 0.0001, 2.4)
-        .add("ke0", 0.0001, 2.7)
-        .add("kcp", 0.0001, 2.4)
-        .add("kpc", 0.0001, 2.4)
-        .add("vol", 0.2, 12.0)
-        .add("ske", 0.0001, 0.2);
-
-    let ems = AssayErrorModels::new()
-        .add(
-            0,
+    let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
+    EstimationProblem::builder(sde, data)
+        .parameter(Parameter::bounded("ka", 0.0001, 2.4))
+        .unwrap()
+        .parameter(Parameter::bounded("ke0", 0.0001, 2.7))
+        .unwrap()
+        .parameter(Parameter::bounded("kcp", 0.0001, 2.4))
+        .unwrap()
+        .parameter(Parameter::bounded("kpc", 0.0001, 2.4))
+        .unwrap()
+        .parameter(Parameter::bounded("vol", 0.2, 12.0))
+        .unwrap()
+        .parameter(Parameter::bounded("ske", 0.0001, 0.2))
+        .unwrap()
+        .method(Npag::new())
+        .error(
+            "1",
             AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
         )
+        .unwrap()
+        .output_dir("examples/vanco_sde/output")
+        .cycles(usize::MAX)
+        .prior(Prior::sobol(100, 347))
+        .fit()
         .unwrap();
-
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(usize::MAX);
-    settings.set_output_path("examples/vanco_sde/output");
-    settings.set_prior(Prior::sobol(100, 347));
-    settings.initialize_logs().unwrap();
-    let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
-
-    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
-    algorithm.initialize().unwrap();
-    let mut result = algorithm.fit().unwrap();
-    result.write_outputs().unwrap();
 }

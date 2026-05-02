@@ -1,6 +1,6 @@
 use anyhow::Result;
 use faer::Mat;
-use pmcore::structs::psi::Psi;
+use pmcore::estimation::nonparametric::Psi;
 
 /// Test the IPM with a simple 2x2 matrix
 #[test]
@@ -19,7 +19,7 @@ fn test_burke_ipm_simple() -> Result<()> {
     let psi = Psi::from(mat);
 
     // Run Burke's IPM
-    let result = pmcore::routines::estimation::ipm::burke(&psi);
+    let result = pmcore::estimation::nonparametric::burke(&psi);
 
     // Should succeed
     assert!(result.is_ok());
@@ -49,16 +49,12 @@ fn test_burke_ipm_simple() -> Result<()> {
 #[test]
 fn test_burke_ipm_larger() -> Result<()> {
     // Create a 5x10 psi matrix with random-like values
-    let mat = Mat::from_fn(5, 10, |i, j| {
-        // Generate deterministic "random-like" values
-        let val = ((i * 7 + j * 13) % 100) as f64 / 100.0 + 0.01;
-        val
-    });
+    let mat = Mat::from_fn(5, 10, |i, j| ((i * 7 + j * 13) % 100) as f64 / 100.0 + 0.01);
 
     let psi = Psi::from(mat);
 
     // Run Burke's IPM
-    let result = pmcore::routines::estimation::ipm::burke(&psi);
+    let result = pmcore::estimation::nonparametric::burke(&psi);
 
     assert!(result.is_ok());
 
@@ -92,7 +88,7 @@ fn test_burke_ipm_uniform() -> Result<()> {
     let psi = Psi::from(mat);
 
     // Run Burke's IPM
-    let result = pmcore::routines::estimation::ipm::burke(&psi);
+    let result = pmcore::estimation::nonparametric::burke(&psi);
 
     assert!(result.is_ok());
 
@@ -131,7 +127,7 @@ fn test_burke_ipm_with_negatives() -> Result<()> {
     let psi = Psi::from(mat);
 
     // Run Burke's IPM - should handle negatives by taking absolute value
-    let result = pmcore::routines::estimation::ipm::burke(&psi);
+    let result = pmcore::estimation::nonparametric::burke(&psi);
 
     assert!(result.is_ok());
 
@@ -160,7 +156,7 @@ fn test_burke_ipm_with_infinites() {
     let psi = Psi::from(mat);
 
     // Run Burke's IPM - should fail with infinite values
-    let result = pmcore::routines::estimation::ipm::burke(&psi);
+    let result = pmcore::estimation::nonparametric::burke(&psi);
 
     assert!(result.is_err(), "Should fail with infinite values");
 }
@@ -177,7 +173,7 @@ fn test_burke_ipm_with_nan() {
     let psi = Psi::from(mat);
 
     // Run Burke's IPM - should fail with NaN values
-    let result = pmcore::routines::estimation::ipm::burke(&psi);
+    let result = pmcore::estimation::nonparametric::burke(&psi);
 
     assert!(result.is_err(), "Should fail with NaN values");
 }
@@ -187,15 +183,13 @@ fn test_burke_ipm_with_nan() {
 fn test_burke_ipm_high_dimensional() -> Result<()> {
     // Create a larger matrix (20 subjects, 50 support points)
     let mat = Mat::from_fn(20, 50, |i, j| {
-        // Generate deterministic values
-        let val = ((i * 11 + j * 17) % 1000) as f64 / 1000.0 + 0.001;
-        val
+        ((i * 11 + j * 17) % 1000) as f64 / 1000.0 + 0.001
     });
 
     let psi = Psi::from(mat);
 
     // Run Burke's IPM
-    let result = pmcore::routines::estimation::ipm::burke(&psi);
+    let result = pmcore::estimation::nonparametric::burke(&psi);
 
     assert!(result.is_ok());
 
