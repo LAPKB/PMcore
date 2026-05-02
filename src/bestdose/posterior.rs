@@ -234,6 +234,7 @@ pub fn npagfull_refinement(
                     config.parameter_names(),
                 ),
             },
+            Npag::default(),
         );
         npag.set_theta(single_point_theta);
 

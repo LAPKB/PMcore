@@ -21,12 +21,97 @@ pub trait MethodSpec {
     fn attach<E: Equation>(self, builder: EstimationProblemBuilder<E>) -> Self::Builder<E>;
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Npag;
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Npag {
+    pub eps: f64,
+    pub min_eps: f64,
+    pub objective_tolerance: f64,
+    pub pyl_tolerance: f64,
+    pub prune_threshold: f64,
+    pub qr_tolerance: f64,
+    pub grid_tolerance: f64,
+    pub error_step: f64,
+    pub min_error_step: f64,
+    pub error_step_growth: f64,
+    pub error_step_shrink: f64,
+}
+
+impl Default for Npag {
+    fn default() -> Self {
+        Self {
+            eps: 0.2,
+            min_eps: 1e-4,
+            objective_tolerance: 1e-4,
+            pyl_tolerance: 1e-2,
+            prune_threshold: 1e-3,
+            qr_tolerance: 1e-8,
+            grid_tolerance: 1e-4,
+            error_step: 0.1,
+            min_error_step: 0.01,
+            error_step_growth: 4.0,
+            error_step_shrink: 0.5,
+        }
+    }
+}
 
 impl Npag {
     pub fn new() -> Self {
-        Self
+        Self::default()
+    }
+
+    pub fn eps(mut self, eps: f64) -> Self {
+        self.eps = eps;
+        self
+    }
+
+    pub fn min_eps(mut self, min_eps: f64) -> Self {
+        self.min_eps = min_eps;
+        self
+    }
+
+    pub fn objective_tolerance(mut self, tolerance: f64) -> Self {
+        self.objective_tolerance = tolerance;
+        self
+    }
+
+    pub fn pyl_tolerance(mut self, tolerance: f64) -> Self {
+        self.pyl_tolerance = tolerance;
+        self
+    }
+
+    pub fn prune_threshold(mut self, threshold: f64) -> Self {
+        self.prune_threshold = threshold;
+        self
+    }
+
+    pub fn qr_tolerance(mut self, tolerance: f64) -> Self {
+        self.qr_tolerance = tolerance;
+        self
+    }
+
+    pub fn grid_tolerance(mut self, tolerance: f64) -> Self {
+        self.grid_tolerance = tolerance;
+        self
+    }
+
+    pub fn error_step(mut self, step: f64) -> Self {
+        self.error_step = step;
+        self
+    }
+
+    pub fn min_error_step(mut self, step: f64) -> Self {
+        self.min_error_step = step;
+        self
+    }
+
+    pub fn error_step_growth(mut self, factor: f64) -> Self {
+        self.error_step_growth = factor;
+        self
+    }
+
+    pub fn error_step_shrink(mut self, factor: f64) -> Self {
+        self.error_step_shrink = factor;
+        self
     }
 }
 
@@ -48,7 +133,7 @@ impl PostProb {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub(crate) enum NonparametricMethod {
     Npag(Npag),
     Npod(Npod),

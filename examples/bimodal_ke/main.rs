@@ -18,10 +18,9 @@ fn main() -> Result<()> {
         },
     };
     // .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
-
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
-    EstimationProblem::builder(eq, data)
-        .method(Npag::new())
+    let _result = EstimationProblem::builder(eq, data)
+        .method(Npag::default())
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
         .parameter(Parameter::bounded("v", 25.0, 250.0))?
         .error(
