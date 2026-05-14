@@ -5,33 +5,21 @@ use pmcore::prelude::*;
 use std::hint::black_box;
 
 fn create_equation() -> equation::ODE {
-    equation::ODE::new(
-        |x, p, _t, dx, b, rateiv, _cov| {
-            fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + rateiv[1] + b[1];
+    ode! {
+        name: "bimodal_ke",
+        params: [ke, v],
+        states: [central],
+        outputs: [1],
+        routes: [
+            infusion(1) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[1] = x[0] / v;
+        out: |x, _t, y| {
+            y[1] = x[central] / v;
         },
-    )
-    .with_nstates(1)
-    .with_ndrugs(2)
-    .with_nout(2)
-    .with_metadata(
-        equation::metadata::new("bimodal_ke")
-            .parameters(["ke", "v"])
-            .states(["central"])
-            .outputs(["0", "1"])
-            .routes([
-                equation::Route::bolus("0").to_state("central"),
-                equation::Route::infusion("1").to_state("central"),
-            ]),
-    )
-    .expect("metadata attachment should validate")
+    }
 }
 
 fn create_error_model() -> AssayErrorModel {

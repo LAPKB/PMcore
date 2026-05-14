@@ -16,8 +16,8 @@ fn main() -> Result<()> {
         out: |x, _t, y| {
             y[1] = x[central] / v;
         },
-    };
-    // .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
+    }
+    .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
     let _result = EstimationProblem::builder(eq, data)
         .method(Npag::default())
