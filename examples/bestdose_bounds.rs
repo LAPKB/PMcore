@@ -1,49 +1,46 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDosePosterior, DoseRange, Target};
+use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, DoseRange, Target};
 use pmcore::prelude::*;
-use pmcore::routines::initialization::parse_prior;
 
 fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::new("info,diffsol=off"))
+        .init();
 
     println!("BestDose with Dose Range Bounds - Example\n");
     println!("==========================================\n");
 
     // Simple one-compartment PK model
     let eq = ode! {
-        diffeq: |x, p, _t, dx, b, _rateiv, _cov| {
-            fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + b[0];
+        name: "bestdose_bounds_one_compartment",
+        params: [ke, v],
+        states: [central],
+        outputs: [cp],
+        routes: [
+            bolus(dose) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        out: |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[0] = x[0] / v;
+        out: |x, _t, y| {
+            y[cp] = x[central] / v;
         },
     };
 
-    let params = Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0);
+    let parameter_space = ParameterSpace::new()
+        .add(Parameter::bounded("ke", 0.001, 3.0))
+        .add(Parameter::bounded("v", 25.0, 250.0));
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
+    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone()).with_progress(false);
 
     // Load realistic prior from previous NPAG run
     println!("Loading prior from bimodal_ke example...");
-    let (theta, prior) = parse_prior(
-        &"examples/bimodal_ke/output/theta.csv".to_string(),
-        &settings,
-    )?;
+    let (theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
     let weights = prior.as_ref().unwrap();
 
     println!("Prior: {} support points\n", theta.matrix().nrows());
@@ -63,13 +60,11 @@ fn main() -> Result<()> {
         (50.0, 2000.0, "Wide range (50-2000 mg)"),
     ];
 
+    let posterior = BestDosePosterior::compute(&theta, weights, None, eq.clone(), config.clone())?;
+
     println!("\nTesting optimization with different dose range constraints:\n");
     println!("{:<30} | {:>12} | {:>10}", "Range", "Optimal Dose", "Cost");
     println!("{}", "-".repeat(60));
-
-    // Compute posterior once, reuse for all dose ranges
-    let posterior =
-        BestDosePosterior::compute(&theta, weights, None, eq.clone(), settings.clone())?;
 
     for (min, max, description) in dose_ranges {
         let result = posterior.optimize(
@@ -80,7 +75,19 @@ fn main() -> Result<()> {
             Target::Concentration,
         )?;
 
-        let doses: Vec<f64> = result.doses();
+        let doses: Vec<f64> = result
+            .optimal_subject()
+            .iter()
+            .flat_map(|occ| {
+                occ.iter()
+                    .filter(|event| matches!(event, Event::Bolus(_) | Event::Infusion(_)))
+                    .map(|event| match event {
+                        Event::Bolus(bolus) => bolus.amount(),
+                        Event::Infusion(infusion) => infusion.amount(),
+                        _ => 0.0,
+                    })
+            })
+            .collect();
 
         // Check if dose hit the bound
         let at_bound = if (doses[0] - max).abs() < 1.0 {

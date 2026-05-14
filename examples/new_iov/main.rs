@@ -1,61 +1,45 @@
 use pmcore::prelude::*;
 
 fn main() {
-    let sde = equation::SDE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            // automatically defined
-            fetch_params!(p, ke0, _ske);
-            // let ke0 = 1.2;
-            dx[1] = -x[1] + ke0;
-            let ke = x[1];
-            // user defined
-            dx[0] = -ke * x[0];
+    let sde = sde! {
+        name: "new_iov",
+        params: [ke0, ske],
+        states: [central, ke_latent],
+        outputs: [outeq_1],
+        particles: 11,
+        routes: [
+            bolus(input_1) -> central,
+        ],
+        drift: |x, _t, dx| {
+            dx[ke_latent] = -x[ke_latent] + ke0;
+            dx[central] = -x[ke_latent] * x[central];
         },
-        |p, d| {
-            fetch_params!(p, _ke0, ske);
-            d[1] = ske;
+        diffusion: |sigma| {
+            sigma[ke_latent] = ske;
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |p, _t, _cov, x| {
-            fetch_params!(p, ke0, _ske);
-            x[1] = ke0;
+        init: |_t, x| {
+            x[ke_latent] = ke0;
         },
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke0, _ske);
-            y[0] = x[0] / 50.0;
+        out: |x, _t, y| {
+            y[outeq_1] = x[central] / 50.0;
         },
-        11,
-    )
-    .with_nstates(2)
-    .with_ndrugs(1)
-    .with_nout(1);
+    };
 
-    let params = Parameters::new()
-        .add("ke0", 0.0001, 2.4)
-        .add("ske", 0.0001, 0.2);
-
-    let ems = AssayErrorModels::new()
-        .add(
-            0,
+    let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
+    EstimationProblem::builder(sde, data)
+        .parameter(Parameter::bounded("ke0", 0.0001, 2.4))
+        .unwrap()
+        .parameter(Parameter::bounded("ske", 0.0001, 0.2))
+        .unwrap()
+        .method(Npag::new())
+        .error(
+            "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
+        .unwrap()
+        .output_dir("examples/new_iov/output")
+        .cycles(1000)
+        .prior(Prior::sobol(100, 347))
+        .fit()
         .unwrap();
-
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(1000);
-    settings.set_output_path("examples/new_iov/output");
-    settings.set_prior(Prior::sobol(100, 347));
-
-    settings.initialize_logs().unwrap();
-    let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, sde, data).unwrap();
-    algorithm.initialize().unwrap();
-    let mut result = algorithm.fit().unwrap();
-    result.write_outputs().unwrap();
 }

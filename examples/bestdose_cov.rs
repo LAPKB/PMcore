@@ -1,0 +1,157 @@
+use anyhow::Result;
+use pmcore::bestdose; // bestdose new
+                      // use pmcore::bestdose::bestdose_old as bestdose; // bestdose old
+
+use pmcore::prelude::*;
+
+fn main() -> Result<()> {
+    // Example model
+    let eq = ode! {
+        name: "bestdose_cov_one_compartment",
+        params: [ke, v],
+        states: [central],
+        outputs: [outeq_0],
+        routes: [
+            bolus(input_0) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
+        },
+        out: |x, _t, y| {
+            let scaled_v = v * 70.0;
+            y[outeq_0] = x[central] / scaled_v;
+        },
+    };
+
+    let parameter_space = ParameterSpace::new()
+        .add(Parameter::bounded("ke", 0.001, 3.0))
+        .add(Parameter::bounded("v", 25.0 / 70.0, 250.0 / 70.0));
+
+    let ems = AssayErrorModels::new().add(
+        0,
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
+    )?;
+
+    let config =
+        bestdose::BestDoseConfig::new(parameter_space.clone(), ems.clone()).with_progress(false);
+
+    // Generate a patient with known parameters
+    // Ke = 0.5, V = 50
+    // C(t) = Dose * exp(-ke * t) / V
+
+    fn conc(t: f64, dose: f64) -> f64 {
+        let ke = 0.3406021231412888; // Elimination rate constant
+        let v = 99.99475717544556; // Volume of distribution
+        (dose * (-ke * t).exp()) / v
+    }
+
+    // Some observed data
+    let subject = Subject::builder("Nikola Tesla")
+        .bolus(0.0, 150.0, 0)
+        .observation(2.0, conc(2.0, 150.0), 0)
+        .observation(4.0, conc(4.0, 150.0), 0)
+        .observation(6.0, conc(6.0, 150.0), 0)
+        .bolus(12.0, 75.0, 0)
+        .observation(14.0, conc(2.0, 75.0) + conc(14.0, 150.0), 0)
+        .observation(16.0, conc(4.0, 75.0) + conc(16.0, 150.0), 0)
+        .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
+        .build();
+
+    // simulate subject concentrations
+
+    // for event in subject.occasions().first().unwrap().events().into_iter() {
+    //     // if event is observations
+    //     if let Event::Observation(obs) = event {
+    //         println!("Time: {:.2} h, Observed: {:?}", obs.time(), obs.value());
+    //     }
+    // }
+
+    // println!("++++++++++++++++++++++++++++++++++++++++++++++++++");
+
+    // let sim = eq.simulate_subject(&subject, &vec![0.09, 1.49], None)?;
+    // // dbg subject concentrations
+
+    // for pred in sim.0.predictions().into_iter() {
+    //     println!(
+    //         "Time: {:.2} h, Observed: {:?}, Predicted: {:.4}",
+    //         pred.time(),
+    //         pred.observation(),
+    //         pred.prediction()
+    //     );
+    // }
+
+    let past_data = subject.clone();
+
+    let target_data = Subject::builder("Thomas Edison")
+        .bolus(0.0, 0.0, 0)
+        .observation(2.0, conc(2.0, 150.0), 0)
+        .observation(4.0, conc(4.0, 150.0), 0)
+        .observation(6.0, conc(6.0, 150.0), 0)
+        .bolus(12.0, 0.0, 0)
+        .observation(14.0, conc(2.0, 75.0) + conc(14.0, 150.0), 0)
+        .observation(16.0, conc(4.0, 75.0) + conc(16.0, 150.0), 0)
+        .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
+        .build();
+
+    let (mut theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
+
+    let m_t = theta.matrix_mut();
+    for i in 0..m_t.nrows() {
+        m_t[(i, 1)] /= 70.0;
+    }
+
+    // Example usage - using new() constructor which calculates NPAGFULL11 posterior
+    // max_cycles controls NPAGFULL refinement:
+    //   0 = NPAGFULL11 only (fast but less accurate)
+    //   100 = moderate refinement
+    //   500 = full refinement (Fortran default, slow but most accurate)
+    let problem = bestdose::BestDoseProblem::new(
+        &theta,
+        &prior.unwrap(),
+        Some(past_data.clone()), // Optional: past data for Bayesian updating
+        target_data.clone(),
+        None,
+        eq.clone(),
+        bestdose::DoseRange::new(0.0, 300.0),
+        0.0,
+        config.clone(),
+        bestdose::Target::Concentration, // Target concentrations (not AUCs)
+    )?;
+
+    println!("Optimizing dose...");
+
+    let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    let mut results = Vec::new();
+
+    for bias_weight in &bias_weights {
+        println!("Running optimization with bias weight: {}", bias_weight);
+        let optimal = problem.clone().with_bias_weight(*bias_weight).optimize()?;
+        results.push((bias_weight, optimal));
+    }
+
+    // Print results
+    for (bias_weight, optimal) in &results {
+        let opt_doses = optimal.doses();
+
+        println!(
+            "Bias weight: {:.2}\t\t Optimal dose: {:?}\t\tCost: {:.6}\t\tln Cost: {:.4}\t\tMethod: {}",
+            bias_weight,
+            opt_doses,
+            optimal.objf(),
+            optimal.objf().ln(),
+            optimal.optimization_method()
+        );
+    }
+
+    // Print concentration-time predictions for the optimal dose
+    let optimal = &results.last().unwrap().1;
+    println!("\nConcentration-time predictions for optimal dose:");
+    for pred in optimal.predictions().predictions().iter() {
+        println!(
+            "Time: {:.2} h, Observed: {:.2}, (Pop Mean: {:.4}, Pop Median: {:.4}, Post Mean: {:.4}, Post Median: {:.4})",
+            pred.time(), pred.obs().unwrap_or(0.0), pred.pop_mean(), pred.pop_median(), pred.post_mean(), pred.post_median()
+        );
+    }
+
+    Ok(())
+}

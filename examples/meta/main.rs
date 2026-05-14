@@ -2,64 +2,63 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-use pmcore::{prelude::*, routines::settings};
+use pmcore::prelude::*;
 
 fn main() {
     let eq = ode! {
-        diffeq: |x, p, t, dx, b, rateiv, cov| {
-            fetch_cov!(cov, t, wt, pkvisit);
-            fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
+        name: "meta",
+        params: [cls, fm, k20, relv, theta1, theta2, vs],
+        covariates: [wt, pkvisit],
+        states: [central, metabolite],
+        outputs: [outeq_1, outeq_2],
+        routes: [
+            infusion(input_1) -> central,
+        ],
+        diffeq: |x, _t, dx| {
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let ke = cl / v;
-            let v2 = relv * v;
-            dx[0] = rateiv[1] - ke * x[0] * (1.0 - fm) - fm * x[0] + b[1];
-            dx[1] = fm * x[0] - k20 * x[1];
+            dx[central] = -ke * x[central] * (1.0 - fm) - fm * x[central];
+            dx[metabolite] = fm * x[central] - k20 * x[metabolite];
         },
-        out: |x, p, t, cov, y| {
-            fetch_cov!(cov, t, wt, pkvisit);
-            fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
+        out: |x, _t, y| {
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
-            let ke = cl / v;
             let v2 = relv * v;
-            y[1] = x[0] / v;
-            y[2] = x[1] / v2;
+            let _ke = cl / v;
+            y[outeq_1] = x[central] / v;
+            y[outeq_2] = x[metabolite] / v2;
         },
     };
 
-    let params = Parameters::new()
-        .add("cls", 0.1, 10.0)
-        .add("fm", 0.0, 1.0)
-        .add("k20", 0.01, 1.0)
-        .add("relv", 0.1, 1.0)
-        .add("theta1", 0.1, 10.0)
-        .add("theta2", 0.1, 10.0)
-        .add("vs", 1.0, 10.0);
-
-    let ems = AssayErrorModels::new()
-        .add(
-            1,
+    let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
+    EstimationProblem::builder(eq, data)
+        .parameter(Parameter::bounded("cls", 0.1, 10.0))
+        .unwrap()
+        .parameter(Parameter::bounded("fm", 0.0, 1.0))
+        .unwrap()
+        .parameter(Parameter::bounded("k20", 0.01, 1.0))
+        .unwrap()
+        .parameter(Parameter::bounded("relv", 0.1, 1.0))
+        .unwrap()
+        .parameter(Parameter::bounded("theta1", 0.1, 10.0))
+        .unwrap()
+        .parameter(Parameter::bounded("theta2", 0.1, 10.0))
+        .unwrap()
+        .parameter(Parameter::bounded("vs", 1.0, 10.0))
+        .unwrap()
+        .method(Npod::new())
+        .error(
+            "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
-        .add(
-            2,
+        .error(
+            "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
+        .unwrap()
+        .cycles(10000)
+        .fit()
         .unwrap();
-
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.initialize_logs().unwrap();
-    let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
-    let mut algorithm = dispatch_algorithm(settings, eq, data).unwrap();
-    // let result = algorithm.fit().unwrap();
-    algorithm.initialize().unwrap();
-    let mut result = algorithm.fit().unwrap();
-    result.write_outputs().unwrap();
 }

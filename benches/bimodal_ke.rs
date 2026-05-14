@@ -5,83 +5,80 @@ use pmcore::prelude::*;
 use std::hint::black_box;
 
 fn create_equation() -> equation::ODE {
-    equation::ODE::new(
-        |x, p, _t, dx, b, rateiv, _cov| {
-            fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + rateiv[1] + b[1];
+    ode! {
+        name: "bimodal_ke",
+        params: [ke, v],
+        states: [central],
+        outputs: [outeq_1],
+        routes: [
+            infusion(input_1) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[1] = x[0] / v;
+        out: |x, _t, y| {
+            y[outeq_1] = x[central] / v;
         },
-    )
+    }
 }
 
-fn create_parameters() -> Parameters {
-    Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0)
-}
-
-fn create_error_models() -> Result<AssayErrorModels> {
-    Ok(AssayErrorModels::new().add(
-        1,
-        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-    )?)
+fn create_error_model() -> AssayErrorModel {
+    AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0)
 }
 
 fn load_data() -> Result<data::Data> {
     Ok(data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?)
 }
 
-fn setup_with_algorithm(algorithm: Algorithm) -> Result<(Settings, equation::ODE, data::Data)> {
-    let params = create_parameters();
-    let ems = create_error_models()?;
-
-    let mut settings = Settings::builder()
-        .set_algorithm(algorithm)
-        .set_parameters(params)
-        .set_error_models(ems)
-        .build();
-
-    settings.set_cycles(1000);
-    settings.set_prior(Prior::sobol(2048, 22));
-    settings.disable_output();
-    settings.set_progress(false);
-
+fn setup_npag() -> Result<EstimationProblem<equation::ODE>> {
     let data = load_data()?;
-    Ok((settings, create_equation(), data))
+    EstimationProblem::builder(create_equation(), data)
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
+        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .method(Npag::new())
+        .error("outeq_1", create_error_model())?
+        .cycles(1000)
+        .progress(false)
+        .prior(Prior::sobol(2048, 22))
+        .build()
 }
 
-fn setup_npag() -> Result<(Settings, equation::ODE, data::Data)> {
-    setup_with_algorithm(Algorithm::NPAG)
+fn setup_npod() -> Result<EstimationProblem<equation::ODE>> {
+    let data = load_data()?;
+    EstimationProblem::builder(create_equation(), data)
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
+        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .method(Npod::new())
+        .error("outeq_1", create_error_model())?
+        .cycles(1000)
+        .progress(false)
+        .prior(Prior::sobol(2048, 22))
+        .build()
 }
 
-fn setup_npod() -> Result<(Settings, equation::ODE, data::Data)> {
-    setup_with_algorithm(Algorithm::NPOD)
-}
-
-fn setup_postprob() -> Result<(Settings, equation::ODE, data::Data)> {
-    setup_with_algorithm(Algorithm::POSTPROB)
+fn setup_postprob() -> Result<EstimationProblem<equation::ODE>> {
+    let data = load_data()?;
+    EstimationProblem::builder(create_equation(), data)
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
+        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .method(PostProb::new())
+        .error("outeq_1", create_error_model())?
+        .cycles(1000)
+        .progress(false)
+        .prior(Prior::sobol(2048, 22))
+        .build()
 }
 
 fn benchmark_algorithm<F>(c: &mut Criterion, bench_name: &str, setup_fn: F)
 where
-    F: Fn() -> Result<(Settings, equation::ODE, data::Data)>,
+    F: Fn() -> Result<EstimationProblem<equation::ODE>>,
 {
-    let (settings, eq, data) = setup_fn().unwrap();
+    let problem = setup_fn().unwrap();
 
     c.bench_function(bench_name, |b| {
         b.iter_with_setup(
-            || (settings.clone(), eq.clone(), data.clone()),
-            |(s, e, d)| {
-                let mut algorithm = dispatch_algorithm(s, e, d).unwrap();
-                let result = algorithm.fit().unwrap();
-                black_box(result)
-            },
+            || problem.clone(),
+            |problem| black_box(problem.fit().unwrap()),
         )
     });
 }
