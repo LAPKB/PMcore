@@ -91,7 +91,13 @@ impl<E: Equation + Send + 'static> NPAG<E> {
         let equation = input.equation;
         let data = input.data;
 
-        Ok(Self::from_config(equation, data, error_models, config, method))
+        Ok(Self::from_config(
+            equation,
+            data,
+            error_models,
+            config,
+            method,
+        ))
     }
 }
 

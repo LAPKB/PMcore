@@ -114,7 +114,7 @@ impl NPPredictions {
             for spp in theta.matrix().row_iter() {
                 let spp_values = spp.iter().cloned().collect::<Vec<f64>>();
                 let pred = equation
-                    .simulate_subject(subject, &spp_values, None)?
+                    .simulate_subject_dense(subject, &spp_values, None)?
                     .0
                     .get_predictions();
                 predictions.push(pred);

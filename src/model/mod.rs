@@ -71,9 +71,12 @@ impl<E: EquationMetadataSource> ModelDefinition<E> {
     }
 
     pub fn output_index(&self, name: &str) -> Option<usize> {
-        self.equation
-            .equation_metadata()
-            .and_then(|metadata| metadata.output_index(name))
+        self.equation.equation_metadata().and_then(|metadata| {
+            metadata
+                .outputs()
+                .iter()
+                .position(|output| output.name() == name)
+        })
     }
 }
 
@@ -138,9 +141,12 @@ impl<E: Equation> ModelDefinitionBuilder<E> {
 
 impl<E: EquationMetadataSource> ModelDefinitionBuilder<E> {
     pub(crate) fn output_index(&self, name: &str) -> Option<usize> {
-        self.equation
-            .equation_metadata()
-            .and_then(|metadata| metadata.output_index(name))
+        self.equation.equation_metadata().and_then(|metadata| {
+            metadata
+                .outputs()
+                .iter()
+                .position(|output| output.name() == name)
+        })
     }
 }
 

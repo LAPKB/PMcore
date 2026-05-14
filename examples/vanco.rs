@@ -41,7 +41,7 @@ fn main() {
         .build();
 
     let op = eq
-        .simulate_subject(&subject, &[0.3, 0.2, 0.5], None)
+        .simulate_subject_dense(&subject, &[0.3, 0.2, 0.5], None)
         .unwrap()
         .0;
 

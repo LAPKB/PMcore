@@ -5,7 +5,7 @@ use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
 };
 use crate::{algorithms::Status, prelude::algorithms::Algorithms};
-use pharmsol::SppOptimizer;
+use pharmsol::ParameterOptimizer;
 
 use anyhow::bail;
 use anyhow::Result;
@@ -337,7 +337,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             candididate_points.push(spp.to_owned());
         }
         candididate_points.par_iter_mut().for_each(|spp| {
-            let optimizer = SppOptimizer::new(&self.equation, &self.data, &error_model, &pyl);
+            let optimizer = ParameterOptimizer::new(&self.equation, &self.data, &error_model, &pyl);
             let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
             *spp = candidate_point;
         });

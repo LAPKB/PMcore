@@ -208,7 +208,11 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
                         let support_point: Vec<f64> = spp.iter().copied().collect();
                         let (pred, ll) = self
                             .equation()
-                            .simulate_subject(subject[*index], &support_point, Some(&error_model))
+                            .simulate_subject_dense(
+                                subject[*index],
+                                &support_point,
+                                Some(&error_model),
+                            )
                             .unwrap(); //TODO: Handle error
                         (i, support_point, pred.get_predictions(), ll)
                     })

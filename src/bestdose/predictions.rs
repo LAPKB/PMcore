@@ -430,7 +430,9 @@ pub(crate) fn calculate_final_predictions(
             // Calculate AUC for each support point and accumulate weighted means
             for (row, weight) in problem.theta.matrix().row_iter().zip(weights.iter()) {
                 let spp = row.iter().copied().collect::<Vec<f64>>();
-                let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
+                let pred = problem
+                    .eq
+                    .simulate_subject_dense(&dense_subject, &spp, None)?;
                 let dense_predictions_with_outeq = pred.0.predictions();
 
                 // Group predictions by outeq

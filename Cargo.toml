@@ -28,7 +28,7 @@ tracing-subscriber = { version = "0.3.19", features = [
     "time",
 ] }
 faer = "0.24.0"
-pharmsol = { git = "https://github.com/LAPKB/pharmsol.git", branch = "feat/data-mapping-routes" }
+pharmsol = { version = "=0.27.0"}
 anyhow = "1.0.100"
 rayon = "1.10.0"
 rand = "0.10.1"

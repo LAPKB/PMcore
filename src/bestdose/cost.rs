@@ -247,7 +247,9 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
         let preds_i: Vec<f64> = match problem.target_type {
             Target::Concentration => {
                 // Simulate at observation times only
-                let pred = problem.eq.simulate_subject(&target_subject, &spp, None)?;
+                let pred = problem
+                    .eq
+                    .simulate_subject_dense(&target_subject, &spp, None)?;
                 pred.0.flat_predictions()
             }
             Target::AUCFromZero => {
@@ -319,7 +321,9 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                 let dense_subject = builder.build();
 
                 // Simulate at dense times
-                let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
+                let pred = problem
+                    .eq
+                    .simulate_subject_dense(&dense_subject, &spp, None)?;
                 let dense_predictions_with_outeq = pred.0.predictions();
 
                 // Group predictions by outeq using the Prediction struct
@@ -446,7 +450,9 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                 let dense_subject = builder.build();
 
                 // Simulate at dense times
-                let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
+                let pred = problem
+                    .eq
+                    .simulate_subject_dense(&dense_subject, &spp, None)?;
                 let dense_predictions_with_outeq = pred.0.predictions();
 
                 // Group predictions by outeq
