@@ -198,3 +198,45 @@ impl EquationMetadataSource for SDE {
         self.metadata()
     }
 }
+
+#[cfg(any(
+    feature = "dsl-jit",
+    all(feature = "dsl-aot", feature = "dsl-aot-load"),
+    all(
+        feature = "dsl-wasm",
+        not(all(target_arch = "wasm32", target_os = "unknown"))
+    )
+))]
+impl EquationMetadataSource for pharmsol::dsl::RuntimeOdeModel {
+    fn equation_metadata(&self) -> Option<&ValidatedModelMetadata> {
+        Some(self.metadata())
+    }
+}
+
+#[cfg(any(
+    feature = "dsl-jit",
+    all(feature = "dsl-aot", feature = "dsl-aot-load"),
+    all(
+        feature = "dsl-wasm",
+        not(all(target_arch = "wasm32", target_os = "unknown"))
+    )
+))]
+impl EquationMetadataSource for pharmsol::dsl::RuntimeAnalyticalModel {
+    fn equation_metadata(&self) -> Option<&ValidatedModelMetadata> {
+        Some(self.metadata())
+    }
+}
+
+#[cfg(any(
+    feature = "dsl-jit",
+    all(feature = "dsl-aot", feature = "dsl-aot-load"),
+    all(
+        feature = "dsl-wasm",
+        not(all(target_arch = "wasm32", target_os = "unknown"))
+    )
+))]
+impl EquationMetadataSource for pharmsol::dsl::RuntimeSdeModel {
+    fn equation_metadata(&self) -> Option<&ValidatedModelMetadata> {
+        Some(self.metadata())
+    }
+}

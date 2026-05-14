@@ -6,21 +6,22 @@ use pmcore::prelude::*;
 
 fn main() -> Result<()> {
     // Example model
-    let eq = equation::ODE::new(
-        |x, p, _t, dx, b, _rateiv, _cov| {
-            // fetch_cov!(cov, t, wt);
-            fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + b[0];
+    let eq = ode! {
+        name: "bestdose_cov_one_compartment",
+        params: [ke, v],
+        states: [central],
+        outputs: [outeq_0],
+        routes: [
+            bolus(input_0) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        |_p, _, _| lag! {},
-        |_p, _, _| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            let v = v * 70.0;
-            y[0] = x[0] / v;
+        out: |x, _t, y| {
+            let scaled_v = v * 70.0;
+            y[outeq_0] = x[central] / scaled_v;
         },
-    );
+    };
 
     let parameter_space = ParameterSpace::new()
         .add(Parameter::bounded("ke", 0.001, 3.0))

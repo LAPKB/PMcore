@@ -10,10 +10,10 @@ fn main() -> Result<()> {
         ],
         covariates: [ic_t],
         states: [drug_1_amount, drug_2_amount, total_bacteria, resistant_1, resistant_2],
-        outputs: [1, 2, 3, 4],
+        outputs: [outeq_1, outeq_2, outeq_3, outeq_4],
         routes: [
-            bolus(1) -> drug_1_amount,
-            bolus(2) -> drug_2_amount,
+            bolus(input_1) -> drug_1_amount,
+            bolus(input_2) -> drug_2_amount,
         ],
         diffeq: |x, _t, dx| {
 
@@ -56,10 +56,10 @@ fn main() -> Result<()> {
             x[resistant_2] = 10.0_f64.powf(init_5);
         },
         out: |x, _t, y| {
-            y[1] = x[drug_1_amount] / v1;
-            y[2] = x[drug_2_amount] / v2;
-            y[3] = (x[total_bacteria] + x[resistant_1] + x[resistant_2]).log10();
-            y[4] = x[resistant_1].log10();
+            y[outeq_1] = x[drug_1_amount] / v1;
+            y[outeq_2] = x[drug_2_amount] / v2;
+            y[outeq_3] = (x[total_bacteria] + x[resistant_1] + x[resistant_2]).log10();
+            y[outeq_4] = x[resistant_1].log10();
         },
     };
 
@@ -91,19 +91,19 @@ fn main() -> Result<()> {
         .parameter(Parameter::bounded("h2r2", 10.0, 22.0))?
         .method(Npag::new())
         .error(
-            "1",
+            "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .error(
-            "2",
+            "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .error(
-            "3",
+            "outeq_3",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .error(
-            "4",
+            "outeq_4",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .output_dir("examples/drusano/output")

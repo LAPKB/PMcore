@@ -9,15 +9,15 @@ fn create_equation() -> equation::ODE {
         name: "bimodal_ke",
         params: [ke, v],
         states: [central],
-        outputs: [1],
+        outputs: [outeq_1],
         routes: [
-            infusion(1) -> central,
+            infusion(input_1) -> central,
         ],
         diffeq: |x, _t, dx| {
             dx[central] = -ke * x[central];
         },
         out: |x, _t, y| {
-            y[1] = x[central] / v;
+            y[outeq_1] = x[central] / v;
         },
     }
 }
@@ -36,7 +36,7 @@ fn setup_npag() -> Result<EstimationProblem<equation::ODE>> {
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
         .parameter(Parameter::bounded("v", 25.0, 250.0))?
         .method(Npag::new())
-        .error("1", create_error_model())?
+        .error("outeq_1", create_error_model())?
         .cycles(1000)
         .progress(false)
         .prior(Prior::sobol(2048, 22))
@@ -49,7 +49,7 @@ fn setup_npod() -> Result<EstimationProblem<equation::ODE>> {
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
         .parameter(Parameter::bounded("v", 25.0, 250.0))?
         .method(Npod::new())
-        .error("1", create_error_model())?
+        .error("outeq_1", create_error_model())?
         .cycles(1000)
         .progress(false)
         .prior(Prior::sobol(2048, 22))
@@ -62,7 +62,7 @@ fn setup_postprob() -> Result<EstimationProblem<equation::ODE>> {
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
         .parameter(Parameter::bounded("v", 25.0, 250.0))?
         .method(PostProb::new())
-        .error("1", create_error_model())?
+        .error("outeq_1", create_error_model())?
         .cycles(1000)
         .progress(false)
         .prior(Prior::sobol(2048, 22))

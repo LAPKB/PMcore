@@ -1,43 +1,33 @@
 use pmcore::prelude::*;
 
 fn main() {
-    let sde = equation::SDE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            fetch_params!(p, ka, ke0, kcp, kpc, _vol);
-            dx[3] = -x[3] + ke0;
-            let ke = x[3];
-            // dbg!(x[3], ke0, dx[3]);
-            dx[0] = -ka * x[0];
-            dx[1] = ka * x[0] - (ke + kcp) * x[1] + kpc * x[2];
-            dx[2] = kcp * x[1] - kpc * x[2];
+    let sde = sde! {
+        name: "vanco_sde",
+        params: [ka, ke0, kcp, kpc, vol, ske],
+        covariates: [wt],
+        states: [depot, central, peripheral, ke_latent],
+        outputs: [outeq_1],
+        particles: 100,
+        routes: [
+            bolus(input_1) -> depot,
+        ],
+        drift: |x, _t, dx| {
+            dx[ke_latent] = -x[ke_latent] + ke0;
+            let ke = x[ke_latent];
+            dx[depot] = -ka * x[depot];
+            dx[central] = ka * x[depot] - (ke + kcp) * x[central] + kpc * x[peripheral];
+            dx[peripheral] = kcp * x[central] - kpc * x[peripheral];
         },
-        |p, d| {
-            fetch_params!(p, _ka, _ke0, _kcp, _kpc, _vol, ske);
-            d[3] = ske;
+        diffusion: |sigma| {
+            sigma[ke_latent] = ske;
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |p, _t, _cov, x| {
-            fetch_params!(p, _ka, ke0, _kcp, _kpc, _vol);
-            x[3] = ke0;
+        init: |_t, x| {
+            x[ke_latent] = ke0;
         },
-        |x, p, t, cov, y| {
-            fetch_params!(p, _ka, _ke0, _kcp, _kpc, vol);
-            fetch_cov!(cov, t, wt);
-            y[0] = x[1] / (vol * wt);
+        out: |x, _t, y| {
+            y[outeq_1] = x[central] / (vol * wt);
         },
-        100,
-    )
-    .with_metadata(
-        equation::metadata::new("vanco_sde")
-            .parameters(["ka", "ke0", "kcp", "kpc", "vol", "ske"])
-            .covariates([equation::Covariate::continuous("wt")])
-            .states(["depot", "central", "peripheral", "ke_latent"])
-            .outputs(["1"])
-            .route(equation::Route::bolus("1").to_state("depot"))
-            .particles(100),
-    )
-    .unwrap();
+    };
 
     // let ode = equation::ODE::new(
     //     |x, p, _t, dx, _rateiv, _cov| {
@@ -73,7 +63,7 @@ fn main() {
         .unwrap()
         .method(Npag::new())
         .error(
-            "1",
+            "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
         )
         .unwrap()

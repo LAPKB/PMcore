@@ -10,9 +10,9 @@ fn main() {
         params: [cls, fm, k20, relv, theta1, theta2, vs],
         covariates: [wt, pkvisit],
         states: [central, metabolite],
-        outputs: [1, 2],
+        outputs: [outeq_1, outeq_2],
         routes: [
-            infusion(1) -> central,
+            infusion(input_1) -> central,
         ],
         diffeq: |x, _t, dx| {
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
@@ -26,8 +26,8 @@ fn main() {
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let v2 = relv * v;
             let _ke = cl / v;
-            y[1] = x[central] / v;
-            y[2] = x[metabolite] / v2;
+            y[outeq_1] = x[central] / v;
+            y[outeq_2] = x[metabolite] / v2;
         },
     };
 
@@ -49,12 +49,12 @@ fn main() {
         .unwrap()
         .method(Npod::new())
         .error(
-            "1",
+            "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
         .error(
-            "2",
+            "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
