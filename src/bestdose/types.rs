@@ -183,6 +183,33 @@ impl Default for DoseRange {
     }
 }
 
+/// Strategy used for Stage 2 dose optimization.
+///
+/// - [`OptimizationStrategy::Dual`]: Run both posterior and uniform optimizations,
+///   then keep the lower-cost result.
+/// - [`OptimizationStrategy::PosteriorOnly`]: Run only the posterior-weighted
+///   optimization path.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OptimizationStrategy {
+    Dual,
+    PosteriorOnly,
+}
+
+impl Default for OptimizationStrategy {
+    fn default() -> Self {
+        Self::Dual
+    }
+}
+
+impl Display for OptimizationStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OptimizationStrategy::Dual => write!(f, "Dual"),
+            OptimizationStrategy::PosteriorOnly => write!(f, "PosteriorOnly"),
+        }
+    }
+}
+
 /// The BestDose optimization problem
 ///
 /// Contains all data needed for the three-stage BestDose algorithm.
@@ -287,6 +314,7 @@ pub struct BestDoseProblem {
     // Optimization parameters
     pub(crate) doserange: DoseRange,
     pub(crate) bias_weight: f64, // λ: 0=personalized, 1=population
+    pub(crate) optimization_strategy: OptimizationStrategy,
 }
 
 /// Result from BestDose optimization

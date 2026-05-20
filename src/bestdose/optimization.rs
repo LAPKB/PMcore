@@ -180,6 +180,78 @@ fn run_single_optimization(
     Ok((full_doses, final_cost))
 }
 
+fn finalize_optimization(
+    problem: &BestDoseProblem,
+    final_doses: Vec<f64>,
+    final_cost: f64,
+    method: OptimalMethod,
+    final_weights: Weights,
+) -> Result<BestDoseResult> {
+    // ═════════════════════════════════════════════════════════════
+    // STAGE 3: Final Predictions
+    // ═════════════════════════════════════════════════════════════
+    tracing::info!("─────────────────────────────────────────────────────────────");
+    tracing::info!("STAGE 3: Final Predictions");
+    tracing::info!("─────────────────────────────────────────────────────────────");
+    tracing::info!(
+        "  Calculating predictions with optimal doses and {} weights",
+        method
+    );
+
+    // Generate target subject with optimal doses
+    let mut optimal_subject = problem.target.clone();
+    let mut dose_number = 0;
+
+    for occasion in optimal_subject.iter_mut() {
+        for event in occasion.iter_mut() {
+            match event {
+                Event::Bolus(bolus) => {
+                    bolus.set_amount(final_doses[dose_number]);
+                    dose_number += 1;
+                }
+                Event::Infusion(infusion) => {
+                    infusion.set_amount(final_doses[dose_number]);
+                    dose_number += 1;
+                }
+                Event::Observation(_) => {}
+            }
+        }
+    }
+
+    let (preds, auc_predictions) =
+        calculate_final_predictions(problem, &final_doses, &final_weights)?;
+
+    tracing::info!("  ✓ Predictions complete");
+    tracing::info!("─────────────────────────────────────────────────────────────");
+
+    Ok(BestDoseResult {
+        optimal_subject,
+        objf: final_cost,
+        status: BestDoseStatus::Converged,
+        preds,
+        auc_predictions,
+        optimization_method: method,
+    })
+}
+
+pub fn posterior_optimization(problem: &BestDoseProblem) -> Result<BestDoseResult> {
+    tracing::info!("─────────────────────────────────────────────────────────────");
+    tracing::info!("STAGE 2: Posterior Optimization Only");
+    tracing::info!("─────────────────────────────────────────────────────────────");
+    tracing::info!("│");
+    tracing::info!("└─ Optimization: Posterior Weights (Patient-Specific)");
+
+    let (doses, cost) = run_single_optimization(problem, &problem.posterior, "Posterior")?;
+
+    finalize_optimization(
+        problem,
+        doses,
+        cost,
+        OptimalMethod::Posterior,
+        problem.posterior.clone(),
+    )
+}
+
 /// Stage 2 & 3: Dual optimization + Final predictions
 ///
 /// # Algorithm Flow (Matches Diagram)
@@ -255,49 +327,5 @@ pub fn dual_optimization(problem: &BestDoseProblem) -> Result<BestDoseResult> {
         (doses2, cost2, OptimalMethod::Uniform, uniform_weights)
     };
 
-    // ═════════════════════════════════════════════════════════════
-    // STAGE 3: Final Predictions
-    // ═════════════════════════════════════════════════════════════
-    tracing::info!("─────────────────────────────────────────────────────────────");
-    tracing::info!("STAGE 3: Final Predictions");
-    tracing::info!("─────────────────────────────────────────────────────────────");
-    tracing::info!(
-        "  Calculating predictions with optimal doses and {} weights",
-        method
-    );
-
-    // Generate target subject with optimal doses
-    let mut optimal_subject = problem.target.clone();
-    let mut dose_number = 0;
-
-    for occasion in optimal_subject.iter_mut() {
-        for event in occasion.iter_mut() {
-            match event {
-                Event::Bolus(bolus) => {
-                    bolus.set_amount(final_doses[dose_number]);
-                    dose_number += 1;
-                }
-                Event::Infusion(infusion) => {
-                    infusion.set_amount(final_doses[dose_number]);
-                    dose_number += 1;
-                }
-                Event::Observation(_) => {}
-            }
-        }
-    }
-
-    let (preds, auc_predictions) =
-        calculate_final_predictions(problem, &final_doses, &final_weights)?;
-
-    tracing::info!("  ✓ Predictions complete");
-    tracing::info!("─────────────────────────────────────────────────────────────");
-
-    Ok(BestDoseResult {
-        optimal_subject,
-        objf: final_cost,
-        status: BestDoseStatus::Converged,
-        preds,
-        auc_predictions,
-        optimization_method: method,
-    })
+    finalize_optimization(problem, final_doses, final_cost, method, final_weights)
 }
