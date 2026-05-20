@@ -233,7 +233,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
 
     // Calculate variance (using posterior weights) and population mean (using prior weights)
 
-    for ((row, post_prob), prior_prob) in problem
+    for ((row, post_prob), _prior_prob) in problem
         .theta
         .matrix()
         .row_iter()

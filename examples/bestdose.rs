@@ -73,7 +73,7 @@ fn main() -> Result<()> {
         .build();
 
     let (theta, prior) = parse_prior(
-        &"examples/bimodal_ke/output/theta.csv".to_string(),
+        &"examples/bimodal_ke/prior.csv".to_string(),
         &settings,
     )
     .unwrap();
@@ -129,6 +129,39 @@ fn main() -> Result<()> {
             "Time: {:.2} h, Observed: {:.2}, (Pop Mean: {:.4}, Pop Median: {:.4}, Post Mean: {:.4}, Post Median: {:.4})",
             pred.time(), pred.obs().unwrap_or(0.0), pred.pop_mean(), pred.pop_median(), pred.post_mean(), pred.post_median()
         );
+    }
+
+    // Print the posterior support points with their filtered population and posterior weights.
+    let posterior_theta = problem.posterior_theta();
+    let posterior_weights = problem.posterior_weights();
+    let population_weights = problem.population_weights();
+    let param_names = posterior_theta.param_names();
+
+    println!("\n=== Support Points Summary ===");
+    println!("Number of support points: {}", posterior_theta.nspp());
+
+    print!("\n{:<8} {:<15} {:<15}", "Point", "Prior Weight", "Posterior Weight");
+    for name in &param_names {
+        print!(" {:<15}", name);
+    }
+    println!();
+    println!("{}", "-".repeat(40 + 16 * param_names.len()));
+
+    for point_idx in 0..posterior_theta.nspp() {
+        let row = posterior_theta.matrix().row(point_idx);
+
+        print!(
+            "{:<8} {:<15.6e} {:<15.6e}",
+            point_idx,
+            population_weights[point_idx],
+            posterior_weights[point_idx]
+        );
+
+        for value in row.iter() {
+            print!(" {:<15.6}", value);
+        }
+
+        println!();
     }
 
     Ok(())
