@@ -35,7 +35,6 @@ fn main() -> Result<()> {
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
         )?
         .output_dir("examples/iov/output")
-        .cycles(100000)
         .prior(Prior::sobol(100, 347))
         .fit()
         .unwrap();

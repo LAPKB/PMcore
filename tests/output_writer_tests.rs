@@ -59,7 +59,6 @@ fn test_fit_result_writes_shared_output_files() -> Result<()> {
         .method(Npag::new())
         .error("0", assay_error)?
         .output_dir(output_dir.to_string_lossy().to_string())
-        .cycles(1)
         .progress(false)
         .fit()?;
 

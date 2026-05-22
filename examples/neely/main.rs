@@ -85,7 +85,6 @@ fn main() {
         )
         .unwrap()
         .output_dir("examples/neely/output")
-        .cycles(1000)
         .prior(Prior::sobol(2028, 22))
         .fit()
         .unwrap();

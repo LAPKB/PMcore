@@ -1,7 +1,9 @@
 use anyhow::Result;
-use pmcore::prelude::*;
+use pmcore::{output::logging::Logger, prelude::*};
 
 fn main() -> Result<()> {
+    Logger::new().init()?;
+
     let eq = ode! {
         name: "bimodal_ke",
         params: [ke, v],
@@ -28,8 +30,6 @@ fn main() -> Result<()> {
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )?
         .output_dir("examples/bimodal_ke/output/")
-        .cycles(1000)
-        .initialize_logs()
         .fit()?;
 
     Ok(())

@@ -7,9 +7,8 @@ pub mod saem_config;
 
 pub use error_models::ErrorModels;
 pub use estimation_problem::{
-    AlgorithmTuning, ConvergenceOptions, EstimationProblem, EstimationProblemBuilder, LoggingLevel,
-    LoggingOptions, MethodSpec, NonparametricEstimationProblemBuilder, Npag, Npod, OutputPlan,
-    PostProb, RuntimeOptions,
+    AlgorithmTuning, ConvergenceOptions, EstimationProblem, EstimationProblemBuilder, MethodSpec,
+    NonparametricEstimationProblemBuilder, Npag, Npod, OutputPlan, PostProb, RuntimeOptions,
 };
 pub use fit::{fit, fit_with_progress};
 pub use model_definition::{ModelDefinition, ModelDefinitionBuilder};

@@ -1,5 +1,5 @@
 mod file;
-pub(crate) mod logging;
+pub mod logging;
 pub mod nonparametric;
 pub mod shared;
 pub mod writer;

@@ -68,7 +68,6 @@ fn main() {
         )
         .unwrap()
         .output_dir("examples/vanco_sde/output")
-        .cycles(usize::MAX)
         .prior(Prior::sobol(100, 347))
         .fit()
         .unwrap();

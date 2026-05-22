@@ -38,7 +38,6 @@ fn main() {
         )
         .unwrap()
         .output_dir("examples/two_eq_lag/output")
-        .initialize_logs()
         .fit()
         .unwrap();
 }

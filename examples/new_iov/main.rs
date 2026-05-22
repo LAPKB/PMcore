@@ -38,7 +38,6 @@ fn main() {
         )
         .unwrap()
         .output_dir("examples/new_iov/output")
-        .cycles(1000)
         .prior(Prior::sobol(100, 347))
         .fit()
         .unwrap();

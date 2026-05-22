@@ -196,37 +196,6 @@ impl Default for OutputPlan {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum LoggingLevel {
-    Trace,
-    Debug,
-    #[default]
-    Info,
-    Warn,
-    Error,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct LoggingOptions {
-    pub initialize: bool,
-    pub level: LoggingLevel,
-    pub write: bool,
-    pub stdout: bool,
-}
-
-impl Default for LoggingOptions {
-    fn default() -> Self {
-        Self {
-            initialize: false,
-            level: LoggingLevel::Info,
-            write: false,
-            stdout: true,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ConvergenceOptions {
@@ -274,7 +243,6 @@ pub struct RuntimeOptions {
     pub idelta: f64,
     pub tad: f64,
     pub prior: Option<Prior>,
-    pub logging: LoggingOptions,
     pub convergence: ConvergenceOptions,
     pub tuning: AlgorithmTuning,
 }
@@ -288,7 +256,6 @@ impl Default for RuntimeOptions {
             idelta: 0.12,
             tad: 0.0,
             prior: None,
-            logging: LoggingOptions::default(),
             convergence: ConvergenceOptions::default(),
             tuning: AlgorithmTuning::default(),
         }
@@ -377,22 +344,6 @@ impl<E: Equation> EstimationProblemBuilder<E> {
 
     pub fn prior(self, prior: Prior) -> Self {
         self.with_runtime_options(|runtime| runtime.prior = Some(prior))
-    }
-
-    pub fn initialize_logs(self) -> Self {
-        self.with_runtime_options(|runtime| runtime.logging.initialize = true)
-    }
-
-    pub fn log_level(self, level: LoggingLevel) -> Self {
-        self.with_runtime_options(|runtime| runtime.logging.level = level)
-    }
-
-    pub fn write_logs(self, enabled: bool) -> Self {
-        self.with_runtime_options(|runtime| runtime.logging.write = enabled)
-    }
-
-    pub fn stdout_logs(self, enabled: bool) -> Self {
-        self.with_runtime_options(|runtime| runtime.logging.stdout = enabled)
     }
 
     pub fn convergence(self, convergence: ConvergenceOptions) -> Self {
@@ -495,10 +446,6 @@ impl<E: Equation> NonparametricEstimationProblemBuilder<E> {
         self.with_builder(|builder| builder.no_output())
     }
 
-    pub fn cycles(self, cycles: usize) -> Self {
-        self.with_builder(|builder| builder.cycles(cycles))
-    }
-
     pub fn cache(self, enabled: bool) -> Self {
         self.with_builder(|builder| builder.cache(enabled))
     }
@@ -517,22 +464,6 @@ impl<E: Equation> NonparametricEstimationProblemBuilder<E> {
 
     pub fn prior(self, prior: Prior) -> Self {
         self.with_builder(|builder| builder.prior(prior))
-    }
-
-    pub fn initialize_logs(self) -> Self {
-        self.with_builder(|builder| builder.initialize_logs())
-    }
-
-    pub fn log_level(self, level: LoggingLevel) -> Self {
-        self.with_builder(|builder| builder.log_level(level))
-    }
-
-    pub fn write_logs(self, enabled: bool) -> Self {
-        self.with_builder(|builder| builder.write_logs(enabled))
-    }
-
-    pub fn stdout_logs(self, enabled: bool) -> Self {
-        self.with_builder(|builder| builder.stdout_logs(enabled))
     }
 
     pub fn convergence(self, convergence: ConvergenceOptions) -> Self {

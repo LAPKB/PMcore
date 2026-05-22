@@ -60,7 +60,6 @@ fn test_one_compartment_npag() -> Result<()> {
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )?
-        .cycles(100)
         .prior(Prior::sobol(64, 22))
         .fit()?;
     let result = result
@@ -125,7 +124,6 @@ fn test_one_compartment_npod() -> Result<()> {
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )?
-        .cycles(100)
         .prior(Prior::sobol(64, 22))
         .fit()?;
     let result = result
@@ -190,7 +188,6 @@ fn test_one_compartment_postprob() -> Result<()> {
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )?
-        .cycles(100)
         .prior(Prior::sobol(64, 22))
         .fit()?;
     let result = result

@@ -23,10 +23,6 @@ impl<E: Equation + Clone + EquationMetadataSource> EstimationProblem<E> {
     pub fn compile(self) -> Result<CompiledProblem<E>> {
         compile_problem(self)
     }
-
-    pub fn initialize_logs(&self) -> Result<()> {
-        crate::output::logging::setup_log_with_options(&self.output, &self.runtime.logging)
-    }
 }
 
 pub fn compile_problem<E: Equation + Clone + EquationMetadataSource>(

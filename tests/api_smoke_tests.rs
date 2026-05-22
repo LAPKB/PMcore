@@ -106,7 +106,6 @@ fn test_unified_fit_nonparametric_smoke() -> Result<()> {
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
         .method(Npag::new())
         .error("0", assay_error)?
-        .cycles(1)
         .progress(false)
         .fit()?;
 
@@ -141,14 +140,10 @@ fn test_problem_compile_preserves_runtime_configuration() -> Result<()> {
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
         .method(Npag::new())
         .error("0", assay_error)?
-        .cycles(7)
         .cache(false)
         .progress(false)
         .idelta(0.5)
         .tad(24.0)
-        .log_level(LoggingLevel::Debug)
-        .write_logs(true)
-        .stdout_logs(false)
         .convergence(convergence)
         .tuning(tuning)
         .build()?
@@ -161,12 +156,7 @@ fn test_problem_compile_preserves_runtime_configuration() -> Result<()> {
     assert!(!compiled.runtime_options().progress);
     assert_eq!(compiled.runtime_options().idelta, 0.5);
     assert_eq!(compiled.runtime_options().tad, 24.0);
-    assert_eq!(
-        compiled.runtime_options().logging.level,
-        LoggingLevel::Debug
-    );
-    assert!(compiled.runtime_options().logging.write);
-    assert!(!compiled.runtime_options().logging.stdout);
+
     assert_eq!(compiled.runtime_options().convergence.likelihood, 1e-5);
     assert_eq!(compiled.runtime_options().convergence.pyl, 5e-3);
     assert_eq!(compiled.runtime_options().convergence.eps, 2e-3);
@@ -175,23 +165,5 @@ fn test_problem_compile_preserves_runtime_configuration() -> Result<()> {
     assert_eq!(compiled.runtime_options().tuning.tolerance, 3e-6);
     assert_eq!(compiled.runtime_options().tuning.saem.k1_iterations, 111);
     assert_eq!(compiled.runtime_options().tuning.saem.k2_iterations, 22);
-    Ok(())
-}
-
-#[test]
-fn test_problem_can_initialize_logs_without_old_settings_api() -> Result<()> {
-    let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let problem = EstimationProblem::builder(simple_equation(), simple_data())
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-        .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .method(Npag::new())
-        .error("0", assay_error)?
-        .initialize_logs()
-        .log_level(LoggingLevel::Info)
-        .write_logs(false)
-        .stdout_logs(false)
-        .build()?;
-
-    problem.initialize_logs()?;
     Ok(())
 }

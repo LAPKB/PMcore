@@ -64,8 +64,8 @@ pub mod prelude {
     pub use crate::api::fit_with_progress;
     pub use crate::api::{
         AlgorithmTuning, ConvergenceOptions, ErrorModels, EstimationProblem, FitProgress,
-        LoggingLevel, LoggingOptions, MethodSpec, ModelDefinition, NonparametricCycleProgress,
-        Npag, Npod, OutputPlan, PostProb, RuntimeOptions,
+        MethodSpec, ModelDefinition, NonparametricCycleProgress, Npag, Npod, OutputPlan, PostProb,
+        RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{

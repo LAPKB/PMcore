@@ -36,7 +36,6 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const DATA_PATH: &str = "examples/bimodal_ke/bimodal_ke.csv";
-const NPAG_CYCLES: usize = 1000;
 #[cfg(any(
     feature = "dsl-jit",
     all(feature = "dsl-aot", feature = "dsl-aot-load"),
@@ -64,7 +63,6 @@ struct ComparisonResult {
     fit_time: Duration,
     total_time: Duration,
     objf: f64,
-    cycles: usize,
 }
 
 fn main() -> Result<()> {
@@ -212,7 +210,6 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )?
-        .cycles(NPAG_CYCLES)
         .cache(true)
         .progress(false)
         .no_output()
@@ -228,7 +225,7 @@ fn summarize_result<E: pharmsol::Equation>(
     fit_time: Duration,
     result: &FitResult<E>,
 ) -> Result<ComparisonResult> {
-    let workspace = result
+    result
         .as_nonparametric()
         .ok_or_else(|| anyhow!("expected nonparametric result for {label}"))?;
 
@@ -238,7 +235,6 @@ fn summarize_result<E: pharmsol::Equation>(
         fit_time,
         total_time: compile_time + fit_time,
         objf: result.objf(),
-        cycles: workspace.cycles(),
     })
 }
 
@@ -296,7 +292,7 @@ fn print_summary(results: &[ComparisonResult]) -> Result<()> {
 
     println!("bimodal_ke NPAG backend comparison");
     println!("dataset: {DATA_PATH}");
-    println!("cycles: {NPAG_CYCLES}, cache: on");
+    println!("cache: on");
     #[cfg(not(any(
         feature = "dsl-jit",
         all(feature = "dsl-aot", feature = "dsl-aot-load"),
@@ -305,18 +301,17 @@ fn print_summary(results: &[ComparisonResult]) -> Result<()> {
     println!("runtime DSL backends skipped; enable dsl-jit, dsl-aot+dsl-aot-load, or dsl-wasm to include them");
     println!();
     println!(
-        "{:<18} {:>12} {:>12} {:>12} {:>12} {:>14} {:>14}",
-        "representation", "compile s", "fit s", "total s", "cycles", "objf diff", "objf"
+        "{:<18} {:>12} {:>12} {:>12} {:>14} {:>14}",
+        "representation", "compile s", "fit s", "total s", "objf diff", "objf"
     );
 
     for result in results {
         println!(
-            "{:<18} {:>12.3} {:>12.3} {:>12.3} {:>12} {:>14.6} {:>14.6}",
+            "{:<18} {:>12.3} {:>12.3} {:>12.3} {:>14.6} {:>14.6}",
             result.label,
             result.compile_time.as_secs_f64(),
             result.fit_time.as_secs_f64(),
             result.total_time.as_secs_f64(),
-            result.cycles,
             (result.objf - baseline.objf).abs(),
             result.objf,
         );

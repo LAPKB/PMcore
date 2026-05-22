@@ -195,12 +195,7 @@ pub fn npagfull_refinement(
         idelta: config.prediction_interval(),
         tad: 0.0,
         prior: None,
-        logging: LoggingOptions {
-            initialize: false,
-            level: LoggingLevel::Info,
-            write: false,
-            stdout: false,
-        },
+
         convergence: ConvergenceOptions::default(),
         tuning: AlgorithmTuning::default(),
     };

@@ -10,10 +10,6 @@ use crate::results::FitResult;
 pub fn fit<E: Equation + Clone + Send + 'static + EquationMetadataSource>(
     problem: EstimationProblem<E>,
 ) -> Result<FitResult<E>> {
-    if problem.runtime.logging.initialize {
-        problem.initialize_logs()?;
-    }
-
     let compiled = problem.compile()?;
     let mut result = nonparametric::fit(compiled)?;
     result.write_outputs()?;
@@ -28,10 +24,6 @@ where
     E: Equation + Clone + Send + 'static + EquationMetadataSource,
     F: FnMut(FitProgress),
 {
-    if problem.runtime.logging.initialize {
-        problem.initialize_logs()?;
-    }
-
     let compiled = problem.compile()?;
     let mut result = nonparametric::fit_with_progress(compiled, |event| {
         on_progress(FitProgress::NonparametricCycle(event));
@@ -47,7 +39,7 @@ mod tests {
 
     use super::{fit_with_progress, FitProgress};
     use crate::algorithms::Status;
-    use crate::api::{EstimationProblem, LoggingOptions, Npag};
+    use crate::api::{EstimationProblem, Npag};
     use crate::prelude::*;
 
     fn equation() -> equation::ODE {
@@ -92,10 +84,8 @@ mod tests {
             .parameter(Parameter::bounded("v", 5.0, 50.0))?
             .method(Npag::new())
             .error("0", assay_error)?
-            .cycles(2)
             .progress(false)
             .prior(Prior::sobol(8, 7))
-            .log_level(LoggingOptions::default().level)
             .build()?;
 
         let mut progress_events = Vec::new();
