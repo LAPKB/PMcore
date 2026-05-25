@@ -31,7 +31,7 @@ pub(crate) fn nonparametric_diagnostics<E: Equation>(
         .unwrap_or_else(|| "Continue".to_string());
 
     let mut estimator_metadata = BTreeMap::new();
-    estimator_metadata.insert("algorithm".to_string(), format!("{:?}", result.algorithm()));
+    estimator_metadata.insert("algorithm".to_string(), result.algorithm().to_string());
     estimator_metadata.insert("status".to_string(), status);
     estimator_metadata.insert(
         "outputs_requested".to_string(),

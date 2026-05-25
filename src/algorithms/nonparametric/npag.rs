@@ -1,7 +1,6 @@
 use crate::algorithms::{
     NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason,
 };
-use crate::api::estimation_problem::NonparametricMethod;
 use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
 };
@@ -178,9 +177,9 @@ impl<E: Equation + Send + 'static> NPAG<E> {
     }
 
     pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
-        let method = match input.method {
-            NonparametricMethod::Npag(method) => method,
-            _ => unreachable!("NPAG::from_input requires an NPAG method"),
+        let method = match input.algorithm {
+            crate::algorithms::Algorithm::NPAG(method) => method,
+            _ => unreachable!("NPAG::from_input requires an NPAG algorithm"),
         };
         let config = input.native_config()?;
         let error_models = input.error_models().clone();
@@ -588,7 +587,7 @@ mod tests {
         )?;
 
         let input = NonparametricAlgorithmInput::new(
-            NonparametricMethod::Npag(method),
+            crate::algorithms::Algorithm::NPAG(method),
             model,
             simple_data(),
             error_models,

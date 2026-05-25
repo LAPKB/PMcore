@@ -13,7 +13,7 @@ pub fn fit_summary<E: Equation>(result: &NonparametricWorkspace<E>) -> FitSummar
         subject_count: result.data().subjects().len(),
         observation_count: count_observations(result.data()),
         parameter_count: result.get_theta().parameters().len(),
-        algorithm: format!("{:?}", result.algorithm()),
+        algorithm: result.algorithm().to_string(),
     }
 }
 

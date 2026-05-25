@@ -2,7 +2,6 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::api::estimation_problem::NonparametricMethod;
 use crate::api::{OutputPlan, RuntimeOptions};
 use crate::estimation::nonparametric::{NonparametricWorkspace, Prior, Psi, Theta};
 use crate::model::{ModelDefinition, ParameterSpace};
@@ -14,6 +13,7 @@ use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 use nonparametric::npag::*;
 use nonparametric::npod::NPOD;
 use nonparametric::postprob::POSTPROB;
+use nonparametric::{Npag, Npod, PostProb};
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::AssayErrorModels;
 use pharmsol::{Predictions, Subject};
@@ -24,7 +24,7 @@ pub mod nonparametric;
 
 #[derive(Debug, Clone)]
 pub(crate) struct NonparametricAlgorithmInput<E: Equation> {
-    pub method: NonparametricMethod,
+    pub algorithm: Algorithm,
     pub equation: E,
     pub data: Data,
     pub parameter_space: ParameterSpace,
@@ -45,7 +45,7 @@ pub(crate) struct NativeNonparametricConfig {
 
 impl<E: Equation> NonparametricAlgorithmInput<E> {
     pub(crate) fn new(
-        method: NonparametricMethod,
+        algorithm: Algorithm,
         model: ModelDefinition<E>,
         data: Data,
         error_models: AssayErrorModels,
@@ -59,7 +59,7 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
         } = model;
 
         Self {
-            method,
+            algorithm,
             equation,
             data,
             parameter_space: parameters,
@@ -70,7 +70,7 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
     }
 
     pub(crate) fn algorithm(&self) -> Algorithm {
-        self.method.algorithm()
+        self.algorithm
     }
 
     pub(crate) fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels {
@@ -115,15 +115,18 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
 
 /// Algorithm type enumeration
 ///
-/// This enum represents the baseline algorithms available on the structure branch.
+/// Lists every estimation algorithm implemented in `PMcore` together with its
+/// configuration payload. Convert from a configuration struct via [`From`]
+/// (e.g. `Algorithm::from(Npag::new())`) or pass the configuration directly to
+/// [`EstimationProblemBuilder::method`](crate::api::EstimationProblemBuilder::method).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
     /// Non-Parametric Adaptive Grid
-    NPAG,
+    NPAG(Npag),
     /// Non-Parametric Optimal Design
-    NPOD,
+    NPOD(Npod),
     /// Posterior Probability calculation
-    POSTPROB,
+    POSTPROB(PostProb),
 }
 
 impl Algorithm {
@@ -131,8 +134,41 @@ impl Algorithm {
     pub fn is_nonparametric(&self) -> bool {
         matches!(
             self,
-            Algorithm::NPAG | Algorithm::NPOD | Algorithm::POSTPROB
+            Algorithm::NPAG(_) | Algorithm::NPOD(_) | Algorithm::POSTPROB(_)
         )
+    }
+
+    /// Short identifier (e.g. `"NPAG"`) suitable for logs and reports.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Algorithm::NPAG(_) => "NPAG",
+            Algorithm::NPOD(_) => "NPOD",
+            Algorithm::POSTPROB(_) => "POSTPROB",
+        }
+    }
+}
+
+impl std::fmt::Display for Algorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
+impl From<Npag> for Algorithm {
+    fn from(value: Npag) -> Self {
+        Algorithm::NPAG(value)
+    }
+}
+
+impl From<Npod> for Algorithm {
+    fn from(value: Npod) -> Self {
+        Algorithm::NPOD(value)
+    }
+}
+
+impl From<PostProb> for Algorithm {
+    fn from(value: PostProb) -> Self {
+        Algorithm::POSTPROB(value)
     }
 }
 
@@ -418,16 +454,16 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
 pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
     input: NonparametricAlgorithmInput<E>,
 ) -> Result<Box<dyn Algorithms<E>>> {
-    match input.method {
-        NonparametricMethod::Npag(_) => {
+    match input.algorithm {
+        Algorithm::NPAG(_) => {
             let algorithm: Box<dyn Algorithms<E>> = NPAG::from_input(input)?;
             Ok(algorithm)
         }
-        NonparametricMethod::Npod(_) => {
+        Algorithm::NPOD(_) => {
             let algorithm: Box<dyn Algorithms<E>> = NPOD::from_input(input)?;
             Ok(algorithm)
         }
-        NonparametricMethod::PostProb(_) => {
+        Algorithm::POSTPROB(_) => {
             let algorithm: Box<dyn Algorithms<E>> = POSTPROB::from_input(input)?;
             Ok(algorithm)
         }

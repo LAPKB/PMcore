@@ -44,7 +44,7 @@ pub fn compile_problem<E: Equation + Clone + EquationMetadataSource>(
         problem.model,
         problem.data,
         problem.error_models,
-        problem.method,
+        problem.algorithm,
         problem.output,
         problem.runtime,
         design,

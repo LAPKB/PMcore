@@ -1,7 +1,6 @@
 use pharmsol::equation::Equation;
 
 use crate::algorithms::Algorithm;
-use crate::api::estimation_problem::NonparametricMethod;
 use crate::api::{ErrorModels, OutputPlan, RuntimeOptions};
 use crate::compile::{DesignContext, ExecutionCaches, ObservationIndex};
 use crate::model::ModelDefinition;
@@ -12,7 +11,7 @@ pub struct CompiledProblem<E: Equation> {
     pub model: ModelDefinition<E>,
     pub data: Data,
     error_models: ErrorModels,
-    method: NonparametricMethod,
+    algorithm: Algorithm,
     output: OutputPlan,
     runtime: RuntimeOptions,
     pub design: DesignContext,
@@ -26,7 +25,7 @@ impl<E: Equation> CompiledProblem<E> {
         model: ModelDefinition<E>,
         data: Data,
         error_models: ErrorModels,
-        method: NonparametricMethod,
+        algorithm: Algorithm,
         output: OutputPlan,
         runtime: RuntimeOptions,
         design: DesignContext,
@@ -37,7 +36,7 @@ impl<E: Equation> CompiledProblem<E> {
             model,
             data,
             error_models,
-            method,
+            algorithm,
             output,
             runtime,
             design,
@@ -46,12 +45,8 @@ impl<E: Equation> CompiledProblem<E> {
         }
     }
 
-    pub(crate) fn method(&self) -> NonparametricMethod {
-        self.method
-    }
-
     pub fn algorithm(&self) -> Algorithm {
-        self.method.algorithm()
+        self.algorithm
     }
 
     pub fn error_models(&self) -> &ErrorModels {

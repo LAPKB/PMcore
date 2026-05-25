@@ -2,7 +2,6 @@ use anyhow::Result;
 use pharmsol::{AssayErrorModel, AssayErrorModels, Data, Equation};
 use serde::{Deserialize, Serialize};
 
-use crate::algorithms::nonparametric::{Npag, Npod, PostProb};
 use crate::algorithms::Algorithm;
 use crate::api::error_models::ErrorModels;
 use crate::api::SaemConfig;
@@ -11,57 +10,6 @@ use crate::model::{
     CovariateSpec, EquationMetadataSource, ModelDefinition, ModelDefinitionBuilder, ModelMetadata,
     Parameter, VariabilityModel,
 };
-
-// =============================================================================
-// Method selection
-// =============================================================================
-
-pub trait MethodSpec {
-    type Builder<E: Equation>;
-
-    fn attach<E: Equation>(self, builder: EstimationProblemBuilder<E>) -> Self::Builder<E>;
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub(crate) enum NonparametricMethod {
-    Npag(Npag),
-    Npod(Npod),
-    PostProb(PostProb),
-}
-
-impl NonparametricMethod {
-    pub fn algorithm(self) -> Algorithm {
-        match self {
-            Self::Npag(_) => Algorithm::NPAG,
-            Self::Npod(_) => Algorithm::NPOD,
-            Self::PostProb(_) => Algorithm::POSTPROB,
-        }
-    }
-}
-
-impl MethodSpec for Npag {
-    type Builder<E: Equation> = NonparametricEstimationProblemBuilder<E>;
-
-    fn attach<E: Equation>(self, builder: EstimationProblemBuilder<E>) -> Self::Builder<E> {
-        NonparametricEstimationProblemBuilder::new(builder, NonparametricMethod::Npag(self))
-    }
-}
-
-impl MethodSpec for Npod {
-    type Builder<E: Equation> = NonparametricEstimationProblemBuilder<E>;
-
-    fn attach<E: Equation>(self, builder: EstimationProblemBuilder<E>) -> Self::Builder<E> {
-        NonparametricEstimationProblemBuilder::new(builder, NonparametricMethod::Npod(self))
-    }
-}
-
-impl MethodSpec for PostProb {
-    type Builder<E: Equation> = NonparametricEstimationProblemBuilder<E>;
-
-    fn attach<E: Equation>(self, builder: EstimationProblemBuilder<E>) -> Self::Builder<E> {
-        NonparametricEstimationProblemBuilder::new(builder, NonparametricMethod::PostProb(self))
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -156,7 +104,7 @@ pub struct EstimationProblem<E: Equation> {
     pub(crate) model: ModelDefinition<E>,
     pub(crate) data: Data,
     pub(crate) error_models: ErrorModels,
-    pub(crate) method: NonparametricMethod,
+    pub(crate) algorithm: Algorithm,
     pub(crate) output: OutputPlan,
     pub(crate) runtime: RuntimeOptions,
 }
@@ -193,8 +141,14 @@ pub struct EstimationProblemBuilder<E: Equation> {
 }
 
 impl<E: Equation> EstimationProblemBuilder<E> {
-    pub fn method<M: MethodSpec>(self, method: M) -> M::Builder<E> {
-        method.attach(self)
+    /// Select the estimation algorithm. Accepts any algorithm configuration
+    /// (e.g. [`Npag`](crate::algorithms::nonparametric::Npag)) that converts
+    /// into [`Algorithm`].
+    pub fn method(
+        self,
+        algorithm: impl Into<Algorithm>,
+    ) -> NonparametricEstimationProblemBuilder<E> {
+        NonparametricEstimationProblemBuilder::new(self, algorithm.into())
     }
 
     pub fn output_dir(self, path: impl Into<String>) -> Self {
@@ -314,15 +268,15 @@ impl<E: Equation> EstimationProblemBuilder<E> {
 
 pub struct NonparametricEstimationProblemBuilder<E: Equation> {
     builder: EstimationProblemBuilder<E>,
-    method: NonparametricMethod,
+    algorithm: Algorithm,
     error_models: Option<AssayErrorModels>,
 }
 
 impl<E: Equation> NonparametricEstimationProblemBuilder<E> {
-    fn new(builder: EstimationProblemBuilder<E>, method: NonparametricMethod) -> Self {
+    fn new(builder: EstimationProblemBuilder<E>, algorithm: Algorithm) -> Self {
         Self {
             builder,
-            method,
+            algorithm,
             error_models: None,
         }
     }
@@ -361,13 +315,13 @@ impl<E: Equation> NonparametricEstimationProblemBuilder<E> {
     ) -> Self {
         let NonparametricEstimationProblemBuilder {
             builder,
-            method,
+            algorithm,
             error_models,
         } = self;
 
         Self {
             builder: map(builder),
-            method,
+            algorithm,
             error_models,
         }
     }
@@ -415,7 +369,7 @@ impl<E: Equation + EquationMetadataSource> NonparametricEstimationProblemBuilder
             model,
             data: self.builder.data,
             error_models: ErrorModels::Nonparametric(error_models),
-            method: self.method,
+            algorithm: self.algorithm,
             output: self.builder.output.unwrap_or_default(),
             runtime: self.builder.runtime.unwrap_or_default(),
         })
@@ -427,13 +381,13 @@ impl<E: Equation + EquationMetadataSource> NonparametricEstimationProblemBuilder
     ) -> Result<Self> {
         let NonparametricEstimationProblemBuilder {
             builder,
-            method,
+            algorithm,
             error_models,
         } = self;
 
         Ok(Self {
             builder: map(builder)?,
-            method,
+            algorithm,
             error_models,
         })
     }
