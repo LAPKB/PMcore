@@ -20,7 +20,9 @@ fn main() -> Result<()> {
         },
     }
     .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
+
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
+
     let _result = EstimationProblem::builder(eq, data)
         .method(Npag::default())
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
@@ -29,7 +31,6 @@ fn main() -> Result<()> {
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )?
-        .output_dir("examples/bimodal_ke/output/")
         .fit()?;
 
     Ok(())

@@ -84,7 +84,6 @@ fn main() {
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
         .unwrap()
-        .output_dir("examples/neely/output")
         .prior(Prior::sobol(2028, 22))
         .fit()
         .unwrap();

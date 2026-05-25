@@ -212,7 +212,6 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
         )?
         .cache(true)
         .progress(false)
-        .no_output()
         .fit()?;
     let fit_time = fit_started.elapsed();
 

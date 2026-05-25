@@ -67,7 +67,6 @@ fn main() {
             AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
         )
         .unwrap()
-        .output_dir("examples/vanco_sde/output")
         .prior(Prior::sobol(100, 347))
         .fit()
         .unwrap();

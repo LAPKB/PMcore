@@ -438,14 +438,6 @@ impl<E: Equation> NonparametricEstimationProblemBuilder<E> {
         }
     }
 
-    pub fn output_dir(self, path: impl Into<String>) -> Self {
-        self.with_builder(|builder| builder.output_dir(path))
-    }
-
-    pub fn no_output(self) -> Self {
-        self.with_builder(|builder| builder.no_output())
-    }
-
     pub fn cache(self, enabled: bool) -> Self {
         self.with_builder(|builder| builder.cache(enabled))
     }
