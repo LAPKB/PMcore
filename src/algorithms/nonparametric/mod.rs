@@ -26,5 +26,10 @@ pub use npag::NPAG;
 pub use npod::NPOD;
 pub use postprob::POSTPROB;
 
+// Re-export per-algorithm configuration structs
+pub use npag::Npag;
+pub use npod::Npod;
+pub use postprob::PostProb;
+
 // Re-export the NP algorithm trait from parent
 pub use super::Algorithms as NPAlgorithm;

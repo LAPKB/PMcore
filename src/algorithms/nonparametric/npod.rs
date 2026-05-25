@@ -17,9 +17,20 @@ use pharmsol::{
 
 use ndarray::Array1;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
+use serde::{Deserialize, Serialize};
 
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
+
+/// Configuration options for the Non-Parametric Optimal Design (NPOD) algorithm.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Npod;
+
+impl Npod {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 pub struct NPOD<E: Equation + Send + 'static> {
     equation: E,

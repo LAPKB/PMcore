@@ -5,10 +5,11 @@ pub mod model_definition;
 pub mod progress;
 pub mod saem_config;
 
+pub use crate::algorithms::nonparametric::{Npag, Npod, PostProb};
 pub use error_models::ErrorModels;
 pub use estimation_problem::{
     AlgorithmTuning, ConvergenceOptions, EstimationProblem, EstimationProblemBuilder, MethodSpec,
-    NonparametricEstimationProblemBuilder, Npag, Npod, OutputPlan, PostProb, RuntimeOptions,
+    NonparametricEstimationProblemBuilder, OutputPlan, RuntimeOptions,
 };
 pub use fit::{fit, fit_with_progress};
 pub use model_definition::{ModelDefinition, ModelDefinitionBuilder};

@@ -2,7 +2,6 @@ use crate::algorithms::{
     NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason,
 };
 use crate::api::estimation_problem::NonparametricMethod;
-use crate::api::Npag;
 use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
 };
@@ -23,6 +22,103 @@ use pharmsol::prelude::AssayErrorModel;
 use crate::estimation::nonparametric::sample_space_for_parameters;
 
 use crate::estimation::nonparametric::adaptative_grid;
+
+use serde::{Deserialize, Serialize};
+
+/// Configuration options for the Non-Parametric Adaptive Grid (NPAG) algorithm.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Npag {
+    pub eps: f64,
+    pub min_eps: f64,
+    pub objective_tolerance: f64,
+    pub pyl_tolerance: f64,
+    pub prune_threshold: f64,
+    pub qr_tolerance: f64,
+    pub grid_tolerance: f64,
+    pub error_step: f64,
+    pub min_error_step: f64,
+    pub error_step_growth: f64,
+    pub error_step_shrink: f64,
+}
+
+impl Default for Npag {
+    fn default() -> Self {
+        Self {
+            eps: 0.2,
+            min_eps: 1e-4,
+            objective_tolerance: 1e-4,
+            pyl_tolerance: 1e-2,
+            prune_threshold: 1e-3,
+            qr_tolerance: 1e-8,
+            grid_tolerance: 1e-4,
+            error_step: 0.1,
+            min_error_step: 0.01,
+            error_step_growth: 4.0,
+            error_step_shrink: 0.5,
+        }
+    }
+}
+
+impl Npag {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn eps(mut self, eps: f64) -> Self {
+        self.eps = eps;
+        self
+    }
+
+    pub fn min_eps(mut self, min_eps: f64) -> Self {
+        self.min_eps = min_eps;
+        self
+    }
+
+    pub fn objective_tolerance(mut self, tolerance: f64) -> Self {
+        self.objective_tolerance = tolerance;
+        self
+    }
+
+    pub fn pyl_tolerance(mut self, tolerance: f64) -> Self {
+        self.pyl_tolerance = tolerance;
+        self
+    }
+
+    pub fn prune_threshold(mut self, threshold: f64) -> Self {
+        self.prune_threshold = threshold;
+        self
+    }
+
+    pub fn qr_tolerance(mut self, tolerance: f64) -> Self {
+        self.qr_tolerance = tolerance;
+        self
+    }
+
+    pub fn grid_tolerance(mut self, tolerance: f64) -> Self {
+        self.grid_tolerance = tolerance;
+        self
+    }
+
+    pub fn error_step(mut self, step: f64) -> Self {
+        self.error_step = step;
+        self
+    }
+
+    pub fn min_error_step(mut self, step: f64) -> Self {
+        self.min_error_step = step;
+        self
+    }
+
+    pub fn error_step_growth(mut self, factor: f64) -> Self {
+        self.error_step_growth = factor;
+        self
+    }
+
+    pub fn error_step_shrink(mut self, factor: f64) -> Self {
+        self.error_step_shrink = factor;
+        self
+    }
+}
 
 #[derive(Debug)]
 pub struct NPAG<E: Equation + Send + 'static> {

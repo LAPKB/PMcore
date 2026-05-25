@@ -15,6 +15,18 @@ use pharmsol::prelude::{
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::sample_space_for_parameters;
 
+use serde::{Deserialize, Serialize};
+
+/// Configuration options for the posterior probability reweighting algorithm.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PostProb;
+
+impl PostProb {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
 pub struct POSTPROB<E: Equation + Send + 'static> {
