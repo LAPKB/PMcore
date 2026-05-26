@@ -50,7 +50,6 @@ fn input_from_compiled_problem<E: Equation + Clone + Send + 'static>(
 ) -> Result<NonparametricAlgorithmInput<E>> {
     let algorithm = problem.algorithm();
     let error_models = problem.error_models().models().clone();
-    let output = problem.output_plan().clone();
     let runtime = problem.runtime_options().clone();
     let (model, data) = problem.into_parts();
     Ok(NonparametricAlgorithmInput::new(
@@ -58,7 +57,6 @@ fn input_from_compiled_problem<E: Equation + Clone + Send + 'static>(
         model,
         data,
         error_models,
-        output,
         runtime,
     ))
 }

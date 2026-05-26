@@ -150,7 +150,6 @@ fn test_problem_compile_preserves_runtime_configuration() -> Result<()> {
         .compile()?;
 
     assert_eq!(compiled.algorithm().name(), "NPAG");
-    assert!(!compiled.output_plan().write);
     assert_eq!(compiled.runtime_options().cycles, 7);
     assert!(!compiled.runtime_options().cache);
     assert!(!compiled.runtime_options().progress);

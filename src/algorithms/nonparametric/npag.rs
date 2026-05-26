@@ -520,7 +520,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::{OutputPlan, RuntimeOptions};
+    use crate::api::RuntimeOptions;
     use crate::model::{ModelDefinition, Parameter};
     use pharmsol::{fa, fetch_params, lag, AssayErrorModel, ErrorPoly, Subject, SubjectBuilderExt};
 
@@ -591,7 +591,6 @@ mod tests {
             model,
             simple_data(),
             error_models,
-            OutputPlan::disabled(),
             RuntimeOptions::default(),
         );
 

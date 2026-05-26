@@ -224,7 +224,6 @@ pub fn npagfull_refinement(
                 progress: config.progress(),
                 run_configuration: crate::output::shared::RunConfiguration::new(
                     Algorithm::NPAG(Npag::default()),
-                    &OutputPlan::disabled(),
                     &runtime,
                     config.parameter_names(),
                 ),

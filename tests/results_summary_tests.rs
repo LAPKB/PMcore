@@ -57,20 +57,6 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     assert_eq!(summary.observation_count, 2);
     assert_eq!(result.population_summary().parameters.len(), 2);
     assert_eq!(result.individual_summaries().len(), 1);
-    let diagnostics = result.diagnostics();
-    assert_eq!(
-        diagnostics.estimator_metadata.get("algorithm"),
-        Some(&"NPAG".to_string())
-    );
-    assert_eq!(
-        diagnostics.estimator_metadata.get("outputs_requested"),
-        Some(&"false".to_string())
-    );
-    assert!(!diagnostics.convergence_notes.is_empty());
-    assert!(diagnostics.deferred_features.is_empty());
-    let predictions = result.predictions();
-    assert!(!predictions.available);
-    assert!(result.artifacts().files.is_empty());
-    assert!(result.artifacts().expected_files.is_empty());
+
     Ok(())
 }

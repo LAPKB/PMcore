@@ -11,8 +11,8 @@ pub fn fit<E: Equation + Clone + Send + 'static + EquationMetadataSource>(
     problem: EstimationProblem<E>,
 ) -> Result<FitResult<E>> {
     let compiled = problem.compile()?;
-    let mut result = nonparametric::fit(compiled)?;
-    result.write_outputs()?;
+    let result = nonparametric::fit(compiled)?;
+
     Ok(result)
 }
 
@@ -25,10 +25,10 @@ where
     F: FnMut(FitProgress),
 {
     let compiled = problem.compile()?;
-    let mut result = nonparametric::fit_with_progress(compiled, |event| {
+    let result = nonparametric::fit_with_progress(compiled, |event| {
         on_progress(FitProgress::NonparametricCycle(event));
     })?;
-    result.write_outputs()?;
+
     Ok(result)
 }
 

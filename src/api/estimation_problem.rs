@@ -13,28 +13,6 @@ use crate::model::{
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct OutputPlan {
-    pub write: bool,
-    pub path: Option<String>,
-}
-
-impl OutputPlan {
-    pub fn disabled() -> Self {
-        Self {
-            write: false,
-            path: None,
-        }
-    }
-}
-
-impl Default for OutputPlan {
-    fn default() -> Self {
-        Self::disabled()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
 pub struct ConvergenceOptions {
     pub likelihood: f64,
     pub pyl: f64,
@@ -105,7 +83,6 @@ pub struct EstimationProblem<E: Equation> {
     pub(crate) data: Data,
     pub(crate) error_models: ErrorModels,
     pub(crate) algorithm: Algorithm,
-    pub(crate) output: OutputPlan,
     pub(crate) runtime: RuntimeOptions,
 }
 
@@ -114,7 +91,6 @@ impl<E: Equation> EstimationProblem<E> {
         EstimationProblemBuilder {
             model: ModelDefinition::builder(equation),
             data,
-            output: Some(OutputPlan::default()),
             runtime: Some(RuntimeOptions::default()),
         }
     }
@@ -136,7 +112,6 @@ impl<E: Equation + Clone + Send + 'static + EquationMetadataSource> EstimationPr
 pub struct EstimationProblemBuilder<E: Equation> {
     model: ModelDefinitionBuilder<E>,
     data: Data,
-    output: Option<OutputPlan>,
     runtime: Option<RuntimeOptions>,
 }
 
@@ -149,20 +124,6 @@ impl<E: Equation> EstimationProblemBuilder<E> {
         algorithm: impl Into<Algorithm>,
     ) -> NonparametricEstimationProblemBuilder<E> {
         NonparametricEstimationProblemBuilder::new(self, algorithm.into())
-    }
-
-    pub fn output_dir(self, path: impl Into<String>) -> Self {
-        self.with_output_plan(|output| {
-            output.write = true;
-            output.path = Some(path.into());
-        })
-    }
-
-    pub fn no_output(self) -> Self {
-        self.with_output_plan(|output| {
-            output.write = false;
-            output.path = None;
-        })
     }
 
     pub fn cycles(self, cycles: usize) -> Self {
@@ -222,14 +183,14 @@ impl<E: Equation + EquationMetadataSource> EstimationProblemBuilder<E> {
         let EstimationProblemBuilder {
             model,
             data,
-            output,
+
             runtime,
         } = self;
 
         Ok(Self {
             model: map(model)?,
             data,
-            output,
+
             runtime,
         })
     }
@@ -241,25 +202,20 @@ impl<E: Equation + EquationMetadataSource> EstimationProblemBuilder<E> {
         let EstimationProblemBuilder {
             model,
             data,
-            output,
+
             runtime,
         } = self;
 
         Self {
             model: map(model),
             data,
-            output,
+
             runtime,
         }
     }
 }
 
 impl<E: Equation> EstimationProblemBuilder<E> {
-    fn with_output_plan(mut self, map: impl FnOnce(&mut OutputPlan)) -> Self {
-        map(self.output.get_or_insert_with(OutputPlan::default));
-        self
-    }
-
     fn with_runtime_options(mut self, map: impl FnOnce(&mut RuntimeOptions)) -> Self {
         map(self.runtime.get_or_insert_with(RuntimeOptions::default));
         self
@@ -370,7 +326,6 @@ impl<E: Equation + EquationMetadataSource> NonparametricEstimationProblemBuilder
             data: self.builder.data,
             error_models: ErrorModels::Nonparametric(error_models),
             algorithm: self.algorithm,
-            output: self.builder.output.unwrap_or_default(),
             runtime: self.builder.runtime.unwrap_or_default(),
         })
     }

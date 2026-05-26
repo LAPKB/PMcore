@@ -88,7 +88,6 @@ fn test_compile_problem_builds_algorithm_settings() -> Result<()> {
 
     assert_eq!(compiled.algorithm().name(), "NPAG");
     assert_eq!(compiled.design.parameter_names.len(), 2);
-    assert!(!compiled.output_plan().write);
     Ok(())
 }
 

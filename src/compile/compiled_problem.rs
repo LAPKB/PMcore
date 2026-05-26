@@ -1,7 +1,7 @@
 use pharmsol::equation::Equation;
 
 use crate::algorithms::Algorithm;
-use crate::api::{ErrorModels, OutputPlan, RuntimeOptions};
+use crate::api::{ErrorModels, RuntimeOptions};
 use crate::compile::{DesignContext, ExecutionCaches, ObservationIndex};
 use crate::model::ModelDefinition;
 use pharmsol::Data;
@@ -12,7 +12,6 @@ pub struct CompiledProblem<E: Equation> {
     pub data: Data,
     error_models: ErrorModels,
     algorithm: Algorithm,
-    output: OutputPlan,
     runtime: RuntimeOptions,
     pub design: DesignContext,
     pub observation_index: ObservationIndex,
@@ -26,7 +25,6 @@ impl<E: Equation> CompiledProblem<E> {
         data: Data,
         error_models: ErrorModels,
         algorithm: Algorithm,
-        output: OutputPlan,
         runtime: RuntimeOptions,
         design: DesignContext,
         observation_index: ObservationIndex,
@@ -37,7 +35,6 @@ impl<E: Equation> CompiledProblem<E> {
             data,
             error_models,
             algorithm,
-            output,
             runtime,
             design,
             observation_index,
@@ -51,10 +48,6 @@ impl<E: Equation> CompiledProblem<E> {
 
     pub fn error_models(&self) -> &ErrorModels {
         &self.error_models
-    }
-
-    pub fn output_plan(&self) -> &OutputPlan {
-        &self.output
     }
 
     pub fn runtime_options(&self) -> &RuntimeOptions {

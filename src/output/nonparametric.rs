@@ -30,14 +30,13 @@ pub(crate) fn output_file_names<E: pharmsol::Equation>(
 
 pub fn write_nonparametric_outputs<E: pharmsol::Equation>(
     result: &mut NonparametricWorkspace<E>,
+    path: &str,
 ) -> Result<()> {
     let parameter_names = result.get_theta().parameters().names();
-    result
-        .cycle_log()
-        .write(result.output_folder(), &parameter_names)?;
-    result.write_theta()?;
-    result.write_covariates()?;
-    result.write_posterior()?;
+    result.cycle_log().write(path, &parameter_names)?;
+    result.write_theta(&path)?;
+    result.write_covariates(&path)?;
+    result.write_posterior(&path)?;
     let (idelta, tad) = result.prediction_interval();
     result.calculate_predictions(idelta, tad)?;
     Ok(())

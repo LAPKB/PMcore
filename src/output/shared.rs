@@ -3,9 +3,9 @@ use csv::WriterBuilder;
 use serde::Serialize;
 
 use crate::algorithms::Algorithm;
-use crate::api::{OutputPlan, RuntimeOptions};
+use crate::api::RuntimeOptions;
 use crate::output::OutputFile;
-use crate::results::{DiagnosticsBundle, FitSummary};
+use crate::results::FitSummary;
 
 pub(crate) fn shared_output_file_names() -> Vec<String> {
     vec![
@@ -23,7 +23,6 @@ pub(crate) fn shared_output_file_names() -> Vec<String> {
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct RunConfiguration {
     pub algorithm: Algorithm,
-    pub output: OutputPlan,
     pub runtime: RuntimeOptions,
     pub parameter_names: Vec<String>,
 }
@@ -31,24 +30,14 @@ pub(crate) struct RunConfiguration {
 impl RunConfiguration {
     pub(crate) fn new(
         algorithm: Algorithm,
-        output: &OutputPlan,
         runtime: &RuntimeOptions,
         parameter_names: Vec<String>,
     ) -> Self {
         Self {
             algorithm,
-            output: output.clone(),
             runtime: runtime.clone(),
             parameter_names,
         }
-    }
-
-    pub(crate) fn output_path(&self) -> &str {
-        self.output.path.as_deref().unwrap_or("outputs/")
-    }
-
-    pub(crate) fn should_write_outputs(&self) -> bool {
-        self.output.write
     }
 }
 
@@ -83,14 +72,6 @@ pub fn write_summary(folder: &str, summary: &FitSummary) -> Result<()> {
     writer.write_record(["algorithm", &summary.algorithm])?;
     writer.flush()?;
 
-    Ok(())
-}
-
-pub fn write_diagnostics(folder: &str, diagnostics: &DiagnosticsBundle) -> Result<()> {
-    let outputfile = OutputFile::new(folder, "diagnostics.json")?;
-    let mut file = outputfile.file_owned();
-    let serialized = serde_json::to_string_pretty(diagnostics)?;
-    std::io::Write::write_all(&mut file, serialized.as_bytes())?;
     Ok(())
 }
 

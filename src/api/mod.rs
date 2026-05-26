@@ -9,7 +9,7 @@ pub use crate::algorithms::nonparametric::{Npag, Npod, PostProb};
 pub use error_models::ErrorModels;
 pub use estimation_problem::{
     AlgorithmTuning, ConvergenceOptions, EstimationProblem, EstimationProblemBuilder,
-    NonparametricEstimationProblemBuilder, OutputPlan, RuntimeOptions,
+    NonparametricEstimationProblemBuilder, RuntimeOptions,
 };
 pub use fit::{fit, fit_with_progress};
 pub use model_definition::{ModelDefinition, ModelDefinitionBuilder};

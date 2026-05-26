@@ -92,14 +92,6 @@ impl<E: Equation> NonparametricWorkspace<E> {
         self.run_configuration.algorithm
     }
 
-    pub(crate) fn output_folder(&self) -> &str {
-        self.run_configuration.output_path()
-    }
-
-    pub(crate) fn should_write_outputs(&self) -> bool {
-        self.run_configuration.should_write_outputs()
-    }
-
     pub(crate) fn prediction_interval(&self) -> (f64, f64) {
         (
             self.run_configuration.runtime.idelta,
@@ -137,7 +129,7 @@ impl<E: Equation> NonparametricWorkspace<E> {
         Ok(())
     }
 
-    pub fn write_theta(&self) -> anyhow::Result<()> {
+    pub fn write_theta(&self, path: &str) -> anyhow::Result<()> {
         use anyhow::{bail, Context};
         use csv::WriterBuilder;
 
@@ -152,7 +144,7 @@ impl<E: Equation> NonparametricWorkspace<E> {
             );
         }
 
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "theta.csv")
+        let outputfile = crate::output::OutputFile::new(path, "theta.csv")
             .context("Failed to create output file for theta")?;
 
         let mut writer = WriterBuilder::new()
@@ -172,12 +164,12 @@ impl<E: Equation> NonparametricWorkspace<E> {
         Ok(())
     }
 
-    pub fn write_posterior(&self) -> anyhow::Result<()> {
+    pub fn write_posterior(&self, path: &str) -> anyhow::Result<()> {
         use csv::WriterBuilder;
 
         tracing::debug!("Writing posterior parameter probabilities...");
 
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "posterior.csv")?;
+        let outputfile = crate::output::OutputFile::new(path, "posterior.csv")?;
 
         let mut writer = WriterBuilder::new()
             .has_headers(true)
@@ -217,12 +209,12 @@ impl<E: Equation> NonparametricWorkspace<E> {
         Ok(())
     }
 
-    pub fn write_covariates(&self) -> anyhow::Result<()> {
+    pub fn write_covariates(&self, path: &str) -> anyhow::Result<()> {
         use csv::WriterBuilder;
         use pharmsol::Event;
 
         tracing::debug!("Writing covariates...");
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "covariates.csv")?;
+        let outputfile = crate::output::OutputFile::new(path, "covariates.csv")?;
         let mut writer = WriterBuilder::new()
             .has_headers(true)
             .from_writer(outputfile.file());

@@ -64,8 +64,7 @@ pub mod prelude {
     pub use crate::api::fit_with_progress;
     pub use crate::api::{
         AlgorithmTuning, ConvergenceOptions, ErrorModels, EstimationProblem, FitProgress,
-        ModelDefinition, NonparametricCycleProgress, Npag, Npod, OutputPlan, PostProb,
-        RuntimeOptions,
+        ModelDefinition, NonparametricCycleProgress, Npag, Npod, PostProb, RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
@@ -78,8 +77,7 @@ pub mod prelude {
         ParameterVariability, RandomEffectsSpec, VariabilityModel,
     };
     pub use crate::results::{
-        ArtifactIndex, DiagnosticsBundle, FitResult, FitSummary, IndividualSummary,
-        ParameterSummary, PopulationSummary, PredictionsBundle,
+        FitResult, FitSummary, IndividualSummary, ParameterSummary, PopulationSummary,
     };
     pub use pharmsol::optimize::effect::get_e2;
 

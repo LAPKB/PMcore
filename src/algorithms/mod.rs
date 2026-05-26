@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::api::{OutputPlan, RuntimeOptions};
+use crate::api::RuntimeOptions;
 use crate::estimation::nonparametric::{NonparametricWorkspace, Prior, Psi, Theta};
 use crate::model::{ModelDefinition, ParameterSpace};
 use crate::output::shared::RunConfiguration;
@@ -29,7 +29,6 @@ pub(crate) struct NonparametricAlgorithmInput<E: Equation> {
     pub data: Data,
     pub parameter_space: ParameterSpace,
     pub error_models: AssayErrorModels,
-    pub output: OutputPlan,
     pub runtime: RuntimeOptions,
 }
 
@@ -49,7 +48,6 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
         model: ModelDefinition<E>,
         data: Data,
         error_models: AssayErrorModels,
-        output: OutputPlan,
         runtime: RuntimeOptions,
     ) -> Self {
         let ModelDefinition {
@@ -64,7 +62,6 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
             data,
             parameter_space: parameters,
             error_models,
-            output,
             runtime,
         }
     }
@@ -92,7 +89,6 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
     pub(crate) fn run_configuration(&self) -> RunConfiguration {
         RunConfiguration::new(
             self.algorithm(),
-            &self.output,
             &self.runtime,
             self.parameter_space
                 .iter()

@@ -6,7 +6,7 @@ use crate::estimation::nonparametric as np_estimation;
 use crate::estimation::nonparametric::NonparametricWorkspace;
 use crate::output::{nonparametric as np_output, shared};
 use crate::results::FitResult;
-use crate::results::{nonparametric_diagnostics, FitSummary};
+use crate::results::FitSummary;
 
 #[derive(Debug, Clone, Serialize)]
 struct SharedPredictionRow {
@@ -23,9 +23,9 @@ struct SharedPredictionRow {
     source_method: String,
 }
 
-pub fn write_result<E: Equation>(result: &mut FitResult<E>) -> Result<()> {
+pub fn write_result<E: Equation>(result: &mut FitResult<E>, path: &str) -> Result<()> {
     match result {
-        FitResult::Nonparametric(inner) => write_nonparametric_result(inner)?,
+        FitResult::Nonparametric(inner) => write_nonparametric_result(inner, path)?,
     }
 
     Ok(())
@@ -33,16 +33,12 @@ pub fn write_result<E: Equation>(result: &mut FitResult<E>) -> Result<()> {
 
 pub fn write_nonparametric_result<E: Equation>(
     result: &mut NonparametricWorkspace<E>,
+    path: &str,
 ) -> Result<()> {
-    if !result.should_write_outputs() {
-        return Ok(());
-    }
-
-    let folder = result.output_folder().to_string();
+    let folder = &path.to_string();
     shared::write_settings(&folder, result.run_configuration())?;
     shared::write_summary(&folder, &nonparametric_summary(result))?;
-    shared::write_diagnostics(&folder, &nonparametric_diagnostics(result))?;
-    np_output::write_nonparametric_outputs(result)?;
+    np_output::write_nonparametric_outputs(result, path)?;
 
     if let Some(predictions) = result.predictions() {
         let rows = predictions
