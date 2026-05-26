@@ -45,7 +45,7 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     let result = EstimationProblem::builder(simple_equation(), simple_data())
         .parameter(Parameter::bounded("ke", 0.1, 1.0))?
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .method(Npag::new())
+        .algorithm(Npag::new())
         .error("0", assay_error)?
         .progress(false)
         .fit()?;

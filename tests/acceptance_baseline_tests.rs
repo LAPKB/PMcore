@@ -37,7 +37,7 @@ fn test_acceptance_baseline_npag_bimodal_ke() -> Result<()> {
     let result = EstimationProblem::builder(bimodal_ode_equation(), bimodal_data()?)
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
         .parameter(Parameter::bounded("v", 25.0, 250.0))?
-        .method(Npag::new())
+        .algorithm(Npag::new())
         .error(
             "1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
