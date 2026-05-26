@@ -68,7 +68,7 @@ fn main() {
         .unwrap()
         .parameter(Parameter::bounded("theta2", -2.0, 0.5))
         .unwrap()
-        .method(Npag::new())
+        .algorithm(Npag::new())
         .error(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),

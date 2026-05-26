@@ -47,7 +47,7 @@ fn main() {
         .unwrap()
         .parameter(Parameter::bounded("vs", 1.0, 10.0))
         .unwrap()
-        .method(Npod::new())
+        .algorithm(Npod::new())
         .error(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),

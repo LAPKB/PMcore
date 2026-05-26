@@ -144,7 +144,7 @@ impl<E: Equation> EstimationProblemBuilder<E> {
     /// Select the estimation algorithm. Accepts any algorithm configuration
     /// (e.g. [`Npag`](crate::algorithms::nonparametric::Npag)) that converts
     /// into [`Algorithm`].
-    pub fn method(
+    pub fn algorithm(
         self,
         algorithm: impl Into<Algorithm>,
     ) -> NonparametricEstimationProblemBuilder<E> {

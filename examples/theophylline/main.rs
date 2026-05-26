@@ -23,7 +23,7 @@ fn main() {
         .unwrap()
         .parameter(Parameter::bounded("v", 0.001, 50.0))
         .unwrap()
-        .method(Npag::new())
+        .algorithm(Npag::new())
         .error(
             "outeq_0",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),

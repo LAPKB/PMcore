@@ -89,7 +89,7 @@ fn main() -> Result<()> {
         .parameter(Parameter::bounded("h2s", 0.1, 4.0))?
         .parameter(Parameter::bounded("h1r1", 5.0, 25.0))?
         .parameter(Parameter::bounded("h2r2", 10.0, 22.0))?
-        .method(Npag::new())
+        .algorithm(Npag::new())
         .error(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),

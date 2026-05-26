@@ -82,7 +82,7 @@ mod tests {
         let problem = EstimationProblem::builder(equation(), data)
             .parameter(Parameter::bounded("ke", 0.05, 1.0))?
             .parameter(Parameter::bounded("v", 5.0, 50.0))?
-            .method(Npag::new())
+            .algorithm(Npag::new())
             .error("0", assay_error)?
             .progress(false)
             .prior(Prior::sobol(8, 7))
