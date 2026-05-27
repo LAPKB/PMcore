@@ -4,13 +4,11 @@ use pharmsol::{Data, Equation, Event};
 use crate::api::EstimationProblem;
 use crate::model::{CovariateSpec, EquationMetadataSource, ParameterSpace};
 
-mod caches;
 mod compiled_problem;
 mod design_context;
 mod observation_index;
 mod validation;
 
-pub use caches::ExecutionCaches;
 pub use compiled_problem::CompiledProblem;
 pub use design_context::{
     DesignContext, OccasionCovariateRow, OccasionDesign, StructuredCovariateDesign,
@@ -36,9 +34,6 @@ pub fn compile_problem<E: Equation + Clone + EquationMetadataSource>(
         &problem.data,
     );
     let observation_index = build_observation_index(&problem.data)?;
-    let caches = ExecutionCaches {
-        prediction_cache_enabled: problem.runtime.cache,
-    };
 
     Ok(CompiledProblem::new(
         problem.model,
@@ -48,7 +43,6 @@ pub fn compile_problem<E: Equation + Clone + EquationMetadataSource>(
         problem.runtime,
         design,
         observation_index,
-        caches,
     ))
 }
 
