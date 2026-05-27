@@ -4,50 +4,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::algorithms::Algorithm;
 use crate::api::error_models::ErrorModels;
-use crate::api::SaemConfig;
+
 use crate::estimation::nonparametric::Prior;
 use crate::model::{
     CovariateSpec, EquationMetadataSource, ModelDefinition, ModelDefinitionBuilder, ModelMetadata,
     Parameter, VariabilityModel,
 };
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ConvergenceOptions {
-    pub likelihood: f64,
-    pub pyl: f64,
-    pub eps: f64,
-}
-
-impl Default for ConvergenceOptions {
-    fn default() -> Self {
-        Self {
-            likelihood: 1e-4,
-            pyl: 1e-2,
-            eps: 1e-2,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct AlgorithmTuning {
-    pub min_distance: f64,
-    pub nm_steps: usize,
-    pub tolerance: f64,
-    pub saem: SaemConfig,
-}
-
-impl Default for AlgorithmTuning {
-    fn default() -> Self {
-        Self {
-            min_distance: 1e-4,
-            nm_steps: 100,
-            tolerance: 1e-6,
-            saem: SaemConfig::default(),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -58,8 +20,6 @@ pub struct RuntimeOptions {
     pub idelta: f64,
     pub tad: f64,
     pub prior: Option<Prior>,
-    pub convergence: ConvergenceOptions,
-    pub tuning: AlgorithmTuning,
 }
 
 impl Default for RuntimeOptions {
@@ -71,8 +31,6 @@ impl Default for RuntimeOptions {
             idelta: 0.12,
             tad: 0.0,
             prior: None,
-            convergence: ConvergenceOptions::default(),
-            tuning: AlgorithmTuning::default(),
         }
     }
 }
@@ -148,14 +106,6 @@ impl<E: Equation> EstimationProblemBuilder<E> {
 
     pub fn prior(self, prior: Prior) -> Self {
         self.with_runtime_options(|runtime| runtime.prior = Some(prior))
-    }
-
-    pub fn convergence(self, convergence: ConvergenceOptions) -> Self {
-        self.with_runtime_options(|runtime| runtime.convergence = convergence)
-    }
-
-    pub fn tuning(self, tuning: AlgorithmTuning) -> Self {
-        self.with_runtime_options(|runtime| runtime.tuning = tuning)
     }
 }
 
@@ -255,14 +205,6 @@ impl<E: Equation> NonparametricEstimationProblemBuilder<E> {
 
     pub fn prior(self, prior: Prior) -> Self {
         self.with_builder(|builder| builder.prior(prior))
-    }
-
-    pub fn convergence(self, convergence: ConvergenceOptions) -> Self {
-        self.with_builder(|builder| builder.convergence(convergence))
-    }
-
-    pub fn tuning(self, tuning: AlgorithmTuning) -> Self {
-        self.with_builder(|builder| builder.tuning(tuning))
     }
 
     fn with_builder(

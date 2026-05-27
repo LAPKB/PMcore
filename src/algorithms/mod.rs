@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 // Module organization for algorithm types
 pub mod nonparametric;
+pub mod parametric;
 
 #[derive(Debug, Clone)]
 pub(crate) struct NonparametricAlgorithmInput<E: Equation> {

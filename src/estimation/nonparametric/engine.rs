@@ -7,7 +7,7 @@ use crate::algorithms::{
 };
 use crate::api::NonparametricCycleProgress;
 use crate::compile::CompiledProblem;
-use crate::estimation::nonparametric::workspace::NonParametricResult;
+use crate::estimation::nonparametric::result::NonParametricResult;
 use crate::results::FitResult;
 
 #[derive(Debug, Default, Clone, Copy)]
