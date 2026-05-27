@@ -14,7 +14,7 @@ mod weights;
 mod workspace;
 
 pub use cycles::{CycleLog, NPCycle};
-pub use engine::{fit, fit_with_progress, NonparametricEngine};
+pub use engine::{fit, fit_with_progress, fit_with_progress_and_control, NonparametricEngine};
 pub(crate) use expansion::adaptative_grid;
 pub use ipm::burke;
 pub use posterior::{posterior, Posterior};

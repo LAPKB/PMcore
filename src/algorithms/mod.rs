@@ -1,10 +1,14 @@
 use std::fs;
 use std::path::Path;
+use std::thread;
 use std::time::Instant;
 
 use crate::api::estimation_problem::NonparametricMethod;
-use crate::api::{OutputPlan, RuntimeOptions};
-use crate::estimation::nonparametric::{NonparametricWorkspace, Prior, Psi, Theta};
+use crate::api::{
+    FitControl, FitControlSource, FitProgress, NonparametricCycleProgress, OutputPlan,
+    RuntimeOptions,
+};
+use crate::estimation::nonparametric::{NPCycle, NonparametricWorkspace, Prior, Psi, Theta};
 use crate::model::{ModelDefinition, ParameterSpace};
 use crate::output::shared::RunConfiguration;
 use anyhow::Context;
@@ -349,13 +353,10 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// Create and log a cycle state with the current algorithm state
     fn log_cycle_state(&mut self);
 
+    fn last_cycle(&self) -> Option<&NPCycle>;
+
     /// Initialize the algorithm, setting up initial [Theta] and [Status]
     fn initialize(&mut self) -> Result<()> {
-        // If a stop file exists in the current directory, remove it
-        if Path::new("stop").exists() {
-            tracing::info!("Removing existing stop file prior to run");
-            fs::remove_file("stop").context("Unable to remove previous stop file")?;
-        }
         self.set_status(Status::Continue);
         self.set_theta(self.get_prior());
         Ok(())
@@ -400,19 +401,26 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
         self.evaluation()
     }
 
-    /// Fit the model until convergence or stopping criteria are met
-    ///
-    /// This method runs the full fitting process, starting with initialization,
-    /// followed by iterative cycles of estimation, condensation, optimization, and evaluation
-    /// until the algorithm converges or meets a stopping criteria.
-    fn fit(&mut self) -> Result<NonparametricWorkspace<E>> {
-        self.initialize().unwrap();
-        while let Status::Continue = self.next_cycle()? {}
-        self.into_workspace()
-    }
-
     #[allow(clippy::wrong_self_convention)]
     fn into_workspace(&self) -> Result<NonparametricWorkspace<E>>;
+}
+
+fn clear_legacy_stop_file() -> Result<()> {
+    if Path::new("stop").exists() {
+        tracing::info!("Removing existing stop file prior to run");
+        fs::remove_file("stop").context("Unable to remove previous stop file")?;
+    }
+
+    Ok(())
+}
+
+fn poll_legacy_stop_file() -> Result<Option<FitControl>> {
+    if Path::new("stop").exists() {
+        tracing::warn!("Stopfile detected - stopping after the current cycle");
+        Ok(Some(FitControl::StopAfterCycle))
+    } else {
+        Ok(None)
+    }
 }
 
 pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
@@ -434,47 +442,138 @@ pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
     }
 }
 
-pub(crate) fn run_nonparametric_algorithm_with_progress<E, F>(
-    input: NonparametricAlgorithmInput<E>,
+fn run_nonparametric_algorithm_inner<E, F, C>(
+    mut algorithm: Box<dyn Algorithms<E>>,
+    parameter_names: Vec<String>,
     mut on_progress: F,
+    mut next_control: C,
 ) -> Result<NonparametricWorkspace<E>>
 where
     E: Equation + Send + 'static,
-    F: FnMut(usize, f64, Option<f64>, u64, Status),
+    F: FnMut(FitProgress),
+    C: FitControlSource,
 {
-    let mut algorithm = dispatch_nonparametric_algorithm(input)?;
     algorithm.initialize()?;
+    on_progress(FitProgress::FitStarted);
 
+    let fit_started = Instant::now();
     let mut previous_objective: Option<f64> = None;
+    let mut stop_requested = false;
 
     loop {
         let cycle_started = Instant::now();
         let status = algorithm.next_cycle()?;
-        let objective = algorithm.n2ll();
+        let cycle = algorithm.last_cycle().ok_or_else(|| {
+            anyhow::anyhow!("missing cycle snapshot after cycle {}", algorithm.cycle())
+        })?;
+        let objective = cycle.objf();
         let objective_delta = previous_objective.map(|prev| objective - prev);
         previous_objective = Some(objective);
 
-        on_progress(
-            algorithm.cycle(),
-            objective,
+        let cycle_progress = NonparametricCycleProgress::from_cycle(
+            cycle,
+            &parameter_names,
             objective_delta,
             cycle_started.elapsed().as_millis() as u64,
-            status.clone(),
-        );
+            fit_started.elapsed().as_millis() as u64,
+        )?;
+        on_progress(FitProgress::NonparametricCycle(cycle_progress));
 
         if matches!(status, Status::Stop(_)) {
             break;
         }
+
+        loop {
+            match next_control.next_control()? {
+                Some(FitControl::PauseAfterCycle) => {
+                    on_progress(FitProgress::Paused {
+                        cycle: algorithm.cycle(),
+                    });
+
+                    loop {
+                        match next_control.next_control()? {
+                            Some(FitControl::Resume) => {
+                                on_progress(FitProgress::Resumed {
+                                    cycle: algorithm.cycle(),
+                                });
+                                break;
+                            }
+                            Some(FitControl::StopAfterCycle) => {
+                                on_progress(FitProgress::StopRequested {
+                                    cycle: algorithm.cycle(),
+                                });
+                                algorithm.set_status(Status::Stop(StopReason::Stopped));
+                                stop_requested = true;
+                                break;
+                            }
+                            Some(FitControl::Ping) | Some(FitControl::PauseAfterCycle) | None => {
+                                thread::yield_now()
+                            }
+                        }
+                    }
+                    break;
+                }
+                Some(FitControl::StopAfterCycle) => {
+                    on_progress(FitProgress::StopRequested {
+                        cycle: algorithm.cycle(),
+                    });
+                    algorithm.set_status(Status::Stop(StopReason::Stopped));
+                    stop_requested = true;
+                    break;
+                }
+                Some(FitControl::Resume) | Some(FitControl::Ping) | None => break,
+            }
+        }
+
+        if stop_requested {
+            break;
+        }
     }
 
+    on_progress(FitProgress::FitCompleted {
+        cycles: algorithm.cycle(),
+        status: algorithm.status().clone(),
+    });
+
     algorithm.into_workspace()
+}
+
+pub(crate) fn run_nonparametric_algorithm_with_progress_and_control<E, F, C>(
+    input: NonparametricAlgorithmInput<E>,
+    on_progress: F,
+    next_control: C,
+) -> Result<NonparametricWorkspace<E>>
+where
+    E: Equation + Send + 'static,
+    F: FnMut(FitProgress),
+    C: FitControlSource,
+{
+    let parameter_names = input
+        .parameter_space
+        .iter()
+        .map(|parameter| parameter.name.clone())
+        .collect();
+    let algorithm = dispatch_nonparametric_algorithm(input)?;
+    run_nonparametric_algorithm_inner(algorithm, parameter_names, on_progress, next_control)
+}
+
+pub(crate) fn run_nonparametric_algorithm_with_progress<E, F>(
+    input: NonparametricAlgorithmInput<E>,
+    on_progress: F,
+) -> Result<NonparametricWorkspace<E>>
+where
+    E: Equation + Send + 'static,
+    F: FnMut(FitProgress),
+{
+    clear_legacy_stop_file()?;
+    run_nonparametric_algorithm_with_progress_and_control(input, on_progress, poll_legacy_stop_file)
 }
 
 pub(crate) fn run_nonparametric_algorithm<E: Equation + Send + 'static>(
     input: NonparametricAlgorithmInput<E>,
 ) -> Result<NonparametricWorkspace<E>> {
-    let mut algorithm = dispatch_nonparametric_algorithm(input)?;
-    algorithm.fit()
+    clear_legacy_stop_file()?;
+    run_nonparametric_algorithm_with_progress_and_control(input, |_event| {}, poll_legacy_stop_file)
 }
 
 /// Represents the status/result of the algorithm

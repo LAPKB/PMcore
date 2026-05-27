@@ -212,14 +212,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             return Ok(self.status().clone());
         }
 
-        // Stop if stopfile exists
-        if std::path::Path::new("stop").exists() {
-            tracing::warn!("Stopfile detected - breaking");
-            self.set_status(Status::Stop(StopReason::Stopped));
-            self.log_cycle_state();
-            return Ok(self.status().clone());
-        }
-
         // Continue with normal operation
         self.set_status(Status::Continue);
         self.log_cycle_state();
@@ -419,6 +411,10 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
         );
         self.cycle_log.push(state);
         self.last_objf = self.objf;
+    }
+
+    fn last_cycle(&self) -> Option<&NPCycle> {
+        self.cycle_log.cycles().last()
     }
 }
 

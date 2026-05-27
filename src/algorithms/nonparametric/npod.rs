@@ -122,6 +122,10 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         self.last_objf = self.objf;
     }
 
+        fn last_cycle(&self) -> Option<&NPCycle> {
+            self.cycle_log.cycles().last()
+        }
+
     fn evaluation(&mut self) -> Result<Status> {
         tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
         tracing::debug!("Support points: {}", self.theta.nspp());

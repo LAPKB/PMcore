@@ -15,8 +15,10 @@ use pharmsol::prelude::{
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::sample_space_for_parameters;
 
-/// Posterior probability algorithm
-/// Reweights the prior probabilities to the observed data and error model
+/// Fixed-support weight estimation algorithm.
+///
+/// This algorithm keeps the support points unchanged and re-estimates their
+/// weights over the current `psi` matrix.
 pub struct POSTPROB<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
@@ -134,6 +136,10 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
             self.status.clone(),
         );
         self.cyclelog.push(state);
+    }
+
+    fn last_cycle(&self) -> Option<&NPCycle> {
+        self.cyclelog.cycles().last()
     }
 }
 

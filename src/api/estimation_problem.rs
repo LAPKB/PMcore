@@ -321,11 +321,37 @@ impl<E: Equation + Clone + Send + 'static + EquationMetadataSource> EstimationPr
         crate::api::fit(self)
     }
 
+    pub fn fit_in_memory(self) -> Result<crate::results::FitResult<E>> {
+        crate::api::fit_in_memory(self)
+    }
+
     pub fn fit_with_progress<F>(self, on_progress: F) -> Result<crate::results::FitResult<E>>
     where
         F: FnMut(crate::api::FitProgress),
     {
         crate::api::fit_with_progress(self, on_progress)
+    }
+
+    pub fn fit_with_progress_in_memory<F>(
+        self,
+        on_progress: F,
+    ) -> Result<crate::results::FitResult<E>>
+    where
+        F: FnMut(crate::api::FitProgress),
+    {
+        crate::api::fit_with_progress_in_memory(self, on_progress)
+    }
+
+    pub fn fit_with_progress_and_control_in_memory<F, C>(
+        self,
+        on_progress: F,
+        next_control: C,
+    ) -> Result<crate::results::FitResult<E>>
+    where
+        F: FnMut(crate::api::FitProgress),
+        C: crate::api::FitControlSource,
+    {
+        crate::api::fit_with_progress_and_control_in_memory(self, on_progress, next_control)
     }
 }
 
@@ -634,10 +660,37 @@ impl<E: Equation + Clone + Send + 'static + EquationMetadataSource>
         self.build()?.fit()
     }
 
+    pub fn fit_in_memory(self) -> Result<crate::results::FitResult<E>> {
+        self.build()?.fit_in_memory()
+    }
+
     pub fn fit_with_progress<F>(self, on_progress: F) -> Result<crate::results::FitResult<E>>
     where
         F: FnMut(crate::api::FitProgress),
     {
         self.build()?.fit_with_progress(on_progress)
+    }
+
+    pub fn fit_with_progress_in_memory<F>(
+        self,
+        on_progress: F,
+    ) -> Result<crate::results::FitResult<E>>
+    where
+        F: FnMut(crate::api::FitProgress),
+    {
+        self.build()?.fit_with_progress_in_memory(on_progress)
+    }
+
+    pub fn fit_with_progress_and_control_in_memory<F, C>(
+        self,
+        on_progress: F,
+        next_control: C,
+    ) -> Result<crate::results::FitResult<E>>
+    where
+        F: FnMut(crate::api::FitProgress),
+        C: crate::api::FitControlSource,
+    {
+        self.build()?
+            .fit_with_progress_and_control_in_memory(on_progress, next_control)
     }
 }

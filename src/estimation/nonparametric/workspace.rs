@@ -68,6 +68,10 @@ impl<E: Equation> NonparametricWorkspace<E> {
         self.status == Status::Stop(StopReason::Converged)
     }
 
+    pub fn status(&self) -> &Status {
+        &self.status
+    }
+
     pub fn get_theta(&self) -> &Theta {
         &self.theta
     }

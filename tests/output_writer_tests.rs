@@ -73,6 +73,16 @@ fn test_fit_result_writes_shared_output_files() -> Result<()> {
     assert!(!output_dir.join("cycles.csv").exists());
     assert!(!output_dir.join("covs.csv").exists());
 
+    let predictions_csv = std::fs::read_to_string(output_dir.join("predictions.csv"))?;
+    let header = predictions_csv
+        .lines()
+        .next()
+        .expect("predictions.csv should include a header row");
+    assert!(header.contains("pop_mean"));
+    assert!(header.contains("pop_median"));
+    assert!(header.contains("post_mean"));
+    assert!(header.contains("post_median"));
+
     let artifacts = result.artifacts();
     assert!(artifacts.files.iter().any(|file| file == "settings.json"));
     assert!(artifacts.files.iter().any(|file| file == "predictions.csv"));

@@ -26,7 +26,7 @@ impl<E: Equation> FitResult<E> {
         }
     }
 
-    pub(crate) fn write_outputs(&mut self) -> Result<()> {
+    pub fn write_outputs(&mut self) -> Result<()> {
         crate::output::write_result(self)
     }
 

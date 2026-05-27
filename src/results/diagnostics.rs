@@ -23,12 +23,7 @@ pub(crate) fn nonparametric_diagnostics<E: Equation>(
         convergence_notes.push("Estimator stopped without convergence.".to_string());
     }
 
-    let status = result
-        .cycle_log()
-        .cycles()
-        .last()
-        .map(|cycle| format!("{:?}", cycle.status()))
-        .unwrap_or_else(|| "Continue".to_string());
+    let status = format!("{:?}", result.status());
 
     let mut estimator_metadata = BTreeMap::new();
     estimator_metadata.insert("algorithm".to_string(), format!("{:?}", result.algorithm()));

@@ -3,9 +3,9 @@ use pharmsol::Equation;
 
 use crate::algorithms::{
     run_nonparametric_algorithm, run_nonparametric_algorithm_with_progress,
-    NonparametricAlgorithmInput,
+    run_nonparametric_algorithm_with_progress_and_control, NonparametricAlgorithmInput,
 };
-use crate::api::NonparametricCycleProgress;
+use crate::api::{FitControlSource, FitProgress};
 use crate::compile::CompiledProblem;
 use crate::estimation::nonparametric::workspace::NonparametricWorkspace;
 use crate::results::FitResult;
@@ -23,25 +23,28 @@ impl NonparametricEngine {
 
     pub fn fit_with_progress<E, F>(
         problem: CompiledProblem<E>,
-        mut on_progress: F,
+        on_progress: F,
     ) -> Result<NonparametricWorkspace<E>>
     where
         E: Equation + Clone + Send + 'static,
-        F: FnMut(NonparametricCycleProgress),
+        F: FnMut(FitProgress),
     {
         let input = input_from_compiled_problem(problem)?;
-        run_nonparametric_algorithm_with_progress(
-            input,
-            |cycle, objective, objective_delta, elapsed_ms, status| {
-                on_progress(NonparametricCycleProgress {
-                    cycle,
-                    objective,
-                    objective_delta,
-                    elapsed_ms,
-                    status,
-                });
-            },
-        )
+        run_nonparametric_algorithm_with_progress(input, on_progress)
+    }
+
+    pub fn fit_with_progress_and_control<E, F, C>(
+        problem: CompiledProblem<E>,
+        on_progress: F,
+        next_control: C,
+    ) -> Result<NonparametricWorkspace<E>>
+    where
+        E: Equation + Clone + Send + 'static,
+        F: FnMut(FitProgress),
+        C: FitControlSource,
+    {
+        let input = input_from_compiled_problem(problem)?;
+        run_nonparametric_algorithm_with_progress_and_control(input, on_progress, next_control)
     }
 }
 
@@ -73,8 +76,26 @@ pub fn fit<E: Equation + Clone + Send + 'static>(
 pub fn fit_with_progress<E, F>(problem: CompiledProblem<E>, on_progress: F) -> Result<FitResult<E>>
 where
     E: Equation + Clone + Send + 'static,
-    F: FnMut(NonparametricCycleProgress),
+    F: FnMut(FitProgress),
 {
     let workspace = NonparametricEngine::fit_with_progress(problem, on_progress)?;
+    Ok(workspace.into_fit_result())
+}
+
+pub fn fit_with_progress_and_control<E, F, C>(
+    problem: CompiledProblem<E>,
+    on_progress: F,
+    next_control: C,
+) -> Result<FitResult<E>>
+where
+    E: Equation + Clone + Send + 'static,
+    F: FnMut(FitProgress),
+    C: FitControlSource,
+{
+    let workspace = NonparametricEngine::fit_with_progress_and_control(
+        problem,
+        on_progress,
+        next_control,
+    )?;
     Ok(workspace.into_fit_result())
 }

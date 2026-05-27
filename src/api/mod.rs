@@ -11,7 +11,13 @@ pub use estimation_problem::{
     LoggingOptions, MethodSpec, NonparametricEstimationProblemBuilder, Npag, Npod, OutputPlan,
     PostProb, RuntimeOptions,
 };
-pub use fit::{fit, fit_with_progress};
+pub use fit::{
+    fit, fit_in_memory, fit_with_progress, fit_with_progress_and_control_in_memory,
+    fit_with_progress_in_memory,
+};
 pub use model_definition::{ModelDefinition, ModelDefinitionBuilder};
-pub use progress::{FitProgress, NonparametricCycleProgress};
+pub use progress::{
+    FitControl, FitControlSource, FitProgress, NonparametricCycleProgress,
+    NonparametricErrorModelKind, NonparametricErrorModelProgress, NonparametricParameterProgress,
+};
 pub use saem_config::SaemConfig;

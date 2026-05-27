@@ -1290,6 +1290,55 @@ fn test_posterior_accessors() -> Result<()> {
 }
 
 #[test]
+fn test_posterior_with_past_observations_respects_prior_weights() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config()
+        .with_refinement_cycles(0)
+        .with_progress(false);
+
+    let theta = Theta::from_parts(
+        faer::Mat::from_fn(3, 2, |row, col| match (row, col) {
+            (0, 0) => 0.20,
+            (0, 1) => 30.0,
+            (1, 0) => 0.20,
+            (1, 1) => 60.0,
+            (2, 0) => 0.50,
+            (2, 1) => 45.0,
+            _ => unreachable!(),
+        }),
+        config.parameter_space().clone(),
+    )?;
+
+    let past = Subject::builder("patient")
+        .bolus(0.0, 100.0, 0)
+        .observation(1.0, 2.0, 0)
+        .observation(3.0, 1.3, 0)
+        .observation(6.0, 0.75, 0)
+        .build();
+
+    let weights_a = Weights::from_vec(vec![0.90, 0.09, 0.01]);
+    let weights_b = Weights::from_vec(vec![0.09, 0.90, 0.01]);
+
+    let posterior_a = BestDosePosterior::compute(
+        &theta,
+        &weights_a,
+        Some(past.clone()),
+        eq.clone(),
+        config.clone(),
+    )?;
+    let posterior_b = BestDosePosterior::compute(&theta, &weights_b, Some(past), eq, config)?;
+
+    let posterior_weights_a = posterior_a.posterior_weights().to_vec();
+    let posterior_weights_b = posterior_b.posterior_weights().to_vec();
+
+    assert!(posterior_weights_a[0] > posterior_weights_b[0]);
+    assert!(posterior_weights_b[1] > posterior_weights_a[1]);
+    assert_ne!(posterior_weights_a, posterior_weights_b);
+
+    Ok(())
+}
+
+#[test]
 fn test_result_accessors_for_two_stage_api() -> Result<()> {
     let eq = one_compartment_model();
     let config = minimal_config();

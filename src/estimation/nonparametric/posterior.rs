@@ -159,3 +159,126 @@ impl<'de> Deserialize<'de> for Posterior {
 pub fn posterior(psi: &Psi, w: &Weights) -> Result<Posterior> {
     Posterior::calculate(psi, w)
 }
+
+/// Calculate a Bayesian posterior over a fixed support set.
+///
+/// This helper keeps the support points unchanged and updates only their weights:
+/// `posterior_i ∝ prior_i × ∏_subjects likelihood(subject | theta_i)`.
+///
+/// The result is normalized to sum to 1 and the returned objective is the
+/// log-evidence of the weighted support set.
+#[allow(dead_code)]
+pub fn weighted_support_posterior(psi: &Psi, prior_weights: &Weights) -> Result<(Weights, f64)> {
+    if psi.matrix().ncols() != prior_weights.weights().nrows() {
+        bail!(
+            "Number of support points in psi ({}) and prior weights ({}) do not match.",
+            psi.matrix().ncols(),
+            prior_weights.weights().nrows()
+        );
+    }
+
+    if psi.matrix().ncols() == 0 {
+        bail!("Cannot compute a posterior for an empty support set.");
+    }
+
+    let psi_matrix = psi.matrix();
+    let mut log_posterior = Vec::with_capacity(psi_matrix.ncols());
+
+    for support_index in 0..psi_matrix.ncols() {
+        let prior = prior_weights[support_index];
+
+        if !prior.is_finite() || prior < 0.0 {
+            bail!(
+                "Prior weights must be finite and non-negative; found {} at index {}.",
+                prior,
+                support_index
+            );
+        }
+
+        if prior == 0.0 {
+            log_posterior.push(f64::NEG_INFINITY);
+            continue;
+        }
+
+        let mut log_weight = prior.ln();
+        for subject_index in 0..psi_matrix.nrows() {
+            let likelihood = *psi_matrix.get(subject_index, support_index);
+
+            if !likelihood.is_finite() || likelihood < 0.0 {
+                bail!(
+                    "Psi must contain finite non-negative likelihoods; found {} at row {}, column {}.",
+                    likelihood,
+                    subject_index,
+                    support_index
+                );
+            }
+
+            if likelihood == 0.0 {
+                log_weight = f64::NEG_INFINITY;
+                break;
+            }
+
+            log_weight += likelihood.ln();
+        }
+
+        log_posterior.push(log_weight);
+    }
+
+    let max_log_weight = log_posterior
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    if !max_log_weight.is_finite() {
+        bail!(
+            "Posterior normalization failed because every support point has zero prior-weighted likelihood."
+        );
+    }
+
+    let unnormalized: Vec<f64> = log_posterior
+        .iter()
+        .map(|log_weight| {
+            if log_weight.is_finite() {
+                (*log_weight - max_log_weight).exp()
+            } else {
+                0.0
+            }
+        })
+        .collect();
+
+    let normalizer: f64 = unnormalized.iter().sum();
+    if !normalizer.is_finite() || normalizer <= 0.0 {
+        bail!("Posterior normalization failed because the evidence is not positive.");
+    }
+
+    Ok((
+        Weights::from_vec(
+            unnormalized
+                .iter()
+                .map(|weight| weight / normalizer)
+                .collect(),
+        ),
+        max_log_weight + normalizer.ln(),
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{weighted_support_posterior, Psi};
+    use crate::estimation::nonparametric::Weights;
+    use approx::assert_relative_eq;
+    use faer::Mat;
+
+    #[test]
+    fn weighted_support_posterior_respects_prior_weights() {
+        let psi = Psi::from(Mat::from_fn(1, 3, |_row, _col| 0.5));
+        let prior = Weights::from_vec(vec![0.9, 0.09, 0.01]);
+
+        let (posterior, log_evidence) = weighted_support_posterior(&psi, &prior).unwrap();
+
+        assert_relative_eq!(posterior[0], 0.9, epsilon = 1e-12);
+        assert_relative_eq!(posterior[1], 0.09, epsilon = 1e-12);
+        assert_relative_eq!(posterior[2], 0.01, epsilon = 1e-12);
+        assert_relative_eq!(log_evidence, (0.5_f64).ln(), epsilon = 1e-12);
+    }
+}

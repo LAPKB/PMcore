@@ -61,11 +61,16 @@ pub mod prelude {
     pub use crate::algorithms;
     pub use crate::algorithms::Algorithm;
     pub use crate::api::fit;
+    pub use crate::api::fit_in_memory;
     pub use crate::api::fit_with_progress;
+    pub use crate::api::fit_with_progress_and_control_in_memory;
+    pub use crate::api::fit_with_progress_in_memory;
     pub use crate::api::{
-        AlgorithmTuning, ConvergenceOptions, ErrorModels, EstimationProblem, FitProgress,
-        LoggingLevel, LoggingOptions, MethodSpec, ModelDefinition, NonparametricCycleProgress,
-        Npag, Npod, OutputPlan, PostProb, RuntimeOptions,
+        AlgorithmTuning, ConvergenceOptions, ErrorModels, EstimationProblem, FitControl,
+        FitControlSource, FitProgress, LoggingLevel, LoggingOptions, MethodSpec,
+        ModelDefinition, NonparametricCycleProgress, NonparametricErrorModelKind,
+        NonparametricErrorModelProgress, NonparametricParameterProgress, Npag, Npod,
+        OutputPlan, PostProb, RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
