@@ -61,7 +61,7 @@ fn main() {
         .unwrap()
         .parameter(Parameter::bounded("ske", 0.0001, 0.2))
         .unwrap()
-        .algorithm(Npag::new())
+        .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),

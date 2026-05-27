@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
 
     let _result = EstimationProblem::builder(eq, data)
-        .algorithm(Npag::default())
+        .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
         .parameter(Parameter::bounded("v", 25.0, 250.0))?
         .error(
