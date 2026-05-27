@@ -15,8 +15,6 @@ use pharmsol::prelude::{
 
 use pharmsol::prelude::AssayErrorModel;
 
-use crate::estimation::nonparametric::sample_space_for_parameters;
-
 use crate::estimation::nonparametric::adaptative_grid;
 
 use serde::{Deserialize, Serialize};
@@ -146,6 +144,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
     fn equation(&self) -> &E {
         &self.equation
     }
+
     fn into_workspace(&self) -> Result<NonParametricResult<E>> {
         NonParametricResult::new(
             self.equation.clone(),

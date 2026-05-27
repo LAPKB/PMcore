@@ -174,7 +174,6 @@ pub fn npagfull_refinement(
     eq: &ODE,
     config: &BestDoseConfig,
 ) -> Result<(Theta, Weights)> {
-    !unimplemented!("NPAG refinement logic is not implemented yet");
     if config.refinement_cycles() == 0 {
         tracing::info!("Stage 1.2: NPAGFULL refinement skipped (max_cycles=0)");
         return Ok((filtered_theta.clone(), filtered_weights.clone()));
@@ -202,6 +201,7 @@ pub fn npagfull_refinement(
         let single_point_theta = Theta::from_parts(single_point_matrix, parameter_space.clone())?;
 
         // Create and run NPAG
+
         let mut npag = NPAG::from_config(
             eq.clone(),
             past_data.clone(),
