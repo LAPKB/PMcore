@@ -64,12 +64,13 @@ pub mod prelude {
     pub use crate::api::fit_with_progress;
     pub use crate::api::{
         AlgorithmTuning, ConvergenceOptions, ErrorModels, EstimationProblem, FitProgress,
-        ModelDefinition, NonparametricCycleProgress, Npag, Npod, PostProb, RuntimeOptions,
+        ModelDefinition, NonparametricCycleProgress, NpagConfig, NpmapConfig, NpodConfig,
+        RuntimeOptions,
     };
     pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
     pub use crate::estimation::nonparametric::{
-        CycleLog, NPCycle, NPPredictions, NonparametricEngine, NonparametricWorkspace, Posterior,
-        Psi, Theta, Weights,
+        CycleLog, NPCycle, NPPredictions, NonParametricResult, NonparametricEngine, Posterior, Psi,
+        Theta, Weights,
     };
     pub use crate::model::{
         CovariateEffectsSpec, CovariateModel, CovariateSpec, EquationMetadataSource, ModelMetadata,

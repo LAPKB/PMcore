@@ -1,12 +1,12 @@
 use pharmsol::Equation;
 
 use crate::estimation::nonparametric;
-use crate::estimation::nonparametric::NonparametricWorkspace;
+use crate::estimation::nonparametric::NonParametricResult;
 use crate::results::{FitSummary, IndividualSummary, PopulationSummary};
 
 #[derive(Debug)]
 pub enum FitResult<E: Equation> {
-    Nonparametric(NonparametricWorkspace<E>),
+    Nonparametric(NonParametricResult<E>),
 }
 
 impl<E: Equation> FitResult<E> {
@@ -40,7 +40,7 @@ impl<E: Equation> FitResult<E> {
         }
     }
 
-    pub fn as_nonparametric(&self) -> Option<&NonparametricWorkspace<E>> {
+    pub fn as_nonparametric(&self) -> Option<&NonParametricResult<E>> {
         match self {
             Self::Nonparametric(result) => Some(result),
         }

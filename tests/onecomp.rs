@@ -55,7 +55,7 @@ fn test_one_compartment_npag() -> Result<()> {
     let result = EstimationProblem::builder(eq, data)
         .parameter(Parameter::bounded("ke", 0.1, 1.0))?
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .algorithm(Npag::new())
+        .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
@@ -119,7 +119,7 @@ fn test_one_compartment_npod() -> Result<()> {
     let result = EstimationProblem::builder(eq, data)
         .parameter(Parameter::bounded("ke", 0.1, 1.0))?
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .algorithm(Npod::new())
+        .algorithm(Algorithm::NPOD(NpodConfig::default()))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
@@ -183,7 +183,7 @@ fn test_one_compartment_postprob() -> Result<()> {
     let result = EstimationProblem::builder(eq, data)
         .parameter(Parameter::bounded("ke", 0.1, 1.0))?
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .algorithm(PostProb::new())
+        .algorithm(Algorithm::NPMAP(NpmapConfig::default()))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),

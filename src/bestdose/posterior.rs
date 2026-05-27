@@ -55,7 +55,8 @@ use faer::Mat;
 
 use crate::algorithms::nonparametric::npag::burke;
 use crate::algorithms::nonparametric::npag::NPAG;
-use crate::algorithms::Algorithms;
+use crate::algorithms::NonParametricAlgorithm;
+
 use crate::algorithms::NativeNonparametricConfig;
 use crate::algorithms::Status;
 use crate::bestdose::types::BestDoseConfig;
@@ -188,17 +189,6 @@ pub fn npagfull_refinement(
     let mut kept_weights: Vec<f64> = Vec::new();
     let num_points = filtered_theta.matrix().nrows();
     let parameter_space = config.parameter_space().clone();
-    let runtime = RuntimeOptions {
-        cycles: config.refinement_cycles(),
-        cache: true,
-        progress: config.progress(),
-        idelta: config.prediction_interval(),
-        tad: 0.0,
-        prior: None,
-
-        convergence: ConvergenceOptions::default(),
-        tuning: AlgorithmTuning::default(),
-    };
 
     for i in 0..num_points {
         tracing::debug!("  Refining point {}/{}", i + 1, num_points);
@@ -222,13 +212,8 @@ pub fn npagfull_refinement(
                 prior: Prior::Theta(single_point_theta.clone()),
                 max_cycles: config.refinement_cycles(),
                 progress: config.progress(),
-                run_configuration: crate::output::shared::RunConfiguration::new(
-                    Algorithm::NPAG(Npag::default()),
-                    &runtime,
-                    config.parameter_names(),
-                ),
             },
-            Npag::default(),
+            NpagConfig::default(),
         );
         npag.set_theta(single_point_theta);
 

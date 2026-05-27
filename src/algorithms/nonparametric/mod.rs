@@ -18,18 +18,15 @@
 
 // Algorithm implementations
 pub mod npag;
+pub mod npmap;
 pub mod npod;
-pub mod postprob;
 
 // Re-export algorithm structs
 pub use npag::NPAG;
+pub use npmap::NPMAP;
 pub use npod::NPOD;
-pub use postprob::POSTPROB;
 
 // Re-export per-algorithm configuration structs
-pub use npag::Npag;
-pub use npod::Npod;
-pub use postprob::PostProb;
-
-// Re-export the NP algorithm trait from parent
-pub use super::Algorithms as NPAlgorithm;
+pub use npag::NpagConfig;
+pub use npmap::NpmapConfig;
+pub use npod::NpodConfig;

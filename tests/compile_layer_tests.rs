@@ -66,7 +66,7 @@ fn simple_problem() -> Result<EstimationProblem<equation::ODE>> {
     EstimationProblem::builder(simple_equation(), multi_subject_data())
         .parameter(Parameter::bounded("ke", 0.1, 1.0))?
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .algorithm(Npag::new())
+        .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error("0", assay_error)?
         .build()
 }
@@ -109,7 +109,7 @@ fn test_compile_problem_extracts_structured_covariate_values() -> Result<()> {
                 vec![vec![true], vec![false]],
             )?),
         }))
-        .algorithm(Npag::new())
+        .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error("0", assay_error)?
         .build()?
         .compile()?;

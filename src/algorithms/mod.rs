@@ -3,17 +3,16 @@ use std::path::Path;
 use std::time::Instant;
 
 use crate::api::RuntimeOptions;
-use crate::estimation::nonparametric::{NonparametricWorkspace, Prior, Psi, Theta};
+use crate::estimation::nonparametric::{NonParametricResult, Prior, Psi, Theta};
 use crate::model::{ModelDefinition, ParameterSpace};
-use crate::output::shared::RunConfiguration;
 use anyhow::Context;
 use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 use nonparametric::npag::*;
+use nonparametric::npmap::NPMAP;
 use nonparametric::npod::NPOD;
-use nonparametric::postprob::POSTPROB;
-use nonparametric::{Npag, Npod, PostProb};
+use nonparametric::{NpagConfig, NpmapConfig, NpodConfig};
 use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::AssayErrorModels;
 use pharmsol::{Predictions, Subject};
@@ -39,7 +38,6 @@ pub(crate) struct NativeNonparametricConfig {
     pub prior: Prior,
     pub max_cycles: usize,
     pub progress: bool,
-    pub run_configuration: RunConfiguration,
 }
 
 impl<E: Equation> NonparametricAlgorithmInput<E> {
@@ -86,17 +84,6 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
         self.runtime.prior.clone().unwrap_or_default()
     }
 
-    pub(crate) fn run_configuration(&self) -> RunConfiguration {
-        RunConfiguration::new(
-            self.algorithm(),
-            &self.runtime,
-            self.parameter_space
-                .iter()
-                .map(|parameter| parameter.name.clone())
-                .collect(),
-        )
-    }
-
     pub(crate) fn native_config(&self) -> Result<NativeNonparametricConfig> {
         Ok(NativeNonparametricConfig {
             ranges: self.parameter_space.finite_ranges()?,
@@ -104,7 +91,6 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
             prior: self.prior(),
             max_cycles: self.max_cycles(),
             progress: self.progress_enabled(),
-            run_configuration: self.run_configuration(),
         })
     }
 }
@@ -118,11 +104,11 @@ impl<E: Equation> NonparametricAlgorithmInput<E> {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Algorithm {
     /// Non-Parametric Adaptive Grid
-    NPAG(Npag),
+    NPAG(NpagConfig),
     /// Non-Parametric Optimal Design
-    NPOD(Npod),
-    /// Posterior Probability calculation
-    POSTPROB(PostProb),
+    NPOD(NpodConfig),
+    /// Non-parametric Maximum a Posteriori probability reweighting
+    NPMAP(NpmapConfig),
 }
 
 impl Algorithm {
@@ -130,7 +116,7 @@ impl Algorithm {
     pub fn is_nonparametric(&self) -> bool {
         matches!(
             self,
-            Algorithm::NPAG(_) | Algorithm::NPOD(_) | Algorithm::POSTPROB(_)
+            Algorithm::NPAG(_) | Algorithm::NPOD(_) | Algorithm::NPMAP(_)
         )
     }
 
@@ -139,7 +125,7 @@ impl Algorithm {
         match self {
             Algorithm::NPAG(_) => "NPAG",
             Algorithm::NPOD(_) => "NPOD",
-            Algorithm::POSTPROB(_) => "POSTPROB",
+            Algorithm::NPMAP(_) => "NPMAP",
         }
     }
 }
@@ -150,25 +136,25 @@ impl std::fmt::Display for Algorithm {
     }
 }
 
-impl From<Npag> for Algorithm {
-    fn from(value: Npag) -> Self {
+impl From<NpagConfig> for Algorithm {
+    fn from(value: NpagConfig) -> Self {
         Algorithm::NPAG(value)
     }
 }
 
-impl From<Npod> for Algorithm {
-    fn from(value: Npod) -> Self {
+impl From<NpodConfig> for Algorithm {
+    fn from(value: NpodConfig) -> Self {
         Algorithm::NPOD(value)
     }
 }
 
-impl From<PostProb> for Algorithm {
-    fn from(value: PostProb) -> Self {
-        Algorithm::POSTPROB(value)
+impl From<NpmapConfig> for Algorithm {
+    fn from(value: NpmapConfig) -> Self {
+        Algorithm::NPMAP(value)
     }
 }
 
-pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
+pub trait NonParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send + 'static {
     fn validate_psi(&mut self) -> Result<()> {
         // Count problematic values in psi
         let mut nan_count = 0;
@@ -437,30 +423,30 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// This method runs the full fitting process, starting with initialization,
     /// followed by iterative cycles of estimation, condensation, optimization, and evaluation
     /// until the algorithm converges or meets a stopping criteria.
-    fn fit(&mut self) -> Result<NonparametricWorkspace<E>> {
+    fn fit(&mut self) -> Result<NonParametricResult<E>> {
         self.initialize().unwrap();
         while let Status::Continue = self.next_cycle()? {}
         self.into_workspace()
     }
 
     #[allow(clippy::wrong_self_convention)]
-    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>>;
+    fn into_workspace(&self) -> Result<NonParametricResult<E>>;
 }
 
 pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
     input: NonparametricAlgorithmInput<E>,
-) -> Result<Box<dyn Algorithms<E>>> {
+) -> Result<Box<dyn NonParametricAlgorithm<E>>> {
     match input.algorithm {
         Algorithm::NPAG(_) => {
-            let algorithm: Box<dyn Algorithms<E>> = NPAG::from_input(input)?;
+            let algorithm: Box<dyn NonParametricAlgorithm<E>> = NPAG::from_input(input)?;
             Ok(algorithm)
         }
         Algorithm::NPOD(_) => {
-            let algorithm: Box<dyn Algorithms<E>> = NPOD::from_input(input)?;
+            let algorithm: Box<dyn NonParametricAlgorithm<E>> = NPOD::from_input(input)?;
             Ok(algorithm)
         }
-        Algorithm::POSTPROB(_) => {
-            let algorithm: Box<dyn Algorithms<E>> = POSTPROB::from_input(input)?;
+        Algorithm::NPMAP(_) => {
+            let algorithm: Box<dyn NonParametricAlgorithm<E>> = NPMAP::from_input(input)?;
             Ok(algorithm)
         }
     }
@@ -469,7 +455,7 @@ pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
 pub(crate) fn run_nonparametric_algorithm_with_progress<E, F>(
     input: NonparametricAlgorithmInput<E>,
     mut on_progress: F,
-) -> Result<NonparametricWorkspace<E>>
+) -> Result<NonParametricResult<E>>
 where
     E: Equation + Send + 'static,
     F: FnMut(usize, f64, Option<f64>, u64, Status),
@@ -504,7 +490,7 @@ where
 
 pub(crate) fn run_nonparametric_algorithm<E: Equation + Send + 'static>(
     input: NonparametricAlgorithmInput<E>,
-) -> Result<NonparametricWorkspace<E>> {
+) -> Result<NonParametricResult<E>> {
     let mut algorithm = dispatch_nonparametric_algorithm(input)?;
     algorithm.fit()
 }

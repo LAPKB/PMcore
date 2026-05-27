@@ -35,7 +35,7 @@ fn setup_npag() -> Result<EstimationProblem<equation::ODE>> {
     EstimationProblem::builder(create_equation(), data)
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
         .parameter(Parameter::bounded("v", 25.0, 250.0))?
-        .algorithm(Npag::new())
+        .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error("outeq_1", create_error_model())?
         .progress(false)
         .prior(Prior::sobol(2048, 22))
@@ -47,7 +47,7 @@ fn setup_npod() -> Result<EstimationProblem<equation::ODE>> {
     EstimationProblem::builder(create_equation(), data)
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
         .parameter(Parameter::bounded("v", 25.0, 250.0))?
-        .algorithm(Npod::new())
+        .algorithm(Algorithm::NPOD(NpodConfig::default()))
         .error("outeq_1", create_error_model())?
         .progress(false)
         .prior(Prior::sobol(2048, 22))
@@ -59,7 +59,7 @@ fn setup_postprob() -> Result<EstimationProblem<equation::ODE>> {
     EstimationProblem::builder(create_equation(), data)
         .parameter(Parameter::bounded("ke", 0.001, 3.0))?
         .parameter(Parameter::bounded("v", 25.0, 250.0))?
-        .algorithm(PostProb::new())
+        .algorithm(Algorithm::NPMAP(NpmapConfig::default()))
         .error("outeq_1", create_error_model())?
         .progress(false)
         .prior(Prior::sobol(2048, 22))

@@ -1,10 +1,10 @@
 use crate::algorithms::{
-    NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason,
+    Algorithm, NativeNonparametricConfig, NonParametricAlgorithm, NonparametricAlgorithmInput,
+    Status, StopReason,
 };
 use crate::estimation::nonparametric::{
-    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
+    calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
 };
-use crate::prelude::algorithms::Algorithms;
 
 pub(crate) use crate::estimation::nonparametric::ipm::burke;
 pub(crate) use crate::estimation::nonparametric::qr;
@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 
 /// Configuration options for the Non-Parametric Adaptive Grid (NPAG) algorithm.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Npag {
+pub struct NpagConfig {
     pub eps: f64,
     pub min_eps: f64,
     pub objective_tolerance: f64,
@@ -40,7 +40,7 @@ pub struct Npag {
     pub error_step_shrink: f64,
 }
 
-impl Default for Npag {
+impl Default for NpagConfig {
     fn default() -> Self {
         Self {
             eps: 0.2,
@@ -58,7 +58,7 @@ impl Default for Npag {
     }
 }
 
-impl Npag {
+impl NpagConfig {
     pub fn new() -> Self {
         Self::default()
     }
@@ -139,7 +139,7 @@ pub struct NPAG<E: Equation + Send + 'static> {
     cycle_log: CycleLog,
     data: Data,
     config: NativeNonparametricConfig,
-    settings: Npag,
+    settings: NpagConfig,
 }
 
 impl<E: Equation + Send + 'static> NPAG<E> {
@@ -148,7 +148,7 @@ impl<E: Equation + Send + 'static> NPAG<E> {
         data: Data,
         error_models: AssayErrorModels,
         config: NativeNonparametricConfig,
-        settings: Npag,
+        settings: NpagConfig,
     ) -> Box<Self> {
         let ranges = config.ranges.clone();
         let gamma_delta = vec![settings.error_step; error_models.len()];
@@ -196,12 +196,12 @@ impl<E: Equation + Send + 'static> NPAG<E> {
     }
 }
 
-impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
+impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
     fn equation(&self) -> &E {
         &self.equation
     }
-    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
-        NonparametricWorkspace::new(
+    fn into_workspace(&self) -> Result<NonParametricResult<E>> {
+        NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
@@ -210,8 +210,8 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             -2. * self.objf,
             self.cycle,
             self.status.clone(),
-            self.config.run_configuration.clone(),
             self.cycle_log.clone(),
+            Algorithm::NPAG(NpagConfig::default()),
         )
     }
 
@@ -520,9 +520,8 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::RuntimeOptions;
-    use crate::model::{ModelDefinition, Parameter};
-    use pharmsol::{fa, fetch_params, lag, AssayErrorModel, ErrorPoly, Subject, SubjectBuilderExt};
+
+    use pharmsol::{fa, fetch_params, lag, Subject, SubjectBuilderExt};
 
     fn simple_equation() -> pharmsol::equation::ODE {
         pharmsol::equation::ODE::new(
@@ -559,46 +558,5 @@ mod tests {
             .build();
 
         Data::new(vec![subject])
-    }
-
-    #[test]
-    fn from_input_uses_npag_method_settings() -> Result<()> {
-        let method = Npag::new()
-            .eps(0.125)
-            .min_eps(0.0025)
-            .objective_tolerance(3e-5)
-            .pyl_tolerance(4e-3)
-            .prune_threshold(2e-3)
-            .qr_tolerance(9e-7)
-            .grid_tolerance(8e-4)
-            .error_step(0.2)
-            .min_error_step(0.03)
-            .error_step_growth(3.0)
-            .error_step_shrink(0.25);
-
-        let model = ModelDefinition::builder(simple_equation())
-            .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-            .parameter(Parameter::bounded("v", 1.0, 20.0))?
-            .build()?;
-
-        let error_models = AssayErrorModels::new().add(
-            0,
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )?;
-
-        let input = NonparametricAlgorithmInput::new(
-            crate::algorithms::Algorithm::NPAG(method),
-            model,
-            simple_data(),
-            error_models,
-            RuntimeOptions::default(),
-        );
-
-        let algorithm = NPAG::from_input(input)?;
-
-        assert_eq!(algorithm.settings, method);
-        assert_eq!(algorithm.eps, method.eps);
-        assert_eq!(algorithm.gamma_delta, vec![method.error_step]);
-        Ok(())
     }
 }

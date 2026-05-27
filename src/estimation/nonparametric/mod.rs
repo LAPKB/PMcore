@@ -27,4 +27,4 @@ pub use statistics::{median, population_mean_median, posterior_mean_median, weig
 pub use summaries::{fit_summary, individual_summaries, population_summary};
 pub use theta::Theta;
 pub use weights::Weights;
-pub use workspace::NonparametricWorkspace;
+pub use workspace::NonParametricResult;

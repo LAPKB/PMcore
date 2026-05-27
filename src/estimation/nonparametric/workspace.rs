@@ -1,15 +1,16 @@
+use std::path::Path;
+
 use pharmsol::Equation;
 
-use crate::algorithms::{Status, StopReason};
+use crate::algorithms::{Algorithm, Status, StopReason};
 use crate::estimation::nonparametric::{
     posterior, CycleLog, NPPredictions, Posterior, Psi, Theta, Weights,
 };
-use crate::output::shared::RunConfiguration;
 use crate::results::FitResult;
 use pharmsol::Data;
 
 #[derive(Debug)]
-pub struct NonparametricWorkspace<E: Equation> {
+pub struct NonParametricResult<E: Equation> {
     equation: E,
     data: Data,
     theta: Theta,
@@ -18,13 +19,13 @@ pub struct NonparametricWorkspace<E: Equation> {
     objf: f64,
     cycles: usize,
     status: Status,
-    run_configuration: RunConfiguration,
     cyclelog: CycleLog,
     predictions: Option<NPPredictions>,
     posterior: Posterior,
+    algorithm: Algorithm,
 }
 
-impl<E: Equation> NonparametricWorkspace<E> {
+impl<E: Equation> NonParametricResult<E> {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         equation: E,
@@ -35,8 +36,8 @@ impl<E: Equation> NonparametricWorkspace<E> {
         objf: f64,
         cycles: usize,
         status: Status,
-        run_configuration: RunConfiguration,
         cyclelog: CycleLog,
+        algorithm: Algorithm,
     ) -> anyhow::Result<Self> {
         let posterior = posterior::posterior(&psi, &weights)?;
 
@@ -49,10 +50,10 @@ impl<E: Equation> NonparametricWorkspace<E> {
             objf,
             cycles,
             status,
-            run_configuration,
             cyclelog,
             predictions: None,
             posterior,
+            algorithm,
         })
     }
 
@@ -84,19 +85,8 @@ impl<E: Equation> NonparametricWorkspace<E> {
         &self.cyclelog
     }
 
-    pub(crate) fn run_configuration(&self) -> &RunConfiguration {
-        &self.run_configuration
-    }
-
     pub(crate) fn algorithm(&self) -> crate::algorithms::Algorithm {
-        self.run_configuration.algorithm
-    }
-
-    pub(crate) fn prediction_interval(&self) -> (f64, f64) {
-        (
-            self.run_configuration.runtime.idelta,
-            self.run_configuration.runtime.tad,
-        )
+        self.algorithm
     }
 
     pub fn predictions(&self) -> Option<&NPPredictions> {
@@ -129,8 +119,8 @@ impl<E: Equation> NonparametricWorkspace<E> {
         Ok(())
     }
 
-    pub fn write_theta(&self, path: &str) -> anyhow::Result<()> {
-        use anyhow::{bail, Context};
+    pub fn write_theta(&self, path: &Path) -> anyhow::Result<()> {
+        use anyhow::bail;
         use csv::WriterBuilder;
 
         tracing::debug!("Writing population parameter distribution...");
@@ -144,14 +134,11 @@ impl<E: Equation> NonparametricWorkspace<E> {
             );
         }
 
-        let outputfile = crate::output::OutputFile::new(path, "theta.csv")
-            .context("Failed to create output file for theta")?;
+        std::fs::create_dir_all(path)?;
+        let file = std::fs::File::create(path)?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(outputfile.file());
-
-        let mut theta_header = self.run_configuration.parameter_names.clone();
+        let mut theta_header = self.theta.param_names().clone();
         theta_header.push("prob".to_string());
         writer.write_record(&theta_header)?;
 
@@ -169,11 +156,9 @@ impl<E: Equation> NonparametricWorkspace<E> {
 
         tracing::debug!("Writing posterior parameter probabilities...");
 
-        let outputfile = crate::output::OutputFile::new(path, "posterior.csv")?;
-
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(outputfile.file());
+        std::fs::create_dir_all(path)?;
+        let file = std::fs::File::create(path)?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
         writer.write_field("id")?;
         writer.write_field("point")?;
@@ -209,15 +194,14 @@ impl<E: Equation> NonparametricWorkspace<E> {
         Ok(())
     }
 
-    pub fn write_covariates(&self, path: &str) -> anyhow::Result<()> {
+    pub fn write_covariates(&self, path: &Path) -> anyhow::Result<()> {
         use csv::WriterBuilder;
         use pharmsol::Event;
 
         tracing::debug!("Writing covariates...");
-        let outputfile = crate::output::OutputFile::new(path, "covariates.csv")?;
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(outputfile.file());
+        std::fs::create_dir_all(path)?;
+        let file = std::fs::File::create(path)?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
         let mut covariate_names = std::collections::HashSet::new();
         for subject in self.data.subjects() {

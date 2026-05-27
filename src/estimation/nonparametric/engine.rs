@@ -7,7 +7,7 @@ use crate::algorithms::{
 };
 use crate::api::NonparametricCycleProgress;
 use crate::compile::CompiledProblem;
-use crate::estimation::nonparametric::workspace::NonparametricWorkspace;
+use crate::estimation::nonparametric::workspace::NonParametricResult;
 use crate::results::FitResult;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -16,7 +16,7 @@ pub struct NonparametricEngine;
 impl NonparametricEngine {
     pub fn fit<E: Equation + Clone + Send + 'static>(
         problem: CompiledProblem<E>,
-    ) -> Result<NonparametricWorkspace<E>> {
+    ) -> Result<NonParametricResult<E>> {
         let input = input_from_compiled_problem(problem)?;
         run_nonparametric_algorithm(input)
     }
@@ -24,7 +24,7 @@ impl NonparametricEngine {
     pub fn fit_with_progress<E, F>(
         problem: CompiledProblem<E>,
         mut on_progress: F,
-    ) -> Result<NonparametricWorkspace<E>>
+    ) -> Result<NonParametricResult<E>>
     where
         E: Equation + Clone + Send + 'static,
         F: FnMut(NonparametricCycleProgress),

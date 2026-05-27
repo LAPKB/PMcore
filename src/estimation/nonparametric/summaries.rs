@@ -1,11 +1,11 @@
 use ndarray::{Array1, Array2};
 use pharmsol::{Data, Equation, Event};
 
-use crate::estimation::nonparametric::NonparametricWorkspace;
+use crate::estimation::nonparametric::NonParametricResult;
 use crate::estimation::nonparametric::{population_mean_median, posterior_mean_median};
 use crate::results::{FitSummary, IndividualSummary, ParameterSummary, PopulationSummary};
 
-pub fn fit_summary<E: Equation>(result: &NonparametricWorkspace<E>) -> FitSummary {
+pub fn fit_summary<E: Equation>(result: &NonParametricResult<E>) -> FitSummary {
     FitSummary {
         objective_function: result.objf(),
         converged: result.converged(),
@@ -17,7 +17,7 @@ pub fn fit_summary<E: Equation>(result: &NonparametricWorkspace<E>) -> FitSummar
     }
 }
 
-pub fn population_summary<E: Equation>(result: &NonparametricWorkspace<E>) -> PopulationSummary {
+pub fn population_summary<E: Equation>(result: &NonParametricResult<E>) -> PopulationSummary {
     let theta_matrix = to_ndarray_matrix(result.get_theta().matrix());
     let weights = Array1::from_iter(result.weights().iter());
     let (mean, median) = population_mean_median(&theta_matrix, &weights)
@@ -53,7 +53,7 @@ pub fn population_summary<E: Equation>(result: &NonparametricWorkspace<E>) -> Po
 }
 
 pub fn individual_summaries<E: Equation>(
-    result: &NonparametricWorkspace<E>,
+    result: &NonParametricResult<E>,
 ) -> Vec<IndividualSummary> {
     let theta_matrix = to_ndarray_matrix(result.get_theta().matrix());
     let psi_matrix = to_ndarray_matrix(result.psi().matrix());

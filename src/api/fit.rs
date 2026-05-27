@@ -1,6 +1,7 @@
 use anyhow::Result;
 use pharmsol::equation::Equation;
 
+use crate::algorithms::Algorithm;
 use crate::api::estimation_problem::EstimationProblem;
 use crate::api::progress::FitProgress;
 use crate::estimation::nonparametric;
@@ -39,7 +40,7 @@ mod tests {
 
     use super::{fit_with_progress, FitProgress};
     use crate::algorithms::Status;
-    use crate::api::{EstimationProblem, Npag};
+    use crate::api::EstimationProblem;
     use crate::prelude::*;
 
     fn equation() -> equation::ODE {
@@ -82,7 +83,7 @@ mod tests {
         let problem = EstimationProblem::builder(equation(), data)
             .parameter(Parameter::bounded("ke", 0.05, 1.0))?
             .parameter(Parameter::bounded("v", 5.0, 50.0))?
-            .algorithm(Npag::new())
+            .algorithm(Algorithm::NPAG(NpagConfig::default()))
             .error("0", assay_error)?
             .progress(false)
             .prior(Prior::sobol(8, 7))

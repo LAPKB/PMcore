@@ -1,3 +1,5 @@
+use std::{fs::File, path::Path};
+
 use anyhow::Result;
 use csv::WriterBuilder;
 use pharmsol::{AssayErrorModel, AssayErrorModels};
@@ -7,7 +9,6 @@ use crate::{
     algorithms::{Status, StopReason},
     estimation::nonparametric::median,
     estimation::nonparametric::theta::Theta,
-    output::OutputFile,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -95,12 +96,12 @@ impl CycleLog {
         self.cycles.push(cycle);
     }
 
-    pub fn write(&self, folder: &str, parameter_names: &[String]) -> Result<()> {
+    pub fn write(&self, path: &Path) -> Result<()> {
         tracing::debug!("Writing cycles...");
-        let outputfile = OutputFile::new(folder, "iterations.csv")?;
-        let mut writer = WriterBuilder::new()
-            .has_headers(false)
-            .from_writer(outputfile.file());
+
+        std::fs::create_dir_all(path)?;
+        let file = File::create(path)?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
         writer.write_field("cycle")?;
         writer.write_field("converged")?;
@@ -124,7 +125,13 @@ impl CycleLog {
             )?;
         }
 
-        for param_name in parameter_names {
+        let names = self
+            .cycles
+            .first()
+            .map(|cycle| cycle.theta.param_names())
+            .expect("No cycles");
+
+        for param_name in names {
             writer.write_field(format!("{}.mean", param_name))?;
             writer.write_field(format!("{}.median", param_name))?;
             writer.write_field(format!("{}.sd", param_name))?;
@@ -174,7 +181,8 @@ impl CycleLog {
             writer.write_record(None::<&[u8]>)?;
         }
         writer.flush()?;
-        tracing::debug!("Cycles written to {:?}", &outputfile.relative_path());
+
+        tracing::debug!("Cycles written to {:?}", path);
         Ok(())
     }
 }

@@ -104,7 +104,7 @@ fn test_unified_fit_nonparametric_smoke() -> Result<()> {
     let result = EstimationProblem::builder(simple_equation(), simple_data())
         .parameter(Parameter::bounded("ke", 0.1, 1.0))?
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .algorithm(Npag::new())
+        .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error("0", assay_error)?
         .progress(false)
         .fit()?;
@@ -138,7 +138,7 @@ fn test_problem_compile_preserves_runtime_configuration() -> Result<()> {
     let compiled = EstimationProblem::builder(simple_equation(), simple_data())
         .parameter(Parameter::bounded("ke", 0.1, 1.0))?
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .algorithm(Npag::new())
+        .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error("0", assay_error)?
         .cache(false)
         .progress(false)

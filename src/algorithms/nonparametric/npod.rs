@@ -1,10 +1,13 @@
-use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, StopReason};
+use crate::algorithms::nonparametric::npod;
+use crate::algorithms::{
+    NativeNonparametricConfig, NonParametricAlgorithm, NonparametricAlgorithmInput, StopReason,
+};
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::qr;
 use crate::estimation::nonparametric::{
-    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
+    calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
 };
-use crate::{algorithms::Status, prelude::algorithms::Algorithms};
+use crate::{algorithms::Status, prelude::algorithms::Algorithm};
 use pharmsol::ParameterOptimizer;
 
 use anyhow::bail;
@@ -24,9 +27,9 @@ const THETA_D: f64 = 1e-4;
 
 /// Configuration options for the Non-Parametric Optimal Design (NPOD) algorithm.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Npod;
+pub struct NpodConfig;
 
-impl Npod {
+impl NpodConfig {
     pub fn new() -> Self {
         Self
     }
@@ -50,9 +53,9 @@ pub struct NPOD<E: Equation + Send + 'static> {
     config: NativeNonparametricConfig,
 }
 
-impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
-    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
-        NonparametricWorkspace::new(
+impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
+    fn into_workspace(&self) -> Result<NonParametricResult<E>> {
+        NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
@@ -61,8 +64,8 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             -2. * self.objf,
             self.cycle,
             self.status.clone(),
-            self.config.run_configuration.clone(),
             self.cycle_log.clone(),
+            Algorithm::NPOD(NpodConfig::default()),
         )
     }
 

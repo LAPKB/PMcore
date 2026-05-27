@@ -1,9 +1,12 @@
 use crate::{
-    algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason},
-    estimation::nonparametric::{
-        calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
+    algorithms::{
+        NativeNonparametricConfig, NonParametricAlgorithm, NonparametricAlgorithmInput, Status,
+        StopReason,
     },
-    prelude::algorithms::Algorithms,
+    estimation::nonparametric::{
+        calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
+    },
+    prelude::algorithms::Algorithm,
 };
 use anyhow::{Context, Result};
 
@@ -19,9 +22,9 @@ use serde::{Deserialize, Serialize};
 
 /// Configuration options for the posterior probability reweighting algorithm.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PostProb;
+pub struct NpmapConfig;
 
-impl PostProb {
+impl NpmapConfig {
     pub fn new() -> Self {
         Self
     }
@@ -29,7 +32,7 @@ impl PostProb {
 
 /// Posterior probability algorithm
 /// Reweights the prior probabilities to the observed data and error model
-pub struct POSTPROB<E: Equation + Send + 'static> {
+pub struct NPMAP<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
     theta: Theta,
@@ -43,9 +46,9 @@ pub struct POSTPROB<E: Equation + Send + 'static> {
     error_models: AssayErrorModels,
 }
 
-impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
-    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
-        NonparametricWorkspace::new(
+impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
+    fn into_workspace(&self) -> Result<NonParametricResult<E>> {
+        NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
             self.theta.clone(),
@@ -54,8 +57,8 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
             self.objf,
             self.cycle,
             self.status.clone(),
-            self.config.run_configuration.clone(),
             self.cyclelog.clone(),
+            Algorithm::NPMAP(NpmapConfig::default()),
         )
     }
     fn error_models(&self) -> &AssayErrorModels {
@@ -149,7 +152,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
     }
 }
 
-impl<E: Equation + Send + 'static> POSTPROB<E> {
+impl<E: Equation + Send + 'static> NPMAP<E> {
     pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
         let config = input.native_config()?;
         let error_models = input.error_models().clone();

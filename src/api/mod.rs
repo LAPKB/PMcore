@@ -5,7 +5,7 @@ pub mod model_definition;
 pub mod progress;
 pub mod saem_config;
 
-pub use crate::algorithms::nonparametric::{Npag, Npod, PostProb};
+pub use crate::algorithms::nonparametric::{NpagConfig, NpmapConfig, NpodConfig};
 pub use error_models::ErrorModels;
 pub use estimation_problem::{
     AlgorithmTuning, ConvergenceOptions, EstimationProblem, EstimationProblemBuilder,
