@@ -47,7 +47,6 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
         .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error("0", assay_error)?
-        .progress(false)
         .fit()?;
 
     let summary = result.summary();

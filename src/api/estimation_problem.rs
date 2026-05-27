@@ -1,11 +1,9 @@
 use anyhow::Result;
 use pharmsol::{AssayErrorModel, AssayErrorModels, Data, Equation};
-use serde::{Deserialize, Serialize};
 
 use crate::algorithms::Algorithm;
 use crate::api::error_models::ErrorModels;
 
-use crate::estimation::nonparametric::{Prior, Theta};
 use crate::model::{
     CovariateSpec, EquationMetadataSource, ModelDefinition, ModelDefinitionBuilder, ModelMetadata,
     Parameter, VariabilityModel,
@@ -31,14 +29,14 @@ impl<E: Equation> EstimationProblem<E> {
 
 impl<E: Equation + Clone + Send + 'static + EquationMetadataSource> EstimationProblem<E> {
     pub fn fit(self) -> Result<FitResult<E>> {
-        !unimplemented!("fit method is not implemented yet")
+        unimplemented!("fit method is not implemented yet")
     }
 
-    pub fn fit_with_progress<F>(self, on_progress: F) -> Result<crate::results::FitResult<E>>
+    pub fn fit_with_progress<F>(self, _on_progress: F) -> Result<crate::results::FitResult<E>>
     where
         F: FnMut(crate::api::FitProgress),
     {
-        !unimplemented!("fit method is not implemented yet")
+        unimplemented!("fit method is not implemented yet")
     }
 }
 

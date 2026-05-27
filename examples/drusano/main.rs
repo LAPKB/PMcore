@@ -106,7 +106,6 @@ fn main() -> Result<()> {
             "outeq_4",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
-        .prior(Prior::sobol(212900, 347))
         .fit()?;
     Ok(())
 }

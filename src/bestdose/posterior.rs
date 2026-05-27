@@ -59,7 +59,7 @@ use crate::algorithms::NonParametricAlgorithm;
 
 use crate::algorithms::Status;
 use crate::bestdose::types::BestDoseConfig;
-use crate::estimation::nonparametric::{calculate_psi, Prior, Theta, Weights};
+use crate::estimation::nonparametric::{calculate_psi, Theta, Weights};
 use crate::prelude::*;
 use pharmsol::prelude::*;
 
@@ -201,20 +201,17 @@ pub fn npagfull_refinement(
         let single_point_theta = Theta::from_parts(single_point_matrix, parameter_space.clone())?;
 
         // Create and run NPAG
+        let mut npag_config = crate::algorithms::nonparametric::NpagConfig::default();
+        npag_config.max_cycles = config.refinement_cycles();
+        npag_config.progress = config.progress();
 
-        let mut npag = NPAG::from_config(
+        let mut npag = NPAG::from_parts(
             eq.clone(),
             past_data.clone(),
             config.error_models().clone(),
-            NativeNonparametricConfig {
-                ranges: parameter_space.finite_ranges()?,
-                parameter_space: parameter_space.clone(),
-                prior: Prior::Theta(single_point_theta.clone()),
-                max_cycles: config.refinement_cycles(),
-                progress: config.progress(),
-            },
-            NpagConfig::default(),
-        );
+            &parameter_space,
+            npag_config,
+        )?;
         npag.set_theta(single_point_theta);
 
         // Run NPAG optimization

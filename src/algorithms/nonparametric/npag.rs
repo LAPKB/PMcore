@@ -1,7 +1,9 @@
 use crate::algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason};
+use crate::api::EstimationProblem;
 use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
 };
+use crate::model::ParameterSpace;
 
 pub(crate) use crate::estimation::nonparametric::ipm::burke;
 pub(crate) use crate::estimation::nonparametric::qr;
@@ -140,6 +142,65 @@ pub struct NPAG<E: Equation + Send + 'static> {
     config: NpagConfig,
 }
 
+impl<E: Equation + Send + 'static> NPAG<E> {
+    /// Construct an `NPAG` instance from explicit parts.
+    ///
+    /// The `parameter_space` is used solely to derive the finite bounds for the
+    /// adaptive grid. Initial support points can be supplied separately via
+    /// [`NonParametricAlgorithm::set_theta`].
+    pub(crate) fn from_parts(
+        equation: E,
+        data: Data,
+        error_models: AssayErrorModels,
+        parameter_space: &ParameterSpace,
+        config: NpagConfig,
+    ) -> Result<Box<Self>> {
+        let ranges = parameter_space.finite_ranges()?;
+        let gamma_delta = vec![config.error_step; error_models.len()];
+        let eps = config.eps;
+
+        Ok(Box::new(Self {
+            equation,
+            ranges,
+            psi: Psi::new(),
+            theta: Theta::new(),
+            lambda: Weights::default(),
+            w: Weights::default(),
+            eps,
+            last_objf: -1e30,
+            objf: f64::NEG_INFINITY,
+            f0: -1e30,
+            f1: f64::default(),
+            cycle: 0,
+            gamma_delta,
+            error_models,
+            status: Status::Continue,
+            cycle_log: CycleLog::new(),
+            data,
+            config,
+        }))
+    }
+
+    pub(crate) fn from_input(input: EstimationProblem<E>) -> Result<Box<Self>> {
+        let config = match input.algorithm.clone() {
+            Algorithm::NPAG(config) => config,
+            other => unreachable!(
+                "NPAG::from_input requires an NPAG algorithm, got {}",
+                other.name()
+            ),
+        };
+        let error_models = input.error_models.models().clone();
+        let parameter_space = input.model.parameters.clone();
+        Self::from_parts(
+            input.model.equation,
+            input.data,
+            error_models,
+            &parameter_space,
+            config,
+        )
+    }
+}
+
 impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
     fn equation(&self) -> &E {
         &self.equation
@@ -169,7 +230,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        !unimplemented!("get_prior method is not implemented yet")
+        unimplemented!("get_prior method is not implemented yet")
     }
 
     fn likelihood(&self) -> f64 {

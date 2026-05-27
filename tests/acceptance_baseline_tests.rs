@@ -42,7 +42,6 @@ fn test_acceptance_baseline_npag_bimodal_ke() -> Result<()> {
             "1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )?
-        .progress(false)
         .fit()?;
     let summary = result.summary();
     let population = result.population_summary();

@@ -106,7 +106,6 @@ fn test_unified_fit_nonparametric_smoke() -> Result<()> {
         .parameter(Parameter::bounded("v", 1.0, 20.0))?
         .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error("0", assay_error)?
-        .progress(false)
         .fit()?;
 
     assert!(result.objf().is_finite());

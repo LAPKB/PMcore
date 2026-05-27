@@ -210,8 +210,6 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )?
-        .cache(true)
-        .progress(false)
         .fit()?;
     let fit_time = fit_started.elapsed();
 

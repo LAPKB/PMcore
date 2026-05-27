@@ -1,5 +1,6 @@
 use crate::{
     algorithms::{NonParametricAlgorithm, Status, StopReason},
+    api::EstimationProblem,
     estimation::nonparametric::{
         calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
@@ -13,7 +14,6 @@ use pharmsol::prelude::{
 };
 
 use crate::estimation::nonparametric::ipm::burke;
-use crate::estimation::nonparametric::sample_space_for_parameters;
 
 use serde::{Deserialize, Serialize};
 
@@ -146,5 +146,32 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
             self.status.clone(),
         );
         self.cyclelog.push(state);
+    }
+}
+
+impl<E: Equation + Send + 'static> NPMAP<E> {
+    pub(crate) fn from_input(input: EstimationProblem<E>) -> Result<Box<Self>> {
+        let config = match input.algorithm.clone() {
+            Algorithm::NPMAP(config) => config,
+            other => unreachable!(
+                "NPMAP::from_input requires an NPMAP algorithm, got {}",
+                other.name()
+            ),
+        };
+        let error_models = input.error_models.models().clone();
+
+        Ok(Box::new(Self {
+            equation: input.model.equation,
+            psi: Psi::new(),
+            theta: Theta::new(),
+            w: Weights::default(),
+            objf: f64::INFINITY,
+            cycle: 0,
+            status: Status::Continue,
+            data: input.data,
+            config,
+            cyclelog: CycleLog::new(),
+            error_models,
+        }))
     }
 }

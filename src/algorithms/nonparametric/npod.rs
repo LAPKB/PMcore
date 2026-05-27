@@ -1,4 +1,5 @@
 use crate::algorithms::{NonParametricAlgorithm, StopReason};
+use crate::api::EstimationProblem;
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::qr;
 use crate::estimation::nonparametric::{
@@ -367,6 +368,36 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
 }
 
 impl<E: Equation + Send + 'static> NPOD<E> {
+    pub(crate) fn from_input(input: EstimationProblem<E>) -> Result<Box<Self>> {
+        let config = match input.algorithm.clone() {
+            Algorithm::NPOD(config) => config,
+            other => unreachable!(
+                "NPOD::from_input requires an NPOD algorithm, got {}",
+                other.name()
+            ),
+        };
+        let error_models = input.error_models.models().clone();
+        let gamma_delta = vec![0.1; error_models.len()];
+
+        Ok(Box::new(Self {
+            equation: input.model.equation,
+            psi: Psi::new(),
+            theta: Theta::new(),
+            lambda: Weights::default(),
+            w: Weights::default(),
+            last_objf: -1e30,
+            objf: f64::NEG_INFINITY,
+            cycle: 0,
+            gamma_delta,
+            error_models,
+            converged: false,
+            status: Status::Continue,
+            cycle_log: CycleLog::new(),
+            data: input.data,
+            config,
+        }))
+    }
+
     fn validate_psi(&mut self) -> Result<()> {
         let mut psi = self.psi().matrix().to_owned();
         // First coerce all NaN and infinite in psi to 0.0
