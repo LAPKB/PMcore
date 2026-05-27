@@ -43,8 +43,8 @@ pub mod model;
 /// Shared result and summary types for the new API.
 pub mod results;
 
-/// Shared output writers for the new API.
-pub mod output;
+/// Logs
+pub mod logs;
 
 // Re-export commonly used items
 pub use anyhow::Result;
@@ -56,6 +56,7 @@ pub mod bestdose;
 /// A collection of commonly used items to simplify imports.
 #[allow(ambiguous_glob_reexports)]
 pub mod prelude {
+    pub use super::logs::Logger;
     pub use super::HashMap;
     pub use super::Result;
     pub use crate::algorithms;

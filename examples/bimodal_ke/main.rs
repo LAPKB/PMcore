@@ -1,6 +1,5 @@
 use anyhow::Result;
-
-use pmcore::{output::logging::Logger, prelude::*};
+use pmcore::prelude::*;
 
 fn main() -> Result<()> {
     Logger::new().init()?;
