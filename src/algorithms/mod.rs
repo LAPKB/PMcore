@@ -2,9 +2,9 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::api::RuntimeOptions;
-use crate::estimation::nonparametric::{NonParametricResult, Prior, Psi, Theta};
-use crate::model::{ModelDefinition, ParameterSpace};
+use crate::api::EstimationProblem;
+use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta};
+
 use anyhow::Context;
 use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
@@ -14,7 +14,7 @@ use nonparametric::npmap::NPMAP;
 use nonparametric::npod::NPOD;
 use nonparametric::{NpagConfig, NpmapConfig, NpodConfig};
 use pharmsol::prelude::{data::Data, simulator::Equation};
-use pharmsol::AssayErrorModels;
+
 use pharmsol::{Predictions, Subject};
 use serde::{Deserialize, Serialize};
 
@@ -22,87 +22,13 @@ use serde::{Deserialize, Serialize};
 pub mod nonparametric;
 pub mod parametric;
 
-#[derive(Debug, Clone)]
-pub(crate) struct NonparametricAlgorithmInput<E: Equation> {
-    pub algorithm: Algorithm,
-    pub equation: E,
-    pub data: Data,
-    pub parameter_space: ParameterSpace,
-    pub error_models: AssayErrorModels,
-    pub runtime: RuntimeOptions,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct NativeNonparametricConfig {
-    pub parameter_space: ParameterSpace,
-    pub ranges: Vec<(f64, f64)>,
-    pub prior: Prior,
-    pub max_cycles: usize,
-    pub progress: bool,
-}
-
-impl<E: Equation> NonparametricAlgorithmInput<E> {
-    pub(crate) fn new(
-        algorithm: Algorithm,
-        model: ModelDefinition<E>,
-        data: Data,
-        error_models: AssayErrorModels,
-        runtime: RuntimeOptions,
-    ) -> Self {
-        let ModelDefinition {
-            equation,
-            parameters,
-            ..
-        } = model;
-
-        Self {
-            algorithm,
-            equation,
-            data,
-            parameter_space: parameters,
-            error_models,
-            runtime,
-        }
-    }
-
-    pub(crate) fn algorithm(&self) -> Algorithm {
-        self.algorithm
-    }
-
-    pub(crate) fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels {
-        &self.error_models
-    }
-
-    pub(crate) fn max_cycles(&self) -> usize {
-        self.runtime.cycles
-    }
-
-    pub(crate) fn progress_enabled(&self) -> bool {
-        self.runtime.progress
-    }
-
-    pub(crate) fn prior(&self) -> Prior {
-        self.runtime.prior.clone().unwrap_or_default()
-    }
-
-    pub(crate) fn native_config(&self) -> Result<NativeNonparametricConfig> {
-        Ok(NativeNonparametricConfig {
-            ranges: self.parameter_space.finite_ranges()?,
-            parameter_space: self.parameter_space.clone(),
-            prior: self.prior(),
-            max_cycles: self.max_cycles(),
-            progress: self.progress_enabled(),
-        })
-    }
-}
-
 /// Algorithm type enumeration
 ///
 /// Lists every estimation algorithm implemented in `PMcore` together with its
 /// configuration payload. Convert from a configuration struct via [`From`]
 /// (e.g. `Algorithm::from(Npag::new())`) or pass the configuration directly to
 /// [`EstimationProblemBuilder::method`](crate::api::EstimationProblemBuilder::method).
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Algorithm {
     /// Non-Parametric Adaptive Grid
     NPAG(NpagConfig),
@@ -435,7 +361,7 @@ pub trait NonParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send + 's
 }
 
 pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
-    input: NonparametricAlgorithmInput<E>,
+    input: EstimationProblem<E>,
 ) -> Result<Box<dyn NonParametricAlgorithm<E>>> {
     match input.algorithm {
         Algorithm::NPAG(_) => {
@@ -454,7 +380,7 @@ pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
 }
 
 pub(crate) fn run_nonparametric_algorithm_with_progress<E, F>(
-    input: NonparametricAlgorithmInput<E>,
+    input: EstimationProblem<E>,
     mut on_progress: F,
 ) -> Result<NonParametricResult<E>>
 where
@@ -490,7 +416,7 @@ where
 }
 
 pub(crate) fn run_nonparametric_algorithm<E: Equation + Send + 'static>(
-    input: NonparametricAlgorithmInput<E>,
+    input: EstimationProblem<E>,
 ) -> Result<NonParametricResult<E>> {
     let mut algorithm = dispatch_nonparametric_algorithm(input)?;
     algorithm.fit()

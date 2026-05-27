@@ -1,8 +1,5 @@
 use crate::{
-    algorithms::{
-        NativeNonparametricConfig, NonParametricAlgorithm, NonparametricAlgorithmInput, Status,
-        StopReason,
-    },
+    algorithms::{NonParametricAlgorithm, Status, StopReason},
     estimation::nonparametric::{
         calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
@@ -41,7 +38,7 @@ pub struct NPMAP<E: Equation + Send + 'static> {
     cycle: usize,
     status: Status,
     data: Data,
-    config: NativeNonparametricConfig,
+    config: NpmapConfig,
     cyclelog: CycleLog,
     error_models: AssayErrorModels,
 }
@@ -74,7 +71,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior).unwrap()
+        unimplemented!("get_prior method is not implemented yet")
     }
 
     fn likelihood(&self) -> f64 {
@@ -149,28 +146,5 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
             self.status.clone(),
         );
         self.cyclelog.push(state);
-    }
-}
-
-impl<E: Equation + Send + 'static> NPMAP<E> {
-    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
-        let config = input.native_config()?;
-        let error_models = input.error_models().clone();
-        let equation = input.equation;
-        let data = input.data;
-
-        Ok(Box::new(Self {
-            equation,
-            psi: Psi::new(),
-            theta: Theta::new(),
-            w: Weights::default(),
-            objf: f64::INFINITY,
-            cycle: 0,
-            status: Status::Continue,
-            data,
-            config,
-            cyclelog: CycleLog::new(),
-            error_models,
-        }))
     }
 }

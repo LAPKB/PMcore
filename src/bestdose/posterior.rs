@@ -57,7 +57,6 @@ use crate::algorithms::nonparametric::npag::burke;
 use crate::algorithms::nonparametric::npag::NPAG;
 use crate::algorithms::NonParametricAlgorithm;
 
-use crate::algorithms::NativeNonparametricConfig;
 use crate::algorithms::Status;
 use crate::bestdose::types::BestDoseConfig;
 use crate::estimation::nonparametric::{calculate_psi, Prior, Theta, Weights};
@@ -175,6 +174,7 @@ pub fn npagfull_refinement(
     eq: &ODE,
     config: &BestDoseConfig,
 ) -> Result<(Theta, Weights)> {
+    !unimplemented!("NPAG refinement logic is not implemented yet");
     if config.refinement_cycles() == 0 {
         tracing::info!("Stage 1.2: NPAGFULL refinement skipped (max_cycles=0)");
         return Ok((filtered_theta.clone(), filtered_weights.clone()));

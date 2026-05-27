@@ -85,8 +85,8 @@ impl<E: Equation> NonParametricResult<E> {
         &self.cyclelog
     }
 
-    pub(crate) fn algorithm(&self) -> crate::algorithms::Algorithm {
-        self.algorithm
+    pub(crate) fn algorithm(&self) -> &Algorithm {
+        &self.algorithm
     }
 
     pub fn predictions(&self) -> Option<&NPPredictions> {

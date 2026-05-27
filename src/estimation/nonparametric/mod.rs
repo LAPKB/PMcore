@@ -1,5 +1,5 @@
 mod cycles;
-mod engine;
+
 mod expansion;
 pub(crate) mod ipm;
 mod posterior;
@@ -14,7 +14,6 @@ mod theta;
 mod weights;
 
 pub use cycles::{CycleLog, NPCycle};
-pub use engine::{fit, fit_with_progress, NonparametricEngine};
 pub(crate) use expansion::adaptative_grid;
 pub use ipm::burke;
 pub use posterior::{posterior, Posterior};

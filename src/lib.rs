@@ -31,9 +31,6 @@ pub mod algorithms;
 /// New public modeling and execution API.
 pub mod api;
 
-/// Shared preprocessing and compilation layer.
-pub mod compile;
-
 /// Estimation family boundaries for the new architecture.
 pub mod estimation;
 
@@ -61,16 +58,14 @@ pub mod prelude {
     pub use super::Result;
     pub use crate::algorithms;
     pub use crate::algorithms::Algorithm;
-    pub use crate::api::fit;
-    pub use crate::api::fit_with_progress;
+
     pub use crate::api::{
         ErrorModels, EstimationProblem, FitProgress, ModelDefinition, NonparametricCycleProgress,
-        NpagConfig, NpmapConfig, NpodConfig, RuntimeOptions,
+        NpagConfig, NpmapConfig, NpodConfig,
     };
-    pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
+
     pub use crate::estimation::nonparametric::{
-        CycleLog, NPCycle, NPPredictions, NonParametricResult, NonparametricEngine, Posterior, Psi,
-        Theta, Weights,
+        CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
     };
     pub use crate::model::{
         CovariateEffectsSpec, CovariateModel, CovariateSpec, EquationMetadataSource, ModelMetadata,

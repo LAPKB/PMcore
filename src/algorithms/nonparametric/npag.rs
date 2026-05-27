@@ -1,7 +1,4 @@
-use crate::algorithms::{
-    Algorithm, NativeNonparametricConfig, NonParametricAlgorithm, NonparametricAlgorithmInput,
-    Status, StopReason,
-};
+use crate::algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason};
 use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
 };
@@ -38,6 +35,8 @@ pub struct NpagConfig {
     pub min_error_step: f64,
     pub error_step_growth: f64,
     pub error_step_shrink: f64,
+    pub max_cycles: usize,
+    pub progress: bool,
 }
 
 impl Default for NpagConfig {
@@ -54,6 +53,8 @@ impl Default for NpagConfig {
             min_error_step: 0.01,
             error_step_growth: 4.0,
             error_step_shrink: 0.5,
+            max_cycles: 1000,
+            progress: true,
         }
     }
 }
@@ -138,62 +139,7 @@ pub struct NPAG<E: Equation + Send + 'static> {
     status: Status,
     cycle_log: CycleLog,
     data: Data,
-    config: NativeNonparametricConfig,
-    settings: NpagConfig,
-}
-
-impl<E: Equation + Send + 'static> NPAG<E> {
-    pub(crate) fn from_config(
-        equation: E,
-        data: Data,
-        error_models: AssayErrorModels,
-        config: NativeNonparametricConfig,
-        settings: NpagConfig,
-    ) -> Box<Self> {
-        let ranges = config.ranges.clone();
-        let gamma_delta = vec![settings.error_step; error_models.len()];
-
-        Box::new(Self {
-            equation,
-            ranges,
-            psi: Psi::new(),
-            theta: Theta::new(),
-            lambda: Weights::default(),
-            w: Weights::default(),
-            eps: settings.eps,
-            last_objf: -1e30,
-            objf: f64::NEG_INFINITY,
-            f0: -1e30,
-            f1: f64::default(),
-            cycle: 0,
-            gamma_delta,
-            error_models,
-            status: Status::Continue,
-            cycle_log: CycleLog::new(),
-            data,
-            config,
-            settings,
-        })
-    }
-
-    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
-        let method = match input.algorithm {
-            crate::algorithms::Algorithm::NPAG(method) => method,
-            _ => unreachable!("NPAG::from_input requires an NPAG algorithm"),
-        };
-        let config = input.native_config()?;
-        let error_models = input.error_models().clone();
-        let equation = input.equation;
-        let data = input.data;
-
-        Ok(Self::from_config(
-            equation,
-            data,
-            error_models,
-            config,
-            method,
-        ))
-    }
+    config: NpagConfig,
 }
 
 impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
@@ -224,7 +170,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior).unwrap()
+        !unimplemented!("get_prior method is not implemented yet")
     }
 
     fn likelihood(&self) -> f64 {
@@ -280,21 +226,21 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
 
         let psi = self.psi.matrix();
         let w = &self.w;
-        if (self.last_objf - self.objf).abs() <= self.settings.objective_tolerance
-            && self.eps > self.settings.min_eps
+        if (self.last_objf - self.objf).abs() <= self.config.objective_tolerance
+            && self.eps > self.config.min_eps
         {
             self.eps /= 2.;
-            if self.eps <= self.settings.min_eps {
+            if self.eps <= self.config.min_eps {
                 let pyl = psi * w.weights();
                 self.f1 = pyl.iter().map(|x| x.ln()).sum();
-                if (self.f1 - self.f0).abs() <= self.settings.pyl_tolerance {
+                if (self.f1 - self.f0).abs() <= self.config.pyl_tolerance {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.set_status(Status::Stop(StopReason::Converged));
                     self.log_cycle_state();
                     return Ok(self.status().clone());
                 } else {
                     self.f0 = self.f1;
-                    self.eps = self.settings.eps;
+                    self.eps = self.config.eps;
                 }
             }
         }
@@ -353,7 +299,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
 
         let mut keep = Vec::<usize>::new();
         for (index, lam) in self.lambda.iter().enumerate() {
-            if lam > max_lambda * self.settings.prune_threshold {
+            if lam > max_lambda * self.config.prune_threshold {
                 keep.push(index);
             }
         }
@@ -378,7 +324,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
             let test = r.col(i).norm_l2();
             let r_diag_val = r.get(i, i);
             let ratio = r_diag_val / test;
-            if ratio.abs() >= self.settings.qr_tolerance {
+            if ratio.abs() >= self.config.qr_tolerance {
                 keep.push(*perm.get(i).unwrap());
             }
         }
@@ -463,20 +409,20 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
                 if objf_up > self.objf {
                     self.error_models.set_factor(outeq, gamma_up)?;
                     self.objf = objf_up;
-                    self.gamma_delta[outeq] *= self.settings.error_step_growth;
+                    self.gamma_delta[outeq] *= self.config.error_step_growth;
                     self.lambda = lambda_up;
                     self.psi = psi_up;
                 }
                 if objf_down > self.objf {
                     self.error_models.set_factor(outeq, gamma_down)?;
                     self.objf = objf_down;
-                    self.gamma_delta[outeq] *= self.settings.error_step_growth;
+                    self.gamma_delta[outeq] *= self.config.error_step_growth;
                     self.lambda = lambda_down;
                     self.psi = psi_down;
                 }
-                self.gamma_delta[outeq] *= self.settings.error_step_shrink;
-                if self.gamma_delta[outeq] <= self.settings.min_error_step {
-                    self.gamma_delta[outeq] = self.settings.error_step;
+                self.gamma_delta[outeq] *= self.config.error_step_shrink;
+                if self.gamma_delta[outeq] <= self.config.min_error_step {
+                    self.gamma_delta[outeq] = self.config.error_step;
                 }
                 Ok(())
             })?;
@@ -489,7 +435,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
             &mut self.theta,
             self.eps,
             &self.ranges,
-            self.settings.grid_tolerance,
+            self.config.grid_tolerance,
         )?;
         Ok(())
     }

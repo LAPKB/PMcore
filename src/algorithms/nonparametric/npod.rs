@@ -1,7 +1,4 @@
-use crate::algorithms::nonparametric::npod;
-use crate::algorithms::{
-    NativeNonparametricConfig, NonParametricAlgorithm, NonparametricAlgorithmInput, StopReason,
-};
+use crate::algorithms::{NonParametricAlgorithm, StopReason};
 use crate::estimation::nonparametric::ipm::burke;
 use crate::estimation::nonparametric::qr;
 use crate::estimation::nonparametric::{
@@ -26,12 +23,23 @@ const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
 /// Configuration options for the Non-Parametric Optimal Design (NPOD) algorithm.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpodConfig;
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NpodConfig {
+    /// Maximum number of cycles to run the algorithm for.
+    max_cycles: usize,
+    /// Prior distribution for sampling new support points.
+    prior: Theta,
+    /// Whether to print progress information during the first cycle.
+    progress: bool,
+}
 
 impl NpodConfig {
     pub fn new() -> Self {
-        Self
+        Self {
+            max_cycles: 100,
+            prior: Theta::new(),
+            progress: false,
+        }
     }
 }
 
@@ -50,7 +58,7 @@ pub struct NPOD<E: Equation + Send + 'static> {
     status: Status,
     cycle_log: CycleLog,
     data: Data,
-    config: NativeNonparametricConfig,
+    config: NpodConfig,
 }
 
 impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
@@ -82,11 +90,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
     }
 
     fn get_prior(&self) -> Theta {
-        crate::estimation::nonparametric::sample_space_for_parameters(
-            &self.config.parameter_space,
-            &self.config.prior,
-        )
-        .unwrap()
+        self.config.prior.clone()
     }
 
     fn increment_cycle(&mut self) -> usize {
@@ -363,32 +367,6 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
 }
 
 impl<E: Equation + Send + 'static> NPOD<E> {
-    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
-        let config = input.native_config()?;
-        let error_models = input.error_models().clone();
-        let gamma_delta = vec![0.1; error_models.len()];
-        let equation = input.equation;
-        let data = input.data;
-
-        Ok(Box::new(Self {
-            equation,
-            psi: Psi::new(),
-            theta: Theta::new(),
-            lambda: Weights::default(),
-            w: Weights::default(),
-            last_objf: -1e30,
-            objf: f64::NEG_INFINITY,
-            cycle: 0,
-            gamma_delta,
-            error_models,
-            converged: false,
-            status: Status::Continue,
-            cycle_log: CycleLog::new(),
-            data,
-            config,
-        }))
-    }
-
     fn validate_psi(&mut self) -> Result<()> {
         let mut psi = self.psi().matrix().to_owned();
         // First coerce all NaN and infinite in psi to 0.0

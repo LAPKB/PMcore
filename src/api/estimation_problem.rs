@@ -5,35 +5,12 @@ use serde::{Deserialize, Serialize};
 use crate::algorithms::Algorithm;
 use crate::api::error_models::ErrorModels;
 
-use crate::estimation::nonparametric::Prior;
+use crate::estimation::nonparametric::{Prior, Theta};
 use crate::model::{
     CovariateSpec, EquationMetadataSource, ModelDefinition, ModelDefinitionBuilder, ModelMetadata,
     Parameter, VariabilityModel,
 };
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct RuntimeOptions {
-    pub cycles: usize,
-    pub cache: bool,
-    pub progress: bool,
-    pub idelta: f64,
-    pub tad: f64,
-    pub prior: Option<Prior>,
-}
-
-impl Default for RuntimeOptions {
-    fn default() -> Self {
-        Self {
-            cycles: 100,
-            cache: true,
-            progress: true,
-            idelta: 0.12,
-            tad: 0.0,
-            prior: None,
-        }
-    }
-}
+use crate::results::FitResult;
 
 #[derive(Debug, Clone)]
 pub struct EstimationProblem<E: Equation> {
@@ -41,7 +18,6 @@ pub struct EstimationProblem<E: Equation> {
     pub(crate) data: Data,
     pub(crate) error_models: ErrorModels,
     pub(crate) algorithm: Algorithm,
-    pub(crate) runtime: RuntimeOptions,
 }
 
 impl<E: Equation> EstimationProblem<E> {
@@ -49,28 +25,26 @@ impl<E: Equation> EstimationProblem<E> {
         EstimationProblemBuilder {
             model: ModelDefinition::builder(equation),
             data,
-            runtime: Some(RuntimeOptions::default()),
         }
     }
 }
 
 impl<E: Equation + Clone + Send + 'static + EquationMetadataSource> EstimationProblem<E> {
-    pub fn fit(self) -> Result<crate::results::FitResult<E>> {
-        crate::api::fit(self)
+    pub fn fit(self) -> Result<FitResult<E>> {
+        !unimplemented!("fit method is not implemented yet")
     }
 
     pub fn fit_with_progress<F>(self, on_progress: F) -> Result<crate::results::FitResult<E>>
     where
         F: FnMut(crate::api::FitProgress),
     {
-        crate::api::fit_with_progress(self, on_progress)
+        !unimplemented!("fit method is not implemented yet")
     }
 }
 
 pub struct EstimationProblemBuilder<E: Equation> {
     model: ModelDefinitionBuilder<E>,
     data: Data,
-    runtime: Option<RuntimeOptions>,
 }
 
 impl<E: Equation> EstimationProblemBuilder<E> {
@@ -82,30 +56,6 @@ impl<E: Equation> EstimationProblemBuilder<E> {
         algorithm: impl Into<Algorithm>,
     ) -> NonparametricEstimationProblemBuilder<E> {
         NonparametricEstimationProblemBuilder::new(self, algorithm.into())
-    }
-
-    pub fn cycles(self, cycles: usize) -> Self {
-        self.with_runtime_options(|runtime| runtime.cycles = cycles)
-    }
-
-    pub fn cache(self, enabled: bool) -> Self {
-        self.with_runtime_options(|runtime| runtime.cache = enabled)
-    }
-
-    pub fn progress(self, enabled: bool) -> Self {
-        self.with_runtime_options(|runtime| runtime.progress = enabled)
-    }
-
-    pub fn idelta(self, value: f64) -> Self {
-        self.with_runtime_options(|runtime| runtime.idelta = value)
-    }
-
-    pub fn tad(self, value: f64) -> Self {
-        self.with_runtime_options(|runtime| runtime.tad = value)
-    }
-
-    pub fn prior(self, prior: Prior) -> Self {
-        self.with_runtime_options(|runtime| runtime.prior = Some(prior))
     }
 }
 
@@ -130,18 +80,11 @@ impl<E: Equation + EquationMetadataSource> EstimationProblemBuilder<E> {
         self,
         map: impl FnOnce(ModelDefinitionBuilder<E>) -> Result<ModelDefinitionBuilder<E>>,
     ) -> Result<Self> {
-        let EstimationProblemBuilder {
-            model,
-            data,
-
-            runtime,
-        } = self;
+        let EstimationProblemBuilder { model, data } = self;
 
         Ok(Self {
             model: map(model)?,
             data,
-
-            runtime,
         })
     }
 
@@ -149,26 +92,12 @@ impl<E: Equation + EquationMetadataSource> EstimationProblemBuilder<E> {
         self,
         map: impl FnOnce(ModelDefinitionBuilder<E>) -> ModelDefinitionBuilder<E>,
     ) -> Self {
-        let EstimationProblemBuilder {
-            model,
-            data,
-
-            runtime,
-        } = self;
+        let EstimationProblemBuilder { model, data } = self;
 
         Self {
             model: map(model),
             data,
-
-            runtime,
         }
-    }
-}
-
-impl<E: Equation> EstimationProblemBuilder<E> {
-    fn with_runtime_options(mut self, map: impl FnOnce(&mut RuntimeOptions)) -> Self {
-        map(self.runtime.get_or_insert_with(RuntimeOptions::default));
-        self
     }
 }
 
@@ -185,26 +114,6 @@ impl<E: Equation> NonparametricEstimationProblemBuilder<E> {
             algorithm,
             error_models: None,
         }
-    }
-
-    pub fn cache(self, enabled: bool) -> Self {
-        self.with_builder(|builder| builder.cache(enabled))
-    }
-
-    pub fn progress(self, enabled: bool) -> Self {
-        self.with_builder(|builder| builder.progress(enabled))
-    }
-
-    pub fn idelta(self, value: f64) -> Self {
-        self.with_builder(|builder| builder.idelta(value))
-    }
-
-    pub fn tad(self, value: f64) -> Self {
-        self.with_builder(|builder| builder.tad(value))
-    }
-
-    pub fn prior(self, prior: Prior) -> Self {
-        self.with_builder(|builder| builder.prior(prior))
     }
 
     fn with_builder(
@@ -268,7 +177,6 @@ impl<E: Equation + EquationMetadataSource> NonparametricEstimationProblemBuilder
             data: self.builder.data,
             error_models: ErrorModels::Nonparametric(error_models),
             algorithm: self.algorithm,
-            runtime: self.builder.runtime.unwrap_or_default(),
         })
     }
 
