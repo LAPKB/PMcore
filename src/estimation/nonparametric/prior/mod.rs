@@ -107,15 +107,15 @@ impl Default for Prior {
 
 pub fn read_prior(
     path: impl AsRef<str>,
-    parameters: NonParametricParameters,
+    parameters: &NonParametricParameters,
 ) -> Result<(Theta, Option<Weights>)> {
     let path = path.as_ref().to_string();
-    parse_prior_for_parameters(&path, parameters)
+    parse_prior_for_parameters(&path, &parameters)
 }
 
 pub(crate) fn parse_prior_for_parameters(
     path: &String,
-    parameters: NonParametricParameters,
+    parameters: &NonParametricParameters,
 ) -> Result<(Theta, Option<Weights>)> {
     tracing::info!("Reading prior from {}", path);
     let file = File::open(path).context(format!("Unable to open the prior file '{}'", path))?;
@@ -225,7 +225,7 @@ mod tests {
         let path = temp_csv_path();
         fs::write(&path, "v,ke,prob\n10.0,0.5,0.3\n15.0,0.7,0.7\n").unwrap();
 
-        let (theta, weights) = read_prior(&path, parameters()).unwrap();
+        let (theta, weights) = read_prior(&path, &parameters()).unwrap();
         let _ = fs::remove_file(&path);
 
         assert_eq!(theta.nspp(), 2);
@@ -243,7 +243,7 @@ mod tests {
         let path = temp_csv_path();
         fs::write(&path, "ke,v,extra\n0.5,10.0,1.0\n").unwrap();
 
-        let err = read_prior(&path, parameters()).unwrap_err();
+        let err = read_prior(&path, &parameters()).unwrap_err();
         let _ = fs::remove_file(&path);
 
         assert!(err

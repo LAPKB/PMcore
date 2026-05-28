@@ -28,13 +28,14 @@ fn main() -> Result<()> {
 
     let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
     EstimationProblem::builder(sde, data)
-        .parameter(Parameter::bounded("ke0", 0.001, 2.0))
-        .algorithm(Algorithm::NPAG(NpagConfig::default()))
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke0", 0.001, 2.0))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
         )
-        .fit()
+        .build()?
+        .fit_with(NpagConfig::default())
         .unwrap();
 
     Ok(())

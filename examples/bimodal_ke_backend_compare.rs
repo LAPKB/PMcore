@@ -203,14 +203,15 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
     let data = data::read_pmetrics(DATA_PATH)?;
     let fit_started = Instant::now();
     let result = EstimationProblem::builder(equation, data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .algorithm(Algorithm::NPAG(NpagConfig::default()))
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
+        .parameter(BoundedParameter::new("v", 25.0, 250.0))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
-        .fit()?;
+        .build()?
+        .fit_with(NpagConfig::default())?;
     let fit_time = fit_started.elapsed();
 
     summarize_result(label, compile_time, fit_time, &result)
@@ -220,12 +221,8 @@ fn summarize_result<E: pharmsol::Equation>(
     label: &'static str,
     compile_time: Duration,
     fit_time: Duration,
-    result: &FitResult<E>,
+    result: &NonParametricResult<E>,
 ) -> Result<ComparisonResult> {
-    result
-        .as_nonparametric()
-        .ok_or_else(|| anyhow!("expected nonparametric result for {label}"))?;
-
     Ok(ComparisonResult {
         label,
         compile_time,

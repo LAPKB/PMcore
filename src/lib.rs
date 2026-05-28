@@ -58,14 +58,16 @@ pub mod prelude {
     pub use super::Result;
     pub use crate::algorithms;
     pub use crate::algorithms::Algorithm;
+    pub use crate::algorithms::Fitter;
 
-    pub use crate::model::parameter_space::{
-        BoundedParameter, NonParametricParameters, ParametricParameters, UnboundedParameter,
-    };
-
+    pub use crate::api::NonParametric;
     pub use crate::api::{
         ErrorModels, EstimationProblem, FitProgress, NonparametricCycleProgress, NpagConfig,
         NpmapConfig, NpodConfig,
+    };
+
+    pub use crate::model::parameter_space::{
+        BoundedParameter, NonParametricParameters, ParametricParameters, UnboundedParameter,
     };
 
     pub use crate::estimation::nonparametric::{

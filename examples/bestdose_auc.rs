@@ -28,9 +28,9 @@ fn main() -> Result<()> {
     };
 
     // Minimal parameter ranges
-    let parameter_space = ParameterSpace::new()
-        .add(Parameter::bounded("ke", 0.001, 3.0))
-        .add(Parameter::bounded("v", 25.0, 250.0));
+    let parameter_space = NonParametricParameters::new()
+        .add(BoundedParameter::new("ke", 0.001, 3.0))
+        .add(BoundedParameter::new("v", 25.0, 250.0));
 
     let ems = AssayErrorModels::new().add(
         0,

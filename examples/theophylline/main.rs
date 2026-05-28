@@ -17,14 +17,16 @@ fn main() {
 
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
     EstimationProblem::builder(analytical, data)
-        .parameter(Parameter::bounded("ka", 0.001, 3.0))
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 0.001, 50.0))
-        .algorithm(Algorithm::NPAG(NpagConfig::default()))
+        .nonparametric()
+        .parameter(BoundedParameter::new("ka", 0.001, 3.0))
+        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
+        .parameter(BoundedParameter::new("v", 0.001, 50.0))
         .error(
             "outeq_0",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
         )
-        .fit()
+        .build()
+        .unwrap()
+        .fit_with(NpagConfig::default())
         .unwrap();
 }

@@ -2,8 +2,6 @@ use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use pmcore::{
     algorithms::{Algorithm, Fitter},
-    api::NonParametric,
-    model::BoundedParameter,
     prelude::*,
 };
 

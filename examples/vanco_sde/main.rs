@@ -49,17 +49,19 @@ fn main() {
 
     let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
     EstimationProblem::builder(sde, data)
-        .parameter(Parameter::bounded("ka", 0.0001, 2.4))
-        .parameter(Parameter::bounded("ke0", 0.0001, 2.7))
-        .parameter(Parameter::bounded("kcp", 0.0001, 2.4))
-        .parameter(Parameter::bounded("kpc", 0.0001, 2.4))
-        .parameter(Parameter::bounded("vol", 0.2, 12.0))
-        .parameter(Parameter::bounded("ske", 0.0001, 0.2))
-        .algorithm(Algorithm::NPAG(NpagConfig::default()))
+        .nonparametric()
+        .parameter(BoundedParameter::new("ka", 0.0001, 2.4))
+        .parameter(BoundedParameter::new("ke0", 0.0001, 2.7))
+        .parameter(BoundedParameter::new("kcp", 0.0001, 2.4))
+        .parameter(BoundedParameter::new("kpc", 0.0001, 2.4))
+        .parameter(BoundedParameter::new("vol", 0.2, 12.0))
+        .parameter(BoundedParameter::new("ske", 0.0001, 0.2))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
         )
-        .fit()
+        .build()
+        .unwrap()
+        .fit_with(NpagConfig::default())
         .unwrap();
 }

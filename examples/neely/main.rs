@@ -48,17 +48,17 @@ fn main() {
 
     let data = data::read_pmetrics("examples/neely/data.csv").unwrap();
     EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("cls", 0.0, 0.4))
-        .parameter(Parameter::bounded("k30", 0.0, 0.5))
-        .parameter(Parameter::bounded("k40", 0.3, 1.5))
-        .parameter(Parameter::bounded("qs", 0.0, 0.5))
-        .parameter(Parameter::bounded("vps", 0.0, 5.0))
-        .parameter(Parameter::bounded("vs", 0.0, 2.0))
-        .parameter(Parameter::bounded("fm1", 0.0, 0.2))
-        .parameter(Parameter::bounded("fm2", 0.0, 0.1))
-        .parameter(Parameter::bounded("theta1", -4.0, 2.0))
-        .parameter(Parameter::bounded("theta2", -2.0, 0.5))
-        .algorithm(Algorithm::NPAG(NpagConfig::default()))
+        .nonparametric()
+        .parameter(BoundedParameter::new("cls", 0.0, 0.4))
+        .parameter(BoundedParameter::new("k30", 0.0, 0.5))
+        .parameter(BoundedParameter::new("k40", 0.3, 1.5))
+        .parameter(BoundedParameter::new("qs", 0.0, 0.5))
+        .parameter(BoundedParameter::new("vps", 0.0, 5.0))
+        .parameter(BoundedParameter::new("vs", 0.0, 2.0))
+        .parameter(BoundedParameter::new("fm1", 0.0, 0.2))
+        .parameter(BoundedParameter::new("fm2", 0.0, 0.1))
+        .parameter(BoundedParameter::new("theta1", -4.0, 2.0))
+        .parameter(BoundedParameter::new("theta2", -2.0, 0.5))
         .error(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
@@ -71,6 +71,8 @@ fn main() {
             "outeq_3",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
-        .fit()
+        .build()
+        .unwrap()
+        .fit_with(NpagConfig::default())
         .unwrap();
 }
