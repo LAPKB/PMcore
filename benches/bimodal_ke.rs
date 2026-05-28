@@ -33,30 +33,30 @@ fn load_data() -> Result<data::Data> {
 fn setup_npag() -> Result<EstimationProblem<equation::ODE>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .algorithm(Algorithm::NPAG(NpagConfig::default()))
-        .error("outeq_1", create_error_model())?
+        .error("outeq_1", create_error_model())
         .build()
 }
 
 fn setup_npod() -> Result<EstimationProblem<equation::ODE>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .algorithm(Algorithm::NPOD(NpodConfig::default()))
-        .error("outeq_1", create_error_model())?
+        .error("outeq_1", create_error_model())
         .build()
 }
 
 fn setup_postprob() -> Result<EstimationProblem<equation::ODE>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .algorithm(Algorithm::NPMAP(NpmapConfig::default()))
-        .error("outeq_1", create_error_model())?
+        .error("outeq_1", create_error_model())
         .build()
 }
 
