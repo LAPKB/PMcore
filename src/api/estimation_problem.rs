@@ -34,8 +34,6 @@ impl<E: Equation + Clone + Send + 'static + EquationMetadataSource> EstimationPr
     }
 }
 
-// --- The Unified Builder ---
-
 pub struct EstimationProblemBuilder<E: Equation> {
     model: ModelBuilder<E>,
     data: Data,
@@ -79,7 +77,7 @@ impl<E: Equation> EstimationProblemBuilder<E> {
 }
 
 impl<E: Equation + EquationMetadataSource> EstimationProblemBuilder<E> {
-    /// Validates all parameters and constructs the problem.
+    /// Validates all parameters and constructs the problem
     pub fn build(self) -> Result<EstimationProblem<E>> {
         let algorithm = self
             .algorithm
@@ -116,8 +114,8 @@ impl<E: Equation + EquationMetadataSource> EstimationProblemBuilder<E> {
 }
 
 impl<E: Equation + Clone + Send + 'static + EquationMetadataSource> EstimationProblemBuilder<E> {
+    /// Attempts to build the problem and immediately fit it
     pub fn fit(self) -> Result<crate::results::FitResult<E>> {
-        // Automatically builds and executes
         self.build()?.fit()
     }
 }
