@@ -3,30 +3,23 @@ use pharmsol::{
     AssayErrorModel, AssayErrorModels, Data, Equation, ResidualErrorModel, ResidualErrorModels,
 };
 
-use crate::algorithms::Algorithm;
-use crate::api::error_models::ErrorModels;
-
 use crate::model::parameter_space::{
     BoundedParameter, NonParametricParameters, ParametricParameters, UnboundedParameter,
 };
-use crate::model::{EquationMetadataSource, Model, ModelBuilder, ParameterSpace};
-use crate::results::FitResult;
+use crate::model::{EquationMetadataSource, Model, ModelBuilder};
 
-// 1. The Markers
 pub trait Framework {
     type ErrorModels;
     type Parameters;
 }
 pub struct Parametric;
 impl Framework for Parametric {
-    // When we are Parametric, it strictly uses the parametric version
     type ErrorModels = ResidualErrorModels;
     type Parameters = ParametricParameters;
 }
 pub struct NonParametric;
 
 impl Framework for NonParametric {
-    // When we are Non-Parametric, the error model type is strictly AssayErrorModels
     type ErrorModels = AssayErrorModels;
     type Parameters = NonParametricParameters;
 }
@@ -45,7 +38,6 @@ pub struct EstimationProblemBuilder<E: Equation> {
 }
 
 impl<E: Equation> EstimationProblemBuilder<E> {
-    /// Fork into a strictly Non-Parametric problem definition
     pub fn nonparametric(self) -> NonParametricBuilder<E> {
         NonParametricBuilder {
             model: self.model,
@@ -55,7 +47,6 @@ impl<E: Equation> EstimationProblemBuilder<E> {
         }
     }
 
-    /// Fork into a strictly Parametric problem definition
     pub fn parametric(self) -> ParametricBuilder<E> {
         ParametricBuilder {
             model: self.model,
@@ -67,8 +58,6 @@ impl<E: Equation> EstimationProblemBuilder<E> {
 }
 
 impl<E: Equation> EstimationProblem<E, NonParametric> {
-    /// Starts building an estimation problem.
-    /// Note: You must call `.nonparametric()` or `.parametric()` to proceed.
     pub fn builder(equation: E, data: Data) -> EstimationProblemBuilder<E> {
         EstimationProblemBuilder {
             model: Model::builder(equation),
@@ -131,7 +120,7 @@ impl<E: Equation + EquationMetadataSource> NonParametricBuilder<E> {
         Ok(EstimationProblem {
             model: self.model.build()?,
             data: self.data,
-            error_models: all_errors, // Strongly typed as AssayErrorModels!
+            error_models: all_errors,
             parameters: self.parameters,
         })
     }
