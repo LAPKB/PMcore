@@ -1,5 +1,5 @@
-use crate::algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason};
-use crate::api::EstimationProblem;
+use crate::algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason};
+use crate::api::{EstimationProblem, NonParametric};
 use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta, Weights,
 };
@@ -7,6 +7,9 @@ use crate::model::ParameterSpace;
 
 pub(crate) use crate::estimation::nonparametric::ipm::burke;
 pub(crate) use crate::estimation::nonparametric::qr;
+use crate::results::FitResult;
+
+use crate::model::parameter_space::NonParametricParameters;
 
 use anyhow::bail;
 use anyhow::Result;
@@ -154,14 +157,14 @@ impl<E: Equation + Send + 'static> NPAG<E> {
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
-        parameter_space: &ParameterSpace,
+        parameters: &NonParametricParameters,
         config: NpagConfig,
-    ) -> Result<Box<Self>> {
-        let ranges = parameter_space.finite_ranges()?;
+    ) -> Result<Self> {
+        let ranges = parameters.finite_ranges();
         let gamma_delta = vec![config.error_step; error_models.len()];
         let eps = config.eps;
 
-        Ok(Box::new(Self {
+        Ok(Self {
             equation,
             ranges,
             psi: Psi::new(),
@@ -180,7 +183,7 @@ impl<E: Equation + Send + 'static> NPAG<E> {
             cycle_log: CycleLog::new(),
             data,
             config,
-        }))
+        })
     }
 }
 
@@ -200,7 +203,6 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
             self.cycle,
             self.status.clone(),
             self.cycle_log.clone(),
-            Algorithm::NPAG(NpagConfig::default()),
         )
     }
 
@@ -503,6 +505,33 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
         );
         self.cycle_log.push(state);
         self.last_objf = self.objf;
+    }
+}
+
+// 1. Tell the compiler that NpagConfig is a Non-Parametric Algorithm
+impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpagConfig {
+    type Runner = NPAG<E>;
+
+    fn build_runner(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Runner> {
+        // Here, problem.parameters is strictly NonParametricParameters
+        // and problem.error_models is strictly AssayErrorModels!
+
+        NPAG::from_parts(
+            problem.model.equation.clone(),
+            problem.data.clone(),
+            problem.error_models.clone(),
+            &problem.parameters,
+            self,
+        )
+    }
+}
+
+impl<E: Equation + Send + 'static> Fitter<E> for NPAG<E> {
+    type Output = NonParametricResult<E>;
+
+    fn fit(mut self) -> anyhow::Result<Self::Output> {
+        // Run NPAG...
+        self.into_workspace() // Returns NonParametricResult<E>
     }
 }
 

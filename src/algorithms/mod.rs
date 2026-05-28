@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::Path;
 
+use crate::api::{EstimationProblem, Framework};
 use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta};
+use crate::results::FitResult;
 
 use anyhow::Context;
 use anyhow::Result;
@@ -14,66 +16,47 @@ use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
 use serde::{Deserialize, Serialize};
 
+/// Defines an algorithm capable of building an execution engine
+pub trait Algorithm<E: Equation, F: crate::api::Framework> {
+    /// The strictly-typed runner struct (e.g., `NPAG<E>`)
+    type Runner;
+
+    /// Consumes the configuration and the problem to fully hydrate the runner state.
+    fn build_runner(self, problem: EstimationProblem<E, F>) -> Result<Self::Runner>;
+}
+
+/// A trait for runners that can be executed to produce a fit result
+pub trait Fitter<E: Equation> {
+    /// The specific result struct (e.g., NonParametricResult<E>)
+    type Output: FitResult;
+
+    /// Executes the optimization and returns the strictly-typed metrics.
+    fn fit(self) -> anyhow::Result<Self::Output>;
+}
+
 // Module organization for algorithm types
 pub mod nonparametric;
 pub mod parametric;
 
-/// Algorithm type enumeration
-///
-/// Lists every estimation algorithm implemented in `PMcore` together with its
-/// configuration payload. Convert from a configuration struct via [`From`]
-/// (e.g. `Algorithm::from(Npag::new())`) or pass the configuration directly to
-/// [`EstimationProblemBuilder::method`](crate::api::EstimationProblemBuilder::method).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Algorithm {
-    /// Non-Parametric Adaptive Grid
-    NPAG(NpagConfig),
-    /// Non-Parametric Optimal Design
-    NPOD(NpodConfig),
-    /// Non-parametric Maximum a Posteriori probability reweighting
-    NPMAP(NpmapConfig),
-}
-
-impl Algorithm {
-    /// Check if this is a non-parametric algorithm
-    pub fn is_nonparametric(&self) -> bool {
-        matches!(
-            self,
-            Algorithm::NPAG(_) | Algorithm::NPOD(_) | Algorithm::NPMAP(_)
-        )
+impl<E: Equation, F: Framework> EstimationProblem<E, F> {
+    /// The "Swap and Fit" API:
+    /// Consumes the problem and the algorithm configuration, builds the engine,
+    /// and runs it to completion automatically.
+    pub fn fit_with<A>(self, algorithm: A) -> anyhow::Result<<A::Runner as Fitter<E>>::Output>
+    where
+        A: Algorithm<E, F>,
+        A::Runner: Fitter<E>,
+    {
+        algorithm.build_runner(self)?.fit()
     }
-
-    /// Short identifier (e.g. `"NPAG"`) suitable for logs and reports.
-    pub fn name(&self) -> &'static str {
-        match self {
-            Algorithm::NPAG(_) => "NPAG",
-            Algorithm::NPOD(_) => "NPOD",
-            Algorithm::NPMAP(_) => "NPMAP",
-        }
-    }
-}
-
-impl std::fmt::Display for Algorithm {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl From<NpagConfig> for Algorithm {
-    fn from(value: NpagConfig) -> Self {
-        Algorithm::NPAG(value)
-    }
-}
-
-impl From<NpodConfig> for Algorithm {
-    fn from(value: NpodConfig) -> Self {
-        Algorithm::NPOD(value)
-    }
-}
-
-impl From<NpmapConfig> for Algorithm {
-    fn from(value: NpmapConfig) -> Self {
-        Algorithm::NPMAP(value)
+    /// The "Extract Structure" API:
+    /// Consumes the problem and configuration, returning the strictly-typed
+    /// execution runner (e.g., `NPAG<E>`) for advanced inspection.
+    pub fn runner<A>(self, algorithm: A) -> Result<A::Runner>
+    where
+        A: Algorithm<E, F>,
+    {
+        algorithm.build_runner(self)
     }
 }
 

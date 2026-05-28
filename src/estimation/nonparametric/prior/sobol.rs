@@ -3,16 +3,11 @@ use faer::Mat;
 use sobol_burley::sample;
 
 use crate::estimation::nonparametric::Theta;
-use crate::model::ParameterSpace;
+use crate::model::NonParametricParameters;
 
-pub fn generate(
-    parameters: impl Into<ParameterSpace>,
-    points: usize,
-    seed: usize,
-) -> Result<Theta> {
-    let parameters = parameters.into();
+pub fn generate(parameters: &NonParametricParameters, points: usize, seed: usize) -> Result<Theta> {
     let seed = seed as u32;
-    let ranges = parameters.finite_ranges()?;
+    let ranges = parameters.finite_ranges();
 
     let rand_matrix = Mat::from_fn(points, ranges.len(), |i, j| {
         let unscaled = sample((i).try_into().unwrap(), j.try_into().unwrap(), seed) as f64;
@@ -26,14 +21,14 @@ pub fn generate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Parameter, ParameterSpace};
+    use crate::model::BoundedParameter;
 
     #[test]
     fn sobol_generate_produces_requested_shape() {
-        let params = ParameterSpace::new()
-            .add(Parameter::bounded("a", 0.0, 1.0))
-            .add(Parameter::bounded("b", 0.0, 1.0))
-            .add(Parameter::bounded("c", 0.0, 1.0));
+        let params = NonParametricParameters::new()
+            .add(BoundedParameter::new("a", 0.0, 1.0))
+            .add(BoundedParameter::new("b", 0.0, 1.0))
+            .add(BoundedParameter::new("c", 0.0, 1.0));
 
         let theta = generate(&params, 10, 22).unwrap();
         assert_eq!(theta.nspp(), 10);

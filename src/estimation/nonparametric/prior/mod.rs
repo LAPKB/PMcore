@@ -1,7 +1,7 @@
 use std::fs::File;
 
 use crate::estimation::nonparametric::{Theta, Weights};
-use crate::model::{ParameterDomain, ParameterSpace};
+use crate::model::{NonParametricParameters, ParameterDomain, ParameterSpace};
 use anyhow::{bail, Context, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
@@ -73,50 +73,28 @@ impl Prior {
         }
     }
 
-    pub fn theta(&self, parameters: ParameterSpace) -> Result<Theta> {
-        let parameter_space: ParameterSpace = parameters.into();
-
-        for parameter in parameter_space.iter() {
-            let (lower, upper) = match parameter.domain {
-                ParameterDomain::Bounded { lower, upper } => (lower, upper),
-                ParameterDomain::Positive {
-                    lower: Some(lower),
-                    upper: Some(upper),
-                }
-                | ParameterDomain::Unbounded {
-                    lower: Some(lower),
-                    upper: Some(upper),
-                } => (lower, upper),
-                _ => bail!(
-                "Parameter '{}' is missing finite bounds required for nonparametric initialization",
-                parameter.name
-            ),
-            };
-
-            if lower.is_infinite() || upper.is_infinite() {
+    pub fn theta(&self, parameters: &NonParametricParameters) -> Result<Theta> {
+        // 1. Validation is mostly gone! We just check logic, not type structure.
+        for parameter in parameters.iter() {
+            if parameter.lower >= parameter.upper {
                 bail!(
-                    "Parameter '{}' has infinite bounds: [{}, {}]",
+                    "Parameter '{}' has invalid bounds: [{}, {}]. Lower bound must be less than upper bound.",
                     parameter.name,
-                    lower,
-                    upper
+                    parameter.lower,
+                    parameter.upper
                 );
-            }
-
-            if lower >= upper {
-                bail!(
-                "Parameter '{}' has invalid bounds: [{}, {}]. Lower bound must be less than upper bound.",
-                parameter.name,
-                lower,
-                upper
-            );
             }
         }
 
+        // 2. Generation
+        // Note: You will need to update `sobol::generate` and `latin::generate`
+        // in their respective modules to accept `&NonParametricParameters`.
         let prior = match self {
-            Prior::Sobol(points, seed) => sobol::generate(&parameter_space, *points, *seed)?,
-            Prior::Latin(points, seed) => latin::generate(&parameter_space, *points, *seed)?,
-            Prior::Theta(theta) => return Ok(theta.clone()),
+            Prior::Sobol(points, seed) => sobol::generate(parameters, *points, *seed)?,
+            Prior::Latin(points, seed) => latin::generate(parameters, *points, *seed)?,
+            Prior::Theta(theta) => theta.clone(),
         };
+
         Ok(prior)
     }
 }
@@ -129,7 +107,7 @@ impl Default for Prior {
 
 pub fn read_prior(
     path: impl AsRef<str>,
-    parameters: impl Into<ParameterSpace>,
+    parameters: NonParametricParameters,
 ) -> Result<(Theta, Option<Weights>)> {
     let path = path.as_ref().to_string();
     parse_prior_for_parameters(&path, parameters)
@@ -137,9 +115,8 @@ pub fn read_prior(
 
 pub(crate) fn parse_prior_for_parameters(
     path: &String,
-    parameters: impl Into<ParameterSpace>,
+    parameters: NonParametricParameters,
 ) -> Result<(Theta, Option<Weights>)> {
-    let parameters = parameters.into();
     tracing::info!("Reading prior from {}", path);
     let file = File::open(path).context(format!("Unable to open the prior file '{}'", path))?;
     let mut reader = csv::ReaderBuilder::new()
@@ -223,13 +200,13 @@ pub(crate) fn parse_prior_for_parameters(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Parameter, ParameterSpace};
+    use crate::model::BoundedParameter;
     use std::fs;
 
-    fn parameter_space() -> ParameterSpace {
-        ParameterSpace::new()
-            .add(Parameter::bounded("ke", 0.1, 1.0))
-            .add(Parameter::bounded("v", 5.0, 50.0))
+    fn parameters() -> NonParametricParameters {
+        NonParametricParameters::new()
+            .add(BoundedParameter::new("ke", 0.1, 1.0))
+            .add(BoundedParameter::new("v", 5.0, 50.0))
     }
 
     fn temp_csv_path() -> String {
@@ -238,7 +215,7 @@ mod tests {
 
     #[test]
     fn sample_space_generates_expected_shape() {
-        let theta = Prior::sobol(10, 42).theta(parameter_space()).unwrap();
+        let theta = Prior::sobol(10, 42).theta(&parameters()).unwrap();
         assert_eq!(theta.nspp(), 10);
         assert_eq!(theta.matrix().ncols(), 2);
     }
@@ -248,7 +225,7 @@ mod tests {
         let path = temp_csv_path();
         fs::write(&path, "v,ke,prob\n10.0,0.5,0.3\n15.0,0.7,0.7\n").unwrap();
 
-        let (theta, weights) = read_prior(&path, parameter_space()).unwrap();
+        let (theta, weights) = read_prior(&path, parameters()).unwrap();
         let _ = fs::remove_file(&path);
 
         assert_eq!(theta.nspp(), 2);
@@ -266,7 +243,7 @@ mod tests {
         let path = temp_csv_path();
         fs::write(&path, "ke,v,extra\n0.5,10.0,1.0\n").unwrap();
 
-        let err = read_prior(&path, parameter_space()).unwrap_err();
+        let err = read_prior(&path, parameters()).unwrap_err();
         let _ = fs::remove_file(&path);
 
         assert!(err

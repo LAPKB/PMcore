@@ -1,62 +1,61 @@
 use pharmsol::Equation;
 
-use crate::estimation::nonparametric;
 use crate::estimation::nonparametric::NonParametricResult;
-
 use crate::results::{FitSummary, IndividualSummary, PopulationSummary};
 
+/// A shared trait for the output of any estimation algorithm.
+pub trait FitResult {
+    fn objf(&self) -> f64;
+    fn converged(&self) -> bool;
+    fn summary(&self) -> FitSummary;
+    fn population_summary(&self) -> PopulationSummary;
+    fn individual_summaries(&self) -> Vec<IndividualSummary>;
+}
+
+// Placeholder for your future Parametric implementation
 #[derive(Debug)]
 pub struct ParametricResult<E: Equation> {
-    // Placeholder for future implementation
     _phantom: std::marker::PhantomData<E>,
 }
 
-#[derive(Debug)]
-pub enum FitResult<E: Equation> {
-    Nonparametric(NonParametricResult<E>),
-    Parametric(ParametricResult<E>),
+impl<E: Equation> FitResult for ParametricResult<E> {
+    fn objf(&self) -> f64 {
+        unimplemented!("Parametric result not yet implemented")
+    }
+    fn converged(&self) -> bool {
+        unimplemented!()
+    }
+    fn summary(&self) -> FitSummary {
+        unimplemented!()
+    }
+    fn population_summary(&self) -> PopulationSummary {
+        unimplemented!()
+    }
+    fn individual_summaries(&self) -> Vec<IndividualSummary> {
+        unimplemented!()
+    }
 }
 
-impl<E: Equation> FitResult<E> {
-    pub fn objf(&self) -> f64 {
-        match self {
-            Self::Nonparametric(result) => result.objf(),
-            _ => unimplemented!(), // Placeholder for ParametricResult
-        }
+use crate::estimation::nonparametric;
+
+impl<E: Equation> FitResult for NonParametricResult<E> {
+    fn objf(&self) -> f64 {
+        self.objf() // Assuming the struct has this native method
     }
 
-    pub fn converged(&self) -> bool {
-        match self {
-            Self::Nonparametric(result) => result.converged(),
-            _ => unimplemented!(), // Placeholder for ParametricResult
-        }
+    fn converged(&self) -> bool {
+        self.converged() // Assuming the struct has this native method
     }
 
-    pub fn summary(&self) -> FitSummary {
-        match self {
-            Self::Nonparametric(result) => nonparametric::fit_summary(result),
-            _ => unimplemented!(), // Placeholder for ParametricResult
-        }
+    fn summary(&self) -> FitSummary {
+        nonparametric::fit_summary(self)
     }
 
-    pub fn population_summary(&self) -> PopulationSummary {
-        match self {
-            Self::Nonparametric(result) => nonparametric::population_summary(result),
-            _ => unimplemented!(), // Placeholder for ParametricResult
-        }
+    fn population_summary(&self) -> PopulationSummary {
+        nonparametric::population_summary(self)
     }
 
-    pub fn individual_summaries(&self) -> Vec<IndividualSummary> {
-        match self {
-            Self::Nonparametric(result) => nonparametric::individual_summaries(result),
-            _ => unimplemented!(), // Placeholder for ParametricResult
-        }
-    }
-
-    pub fn as_nonparametric(&self) -> Option<&NonParametricResult<E>> {
-        match self {
-            Self::Nonparametric(result) => Some(result),
-            _ => unimplemented!(), // Placeholder for ParametricResult
-        }
+    fn individual_summaries(&self) -> Vec<IndividualSummary> {
+        nonparametric::individual_summaries(self)
     }
 }

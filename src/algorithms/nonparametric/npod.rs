@@ -1,11 +1,11 @@
-use crate::algorithms::{NonParametricAlgorithm, StopReason};
-use crate::api::EstimationProblem;
-use crate::estimation::nonparametric::ipm::burke;
-use crate::estimation::nonparametric::qr;
-use crate::estimation::nonparametric::{
-    calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
+use crate::{
+    algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason},
+    api::{EstimationProblem, NonParametric},
+    estimation::nonparametric::{
+        calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
+    },
+    model::parameter_space::NonParametricParameters,
 };
-use crate::{algorithms::Status, prelude::algorithms::Algorithm};
 use pharmsol::ParameterOptimizer;
 
 use anyhow::bail;
@@ -42,6 +42,16 @@ impl NpodConfig {
             progress: false,
         }
     }
+
+    pub fn max_cycles(mut self, cycles: usize) -> Self {
+        self.max_cycles = cycles;
+        self
+    }
+
+    pub fn prior(mut self, prior: Theta) -> Self {
+        self.prior = prior;
+        self
+    }
 }
 
 pub struct NPOD<E: Equation + Send + 'static> {
@@ -62,6 +72,78 @@ pub struct NPOD<E: Equation + Send + 'static> {
     config: NpodConfig,
 }
 
+impl<E: Equation + Send + 'static> NPOD<E> {
+    pub(crate) fn from_parts(
+        equation: E,
+        data: Data,
+        error_models: AssayErrorModels,
+        _parameters: &NonParametricParameters, // Kept for trait symmetry, even if NPOD uses config.prior directly
+        config: NpodConfig,
+    ) -> Result<Self> {
+        let gamma_delta = vec![0.1; error_models.len()];
+
+        Ok(Self {
+            equation,
+            psi: Psi::new(),
+            theta: config.prior.clone(), // Initialize grid from config
+            lambda: Weights::default(),
+            w: Weights::default(),
+            last_objf: -1e30,
+            objf: f64::NEG_INFINITY,
+            cycle: 0,
+            gamma_delta,
+            error_models,
+            converged: false,
+            status: Status::Continue,
+            cycle_log: CycleLog::new(),
+            data,
+            config,
+        })
+    }
+
+    fn validate_psi(&mut self) -> Result<()> {
+        let mut psi = self.psi().matrix().to_owned();
+        // First coerce all NaN and infinite in psi to 0.0
+        let mut has_bad_values = false;
+        for i in 0..psi.nrows() {
+            for j in 0..psi.ncols() {
+                let val = psi[(i, j)];
+                if val.is_nan() || val.is_infinite() {
+                    has_bad_values = true;
+                    psi[(i, j)] = 0.0;
+                }
+            }
+        }
+        if has_bad_values {
+            tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
+        }
+
+        // Calculate row sums and check for zero-probability subjects
+        let nrows = psi.nrows();
+        let ncols = psi.ncols();
+        let indices: Vec<usize> = (0..nrows)
+            .filter(|&i| {
+                let row_sum: f64 = (0..ncols).map(|j| psi[(i, j)]).sum();
+                let w: f64 = 1.0 / row_sum;
+                w.is_nan() || w.is_infinite()
+            })
+            .collect();
+
+        // If any elements in `w` are NaN or infinite, return the subject IDs for each index
+        if !indices.is_empty() {
+            let subject: Vec<&Subject> = self.data.subjects();
+            let zero_probability_subjects: Vec<&String> =
+                indices.iter().map(|&i| subject[i].id()).collect();
+
+            return Err(anyhow::anyhow!(
+                "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects
+            ));
+        }
+
+        Ok(())
+    }
+}
+
 impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
     fn into_workspace(&self) -> Result<NonParametricResult<E>> {
         NonParametricResult::new(
@@ -74,7 +156,6 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
             self.cycle,
             self.status.clone(),
             self.cycle_log.clone(),
-            Algorithm::NPOD(NpodConfig::default()),
         )
     }
 
@@ -367,76 +448,47 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
     }
 }
 
-impl<E: Equation + Send + 'static> NPOD<E> {
-    pub(crate) fn from_input(input: EstimationProblem<E>) -> Result<Box<Self>> {
-        let config = match input.algorithm.clone() {
-            Algorithm::NPOD(config) => config,
-            other => unreachable!(
-                "NPOD::from_input requires an NPOD algorithm, got {}",
-                other.name()
-            ),
-        };
-        let error_models = input.error_models.models().clone();
-        let gamma_delta = vec![0.1; error_models.len()];
+// ==============================================================================
+// STRATEGY / ENGINE PIPELINE
+// ==============================================================================
 
-        Ok(Box::new(Self {
-            equation: input.model.equation,
-            psi: Psi::new(),
-            theta: Theta::new(),
-            lambda: Weights::default(),
-            w: Weights::default(),
-            last_objf: -1e30,
-            objf: f64::NEG_INFINITY,
-            cycle: 0,
-            gamma_delta,
-            error_models,
-            converged: false,
-            status: Status::Continue,
-            cycle_log: CycleLog::new(),
-            data: input.data,
-            config,
-        }))
+impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpodConfig {
+    type Runner = NPOD<E>;
+
+    fn build_runner(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Runner> {
+        NPOD::from_parts(
+            problem.model.equation,
+            problem.data,
+            problem.error_models,
+            &problem.parameters,
+            self,
+        )
     }
+}
 
-    fn validate_psi(&mut self) -> Result<()> {
-        let mut psi = self.psi().matrix().to_owned();
-        // First coerce all NaN and infinite in psi to 0.0
-        let mut has_bad_values = false;
-        for i in 0..psi.nrows() {
-            for j in 0..psi.ncols() {
-                let val = psi[(i, j)];
-                if val.is_nan() || val.is_infinite() {
-                    has_bad_values = true;
-                    psi[(i, j)] = 0.0;
-                }
+impl<E: Equation + Send + 'static> Fitter<E> for NPOD<E> {
+    type Output = NonParametricResult<E>;
+
+    fn fit(mut self) -> Result<Self::Output> {
+        // Standard iterative execution loop for non-parametric evaluation
+        self.increment_cycle();
+        self.estimation()?;
+
+        loop {
+            let status = self.evaluation()?;
+            if let Status::Stop(_) = status {
+                break;
             }
-        }
-        if has_bad_values {
-            tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
-        }
 
-        // Calculate row sums and check for zero-probability subjects
-        let nrows = psi.nrows();
-        let ncols = psi.ncols();
-        let indices: Vec<usize> = (0..nrows)
-            .filter(|&i| {
-                let row_sum: f64 = (0..ncols).map(|j| psi[(i, j)]).sum();
-                let w: f64 = 1.0 / row_sum;
-                w.is_nan() || w.is_infinite()
-            })
-            .collect();
+            self.condensation()?;
+            self.expansion()?;
+            self.optimizations()?;
 
-        // If any elements in `w` are NaN or infinite, return the subject IDs for each index
-        if !indices.is_empty() {
-            let subject: Vec<&Subject> = self.data.subjects();
-            let zero_probability_subjects: Vec<&String> =
-                indices.iter().map(|&i| subject[i].id()).collect();
-
-            return Err(anyhow::anyhow!(
-                "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects
-            ));
+            self.increment_cycle();
+            self.estimation()?;
         }
 
-        Ok(())
+        // Return the strictly-typed NonParametricResult
+        self.into_workspace()
     }
 }

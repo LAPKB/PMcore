@@ -8,3 +8,7 @@ pub use error_models::ErrorModels;
 pub use estimation_problem::{EstimationProblem, EstimationProblemBuilder};
 
 pub use progress::{FitProgress, NonparametricCycleProgress};
+
+pub use estimation_problem::Framework;
+pub use estimation_problem::NonParametric;
+pub use estimation_problem::Parametric;

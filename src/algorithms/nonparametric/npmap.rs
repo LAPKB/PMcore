@@ -1,29 +1,43 @@
 use crate::{
-    algorithms::{NonParametricAlgorithm, Status, StopReason},
-    api::EstimationProblem,
+    algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason},
+    api::{EstimationProblem, NonParametric},
     estimation::nonparametric::{
-        calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
+        calculate_psi, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta, Weights,
     },
-    prelude::algorithms::Algorithm,
+    model::parameter_space::NonParametricParameters,
 };
-use anyhow::{Context, Result};
 
+use anyhow::{Context, Result};
 use pharmsol::prelude::{
     data::{AssayErrorModels, Data},
     simulator::Equation,
 };
 
 use crate::estimation::nonparametric::ipm::burke;
-
 use serde::{Deserialize, Serialize};
 
 /// Configuration options for the posterior probability reweighting algorithm.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NpmapConfig;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NpmapConfig {
+    pub prior: Prior,
+}
+
+impl Default for NpmapConfig {
+    fn default() -> Self {
+        Self {
+            prior: Prior::default(),
+        }
+    }
+}
 
 impl NpmapConfig {
     pub fn new() -> Self {
-        Self
+        Self::default()
+    }
+
+    pub fn prior(mut self, prior: Prior) -> Self {
+        self.prior = prior;
+        self
     }
 }
 
@@ -43,6 +57,33 @@ pub struct NPMAP<E: Equation + Send + 'static> {
     error_models: AssayErrorModels,
 }
 
+impl<E: Equation + Send + 'static> NPMAP<E> {
+    pub(crate) fn from_parts(
+        equation: E,
+        data: Data,
+        error_models: AssayErrorModels,
+        parameters: &NonParametricParameters,
+        config: NpmapConfig,
+    ) -> Result<Self> {
+        // Generate or load the initial support points from the prior
+        let theta = config.prior.theta(parameters)?;
+
+        Ok(Self {
+            equation,
+            psi: Psi::new(),
+            theta,
+            w: Weights::default(),
+            objf: f64::INFINITY,
+            cycle: 0,
+            status: Status::Continue,
+            data,
+            config,
+            cyclelog: CycleLog::new(),
+            error_models,
+        })
+    }
+}
+
 impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
     fn into_workspace(&self) -> Result<NonParametricResult<E>> {
         NonParametricResult::new(
@@ -55,9 +96,9 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
             self.cycle,
             self.status.clone(),
             self.cyclelog.clone(),
-            Algorithm::NPMAP(NpmapConfig::default()),
         )
     }
+
     fn error_models(&self) -> &AssayErrorModels {
         &self.error_models
     }
@@ -126,6 +167,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
     fn condensation(&mut self) -> Result<()> {
         Ok(())
     }
+
     fn optimizations(&mut self) -> Result<()> {
         Ok(())
     }
@@ -149,29 +191,34 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
     }
 }
 
-impl<E: Equation + Send + 'static> NPMAP<E> {
-    pub(crate) fn from_input(input: EstimationProblem<E>) -> Result<Box<Self>> {
-        let config = match input.algorithm.clone() {
-            Algorithm::NPMAP(config) => config,
-            other => unreachable!(
-                "NPMAP::from_input requires an NPMAP algorithm, got {}",
-                other.name()
-            ),
-        };
-        let error_models = input.error_models.models().clone();
+// ==============================================================================
+// STRATEGY / ENGINE PIPELINE
+// ==============================================================================
 
-        Ok(Box::new(Self {
-            equation: input.model.equation,
-            psi: Psi::new(),
-            theta: Theta::new(),
-            w: Weights::default(),
-            objf: f64::INFINITY,
-            cycle: 0,
-            status: Status::Continue,
-            data: input.data,
-            config,
-            cyclelog: CycleLog::new(),
-            error_models,
-        }))
+impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
+    type Runner = NPMAP<E>;
+
+    fn build_runner(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Runner> {
+        NPMAP::from_parts(
+            problem.model.equation,
+            problem.data,
+            problem.error_models,
+            &problem.parameters,
+            self,
+        )
+    }
+}
+
+impl<E: Equation + Send + 'static> Fitter<E> for NPMAP<E> {
+    type Output = NonParametricResult<E>;
+
+    fn fit(mut self) -> Result<Self::Output> {
+        // Since NPMAP is a single-pass algorithm, the execution loop is very simple:
+        self.estimation()?;
+        self.evaluation()?;
+        self.log_cycle_state();
+
+        // Return the strictly-typed NonParametricResult
+        self.into_workspace()
     }
 }

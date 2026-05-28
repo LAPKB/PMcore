@@ -6,7 +6,7 @@ use crate::algorithms::{Algorithm, Status, StopReason};
 use crate::estimation::nonparametric::{
     posterior, CycleLog, NPPredictions, Posterior, Psi, Theta, Weights,
 };
-use crate::results::FitResult;
+
 use pharmsol::Data;
 
 #[derive(Debug)]
@@ -22,7 +22,6 @@ pub struct NonParametricResult<E: Equation> {
     cyclelog: CycleLog,
     predictions: Option<NPPredictions>,
     posterior: Posterior,
-    algorithm: Algorithm,
 }
 
 impl<E: Equation> NonParametricResult<E> {
@@ -37,7 +36,6 @@ impl<E: Equation> NonParametricResult<E> {
         cycles: usize,
         status: Status,
         cyclelog: CycleLog,
-        algorithm: Algorithm,
     ) -> anyhow::Result<Self> {
         let posterior = posterior::posterior(&psi, &weights)?;
 
@@ -53,7 +51,6 @@ impl<E: Equation> NonParametricResult<E> {
             cyclelog,
             predictions: None,
             posterior,
-            algorithm,
         })
     }
 
@@ -83,10 +80,6 @@ impl<E: Equation> NonParametricResult<E> {
 
     pub fn cycle_log(&self) -> &CycleLog {
         &self.cyclelog
-    }
-
-    pub(crate) fn algorithm(&self) -> &Algorithm {
-        &self.algorithm
     }
 
     pub fn predictions(&self) -> Option<&NPPredictions> {
@@ -254,9 +247,5 @@ impl<E: Equation> NonParametricResult<E> {
 
         writer.flush()?;
         Ok(())
-    }
-
-    pub fn into_fit_result(self) -> FitResult<E> {
-        FitResult::Nonparametric(self)
     }
 }

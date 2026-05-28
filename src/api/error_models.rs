@@ -18,3 +18,9 @@ impl ErrorModels {
         self.models().iter().next().is_none()
     }
 }
+
+impl Into<AssayErrorModels> for ErrorModels {
+    fn into(self) -> AssayErrorModels {
+        self.models().clone()
+    }
+}

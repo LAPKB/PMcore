@@ -5,7 +5,7 @@ use faer::Mat;
 use serde::{Deserialize, Serialize};
 
 use super::weights::Weights;
-use crate::model::ParameterSpace;
+use crate::model::{NonParametricParameters, ParameterSpace};
 
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution
@@ -14,14 +14,14 @@ use crate::model::ParameterSpace;
 #[derive(Clone, PartialEq)]
 pub struct Theta {
     matrix: Mat<f64>,
-    parameters: ParameterSpace,
+    parameters: NonParametricParameters,
 }
 
 impl Default for Theta {
     fn default() -> Self {
         Theta {
             matrix: Mat::new(),
-            parameters: ParameterSpace::new(),
+            parameters: NonParametricParameters::new(),
         }
     }
 }
@@ -37,8 +37,7 @@ impl Theta {
     /// in the [ParameterSpace]
     ///
     /// The order of parameters in the [ParameterSpace] should match the order of columns in the matrix
-    pub fn from_parts(matrix: Mat<f64>, parameters: impl Into<ParameterSpace>) -> Result<Self> {
-        let parameters = parameters.into();
+    pub fn from_parts(matrix: Mat<f64>, parameters: NonParametricParameters) -> Result<Self> {
         if matrix.ncols() != parameters.len() {
             bail!(
                 "Number of columns in matrix ({}) does not match number of parameters ({})",
@@ -63,12 +62,12 @@ impl Theta {
     }
 
     /// Get the [ParameterSpace] associated with this [Theta]
-    pub fn parameters(&self) -> &ParameterSpace {
+    pub fn parameters(&self) -> &NonParametricParameters {
         &self.parameters
     }
 
     /// Get a mutable reference to the [ParameterSpace]
-    pub fn parameters_mut(&mut self) -> &mut ParameterSpace {
+    pub fn parameters_mut(&mut self) -> &mut NonParametricParameters {
         &mut self.parameters
     }
 
@@ -124,10 +123,7 @@ impl Theta {
             return true;
         }
 
-        let limits = self
-            .parameters
-            .finite_ranges()
-            .expect("theta requires finite parameter bounds");
+        let limits = self.parameters.finite_ranges();
 
         for row_idx in 0..self.matrix.nrows() {
             let mut squared_dist = 0.0;
@@ -226,7 +222,7 @@ impl Theta {
         }
 
         let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
-        let parameters = ParameterSpace::new();
+        let parameters = NonParametricParameters::new();
 
         Theta::from_parts(mat, parameters)
     }
@@ -281,7 +277,7 @@ impl<'de> Deserialize<'de> for Theta {
         #[derive(Deserialize)]
         struct ThetaSerde {
             matrix: Vec<Vec<f64>>,
-            parameters: ParameterSpace,
+            parameters: NonParametricParameters,
         }
 
         let decoded = ThetaSerde::deserialize(deserializer)?;
