@@ -1,6 +1,11 @@
 use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
-use pmcore::{api::Framework, prelude::*};
+use pmcore::{
+    algorithms::{Algorithm, Fitter},
+    api::NonParametric,
+    model::BoundedParameter,
+    prelude::*,
+};
 
 use std::hint::black_box;
 
@@ -22,68 +27,78 @@ fn create_equation() -> equation::ODE {
     }
 }
 
-fn create_error_model() -> AssayErrorModel {
-    AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0)
-}
-
 fn load_data() -> Result<data::Data> {
     Ok(data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?)
 }
 
-fn setup_npag() -> Result<EstimationProblem<equation::ODE, Framework>> {
+fn setup_npag() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .algorithm(Algorithm::NPAG(NpagConfig::default()))
-        .error("outeq_1", create_error_model())
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
+        .parameter(BoundedParameter::new("v", 25.0, 250.0))
+        .error(
+            "outeq_1",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+        )
         .build()
 }
 
-fn setup_npod() -> Result<EstimationProblem<equation::ODE>> {
+fn setup_npod() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .algorithm(Algorithm::NPOD(NpodConfig::default()))
-        .error("outeq_1", create_error_model())
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
+        .parameter(BoundedParameter::new("v", 25.0, 250.0))
+        .error(
+            "outeq_1",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+        )
         .build()
 }
 
-fn setup_postprob() -> Result<EstimationProblem<equation::ODE>> {
+fn setup_postprob() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .algorithm(Algorithm::NPMAP(NpmapConfig::default()))
-        .error("outeq_1", create_error_model())
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
+        .parameter(BoundedParameter::new("v", 25.0, 250.0))
+        .error(
+            "outeq_1",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+        )
         .build()
 }
 
-fn benchmark_algorithm<F>(c: &mut Criterion, bench_name: &str, setup_fn: F)
+fn benchmark_algorithm<F, A>(c: &mut Criterion, bench_name: &str, setup_fn: F, config: A)
 where
-    F: Fn() -> Result<EstimationProblem<equation::ODE>>,
+    F: Fn() -> Result<EstimationProblem<equation::ODE, NonParametric>>,
+    A: Algorithm<equation::ODE, NonParametric> + Clone,
+    A::Runner: Fitter<equation::ODE>,
 {
-    let problem = setup_fn().unwrap();
-
     c.bench_function(bench_name, |b| {
         b.iter_with_setup(
-            || problem.clone(),
-            |problem| black_box(problem.fit().unwrap()),
+            || setup_fn().unwrap(),
+            |problem| black_box(problem.fit_with(config.clone()).unwrap()),
         )
     });
 }
 
 fn benchmark_bimodal_ke_npag(c: &mut Criterion) {
-    benchmark_algorithm(c, "bimodal_ke_npag", setup_npag);
+    benchmark_algorithm(c, "bimodal_ke_npag", setup_npag, NpagConfig::default());
 }
 
 fn benchmark_bimodal_ke_npod(c: &mut Criterion) {
-    benchmark_algorithm(c, "bimodal_ke_npod", setup_npod);
+    benchmark_algorithm(c, "bimodal_ke_npod", setup_npod, NpodConfig::default());
 }
 
 fn benchmark_bimodal_ke_postprob(c: &mut Criterion) {
-    benchmark_algorithm(c, "bimodal_ke_postprob", setup_postprob);
+    benchmark_algorithm(
+        c,
+        "bimodal_ke_postprob",
+        setup_postprob,
+        NpmapConfig::default(),
+    );
 }
 
 criterion_group! {
