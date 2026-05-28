@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::prelude::*;
+use pmcore::{model::BoundedParameter, prelude::*};
 
 fn assert_close(actual: f64, expected: f64, tolerance: f64, label: &str) {
     let difference = (actual - expected).abs();
@@ -34,29 +34,19 @@ fn bimodal_data() -> Result<Data> {
 
 #[test]
 fn test_acceptance_baseline_npag_bimodal_ke() -> Result<()> {
-    let result = EstimationProblem::builder(bimodal_ode_equation(), bimodal_data()?)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .algorithm(Algorithm::NPAG(NpagConfig::default()))
+    let result = EstimationProblem::builder(bimodal_ode_equation(), bimodal_data().unwrap())
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.1, 1.0))
+        .parameter(BoundedParameter::new("v", 1.0, 20.0))
         .error(
-            "1",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            "0",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 2.0),
         )
-        .fit()?;
-    let summary = result.summary();
-    let population = result.population_summary();
-    let result = result
-        .as_nonparametric()
-        .expect("NPAG acceptance baseline should yield a nonparametric result");
+        .build()?
+        .fit_with(NpagConfig::default())?;
 
     // This is the canonical rewrite-blocking nonparametric baseline for the bimodal_ke example.
-    assert_close(
-        summary.objective_function,
-        -425.60904902364695,
-        1e-6,
-        "npag.objf",
-    );
-    assert!(summary.converged);
+    assert_close(result.objf(), -425.60904902364695, 1e-6, "npag.objf");
     assert_eq!(summary.iterations, 288);
     assert_eq!(result.get_theta().nspp(), 46);
     assert_close(

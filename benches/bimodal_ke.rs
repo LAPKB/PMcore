@@ -1,6 +1,6 @@
 use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
-use pmcore::prelude::*;
+use pmcore::{api::Framework, prelude::*};
 
 use std::hint::black_box;
 
@@ -30,7 +30,7 @@ fn load_data() -> Result<data::Data> {
     Ok(data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?)
 }
 
-fn setup_npag() -> Result<EstimationProblem<equation::ODE>> {
+fn setup_npag() -> Result<EstimationProblem<equation::ODE, Framework>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
         .parameter(Parameter::bounded("ke", 0.001, 3.0))

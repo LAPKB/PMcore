@@ -1,8 +1,9 @@
 use anyhow::Result;
-use pmcore::prelude::*;
+use pmcore::{model::BoundedParameter, prelude::*};
+// (Assuming BoundedParameter, NpagConfig, etc., are exported in your prelude)
 
 fn main() -> Result<()> {
-    Logger::new().init()?;
+    Logger::new().stdout(true).init()?;
 
     let eq = ode! {
         name: "bimodal_ke",
@@ -23,15 +24,17 @@ fn main() -> Result<()> {
 
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
 
-    let _result = EstimationProblem::builder(eq, data)
-        .algorithm(NpagConfig::default())
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
+    let problem = EstimationProblem::builder(eq, data)
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
+        .parameter(BoundedParameter::new("v", 25.0, 250.0))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
-        .fit()?;
+        .build()?;
+
+    let _result = problem.fit_with(NpagConfig::default())?;
 
     Ok(())
 }

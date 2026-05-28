@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::prelude::*;
+use pmcore::{model::BoundedParameter, prelude::*};
 
 fn one_compartment_metadata() -> pharmsol::equation::ModelMetadata {
     equation::metadata::new("one_compartment")
@@ -53,17 +53,15 @@ fn test_one_compartment_npag() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let result = EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))
-        .parameter(Parameter::bounded("v", 1.0, 20.0))
-        .algorithm(Algorithm::NPAG(NpagConfig::default()))
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.1, 1.0))
+        .parameter(BoundedParameter::new("v", 1.0, 20.0))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )
-        .fit()?;
-    let result = result
-        .as_nonparametric()
-        .expect("NPAG should yield a nonparametric result");
+        .build()?
+        .fit_with(NpagConfig::default())?;
 
     // Check the results
     assert_eq!(result.cycles(), 32);
@@ -116,17 +114,15 @@ fn test_one_compartment_npod() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let result = EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))
-        .parameter(Parameter::bounded("v", 1.0, 20.0))
-        .algorithm(Algorithm::NPOD(NpodConfig::default()))
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.1, 1.0))
+        .parameter(BoundedParameter::new("v", 1.0, 20.0))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )
-        .fit()?;
-    let result = result
-        .as_nonparametric()
-        .expect("NPOD should yield a nonparametric result");
+        .build()?
+        .fit_with(NpodConfig::default())?;
 
     // Check the results
     assert_eq!(result.cycles(), 11);
@@ -179,17 +175,15 @@ fn test_one_compartment_postprob() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let result = EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))
-        .parameter(Parameter::bounded("v", 1.0, 20.0))
-        .algorithm(Algorithm::NPMAP(NpmapConfig::default()))
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.1, 1.0))
+        .parameter(BoundedParameter::new("v", 1.0, 20.0))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )
-        .fit()?;
-    let result = result
-        .as_nonparametric()
-        .expect("POSTPROB should yield a nonparametric result");
+        .build()?
+        .fit_with(NpmapConfig::default())?;
 
     // Check the results
     assert_eq!(result.cycles(), 0);

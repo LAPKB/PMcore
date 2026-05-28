@@ -1,6 +1,6 @@
 use anyhow::Result;
 use pharmsol::{AssayErrorModel, ErrorPoly};
-use pmcore::prelude::*;
+use pmcore::{model::BoundedParameter, prelude::*};
 
 fn simple_equation() -> equation::ODE {
     equation::ODE::new(
@@ -43,11 +43,12 @@ fn simple_data() -> Data {
 fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
     let result = EstimationProblem::builder(simple_equation(), simple_data())
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))
-        .parameter(Parameter::bounded("v", 1.0, 20.0))
-        .algorithm(Algorithm::NPAG(NpagConfig::default()))
+        .nonparametric()
+        .parameter(BoundedParameter::new("ke", 0.1, 1.0))
+        .parameter(BoundedParameter::new("v", 1.0, 20.0))
         .error("0", assay_error)
-        .fit()?;
+        .build()?
+        .fit_with(NpagConfig::default())?;
 
     let summary = result.summary();
 
