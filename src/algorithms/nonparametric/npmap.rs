@@ -16,9 +16,10 @@ use pharmsol::prelude::{
 use crate::estimation::nonparametric::ipm::burke;
 use serde::{Deserialize, Serialize};
 
-/// Configuration options for the posterior probability reweighting algorithm.
+/// Configuration options for the non-parametric maximum a posteriori (NPMAP) algorithm
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NpmapConfig {
+    /// The prior distribution for which to calcualte the posterior probabilities
     pub prior: Prior,
 }
 
@@ -41,8 +42,10 @@ impl NpmapConfig {
     }
 }
 
-/// Posterior probability algorithm
-/// Reweights the prior probabilities to the observed data and error model
+/// Non-parametric maximum a posteriori (NPMAP) algorithm
+///
+/// This algorithm is a wrapper around the IPM algorithm that calculates the posterior probabilities of the support points
+/// given a prior distribution and the likelihood of the data.
 pub struct NPMAP<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
@@ -52,7 +55,6 @@ pub struct NPMAP<E: Equation + Send + 'static> {
     cycle: usize,
     status: Status,
     data: Data,
-    config: NpmapConfig,
     cyclelog: CycleLog,
     error_models: AssayErrorModels,
 }
@@ -77,7 +79,6 @@ impl<E: Equation + Send + 'static> NPMAP<E> {
             cycle: 0,
             status: Status::Continue,
             data,
-            config,
             cyclelog: CycleLog::new(),
             error_models,
         })
