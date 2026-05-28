@@ -9,11 +9,10 @@ use serde::{Deserialize, Serialize};
 pub mod latin;
 pub mod sobol;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum Prior {
     Sobol(usize, usize),
     Latin(usize, usize),
-    File(String),
     Theta(Theta),
 }
 
@@ -24,10 +23,9 @@ impl Serialize for Prior {
     {
         #[derive(Serialize)]
         #[serde(tag = "kind", rename_all = "snake_case")]
-        enum Ref<'a> {
+        enum Ref {
             Sobol { points: usize, seed: usize },
             Latin { points: usize, seed: usize },
-            File { path: &'a str },
         }
         let wire = match self {
             Prior::Sobol(points, seed) => Ref::Sobol {
@@ -38,7 +36,7 @@ impl Serialize for Prior {
                 points: *points,
                 seed: *seed,
             },
-            Prior::File(path) => Ref::File { path },
+
             Prior::Theta(_) => {
                 return Err(serde::ser::Error::custom(
                     "Prior::Theta cannot be serialized",
@@ -46,26 +44,6 @@ impl Serialize for Prior {
             }
         };
         wire.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Prior {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(tag = "kind", rename_all = "snake_case")]
-        enum Wire {
-            Sobol { points: usize, seed: usize },
-            Latin { points: usize, seed: usize },
-            File { path: String },
-        }
-        match Wire::deserialize(deserializer)? {
-            Wire::Sobol { points, seed } => Ok(Prior::Sobol(points, seed)),
-            Wire::Latin { points, seed } => Ok(Prior::Latin(points, seed)),
-            Wire::File { path } => Ok(Prior::File(path)),
-        }
     }
 }
 
@@ -78,7 +56,6 @@ impl Prior {
         match self {
             Prior::Sobol(points, _) => Some(*points),
             Prior::Latin(points, _) => Some(*points),
-            Prior::File(_) => None,
             Prior::Theta(theta) => Some(theta.nspp()),
         }
     }
@@ -87,9 +64,55 @@ impl Prior {
         match self {
             Prior::Sobol(_, seed) => Some(*seed),
             Prior::Latin(_, seed) => Some(*seed),
-            Prior::File(_) => None,
             Prior::Theta(_) => None,
         }
+    }
+
+    pub fn theta(&self, parameters: ParameterSpace) -> Result<Theta> {
+        let parameter_space: ParameterSpace = parameters.into();
+
+        for parameter in parameter_space.iter() {
+            let (lower, upper) = match parameter.domain {
+                ParameterDomain::Bounded { lower, upper } => (lower, upper),
+                ParameterDomain::Positive {
+                    lower: Some(lower),
+                    upper: Some(upper),
+                }
+                | ParameterDomain::Unbounded {
+                    lower: Some(lower),
+                    upper: Some(upper),
+                } => (lower, upper),
+                _ => bail!(
+                "Parameter '{}' is missing finite bounds required for nonparametric initialization",
+                parameter.name
+            ),
+            };
+
+            if lower.is_infinite() || upper.is_infinite() {
+                bail!(
+                    "Parameter '{}' has infinite bounds: [{}, {}]",
+                    parameter.name,
+                    lower,
+                    upper
+                );
+            }
+
+            if lower >= upper {
+                bail!(
+                "Parameter '{}' has invalid bounds: [{}, {}]. Lower bound must be less than upper bound.",
+                parameter.name,
+                lower,
+                upper
+            );
+            }
+        }
+
+        let prior = match self {
+            Prior::Sobol(points, seed) => sobol::generate(&parameter_space, *points, *seed)?,
+            Prior::Latin(points, seed) => latin::generate(&parameter_space, *points, *seed)?,
+            Prior::Theta(theta) => return Ok(theta.clone()),
+        };
+        Ok(prior)
     }
 }
 
@@ -105,57 +128,6 @@ pub fn read_prior(
 ) -> Result<(Theta, Option<Weights>)> {
     let path = path.as_ref().to_string();
     parse_prior_for_parameters(&path, parameters)
-}
-
-pub(crate) fn sample_space_for_parameters(
-    parameters: impl Into<ParameterSpace>,
-    prior: &Prior,
-) -> Result<Theta> {
-    let parameter_space = parameters.into();
-
-    for parameter in parameter_space.iter() {
-        let (lower, upper) = match parameter.domain {
-            ParameterDomain::Bounded { lower, upper } => (lower, upper),
-            ParameterDomain::Positive {
-                lower: Some(lower),
-                upper: Some(upper),
-            }
-            | ParameterDomain::Unbounded {
-                lower: Some(lower),
-                upper: Some(upper),
-            } => (lower, upper),
-            _ => bail!(
-                "Parameter '{}' is missing finite bounds required for nonparametric initialization",
-                parameter.name
-            ),
-        };
-
-        if lower.is_infinite() || upper.is_infinite() {
-            bail!(
-                "Parameter '{}' has infinite bounds: [{}, {}]",
-                parameter.name,
-                lower,
-                upper
-            );
-        }
-
-        if lower >= upper {
-            bail!(
-                "Parameter '{}' has invalid bounds: [{}, {}]. Lower bound must be less than upper bound.",
-                parameter.name,
-                lower,
-                upper
-            );
-        }
-    }
-
-    let prior = match prior {
-        Prior::Sobol(points, seed) => sobol::generate(&parameter_space, *points, *seed)?,
-        Prior::Latin(points, seed) => latin::generate(&parameter_space, *points, *seed)?,
-        Prior::File(path) => parse_prior_for_parameters(path, &parameter_space)?.0,
-        Prior::Theta(theta) => return Ok(theta.clone()),
-    };
-    Ok(prior)
 }
 
 pub(crate) fn parse_prior_for_parameters(
@@ -260,36 +232,10 @@ mod tests {
     }
 
     #[test]
-    fn prior_metadata_accessors() {
-        let sobol = Prior::sobol(100, 42);
-        assert_eq!(sobol.points(), Some(100));
-        assert_eq!(sobol.seed(), Some(42));
-
-        let latin = Prior::Latin(50, 7);
-        assert_eq!(latin.points(), Some(50));
-        assert_eq!(latin.seed(), Some(7));
-
-        let file = Prior::File("prior.csv".to_string());
-        assert_eq!(file.points(), None);
-        assert_eq!(file.seed(), None);
-    }
-
-    #[test]
     fn sample_space_generates_expected_shape() {
-        let theta = sample_space_for_parameters(parameter_space(), &Prior::sobol(10, 42)).unwrap();
+        let theta = Prior::sobol(10, 42).theta(parameter_space()).unwrap();
         assert_eq!(theta.nspp(), 10);
         assert_eq!(theta.matrix().ncols(), 2);
-    }
-
-    #[test]
-    fn sample_space_returns_custom_theta_verbatim() {
-        let parameters = parameter_space();
-        let matrix = Mat::from_fn(3, 2, |i, j| (i + j) as f64);
-        let custom = Theta::from_parts(matrix, parameters).unwrap();
-
-        let theta =
-            sample_space_for_parameters(parameter_space(), &Prior::Theta(custom.clone())).unwrap();
-        assert_eq!(theta.matrix(), custom.matrix());
     }
 
     #[test]

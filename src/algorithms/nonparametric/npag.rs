@@ -1,7 +1,7 @@
 use crate::algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason};
 use crate::api::EstimationProblem;
 use crate::estimation::nonparametric::{
-    calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
+    calculate_psi, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta, Weights,
 };
 use crate::model::ParameterSpace;
 
@@ -22,7 +22,7 @@ use crate::estimation::nonparametric::adaptative_grid;
 use serde::{Deserialize, Serialize};
 
 /// Configuration options for the Non-Parametric Adaptive Grid (NPAG) algorithm.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NpagConfig {
     pub eps: f64,
     pub min_eps: f64,
@@ -37,6 +37,7 @@ pub struct NpagConfig {
     pub error_step_shrink: f64,
     pub max_cycles: usize,
     pub progress: bool,
+    pub prior: Prior,
 }
 
 impl Default for NpagConfig {
@@ -55,6 +56,7 @@ impl Default for NpagConfig {
             error_step_shrink: 0.5,
             max_cycles: 1000,
             progress: true,
+            prior: Prior::Sobol(100, 22),
         }
     }
 }

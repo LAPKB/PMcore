@@ -4,6 +4,7 @@ mod expansion;
 pub(crate) mod ipm;
 mod posterior;
 mod predictions;
+
 mod prior;
 mod psi;
 pub(crate) mod qr;
@@ -18,7 +19,6 @@ pub(crate) use expansion::adaptative_grid;
 pub use ipm::burke;
 pub use posterior::{posterior, Posterior};
 pub use predictions::{NPPredictionRow, NPPredictions};
-pub(crate) use prior::sample_space_for_parameters;
 pub use prior::{read_prior, Prior};
 pub(crate) use psi::calculate_psi;
 pub use psi::Psi;
