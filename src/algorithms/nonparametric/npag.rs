@@ -162,11 +162,13 @@ impl<E: Equation + Send + 'static> NPAG<E> {
         let gamma_delta = vec![config.error_step; error_models.len()];
         let eps = config.eps;
 
+        let prior = config.prior.theta(parameters)?;
+
         Ok(Self {
             equation,
             ranges,
             psi: Psi::new(),
-            theta: Theta::new(),
+            theta: prior,
             lambda: Weights::default(),
             w: Weights::default(),
             eps,
@@ -210,10 +212,6 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
 
     fn data(&self) -> &Data {
         &self.data
-    }
-
-    fn get_prior(&self) -> Theta {
-        unimplemented!("get_prior method is not implemented yet")
     }
 
     fn likelihood(&self) -> f64 {
@@ -528,22 +526,13 @@ impl<E: Equation + Send + 'static> Fitter<E> for NPAG<E> {
     type Output = NonParametricResult<E>;
 
     fn fit(mut self) -> anyhow::Result<Self::Output> {
-        // Standard iterative execution loop for non-parametric evaluation
-        self.increment_cycle();
-        self.estimation()?;
-
+        self.initialize()?;
+        #[allow(clippy::while_let_loop)]
         loop {
-            let status = self.evaluation()?;
-            if let Status::Stop(_) = status {
-                break;
+            match self.next_cycle()? {
+                Status::Continue => continue,
+                Status::Stop(_) => break,
             }
-
-            self.condensation()?;
-            self.expansion()?;
-            self.optimizations()?;
-
-            self.increment_cycle();
-            self.estimation()?;
         }
 
         self.into_result()

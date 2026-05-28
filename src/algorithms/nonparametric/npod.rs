@@ -171,10 +171,6 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
         &self.data
     }
 
-    fn get_prior(&self) -> Theta {
-        self.config.prior.clone()
-    }
-
     fn increment_cycle(&mut self) -> usize {
         self.cycle += 1;
         self.cycle

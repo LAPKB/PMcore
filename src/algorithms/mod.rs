@@ -245,7 +245,7 @@ pub trait NonParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send + 's
     fn equation(&self) -> &E;
     /// Get the data used in the algorithm
     fn data(&self) -> &Data;
-    fn get_prior(&self) -> Theta;
+
     /// Increment the cycle counter and return the new value
     fn increment_cycle(&mut self) -> usize;
     /// Get the current cycle number
@@ -280,7 +280,7 @@ pub trait NonParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send + 's
             fs::remove_file("stop").context("Unable to remove previous stop file")?;
         }
         self.set_status(Status::Continue);
-        self.set_theta(self.get_prior());
+
         Ok(())
     }
     fn estimation(&mut self) -> Result<()>;

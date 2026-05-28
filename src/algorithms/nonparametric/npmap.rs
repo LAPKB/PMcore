@@ -111,10 +111,6 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
         &self.data
     }
 
-    fn get_prior(&self) -> Theta {
-        unimplemented!("get_prior method is not implemented yet")
-    }
-
     fn likelihood(&self) -> f64 {
         self.objf
     }
