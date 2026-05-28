@@ -73,8 +73,10 @@ impl Prior {
         }
     }
 
+    /// Generates the initial support points (theta) based on the specified prior configuration
+    ///
+    /// If a Prior::Theta is provided, it will be returned directly. For Sobol and Latin, the support points will be generated based on the number of points and seed.
     pub fn theta(&self, parameters: &NonParametricParameters) -> Result<Theta> {
-        // 1. Validation is mostly gone! We just check logic, not type structure.
         for parameter in parameters.iter() {
             if parameter.lower >= parameter.upper {
                 bail!(
@@ -86,9 +88,6 @@ impl Prior {
             }
         }
 
-        // 2. Generation
-        // Note: You will need to update `sobol::generate` and `latin::generate`
-        // in their respective modules to accept `&NonParametricParameters`.
         let prior = match self {
             Prior::Sobol(points, seed) => sobol::generate(parameters, *points, *seed)?,
             Prior::Latin(points, seed) => latin::generate(parameters, *points, *seed)?,
