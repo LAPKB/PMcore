@@ -126,6 +126,7 @@ impl ParametricParameters {
         self.items.push(item);
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn add(mut self, item: UnboundedParameter) -> Self {
         self.push(item);
         self

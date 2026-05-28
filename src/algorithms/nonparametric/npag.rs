@@ -541,7 +541,9 @@ impl<E: Equation + Send + 'static> Fitter<E> for NPAG<E> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::model::BoundedParameter;
+
+    use crate::prelude::*;
 
     use pharmsol::{fa, fetch_params, lag, Subject, SubjectBuilderExt};
 
@@ -580,5 +582,27 @@ mod tests {
             .build();
 
         Data::new(vec![subject])
+    }
+
+    #[test]
+    fn npag_runs_without_error() {
+        let problem = EstimationProblem::builder(simple_equation(), simple_data())
+            .nonparametric()
+            .parameter(BoundedParameter::new("ke", 0.001, 3.0))
+            .parameter(BoundedParameter::new("v", 25.0, 250.0))
+            .error(
+                "outeq_1",
+                AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            )
+            .build()
+            .expect("Failed to build problem");
+
+        let result = problem.fit_with(NpagConfig::default());
+
+        assert!(
+            result.is_ok(),
+            "NPAG algorithm should run without error, but got: {:?}",
+            result.err()
+        );
     }
 }

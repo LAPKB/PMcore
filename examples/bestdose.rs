@@ -65,7 +65,10 @@ fn main() -> Result<()> {
         .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
         .build();
 
-    let (theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
+    let (theta, prior) = Theta::from_file(
+        &"examples/bimodal_ke/output/theta.csv".to_string(),
+        &parameter_space,
+    )?;
 
     let posterior = BestDosePosterior::compute(
         &theta,

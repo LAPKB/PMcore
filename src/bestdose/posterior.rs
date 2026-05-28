@@ -201,9 +201,11 @@ pub fn npagfull_refinement(
         let single_point_theta = Theta::from_parts(single_point_matrix, parameter_space.clone())?;
 
         // Create and run NPAG
-        let mut npag_config = crate::algorithms::nonparametric::NpagConfig::default();
-        npag_config.max_cycles = config.refinement_cycles();
-        npag_config.progress = config.progress();
+        let npag_config = NpagConfig {
+            max_cycles: config.refinement_cycles(),
+            progress: config.progress(),
+            ..Default::default()
+        };
 
         let mut npag = NPAG::from_parts(
             eq.clone(),

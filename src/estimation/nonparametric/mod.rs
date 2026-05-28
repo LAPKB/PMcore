@@ -19,7 +19,7 @@ pub(crate) use expansion::adaptative_grid;
 pub use ipm::burke;
 pub use posterior::{posterior, Posterior};
 pub use predictions::{NPPredictionRow, NPPredictions};
-pub use prior::{read_prior, Prior};
+pub use prior::Prior;
 pub(crate) use psi::calculate_psi;
 pub use psi::Psi;
 pub use result::NonParametricResult;

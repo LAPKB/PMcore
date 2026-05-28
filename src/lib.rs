@@ -84,7 +84,7 @@ pub mod prelude {
 
     pub use pharmsol;
 
-    pub use crate::estimation::nonparametric::{read_prior, Prior};
+    pub use crate::estimation::nonparametric::Prior;
 
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;

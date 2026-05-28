@@ -43,7 +43,10 @@ fn main() -> Result<()> {
 
     // Load realistic prior from previous NPAG run (47 support points)
     println!("Loading prior from bimodal_ke example...");
-    let (theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
+    let (theta, prior) = Theta::from_file(
+        &"examples/bimodal_ke/output/theta.csv".to_string(),
+        &parameter_space,
+    )?;
     let weights = prior.as_ref().unwrap();
 
     println!("Prior: {} support points\n", theta.matrix().nrows());
