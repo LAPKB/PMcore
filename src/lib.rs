@@ -60,8 +60,8 @@ pub mod prelude {
     pub use crate::algorithms::Algorithm;
 
     pub use crate::api::{
-        ErrorModels, EstimationProblem, FitProgress, ModelDefinition, NonparametricCycleProgress,
-        NpagConfig, NpmapConfig, NpodConfig,
+        ErrorModels, EstimationProblem, FitProgress, NonparametricCycleProgress, NpagConfig,
+        NpmapConfig, NpodConfig,
     };
 
     pub use crate::estimation::nonparametric::{
