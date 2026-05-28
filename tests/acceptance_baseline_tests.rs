@@ -35,13 +35,13 @@ fn bimodal_data() -> Result<Data> {
 #[test]
 fn test_acceptance_baseline_npag_bimodal_ke() -> Result<()> {
     let result = EstimationProblem::builder(bimodal_ode_equation(), bimodal_data()?)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error(
             "1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )?
+        )
         .fit()?;
     let summary = result.summary();
     let population = result.population_summary();

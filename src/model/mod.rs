@@ -2,14 +2,10 @@ use anyhow::{anyhow, bail, Result};
 use pharmsol::equation::Equation;
 use pharmsol::{Analytical, ValidatedModelMetadata, ODE, SDE};
 
-pub mod covariate_model;
-pub mod covariates;
 pub mod metadata;
 pub mod parameter_space;
 pub mod variability;
 
-pub use covariate_model::CovariateModel;
-pub use covariates::{CovariateEffectsSpec, CovariateSpec};
 pub use metadata::ModelMetadata;
 pub use parameter_space::{
     Parameter, ParameterDomain, ParameterSpace, ParameterTransform, ParameterVariability,
@@ -17,27 +13,21 @@ pub use parameter_space::{
 pub use variability::{CovarianceStructure, RandomEffectsSpec, VariabilityModel};
 
 #[derive(Debug, Clone)]
-pub struct ModelDefinition<E: Equation> {
+pub struct Model<E: Equation> {
     pub equation: E,
     pub parameters: ParameterSpace,
-    pub variability: VariabilityModel,
-    pub covariates: CovariateSpec,
-    pub metadata: ModelMetadata,
 }
 
-impl<E: Equation> ModelDefinition<E> {
-    pub fn builder(equation: E) -> ModelDefinitionBuilder<E> {
-        ModelDefinitionBuilder {
+impl<E: Equation> Model<E> {
+    pub fn builder(equation: E) -> ModelBuilder<E> {
+        ModelBuilder {
             equation,
             parameters: ParameterSpace::new(),
-            variability: Some(VariabilityModel::default()),
-            covariates: Some(CovariateSpec::InEquation),
-            metadata: Some(ModelMetadata::default()),
         }
     }
 }
 
-impl<E: EquationMetadataSource> ModelDefinition<E> {
+impl<E: EquationMetadataSource> Model<E> {
     pub fn parameter_count(&self) -> usize {
         self.equation
             .equation_metadata()
@@ -80,15 +70,12 @@ impl<E: EquationMetadataSource> ModelDefinition<E> {
     }
 }
 
-pub struct ModelDefinitionBuilder<E: Equation> {
+pub struct ModelBuilder<E: Equation> {
     equation: E,
     parameters: ParameterSpace,
-    variability: Option<VariabilityModel>,
-    covariates: Option<CovariateSpec>,
-    metadata: Option<ModelMetadata>,
 }
 
-impl<E: Equation> ModelDefinitionBuilder<E> {
+impl<E: Equation> ModelBuilder<E> {
     pub fn parameter(mut self, parameter: Parameter) -> Result<Self>
     where
         E: EquationMetadataSource,
@@ -98,48 +85,27 @@ impl<E: Equation> ModelDefinitionBuilder<E> {
         Ok(self)
     }
 
-    pub fn variability(mut self, variability: VariabilityModel) -> Self {
-        self.variability = Some(variability);
-        self
-    }
-
-    pub fn covariates(mut self, covariates: CovariateSpec) -> Self {
-        self.covariates = Some(covariates);
-        self
-    }
-
-    pub fn metadata(mut self, metadata: ModelMetadata) -> Self {
-        self.metadata = Some(metadata);
-        self
-    }
-
-    pub fn build(self) -> Result<ModelDefinition<E>>
+    pub fn build(self) -> Result<Model<E>>
     where
         E: EquationMetadataSource,
     {
-        let ModelDefinitionBuilder {
+        let ModelBuilder {
             equation,
             parameters,
-            variability,
-            covariates,
-            metadata,
         } = self;
 
         if parameters.is_empty() {
             bail!("model parameters cannot be empty");
         }
 
-        Ok(ModelDefinition {
+        Ok(Model {
             equation,
             parameters,
-            variability: variability.unwrap_or_default(),
-            covariates: covariates.unwrap_or_default(),
-            metadata: metadata.unwrap_or_default(),
         })
     }
 }
 
-impl<E: EquationMetadataSource> ModelDefinitionBuilder<E> {
+impl<E: EquationMetadataSource> ModelBuilder<E> {
     pub(crate) fn output_index(&self, name: &str) -> Option<usize> {
         self.equation.equation_metadata().and_then(|metadata| {
             metadata

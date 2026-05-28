@@ -203,13 +203,13 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
     let data = data::read_pmetrics(DATA_PATH)?;
     let fit_started = Instant::now();
     let result = EstimationProblem::builder(equation, data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )?
+        )
         .fit()?;
     let fit_time = fit_started.elapsed();
 

@@ -49,41 +49,28 @@ fn main() {
     let data = data::read_pmetrics("examples/neely/data.csv").unwrap();
     EstimationProblem::builder(eq, data)
         .parameter(Parameter::bounded("cls", 0.0, 0.4))
-        .unwrap()
         .parameter(Parameter::bounded("k30", 0.0, 0.5))
-        .unwrap()
         .parameter(Parameter::bounded("k40", 0.3, 1.5))
-        .unwrap()
         .parameter(Parameter::bounded("qs", 0.0, 0.5))
-        .unwrap()
         .parameter(Parameter::bounded("vps", 0.0, 5.0))
-        .unwrap()
         .parameter(Parameter::bounded("vs", 0.0, 2.0))
-        .unwrap()
         .parameter(Parameter::bounded("fm1", 0.0, 0.2))
-        .unwrap()
         .parameter(Parameter::bounded("fm2", 0.0, 0.1))
-        .unwrap()
         .parameter(Parameter::bounded("theta1", -4.0, 2.0))
-        .unwrap()
         .parameter(Parameter::bounded("theta2", -2.0, 0.5))
-        .unwrap()
         .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
-        .unwrap()
         .error(
             "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
-        .unwrap()
         .error(
             "outeq_3",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
-        .unwrap()
         .fit()
         .unwrap();
 }

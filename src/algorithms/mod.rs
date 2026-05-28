@@ -1,17 +1,13 @@
 use std::fs;
 use std::path::Path;
-use std::time::Instant;
 
-use crate::api::EstimationProblem;
 use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta};
 
 use anyhow::Context;
 use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
-use nonparametric::npag::*;
-use nonparametric::npmap::NPMAP;
-use nonparametric::npod::NPOD;
+
 use nonparametric::{NpagConfig, NpmapConfig, NpodConfig};
 use pharmsol::prelude::{data::Data, simulator::Equation};
 
@@ -358,68 +354,6 @@ pub trait NonParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send + 's
 
     #[allow(clippy::wrong_self_convention)]
     fn into_workspace(&self) -> Result<NonParametricResult<E>>;
-}
-
-pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
-    input: EstimationProblem<E>,
-) -> Result<Box<dyn NonParametricAlgorithm<E>>> {
-    match input.algorithm {
-        Algorithm::NPAG(_) => {
-            let algorithm: Box<dyn NonParametricAlgorithm<E>> = NPAG::from_input(input)?;
-            Ok(algorithm)
-        }
-        Algorithm::NPOD(_) => {
-            let algorithm: Box<dyn NonParametricAlgorithm<E>> = NPOD::from_input(input)?;
-            Ok(algorithm)
-        }
-        Algorithm::NPMAP(_) => {
-            let algorithm: Box<dyn NonParametricAlgorithm<E>> = NPMAP::from_input(input)?;
-            Ok(algorithm)
-        }
-    }
-}
-
-pub(crate) fn run_nonparametric_algorithm_with_progress<E, F>(
-    input: EstimationProblem<E>,
-    mut on_progress: F,
-) -> Result<NonParametricResult<E>>
-where
-    E: Equation + Send + 'static,
-    F: FnMut(usize, f64, Option<f64>, u64, Status),
-{
-    let mut algorithm = dispatch_nonparametric_algorithm(input)?;
-    algorithm.initialize()?;
-
-    let mut previous_objective: Option<f64> = None;
-
-    loop {
-        let cycle_started = Instant::now();
-        let status = algorithm.next_cycle()?;
-        let objective = algorithm.n2ll();
-        let objective_delta = previous_objective.map(|prev| objective - prev);
-        previous_objective = Some(objective);
-
-        on_progress(
-            algorithm.cycle(),
-            objective,
-            objective_delta,
-            cycle_started.elapsed().as_millis() as u64,
-            status.clone(),
-        );
-
-        if matches!(status, Status::Stop(_)) {
-            break;
-        }
-    }
-
-    algorithm.into_workspace()
-}
-
-pub(crate) fn run_nonparametric_algorithm<E: Equation + Send + 'static>(
-    input: EstimationProblem<E>,
-) -> Result<NonParametricResult<E>> {
-    let mut algorithm = dispatch_nonparametric_algorithm(input)?;
-    algorithm.fit()
 }
 
 /// Represents the status/result of the algorithm

@@ -25,12 +25,12 @@ fn main() -> Result<()> {
 
     let _result = EstimationProblem::builder(eq, data)
         .algorithm(NpagConfig::default())
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )?
+        )
         .fit()?;
 
     Ok(())

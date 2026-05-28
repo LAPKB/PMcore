@@ -53,13 +53,13 @@ fn test_one_compartment_npag() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let result = EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-        .parameter(Parameter::bounded("v", 1.0, 20.0))?
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))
+        .parameter(Parameter::bounded("v", 1.0, 20.0))
         .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )?
+        )
         .fit()?;
     let result = result
         .as_nonparametric()
@@ -116,13 +116,13 @@ fn test_one_compartment_npod() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let result = EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-        .parameter(Parameter::bounded("v", 1.0, 20.0))?
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))
+        .parameter(Parameter::bounded("v", 1.0, 20.0))
         .algorithm(Algorithm::NPOD(NpodConfig::default()))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )?
+        )
         .fit()?;
     let result = result
         .as_nonparametric()
@@ -179,13 +179,13 @@ fn test_one_compartment_postprob() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let result = EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-        .parameter(Parameter::bounded("v", 1.0, 20.0))?
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))
+        .parameter(Parameter::bounded("v", 1.0, 20.0))
         .algorithm(Algorithm::NPMAP(NpmapConfig::default()))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )?
+        )
         .fit()?;
     let result = result
         .as_nonparametric()

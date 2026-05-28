@@ -34,30 +34,21 @@ fn main() {
     let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
     EstimationProblem::builder(eq, data)
         .parameter(Parameter::bounded("cls", 0.1, 10.0))
-        .unwrap()
         .parameter(Parameter::bounded("fm", 0.0, 1.0))
-        .unwrap()
         .parameter(Parameter::bounded("k20", 0.01, 1.0))
-        .unwrap()
         .parameter(Parameter::bounded("relv", 0.1, 1.0))
-        .unwrap()
         .parameter(Parameter::bounded("theta1", 0.1, 10.0))
-        .unwrap()
         .parameter(Parameter::bounded("theta2", 0.1, 10.0))
-        .unwrap()
         .parameter(Parameter::bounded("vs", 1.0, 10.0))
-        .unwrap()
         .algorithm(Algorithm::NPOD(NpodConfig::default()))
         .error(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
-        .unwrap()
         .error(
             "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
-        .unwrap()
         .fit()
         .unwrap();
 }

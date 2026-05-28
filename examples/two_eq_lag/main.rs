@@ -24,19 +24,14 @@ fn main() {
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
     EstimationProblem::builder(eq, data)
         .parameter(Parameter::bounded("ka", 0.1, 0.9))
-        .unwrap()
         .parameter(Parameter::bounded("ke", 0.001, 0.1))
-        .unwrap()
         .parameter(Parameter::bounded("tlag", 0.0, 4.0))
-        .unwrap()
         .parameter(Parameter::bounded("v", 30.0, 120.0))
-        .unwrap()
         .algorithm(Algorithm::NPAG(NpagConfig::default()))
         .error(
             "outeq_0",
             AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
-        .unwrap()
         .fit()
         .unwrap();
 }

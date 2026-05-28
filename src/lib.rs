@@ -68,9 +68,9 @@ pub mod prelude {
         CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
     };
     pub use crate::model::{
-        CovariateEffectsSpec, CovariateModel, CovariateSpec, EquationMetadataSource, ModelMetadata,
-        Parameter, ParameterDomain, ParameterSpace, ParameterTransform as ModelParameterTransform,
-        ParameterVariability, RandomEffectsSpec, VariabilityModel,
+        EquationMetadataSource, ModelMetadata, Parameter, ParameterDomain, ParameterSpace,
+        ParameterTransform as ModelParameterTransform, ParameterVariability, RandomEffectsSpec,
+        VariabilityModel,
     };
     pub use crate::results::{
         FitResult, FitSummary, IndividualSummary, ParameterSummary, PopulationSummary,

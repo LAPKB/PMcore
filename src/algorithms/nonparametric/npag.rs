@@ -182,25 +182,6 @@ impl<E: Equation + Send + 'static> NPAG<E> {
             config,
         }))
     }
-
-    pub(crate) fn from_input(input: EstimationProblem<E>) -> Result<Box<Self>> {
-        let config = match input.algorithm.clone() {
-            Algorithm::NPAG(config) => config,
-            other => unreachable!(
-                "NPAG::from_input requires an NPAG algorithm, got {}",
-                other.name()
-            ),
-        };
-        let error_models = input.error_models.models().clone();
-        let parameter_space = input.model.parameters.clone();
-        Self::from_parts(
-            input.model.equation,
-            input.data,
-            error_models,
-            &parameter_space,
-            config,
-        )
-    }
 }
 
 impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {

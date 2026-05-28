@@ -249,7 +249,7 @@ impl BestDoseConfig {
         self.prediction_interval
     }
 
-    pub(crate) fn parameter_names(&self) -> Vec<String> {
+    pub fn parameter_names(&self) -> Vec<String> {
         self.parameter_space
             .iter()
             .map(|parameter| parameter.name.clone())
