@@ -11,8 +11,13 @@ pub mod sobol;
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum Prior {
+    /// Generate support points using a Sobol sequence
     Sobol(usize, usize),
+    /// Generate support points using Latin Hypercube Sampling
     Latin(usize, usize),
+    /// Use a predefined set of support points provided as a [Theta]
+    ///
+    /// Note that the parameters of the [Theta] must match the parameters of the estimation problem
     Theta(Theta),
 }
 
