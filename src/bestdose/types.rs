@@ -10,6 +10,7 @@
 use std::fmt::Display;
 
 use crate::estimation::nonparametric::{NPPredictions, Prior, Theta, Weights};
+use crate::model::NonParametricParameters;
 use crate::prelude::*;
 use pharmsol::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -185,7 +186,7 @@ impl Default for DoseRange {
 
 #[derive(Debug, Clone)]
 pub struct BestDoseConfig {
-    pub(crate) parameter_space: ParameterSpace,
+    pub(crate) parameter_space: NonParametricParameters,
     pub(crate) error_models: AssayErrorModels,
     pub(crate) prior: Prior,
     pub(crate) refinement_cycles: usize,
@@ -194,7 +195,7 @@ pub struct BestDoseConfig {
 }
 
 impl BestDoseConfig {
-    pub fn new(parameter_space: ParameterSpace, error_models: AssayErrorModels) -> Self {
+    pub fn new(parameter_space: NonParametricParameters, error_models: AssayErrorModels) -> Self {
         Self {
             parameter_space,
             error_models,
@@ -225,7 +226,7 @@ impl BestDoseConfig {
         self
     }
 
-    pub fn parameter_space(&self) -> &ParameterSpace {
+    pub fn parameter_space(&self) -> &NonParametricParameters {
         &self.parameter_space
     }
 
