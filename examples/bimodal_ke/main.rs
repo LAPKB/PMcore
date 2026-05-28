@@ -30,7 +30,7 @@ fn main() -> Result<()> {
         .parameter(BoundedParameter::new("v", 25.0, 250.0))
         .error(
             "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 5.0),
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
         .build()?;
 

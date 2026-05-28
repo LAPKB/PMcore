@@ -2,7 +2,8 @@ use crate::{
     algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason},
     api::{EstimationProblem, NonParametric},
     estimation::nonparametric::{
-        calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
+        calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta,
+        Weights,
     },
     model::parameter_space::NonParametricParameters,
 };
@@ -24,23 +25,19 @@ const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
 /// Configuration options for the Non-Parametric Optimal Design (NPOD) algorithm.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NpodConfig {
     /// Maximum number of cycles to run the algorithm for.
-    max_cycles: usize,
+    pub max_cycles: usize,
     /// Prior distribution for sampling new support points.
-    prior: Theta,
+    pub prior: Prior,
     /// Whether to print progress information during the first cycle.
-    progress: bool,
+    pub progress: bool,
 }
 
 impl NpodConfig {
     pub fn new() -> Self {
-        Self {
-            max_cycles: 100,
-            prior: Theta::new(),
-            progress: false,
-        }
+        Self::default()
     }
 
     pub fn max_cycles(mut self, cycles: usize) -> Self {
@@ -48,9 +45,19 @@ impl NpodConfig {
         self
     }
 
-    pub fn prior(mut self, prior: Theta) -> Self {
+    pub fn prior(mut self, prior: Prior) -> Self {
         self.prior = prior;
         self
+    }
+}
+
+impl Default for NpodConfig {
+    fn default() -> Self {
+        Self {
+            max_cycles: 100,
+            prior: Prior::default(),
+            progress: true,
+        }
     }
 }
 
@@ -77,15 +84,17 @@ impl<E: Equation + Send + 'static> NPOD<E> {
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
-        _parameters: &NonParametricParameters, // Kept for trait symmetry, even if NPOD uses config.prior directly
+        parameters: &NonParametricParameters,
         config: NpodConfig,
     ) -> Result<Self> {
         let gamma_delta = vec![0.1; error_models.len()];
 
+        let theta = config.prior.theta(parameters)?;
+
         Ok(Self {
             equation,
             psi: Psi::new(),
-            theta: config.prior.clone(), // Initialize grid from config
+            theta: theta,
             lambda: Weights::default(),
             w: Weights::default(),
             last_objf: -1e30,
@@ -462,22 +471,13 @@ impl<E: Equation + Send + 'static> Fitter<E> for NPOD<E> {
     type Output = NonParametricResult<E>;
 
     fn fit(mut self) -> Result<Self::Output> {
-        // Standard iterative execution loop for non-parametric evaluation
-        self.increment_cycle();
-        self.estimation()?;
-
+        self.initialize()?;
+        #[allow(clippy::while_let_loop)]
         loop {
-            let status = self.evaluation()?;
-            if let Status::Stop(_) = status {
-                break;
+            match self.next_cycle()? {
+                Status::Continue => continue,
+                Status::Stop(_) => break,
             }
-
-            self.condensation()?;
-            self.expansion()?;
-            self.optimizations()?;
-
-            self.increment_cycle();
-            self.estimation()?;
         }
 
         // Return the strictly-typed NonParametricResult
