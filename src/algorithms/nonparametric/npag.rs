@@ -3,11 +3,9 @@ use crate::api::{EstimationProblem, NonParametric};
 use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta, Weights,
 };
-use crate::model::ParameterSpace;
 
 pub(crate) use crate::estimation::nonparametric::ipm::burke;
 pub(crate) use crate::estimation::nonparametric::qr;
-use crate::results::FitResult;
 
 use crate::model::parameter_space::NonParametricParameters;
 
@@ -192,7 +190,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
         &self.equation
     }
 
-    fn into_workspace(&self) -> Result<NonParametricResult<E>> {
+    fn into_result(&self) -> Result<NonParametricResult<E>> {
         NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
@@ -530,8 +528,25 @@ impl<E: Equation + Send + 'static> Fitter<E> for NPAG<E> {
     type Output = NonParametricResult<E>;
 
     fn fit(mut self) -> anyhow::Result<Self::Output> {
-        // Run NPAG...
-        self.into_workspace() // Returns NonParametricResult<E>
+        // Standard iterative execution loop for non-parametric evaluation
+        self.increment_cycle();
+        self.estimation()?;
+
+        loop {
+            let status = self.evaluation()?;
+            if let Status::Stop(_) = status {
+                break;
+            }
+
+            self.condensation()?;
+            self.expansion()?;
+            self.optimizations()?;
+
+            self.increment_cycle();
+            self.estimation()?;
+        }
+
+        self.into_result()
     }
 }
 

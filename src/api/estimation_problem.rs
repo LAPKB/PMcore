@@ -90,11 +90,6 @@ impl<E: Equation> NonParametricBuilder<E> {
         self.error_models.push((name.into(), model));
         self
     }
-
-    fn with_model_builder(mut self, map: impl FnOnce(ModelBuilder<E>) -> ModelBuilder<E>) -> Self {
-        self.model = map(self.model);
-        self
-    }
 }
 
 impl<E: Equation + EquationMetadataSource> NonParametricBuilder<E> {

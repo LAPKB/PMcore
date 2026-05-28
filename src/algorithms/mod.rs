@@ -10,7 +10,6 @@ use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 
-use nonparametric::{NpagConfig, NpmapConfig, NpodConfig};
 use pharmsol::prelude::{data::Data, simulator::Equation};
 
 use pharmsol::{Predictions, Subject};
@@ -332,11 +331,11 @@ pub trait NonParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send + 's
     fn fit(&mut self) -> Result<NonParametricResult<E>> {
         self.initialize().unwrap();
         while let Status::Continue = self.next_cycle()? {}
-        self.into_workspace()
+        self.into_result()
     }
 
     #[allow(clippy::wrong_self_convention)]
-    fn into_workspace(&self) -> Result<NonParametricResult<E>>;
+    fn into_result(&self) -> Result<NonParametricResult<E>>;
 }
 
 /// Represents the status/result of the algorithm

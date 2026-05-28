@@ -1,7 +1,6 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::Result;
 use pharmsol::equation::Equation;
 use pharmsol::{Analytical, ValidatedModelMetadata, ODE, SDE};
-use std::collections::HashSet;
 
 pub mod metadata;
 pub mod parameter_space;
@@ -90,35 +89,6 @@ impl<E: EquationMetadataSource> ModelBuilder<E> {
                 .position(|output| output.name() == name)
         })
     }
-}
-
-/// A generic validation function that can be called by either the
-/// NonParametricBuilder or the ParametricBuilder during `.build()`.
-pub(crate) fn validate_parameter_names<'a, E: EquationMetadataSource>(
-    equation: &E,
-    names: impl Iterator<Item = &'a str>,
-) -> Result<()> {
-    let metadata = equation
-        .equation_metadata()
-        .ok_or_else(|| anyhow!("equation metadata is required to define model parameters"))?;
-
-    let mut seen = HashSet::new();
-
-    for name in names {
-        if name.trim().is_empty() {
-            bail!("model parameter name cannot be empty");
-        }
-
-        if metadata.parameter_index(name).is_none() {
-            bail!("unknown equation parameter: {}", name);
-        }
-
-        if !seen.insert(name) {
-            bail!("duplicate model parameter: {}", name);
-        }
-    }
-
-    Ok(())
 }
 
 pub trait EquationMetadataSource: Equation {

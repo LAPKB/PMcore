@@ -5,7 +5,7 @@ use faer::Mat;
 use serde::{Deserialize, Serialize};
 
 use super::weights::Weights;
-use crate::model::{NonParametricParameters, ParameterSpace};
+use crate::model::NonParametricParameters;
 
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution

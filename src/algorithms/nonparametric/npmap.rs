@@ -85,7 +85,7 @@ impl<E: Equation + Send + 'static> NPMAP<E> {
 }
 
 impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
-    fn into_workspace(&self) -> Result<NonParametricResult<E>> {
+    fn into_result(&self) -> Result<NonParametricResult<E>> {
         NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
@@ -191,10 +191,6 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
     }
 }
 
-// ==============================================================================
-// STRATEGY / ENGINE PIPELINE
-// ==============================================================================
-
 impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
     type Runner = NPMAP<E>;
 
@@ -213,12 +209,10 @@ impl<E: Equation + Send + 'static> Fitter<E> for NPMAP<E> {
     type Output = NonParametricResult<E>;
 
     fn fit(mut self) -> Result<Self::Output> {
-        // Since NPMAP is a single-pass algorithm, the execution loop is very simple:
         self.estimation()?;
         self.evaluation()?;
         self.log_cycle_state();
 
-        // Return the strictly-typed NonParametricResult
-        self.into_workspace()
+        self.into_result()
     }
 }

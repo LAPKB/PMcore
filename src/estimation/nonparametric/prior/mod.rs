@@ -1,7 +1,7 @@
 use std::fs::File;
 
 use crate::estimation::nonparametric::{Theta, Weights};
-use crate::model::{NonParametricParameters, ParameterDomain, ParameterSpace};
+use crate::model::NonParametricParameters;
 use anyhow::{bail, Context, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};

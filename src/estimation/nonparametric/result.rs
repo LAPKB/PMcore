@@ -2,7 +2,7 @@ use std::path::Path;
 
 use pharmsol::Equation;
 
-use crate::algorithms::{Algorithm, Status, StopReason};
+use crate::algorithms::{Status, StopReason};
 use crate::estimation::nonparametric::{
     posterior, CycleLog, NPPredictions, Posterior, Psi, Theta, Weights,
 };

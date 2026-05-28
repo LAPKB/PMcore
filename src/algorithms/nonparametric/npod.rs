@@ -145,7 +145,7 @@ impl<E: Equation + Send + 'static> NPOD<E> {
 }
 
 impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
-    fn into_workspace(&self) -> Result<NonParametricResult<E>> {
+    fn into_result(&self) -> Result<NonParametricResult<E>> {
         NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
@@ -448,10 +448,6 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
     }
 }
 
-// ==============================================================================
-// STRATEGY / ENGINE PIPELINE
-// ==============================================================================
-
 impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpodConfig {
     type Runner = NPOD<E>;
 
@@ -489,6 +485,6 @@ impl<E: Equation + Send + 'static> Fitter<E> for NPOD<E> {
         }
 
         // Return the strictly-typed NonParametricResult
-        self.into_workspace()
+        self.into_result()
     }
 }

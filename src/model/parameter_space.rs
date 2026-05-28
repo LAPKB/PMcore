@@ -44,10 +44,6 @@ impl ParameterSpace {
     }
 }
 
-// =========================================================================
-// NON-PARAMETRIC IMPLEMENTATIONS
-// =========================================================================
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct NonParametricParameters {
     pub items: Vec<BoundedParameter>,

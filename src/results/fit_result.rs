@@ -14,6 +14,8 @@ pub trait FitResult {
 
 // Placeholder for your future Parametric implementation
 #[derive(Debug)]
+#[allow(unused)]
+//TODO: Implement ParametricResult
 pub struct ParametricResult<E: Equation> {
     _phantom: std::marker::PhantomData<E>,
 }
