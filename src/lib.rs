@@ -48,7 +48,6 @@ pub use std::collections::HashMap;
 pub mod bestdose;
 
 /// A collection of commonly used items to simplify imports.
-#[allow(ambiguous_glob_reexports)]
 pub mod prelude {
     pub use super::logs::Logger;
     pub use super::HashMap;
@@ -68,18 +67,24 @@ pub mod prelude {
     };
 
     pub use crate::estimation::nonparametric::{
-        CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
+        CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Prior, Psi, Theta,
+        Weights,
     };
     pub use crate::model::{EquationMetadataSource, ModelMetadata};
     pub use crate::results::{
         FitResult, FitSummary, IndividualSummary, ParameterSummary, PopulationSummary,
     };
-    pub use pharmsol::optimize::effect::get_e2;
 
+    // pharmsol: re-export the crate itself and its curated prelude.
     pub use pharmsol;
+    pub use pharmsol::prelude::*;
 
-    pub use crate::estimation::nonparametric::Prior;
+    // Items required by downstream code that are not part of `pharmsol::prelude`.
+    pub use pharmsol::equation::{EquationTypes, Predictions};
+    pub use pharmsol::optimize::effect::get_e2;
+    pub use pharmsol::{ODE, SDE};
 
+    // Organized submodules mirroring pharmsol's grouping.
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;
     }
@@ -90,20 +95,6 @@ pub mod prelude {
         pub use pharmsol::prelude::models::*;
     }
 
-    //traits
-    pub use pharmsol::data::*;
-    pub use pharmsol::equation::Equation;
-    pub use pharmsol::equation::EquationTypes;
-    pub use pharmsol::equation::Predictions;
-    pub use pharmsol::equation::*;
-    pub use pharmsol::prelude::*;
-    pub use pharmsol::simulator::*;
-    pub use pharmsol::ODE;
-    pub use pharmsol::SDE;
-
-    //macros
-    pub use pharmsol::fa;
-    pub use pharmsol::fetch_cov;
-    pub use pharmsol::fetch_params;
-    pub use pharmsol::lag;
+    // macros
+    pub use pharmsol::{fa, fetch_cov, fetch_params, lag};
 }
