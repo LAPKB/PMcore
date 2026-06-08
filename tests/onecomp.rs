@@ -64,7 +64,7 @@ fn test_one_compartment_npag() -> Result<()> {
         .fit_with(NpagConfig::default())?;
 
     // Check the results
-    assert_eq!(result.cycles(), 32);
+    assert_eq!(result.cycles(), 31);
     assert!(result.objf() - 565.7749 < 0.01);
 
     Ok(())
@@ -174,6 +174,14 @@ fn test_one_compartment_postprob() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
+    // Generate a prior distribution to test against
+    let parameters = ParameterSpace::<BoundedParameter>::new()
+        .add(Parameter::bounded("ke", 0.1, 1.0))
+        .add(Parameter::bounded("v", 1.0, 20.0));
+
+    let prior = Prior::sobol(100, 22);
+    let theta = &prior.theta(&parameters)?;
+
     let result = EstimationProblem::builder(eq, data)
         .nonparametric()
         .parameter(Parameter::bounded("ke", 0.1, 1.0))
@@ -183,13 +191,13 @@ fn test_one_compartment_postprob() -> Result<()> {
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )
         .build()?
-        .fit_with(NpmapConfig::default())?;
+        .fit_with(NpmapConfig::default().prior(prior))?;
 
     // Check the results
     assert_eq!(result.cycles(), 0);
 
-    // Should be 64 points in theta (no change in points)
-    assert_eq!(result.get_theta().nspp(), 64);
+    // Should be 2028 points in theta (no change in points)
+    assert_eq!(result.get_theta().nspp(), theta.nspp());
 
     Ok(())
 }

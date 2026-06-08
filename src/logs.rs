@@ -172,7 +172,7 @@ where
 ///
 /// ```no_run
 /// use std::time::Instant;
-/// use pmcore::output::Logger::format_elapsed;
+/// use pmcore::logs::format_elapsed;
 ///
 /// let start = Instant::now();
 /// // ... do work ...

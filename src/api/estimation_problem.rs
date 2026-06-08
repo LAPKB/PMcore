@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use pharmsol::{
     AssayErrorModel, AssayErrorModels, Data, Equation, ResidualErrorModel, ResidualErrorModels,
 };
+use std::collections::HashSet;
 
 use crate::model::parameter_space::{BoundedParameter, ParameterSpace, UnboundedParameter};
 use crate::model::{EquationMetadataSource, Model, ModelBuilder};
@@ -96,13 +97,8 @@ impl<E: Equation> NonParametricBuilder<E> {
 
 impl<E: Equation + EquationMetadataSource> NonParametricBuilder<E> {
     pub fn build(self) -> Result<EstimationProblem<E, NonParametric>> {
-        if self.parameters.is_empty() {
-            anyhow::bail!("at least one parameter is required for non-parametric models");
-        }
-
-        if self.error_models.is_empty() {
-            anyhow::bail!("at least one assay error model is required");
-        }
+        validate_nonparametric_parameters(&self.model, &self.parameters)?;
+        validate_nonparametric_error_models(&self.model, &self.error_models)?;
 
         let mut all_errors = AssayErrorModels::new();
         for (name, error_model) in self.error_models {
@@ -155,13 +151,8 @@ impl<E: Equation> ParametricBuilder<E> {
 
 impl<E: Equation + EquationMetadataSource> ParametricBuilder<E> {
     pub fn build(self) -> Result<EstimationProblem<E, Parametric>> {
-        if self.parameters.is_empty() {
-            anyhow::bail!("at least one parameter is required for parametric models");
-        }
-
-        if self.error_models.is_empty() {
-            anyhow::bail!("at least one residual error model is required");
-        }
+        validate_parametric_parameters(&self.model, &self.parameters)?;
+        validate_parametric_error_models(&self.model, &self.error_models)?;
 
         let mut all_errors = ResidualErrorModels::new();
         for (name, error_model) in self.error_models {
@@ -179,5 +170,272 @@ impl<E: Equation + EquationMetadataSource> ParametricBuilder<E> {
             error_models: all_errors, // Strongly typed as ResidualErrorModels!
             parameters: self.parameters,
         })
+    }
+}
+
+fn validate_nonparametric_parameters<E: Equation + EquationMetadataSource>(
+    model: &ModelBuilder<E>,
+    parameters: &ParameterSpace<BoundedParameter>,
+) -> Result<()> {
+    if parameters.is_empty() {
+        anyhow::bail!("at least one parameter is required for non-parametric models");
+    }
+
+    for parameter in parameters.iter() {
+        if !parameter.lower.is_finite() || !parameter.upper.is_finite() {
+            anyhow::bail!(
+                "invalid bounds for parameter '{}': bounds must be finite numbers",
+                parameter.name
+            );
+        }
+
+        if parameter.lower >= parameter.upper {
+            anyhow::bail!(
+                "invalid bounds for parameter '{}': lower bound ({}) must be strictly less than upper bound ({})",
+                parameter.name,
+                parameter.lower,
+                parameter.upper
+            );
+        }
+    }
+
+    let names: Vec<String> = parameters
+        .iter()
+        .map(|parameter| parameter.name.clone())
+        .collect();
+    validate_parameter_declarations(model, &names)
+}
+
+fn validate_parametric_parameters<E: Equation + EquationMetadataSource>(
+    model: &ModelBuilder<E>,
+    parameters: &ParameterSpace<UnboundedParameter>,
+) -> Result<()> {
+    if parameters.is_empty() {
+        anyhow::bail!("at least one parameter is required for parametric models");
+    }
+
+    let names: Vec<String> = parameters
+        .iter()
+        .map(|parameter| parameter.name.clone())
+        .collect();
+    validate_parameter_declarations(model, &names)
+}
+
+fn validate_parameter_declarations<E: Equation + EquationMetadataSource>(
+    model: &ModelBuilder<E>,
+    provided_names: &[String],
+) -> Result<()> {
+    let mut seen: HashSet<&str> = HashSet::new();
+    let mut duplicates: Vec<String> = Vec::new();
+    for name in provided_names {
+        if !seen.insert(name.as_str()) {
+            duplicates.push(name.clone());
+        }
+    }
+
+    if !duplicates.is_empty() {
+        duplicates.sort();
+        duplicates.dedup();
+        anyhow::bail!(
+            "duplicate parameter declarations found: {}",
+            duplicates.join(", ")
+        );
+    }
+
+    let declared = model.parameter_names();
+
+    let unknown: Vec<String> = provided_names
+        .iter()
+        .filter(|name| model.parameter_index(name).is_none())
+        .cloned()
+        .collect();
+    if !unknown.is_empty() {
+        anyhow::bail!(
+            "unknown parameter name(s): {}. Valid parameters are: {}",
+            unknown.join(", "),
+            declared.join(", ")
+        );
+    }
+
+    let provided: HashSet<&str> = provided_names.iter().map(|name| name.as_str()).collect();
+    let missing: Vec<String> = declared
+        .iter()
+        .filter(|name| !provided.contains(name.as_str()))
+        .cloned()
+        .collect();
+
+    if !missing.is_empty() {
+        anyhow::bail!("missing parameter declaration(s): {}", missing.join(", "));
+    }
+
+    Ok(())
+}
+
+fn validate_nonparametric_error_models<E: Equation + EquationMetadataSource>(
+    model: &ModelBuilder<E>,
+    error_models: &[(String, AssayErrorModel)],
+) -> Result<()> {
+    if error_models.is_empty() {
+        anyhow::bail!("at least one assay error model is required");
+    }
+
+    validate_error_model_labels(model, error_models.iter().map(|(name, _)| name.as_str()))
+}
+
+fn validate_parametric_error_models<E: Equation + EquationMetadataSource>(
+    model: &ModelBuilder<E>,
+    error_models: &[(String, ResidualErrorModel)],
+) -> Result<()> {
+    if error_models.is_empty() {
+        anyhow::bail!("at least one residual error model is required");
+    }
+
+    validate_error_model_labels(model, error_models.iter().map(|(name, _)| name.as_str()))
+}
+
+fn validate_error_model_labels<'a, E, I>(model: &ModelBuilder<E>, labels: I) -> Result<()>
+where
+    E: Equation + EquationMetadataSource,
+    I: IntoIterator<Item = &'a str>,
+{
+    let valid_outputs = model.output_names();
+    let mut seen_output_indexes: HashSet<usize> = HashSet::new();
+
+    for name in labels {
+        let outeq = model.output_index(name).ok_or_else(|| {
+            anyhow!(
+                "unknown equation output label: {}. Valid outputs are: {}",
+                name,
+                valid_outputs.join(", ")
+            )
+        })?;
+
+        if !seen_output_indexes.insert(outeq) {
+            anyhow::bail!(
+                "duplicate error model declaration for output '{}' (index {})",
+                name,
+                outeq
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::prelude::*;
+
+    use pharmsol::{fa, fetch_params, lag, Subject, SubjectBuilderExt};
+
+    fn simple_equation() -> pharmsol::equation::ODE {
+        pharmsol::equation::ODE::new(
+            |x, p, _t, dx, b, _rateiv, _cov| {
+                fetch_params!(p, ke);
+                dx[0] = -ke * x[0] + b[0];
+            },
+            |_p, _t, _cov| lag! {},
+            |_p, _t, _cov| fa! {},
+            |_p, _t, _cov, _x| {},
+            |x, p, _t, _cov, y| {
+                fetch_params!(p, v);
+                y[0] = x[0] / v;
+            },
+        )
+        .with_nstates(1)
+        .with_ndrugs(1)
+        .with_nout(1)
+        .with_metadata(
+            pharmsol::equation::metadata::new("estimation_problem_builder_validation")
+                .parameters(["ke", "v"])
+                .states(["central"])
+                .outputs(["outeq_1"])
+                .route(pharmsol::equation::Route::bolus("input_1").to_state("central")),
+        )
+        .expect("metadata attachment should validate")
+    }
+
+    fn simple_data() -> Data {
+        let subject = Subject::builder("1")
+            .bolus(0.0, 100.0, 0)
+            .observation(1.0, 10.0, 0)
+            .build();
+
+        Data::new(vec![subject])
+    }
+
+    fn default_error_model() -> AssayErrorModel {
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0)
+    }
+
+    #[test]
+    fn nonparametric_build_rejects_unknown_parameter_name() {
+        let result = EstimationProblem::builder(simple_equation(), simple_data())
+            .nonparametric()
+            .parameter(Parameter::bounded("ke", 0.001, 3.0))
+            .parameter(Parameter::bounded("unknown_param", 25.0, 250.0))
+            .error("outeq_1", default_error_model())
+            .build();
+
+        assert!(result.is_err());
+        let message = format!("{}", result.err().expect("error expected"));
+        assert!(message.contains("unknown parameter name(s): unknown_param"));
+    }
+
+    #[test]
+    fn nonparametric_build_rejects_missing_parameter_declaration() {
+        let result = EstimationProblem::builder(simple_equation(), simple_data())
+            .nonparametric()
+            .parameter(Parameter::bounded("ke", 0.001, 3.0))
+            .error("outeq_1", default_error_model())
+            .build();
+
+        assert!(result.is_err());
+        let message = format!("{}", result.err().expect("error expected"));
+        assert!(message.contains("missing parameter declaration(s): v"));
+    }
+
+    #[test]
+    fn nonparametric_build_rejects_duplicate_parameter_declaration() {
+        let result = EstimationProblem::builder(simple_equation(), simple_data())
+            .nonparametric()
+            .parameter(Parameter::bounded("ke", 0.001, 3.0))
+            .parameter(Parameter::bounded("ke", 25.0, 250.0))
+            .error("outeq_1", default_error_model())
+            .build();
+
+        assert!(result.is_err());
+        let message = format!("{}", result.err().expect("error expected"));
+        assert!(message.contains("duplicate parameter declarations found: ke"));
+    }
+
+    #[test]
+    fn nonparametric_build_rejects_invalid_parameter_bounds() {
+        let result = EstimationProblem::builder(simple_equation(), simple_data())
+            .nonparametric()
+            .parameter(Parameter::bounded("ke", 2.0, 1.0))
+            .parameter(Parameter::bounded("v", 25.0, 250.0))
+            .error("outeq_1", default_error_model())
+            .build();
+
+        assert!(result.is_err());
+        let message = format!("{}", result.err().expect("error expected"));
+        assert!(message.contains("invalid bounds for parameter 'ke'"));
+    }
+
+    #[test]
+    fn nonparametric_build_rejects_duplicate_error_model_output() {
+        let result = EstimationProblem::builder(simple_equation(), simple_data())
+            .nonparametric()
+            .parameter(Parameter::bounded("ke", 0.001, 3.0))
+            .parameter(Parameter::bounded("v", 25.0, 250.0))
+            .error("outeq_1", default_error_model())
+            .error("outeq_1", default_error_model())
+            .build();
+
+        assert!(result.is_err());
+        let message = format!("{}", result.err().expect("error expected"));
+        assert!(message.contains("duplicate error model declaration for output 'outeq_1'"));
     }
 }

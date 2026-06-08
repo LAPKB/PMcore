@@ -80,6 +80,38 @@ impl<E: Equation> ModelBuilder<E> {
 }
 
 impl<E: EquationMetadataSource> ModelBuilder<E> {
+    pub(crate) fn parameter_index(&self, name: &str) -> Option<usize> {
+        self.equation
+            .equation_metadata()
+            .and_then(|metadata| metadata.parameter_index(name))
+    }
+
+    pub(crate) fn parameter_names(&self) -> Vec<String> {
+        self.equation
+            .equation_metadata()
+            .map(|metadata| {
+                metadata
+                    .parameters()
+                    .iter()
+                    .map(|parameter| parameter.name().to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn output_names(&self) -> Vec<String> {
+        self.equation
+            .equation_metadata()
+            .map(|metadata| {
+                metadata
+                    .outputs()
+                    .iter()
+                    .map(|output| output.name().to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     pub(crate) fn output_index(&self, name: &str) -> Option<usize> {
         self.equation.equation_metadata().and_then(|metadata| {
             metadata
