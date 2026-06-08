@@ -4,9 +4,9 @@ use rand::prelude::*;
 use rand::rngs::StdRng;
 
 use crate::estimation::nonparametric::Theta;
-use crate::model::NonParametricParameters;
+use crate::model::{BoundedParameter, ParameterSpace};
 
-pub fn generate(parameters: &NonParametricParameters, points: usize, seed: usize) -> Result<Theta> {
+pub fn generate(parameters: &ParameterSpace<BoundedParameter>, points: usize, seed: usize) -> Result<Theta> {
     let ranges = parameters.finite_ranges();
     let mut rng = StdRng::seed_from_u64(seed as u64);
 
@@ -31,14 +31,14 @@ pub fn generate(parameters: &NonParametricParameters, points: usize, seed: usize
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{BoundedParameter, NonParametricParameters};
+    use crate::model::{BoundedParameter, Parameter, ParameterSpace};
 
     #[test]
     fn latin_generate_produces_requested_shape() {
-        let params = NonParametricParameters::new()
-            .add(BoundedParameter::new("a", 0.0, 1.0))
-            .add(BoundedParameter::new("b", 0.0, 1.0))
-            .add(BoundedParameter::new("c", 0.0, 1.0));
+        let params = ParameterSpace::<BoundedParameter>::new()
+            .add(Parameter::bounded("a", 0.0, 1.0))
+            .add(Parameter::bounded("b", 0.0, 1.0))
+            .add(Parameter::bounded("c", 0.0, 1.0));
 
         let theta = generate(&params, 10, 22).unwrap();
         assert_eq!(theta.nspp(), 10);

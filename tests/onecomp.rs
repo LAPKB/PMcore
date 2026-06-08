@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::{model::BoundedParameter, prelude::*};
+use pmcore::prelude::*;
 
 fn one_compartment_metadata() -> pharmsol::equation::ModelMetadata {
     equation::metadata::new("one_compartment")
@@ -54,8 +54,8 @@ fn test_one_compartment_npag() -> Result<()> {
 
     let result = EstimationProblem::builder(eq, data)
         .nonparametric()
-        .parameter(BoundedParameter::new("ke", 0.1, 1.0))
-        .parameter(BoundedParameter::new("v", 1.0, 20.0))
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))
+        .parameter(Parameter::bounded("v", 1.0, 20.0))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
@@ -115,8 +115,8 @@ fn test_one_compartment_npod() -> Result<()> {
 
     let result = EstimationProblem::builder(eq, data)
         .nonparametric()
-        .parameter(BoundedParameter::new("ke", 0.1, 1.0))
-        .parameter(BoundedParameter::new("v", 1.0, 20.0))
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))
+        .parameter(Parameter::bounded("v", 1.0, 20.0))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
@@ -176,8 +176,8 @@ fn test_one_compartment_postprob() -> Result<()> {
 
     let result = EstimationProblem::builder(eq, data)
         .nonparametric()
-        .parameter(BoundedParameter::new("ke", 0.1, 1.0))
-        .parameter(BoundedParameter::new("v", 1.0, 20.0))
+        .parameter(Parameter::bounded("ke", 0.1, 1.0))
+        .parameter(Parameter::bounded("v", 1.0, 20.0))
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),

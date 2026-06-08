@@ -67,16 +67,13 @@ pub mod prelude {
     };
 
     pub use crate::model::parameter_space::{
-        BoundedParameter, NonParametricParameters, ParametricParameters, UnboundedParameter,
+        BoundedParameter, Parameter, ParameterScale, ParameterSpace, UnboundedParameter,
     };
 
     pub use crate::estimation::nonparametric::{
         CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
     };
-    pub use crate::model::{
-        EquationMetadataSource, ModelMetadata, ParameterDomain, ParameterSpace,
-        ParameterTransform as ModelParameterTransform,
-    };
+    pub use crate::model::{EquationMetadataSource, ModelMetadata};
     pub use crate::results::{
         FitResult, FitSummary, IndividualSummary, ParameterSummary, PopulationSummary,
     };

@@ -7,7 +7,7 @@ use crate::estimation::nonparametric::{
 pub(crate) use crate::estimation::nonparametric::ipm::burke;
 pub(crate) use crate::estimation::nonparametric::qr;
 
-use crate::model::parameter_space::NonParametricParameters;
+use crate::model::parameter_space::{BoundedParameter, ParameterSpace};
 
 use anyhow::bail;
 use anyhow::Result;
@@ -155,7 +155,7 @@ impl<E: Equation + Send + 'static> NPAG<E> {
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
-        parameters: &NonParametricParameters,
+        parameters: &ParameterSpace<BoundedParameter>,
         config: NpagConfig,
     ) -> Result<Self> {
         let ranges = parameters.finite_ranges();
@@ -509,7 +509,7 @@ impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpagConfig {
     type Runner = NPAG<E>;
 
     fn build_runner(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Runner> {
-        // Here, problem.parameters is strictly NonParametricParameters
+        // Here, problem.parameters is strictly ParameterSpace<BoundedParameter>
         // and problem.error_models is strictly AssayErrorModels!
 
         NPAG::from_parts(
@@ -541,8 +541,6 @@ impl<E: Equation + Send + 'static> Fitter<E> for NPAG<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::model::BoundedParameter;
-
     use crate::prelude::*;
 
     use pharmsol::{fa, fetch_params, lag, Subject, SubjectBuilderExt};
@@ -588,8 +586,8 @@ mod tests {
     fn npag_runs_without_error() {
         let problem = EstimationProblem::builder(simple_equation(), simple_data())
             .nonparametric()
-            .parameter(BoundedParameter::new("ke", 0.001, 3.0))
-            .parameter(BoundedParameter::new("v", 25.0, 250.0))
+            .parameter(Parameter::bounded("ke", 0.001, 3.0))
+            .parameter(Parameter::bounded("v", 25.0, 250.0))
             .error(
                 "outeq_1",
                 AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),

@@ -4,7 +4,7 @@ use crate::{
     estimation::nonparametric::{
         calculate_psi, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta, Weights,
     },
-    model::parameter_space::NonParametricParameters,
+    model::parameter_space::{BoundedParameter, ParameterSpace},
 };
 
 use anyhow::{Context, Result};
@@ -64,7 +64,7 @@ impl<E: Equation + Send + 'static> NPMAP<E> {
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
-        parameters: &NonParametricParameters,
+        parameters: &ParameterSpace<BoundedParameter>,
         config: NpmapConfig,
     ) -> Result<Self> {
         // Generate or load the initial support points from the prior

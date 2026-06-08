@@ -5,7 +5,7 @@ use faer::Mat;
 use serde::{Deserialize, Serialize};
 
 use super::weights::Weights;
-use crate::model::NonParametricParameters;
+use crate::model::{BoundedParameter, ParameterSpace};
 
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution
@@ -14,14 +14,14 @@ use crate::model::NonParametricParameters;
 #[derive(Clone, PartialEq)]
 pub struct Theta {
     matrix: Mat<f64>,
-    parameters: NonParametricParameters,
+    parameters: ParameterSpace<BoundedParameter>,
 }
 
 impl Default for Theta {
     fn default() -> Self {
         Theta {
             matrix: Mat::new(),
-            parameters: NonParametricParameters::new(),
+            parameters: ParameterSpace::<BoundedParameter>::new(),
         }
     }
 }
@@ -37,7 +37,7 @@ impl Theta {
     /// in the [ParameterSpace]
     ///
     /// The order of parameters in the [ParameterSpace] should match the order of columns in the matrix
-    pub fn from_parts(matrix: Mat<f64>, parameters: NonParametricParameters) -> Result<Self> {
+    pub fn from_parts(matrix: Mat<f64>, parameters: ParameterSpace<BoundedParameter>) -> Result<Self> {
         if matrix.ncols() != parameters.len() {
             bail!(
                 "Number of columns in matrix ({}) does not match number of parameters ({})",
@@ -62,12 +62,12 @@ impl Theta {
     }
 
     /// Get the [ParameterSpace] associated with this [Theta]
-    pub fn parameters(&self) -> &NonParametricParameters {
+    pub fn parameters(&self) -> &ParameterSpace<BoundedParameter> {
         &self.parameters
     }
 
     /// Get a mutable reference to the [ParameterSpace]
-    pub fn parameters_mut(&mut self) -> &mut NonParametricParameters {
+    pub fn parameters_mut(&mut self) -> &mut ParameterSpace<BoundedParameter> {
         &mut self.parameters
     }
 
@@ -222,14 +222,14 @@ impl Theta {
         }
 
         let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
-        let parameters = NonParametricParameters::new();
+        let parameters = ParameterSpace::<BoundedParameter>::new();
 
         Theta::from_parts(mat, parameters)
     }
 
     pub fn from_file(
         path: &String,
-        parameters: &NonParametricParameters,
+        parameters: &ParameterSpace<BoundedParameter>,
     ) -> Result<(Theta, Option<Weights>)> {
         tracing::info!("Reading prior from {}", path);
         let file = File::open(path).context(format!("Unable to open the prior file '{}'", path))?;
@@ -361,7 +361,7 @@ impl<'de> Deserialize<'de> for Theta {
         #[derive(Deserialize)]
         struct ThetaSerde {
             matrix: Vec<Vec<f64>>,
-            parameters: NonParametricParameters,
+            parameters: ParameterSpace<BoundedParameter>,
         }
 
         let decoded = ThetaSerde::deserialize(deserializer)?;

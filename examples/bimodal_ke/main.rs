@@ -1,6 +1,5 @@
 use anyhow::Result;
-use pmcore::{model::BoundedParameter, prelude::*};
-// (Assuming BoundedParameter, NpagConfig, etc., are exported in your prelude)
+use pmcore::prelude::*;
 
 fn main() -> Result<()> {
     Logger::new().stdout(true).init()?;
@@ -26,8 +25,8 @@ fn main() -> Result<()> {
 
     let problem = EstimationProblem::builder(eq, data)
         .nonparametric()
-        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
-        .parameter(BoundedParameter::new("v", 25.0, 250.0))
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),

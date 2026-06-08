@@ -3,9 +3,7 @@ use pharmsol::{
     AssayErrorModel, AssayErrorModels, Data, Equation, ResidualErrorModel, ResidualErrorModels,
 };
 
-use crate::model::parameter_space::{
-    BoundedParameter, NonParametricParameters, ParametricParameters, UnboundedParameter,
-};
+use crate::model::parameter_space::{BoundedParameter, ParameterSpace, UnboundedParameter};
 use crate::model::{EquationMetadataSource, Model, ModelBuilder};
 
 pub trait Framework {
@@ -15,13 +13,13 @@ pub trait Framework {
 pub struct Parametric;
 impl Framework for Parametric {
     type ErrorModels = ResidualErrorModels;
-    type Parameters = ParametricParameters;
+    type Parameters = ParameterSpace<UnboundedParameter>;
 }
 pub struct NonParametric;
 
 impl Framework for NonParametric {
     type ErrorModels = AssayErrorModels;
-    type Parameters = NonParametricParameters;
+    type Parameters = ParameterSpace<BoundedParameter>;
 }
 
 #[derive(Debug, Clone)]
@@ -42,7 +40,7 @@ impl<E: Equation> EstimationProblemBuilder<E> {
         NonParametricBuilder {
             model: self.model,
             data: self.data,
-            parameters: NonParametricParameters::new(),
+            parameters: ParameterSpace::<BoundedParameter>::new(),
             error_models: Vec::new(),
         }
     }
@@ -51,7 +49,7 @@ impl<E: Equation> EstimationProblemBuilder<E> {
         ParametricBuilder {
             model: self.model,
             data: self.data,
-            parameters: ParametricParameters::new(),
+            parameters: ParameterSpace::<UnboundedParameter>::new(),
             error_models: Vec::new(),
         }
     }
@@ -69,19 +67,23 @@ impl<E: Equation> EstimationProblem<E, NonParametric> {
 pub struct NonParametricBuilder<E: Equation> {
     model: ModelBuilder<E>,
     data: Data,
-    parameters: NonParametricParameters,
+    parameters: ParameterSpace<BoundedParameter>,
     error_models: Vec<(String, AssayErrorModel)>,
 }
 
 impl<E: Equation> NonParametricBuilder<E> {
-    pub fn parameter(mut self, parameter: BoundedParameter) -> Self {
-        self.parameters.push(parameter);
+    pub fn parameter(mut self, parameter: impl Into<BoundedParameter>) -> Self {
+        self.parameters.push(parameter.into());
         self
     }
 
-    pub fn parameters(mut self, parameters: impl IntoIterator<Item = BoundedParameter>) -> Self {
+    pub fn parameters<P, I>(mut self, parameters: I) -> Self
+    where
+        P: Into<BoundedParameter>,
+        I: IntoIterator<Item = P>,
+    {
         for param in parameters {
-            self.parameters.push(param);
+            self.parameters.push(param.into());
         }
         self
     }
@@ -124,19 +126,23 @@ impl<E: Equation + EquationMetadataSource> NonParametricBuilder<E> {
 pub struct ParametricBuilder<E: Equation> {
     model: ModelBuilder<E>,
     data: Data,
-    parameters: ParametricParameters,
+    parameters: ParameterSpace<UnboundedParameter>,
     error_models: Vec<(String, ResidualErrorModel)>,
 }
 
 impl<E: Equation> ParametricBuilder<E> {
-    pub fn parameter(mut self, parameter: UnboundedParameter) -> Self {
-        self.parameters.push(parameter);
+    pub fn parameter(mut self, parameter: impl Into<UnboundedParameter>) -> Self {
+        self.parameters.push(parameter.into());
         self
     }
 
-    pub fn parameters(mut self, parameters: impl IntoIterator<Item = UnboundedParameter>) -> Self {
+    pub fn parameters<P, I>(mut self, parameters: I) -> Self
+    where
+        P: Into<UnboundedParameter>,
+        I: IntoIterator<Item = P>,
+    {
         for param in parameters {
-            self.parameters.push(param);
+            self.parameters.push(param.into());
         }
         self
     }

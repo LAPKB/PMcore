@@ -33,8 +33,8 @@ fn setup_npag() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
         .nonparametric()
-        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
-        .parameter(BoundedParameter::new("v", 25.0, 250.0))
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
@@ -46,8 +46,8 @@ fn setup_npod() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
         .nonparametric()
-        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
-        .parameter(BoundedParameter::new("v", 25.0, 250.0))
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
@@ -59,8 +59,8 @@ fn setup_postprob() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
     EstimationProblem::builder(create_equation(), data)
         .nonparametric()
-        .parameter(BoundedParameter::new("ke", 0.001, 3.0))
-        .parameter(BoundedParameter::new("v", 25.0, 250.0))
+        .parameter(Parameter::bounded("ke", 0.001, 3.0))
+        .parameter(Parameter::bounded("v", 25.0, 250.0))
         .error(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),

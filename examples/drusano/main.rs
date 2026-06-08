@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::{model::BoundedParameter, prelude::*};
+use pmcore::prelude::*;
 #[allow(unused_variables)]
 fn main() -> Result<()> {
     let eq = ode! {
@@ -66,30 +66,30 @@ fn main() -> Result<()> {
     let data = data::read_pmetrics("examples/drusano/data.csv")?;
     EstimationProblem::builder(eq, data)
         .nonparametric()
-        .parameter(BoundedParameter::new("v1", 5.0, 160.0))
-        .parameter(BoundedParameter::new("cl1", 4.0, 9.0))
-        .parameter(BoundedParameter::new("v2", 100.0, 200.0))
-        .parameter(BoundedParameter::new("cl2", 25.0, 35.0))
-        .parameter(BoundedParameter::new("popmax", 100000000.0, 100000000000.0))
-        .parameter(BoundedParameter::new("kgs", 0.01, 0.25))
-        .parameter(BoundedParameter::new("kks", 0.01, 0.5))
-        .parameter(BoundedParameter::new("e50_1s", 0.1, 2.5))
-        .parameter(BoundedParameter::new("e50_2s", 0.1, 10.0))
-        .parameter(BoundedParameter::new("alpha_s", -8.0, 5.0))
-        .parameter(BoundedParameter::new("kgr1", 0.004, 0.1))
-        .parameter(BoundedParameter::new("kkr1", 0.08, 0.4))
-        .parameter(BoundedParameter::new("e50_1r1", 8.0, 17.0))
-        .parameter(BoundedParameter::new("alpha_r1", -8.0, 5.0))
-        .parameter(BoundedParameter::new("kgr2", 0.004, 0.3))
-        .parameter(BoundedParameter::new("kkr2", 0.1, 0.5))
-        .parameter(BoundedParameter::new("e50_2r2", 5.0, 8.0))
-        .parameter(BoundedParameter::new("alpha_r2", -5.0, 5.0))
-        .parameter(BoundedParameter::new("init_4", -1.0, 4.0))
-        .parameter(BoundedParameter::new("init_5", -1.0, 3.0))
-        .parameter(BoundedParameter::new("h1s", 0.5, 8.0))
-        .parameter(BoundedParameter::new("h2s", 0.1, 4.0))
-        .parameter(BoundedParameter::new("h1r1", 5.0, 25.0))
-        .parameter(BoundedParameter::new("h2r2", 10.0, 22.0))
+        .parameter(Parameter::bounded("v1", 5.0, 160.0))
+        .parameter(Parameter::bounded("cl1", 4.0, 9.0))
+        .parameter(Parameter::bounded("v2", 100.0, 200.0))
+        .parameter(Parameter::bounded("cl2", 25.0, 35.0))
+        .parameter(Parameter::bounded("popmax", 100000000.0, 100000000000.0))
+        .parameter(Parameter::bounded("kgs", 0.01, 0.25))
+        .parameter(Parameter::bounded("kks", 0.01, 0.5))
+        .parameter(Parameter::bounded("e50_1s", 0.1, 2.5))
+        .parameter(Parameter::bounded("e50_2s", 0.1, 10.0))
+        .parameter(Parameter::bounded("alpha_s", -8.0, 5.0))
+        .parameter(Parameter::bounded("kgr1", 0.004, 0.1))
+        .parameter(Parameter::bounded("kkr1", 0.08, 0.4))
+        .parameter(Parameter::bounded("e50_1r1", 8.0, 17.0))
+        .parameter(Parameter::bounded("alpha_r1", -8.0, 5.0))
+        .parameter(Parameter::bounded("kgr2", 0.004, 0.3))
+        .parameter(Parameter::bounded("kkr2", 0.1, 0.5))
+        .parameter(Parameter::bounded("e50_2r2", 5.0, 8.0))
+        .parameter(Parameter::bounded("alpha_r2", -5.0, 5.0))
+        .parameter(Parameter::bounded("init_4", -1.0, 4.0))
+        .parameter(Parameter::bounded("init_5", -1.0, 3.0))
+        .parameter(Parameter::bounded("h1s", 0.5, 8.0))
+        .parameter(Parameter::bounded("h2s", 0.1, 4.0))
+        .parameter(Parameter::bounded("h1r1", 5.0, 25.0))
+        .parameter(Parameter::bounded("h2r2", 10.0, 22.0))
         .error(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),

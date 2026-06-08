@@ -1,5 +1,5 @@
 use crate::estimation::nonparametric::Theta;
-use crate::model::NonParametricParameters;
+use crate::model::{BoundedParameter, ParameterSpace};
 use anyhow::{bail, Result};
 
 use serde::{Deserialize, Serialize};
@@ -74,7 +74,7 @@ impl Prior {
     /// Generates the initial support points (theta) based on the specified prior configuration
     ///
     /// If a Prior::Theta is provided, it will be returned directly. For Sobol and Latin, the support points will be generated based on the number of points and seed.
-    pub fn theta(&self, parameters: &NonParametricParameters) -> Result<Theta> {
+    pub fn theta(&self, parameters: &ParameterSpace<BoundedParameter>) -> Result<Theta> {
         for parameter in parameters.iter() {
             if parameter.lower >= parameter.upper {
                 bail!(
@@ -105,13 +105,13 @@ impl Default for Prior {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::BoundedParameter;
+    use crate::model::Parameter;
     use std::fs;
 
-    fn parameters() -> NonParametricParameters {
-        NonParametricParameters::new()
-            .add(BoundedParameter::new("ke", 0.1, 1.0))
-            .add(BoundedParameter::new("v", 5.0, 50.0))
+    fn parameters() -> ParameterSpace<BoundedParameter> {
+        ParameterSpace::<BoundedParameter>::new()
+            .add(Parameter::bounded("ke", 0.1, 1.0))
+            .add(Parameter::bounded("v", 5.0, 50.0))
     }
 
     fn temp_csv_path() -> String {

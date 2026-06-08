@@ -3,9 +3,13 @@ use faer::Mat;
 use sobol_burley::sample;
 
 use crate::estimation::nonparametric::Theta;
-use crate::model::NonParametricParameters;
+use crate::model::{BoundedParameter, ParameterSpace};
 
-pub fn generate(parameters: &NonParametricParameters, points: usize, seed: usize) -> Result<Theta> {
+pub fn generate(
+    parameters: &ParameterSpace<BoundedParameter>,
+    points: usize,
+    seed: usize,
+) -> Result<Theta> {
     let seed = seed as u32;
     let ranges = parameters.finite_ranges();
 
@@ -21,14 +25,14 @@ pub fn generate(parameters: &NonParametricParameters, points: usize, seed: usize
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::BoundedParameter;
+    use crate::model::Parameter;
 
     #[test]
     fn sobol_generate_produces_requested_shape() {
-        let params = NonParametricParameters::new()
-            .add(BoundedParameter::new("a", 0.0, 1.0))
-            .add(BoundedParameter::new("b", 0.0, 1.0))
-            .add(BoundedParameter::new("c", 0.0, 1.0));
+        let params = ParameterSpace::<BoundedParameter>::new()
+            .add(Parameter::bounded("a", 0.0, 1.0))
+            .add(Parameter::bounded("b", 0.0, 1.0))
+            .add(Parameter::bounded("c", 0.0, 1.0));
 
         let theta = generate(&params, 10, 22).unwrap();
         assert_eq!(theta.nspp(), 10);

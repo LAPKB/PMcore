@@ -5,7 +5,7 @@ use crate::{
         calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta,
         Weights,
     },
-    model::parameter_space::NonParametricParameters,
+    model::parameter_space::{BoundedParameter, ParameterSpace},
 };
 use pharmsol::ParameterOptimizer;
 
@@ -84,7 +84,7 @@ impl<E: Equation + Send + 'static> NPOD<E> {
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
-        parameters: &NonParametricParameters,
+        parameters: &ParameterSpace<BoundedParameter>,
         config: NpodConfig,
     ) -> Result<Self> {
         let gamma_delta = vec![0.1; error_models.len()];

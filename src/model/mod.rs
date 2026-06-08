@@ -8,8 +8,7 @@ pub mod parameter_space;
 pub use metadata::ModelMetadata;
 // Re-exporting the new typestate parameter elements for easy access downstream
 pub use parameter_space::{
-    BoundedParameter, NonParametricParameters, ParameterDomain, ParameterSpace, ParameterTransform,
-    ParametricParameters, UnboundedParameter,
+    BoundedParameter, Parameter, ParameterMeta, ParameterScale, ParameterSpace, UnboundedParameter,
 };
 
 #[derive(Debug, Clone)]
