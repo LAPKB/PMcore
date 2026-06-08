@@ -1,13 +1,11 @@
 use crate::algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason};
-use crate::estimation::{EstimationProblem, NonParametric};
 use crate::estimation::nonparametric::{
-    calculate_psi, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta, Weights,
+    calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
 };
+use crate::estimation::{EstimationProblem, NonParametric};
 
 pub(crate) use crate::estimation::nonparametric::ipm::burke;
 pub(crate) use crate::estimation::nonparametric::qr;
-
-use crate::model::parameter_space::{BoundedParameter, ParameterSpace};
 
 use anyhow::bail;
 use anyhow::Result;
@@ -38,7 +36,6 @@ pub struct NpagConfig {
     pub error_step_shrink: f64,
     pub max_cycles: usize,
     pub progress: bool,
-    pub prior: Prior,
 }
 
 impl Default for NpagConfig {
@@ -57,7 +54,6 @@ impl Default for NpagConfig {
             error_step_shrink: 0.5,
             max_cycles: 1000,
             progress: true,
-            prior: Prior::Sobol(100, 22),
         }
     }
 }
@@ -155,20 +151,18 @@ impl<E: Equation + Send + 'static> NPAG<E> {
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
-        parameters: &ParameterSpace<BoundedParameter>,
+        theta: Theta,
         config: NpagConfig,
     ) -> Result<Self> {
-        let ranges = parameters.finite_ranges();
+        let ranges = theta.parameters().finite_ranges();
         let gamma_delta = vec![config.error_step; error_models.len()];
         let eps = config.eps;
-
-        let prior = config.prior.theta(parameters)?;
 
         Ok(Self {
             equation,
             ranges,
             psi: Psi::new(),
-            theta: prior,
+            theta,
             lambda: Weights::default(),
             w: Weights::default(),
             eps,
@@ -516,7 +510,7 @@ impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpagConfig {
             problem.model.equation.clone(),
             problem.data.clone(),
             problem.error_models.clone(),
-            &problem.parameters,
+            problem.prior.clone(),
             self,
         )
     }

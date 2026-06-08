@@ -211,10 +211,9 @@ pub fn npagfull_refinement(
             eq.clone(),
             past_data.clone(),
             config.error_models().clone(),
-            &parameter_space,
+            single_point_theta,
             npag_config,
         )?;
-        npag.set_theta(single_point_theta);
 
         // Run NPAG optimization
         let refinement_result = npag.initialize().and_then(|_| {

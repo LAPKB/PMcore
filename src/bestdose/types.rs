@@ -9,7 +9,7 @@
 
 use std::fmt::Display;
 
-use crate::estimation::nonparametric::{NPPredictions, Prior, Theta, Weights};
+use crate::estimation::nonparametric::{NPPredictions, Theta, Weights};
 use crate::model::{BoundedParameter, ParameterSpace};
 use crate::prelude::*;
 use pharmsol::prelude::*;
@@ -188,7 +188,6 @@ impl Default for DoseRange {
 pub struct BestDoseConfig {
     pub(crate) parameter_space: ParameterSpace<BoundedParameter>,
     pub(crate) error_models: AssayErrorModels,
-    pub(crate) prior: Prior,
     pub(crate) refinement_cycles: usize,
     pub(crate) progress: bool,
     pub(crate) prediction_interval: f64,
@@ -199,16 +198,10 @@ impl BestDoseConfig {
         Self {
             parameter_space,
             error_models,
-            prior: Prior::default(),
             refinement_cycles: 500,
             progress: true,
             prediction_interval: 0.12,
         }
-    }
-
-    pub fn with_prior(mut self, prior: Prior) -> Self {
-        self.prior = prior;
-        self
     }
 
     pub fn with_refinement_cycles(mut self, refinement_cycles: usize) -> Self {
@@ -232,10 +225,6 @@ impl BestDoseConfig {
 
     pub fn error_models(&self) -> &AssayErrorModels {
         &self.error_models
-    }
-
-    pub fn prior(&self) -> &Prior {
-        &self.prior
     }
 
     pub fn refinement_cycles(&self) -> usize {

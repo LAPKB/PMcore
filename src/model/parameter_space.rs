@@ -59,6 +59,24 @@ impl<T> FromIterator<T> for ParameterSpace<T> {
     }
 }
 
+impl<T> IntoIterator for ParameterSpace<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a ParameterSpace<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
 /// Common metadata exposed by parameter types.
 pub trait ParameterMeta {
     fn name(&self) -> &str;

@@ -1,10 +1,9 @@
 use crate::{
     algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason},
-    estimation::{EstimationProblem, NonParametric},
     estimation::nonparametric::{
-        calculate_psi, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta, Weights,
+        calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
-    model::parameter_space::{BoundedParameter, ParameterSpace},
+    estimation::{EstimationProblem, NonParametric},
 };
 
 use anyhow::{Context, Result};
@@ -17,28 +16,12 @@ use crate::estimation::nonparametric::ipm::burke;
 use serde::{Deserialize, Serialize};
 
 /// Configuration options for the non-parametric maximum a posteriori (NPMAP) algorithm
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NpmapConfig {
-    /// The prior distribution for which to calcualte the posterior probabilities
-    pub prior: Prior,
-}
-
-impl Default for NpmapConfig {
-    fn default() -> Self {
-        Self {
-            prior: Prior::default(),
-        }
-    }
-}
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct NpmapConfig {}
 
 impl NpmapConfig {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn prior(mut self, prior: Prior) -> Self {
-        self.prior = prior;
-        self
     }
 }
 
@@ -64,12 +47,9 @@ impl<E: Equation + Send + 'static> NPMAP<E> {
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
-        parameters: &ParameterSpace<BoundedParameter>,
-        config: NpmapConfig,
+        theta: Theta,
+        _config: NpmapConfig,
     ) -> Result<Self> {
-        // Generate or load the initial support points from the prior
-        let theta = config.prior.theta(parameters)?;
-
         Ok(Self {
             equation,
             psi: Psi::new(),
@@ -196,7 +176,7 @@ impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
             problem.model.equation,
             problem.data,
             problem.error_models,
-            &problem.parameters,
+            problem.prior,
             self,
         )
     }

@@ -4,6 +4,7 @@ use anyhow::{bail, Context, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
 
+use super::sampling::{self, latin, sobol};
 use super::weights::Weights;
 use crate::model::{BoundedParameter, ParameterSpace};
 
@@ -230,6 +231,44 @@ impl Theta {
         Theta::from_parts(mat, parameters)
     }
 
+    /// Generate a starting grid of `points` support points over `parameters`
+    /// using a Sobol sequence and the default seed ([`sampling::DEFAULT_SEED`]).
+    ///
+    /// The returned [Theta] carries `parameters`, so the chosen grid is explicit
+    /// and self-describing.
+    pub fn sobol(parameters: &ParameterSpace<BoundedParameter>, points: usize) -> Result<Self> {
+        Self::sobol_with_seed(parameters, points, sampling::DEFAULT_SEED)
+    }
+
+    /// Like [`Theta::sobol`], with an explicit seed for the quasi-random sequence.
+    pub fn sobol_with_seed(
+        parameters: &ParameterSpace<BoundedParameter>,
+        points: usize,
+        seed: usize,
+    ) -> Result<Self> {
+        validate_bounds(parameters)?;
+        sobol::generate(parameters, points, seed)
+    }
+
+    /// Generate a starting grid of `points` support points over `parameters`
+    /// using Latin Hypercube Sampling and the default seed ([`sampling::DEFAULT_SEED`]).
+    ///
+    /// The returned [Theta] carries `parameters`, so the chosen grid is explicit
+    /// and self-describing.
+    pub fn latin(parameters: &ParameterSpace<BoundedParameter>, points: usize) -> Result<Self> {
+        Self::latin_with_seed(parameters, points, sampling::DEFAULT_SEED)
+    }
+
+    /// Like [`Theta::latin`], with an explicit seed for the quasi-random sequence.
+    pub fn latin_with_seed(
+        parameters: &ParameterSpace<BoundedParameter>,
+        points: usize,
+        seed: usize,
+    ) -> Result<Self> {
+        validate_bounds(parameters)?;
+        latin::generate(parameters, points, seed)
+    }
+
     pub fn from_file(
         path: impl AsRef<Path>,
         parameters: &ParameterSpace<BoundedParameter>,
@@ -395,5 +434,89 @@ impl<'de> Deserialize<'de> for Theta {
 
         let matrix = Mat::from_fn(nrows, ncols, |i, j| decoded.matrix[i][j]);
         Self::from_parts(matrix, decoded.parameters).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Validates that every parameter has a strictly-ordered, finite bound interval.
+fn validate_bounds(parameters: &ParameterSpace<BoundedParameter>) -> Result<()> {
+    for parameter in parameters.iter() {
+        if parameter.lower >= parameter.upper {
+            bail!(
+                "Parameter '{}' has invalid bounds: [{}, {}]. Lower bound must be less than upper bound.",
+                parameter.name,
+                parameter.lower,
+                parameter.upper
+            );
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Parameter;
+    use std::fs;
+
+    fn parameters() -> ParameterSpace<BoundedParameter> {
+        ParameterSpace::<BoundedParameter>::new()
+            .add(Parameter::bounded("ke", 0.1, 1.0))
+            .add(Parameter::bounded("v", 5.0, 50.0))
+    }
+
+    fn temp_csv_path() -> String {
+        format!("test_temp_theta_{}.csv", rand::random::<u32>())
+    }
+
+    #[test]
+    fn sobol_generates_expected_shape() {
+        let theta = Theta::sobol_with_seed(&parameters(), 10, 42).unwrap();
+        assert_eq!(theta.nspp(), 10);
+        assert_eq!(theta.matrix().ncols(), 2);
+    }
+
+    #[test]
+    fn latin_generates_expected_shape() {
+        let theta = Theta::latin(&parameters(), 10).unwrap();
+        assert_eq!(theta.nspp(), 10);
+        assert_eq!(theta.matrix().ncols(), 2);
+    }
+
+    #[test]
+    fn sampling_rejects_invalid_bounds() {
+        let bad = ParameterSpace::<BoundedParameter>::new().add(Parameter::bounded("ke", 1.0, 1.0));
+        let err = Theta::sobol(&bad, 10).unwrap_err();
+        assert!(err.to_string().contains("invalid bounds"));
+    }
+
+    #[test]
+    fn from_file_parses_weights_and_reorders_columns() {
+        let path = temp_csv_path();
+        fs::write(&path, "v,ke,prob\n10.0,0.5,0.3\n15.0,0.7,0.7\n").unwrap();
+
+        let (theta, weights) = Theta::from_file(&path, &parameters()).unwrap();
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(theta.nspp(), 2);
+        assert_eq!(theta.matrix()[(0, 0)], 0.5);
+        assert_eq!(theta.matrix()[(0, 1)], 10.0);
+
+        let weights = weights.expect("weights should be parsed from prob column");
+        assert_eq!(weights.len(), 2);
+        assert_eq!(weights[0], 0.3);
+        assert_eq!(weights[1], 0.7);
+    }
+
+    #[test]
+    fn from_file_rejects_extra_parameters() {
+        let path = temp_csv_path();
+        fs::write(&path, "ke,v,extra\n0.5,10.0,1.0\n").unwrap();
+
+        let err = Theta::from_file(&path, &parameters()).unwrap_err();
+        let _ = fs::remove_file(&path);
+
+        assert!(err
+            .to_string()
+            .contains("Found parameters in the prior not present in configuration"));
     }
 }

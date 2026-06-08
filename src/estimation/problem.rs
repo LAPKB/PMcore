@@ -4,6 +4,7 @@ use pharmsol::{
 };
 use std::collections::HashSet;
 
+use crate::estimation::nonparametric::Theta;
 use crate::model::parameter_space::{BoundedParameter, ParameterSpace, UnboundedParameter};
 use crate::model::{EquationMetadataSource, Model, ModelBuilder};
 
@@ -32,6 +33,11 @@ pub struct EstimationProblem<E: Equation, F: Framework> {
     pub(crate) data: Data,
     pub(crate) error_models: F::ErrorModels,
     pub(crate) parameters: F::Parameters,
+    /// The initial set of support points used to seed the algorithm.
+    ///
+    /// Only meaningful for the non-parametric framework; the parametric
+    /// framework leaves this empty.
+    pub(crate) prior: Theta,
 }
 
 pub struct EstimationProblemBuilder<E: Equation> {
@@ -46,6 +52,7 @@ impl<E: Equation> EstimationProblemBuilder<E> {
             data: self.data,
             parameters: ParameterSpace::<BoundedParameter>::new(),
             error_models: Vec::new(),
+            initial_points: None,
         }
     }
 
@@ -73,6 +80,7 @@ pub struct NonParametricBuilder<E: Equation> {
     data: Data,
     parameters: ParameterSpace<BoundedParameter>,
     error_models: Vec<(String, AssayErrorModel)>,
+    initial_points: Option<Theta>,
 }
 
 impl<E: Equation> NonParametricBuilder<E> {
@@ -96,6 +104,17 @@ impl<E: Equation> NonParametricBuilder<E> {
         self.error_models.push((name.into(), model));
         self
     }
+
+    /// Sets the initial set of support points (the starting grid) explicitly.
+    ///
+    /// Build the [`Theta`] from the same parameter space used for the problem,
+    /// e.g. with [`Theta::sobol`], [`Theta::latin`], or [`Theta::from_file`].
+    /// When omitted, a Sobol grid is generated automatically from the declared
+    /// parameter bounds.
+    pub fn prior(mut self, theta: Theta) -> Self {
+        self.initial_points = Some(theta);
+        self
+    }
 }
 
 impl<E: Equation + EquationMetadataSource> NonParametricBuilder<E> {
@@ -113,11 +132,29 @@ impl<E: Equation + EquationMetadataSource> NonParametricBuilder<E> {
             all_errors = all_errors.add(outeq, error_model)?;
         }
 
+        let prior = match self.initial_points {
+            Some(theta) => {
+                if theta.parameters() != &self.parameters {
+                    anyhow::bail!(
+                        "initial points parameter space {:?} does not match the problem parameters {:?}",
+                        theta.parameters().names(),
+                        self.parameters.names()
+                    );
+                }
+                theta
+            }
+            None => Theta::sobol(
+                &self.parameters,
+                crate::estimation::nonparametric::sampling::DEFAULT_POINTS,
+            )?,
+        };
+
         Ok(EstimationProblem {
             model: self.model.build()?,
             data: self.data,
             error_models: all_errors,
             parameters: self.parameters,
+            prior,
         })
     }
 }
@@ -172,6 +209,7 @@ impl<E: Equation + EquationMetadataSource> ParametricBuilder<E> {
             data: self.data,
             error_models: all_errors,
             parameters: self.parameters,
+            prior: Theta::default(),
         })
     }
 }

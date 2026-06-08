@@ -1,11 +1,9 @@
 use crate::{
     algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason},
-    estimation::{EstimationProblem, NonParametric},
     estimation::nonparametric::{
-        calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta,
-        Weights,
+        calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
-    model::parameter_space::{BoundedParameter, ParameterSpace},
+    estimation::{EstimationProblem, NonParametric},
 };
 use pharmsol::ParameterOptimizer;
 
@@ -29,8 +27,6 @@ const THETA_D: f64 = 1e-4;
 pub struct NpodConfig {
     /// Maximum number of cycles to run the algorithm for.
     pub max_cycles: usize,
-    /// Prior distribution for sampling new support points.
-    pub prior: Prior,
     /// Whether to print progress information during the first cycle.
     pub progress: bool,
 }
@@ -44,18 +40,12 @@ impl NpodConfig {
         self.max_cycles = cycles;
         self
     }
-
-    pub fn prior(mut self, prior: Prior) -> Self {
-        self.prior = prior;
-        self
-    }
 }
 
 impl Default for NpodConfig {
     fn default() -> Self {
         Self {
             max_cycles: 100,
-            prior: Prior::default(),
             progress: true,
         }
     }
@@ -84,12 +74,10 @@ impl<E: Equation + Send + 'static> NPOD<E> {
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
-        parameters: &ParameterSpace<BoundedParameter>,
+        theta: Theta,
         config: NpodConfig,
     ) -> Result<Self> {
         let gamma_delta = vec![0.1; error_models.len()];
-
-        let theta = config.prior.theta(parameters)?;
 
         Ok(Self {
             equation,
@@ -461,7 +449,7 @@ impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpodConfig {
             problem.model.equation,
             problem.data,
             problem.error_models,
-            &problem.parameters,
+            problem.prior,
             self,
         )
     }

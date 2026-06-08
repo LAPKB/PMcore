@@ -67,8 +67,7 @@ pub mod prelude {
     };
 
     pub use crate::estimation::nonparametric::{
-        CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Prior, Psi, Theta,
-        Weights,
+        CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
     };
     pub use crate::model::{EquationMetadataSource, ModelMetadata};
     pub use crate::results::{

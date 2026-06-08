@@ -52,10 +52,14 @@ fn test_one_compartment_npag() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
+    let parameters = ParameterSpace::<BoundedParameter>::new()
+        .add(Parameter::bounded("ke", 0.1, 1.0))
+        .add(Parameter::bounded("v", 1.0, 20.0));
+
     let result = EstimationProblem::builder(eq, data)
         .nonparametric()
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))
-        .parameter(Parameter::bounded("v", 1.0, 20.0))
+        .parameters(parameters.clone())
+        .prior(Theta::sobol(&parameters, 100)?)
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
@@ -179,24 +183,23 @@ fn test_one_compartment_postprob() -> Result<()> {
         .add(Parameter::bounded("ke", 0.1, 1.0))
         .add(Parameter::bounded("v", 1.0, 20.0));
 
-    let prior = Prior::sobol(100, 22);
-    let theta = &prior.theta(&parameters)?;
+    let theta = Theta::sobol(&parameters, 100)?;
 
     let result = EstimationProblem::builder(eq, data)
         .nonparametric()
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))
-        .parameter(Parameter::bounded("v", 1.0, 20.0))
+        .parameters(parameters.clone())
+        .prior(theta.clone())
         .error(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )
         .build()?
-        .fit_with(NpmapConfig::default().prior(prior))?;
+        .fit_with(NpmapConfig::default())?;
 
     // Check the results
     assert_eq!(result.cycles(), 0);
 
-    // Should be 2028 points in theta (no change in points)
+    // Should be 100 points in theta (no change in points)
     assert_eq!(result.get_theta().nspp(), theta.nspp());
 
     Ok(())
