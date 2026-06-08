@@ -91,7 +91,7 @@ fn main() -> Result<()> {
         .build();
 
     let (mut theta, prior) = Theta::from_file(
-        &"examples/bimodal_ke/output/theta.csv".to_string(),
+        "examples/bimodal_ke/output/theta.csv",
         &parameter_space,
     )?;
 

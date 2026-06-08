@@ -4,7 +4,7 @@
 
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let eq = ode! {
         name: "meta",
         params: [cls, fm, k20, relv, theta1, theta2, vs],
@@ -31,7 +31,7 @@ fn main() {
         },
     };
 
-    let data = data::read_pmetrics("examples/meta/meta.csv").unwrap();
+    let data = data::read_pmetrics("examples/meta/meta.csv")?;
     EstimationProblem::builder(eq, data)
         .nonparametric()
         .parameter(Parameter::bounded("cls", 0.1, 10.0))
@@ -49,8 +49,8 @@ fn main() {
             "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
-        .build()
-        .unwrap()
-        .fit_with(NpodConfig::default())
-        .unwrap();
+        .build()?
+        .fit_with(NpodConfig::default())?;
+
+    Ok(())
 }

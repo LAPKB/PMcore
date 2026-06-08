@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let eq = ode! {
         name: "two_eq_lag",
         params: [ka, ke, tlag, v],
@@ -21,7 +21,7 @@ fn main() {
         },
     };
 
-    let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
+    let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv")?;
     EstimationProblem::builder(eq, data)
         .nonparametric()
         .parameter(Parameter::bounded("ka", 0.1, 0.9))
@@ -32,8 +32,8 @@ fn main() {
             "outeq_0",
             AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
-        .build()
-        .unwrap()
-        .fit_with(NpagConfig::default())
-        .unwrap();
+        .build()?
+        .fit_with(NpagConfig::default())?;
+
+    Ok(())
 }

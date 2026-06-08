@@ -1,5 +1,5 @@
 use pmcore::prelude::*;
-fn main() {
+fn main() -> Result<()> {
     let eq = ode! {
         name: "vanco_two_compartment",
         params: [ke, kcp, kpc],
@@ -41,8 +41,7 @@ fn main() {
         .build();
 
     let op = eq
-        .simulate_subject_dense(&subject, &[0.3, 0.2, 0.5], None)
-        .unwrap()
+        .simulate_subject_dense(&subject, &[0.3, 0.2, 0.5], None)?
         .0;
 
     let times = op.flat_times();
@@ -51,4 +50,6 @@ fn main() {
     for (t, p) in times.iter().zip(pred.iter()) {
         println!("{}, {}", t, p);
     }
+
+    Ok(())
 }

@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let eq = ode! {
         name: "neely",
         params: [cls, k30, k40, qs, vps, vs, fm1, fm2, theta1, theta2],
@@ -46,7 +46,7 @@ fn main() {
         },
     };
 
-    let data = data::read_pmetrics("examples/neely/data.csv").unwrap();
+    let data = data::read_pmetrics("examples/neely/data.csv")?;
     EstimationProblem::builder(eq, data)
         .nonparametric()
         .parameter(Parameter::bounded("cls", 0.0, 0.4))
@@ -71,8 +71,8 @@ fn main() {
             "outeq_3",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
-        .build()
-        .unwrap()
-        .fit_with(NpagConfig::default())
-        .unwrap();
+        .build()?
+        .fit_with(NpagConfig::default())?;
+
+    Ok(())
 }

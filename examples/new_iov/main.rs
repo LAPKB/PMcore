@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let sde = sde! {
         name: "new_iov",
         params: [ke0, ske],
@@ -25,7 +25,7 @@ fn main() {
         },
     };
 
-    let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
+    let data = data::read_pmetrics("examples/new_iov/data.csv")?;
     EstimationProblem::builder(sde, data)
         .nonparametric()
         .parameter(Parameter::bounded("ke0", 0.0001, 2.4))
@@ -34,8 +34,8 @@ fn main() {
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
-        .build()
-        .unwrap()
-        .fit_with(NpagConfig::default())
-        .unwrap();
+        .build()?
+        .fit_with(NpagConfig::default())?;
+
+    Ok(())
 }

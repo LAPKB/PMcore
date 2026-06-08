@@ -1,4 +1,4 @@
-use std::{fmt::Debug, fs::File};
+use std::{fmt::Debug, fs::File, path::Path};
 
 use anyhow::{bail, Context, Result};
 use faer::Mat;
@@ -37,7 +37,10 @@ impl Theta {
     /// in the [ParameterSpace]
     ///
     /// The order of parameters in the [ParameterSpace] should match the order of columns in the matrix
-    pub fn from_parts(matrix: Mat<f64>, parameters: ParameterSpace<BoundedParameter>) -> Result<Self> {
+    pub fn from_parts(
+        matrix: Mat<f64>,
+        parameters: ParameterSpace<BoundedParameter>,
+    ) -> Result<Self> {
         if matrix.ncols() != parameters.len() {
             bail!(
                 "Number of columns in matrix ({}) does not match number of parameters ({})",
@@ -228,11 +231,15 @@ impl Theta {
     }
 
     pub fn from_file(
-        path: &String,
+        path: impl AsRef<Path>,
         parameters: &ParameterSpace<BoundedParameter>,
     ) -> Result<(Theta, Option<Weights>)> {
-        tracing::info!("Reading prior from {}", path);
-        let file = File::open(path).context(format!("Unable to open the prior file '{}'", path))?;
+        let path = path.as_ref();
+        tracing::info!("Reading prior from {}", path.display());
+        let file = File::open(path).context(format!(
+            "Unable to open the prior file '{}'",
+            path.display()
+        ))?;
         let mut reader = csv::ReaderBuilder::new()
             .has_headers(true)
             .from_reader(file);

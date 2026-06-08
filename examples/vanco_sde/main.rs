@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let sde = sde! {
         name: "vanco_sde",
         params: [ka, ke0, kcp, kpc, vol, ske],
@@ -47,7 +47,7 @@ fn main() {
     //     (3, 1),
     // );
 
-    let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
+    let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv")?;
     EstimationProblem::builder(sde, data)
         .nonparametric()
         .parameter(Parameter::bounded("ka", 0.0001, 2.4))
@@ -60,8 +60,8 @@ fn main() {
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
         )
-        .build()
-        .unwrap()
-        .fit_with(NpagConfig::default())
-        .unwrap();
+        .build()?
+        .fit_with(NpagConfig::default())?;
+
+    Ok(())
 }
