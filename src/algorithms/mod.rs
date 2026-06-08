@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::api::{EstimationProblem, Framework};
+use crate::estimation::{EstimationProblem, Framework};
 use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta};
 use crate::results::FitResult;
 
@@ -16,7 +16,7 @@ use pharmsol::{Predictions, Subject};
 use serde::{Deserialize, Serialize};
 
 /// Defines an algorithm capable of building an execution engine
-pub trait Algorithm<E: Equation, F: crate::api::Framework> {
+pub trait Algorithm<E: Equation, F: crate::estimation::Framework> {
     /// The strictly-typed runner struct (e.g., `NPAG<E>`)
     type Runner;
 

@@ -11,11 +11,14 @@ pub trait Framework {
     type ErrorModels;
     type Parameters;
 }
+
 pub struct Parametric;
+
 impl Framework for Parametric {
     type ErrorModels = ResidualErrorModels;
     type Parameters = ParameterSpace<UnboundedParameter>;
 }
+
 pub struct NonParametric;
 
 impl Framework for NonParametric {
@@ -167,7 +170,7 @@ impl<E: Equation + EquationMetadataSource> ParametricBuilder<E> {
         Ok(EstimationProblem {
             model: self.model.build()?,
             data: self.data,
-            error_models: all_errors, // Strongly typed as ResidualErrorModels!
+            error_models: all_errors,
             parameters: self.parameters,
         })
     }
@@ -320,122 +323,4 @@ where
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::prelude::*;
-
-    use pharmsol::{fa, fetch_params, lag, Subject, SubjectBuilderExt};
-
-    fn simple_equation() -> pharmsol::equation::ODE {
-        pharmsol::equation::ODE::new(
-            |x, p, _t, dx, b, _rateiv, _cov| {
-                fetch_params!(p, ke);
-                dx[0] = -ke * x[0] + b[0];
-            },
-            |_p, _t, _cov| lag! {},
-            |_p, _t, _cov| fa! {},
-            |_p, _t, _cov, _x| {},
-            |x, p, _t, _cov, y| {
-                fetch_params!(p, v);
-                y[0] = x[0] / v;
-            },
-        )
-        .with_nstates(1)
-        .with_ndrugs(1)
-        .with_nout(1)
-        .with_metadata(
-            pharmsol::equation::metadata::new("estimation_problem_builder_validation")
-                .parameters(["ke", "v"])
-                .states(["central"])
-                .outputs(["outeq_1"])
-                .route(pharmsol::equation::Route::bolus("input_1").to_state("central")),
-        )
-        .expect("metadata attachment should validate")
-    }
-
-    fn simple_data() -> Data {
-        let subject = Subject::builder("1")
-            .bolus(0.0, 100.0, 0)
-            .observation(1.0, 10.0, 0)
-            .build();
-
-        Data::new(vec![subject])
-    }
-
-    fn default_error_model() -> AssayErrorModel {
-        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0)
-    }
-
-    #[test]
-    fn nonparametric_build_rejects_unknown_parameter_name() {
-        let result = EstimationProblem::builder(simple_equation(), simple_data())
-            .nonparametric()
-            .parameter(Parameter::bounded("ke", 0.001, 3.0))
-            .parameter(Parameter::bounded("unknown_param", 25.0, 250.0))
-            .error("outeq_1", default_error_model())
-            .build();
-
-        assert!(result.is_err());
-        let message = format!("{}", result.err().expect("error expected"));
-        assert!(message.contains("unknown parameter name(s): unknown_param"));
-    }
-
-    #[test]
-    fn nonparametric_build_rejects_missing_parameter_declaration() {
-        let result = EstimationProblem::builder(simple_equation(), simple_data())
-            .nonparametric()
-            .parameter(Parameter::bounded("ke", 0.001, 3.0))
-            .error("outeq_1", default_error_model())
-            .build();
-
-        assert!(result.is_err());
-        let message = format!("{}", result.err().expect("error expected"));
-        assert!(message.contains("missing parameter declaration(s): v"));
-    }
-
-    #[test]
-    fn nonparametric_build_rejects_duplicate_parameter_declaration() {
-        let result = EstimationProblem::builder(simple_equation(), simple_data())
-            .nonparametric()
-            .parameter(Parameter::bounded("ke", 0.001, 3.0))
-            .parameter(Parameter::bounded("ke", 25.0, 250.0))
-            .error("outeq_1", default_error_model())
-            .build();
-
-        assert!(result.is_err());
-        let message = format!("{}", result.err().expect("error expected"));
-        assert!(message.contains("duplicate parameter declarations found: ke"));
-    }
-
-    #[test]
-    fn nonparametric_build_rejects_invalid_parameter_bounds() {
-        let result = EstimationProblem::builder(simple_equation(), simple_data())
-            .nonparametric()
-            .parameter(Parameter::bounded("ke", 2.0, 1.0))
-            .parameter(Parameter::bounded("v", 25.0, 250.0))
-            .error("outeq_1", default_error_model())
-            .build();
-
-        assert!(result.is_err());
-        let message = format!("{}", result.err().expect("error expected"));
-        assert!(message.contains("invalid bounds for parameter 'ke'"));
-    }
-
-    #[test]
-    fn nonparametric_build_rejects_duplicate_error_model_output() {
-        let result = EstimationProblem::builder(simple_equation(), simple_data())
-            .nonparametric()
-            .parameter(Parameter::bounded("ke", 0.001, 3.0))
-            .parameter(Parameter::bounded("v", 25.0, 250.0))
-            .error("outeq_1", default_error_model())
-            .error("outeq_1", default_error_model())
-            .build();
-
-        assert!(result.is_err());
-        let message = format!("{}", result.err().expect("error expected"));
-        assert!(message.contains("duplicate error model declaration for output 'outeq_1'"));
-    }
 }

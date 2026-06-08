@@ -1,6 +1,6 @@
 use crate::{
     algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason},
-    api::{EstimationProblem, NonParametric},
+    estimation::{EstimationProblem, NonParametric},
     estimation::nonparametric::{
         calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta,
         Weights,

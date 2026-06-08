@@ -1,5 +1,5 @@
 use crate::algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason};
-use crate::api::{EstimationProblem, NonParametric};
+use crate::estimation::{EstimationProblem, NonParametric};
 use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonParametricResult, Prior, Psi, Theta, Weights,
 };

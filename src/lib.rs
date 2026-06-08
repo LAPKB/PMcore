@@ -11,11 +11,11 @@
 //! - NPOD (Non-Parametric Optimal Design)
 //! - POSTPROB (Posterior probability reweighting)
 //!
-//! # Public API
+//! # Public Interface
 //!
-//! PMcore centers on the model/problem API in [api]. Models are defined with
-//! [api::ModelDefinition], configured with [api::EstimationProblem], and executed through
-//! [api::fit].
+//! PMcore centers on the estimation interface in [estimation]. Models are defined in
+//! [model], configured with [estimation::EstimationProblem], and then executed with the
+//! selected algorithm.
 //!
 //! # Data format
 //!
@@ -27,9 +27,6 @@
 
 /// Provides the various algorithms used within the framework
 pub mod algorithms;
-
-/// New public modeling and execution API.
-pub mod api;
 
 /// Estimation family boundaries for the new architecture.
 pub mod estimation;
@@ -60,8 +57,8 @@ pub mod prelude {
     pub use crate::algorithms::Algorithm;
     pub use crate::algorithms::Fitter;
 
-    pub use crate::api::NonParametric;
-    pub use crate::api::{
+    pub use crate::estimation::NonParametric;
+    pub use crate::estimation::{
         ErrorModels, EstimationProblem, FitProgress, NonparametricCycleProgress, NpagConfig,
         NpmapConfig, NpodConfig,
     };
