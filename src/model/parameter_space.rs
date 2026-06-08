@@ -45,9 +45,34 @@ impl<T: ParameterMeta> ParameterSpace<T> {
 
 /// Helpers for bounded parameter spaces.
 impl ParameterSpace<BoundedParameter> {
+    /// Creates an empty bounded parameter space (for non-parametric problems).
+    ///
+    /// Prefer this over `ParameterSpace::<BoundedParameter>::new()` to avoid the
+    /// turbofish:
+    ///
+    /// ```ignore
+    /// let space = ParameterSpace::bounded()
+    ///     .add(Parameter::bounded("ke", 0.1, 1.0))
+    ///     .add(Parameter::bounded("v", 1.0, 20.0));
+    /// ```
+    pub fn bounded() -> Self {
+        Self::new()
+    }
+
     /// Returns `(lower, upper)` for each parameter.
     pub fn finite_ranges(&self) -> Vec<(f64, f64)> {
         self.items.iter().map(|p| (p.lower, p.upper)).collect()
+    }
+}
+
+/// Helpers for unbounded parameter spaces.
+impl ParameterSpace<UnboundedParameter> {
+    /// Creates an empty unbounded parameter space (for parametric problems).
+    ///
+    /// Prefer this over `ParameterSpace::<UnboundedParameter>::new()` to avoid
+    /// the turbofish.
+    pub fn unbounded() -> Self {
+        Self::new()
     }
 }
 
