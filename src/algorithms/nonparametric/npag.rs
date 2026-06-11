@@ -190,6 +190,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
         NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
+            self.error_models.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),

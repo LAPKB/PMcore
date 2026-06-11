@@ -3,16 +3,16 @@ use std::path::Path;
 use pharmsol::Equation;
 
 use crate::algorithms::{Status, StopReason};
-use crate::estimation::nonparametric::{
-    posterior, CycleLog, NPPredictions, Posterior, Psi, Theta, Weights,
-};
+use crate::estimation::nonparametric::{CycleLog, NPPredictions, Posterior, Psi, Theta, Weights};
 
-use pharmsol::Data;
+use pharmsol::{AssayErrorModels, Data};
 
+/// Contains the results of a nonparametric estimation, including the final parameter
 #[derive(Debug)]
 pub struct NonParametricResult<E: Equation> {
     equation: E,
     data: Data,
+    error_models: AssayErrorModels,
     theta: Theta,
     psi: Psi,
     weights: Weights,
@@ -20,8 +20,6 @@ pub struct NonParametricResult<E: Equation> {
     cycles: usize,
     status: Status,
     cyclelog: CycleLog,
-    predictions: Option<NPPredictions>,
-    posterior: Posterior,
 }
 
 impl<E: Equation> NonParametricResult<E> {
@@ -29,6 +27,7 @@ impl<E: Equation> NonParametricResult<E> {
     pub(crate) fn new(
         equation: E,
         data: Data,
+        error_models: AssayErrorModels,
         theta: Theta,
         psi: Psi,
         weights: Weights,
@@ -37,11 +36,10 @@ impl<E: Equation> NonParametricResult<E> {
         status: Status,
         cyclelog: CycleLog,
     ) -> anyhow::Result<Self> {
-        let posterior = posterior::posterior(&psi, &weights)?;
-
         Ok(Self {
             equation,
             data,
+            error_models,
             theta,
             psi,
             weights,
@@ -49,8 +47,6 @@ impl<E: Equation> NonParametricResult<E> {
             cycles,
             status,
             cyclelog,
-            predictions: None,
-            posterior,
         })
     }
 
@@ -82,10 +78,6 @@ impl<E: Equation> NonParametricResult<E> {
         &self.cyclelog
     }
 
-    pub fn predictions(&self) -> Option<&NPPredictions> {
-        self.predictions.as_ref()
-    }
-
     pub fn psi(&self) -> &Psi {
         &self.psi
     }
@@ -94,22 +86,31 @@ impl<E: Equation> NonParametricResult<E> {
         &self.weights
     }
 
-    pub fn posterior(&self) -> &Posterior {
-        &self.posterior
+    pub fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
-    pub fn calculate_predictions(&mut self, idelta: f64, tad: f64) -> anyhow::Result<()> {
-        let predictions = NPPredictions::calculate(
+    /// Compute the posterior probabilities on demand from [`Psi`] and the
+    /// [`Weights`]. This is a cheap matrix operation and is intentionally not
+    /// cached on the result.
+    pub fn posterior(&self) -> anyhow::Result<Posterior> {
+        Posterior::calculate(&self.psi, &self.weights)
+    }
+
+    /// Compute predictions on demand. Nothing is cached on the result; callers
+    /// that need the predictions repeatedly should hold on to the returned
+    /// value themselves.
+    pub fn predictions(&self, idelta: f64, tad: f64) -> anyhow::Result<NPPredictions> {
+        let posterior = self.posterior()?;
+        NPPredictions::calculate(
             &self.equation,
             &self.data,
             &self.theta,
             &self.weights,
-            &self.posterior,
+            &posterior,
             idelta,
             tad,
-        )?;
-        self.predictions = Some(predictions);
-        Ok(())
+        )
     }
 
     pub fn write_theta(&self, path: &Path) -> anyhow::Result<()> {
@@ -161,8 +162,9 @@ impl<E: Equation> NonParametricResult<E> {
         writer.write_field("prob")?;
         writer.write_record(None::<&[u8]>)?;
 
+        let posterior = self.posterior()?;
         let subjects = self.data.subjects();
-        self.posterior
+        posterior
             .matrix()
             .row_iter()
             .enumerate()
