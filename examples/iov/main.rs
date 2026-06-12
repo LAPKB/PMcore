@@ -30,7 +30,7 @@ fn main() -> Result<()> {
     EstimationProblem::builder(sde, data)
         .nonparametric()
         .parameter(Parameter::bounded("ke0", 0.001, 2.0))
-        .error(
+        .error_model(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
         )
@@ -40,3 +40,4 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+

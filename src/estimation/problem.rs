@@ -100,7 +100,7 @@ impl<E: Equation> NonParametricBuilder<E> {
         self
     }
 
-    pub fn error(mut self, name: impl Into<String>, model: AssayErrorModel) -> Self {
+    pub fn error_model(mut self, name: impl Into<String>, model: AssayErrorModel) -> Self {
         self.error_models.push((name.into(), model));
         self
     }
@@ -183,7 +183,7 @@ impl<E: Equation> ParametricBuilder<E> {
         self
     }
 
-    pub fn error(mut self, name: impl Into<String>, model: ResidualErrorModel) -> Self {
+    pub fn error_model(mut self, name: impl Into<String>, model: ResidualErrorModel) -> Self {
         self.error_models.push((name.into(), model));
         self
     }
@@ -362,3 +362,4 @@ where
 
     Ok(())
 }
+

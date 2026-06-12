@@ -28,7 +28,7 @@ fn main() -> Result<()> {
         .parameter(Parameter::bounded("ke", 0.001, 0.1))
         .parameter(Parameter::bounded("tlag", 0.0, 4.0))
         .parameter(Parameter::bounded("v", 30.0, 120.0))
-        .error(
+        .error_model(
             "outeq_0",
             AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
@@ -37,3 +37,4 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+

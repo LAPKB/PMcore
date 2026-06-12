@@ -21,7 +21,7 @@ fn main() -> Result<()> {
         .parameter(Parameter::bounded("ka", 0.001, 3.0))
         .parameter(Parameter::bounded("ke", 0.001, 3.0))
         .parameter(Parameter::bounded("v", 0.001, 50.0))
-        .error(
+        .error_model(
             "outeq_0",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
         )
@@ -30,3 +30,4 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+

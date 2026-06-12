@@ -46,7 +46,7 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
         .nonparametric()
         .parameter(Parameter::bounded("ke", 0.1, 1.0))
         .parameter(Parameter::bounded("v", 1.0, 20.0))
-        .error("0", assay_error)
+        .error_model("0", assay_error)
         .build()?
         .fit_with(NpagConfig::default())?;
 
@@ -60,3 +60,4 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
 
     Ok(())
 }
+

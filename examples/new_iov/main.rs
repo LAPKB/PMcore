@@ -30,7 +30,7 @@ fn main() -> Result<()> {
         .nonparametric()
         .parameter(Parameter::bounded("ke0", 0.0001, 2.4))
         .parameter(Parameter::bounded("ske", 0.0001, 0.2))
-        .error(
+        .error_model(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
         )
@@ -39,3 +39,4 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+

@@ -35,7 +35,7 @@ fn setup_npag() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
         .nonparametric()
         .parameter(Parameter::bounded("ke", 0.001, 3.0))
         .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .error(
+        .error_model(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
@@ -48,7 +48,7 @@ fn setup_npod() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
         .nonparametric()
         .parameter(Parameter::bounded("ke", 0.001, 3.0))
         .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .error(
+        .error_model(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
@@ -61,7 +61,7 @@ fn setup_postprob() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
         .nonparametric()
         .parameter(Parameter::bounded("ke", 0.001, 3.0))
         .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .error(
+        .error_model(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
@@ -105,3 +105,4 @@ criterion_group! {
     targets = benchmark_bimodal_ke_npag, benchmark_bimodal_ke_npod, benchmark_bimodal_ke_postprob
 }
 criterion_main!(benches);
+

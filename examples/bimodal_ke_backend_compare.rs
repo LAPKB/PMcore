@@ -206,7 +206,7 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
         .nonparametric()
         .parameter(Parameter::bounded("ke", 0.001, 3.0))
         .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .error(
+        .error_model(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )
@@ -313,3 +313,4 @@ fn print_summary(results: &[ComparisonResult]) -> Result<()> {
 
     Ok(())
 }
+

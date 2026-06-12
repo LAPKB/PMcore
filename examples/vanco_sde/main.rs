@@ -56,7 +56,7 @@ fn main() -> Result<()> {
         .parameter(Parameter::bounded("kpc", 0.0001, 2.4))
         .parameter(Parameter::bounded("vol", 0.2, 12.0))
         .parameter(Parameter::bounded("ske", 0.0001, 0.2))
-        .error(
+        .error_model(
             "outeq_1",
             AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
         )
@@ -65,3 +65,4 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+

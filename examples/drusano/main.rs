@@ -90,19 +90,19 @@ fn main() -> Result<()> {
         .parameter(Parameter::bounded("h2s", 0.1, 4.0))
         .parameter(Parameter::bounded("h1r1", 5.0, 25.0))
         .parameter(Parameter::bounded("h2r2", 10.0, 22.0))
-        .error(
+        .error_model(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )
-        .error(
+        .error_model(
             "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )
-        .error(
+        .error_model(
             "outeq_3",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )
-        .error(
+        .error_model(
             "outeq_4",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )
@@ -110,3 +110,4 @@ fn main() -> Result<()> {
         .fit_with(NpagConfig::default())?;
     Ok(())
 }
+

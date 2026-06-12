@@ -60,7 +60,7 @@ fn test_one_compartment_npag() -> Result<()> {
         .nonparametric()
         .parameters(parameters.clone())
         .prior(Theta::sobol(&parameters, 100)?)
-        .error(
+        .error_model(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )
@@ -121,7 +121,7 @@ fn test_one_compartment_npod() -> Result<()> {
         .nonparametric()
         .parameter(Parameter::bounded("ke", 0.1, 1.0))
         .parameter(Parameter::bounded("v", 1.0, 20.0))
-        .error(
+        .error_model(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )
@@ -189,7 +189,7 @@ fn test_one_compartment_postprob() -> Result<()> {
         .nonparametric()
         .parameters(parameters.clone())
         .prior(theta.clone())
-        .error(
+        .error_model(
             "0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
         )
@@ -204,3 +204,4 @@ fn test_one_compartment_postprob() -> Result<()> {
 
     Ok(())
 }
+

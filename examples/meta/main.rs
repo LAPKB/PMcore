@@ -41,11 +41,11 @@ fn main() -> Result<()> {
         .parameter(Parameter::bounded("theta1", 0.1, 10.0))
         .parameter(Parameter::bounded("theta2", 0.1, 10.0))
         .parameter(Parameter::bounded("vs", 1.0, 10.0))
-        .error(
+        .error_model(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
-        .error(
+        .error_model(
             "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )
@@ -54,3 +54,4 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
