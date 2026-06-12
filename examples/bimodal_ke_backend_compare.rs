@@ -202,15 +202,15 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
 ) -> Result<ComparisonResult> {
     let data = data::read_pmetrics(DATA_PATH)?;
     let fit_started = Instant::now();
-    let result = EstimationProblem::builder(equation, data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .error_model(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )
-        .build()?
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+    let result = EstimationProblem::nonparametric(equation, data, prior, error_models)?
         .fit_with(NpagConfig::default())?;
     let fit_time = fit_started.elapsed();
 

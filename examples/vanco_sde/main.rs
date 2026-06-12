@@ -48,19 +48,19 @@ fn main() -> Result<()> {
     // );
 
     let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv")?;
-    EstimationProblem::builder(sde, data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ka", 0.0001, 2.4))
-        .parameter(Parameter::bounded("ke0", 0.0001, 2.7))
-        .parameter(Parameter::bounded("kcp", 0.0001, 2.4))
-        .parameter(Parameter::bounded("kpc", 0.0001, 2.4))
-        .parameter(Parameter::bounded("vol", 0.2, 12.0))
-        .parameter(Parameter::bounded("ske", 0.0001, 0.2))
-        .error_model(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
-        )
-        .build()?
+    let parameters = ParameterSpace::bounded()
+        .add("ka", 0.0001, 2.4)
+        .add("ke0", 0.0001, 2.7)
+        .add("kcp", 0.0001, 2.4)
+        .add("kpc", 0.0001, 2.4)
+        .add("vol", 0.2, 12.0)
+        .add("ske", 0.0001, 0.2);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
+    )?;
+    EstimationProblem::nonparametric(sde, data, prior, error_models)?
         .fit_with(NpagConfig::default())?;
 
     Ok(())

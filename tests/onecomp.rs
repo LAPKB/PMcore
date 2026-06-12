@@ -53,23 +53,25 @@ fn test_one_compartment_npag() -> Result<()> {
     let data = data::Data::new(subjects);
 
     let parameters = ParameterSpace::<BoundedParameter>::new()
-        .add(Parameter::bounded("ke", 0.1, 1.0))
-        .add(Parameter::bounded("v", 1.0, 20.0));
+        .add("ke", 0.1, 1.0)
+        .add("v", 1.0, 20.0);
 
-    let result = EstimationProblem::builder(eq, data)
-        .nonparametric()
-        .parameters(parameters.clone())
-        .prior(Theta::sobol(&parameters, 100)?)
-        .error_model(
-            "0",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )
-        .build()?
+    let prior = Theta::sobol(&parameters, 100)?;
+    let error_models = AssayErrorModels::new().add(
+        "0",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
+    )?;
+    let result = EstimationProblem::nonparametric(eq, data, prior, error_models)?
         .fit_with(NpagConfig::default())?;
 
     // Check the results
     assert_eq!(result.cycles(), 31);
     assert!(result.objf() - 565.7749 < 0.01);
+
+    // The prior is preserved on the result and is distinct from the optimized
+    // solution (which is condensed to far fewer support points).
+    assert_eq!(result.prior().nspp(), 100);
+    assert!(result.get_theta().nspp() < result.prior().nspp());
 
     Ok(())
 }
@@ -117,15 +119,15 @@ fn test_one_compartment_npod() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    let result = EstimationProblem::builder(eq, data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))
-        .parameter(Parameter::bounded("v", 1.0, 20.0))
-        .error_model(
-            "0",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )
-        .build()?
+    let parameters = ParameterSpace::<BoundedParameter>::new()
+        .add("ke", 0.1, 1.0)
+        .add("v", 1.0, 20.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "0",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
+    )?;
+    let result = EstimationProblem::nonparametric(eq, data, prior, error_models)?
         .fit_with(NpodConfig::default())?;
 
     // Check the results
@@ -180,20 +182,16 @@ fn test_one_compartment_postprob() -> Result<()> {
 
     // Generate a prior distribution to test against
     let parameters = ParameterSpace::<BoundedParameter>::new()
-        .add(Parameter::bounded("ke", 0.1, 1.0))
-        .add(Parameter::bounded("v", 1.0, 20.0));
+        .add("ke", 0.1, 1.0)
+        .add("v", 1.0, 20.0);
 
     let theta = Theta::sobol(&parameters, 100)?;
 
-    let result = EstimationProblem::builder(eq, data)
-        .nonparametric()
-        .parameters(parameters.clone())
-        .prior(theta.clone())
-        .error_model(
-            "0",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )
-        .build()?
+    let error_models = AssayErrorModels::new().add(
+        "0",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
+    )?;
+    let result = EstimationProblem::nonparametric(eq, data, theta.clone(), error_models)?
         .fit_with(NpmapConfig::default())?;
 
     // Check the results

@@ -13,6 +13,7 @@ pub struct NonParametricResult<E: Equation> {
     equation: E,
     data: Data,
     error_models: AssayErrorModels,
+    prior: Theta,
     theta: Theta,
     psi: Psi,
     weights: Weights,
@@ -28,6 +29,7 @@ impl<E: Equation> NonParametricResult<E> {
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
+        prior: Theta,
         theta: Theta,
         psi: Psi,
         weights: Weights,
@@ -40,6 +42,7 @@ impl<E: Equation> NonParametricResult<E> {
             equation,
             data,
             error_models,
+            prior,
             theta,
             psi,
             weights,
@@ -64,6 +67,14 @@ impl<E: Equation> NonParametricResult<E> {
 
     pub fn get_theta(&self) -> &Theta {
         &self.theta
+    }
+
+    /// The prior distribution ([`Theta`]) that seeded the algorithm.
+    ///
+    /// This is the initial set of support points, as opposed to the optimized
+    /// solution returned by [`get_theta`](Self::get_theta).
+    pub fn prior(&self) -> &Theta {
+        &self.prior
     }
 
     pub fn data(&self) -> &Data {

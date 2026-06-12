@@ -27,14 +27,13 @@ fn main() -> Result<()> {
     };
 
     let data = data::read_pmetrics("examples/iov/test.csv").unwrap();
-    EstimationProblem::builder(sde, data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ke0", 0.001, 2.0))
-        .error_model(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
-        )
-        .build()?
+    let parameters = ParameterSpace::bounded().add("ke0", 0.001, 2.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
+    )?;
+    EstimationProblem::nonparametric(sde, data, prior, error_models)?
         .fit_with(NpagConfig::default())
         .unwrap();
 

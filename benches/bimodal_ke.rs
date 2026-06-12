@@ -31,41 +31,41 @@ fn load_data() -> Result<data::Data> {
 
 fn setup_npag() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
-    EstimationProblem::builder(create_equation(), data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .error_model(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )
-        .build()
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+    EstimationProblem::nonparametric(create_equation(), data, prior, error_models)
 }
 
 fn setup_npod() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
-    EstimationProblem::builder(create_equation(), data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .error_model(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )
-        .build()
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+    EstimationProblem::nonparametric(create_equation(), data, prior, error_models)
 }
 
 fn setup_postprob() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
-    EstimationProblem::builder(create_equation(), data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .error_model(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )
-        .build()
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+    EstimationProblem::nonparametric(create_equation(), data, prior, error_models)
 }
 
 fn benchmark_algorithm<F, A>(c: &mut Criterion, bench_name: &str, setup_fn: F, config: A)

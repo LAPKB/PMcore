@@ -18,12 +18,6 @@ impl<T> ParameterSpace<T> {
         self.items.push(item.into());
     }
 
-    #[allow(clippy::should_implement_trait)]
-    pub fn add(mut self, item: impl Into<T>) -> Self {
-        self.push(item);
-        self
-    }
-
     pub fn len(&self) -> usize {
         self.items.len()
     }
@@ -52,11 +46,18 @@ impl ParameterSpace<BoundedParameter> {
     ///
     /// ```ignore
     /// let space = ParameterSpace::bounded()
-    ///     .add(Parameter::bounded("ke", 0.1, 1.0))
-    ///     .add(Parameter::bounded("v", 1.0, 20.0));
+    ///     .add("ke", 0.1, 1.0)
+    ///     .add("v", 1.0, 20.0);
     /// ```
     pub fn bounded() -> Self {
         Self::new()
+    }
+
+    /// Adds a bounded parameter with the given `name`, `lower`, and `upper` bounds.
+    #[allow(clippy::should_implement_trait)]
+    pub fn add(mut self, name: impl Into<String>, lower: f64, upper: f64) -> Self {
+        self.items.push(BoundedParameter::new(name, lower, upper));
+        self
     }
 
     /// Returns `(lower, upper)` for each parameter.
@@ -73,6 +74,13 @@ impl ParameterSpace<UnboundedParameter> {
     /// the turbofish.
     pub fn unbounded() -> Self {
         Self::new()
+    }
+
+    /// Adds an unbounded parameter to the space.
+    #[allow(clippy::should_implement_trait)]
+    pub fn add(mut self, parameter: impl Into<UnboundedParameter>) -> Self {
+        self.items.push(parameter.into());
+        self
     }
 }
 

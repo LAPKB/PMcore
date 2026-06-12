@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Result};
 use pharmsol::{
-    AssayErrorModel, AssayErrorModels, Data, Equation, ResidualErrorModel, ResidualErrorModels,
+    AssayErrorModel, AssayErrorModels, Data, Equation, Event, ResidualErrorModel,
+    ResidualErrorModels,
 };
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use crate::estimation::nonparametric::Theta;
 use crate::model::parameter_space::{BoundedParameter, ParameterSpace, UnboundedParameter};
@@ -10,21 +11,26 @@ use crate::model::{EquationMetadataSource, Model, ModelBuilder};
 
 pub trait Framework {
     type ErrorModels;
-    type Parameters;
+    /// The prior that seeds the algorithm.
+    ///
+    /// For the non-parametric framework this is a [`Theta`] (a discrete prior
+    /// distribution that also carries the parameter space). For the parametric
+    /// framework it is the [`ParameterSpace`] of unbounded parameters.
+    type Prior;
 }
 
 pub struct Parametric;
 
 impl Framework for Parametric {
     type ErrorModels = ResidualErrorModels;
-    type Parameters = ParameterSpace<UnboundedParameter>;
+    type Prior = ParameterSpace<UnboundedParameter>;
 }
 
 pub struct NonParametric;
 
 impl Framework for NonParametric {
     type ErrorModels = AssayErrorModels;
-    type Parameters = ParameterSpace<BoundedParameter>;
+    type Prior = Theta;
 }
 
 #[derive(Debug, Clone)]
@@ -32,130 +38,65 @@ pub struct EstimationProblem<E: Equation, F: Framework> {
     pub(crate) model: Model<E>,
     pub(crate) data: Data,
     pub(crate) error_models: F::ErrorModels,
-    pub(crate) parameters: F::Parameters,
-    /// The initial set of support points used to seed the algorithm.
+    /// The prior that seeds the algorithm.
     ///
-    /// Only meaningful for the non-parametric framework; the parametric
-    /// framework leaves this empty.
-    pub(crate) prior: Theta,
+    /// For the non-parametric framework this is the prior [`Theta`], which also
+    /// carries the parameter space. The parameter space is therefore not stored
+    /// separately.
+    pub(crate) prior: F::Prior,
 }
 
-pub struct EstimationProblemBuilder<E: Equation> {
-    model: ModelBuilder<E>,
-    data: Data,
-}
+impl<E: Equation + EquationMetadataSource> EstimationProblem<E, NonParametric> {
+    /// Creates a non-parametric estimation problem.
+    ///
+    /// The `prior` is a [`Theta`] holding the prior distribution (the initial
+    /// set of support points) together with the [`ParameterSpace`] it was built
+    /// from. The parameter space is taken directly from the prior, so there is
+    /// no separate parameter-declaration step.
+    pub fn nonparametric(
+        equation: E,
+        data: Data,
+        prior: Theta,
+        error_models: AssayErrorModels,
+    ) -> Result<Self> {
+        let model_builder = Model::builder(equation);
 
-impl<E: Equation> EstimationProblemBuilder<E> {
-    pub fn nonparametric(self) -> NonParametricBuilder<E> {
-        NonParametricBuilder {
-            model: self.model,
-            data: self.data,
-            parameters: ParameterSpace::<BoundedParameter>::new(),
-            error_models: Vec::new(),
-            initial_points: None,
-        }
+        validate_nonparametric_parameters(&model_builder, prior.parameters())?;
+
+        let model = model_builder.build()?;
+
+        validate_nonparametric_error_models(&model, &data, &error_models)?;
+
+        Ok(EstimationProblem {
+            model,
+            data,
+            error_models,
+            prior,
+        })
     }
+}
 
-    pub fn parametric(self) -> ParametricBuilder<E> {
+impl<E: Equation> EstimationProblem<E, Parametric> {
+    /// Begins building a parametric estimation problem.
+    pub fn parametric(equation: E, data: Data) -> ParametricBuilder<E> {
         ParametricBuilder {
-            model: self.model,
-            data: self.data,
+            model: Model::builder(equation),
+            data,
             parameters: ParameterSpace::<UnboundedParameter>::new(),
             error_models: Vec::new(),
         }
     }
+
+    /// Returns the parameter space defined for this problem.
+    pub fn parameters(&self) -> &ParameterSpace<UnboundedParameter> {
+        &self.prior
+    }
 }
 
 impl<E: Equation> EstimationProblem<E, NonParametric> {
-    pub fn builder(equation: E, data: Data) -> EstimationProblemBuilder<E> {
-        EstimationProblemBuilder {
-            model: Model::builder(equation),
-            data,
-        }
-    }
-}
-
-pub struct NonParametricBuilder<E: Equation> {
-    model: ModelBuilder<E>,
-    data: Data,
-    parameters: ParameterSpace<BoundedParameter>,
-    error_models: Vec<(String, AssayErrorModel)>,
-    initial_points: Option<Theta>,
-}
-
-impl<E: Equation> NonParametricBuilder<E> {
-    pub fn parameter(mut self, parameter: impl Into<BoundedParameter>) -> Self {
-        self.parameters.push(parameter.into());
-        self
-    }
-
-    pub fn parameters<P, I>(mut self, parameters: I) -> Self
-    where
-        P: Into<BoundedParameter>,
-        I: IntoIterator<Item = P>,
-    {
-        for param in parameters {
-            self.parameters.push(param.into());
-        }
-        self
-    }
-
-    pub fn error_model(mut self, name: impl Into<String>, model: AssayErrorModel) -> Self {
-        self.error_models.push((name.into(), model));
-        self
-    }
-
-    /// Sets the initial set of support points (the starting grid) explicitly.
-    ///
-    /// Build the [`Theta`] from the same parameter space used for the problem,
-    /// e.g. with [`Theta::sobol`], [`Theta::latin`], or [`Theta::from_file`].
-    /// When omitted, a Sobol grid is generated automatically from the declared
-    /// parameter bounds.
-    pub fn prior(mut self, theta: Theta) -> Self {
-        self.initial_points = Some(theta);
-        self
-    }
-}
-
-impl<E: Equation + EquationMetadataSource> NonParametricBuilder<E> {
-    pub fn build(self) -> Result<EstimationProblem<E, NonParametric>> {
-        validate_nonparametric_parameters(&self.model, &self.parameters)?;
-        validate_nonparametric_error_models(&self.model, &self.error_models)?;
-
-        let mut all_errors = AssayErrorModels::new();
-        for (name, error_model) in self.error_models {
-            let outeq = self
-                .model
-                .output_index(&name)
-                .ok_or_else(|| anyhow!("unknown equation output label: {name}"))?;
-
-            all_errors = all_errors.add(outeq, error_model)?;
-        }
-
-        let prior = match self.initial_points {
-            Some(theta) => {
-                if theta.parameters() != &self.parameters {
-                    anyhow::bail!(
-                        "initial points parameter space {:?} does not match the problem parameters {:?}",
-                        theta.parameters().names(),
-                        self.parameters.names()
-                    );
-                }
-                theta
-            }
-            None => Theta::sobol(
-                &self.parameters,
-                crate::estimation::nonparametric::sampling::DEFAULT_POINTS,
-            )?,
-        };
-
-        Ok(EstimationProblem {
-            model: self.model.build()?,
-            data: self.data,
-            error_models: all_errors,
-            parameters: self.parameters,
-            prior,
-        })
+    /// Returns the parameter space carried by the prior [`Theta`].
+    pub fn parameters(&self) -> &ParameterSpace<BoundedParameter> {
+        self.prior.parameters()
     }
 }
 
@@ -208,8 +149,7 @@ impl<E: Equation + EquationMetadataSource> ParametricBuilder<E> {
             model: self.model.build()?,
             data: self.data,
             error_models: all_errors,
-            parameters: self.parameters,
-            prior: Theta::default(),
+            prior: self.parameters,
         })
     }
 }
@@ -313,14 +253,88 @@ fn validate_parameter_declarations<E: Equation + EquationMetadataSource>(
 }
 
 fn validate_nonparametric_error_models<E: Equation + EquationMetadataSource>(
-    model: &ModelBuilder<E>,
-    error_models: &[(String, AssayErrorModel)],
+    model: &Model<E>,
+    data: &Data,
+    error_models: &AssayErrorModels,
 ) -> Result<()> {
-    if error_models.is_empty() {
-        anyhow::bail!("at least one assay error model is required");
+    // Bind the (label-first) error models to the equation. This resolves and
+    // validates that every declared output label maps to a valid model output.
+    let bound = model
+        .equation
+        .bind_error_models(error_models)
+        .map_err(|e| anyhow!("invalid assay error model output(s): {e}"))?;
+
+    // Collect the set of model output indices that are actually observed in the
+    // data, resolving each observation's output label the same way the simulator
+    // does (exact name, then the `outeq_<N>` numeric alias).
+    let mut observed_outputs: BTreeSet<usize> = BTreeSet::new();
+    let mut unresolved_labels: BTreeSet<String> = BTreeSet::new();
+    for subject in data.subjects() {
+        for occasion in subject.occasions() {
+            for event in occasion.events() {
+                if let Event::Observation(obs) = event {
+                    let label = obs.outeq().to_string();
+                    match resolve_output_index(model, &label) {
+                        Some(outeq) => {
+                            observed_outputs.insert(outeq);
+                        }
+                        None => {
+                            unresolved_labels.insert(label);
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    validate_error_model_labels(model, error_models.iter().map(|(name, _)| name.as_str()))
+    if !unresolved_labels.is_empty() {
+        let labels: Vec<String> = unresolved_labels.into_iter().collect();
+        anyhow::bail!(
+            "the data references output label(s) that are not defined by the model: {}",
+            labels.join(", ")
+        );
+    }
+
+    if observed_outputs.is_empty() {
+        anyhow::bail!("the data contains no observations to fit");
+    }
+
+    // Every observed output must have a (non-`None`) assay error model.
+    for &outeq in &observed_outputs {
+        let has_model = matches!(
+            bound.error_model(outeq),
+            Ok(error_model) if *error_model != AssayErrorModel::None
+        );
+
+        if !has_model {
+            let label = model
+                .output_name(outeq)
+                .map(|name| name.to_string())
+                .unwrap_or_else(|| outeq.to_string());
+            anyhow::bail!(
+                "no assay error model defined for output '{}' (index {}), which is observed in the data",
+                label,
+                outeq
+            );
+        }
+    }
+
+    Ok(())
+}
+
+/// Resolves an observation output `label` to a model output index, mirroring the
+/// simulator: first by exact output name, then via the `outeq_<N>` numeric alias.
+fn resolve_output_index<E: Equation + EquationMetadataSource>(
+    model: &Model<E>,
+    label: &str,
+) -> Option<usize> {
+    model.output_index(label).or_else(|| {
+        if !label.is_empty() && label.bytes().all(|b| b.is_ascii_digit()) {
+            model.output_index(&format!("outeq_{label}"))
+        } else {
+            None
+        }
+    })
 }
 
 fn validate_parametric_error_models<E: Equation + EquationMetadataSource>(
@@ -362,4 +376,3 @@ where
 
     Ok(())
 }
-

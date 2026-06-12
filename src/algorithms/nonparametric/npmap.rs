@@ -40,6 +40,7 @@ pub struct NPMAP<E: Equation + Send + 'static> {
     data: Data,
     cyclelog: CycleLog,
     error_models: AssayErrorModels,
+    prior: Theta,
 }
 
 impl<E: Equation + Send + 'static> NPMAP<E> {
@@ -53,7 +54,7 @@ impl<E: Equation + Send + 'static> NPMAP<E> {
         Ok(Self {
             equation,
             psi: Psi::new(),
-            theta,
+            theta: theta.clone(),
             w: Weights::default(),
             objf: f64::INFINITY,
             cycle: 0,
@@ -61,6 +62,7 @@ impl<E: Equation + Send + 'static> NPMAP<E> {
             data,
             cyclelog: CycleLog::new(),
             error_models,
+            prior: theta,
         })
     }
 }
@@ -71,6 +73,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
             self.equation.clone(),
             self.data.clone(),
             self.error_models.clone(),
+            self.prior.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),

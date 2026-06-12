@@ -32,24 +32,25 @@ fn main() -> Result<()> {
     };
 
     let data = data::read_pmetrics("examples/meta/meta.csv")?;
-    EstimationProblem::builder(eq, data)
-        .nonparametric()
-        .parameter(Parameter::bounded("cls", 0.1, 10.0))
-        .parameter(Parameter::bounded("fm", 0.0, 1.0))
-        .parameter(Parameter::bounded("k20", 0.01, 1.0))
-        .parameter(Parameter::bounded("relv", 0.1, 1.0))
-        .parameter(Parameter::bounded("theta1", 0.1, 10.0))
-        .parameter(Parameter::bounded("theta2", 0.1, 10.0))
-        .parameter(Parameter::bounded("vs", 1.0, 10.0))
-        .error_model(
+    let parameters = ParameterSpace::bounded()
+        .add("cls", 0.1, 10.0)
+        .add("fm", 0.0, 1.0)
+        .add("k20", 0.01, 1.0)
+        .add("relv", 0.1, 1.0)
+        .add("theta1", 0.1, 10.0)
+        .add("theta2", 0.1, 10.0)
+        .add("vs", 1.0, 10.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new()
+        .add(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
-        .error_model(
+        )?
+        .add(
             "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
-        .build()?
+        )?;
+    EstimationProblem::nonparametric(eq, data, prior, error_models)?
         .fit_with(NpodConfig::default())?;
 
     Ok(())

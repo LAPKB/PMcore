@@ -240,6 +240,13 @@ impl Theta {
         Self::sobol_with_seed(parameters, points, sampling::DEFAULT_SEED)
     }
 
+    /// Generate a starting grid over `parameters` using a Sobol sequence with the
+    /// default number of support points ([`sampling::DEFAULT_POINTS`]) and the
+    /// default seed ([`sampling::DEFAULT_SEED`]).
+    pub fn sobol_default(parameters: &ParameterSpace<BoundedParameter>) -> Result<Self> {
+        Self::sobol(parameters, sampling::DEFAULT_POINTS)
+    }
+
     /// Like [`Theta::sobol`], with an explicit seed for the quasi-random sequence.
     pub fn sobol_with_seed(
         parameters: &ParameterSpace<BoundedParameter>,
@@ -455,13 +462,12 @@ fn validate_bounds(parameters: &ParameterSpace<BoundedParameter>) -> Result<()> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::Parameter;
     use std::fs;
 
     fn parameters() -> ParameterSpace<BoundedParameter> {
         ParameterSpace::<BoundedParameter>::new()
-            .add(Parameter::bounded("ke", 0.1, 1.0))
-            .add(Parameter::bounded("v", 5.0, 50.0))
+            .add("ke", 0.1, 1.0)
+            .add("v", 5.0, 50.0)
     }
 
     fn temp_csv_path() -> String {
@@ -484,7 +490,7 @@ mod tests {
 
     #[test]
     fn sampling_rejects_invalid_bounds() {
-        let bad = ParameterSpace::<BoundedParameter>::new().add(Parameter::bounded("ke", 1.0, 1.0));
+        let bad = ParameterSpace::<BoundedParameter>::new().add("ke", 1.0, 1.0);
         let err = Theta::sobol(&bad, 10).unwrap_err();
         assert!(err.to_string().contains("invalid bounds"));
     }

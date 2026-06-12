@@ -16,16 +16,16 @@ fn main() -> Result<()> {
     };
 
     let data = data::read_pmetrics("examples/theophylline/theophylline.csv")?;
-    EstimationProblem::builder(analytical, data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ka", 0.001, 3.0))
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 0.001, 50.0))
-        .error_model(
-            "outeq_0",
-            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
-        )
-        .build()?
+    let parameters = ParameterSpace::bounded()
+        .add("ka", 0.001, 3.0)
+        .add("ke", 0.001, 3.0)
+        .add("v", 0.001, 50.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_0",
+        AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
+    )?;
+    EstimationProblem::nonparametric(analytical, data, prior, error_models)?
         .fit_with(NpagConfig::default())?;
 
     Ok(())

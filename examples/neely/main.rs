@@ -47,31 +47,32 @@ fn main() -> Result<()> {
     };
 
     let data = data::read_pmetrics("examples/neely/data.csv")?;
-    EstimationProblem::builder(eq, data)
-        .nonparametric()
-        .parameter(Parameter::bounded("cls", 0.0, 0.4))
-        .parameter(Parameter::bounded("k30", 0.0, 0.5))
-        .parameter(Parameter::bounded("k40", 0.3, 1.5))
-        .parameter(Parameter::bounded("qs", 0.0, 0.5))
-        .parameter(Parameter::bounded("vps", 0.0, 5.0))
-        .parameter(Parameter::bounded("vs", 0.0, 2.0))
-        .parameter(Parameter::bounded("fm1", 0.0, 0.2))
-        .parameter(Parameter::bounded("fm2", 0.0, 0.1))
-        .parameter(Parameter::bounded("theta1", -4.0, 2.0))
-        .parameter(Parameter::bounded("theta2", -2.0, 0.5))
-        .error_model(
+    let parameters = ParameterSpace::bounded()
+        .add("cls", 0.0, 0.4)
+        .add("k30", 0.0, 0.5)
+        .add("k40", 0.3, 1.5)
+        .add("qs", 0.0, 0.5)
+        .add("vps", 0.0, 5.0)
+        .add("vs", 0.0, 2.0)
+        .add("fm1", 0.0, 0.2)
+        .add("fm2", 0.0, 0.1)
+        .add("theta1", -4.0, 2.0)
+        .add("theta2", -2.0, 0.5);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new()
+        .add(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
-        .error_model(
+        )?
+        .add(
             "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
-        .error_model(
+        )?
+        .add(
             "outeq_3",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
-        .build()?
+        )?;
+    EstimationProblem::nonparametric(eq, data, prior, error_models)?
         .fit_with(NpagConfig::default())?;
 
     Ok(())

@@ -124,6 +124,7 @@ pub struct NPAG<E: Equation + Send + 'static> {
     equation: E,
     ranges: Vec<(f64, f64)>,
     psi: Psi,
+    prior: Theta,
     theta: Theta,
     lambda: Weights,
     w: Weights,
@@ -162,6 +163,7 @@ impl<E: Equation + Send + 'static> NPAG<E> {
             equation,
             ranges,
             psi: Psi::new(),
+            prior: theta.clone(),
             theta,
             lambda: Weights::default(),
             w: Weights::default(),
@@ -191,6 +193,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
             self.equation.clone(),
             self.data.clone(),
             self.error_models.clone(),
+            self.prior.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
@@ -504,8 +507,8 @@ impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpagConfig {
     type Runner = NPAG<E>;
 
     fn build_runner(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Runner> {
-        // Here, problem.parameters is strictly ParameterSpace<BoundedParameter>
-        // and problem.error_models is strictly AssayErrorModels!
+        // `problem.prior` is the prior `Theta` (which also carries the parameter
+        // space) and `problem.error_models` is strictly `AssayErrorModels`.
 
         NPAG::from_parts(
             problem.model.equation.clone(),
@@ -579,16 +582,19 @@ mod tests {
 
     #[test]
     fn npag_runs_without_error() {
-        let problem = EstimationProblem::builder(simple_equation(), simple_data())
-            .nonparametric()
-            .parameter(Parameter::bounded("ke", 0.001, 3.0))
-            .parameter(Parameter::bounded("v", 25.0, 250.0))
-            .error_model(
+        let parameters = ParameterSpace::bounded()
+            .add("ke", 0.001, 3.0)
+            .add("v", 25.0, 250.0);
+        let prior = Theta::sobol_default(&parameters).expect("Failed to build prior");
+        let error_models = AssayErrorModels::new()
+            .add(
                 "0",
                 AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
             )
-            .build()
-            .expect("Failed to build problem");
+            .expect("Failed to build error models");
+        let problem =
+            EstimationProblem::nonparametric(simple_equation(), simple_data(), prior, error_models)
+                .expect("Failed to build problem");
 
         let result = problem.fit_with(NpagConfig::default());
 

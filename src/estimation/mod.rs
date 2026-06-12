@@ -6,6 +6,6 @@ pub mod progress;
 pub use crate::algorithms::nonparametric::{NpagConfig, NpmapConfig, NpodConfig};
 pub use error_models::ErrorModels;
 pub use problem::{
-    EstimationProblem, EstimationProblemBuilder, Framework, NonParametric, Parametric,
+    EstimationProblem, Framework, NonParametric, Parametric, ParametricBuilder,
 };
 pub use progress::{FitProgress, NonparametricCycleProgress};

@@ -11,8 +11,8 @@ fn pk_parameter_space(
     v_upper: f64,
 ) -> ParameterSpace<BoundedParameter> {
     ParameterSpace::<BoundedParameter>::new()
-        .add(Parameter::bounded("ke", ke_lower, ke_upper))
-        .add(Parameter::bounded("v", v_lower, v_upper))
+        .add("ke", ke_lower, ke_upper)
+        .add("v", v_lower, v_upper)
 }
 
 fn bestdose_config(

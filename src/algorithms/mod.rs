@@ -38,11 +38,6 @@ pub mod nonparametric;
 pub mod parametric;
 
 impl<E: Equation, F: Framework> EstimationProblem<E, F> {
-    /// Returns the parameter space defined for this problem.
-    pub fn parameters(&self) -> &F::Parameters {
-        &self.parameters
-    }
-
     /// The "Swap and Fit" API:
     /// Consumes the problem and the algorithm configuration, builds the engine,
     /// and runs it to completion automatically.

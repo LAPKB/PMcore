@@ -22,17 +22,17 @@ fn main() -> Result<()> {
     };
 
     let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv")?;
-    EstimationProblem::builder(eq, data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ka", 0.1, 0.9))
-        .parameter(Parameter::bounded("ke", 0.001, 0.1))
-        .parameter(Parameter::bounded("tlag", 0.0, 4.0))
-        .parameter(Parameter::bounded("v", 30.0, 120.0))
-        .error_model(
-            "outeq_0",
-            AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
-        )
-        .build()?
+    let parameters = ParameterSpace::bounded()
+        .add("ka", 0.1, 0.9)
+        .add("ke", 0.001, 0.1)
+        .add("tlag", 0.0, 4.0)
+        .add("v", 30.0, 120.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_0",
+        AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+    )?;
+    EstimationProblem::nonparametric(eq, data, prior, error_models)?
         .fit_with(NpagConfig::default())?;
 
     Ok(())

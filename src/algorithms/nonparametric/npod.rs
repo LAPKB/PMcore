@@ -54,6 +54,7 @@ impl Default for NpodConfig {
 pub struct NPOD<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
+    prior: Theta,
     theta: Theta,
     lambda: Weights,
     w: Weights,
@@ -82,6 +83,7 @@ impl<E: Equation + Send + 'static> NPOD<E> {
         Ok(Self {
             equation,
             psi: Psi::new(),
+            prior: theta.clone(),
             theta: theta,
             lambda: Weights::default(),
             w: Weights::default(),
@@ -147,6 +149,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
             self.equation.clone(),
             self.data.clone(),
             self.error_models.clone(),
+            self.prior.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),

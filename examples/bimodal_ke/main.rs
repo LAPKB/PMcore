@@ -23,15 +23,18 @@ fn main() -> Result<()> {
 
     let data = data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?;
 
-    let problem = EstimationProblem::builder(eq, data)
-        .nonparametric()
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .parameter(Parameter::bounded("v", 25.0, 250.0))
-        .error_model(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )
-        .build()?;
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+
+    let prior = Theta::sobol_default(&parameters)?;
+
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+
+    let problem = EstimationProblem::nonparametric(eq, data, prior, error_models)?;
 
     let _result = problem.fit_with(NpagConfig::default())?;
 

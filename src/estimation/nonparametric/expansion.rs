@@ -45,14 +45,14 @@ pub fn adaptative_grid(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{BoundedParameter, Parameter, ParameterSpace};
+    use crate::model::{BoundedParameter, ParameterSpace};
     use faer::mat;
 
     #[test]
     fn adaptive_grid_expands_points_within_bounds() {
         let parameters = ParameterSpace::<BoundedParameter>::new()
-            .add(Parameter::bounded("x", 0.0, 1.0))
-            .add(Parameter::bounded("y", 0.0, 1.0));
+            .add("x", 0.0, 1.0)
+            .add("y", 0.0, 1.0);
         let mut theta = Theta::from_parts(mat![[0.5, 0.5]], parameters).unwrap();
         let ranges = [(0.0, 1.0), (0.0, 1.0)];
 
