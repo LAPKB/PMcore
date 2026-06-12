@@ -15,22 +15,18 @@ use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{Predictions, Subject};
 use serde::{Deserialize, Serialize};
 
-/// Defines an algorithm capable of building an execution engine
+/// Defines an algorithm that can fit an [`EstimationProblem`] to produce a result.
+///
+/// Implementors are the lightweight, user-facing configuration structs (e.g.
+/// `NpagConfig`). The heavy, mutable execution state used while fitting is an
+/// internal implementation detail.
 pub trait Algorithm<E: Equation, F: crate::estimation::Framework> {
-    /// The strictly-typed runner struct (e.g., `NPAG<E>`)
-    type Runner;
-
-    /// Consumes the configuration and the problem to fully hydrate the runner state.
-    fn build_runner(self, problem: EstimationProblem<E, F>) -> Result<Self::Runner>;
-}
-
-/// A trait for runners that can be executed to produce a fit result
-pub trait Fitter<E: Equation> {
-    /// The specific result struct (e.g., NonParametricResult<E>)
+    /// The specific result struct (e.g. `NonParametricResult<E>`).
     type Output: FitResult;
 
-    /// Executes the optimization and returns the strictly-typed metrics.
-    fn fit(self) -> anyhow::Result<Self::Output>;
+    /// Consumes the configuration and the problem, runs the optimization to
+    /// completion, and returns the strictly-typed result.
+    fn fit(self, problem: EstimationProblem<E, F>) -> Result<Self::Output>;
 }
 
 // Module organization for algorithm types
@@ -38,24 +34,13 @@ pub mod nonparametric;
 pub mod parametric;
 
 impl<E: Equation, F: Framework> EstimationProblem<E, F> {
-    /// The "Swap and Fit" API:
-    /// Consumes the problem and the algorithm configuration, builds the engine,
-    /// and runs it to completion automatically.
-    pub fn fit_with<A>(self, algorithm: A) -> anyhow::Result<<A::Runner as Fitter<E>>::Output>
-    where
-        A: Algorithm<E, F>,
-        A::Runner: Fitter<E>,
-    {
-        algorithm.build_runner(self)?.fit()
-    }
-    /// The "Extract Structure" API:
-    /// Consumes the problem and configuration, returning the strictly-typed
-    /// execution runner (e.g., `NPAG<E>`) for advanced inspection.
-    pub fn runner<A>(self, algorithm: A) -> Result<A::Runner>
+    /// Consumes the problem and an algorithm configuration, runs the fit to
+    /// completion, and returns the result.
+    pub fn fit_with<A>(self, algorithm: A) -> Result<A::Output>
     where
         A: Algorithm<E, F>,
     {
-        algorithm.build_runner(self)
+        algorithm.fit(self)
     }
 }
 
@@ -329,7 +314,7 @@ pub trait NonParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send + 's
     /// followed by iterative cycles of estimation, condensation, optimization, and evaluation
     /// until the algorithm converges or meets a stopping criteria.
     fn fit(&mut self) -> Result<NonParametricResult<E>> {
-        self.initialize().unwrap();
+        self.initialize()?;
         while let Status::Continue = self.next_cycle()? {}
         self.into_result()
     }

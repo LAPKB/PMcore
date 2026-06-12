@@ -1,9 +1,6 @@
 use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
-use pmcore::{
-    algorithms::{Algorithm, Fitter},
-    prelude::*,
-};
+use pmcore::{algorithms::Algorithm, prelude::*};
 
 use std::hint::black_box;
 
@@ -72,7 +69,6 @@ fn benchmark_algorithm<F, A>(c: &mut Criterion, bench_name: &str, setup_fn: F, c
 where
     F: Fn() -> Result<EstimationProblem<equation::ODE, NonParametric>>,
     A: Algorithm<equation::ODE, NonParametric> + Clone,
-    A::Runner: Fitter<equation::ODE>,
 {
     c.bench_function(bench_name, |b| {
         b.iter_with_setup(

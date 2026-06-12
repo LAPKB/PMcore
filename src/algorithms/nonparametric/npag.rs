@@ -1,4 +1,4 @@
-use crate::algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason};
+use crate::algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason};
 use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
 };
@@ -502,38 +502,22 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
     }
 }
 
-// 1. Tell the compiler that NpagConfig is a Non-Parametric Algorithm
+// Tell the compiler that NpagConfig is a Non-Parametric Algorithm.
 impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpagConfig {
-    type Runner = NPAG<E>;
-
-    fn build_runner(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Runner> {
-        // `problem.prior` is the prior `Theta` (which also carries the parameter
-        // space) and `problem.error_models` is strictly `AssayErrorModels`.
-
-        NPAG::from_parts(
-            problem.model.equation.clone(),
-            problem.data.clone(),
-            problem.error_models.clone(),
-            problem.prior.clone(),
-            self,
-        )
-    }
-}
-
-impl<E: Equation + Send + 'static> Fitter<E> for NPAG<E> {
     type Output = NonParametricResult<E>;
 
-    fn fit(mut self) -> anyhow::Result<Self::Output> {
-        self.initialize()?;
-        #[allow(clippy::while_let_loop)]
-        loop {
-            match self.next_cycle()? {
-                Status::Continue => continue,
-                Status::Stop(_) => break,
-            }
-        }
+    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
+        // `problem.prior` is the prior `Theta` (which also carries the parameter
+        // space) and `problem.error_models` is strictly `AssayErrorModels`.
+        let mut runner = NPAG::from_parts(
+            problem.model.equation,
+            problem.data,
+            problem.error_models,
+            problem.prior,
+            self,
+        )?;
 
-        self.into_result()
+        NonParametricAlgorithm::fit(&mut runner)
     }
 }
 
@@ -605,4 +589,3 @@ mod tests {
         );
     }
 }
-

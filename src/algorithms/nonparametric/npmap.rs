@@ -1,5 +1,5 @@
 use crate::{
-    algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason},
+    algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason},
     estimation::nonparametric::{
         calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
@@ -170,30 +170,30 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
         );
         self.cyclelog.push(state);
     }
-}
 
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
-    type Runner = NPMAP<E>;
-
-    fn build_runner(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Runner> {
-        NPMAP::from_parts(
-            problem.model.equation,
-            problem.data,
-            problem.error_models,
-            problem.prior,
-            self,
-        )
-    }
-}
-
-impl<E: Equation + Send + 'static> Fitter<E> for NPMAP<E> {
-    type Output = NonParametricResult<E>;
-
-    fn fit(mut self) -> Result<Self::Output> {
+    /// POSTPROB is a single-pass reweighting: it evaluates the likelihood of the
+    /// fixed prior support points once, rather than iterating cycles.
+    fn fit(&mut self) -> Result<NonParametricResult<E>> {
         self.estimation()?;
         self.evaluation()?;
         self.log_cycle_state();
 
         self.into_result()
+    }
+}
+
+impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
+    type Output = NonParametricResult<E>;
+
+    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
+        let mut runner = NPMAP::from_parts(
+            problem.model.equation,
+            problem.data,
+            problem.error_models,
+            problem.prior,
+            self,
+        )?;
+
+        NonParametricAlgorithm::fit(&mut runner)
     }
 }

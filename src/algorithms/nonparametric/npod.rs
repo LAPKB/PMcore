@@ -1,5 +1,5 @@
 use crate::{
-    algorithms::{Algorithm, Fitter, NonParametricAlgorithm, Status, StopReason},
+    algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason},
     estimation::nonparametric::{
         calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
@@ -446,33 +446,17 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
 }
 
 impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpodConfig {
-    type Runner = NPOD<E>;
+    type Output = NonParametricResult<E>;
 
-    fn build_runner(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Runner> {
-        NPOD::from_parts(
+    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
+        let mut runner = NPOD::from_parts(
             problem.model.equation,
             problem.data,
             problem.error_models,
             problem.prior,
             self,
-        )
-    }
-}
+        )?;
 
-impl<E: Equation + Send + 'static> Fitter<E> for NPOD<E> {
-    type Output = NonParametricResult<E>;
-
-    fn fit(mut self) -> Result<Self::Output> {
-        self.initialize()?;
-        #[allow(clippy::while_let_loop)]
-        loop {
-            match self.next_cycle()? {
-                Status::Continue => continue,
-                Status::Stop(_) => break,
-            }
-        }
-
-        // Return the strictly-typed NonParametricResult
-        self.into_result()
+        NonParametricAlgorithm::fit(&mut runner)
     }
 }
