@@ -315,7 +315,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
             self.cycle == 1 && self.config.progress,
         )?;
 
-        if let Err(err) = self.validate_psi() {
+        if let Err(err) = self.check_zero_probability_subjects() {
             bail!(err);
         }
 
@@ -381,7 +381,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
         // Filter to keep only the support points (columns) that are in the `keep` vector
         self.psi.filter_column_indices(keep.as_slice());
 
-        self.validate_psi()?;
+        self.check_zero_probability_subjects()?;
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {

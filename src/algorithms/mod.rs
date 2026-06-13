@@ -8,7 +8,6 @@ use crate::results::FitResult;
 use anyhow::Context;
 use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
-use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 
 use pharmsol::prelude::{data::Data, simulator::Equation};
 
@@ -45,184 +44,158 @@ impl<E: Equation, F: Framework> EstimationProblem<E, F> {
 }
 
 pub trait NonParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send + 'static {
-    fn validate_psi(&mut self) -> Result<()> {
-        // Count problematic values in psi
-        let mut nan_count = 0;
-        let mut inf_count = 0;
+    /// Identify subjects whose total probability given the model is zero or
+    /// non-finite.
+    ///
+    /// Each row of [`Psi`] holds the likelihood of a subject across every
+    /// support point, so a subject's probability is the sum across its row. A
+    /// subject is flagged when that sum is zero or not finite, meaning the model
+    /// cannot explain the subject's data. When any subject is flagged, detailed
+    /// per-subject diagnostics are logged and an error is returned.
+    fn check_zero_probability_subjects(&self) -> Result<()> {
+        let psi = self.psi().matrix();
 
-        let psi = self.psi().to_ndarray();
-        // First coerce all NaN and infinite in psi to 0.0
-        for i in 0..psi.nrows() {
-            for j in 0..self.psi().matrix().ncols() {
-                let val = psi.get((i, j)).unwrap();
-                if val.is_nan() {
-                    nan_count += 1;
-                    // *val = 0.0;
-                } else if val.is_infinite() {
-                    inf_count += 1;
-                    // *val = 0.0;
-                }
-            }
-        }
-
-        if nan_count + inf_count > 0 {
+        // Report non-finite entries; these propagate into the row sums below.
+        let nonfinite = psi
+            .row_iter()
+            .flat_map(|row| row.iter().copied())
+            .filter(|v| !v.is_finite())
+            .count();
+        if nonfinite > 0 {
             tracing::warn!(
-                "Psi matrix contains {} NaN, {} Infinite values of {} total values",
-                nan_count,
-                inf_count,
-                psi.ncols() * psi.nrows()
+                "Psi matrix contains {} non-finite value(s) of {} total",
+                nonfinite,
+                psi.nrows() * psi.ncols()
             );
         }
 
-        let (_, col) = psi.dim();
-        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-        let plam = psi.dot(&ecol);
-        let w = 1. / &plam;
+        // A subject's probability is the sum across its row.
+        let subjects = self.data().subjects();
+        let flagged: Vec<usize> = (0..psi.nrows())
+            .filter(|&i| {
+                let probability: f64 = (0..psi.ncols()).map(|j| psi[(i, j)]).sum();
+                !probability.is_finite() || probability == 0.0
+            })
+            .collect();
 
-        // Get the index of each element in `w` that is NaN or infinite
-        let indices: Vec<usize> = w
-            .iter()
+        if flagged.is_empty() {
+            return Ok(());
+        }
+
+        tracing::error!(
+            "{}/{} subjects have zero probability given the model",
+            flagged.len(),
+            psi.nrows()
+        );
+
+        for &i in &flagged {
+            self.log_zero_probability_subject(subjects[i]);
+        }
+
+        let ids: Vec<&String> = flagged.iter().map(|&i| subjects[i].id()).collect();
+        Err(anyhow::anyhow!(
+            "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
+            flagged.len(),
+            psi.nrows(),
+            ids
+        ))
+    }
+
+    /// Log detailed likelihood diagnostics for a single subject whose
+    /// probability given the model is zero or non-finite.
+    fn log_zero_probability_subject(&self, subject: &Subject) {
+        tracing::debug!("Subject with zero probability: {}", subject.id());
+
+        let error_model = self.error_models().clone();
+
+        // Simulate every support point for this subject in parallel.
+        let mut results: Vec<_> = self
+            .theta()
+            .matrix()
+            .row_iter()
             .enumerate()
-            .filter(|(_, x)| x.is_nan() || x.is_infinite())
-            .map(|(i, _)| i)
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .map(|(i, spp)| {
+                let support_point: Vec<f64> = spp.iter().copied().collect();
+                let (pred, ll) = self
+                    .equation()
+                    .simulate_subject_dense(subject, &support_point, Some(&error_model))
+                    .unwrap(); //TODO: Handle error
+                (i, support_point, pred.get_predictions(), ll)
+            })
+            .collect();
 
-        if !indices.is_empty() {
-            let subject: Vec<&Subject> = self.data().subjects();
-            let zero_probability_subjects: Vec<&String> =
-                indices.iter().map(|&i| subject[i].id()).collect();
-
-            tracing::error!(
-                "{}/{} subjects have zero probability given the model",
-                indices.len(),
-                psi.nrows()
-            );
-
-            // For each problematic subject
-            for index in &indices {
-                tracing::debug!("Subject with zero probability: {}", subject[*index].id());
-
-                let error_model = self.error_models().clone();
-
-                // Simulate all support points in parallel
-                let spp_results: Vec<_> = self
-                    .theta()
-                    .matrix()
-                    .row_iter()
-                    .enumerate()
-                    .collect::<Vec<_>>()
-                    .into_par_iter()
-                    .map(|(i, spp)| {
-                        let support_point: Vec<f64> = spp.iter().copied().collect();
-                        let (pred, ll) = self
-                            .equation()
-                            .simulate_subject_dense(
-                                subject[*index],
-                                &support_point,
-                                Some(&error_model),
-                            )
-                            .unwrap(); //TODO: Handle error
-                        (i, support_point, pred.get_predictions(), ll)
-                    })
-                    .collect();
-
-                // Count problematic likelihoods for this subject
-                let mut nan_ll = 0;
-                let mut inf_pos_ll = 0;
-                let mut inf_neg_ll = 0;
-                let mut zero_ll = 0;
-                let mut valid_ll = 0;
-
-                for (_, _, _, ll) in &spp_results {
-                    match ll {
-                        Some(ll_val) if ll_val.is_nan() => nan_ll += 1,
-                        Some(ll_val) if ll_val.is_infinite() && ll_val.is_sign_positive() => {
-                            inf_pos_ll += 1
-                        }
-                        Some(ll_val) if ll_val.is_infinite() && ll_val.is_sign_negative() => {
-                            inf_neg_ll += 1
-                        }
-                        Some(ll_val) if *ll_val == 0.0 => zero_ll += 1,
-                        Some(_) => valid_ll += 1,
-                        None => nan_ll += 1,
-                    }
-                }
-
-                tracing::debug!(
-                    "\tLikelihood analysis for subject {} ({} support points):",
-                    subject[*index].id(),
-                    spp_results.len()
-                );
-                tracing::debug!(
-                    "\tNaN likelihoods: {} ({:.1}%)",
-                    nan_ll,
-                    100.0 * nan_ll as f64 / spp_results.len() as f64
-                );
-                tracing::debug!(
-                    "\t+Inf likelihoods: {} ({:.1}%)",
-                    inf_pos_ll,
-                    100.0 * inf_pos_ll as f64 / spp_results.len() as f64
-                );
-                tracing::debug!(
-                    "\t-Inf likelihoods: {} ({:.1}%)",
-                    inf_neg_ll,
-                    100.0 * inf_neg_ll as f64 / spp_results.len() as f64
-                );
-                tracing::debug!(
-                    "\tZero likelihoods: {} ({:.1}%)",
-                    zero_ll,
-                    100.0 * zero_ll as f64 / spp_results.len() as f64
-                );
-                tracing::debug!(
-                    "\tValid likelihoods: {} ({:.1}%)",
-                    valid_ll,
-                    100.0 * valid_ll as f64 / spp_results.len() as f64
-                );
-
-                // Sort and show top 10 most likely support points
-                let mut sorted_results = spp_results;
-                sorted_results.sort_by(|a, b| {
-                    b.3.unwrap_or(f64::NEG_INFINITY)
-                        .partial_cmp(&a.3.unwrap_or(f64::NEG_INFINITY))
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-                let take = 3;
-
-                tracing::debug!("Top {} most likely support points:", take);
-                for (i, support_point, preds, ll) in sorted_results.iter().take(take) {
-                    tracing::debug!("\tSupport point #{}: {:?}", i, support_point);
-                    tracing::debug!("\t\tLog-likelihood: {:?}", ll);
-
-                    let times = preds.iter().map(|x| x.time()).collect::<Vec<f64>>();
-                    let observations = preds
-                        .iter()
-                        .map(|x| x.observation())
-                        .collect::<Vec<Option<f64>>>();
-                    let predictions = preds.iter().map(|x| x.prediction()).collect::<Vec<f64>>();
-                    let outeqs = preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>();
-                    let states = preds
-                        .iter()
-                        .map(|x| x.state().to_vec())
-                        .collect::<Vec<Vec<f64>>>();
-
-                    tracing::debug!("\t\tTimes: {:?}", times);
-                    tracing::debug!("\t\tObservations: {:?}", observations);
-                    tracing::debug!("\t\tPredictions: {:?}", predictions);
-                    tracing::debug!("\t\tOuteqs: {:?}", outeqs);
-                    tracing::debug!("\t\tStates: {:?}", states);
-                }
-                tracing::debug!("=====================");
+        // Summarise the distribution of likelihood values.
+        let mut nan = 0;
+        let mut pos_inf = 0;
+        let mut neg_inf = 0;
+        let mut zero = 0;
+        let mut valid = 0;
+        for (_, _, _, ll) in &results {
+            match ll {
+                Some(v) if v.is_nan() => nan += 1,
+                Some(v) if v.is_infinite() && v.is_sign_positive() => pos_inf += 1,
+                Some(v) if v.is_infinite() => neg_inf += 1,
+                Some(v) if *v == 0.0 => zero += 1,
+                Some(_) => valid += 1,
+                None => nan += 1,
             }
-
-            return Err(anyhow::anyhow!(
-                    "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
-                    indices.len(),
-                    self.psi().matrix().nrows(),
-                    zero_probability_subjects
-                ));
         }
 
-        Ok(())
+        let total = results.len();
+        let pct = |n: usize| 100.0 * n as f64 / total as f64;
+        tracing::debug!(
+            "\tLikelihood analysis for subject {} ({} support points):",
+            subject.id(),
+            total
+        );
+        tracing::debug!("\tNaN likelihoods: {} ({:.1}%)", nan, pct(nan));
+        tracing::debug!("\t+Inf likelihoods: {} ({:.1}%)", pos_inf, pct(pos_inf));
+        tracing::debug!("\t-Inf likelihoods: {} ({:.1}%)", neg_inf, pct(neg_inf));
+        tracing::debug!("\tZero likelihoods: {} ({:.1}%)", zero, pct(zero));
+        tracing::debug!("\tValid likelihoods: {} ({:.1}%)", valid, pct(valid));
+
+        // Show the most likely support points to aid debugging.
+        results.sort_by(|a, b| {
+            b.3.unwrap_or(f64::NEG_INFINITY)
+                .partial_cmp(&a.3.unwrap_or(f64::NEG_INFINITY))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        const TAKE: usize = 3;
+        tracing::debug!("Top {} most likely support points:", TAKE);
+        for (i, support_point, preds, ll) in results.iter().take(TAKE) {
+            tracing::debug!("\tSupport point #{}: {:?}", i, support_point);
+            tracing::debug!("\t\tLog-likelihood: {:?}", ll);
+            tracing::debug!(
+                "\t\tTimes: {:?}",
+                preds.iter().map(|x| x.time()).collect::<Vec<f64>>()
+            );
+            tracing::debug!(
+                "\t\tObservations: {:?}",
+                preds
+                    .iter()
+                    .map(|x| x.observation())
+                    .collect::<Vec<Option<f64>>>()
+            );
+            tracing::debug!(
+                "\t\tPredictions: {:?}",
+                preds.iter().map(|x| x.prediction()).collect::<Vec<f64>>()
+            );
+            tracing::debug!(
+                "\t\tOuteqs: {:?}",
+                preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>()
+            );
+            tracing::debug!(
+                "\t\tStates: {:?}",
+                preds
+                    .iter()
+                    .map(|x| x.state().to_vec())
+                    .collect::<Vec<Vec<f64>>>()
+            );
+        }
+        tracing::debug!("=====================");
     }
 
     fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels;

@@ -9,11 +9,8 @@ use pharmsol::ParameterOptimizer;
 
 use anyhow::bail;
 use anyhow::Result;
+use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{prelude::AssayErrorModel, AssayErrorModels};
-use pharmsol::{
-    prelude::{data::Data, simulator::Equation},
-    Subject,
-};
 
 use ndarray::Array1;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
@@ -98,48 +95,6 @@ impl<E: Equation + Send + 'static> NPOD<E> {
             data,
             config,
         })
-    }
-
-    fn validate_psi(&mut self) -> Result<()> {
-        let mut psi = self.psi().matrix().to_owned();
-        // First coerce all NaN and infinite in psi to 0.0
-        let mut has_bad_values = false;
-        for i in 0..psi.nrows() {
-            for j in 0..psi.ncols() {
-                let val = psi[(i, j)];
-                if val.is_nan() || val.is_infinite() {
-                    has_bad_values = true;
-                    psi[(i, j)] = 0.0;
-                }
-            }
-        }
-        if has_bad_values {
-            tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
-        }
-
-        // Calculate row sums and check for zero-probability subjects
-        let nrows = psi.nrows();
-        let ncols = psi.ncols();
-        let indices: Vec<usize> = (0..nrows)
-            .filter(|&i| {
-                let row_sum: f64 = (0..ncols).map(|j| psi[(i, j)]).sum();
-                let w: f64 = 1.0 / row_sum;
-                w.is_nan() || w.is_infinite()
-            })
-            .collect();
-
-        // If any elements in `w` are NaN or infinite, return the subject IDs for each index
-        if !indices.is_empty() {
-            let subject: Vec<&Subject> = self.data.subjects();
-            let zero_probability_subjects: Vec<&String> =
-                indices.iter().map(|&i| subject[i].id()).collect();
-
-            return Err(anyhow::anyhow!(
-                "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects
-            ));
-        }
-
-        Ok(())
     }
 }
 
@@ -281,7 +236,7 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
             self.cycle == 1 && self.config.progress,
         )?;
 
-        if let Err(err) = self.validate_psi() {
+        if let Err(err) = self.check_zero_probability_subjects() {
             bail!(err);
         }
 
