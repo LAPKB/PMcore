@@ -116,6 +116,16 @@ impl NpagConfig {
         self.error_step_shrink = factor;
         self
     }
+
+    pub fn max_cycles(mut self, cycles: usize) -> Self {
+        self.max_cycles = cycles;
+        self
+    }
+
+    pub fn progress(mut self, progress: bool) -> Self {
+        self.progress = progress;
+        self
+    }
 }
 
 #[derive(Debug)]

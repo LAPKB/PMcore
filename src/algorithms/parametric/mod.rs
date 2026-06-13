@@ -25,24 +25,32 @@ use pharmsol::prelude::simulator::Equation;
 
 /// The parametric algorithms supported by PMcore.
 ///
-/// Each variant wraps the configuration for one algorithm. Construct a variant with its
-/// default configuration using [`saem`](Self::saem), then refine it with the chainable
-/// setters:
+/// Use the constructors to select an algorithm with its default configuration:
 ///
 /// ```no_run
 /// use pmcore::prelude::*;
 ///
 /// // Default SAEM configuration.
 /// let algorithm = ParametricAlgorithm::saem();
+/// ```
+///
+/// To customize an algorithm, build its configuration struct (which exposes only the
+/// setters valid for that algorithm) and pass it directly to
+/// [`fit_with`](crate::estimation::EstimationProblem::fit_with):
+///
+/// ```no_run
+/// use pmcore::prelude::*;
 ///
 /// // SAEM with a custom iteration schedule and seed.
-/// let algorithm = ParametricAlgorithm::saem()
+/// let config = SaemConfig::new()
 ///     .k1_iterations(500)
 ///     .k2_iterations(200)
 ///     .seed(42);
+/// // `problem.fit_with(config)` accepts the config directly.
 /// ```
 ///
-/// The setters are passthroughs to the wrapped configuration.
+/// [`SaemConfig`] implements [`Algorithm`] by delegating to the matching enum variant, so
+/// configs can be passed to `fit_with` without converting them first.
 #[derive(Debug, Clone)]
 pub enum ParametricAlgorithm {
     /// Stochastic Approximation Expectation-Maximization.
@@ -67,48 +75,6 @@ impl ParametricAlgorithm {
     pub fn saem() -> Self {
         Self::Saem(SaemConfig::default())
     }
-
-    /// Number of exploration-phase (K1) iterations (SAEM only).
-    pub fn k1_iterations(mut self, iterations: usize) -> Self {
-        let Self::Saem(config) = &mut self;
-        config.k1_iterations = iterations;
-        self
-    }
-
-    /// Number of smoothing-phase (K2) iterations (SAEM only).
-    pub fn k2_iterations(mut self, iterations: usize) -> Self {
-        let Self::Saem(config) = &mut self;
-        config.k2_iterations = iterations;
-        self
-    }
-
-    /// Number of burn-in iterations (SAEM only).
-    pub fn burn_in(mut self, burn_in: usize) -> Self {
-        let Self::Saem(config) = &mut self;
-        config.burn_in = burn_in;
-        self
-    }
-
-    /// Number of MCMC chains (SAEM only).
-    pub fn n_chains(mut self, n_chains: usize) -> Self {
-        let Self::Saem(config) = &mut self;
-        config.n_chains = n_chains;
-        self
-    }
-
-    /// MCMC step size (SAEM only).
-    pub fn mcmc_step_size(mut self, step_size: f64) -> Self {
-        let Self::Saem(config) = &mut self;
-        config.mcmc_step_size = step_size;
-        self
-    }
-
-    /// Random-number-generator seed (SAEM only).
-    pub fn seed(mut self, seed: u64) -> Self {
-        let Self::Saem(config) = &mut self;
-        config.seed = seed;
-        self
-    }
 }
 
 impl<E: Equation + Send + 'static> Algorithm<E, Parametric> for ParametricAlgorithm {
@@ -120,5 +86,15 @@ impl<E: Equation + Send + 'static> Algorithm<E, Parametric> for ParametricAlgori
                 unimplemented!("SAEM fitting is not yet implemented")
             }
         }
+    }
+}
+
+// `SaemConfig` delegates to the matching `ParametricAlgorithm` variant so it can be passed
+// directly to `fit_with`, keeping its setters compile-time checked.
+impl<E: Equation + Send + 'static> Algorithm<E, Parametric> for SaemConfig {
+    type Output = ParametricResult<E>;
+
+    fn fit(self, problem: EstimationProblem<E, Parametric>) -> Result<Self::Output> {
+        ParametricAlgorithm::from(self).fit(problem)
     }
 }

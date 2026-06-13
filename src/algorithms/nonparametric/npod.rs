@@ -36,6 +36,11 @@ impl NpodConfig {
         self.max_cycles = cycles;
         self
     }
+
+    pub fn progress(mut self, progress: bool) -> Self {
+        self.progress = progress;
+        self
+    }
 }
 
 impl Default for NpodConfig {
