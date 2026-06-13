@@ -1,9 +1,8 @@
 use crate::{
-    algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason},
+    algorithms::{NonParametricRunner, Status, StopReason},
     estimation::nonparametric::{
         calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
-    estimation::{EstimationProblem, NonParametric},
 };
 use pharmsol::ParameterOptimizer;
 
@@ -98,7 +97,7 @@ impl<E: Equation + Send + 'static> NPOD<E> {
     }
 }
 
-impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
+impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
     fn into_result(&self) -> Result<NonParametricResult<E>> {
         NonParametricResult::new(
             self.equation.clone(),
@@ -397,21 +396,5 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPOD<E> {
             self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D)?;
         }
         Ok(())
-    }
-}
-
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpodConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        let mut runner = NPOD::from_parts(
-            problem.model.equation,
-            problem.data,
-            problem.error_models,
-            problem.prior,
-            self,
-        )?;
-
-        NonParametricAlgorithm::fit(&mut runner)
     }
 }

@@ -43,7 +43,7 @@ impl<E: Equation, F: Framework> EstimationProblem<E, F> {
     }
 }
 
-pub trait NonParametricAlgorithm<E: Equation + Send + 'static>: Sync + Send + 'static {
+pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// Identify subjects whose total probability given the model is zero or
     /// non-finite.
     ///

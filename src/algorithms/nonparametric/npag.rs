@@ -1,8 +1,7 @@
-use crate::algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason};
+use crate::algorithms::{NonParametricRunner, Status, StopReason};
 use crate::estimation::nonparametric::{
     calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
 };
-use crate::estimation::{EstimationProblem, NonParametric};
 
 pub(crate) use crate::estimation::nonparametric::ipm::burke;
 pub(crate) use crate::estimation::nonparametric::qr;
@@ -147,7 +146,7 @@ impl<E: Equation + Send + 'static> NPAG<E> {
     ///
     /// The `parameter_space` is used solely to derive the finite bounds for the
     /// adaptive grid. Initial support points can be supplied separately via
-    /// [`NonParametricAlgorithm::set_theta`].
+    /// [`NonParametricRunner::set_theta`].
     pub(crate) fn from_parts(
         equation: E,
         data: Data,
@@ -183,7 +182,7 @@ impl<E: Equation + Send + 'static> NPAG<E> {
     }
 }
 
-impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
+impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPAG<E> {
     fn equation(&self) -> &E {
         &self.equation
     }
@@ -502,25 +501,6 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPAG<E> {
     }
 }
 
-// Tell the compiler that NpagConfig is a Non-Parametric Algorithm.
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpagConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        // `problem.prior` is the prior `Theta` (which also carries the parameter
-        // space) and `problem.error_models` is strictly `AssayErrorModels`.
-        let mut runner = NPAG::from_parts(
-            problem.model.equation,
-            problem.data,
-            problem.error_models,
-            problem.prior,
-            self,
-        )?;
-
-        NonParametricAlgorithm::fit(&mut runner)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;
@@ -580,7 +560,7 @@ mod tests {
             EstimationProblem::nonparametric(simple_equation(), simple_data(), prior, error_models)
                 .expect("Failed to build problem");
 
-        let result = problem.fit_with(NpagConfig::default());
+        let result = problem.fit_with(NonParametricAlgorithm::npag());
 
         assert!(
             result.is_ok(),

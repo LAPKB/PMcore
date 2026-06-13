@@ -55,7 +55,7 @@ use faer::Mat;
 
 use crate::algorithms::nonparametric::npag::burke;
 use crate::algorithms::nonparametric::npag::NPAG;
-use crate::algorithms::NonParametricAlgorithm;
+use crate::algorithms::NonParametricRunner;
 
 use crate::algorithms::Status;
 use crate::bestdose::types::BestDoseConfig;

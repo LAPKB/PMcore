@@ -79,11 +79,21 @@ where
 }
 
 fn benchmark_bimodal_ke_npag(c: &mut Criterion) {
-    benchmark_algorithm(c, "bimodal_ke_npag", setup_npag, NpagConfig::default());
+    benchmark_algorithm(
+        c,
+        "bimodal_ke_npag",
+        setup_npag,
+        NonParametricAlgorithm::npag(),
+    );
 }
 
 fn benchmark_bimodal_ke_npod(c: &mut Criterion) {
-    benchmark_algorithm(c, "bimodal_ke_npod", setup_npod, NpodConfig::default());
+    benchmark_algorithm(
+        c,
+        "bimodal_ke_npod",
+        setup_npod,
+        NonParametricAlgorithm::npod(),
+    );
 }
 
 fn benchmark_bimodal_ke_postprob(c: &mut Criterion) {
@@ -91,7 +101,7 @@ fn benchmark_bimodal_ke_postprob(c: &mut Criterion) {
         c,
         "bimodal_ke_postprob",
         setup_postprob,
-        NpmapConfig::default(),
+        NonParametricAlgorithm::npmap(),
     );
 }
 

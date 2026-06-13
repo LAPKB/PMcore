@@ -46,7 +46,7 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new().add("0", assay_error)?;
     let result = EstimationProblem::nonparametric(simple_equation(), simple_data(), prior, error_models)?
-        .fit_with(NpagConfig::default())?;
+        .fit_with(NonParametricAlgorithm::npag())?;
 
     let summary = result.summary();
 

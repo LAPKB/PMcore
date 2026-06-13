@@ -62,7 +62,7 @@ fn test_one_compartment_npag() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
     )?;
     let result = EstimationProblem::nonparametric(eq, data, prior, error_models)?
-        .fit_with(NpagConfig::default())?;
+        .fit_with(NonParametricAlgorithm::npag())?;
 
     // Check the results
     assert_eq!(result.cycles(), 31);
@@ -128,7 +128,7 @@ fn test_one_compartment_npod() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
     )?;
     let result = EstimationProblem::nonparametric(eq, data, prior, error_models)?
-        .fit_with(NpodConfig::default())?;
+        .fit_with(NonParametricAlgorithm::npod())?;
 
     // Check the results
     assert_eq!(result.cycles(), 11);
@@ -192,7 +192,7 @@ fn test_one_compartment_postprob() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
     )?;
     let result = EstimationProblem::nonparametric(eq, data, theta.clone(), error_models)?
-        .fit_with(NpmapConfig::default())?;
+        .fit_with(NonParametricAlgorithm::npmap())?;
 
     // Check the results
     assert_eq!(result.cycles(), 0);

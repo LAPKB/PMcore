@@ -36,7 +36,7 @@ fn main() -> Result<()> {
 
     let problem = EstimationProblem::nonparametric(eq, data, prior, error_models)?;
 
-    let _result = problem.fit_with(NpagConfig::default())?;
+    let _result = problem.fit_with(NonParametricAlgorithm::npag())?;
 
     Ok(())
 }

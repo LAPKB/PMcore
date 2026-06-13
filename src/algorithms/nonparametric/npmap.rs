@@ -1,9 +1,8 @@
 use crate::{
-    algorithms::{Algorithm, NonParametricAlgorithm, Status, StopReason},
+    algorithms::{NonParametricRunner, Status, StopReason},
     estimation::nonparametric::{
         calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
-    estimation::{EstimationProblem, NonParametric},
 };
 
 use anyhow::{Context, Result};
@@ -67,7 +66,7 @@ impl<E: Equation + Send + 'static> NPMAP<E> {
     }
 }
 
-impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
+impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
     fn into_result(&self) -> Result<NonParametricResult<E>> {
         NonParametricResult::new(
             self.equation.clone(),
@@ -179,21 +178,5 @@ impl<E: Equation + Send + 'static> NonParametricAlgorithm<E> for NPMAP<E> {
         self.log_cycle_state();
 
         self.into_result()
-    }
-}
-
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        let mut runner = NPMAP::from_parts(
-            problem.model.equation,
-            problem.data,
-            problem.error_models,
-            problem.prior,
-            self,
-        )?;
-
-        NonParametricAlgorithm::fit(&mut runner)
     }
 }

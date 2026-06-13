@@ -34,7 +34,7 @@ fn main() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.0, 0.0, 0.0), 0.0000757575757576),
     )?;
     EstimationProblem::nonparametric(sde, data, prior, error_models)?
-        .fit_with(NpagConfig::default())
+        .fit_with(NonParametricAlgorithm::npag())
         .unwrap();
 
     Ok(())

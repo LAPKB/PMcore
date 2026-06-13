@@ -211,7 +211,7 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?;
     let result = EstimationProblem::nonparametric(equation, data, prior, error_models)?
-        .fit_with(NpagConfig::default())?;
+        .fit_with(NonParametricAlgorithm::npag())?;
     let fit_time = fit_started.elapsed();
 
     summarize_result(label, compile_time, fit_time, &result)
