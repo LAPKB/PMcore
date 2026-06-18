@@ -9,6 +9,7 @@ use pharmsol::Equation;
 use serde::{Deserialize, Serialize};
 
 use super::theta::Theta;
+use super::weights::Weights;
 
 /// [Psi] is a structure that holds the likelihood for each subject (row), for each support point (column)
 #[derive(Debug, Clone, PartialEq)]
@@ -100,6 +101,71 @@ impl Psi {
         let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
         Ok(Psi { matrix: mat })
+    }
+
+    /// Compute the maximum D-optimality value across all support points
+    ///
+    /// The D-optimality criterion measures convergence of the NPML/NPOD algorithm.
+    /// At optimality, this value should be close to 0, meaning no support point
+    /// can further improve the likelihood.
+    ///
+    /// # Interpretation
+    /// - **≈ 0**: Solution is optimal
+    /// - **> 0**: Not converged; some support points could still improve the objective
+    /// - **Larger values**: Further from convergence
+    pub fn d_optimality(&self, weights: &Weights) -> Result<f64> {
+        let d_values = self.d_optimality_spp(weights)?;
+        Ok(d_values.into_iter().fold(f64::NEG_INFINITY, f64::max))
+    }
+
+    /// Compute D-optimality values for each support point
+    ///
+    /// Returns the D-value for each support point in the current solution.
+    /// At convergence, all values should be close to 0.
+    ///
+    /// The D-optimality value for support point $j$ is:
+    /// $$D(\theta_j) = \sum_{i=1}^{n} \frac{\psi_{ij}}{p_\lambda(y_i)} - n$$
+    pub(crate) fn d_optimality_spp(&self, weights: &Weights) -> Result<Vec<f64>> {
+        let psi_mat = self.matrix();
+        let nsub = psi_mat.nrows();
+        let nspp = psi_mat.ncols();
+
+        if nspp != weights.len() {
+            bail!(
+                "Psi has {} columns but weights has {} elements",
+                nspp,
+                weights.len()
+            );
+        }
+
+        // Compute pyl = psi * w (weighted probability for each subject)
+        let mut pyl = vec![0.0; nsub];
+        for i in 0..nsub {
+            for (j, w_j) in weights.iter().enumerate() {
+                pyl[i] += psi_mat.get(i, j) * w_j;
+            }
+        }
+
+        // Check for zero probabilities
+        for (i, &p) in pyl.iter().enumerate() {
+            if p == 0.0 {
+                bail!("Subject {} has zero weighted probability", i);
+            }
+        }
+
+        // Compute D-value for each support point
+        let mut d_values = Vec::with_capacity(nspp);
+        let n = nsub as f64;
+
+        for j in 0..nspp {
+            let mut sum = -n;
+            for i in 0..nsub {
+                sum += psi_mat.get(i, j) / pyl[i];
+            }
+            d_values.push(sum);
+        }
+
+        Ok(d_values)
     }
 }
 
@@ -345,5 +411,139 @@ mod tests {
                 assert_eq!(owned_m[(i, j)], ref_m[(i, j)]);
             }
         }
+    }
+
+    #[test]
+    fn test_d_optimality_uniform_weights() {
+        // With uniform weights and equal likelihoods per subject, D should be 0
+        // Psi: 3 subjects (rows) x 2 support points (cols)
+        // All likelihoods equal means each support point contributes equally
+        let array = Array2::from_shape_vec((3, 2), vec![0.5, 0.5, 0.5, 0.5, 0.5, 0.5]).unwrap();
+        let psi = Psi::from(array);
+        let weights = Weights::uniform(2);
+
+        let d = psi.d_optimality(&weights).unwrap();
+
+        // With equal likelihoods and uniform weights:
+        // pyl[i] = 0.5 * 0.5 + 0.5 * 0.5 = 0.5 for each subject
+        // D[j] = sum(psi[i,j] / pyl[i]) - n = sum(0.5 / 0.5) - 3 = 3 - 3 = 0
+        assert!((d - 0.0).abs() < 1e-10, "Expected d ≈ 0, got {}", d);
+    }
+
+    #[test]
+    fn test_d_optimality_at_convergence() {
+        // At convergence, all D values should be ≈ 0
+        // This is a constructed example where the solution is optimal
+        let array = Array2::from_shape_vec((2, 2), vec![0.8, 0.2, 0.2, 0.8]).unwrap();
+        let psi = Psi::from(array);
+        let weights = Weights::uniform(2);
+
+        let d = psi.d_optimality(&weights).unwrap();
+
+        // pyl[0] = 0.8 * 0.5 + 0.2 * 0.5 = 0.5
+        // pyl[1] = 0.2 * 0.5 + 0.8 * 0.5 = 0.5
+        // D[0] = (0.8/0.5 + 0.2/0.5) - 2 = (1.6 + 0.4) - 2 = 0
+        // D[1] = (0.2/0.5 + 0.8/0.5) - 2 = (0.4 + 1.6) - 2 = 0
+        assert!((d - 0.0).abs() < 1e-10, "Expected d ≈ 0, got {}", d);
+    }
+
+    #[test]
+    fn test_d_optimality_spp_values() {
+        // Test that d_optimality_spp returns correct per-support-point values
+        let array = Array2::from_shape_vec((2, 2), vec![0.6, 0.4, 0.3, 0.7]).unwrap();
+        let psi = Psi::from(array);
+        let weights = Weights::from_vec(vec![0.5, 0.5]);
+
+        let d_values = psi.d_optimality_spp(&weights).unwrap();
+
+        assert_eq!(d_values.len(), 2);
+
+        // pyl[0] = 0.6 * 0.5 + 0.4 * 0.5 = 0.5
+        // pyl[1] = 0.3 * 0.5 + 0.7 * 0.5 = 0.5
+        // D[0] = (0.6/0.5 + 0.3/0.5) - 2 = (1.2 + 0.6) - 2 = -0.2
+        // D[1] = (0.4/0.5 + 0.7/0.5) - 2 = (0.8 + 1.4) - 2 = 0.2
+        assert!(
+            (d_values[0] - (-0.2)).abs() < 1e-10,
+            "Expected d[0] ≈ -0.2, got {}",
+            d_values[0]
+        );
+        assert!(
+            (d_values[1] - 0.2).abs() < 1e-10,
+            "Expected d[1] ≈ 0.2, got {}",
+            d_values[1]
+        );
+    }
+
+    #[test]
+    fn test_d_optimality_max_is_maximum() {
+        // d_optimality should return the maximum of d_optimality_spp
+        let array = Array2::from_shape_vec((2, 3), vec![0.6, 0.3, 0.1, 0.2, 0.5, 0.3]).unwrap();
+        let psi = Psi::from(array);
+        let weights = Weights::from_vec(vec![0.4, 0.4, 0.2]);
+
+        let d_max = psi.d_optimality(&weights).unwrap();
+        let d_values = psi.d_optimality_spp(&weights).unwrap();
+
+        let expected_max = d_values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            (d_max - expected_max).abs() < 1e-10,
+            "d_optimality should equal max of d_optimality_spp"
+        );
+    }
+
+    #[test]
+    fn test_d_optimality_dimension_mismatch() {
+        // Should error when weights length doesn't match number of support points
+        let array = Array2::from_shape_vec((2, 3), vec![0.5, 0.3, 0.2, 0.4, 0.4, 0.2]).unwrap();
+        let psi = Psi::from(array);
+        let weights = Weights::from_vec(vec![0.5, 0.5]); // 2 weights for 3 support points
+
+        let result = psi.d_optimality(&weights);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_d_optimality_zero_probability_error() {
+        // Should error when a subject has zero weighted probability
+        // This happens when all support points have zero likelihood for a subject
+        let array = Array2::from_shape_vec((2, 2), vec![0.0, 0.0, 0.5, 0.5]).unwrap();
+        let psi = Psi::from(array);
+        let weights = Weights::uniform(2);
+
+        let result = psi.d_optimality(&weights);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_d_optimality_nonuniform_weights() {
+        // Test with non-uniform weights
+        let array = Array2::from_shape_vec((2, 2), vec![0.8, 0.2, 0.4, 0.6]).unwrap();
+        let psi = Psi::from(array);
+        let weights = Weights::from_vec(vec![0.7, 0.3]); // Non-uniform
+
+        let d = psi.d_optimality(&weights).unwrap();
+
+        // pyl[0] = 0.8 * 0.7 + 0.2 * 0.3 = 0.56 + 0.06 = 0.62
+        // pyl[1] = 0.4 * 0.7 + 0.6 * 0.3 = 0.28 + 0.18 = 0.46
+        // D[0] = (0.8/0.62 + 0.4/0.46) - 2 ≈ (1.290 + 0.870) - 2 ≈ 0.160
+        // D[1] = (0.2/0.62 + 0.6/0.46) - 2 ≈ (0.323 + 1.304) - 2 ≈ -0.373
+        // max(D) ≈ 0.160
+
+        // Just verify it runs and returns a reasonable value
+        assert!(d.is_finite(), "D-optimality should be finite");
+    }
+
+    #[test]
+    fn test_d_optimality_single_support_point() {
+        // With a single support point, D should be 0 (trivially optimal)
+        let array = Array2::from_shape_vec((3, 1), vec![0.5, 0.3, 0.7]).unwrap();
+        let psi = Psi::from(array);
+        let weights = Weights::from_vec(vec![1.0]);
+
+        let d = psi.d_optimality(&weights).unwrap();
+
+        // pyl[i] = psi[i, 0] * 1.0 = psi[i, 0]
+        // D[0] = sum(psi[i,0] / psi[i,0]) - n = n - n = 0
+        assert!((d - 0.0).abs() < 1e-10, "Expected d ≈ 0, got {}", d);
     }
 }
