@@ -20,9 +20,9 @@ fn main() -> Result<()> {
         },
     };
 
-    let parameter_space = ParameterSpace::new()
-        .add(Parameter::bounded("ke", 0.001, 3.0))
-        .add(Parameter::bounded("v", 25.0, 250.0));
+    let parameter_space = ParameterSpace::<BoundedParameter>::new()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
 
     let ems = AssayErrorModels::new().add(
         0,
@@ -65,7 +65,8 @@ fn main() -> Result<()> {
         .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
         .build();
 
-    let (theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
+    let (theta, prior) =
+        Theta::from_file("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
 
     let posterior = BestDosePosterior::compute(
         &theta,

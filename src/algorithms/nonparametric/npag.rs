@@ -1,12 +1,7 @@
-use crate::algorithms::{
-    NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason,
-};
-use crate::api::estimation_problem::NonparametricMethod;
-use crate::api::Npag;
+use crate::algorithms::{NonParametricRunner, Status, StopReason};
 use crate::estimation::nonparametric::{
-    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
+    calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
 };
-use crate::prelude::algorithms::Algorithms;
 
 pub(crate) use crate::estimation::nonparametric::ipm::burke;
 pub(crate) use crate::estimation::nonparametric::qr;
@@ -20,15 +15,125 @@ use pharmsol::prelude::{
 
 use pharmsol::prelude::AssayErrorModel;
 
-use crate::estimation::nonparametric::sample_space_for_parameters;
-
 use crate::estimation::nonparametric::adaptative_grid;
+
+use serde::{Deserialize, Serialize};
+
+/// Configuration options for the Non-Parametric Adaptive Grid (NPAG) algorithm.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NpagConfig {
+    pub eps: f64,
+    pub min_eps: f64,
+    pub objective_tolerance: f64,
+    pub pyl_tolerance: f64,
+    pub prune_threshold: f64,
+    pub qr_tolerance: f64,
+    pub grid_tolerance: f64,
+    pub error_step: f64,
+    pub min_error_step: f64,
+    pub error_step_growth: f64,
+    pub error_step_shrink: f64,
+    pub max_cycles: usize,
+    pub progress: bool,
+}
+
+impl Default for NpagConfig {
+    fn default() -> Self {
+        Self {
+            eps: 0.2,
+            min_eps: 1e-4,
+            objective_tolerance: 1e-4,
+            pyl_tolerance: 1e-2,
+            prune_threshold: 1e-3,
+            qr_tolerance: 1e-8,
+            grid_tolerance: 1e-4,
+            error_step: 0.1,
+            min_error_step: 0.01,
+            error_step_growth: 4.0,
+            error_step_shrink: 0.5,
+            max_cycles: 1000,
+            progress: true,
+        }
+    }
+}
+
+impl NpagConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn eps(mut self, eps: f64) -> Self {
+        self.eps = eps;
+        self
+    }
+
+    pub fn min_eps(mut self, min_eps: f64) -> Self {
+        self.min_eps = min_eps;
+        self
+    }
+
+    pub fn objective_tolerance(mut self, tolerance: f64) -> Self {
+        self.objective_tolerance = tolerance;
+        self
+    }
+
+    pub fn pyl_tolerance(mut self, tolerance: f64) -> Self {
+        self.pyl_tolerance = tolerance;
+        self
+    }
+
+    pub fn prune_threshold(mut self, threshold: f64) -> Self {
+        self.prune_threshold = threshold;
+        self
+    }
+
+    pub fn qr_tolerance(mut self, tolerance: f64) -> Self {
+        self.qr_tolerance = tolerance;
+        self
+    }
+
+    pub fn grid_tolerance(mut self, tolerance: f64) -> Self {
+        self.grid_tolerance = tolerance;
+        self
+    }
+
+    pub fn error_step(mut self, step: f64) -> Self {
+        self.error_step = step;
+        self
+    }
+
+    pub fn min_error_step(mut self, step: f64) -> Self {
+        self.min_error_step = step;
+        self
+    }
+
+    pub fn error_step_growth(mut self, factor: f64) -> Self {
+        self.error_step_growth = factor;
+        self
+    }
+
+    pub fn error_step_shrink(mut self, factor: f64) -> Self {
+        self.error_step_shrink = factor;
+        self
+    }
+
+    pub fn max_cycles(mut self, cycles: usize) -> Self {
+        self.max_cycles = cycles;
+        self
+    }
+
+    pub fn progress(mut self, progress: bool) -> Self {
+        self.progress = progress;
+        self
+    }
+}
 
 #[derive(Debug)]
 pub struct NPAG<E: Equation + Send + 'static> {
     equation: E,
     ranges: Vec<(f64, f64)>,
     psi: Psi,
+    prior: Theta,
     theta: Theta,
     lambda: Weights,
     w: Weights,
@@ -43,29 +148,35 @@ pub struct NPAG<E: Equation + Send + 'static> {
     status: Status,
     cycle_log: CycleLog,
     data: Data,
-    config: NativeNonparametricConfig,
-    settings: Npag,
+    config: NpagConfig,
 }
 
 impl<E: Equation + Send + 'static> NPAG<E> {
-    pub(crate) fn from_config(
+    /// Construct an `NPAG` instance from explicit parts.
+    ///
+    /// The `parameter_space` is used solely to derive the finite bounds for the
+    /// adaptive grid. Initial support points can be supplied separately via
+    /// [`NonParametricRunner::set_theta`].
+    pub(crate) fn from_parts(
         equation: E,
         data: Data,
         error_models: AssayErrorModels,
-        config: NativeNonparametricConfig,
-        settings: Npag,
-    ) -> Box<Self> {
-        let ranges = config.ranges.clone();
-        let gamma_delta = vec![settings.error_step; error_models.len()];
+        theta: Theta,
+        config: NpagConfig,
+    ) -> Result<Self> {
+        let ranges = theta.parameters().finite_ranges();
+        let gamma_delta = vec![config.error_step; error_models.len()];
+        let eps = config.eps;
 
-        Box::new(Self {
+        Ok(Self {
             equation,
             ranges,
             psi: Psi::new(),
-            theta: Theta::new(),
+            prior: theta.clone(),
+            theta,
             lambda: Weights::default(),
             w: Weights::default(),
-            eps: settings.eps,
+            eps,
             last_objf: -1e30,
             objf: f64::NEG_INFINITY,
             f0: -1e30,
@@ -77,45 +188,27 @@ impl<E: Equation + Send + 'static> NPAG<E> {
             cycle_log: CycleLog::new(),
             data,
             config,
-            settings,
         })
-    }
-
-    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
-        let method = match input.method {
-            NonparametricMethod::Npag(method) => method,
-            _ => unreachable!("NPAG::from_input requires an NPAG method"),
-        };
-        let config = input.native_config()?;
-        let error_models = input.error_models().clone();
-        let equation = input.equation;
-        let data = input.data;
-
-        Ok(Self::from_config(
-            equation,
-            data,
-            error_models,
-            config,
-            method,
-        ))
     }
 }
 
-impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
+impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPAG<E> {
     fn equation(&self) -> &E {
         &self.equation
     }
-    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
-        NonparametricWorkspace::new(
+
+    fn into_result(&self) -> Result<NonParametricResult<E>> {
+        NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
+            self.error_models.clone(),
+            self.prior.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
             -2. * self.objf,
             self.cycle,
             self.status.clone(),
-            self.config.run_configuration.clone(),
             self.cycle_log.clone(),
         )
     }
@@ -126,10 +219,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
 
     fn data(&self) -> &Data {
         &self.data
-    }
-
-    fn get_prior(&self) -> Theta {
-        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior).unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -185,21 +274,21 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
 
         let psi = self.psi.matrix();
         let w = &self.w;
-        if (self.last_objf - self.objf).abs() <= self.settings.objective_tolerance
-            && self.eps > self.settings.min_eps
+        if (self.last_objf - self.objf).abs() <= self.config.objective_tolerance
+            && self.eps > self.config.min_eps
         {
             self.eps /= 2.;
-            if self.eps <= self.settings.min_eps {
+            if self.eps <= self.config.min_eps {
                 let pyl = psi * w.weights();
                 self.f1 = pyl.iter().map(|x| x.ln()).sum();
-                if (self.f1 - self.f0).abs() <= self.settings.pyl_tolerance {
+                if (self.f1 - self.f0).abs() <= self.config.pyl_tolerance {
                     tracing::info!("The model converged after {} cycles", self.cycle,);
                     self.set_status(Status::Stop(StopReason::Converged));
                     self.log_cycle_state();
                     return Ok(self.status().clone());
                 } else {
                     self.f0 = self.f1;
-                    self.eps = self.settings.eps;
+                    self.eps = self.config.eps;
                 }
             }
         }
@@ -235,7 +324,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             self.cycle == 1 && self.config.progress,
         )?;
 
-        if let Err(err) = self.validate_psi() {
+        if let Err(err) = self.check_zero_probability_subjects() {
             bail!(err);
         }
 
@@ -258,7 +347,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
 
         let mut keep = Vec::<usize>::new();
         for (index, lam) in self.lambda.iter().enumerate() {
-            if lam > max_lambda * self.settings.prune_threshold {
+            if lam > max_lambda * self.config.prune_threshold {
                 keep.push(index);
             }
         }
@@ -283,7 +372,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             let test = r.col(i).norm_l2();
             let r_diag_val = r.get(i, i);
             let ratio = r_diag_val / test;
-            if ratio.abs() >= self.settings.qr_tolerance {
+            if ratio.abs() >= self.config.qr_tolerance {
                 keep.push(*perm.get(i).unwrap());
             }
         }
@@ -301,7 +390,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
         // Filter to keep only the support points (columns) that are in the `keep` vector
         self.psi.filter_column_indices(keep.as_slice());
 
-        self.validate_psi()?;
+        self.check_zero_probability_subjects()?;
         (self.lambda, self.objf) = match burke(&self.psi) {
             Ok((lambda, objf)) => (lambda, objf),
             Err(err) => {
@@ -368,20 +457,20 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
                 if objf_up > self.objf {
                     self.error_models.set_factor(outeq, gamma_up)?;
                     self.objf = objf_up;
-                    self.gamma_delta[outeq] *= self.settings.error_step_growth;
+                    self.gamma_delta[outeq] *= self.config.error_step_growth;
                     self.lambda = lambda_up;
                     self.psi = psi_up;
                 }
                 if objf_down > self.objf {
                     self.error_models.set_factor(outeq, gamma_down)?;
                     self.objf = objf_down;
-                    self.gamma_delta[outeq] *= self.settings.error_step_growth;
+                    self.gamma_delta[outeq] *= self.config.error_step_growth;
                     self.lambda = lambda_down;
                     self.psi = psi_down;
                 }
-                self.gamma_delta[outeq] *= self.settings.error_step_shrink;
-                if self.gamma_delta[outeq] <= self.settings.min_error_step {
-                    self.gamma_delta[outeq] = self.settings.error_step;
+                self.gamma_delta[outeq] *= self.config.error_step_shrink;
+                if self.gamma_delta[outeq] <= self.config.min_error_step {
+                    self.gamma_delta[outeq] = self.config.error_step;
                 }
                 Ok(())
             })?;
@@ -394,7 +483,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
             &mut self.theta,
             self.eps,
             &self.ranges,
-            self.settings.grid_tolerance,
+            self.config.grid_tolerance,
         )?;
         Ok(())
     }
@@ -424,10 +513,9 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPAG<E> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::api::{OutputPlan, RuntimeOptions};
-    use crate::model::{ModelDefinition, Parameter};
-    use pharmsol::{fa, fetch_params, lag, AssayErrorModel, ErrorPoly, Subject, SubjectBuilderExt};
+    use crate::prelude::*;
+
+    use pharmsol::{fa, fetch_params, lag, Subject, SubjectBuilderExt};
 
     fn simple_equation() -> pharmsol::equation::ODE {
         pharmsol::equation::ODE::new(
@@ -467,44 +555,27 @@ mod tests {
     }
 
     #[test]
-    fn from_input_uses_npag_method_settings() -> Result<()> {
-        let method = Npag::new()
-            .eps(0.125)
-            .min_eps(0.0025)
-            .objective_tolerance(3e-5)
-            .pyl_tolerance(4e-3)
-            .prune_threshold(2e-3)
-            .qr_tolerance(9e-7)
-            .grid_tolerance(8e-4)
-            .error_step(0.2)
-            .min_error_step(0.03)
-            .error_step_growth(3.0)
-            .error_step_shrink(0.25);
+    fn npag_runs_without_error() {
+        let parameters = ParameterSpace::bounded()
+            .add("ke", 0.001, 3.0)
+            .add("v", 25.0, 250.0);
+        let prior = Theta::sobol_default(&parameters).expect("Failed to build prior");
+        let error_models = AssayErrorModels::new()
+            .add(
+                "0",
+                AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            )
+            .expect("Failed to build error models");
+        let problem =
+            EstimationProblem::nonparametric(simple_equation(), simple_data(), prior, error_models)
+                .expect("Failed to build problem");
 
-        let model = ModelDefinition::builder(simple_equation())
-            .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-            .parameter(Parameter::bounded("v", 1.0, 20.0))?
-            .build()?;
+        let result = problem.fit_with(NonParametricAlgorithm::npag());
 
-        let error_models = AssayErrorModels::new().add(
-            0,
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )?;
-
-        let input = NonparametricAlgorithmInput::new(
-            NonparametricMethod::Npag(method),
-            model,
-            simple_data(),
-            error_models,
-            OutputPlan::disabled(),
-            RuntimeOptions::default(),
+        assert!(
+            result.is_ok(),
+            "NPAG algorithm should run without error, but got: {:?}",
+            result.err()
         );
-
-        let algorithm = NPAG::from_input(input)?;
-
-        assert_eq!(algorithm.settings, method);
-        assert_eq!(algorithm.eps, method.eps);
-        assert_eq!(algorithm.gamma_delta, vec![method.error_step]);
-        Ok(())
     }
 }

@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let eq = ode! {
         name: "two_eq_lag",
         params: [ka, ke, tlag, v],
@@ -21,22 +21,20 @@ fn main() {
         },
     };
 
-    let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv").unwrap();
-    EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ka", 0.1, 0.9))
-        .unwrap()
-        .parameter(Parameter::bounded("ke", 0.001, 0.1))
-        .unwrap()
-        .parameter(Parameter::bounded("tlag", 0.0, 4.0))
-        .unwrap()
-        .parameter(Parameter::bounded("v", 30.0, 120.0))
-        .unwrap()
-        .method(Npag::new())
-        .error(
-            "outeq_0",
-            AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
-        )
-        .unwrap()
-        .fit()
-        .unwrap();
+    let data = data::read_pmetrics("examples/two_eq_lag/two_eq_lag.csv")?;
+    let parameters = ParameterSpace::bounded()
+        .add("ka", 0.1, 0.9)
+        .add("ke", 0.001, 0.1)
+        .add("tlag", 0.0, 4.0)
+        .add("v", 30.0, 120.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_0",
+        AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+    )?;
+    EstimationProblem::nonparametric(eq, data, prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npag())?;
+
+    Ok(())
 }
+

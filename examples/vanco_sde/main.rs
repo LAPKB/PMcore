@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let sde = sde! {
         name: "vanco_sde",
         params: [ka, ke0, kcp, kpc, vol, ske],
@@ -47,27 +47,22 @@ fn main() {
     //     (3, 1),
     // );
 
-    let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv").unwrap();
-    EstimationProblem::builder(sde, data)
-        .parameter(Parameter::bounded("ka", 0.0001, 2.4))
-        .unwrap()
-        .parameter(Parameter::bounded("ke0", 0.0001, 2.7))
-        .unwrap()
-        .parameter(Parameter::bounded("kcp", 0.0001, 2.4))
-        .unwrap()
-        .parameter(Parameter::bounded("kpc", 0.0001, 2.4))
-        .unwrap()
-        .parameter(Parameter::bounded("vol", 0.2, 12.0))
-        .unwrap()
-        .parameter(Parameter::bounded("ske", 0.0001, 0.2))
-        .unwrap()
-        .method(Npag::new())
-        .error(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
-        )
-        .unwrap()
-        .prior(Prior::sobol(100, 347))
-        .fit()
-        .unwrap();
+    let data = data::read_pmetrics("examples/vanco_sde/vanco_clean.csv")?;
+    let parameters = ParameterSpace::bounded()
+        .add("ka", 0.0001, 2.4)
+        .add("ke0", 0.0001, 2.7)
+        .add("kcp", 0.0001, 2.4)
+        .add("kpc", 0.0001, 2.4)
+        .add("vol", 0.2, 12.0)
+        .add("ske", 0.0001, 0.2);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.00119, 0.20, 0.0, 0.0), 0.0),
+    )?;
+    EstimationProblem::nonparametric(sde, data, prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npag())?;
+
+    Ok(())
 }
+

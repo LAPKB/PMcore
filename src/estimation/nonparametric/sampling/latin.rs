@@ -4,15 +4,10 @@ use rand::prelude::*;
 use rand::rngs::StdRng;
 
 use crate::estimation::nonparametric::Theta;
-use crate::model::ParameterSpace;
+use crate::model::{BoundedParameter, ParameterSpace};
 
-pub fn generate(
-    parameters: impl Into<ParameterSpace>,
-    points: usize,
-    seed: usize,
-) -> Result<Theta> {
-    let parameters = parameters.into();
-    let ranges = parameters.finite_ranges()?;
+pub fn generate(parameters: &ParameterSpace<BoundedParameter>, points: usize, seed: usize) -> Result<Theta> {
+    let ranges = parameters.finite_ranges();
     let mut rng = StdRng::seed_from_u64(seed as u64);
 
     let mut intervals = Vec::new();
@@ -36,14 +31,14 @@ pub fn generate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Parameter, ParameterSpace};
+    use crate::model::{BoundedParameter, ParameterSpace};
 
     #[test]
     fn latin_generate_produces_requested_shape() {
-        let params = ParameterSpace::new()
-            .add(Parameter::bounded("a", 0.0, 1.0))
-            .add(Parameter::bounded("b", 0.0, 1.0))
-            .add(Parameter::bounded("c", 0.0, 1.0));
+        let params = ParameterSpace::<BoundedParameter>::new()
+            .add("a", 0.0, 1.0)
+            .add("b", 0.0, 1.0)
+            .add("c", 0.0, 1.0);
 
         let theta = generate(&params, 10, 22).unwrap();
         assert_eq!(theta.nspp(), 10);

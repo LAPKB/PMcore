@@ -9,7 +9,8 @@
 
 use std::fmt::Display;
 
-use crate::estimation::nonparametric::{NPPredictions, Prior, Theta, Weights};
+use crate::estimation::nonparametric::{NPPredictions, Theta, Weights};
+use crate::model::{BoundedParameter, ParameterSpace};
 use crate::prelude::*;
 use pharmsol::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -185,29 +186,22 @@ impl Default for DoseRange {
 
 #[derive(Debug, Clone)]
 pub struct BestDoseConfig {
-    pub(crate) parameter_space: ParameterSpace,
+    pub(crate) parameter_space: ParameterSpace<BoundedParameter>,
     pub(crate) error_models: AssayErrorModels,
-    pub(crate) prior: Prior,
     pub(crate) refinement_cycles: usize,
     pub(crate) progress: bool,
     pub(crate) prediction_interval: f64,
 }
 
 impl BestDoseConfig {
-    pub fn new(parameter_space: ParameterSpace, error_models: AssayErrorModels) -> Self {
+    pub fn new(parameter_space: ParameterSpace<BoundedParameter>, error_models: AssayErrorModels) -> Self {
         Self {
             parameter_space,
             error_models,
-            prior: Prior::default(),
             refinement_cycles: 500,
             progress: true,
             prediction_interval: 0.12,
         }
-    }
-
-    pub fn with_prior(mut self, prior: Prior) -> Self {
-        self.prior = prior;
-        self
     }
 
     pub fn with_refinement_cycles(mut self, refinement_cycles: usize) -> Self {
@@ -225,16 +219,12 @@ impl BestDoseConfig {
         self
     }
 
-    pub fn parameter_space(&self) -> &ParameterSpace {
+    pub fn parameter_space(&self) -> &ParameterSpace<BoundedParameter> {
         &self.parameter_space
     }
 
     pub fn error_models(&self) -> &AssayErrorModels {
         &self.error_models
-    }
-
-    pub fn prior(&self) -> &Prior {
-        &self.prior
     }
 
     pub fn refinement_cycles(&self) -> usize {
@@ -249,7 +239,7 @@ impl BestDoseConfig {
         self.prediction_interval
     }
 
-    pub(crate) fn parameter_names(&self) -> Vec<String> {
+    pub fn parameter_names(&self) -> Vec<String> {
         self.parameter_space
             .iter()
             .map(|parameter| parameter.name.clone())

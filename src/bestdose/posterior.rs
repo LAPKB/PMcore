@@ -55,11 +55,11 @@ use faer::Mat;
 
 use crate::algorithms::nonparametric::npag::burke;
 use crate::algorithms::nonparametric::npag::NPAG;
-use crate::algorithms::Algorithms;
-use crate::algorithms::NativeNonparametricConfig;
+use crate::algorithms::NonParametricRunner;
+
 use crate::algorithms::Status;
 use crate::bestdose::types::BestDoseConfig;
-use crate::estimation::nonparametric::{calculate_psi, Prior, Theta, Weights};
+use crate::estimation::nonparametric::{calculate_psi, Theta, Weights};
 use crate::prelude::*;
 use pharmsol::prelude::*;
 
@@ -188,17 +188,6 @@ pub fn npagfull_refinement(
     let mut kept_weights: Vec<f64> = Vec::new();
     let num_points = filtered_theta.matrix().nrows();
     let parameter_space = config.parameter_space().clone();
-    let runtime = RuntimeOptions {
-        cycles: config.refinement_cycles(),
-        cache: true,
-        progress: config.progress(),
-        idelta: config.prediction_interval(),
-        tad: 0.0,
-        prior: None,
-
-        convergence: ConvergenceOptions::default(),
-        tuning: AlgorithmTuning::default(),
-    };
 
     for i in 0..num_points {
         tracing::debug!("  Refining point {}/{}", i + 1, num_points);
@@ -212,26 +201,19 @@ pub fn npagfull_refinement(
         let single_point_theta = Theta::from_parts(single_point_matrix, parameter_space.clone())?;
 
         // Create and run NPAG
-        let mut npag = NPAG::from_config(
+        let npag_config = NpagConfig {
+            max_cycles: config.refinement_cycles(),
+            progress: config.progress(),
+            ..Default::default()
+        };
+
+        let mut npag = NPAG::from_parts(
             eq.clone(),
             past_data.clone(),
             config.error_models().clone(),
-            NativeNonparametricConfig {
-                ranges: parameter_space.finite_ranges()?,
-                parameter_space: parameter_space.clone(),
-                prior: Prior::Theta(single_point_theta.clone()),
-                max_cycles: config.refinement_cycles(),
-                progress: config.progress(),
-                run_configuration: crate::output::shared::RunConfiguration::new(
-                    Algorithm::NPAG,
-                    &OutputPlan::disabled(),
-                    &runtime,
-                    config.parameter_names(),
-                ),
-            },
-            Npag::default(),
-        );
-        npag.set_theta(single_point_theta);
+            single_point_theta,
+            npag_config,
+        )?;
 
         // Run NPAG optimization
         let refinement_result = npag.initialize().and_then(|_| {

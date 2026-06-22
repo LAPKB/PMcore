@@ -1,58 +1,55 @@
+use std::path::Path;
+
 use pharmsol::Equation;
 
 use crate::algorithms::{Status, StopReason};
-use crate::estimation::nonparametric::{
-    posterior, CycleLog, NPPredictions, Posterior, Psi, Theta, Weights,
-};
-use crate::output::shared::RunConfiguration;
-use crate::results::FitResult;
-use pharmsol::Data;
+use crate::estimation::nonparametric::{CycleLog, NPPredictions, Posterior, Psi, Theta, Weights};
 
+use pharmsol::{AssayErrorModels, Data};
+
+/// Contains the results of a nonparametric estimation, including the final parameter
 #[derive(Debug)]
-pub struct NonparametricWorkspace<E: Equation> {
+pub struct NonParametricResult<E: Equation> {
     equation: E,
     data: Data,
+    error_models: AssayErrorModels,
+    prior: Theta,
     theta: Theta,
     psi: Psi,
     weights: Weights,
     objf: f64,
     cycles: usize,
     status: Status,
-    run_configuration: RunConfiguration,
     cyclelog: CycleLog,
-    predictions: Option<NPPredictions>,
-    posterior: Posterior,
 }
 
-impl<E: Equation> NonparametricWorkspace<E> {
+impl<E: Equation> NonParametricResult<E> {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         equation: E,
         data: Data,
+        error_models: AssayErrorModels,
+        prior: Theta,
         theta: Theta,
         psi: Psi,
         weights: Weights,
         objf: f64,
         cycles: usize,
         status: Status,
-        run_configuration: RunConfiguration,
         cyclelog: CycleLog,
     ) -> anyhow::Result<Self> {
-        let posterior = posterior::posterior(&psi, &weights)?;
-
         Ok(Self {
             equation,
             data,
+            error_models,
+            prior,
             theta,
             psi,
             weights,
             objf,
             cycles,
             status,
-            run_configuration,
             cyclelog,
-            predictions: None,
-            posterior,
         })
     }
 
@@ -72,6 +69,14 @@ impl<E: Equation> NonparametricWorkspace<E> {
         &self.theta
     }
 
+    /// The prior distribution ([`Theta`]) that seeded the algorithm.
+    ///
+    /// This is the initial set of support points, as opposed to the optimized
+    /// solution returned by [`get_theta`](Self::get_theta).
+    pub fn prior(&self) -> &Theta {
+        &self.prior
+    }
+
     pub fn data(&self) -> &Data {
         &self.data
     }
@@ -84,33 +89,6 @@ impl<E: Equation> NonparametricWorkspace<E> {
         &self.cyclelog
     }
 
-    pub(crate) fn run_configuration(&self) -> &RunConfiguration {
-        &self.run_configuration
-    }
-
-    pub(crate) fn algorithm(&self) -> crate::algorithms::Algorithm {
-        self.run_configuration.algorithm
-    }
-
-    pub(crate) fn output_folder(&self) -> &str {
-        self.run_configuration.output_path()
-    }
-
-    pub(crate) fn should_write_outputs(&self) -> bool {
-        self.run_configuration.should_write_outputs()
-    }
-
-    pub(crate) fn prediction_interval(&self) -> (f64, f64) {
-        (
-            self.run_configuration.runtime.idelta,
-            self.run_configuration.runtime.tad,
-        )
-    }
-
-    pub fn predictions(&self) -> Option<&NPPredictions> {
-        self.predictions.as_ref()
-    }
-
     pub fn psi(&self) -> &Psi {
         &self.psi
     }
@@ -119,26 +97,35 @@ impl<E: Equation> NonparametricWorkspace<E> {
         &self.weights
     }
 
-    pub fn posterior(&self) -> &Posterior {
-        &self.posterior
+    pub fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
-    pub fn calculate_predictions(&mut self, idelta: f64, tad: f64) -> anyhow::Result<()> {
-        let predictions = NPPredictions::calculate(
+    /// Compute the posterior probabilities on demand from [`Psi`] and the
+    /// [`Weights`]. This is a cheap matrix operation and is intentionally not
+    /// cached on the result.
+    pub fn posterior(&self) -> anyhow::Result<Posterior> {
+        Posterior::calculate(&self.psi, &self.weights)
+    }
+
+    /// Compute predictions on demand. Nothing is cached on the result; callers
+    /// that need the predictions repeatedly should hold on to the returned
+    /// value themselves.
+    pub fn predictions(&self, idelta: f64, tad: f64) -> anyhow::Result<NPPredictions> {
+        let posterior = self.posterior()?;
+        NPPredictions::calculate(
             &self.equation,
             &self.data,
             &self.theta,
             &self.weights,
-            &self.posterior,
+            &posterior,
             idelta,
             tad,
-        )?;
-        self.predictions = Some(predictions);
-        Ok(())
+        )
     }
 
-    pub fn write_theta(&self) -> anyhow::Result<()> {
-        use anyhow::{bail, Context};
+    pub fn write_theta(&self, path: &Path) -> anyhow::Result<()> {
+        use anyhow::bail;
         use csv::WriterBuilder;
 
         tracing::debug!("Writing population parameter distribution...");
@@ -152,14 +139,11 @@ impl<E: Equation> NonparametricWorkspace<E> {
             );
         }
 
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "theta.csv")
-            .context("Failed to create output file for theta")?;
+        std::fs::create_dir_all(path)?;
+        let file = std::fs::File::create(path)?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(outputfile.file());
-
-        let mut theta_header = self.run_configuration.parameter_names.clone();
+        let mut theta_header = self.theta.param_names().clone();
         theta_header.push("prob".to_string());
         writer.write_record(&theta_header)?;
 
@@ -172,16 +156,14 @@ impl<E: Equation> NonparametricWorkspace<E> {
         Ok(())
     }
 
-    pub fn write_posterior(&self) -> anyhow::Result<()> {
+    pub fn write_posterior(&self, path: &str) -> anyhow::Result<()> {
         use csv::WriterBuilder;
 
         tracing::debug!("Writing posterior parameter probabilities...");
 
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "posterior.csv")?;
-
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(outputfile.file());
+        std::fs::create_dir_all(path)?;
+        let file = std::fs::File::create(path)?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
         writer.write_field("id")?;
         writer.write_field("point")?;
@@ -191,8 +173,9 @@ impl<E: Equation> NonparametricWorkspace<E> {
         writer.write_field("prob")?;
         writer.write_record(None::<&[u8]>)?;
 
+        let posterior = self.posterior()?;
         let subjects = self.data.subjects();
-        self.posterior
+        posterior
             .matrix()
             .row_iter()
             .enumerate()
@@ -217,15 +200,14 @@ impl<E: Equation> NonparametricWorkspace<E> {
         Ok(())
     }
 
-    pub fn write_covariates(&self) -> anyhow::Result<()> {
+    pub fn write_covariates(&self, path: &Path) -> anyhow::Result<()> {
         use csv::WriterBuilder;
         use pharmsol::Event;
 
         tracing::debug!("Writing covariates...");
-        let outputfile = crate::output::OutputFile::new(self.output_folder(), "covariates.csv")?;
-        let mut writer = WriterBuilder::new()
-            .has_headers(true)
-            .from_writer(outputfile.file());
+        std::fs::create_dir_all(path)?;
+        let file = std::fs::File::create(path)?;
+        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
         let mut covariate_names = std::collections::HashSet::new();
         for subject in self.data.subjects() {
@@ -278,9 +260,5 @@ impl<E: Equation> NonparametricWorkspace<E> {
 
         writer.flush()?;
         Ok(())
-    }
-
-    pub fn into_fit_result(self) -> FitResult<E> {
-        FitResult::Nonparametric(self)
     }
 }

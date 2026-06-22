@@ -202,17 +202,16 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
 ) -> Result<ComparisonResult> {
     let data = data::read_pmetrics(DATA_PATH)?;
     let fit_started = Instant::now();
-    let result = EstimationProblem::builder(equation, data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
-        .method(Npag::new())
-        .error(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )?
-        .cache(true)
-        .progress(false)
-        .fit()?;
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+    let result = EstimationProblem::nonparametric(equation, data, prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npag())?;
     let fit_time = fit_started.elapsed();
 
     summarize_result(label, compile_time, fit_time, &result)
@@ -222,12 +221,8 @@ fn summarize_result<E: pharmsol::Equation>(
     label: &'static str,
     compile_time: Duration,
     fit_time: Duration,
-    result: &FitResult<E>,
+    result: &NonParametricResult<E>,
 ) -> Result<ComparisonResult> {
-    result
-        .as_nonparametric()
-        .ok_or_else(|| anyhow!("expected nonparametric result for {label}"))?;
-
     Ok(ComparisonResult {
         label,
         compile_time,
@@ -318,3 +313,4 @@ fn print_summary(results: &[ComparisonResult]) -> Result<()> {
 
     Ok(())
 }
+

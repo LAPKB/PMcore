@@ -1,24 +1,21 @@
-use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ParameterSpace {
-    pub items: Vec<Parameter>,
+/// Ordered collection of parameters.
+///
+/// Use `ParameterSpace<BoundedParameter>` for non-parametric problems and
+/// `ParameterSpace<UnboundedParameter>` for parametric problems.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ParameterSpace<T> {
+    pub items: Vec<T>,
 }
 
-impl ParameterSpace {
+impl<T> ParameterSpace<T> {
     pub fn new() -> Self {
         Self { items: Vec::new() }
     }
 
-    pub fn push(&mut self, item: Parameter) {
-        self.items.push(item);
-    }
-
-    #[allow(clippy::should_implement_trait)]
-    pub fn add(mut self, item: Parameter) -> Self {
-        self.push(item);
-        self
+    pub fn push(&mut self, item: impl Into<T>) {
+        self.items.push(item.into());
     }
 
     pub fn len(&self) -> usize {
@@ -29,123 +26,233 @@ impl ParameterSpace {
         self.items.is_empty()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, Parameter> {
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.items.iter()
     }
+}
 
+impl<T: ParameterMeta> ParameterSpace<T> {
     pub fn names(&self) -> Vec<String> {
-        self.items.iter().map(|item| item.name.clone()).collect()
-    }
-
-    pub fn finite_ranges(&self) -> Result<Vec<(f64, f64)>> {
-        self.items
-            .iter()
-            .map(|parameter| match parameter.domain {
-                ParameterDomain::Bounded { lower, upper } => Ok((lower, upper)),
-                ParameterDomain::Positive {
-                    lower: Some(lower),
-                    upper: Some(upper),
-                }
-                | ParameterDomain::Unbounded {
-                    lower: Some(lower),
-                    upper: Some(upper),
-                } => Ok((lower, upper)),
-                _ => bail!(
-                    "nonparametric initialization requires finite lower/upper bounds for parameter '{}'",
-                    parameter.name
-                ),
-            })
-            .collect()
+        self.items.iter().map(|p| p.name().to_string()).collect()
     }
 }
 
-impl Default for ParameterSpace {
-    fn default() -> Self {
+/// Helpers for bounded parameter spaces.
+impl ParameterSpace<BoundedParameter> {
+    /// Creates an empty bounded parameter space (for non-parametric problems).
+    ///
+    /// Prefer this over `ParameterSpace::<BoundedParameter>::new()` to avoid the
+    /// turbofish:
+    ///
+    /// ```ignore
+    /// let space = ParameterSpace::bounded()
+    ///     .add("ke", 0.1, 1.0)
+    ///     .add("v", 1.0, 20.0);
+    /// ```
+    pub fn bounded() -> Self {
         Self::new()
     }
-}
 
-impl From<&ParameterSpace> for ParameterSpace {
-    fn from(parameter_space: &ParameterSpace) -> Self {
-        parameter_space.clone()
+    /// Adds a bounded parameter with the given `name`, `lower`, and `upper` bounds.
+    #[allow(clippy::should_implement_trait)]
+    pub fn add(mut self, name: impl Into<String>, lower: f64, upper: f64) -> Self {
+        self.items.push(BoundedParameter::new(name, lower, upper));
+        self
+    }
+
+    /// Returns `(lower, upper)` for each parameter.
+    pub fn finite_ranges(&self) -> Vec<(f64, f64)> {
+        self.items.iter().map(|p| (p.lower, p.upper)).collect()
     }
 }
 
-fn default_estimate() -> bool {
-    true
+/// Helpers for unbounded parameter spaces.
+impl ParameterSpace<UnboundedParameter> {
+    /// Creates an empty unbounded parameter space (for parametric problems).
+    ///
+    /// Prefer this over `ParameterSpace::<UnboundedParameter>::new()` to avoid
+    /// the turbofish.
+    pub fn unbounded() -> Self {
+        Self::new()
+    }
+
+    /// Adds an unbounded parameter to the space.
+    #[allow(clippy::should_implement_trait)]
+    pub fn add(mut self, parameter: impl Into<UnboundedParameter>) -> Self {
+        self.items.push(parameter.into());
+        self
+    }
+}
+
+impl<T> FromIterator<T> for ParameterSpace<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self {
+            items: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl<T> IntoIterator for ParameterSpace<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a ParameterSpace<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+/// Common metadata exposed by parameter types.
+pub trait ParameterMeta {
+    fn name(&self) -> &str;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Parameter {
+pub struct BoundedParameter {
     pub name: String,
-    pub domain: ParameterDomain,
-    #[serde(default)]
-    pub transform: ParameterTransform,
-    #[serde(default)]
-    pub initial: Option<f64>,
-    #[serde(default = "default_estimate")]
-    pub estimate: bool,
-    #[serde(default)]
-    pub variability: ParameterVariability,
+    pub lower: f64,
+    pub upper: f64,
 }
+
+impl BoundedParameter {
+    pub fn new(name: impl Into<String>, lower: f64, upper: f64) -> Self {
+        Self {
+            name: name.into(),
+            lower,
+            upper,
+        }
+    }
+}
+
+impl ParameterMeta for BoundedParameter {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+/// Converts a bounded parameter into a parametric parameter with logit scaling.
+impl From<BoundedParameter> for UnboundedParameter {
+    fn from(p: BoundedParameter) -> Self {
+        UnboundedParameter {
+            name: p.name,
+            scale: ParameterScale::Logit {
+                lower: p.lower,
+                upper: p.upper,
+            },
+            initial: None,
+            estimate: true,
+        }
+    }
+}
+
+/// Parametric parameter with an optional scale transform.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UnboundedParameter {
+    pub name: String,
+    pub scale: ParameterScale,
+    pub initial: Option<f64>,
+    pub estimate: bool,
+}
+
+impl UnboundedParameter {
+    /// Creates a parameter with an explicit scale.
+    pub fn new(name: impl Into<String>, scale: ParameterScale) -> Self {
+        Self {
+            name: name.into(),
+            scale,
+            initial: None,
+            estimate: true,
+        }
+    }
+
+    /// Creates a parameter on identity scale.
+    pub fn real(name: impl Into<String>) -> Self {
+        Self::new(name, ParameterScale::Identity)
+    }
+
+    /// Sets an initial value.
+    pub fn with_initial(mut self, value: f64) -> Self {
+        self.initial = Some(value);
+        self
+    }
+}
+
+impl ParameterMeta for UnboundedParameter {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+/// Scale transform for parametric parameters.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum ParameterScale {
+    /// Identity transform.
+    Identity,
+    /// Log transform.
+    Log,
+    /// Logistic transform on `(lower, upper)`.
+    Logit { lower: f64, upper: f64 },
+    /// Probit transform on `(lower, upper)`.
+    Probit { lower: f64, upper: f64 },
+}
+
+impl Default for ParameterScale {
+    fn default() -> Self {
+        ParameterScale::Identity
+    }
+}
+
+/// Entry point for building parameter declarations.
+///
+/// ```ignore
+/// use pmcore::prelude::*;
+///
+/// // Non-parametric: only bounded parameters are accepted.
+/// builder.parameter(Parameter::bounded("ke", 0.001, 3.0));
+///
+/// // Parametric: pick the scale explicitly.
+/// builder.parameter(Parameter::log("ke"));
+/// builder.parameter(Parameter::logit("frac", 0.0, 1.0));
+/// builder.parameter(Parameter::bounded("v", 25.0, 250.0)); // mapped to Logit
+/// ```
+pub struct Parameter;
 
 impl Parameter {
-    pub fn bounded(name: impl Into<String>, lower: f64, upper: f64) -> Self {
-        Self {
-            name: name.into(),
-            domain: ParameterDomain::Bounded { lower, upper },
-            transform: ParameterTransform::Identity,
-            initial: None,
-            estimate: true,
-            variability: ParameterVariability::Subject,
-        }
+    /// Creates a bounded parameter.
+    pub fn bounded(name: impl Into<String>, lower: f64, upper: f64) -> BoundedParameter {
+        BoundedParameter::new(name, lower, upper)
     }
 
-    pub fn positive(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            domain: ParameterDomain::Positive {
-                lower: Some(0.0),
-                upper: None,
-            },
-            transform: ParameterTransform::LogNormal,
-            initial: None,
-            estimate: true,
-            variability: ParameterVariability::Subject,
-        }
+    /// Creates a parametric parameter on identity scale.
+    pub fn real(name: impl Into<String>) -> UnboundedParameter {
+        UnboundedParameter::real(name)
     }
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ParameterDomain {
-    Positive {
-        lower: Option<f64>,
-        upper: Option<f64>,
-    },
-    Unbounded {
-        lower: Option<f64>,
-        upper: Option<f64>,
-    },
-    Bounded {
-        lower: f64,
-        upper: f64,
-    },
-}
+    /// Creates a parametric parameter with an explicit scale.
+    pub fn scaled(name: impl Into<String>, scale: ParameterScale) -> UnboundedParameter {
+        UnboundedParameter::new(name, scale)
+    }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-pub enum ParameterTransform {
-    #[default]
-    Identity,
-    LogNormal,
-    Probit,
-    Logit,
-}
+    /// Creates a parametric parameter on log scale.
+    pub fn log(name: impl Into<String>) -> UnboundedParameter {
+        UnboundedParameter::new(name, ParameterScale::Log)
+    }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-pub enum ParameterVariability {
-    FixedOnly,
-    #[default]
-    Subject,
-    Occasion,
-    SubjectAndOccasion,
+    /// Creates a parametric parameter on logit scale.
+    pub fn logit(name: impl Into<String>, lower: f64, upper: f64) -> UnboundedParameter {
+        UnboundedParameter::new(name, ParameterScale::Logit { lower, upper })
+    }
+
+    /// Creates a parametric parameter on probit scale.
+    pub fn probit(name: impl Into<String>, lower: f64, upper: f64) -> UnboundedParameter {
+        UnboundedParameter::new(name, ParameterScale::Probit { lower, upper })
+    }
 }

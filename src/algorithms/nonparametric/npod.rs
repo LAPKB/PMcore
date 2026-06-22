@@ -1,29 +1,61 @@
-use crate::algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, StopReason};
-use crate::estimation::nonparametric::ipm::burke;
-use crate::estimation::nonparametric::qr;
-use crate::estimation::nonparametric::{
-    calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
+use crate::{
+    algorithms::{NonParametricRunner, Status, StopReason},
+    estimation::nonparametric::{
+        calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
+    },
 };
-use crate::{algorithms::Status, prelude::algorithms::Algorithms};
 use pharmsol::ParameterOptimizer;
 
 use anyhow::bail;
 use anyhow::Result;
+use pharmsol::prelude::{data::Data, simulator::Equation};
 use pharmsol::{prelude::AssayErrorModel, AssayErrorModels};
-use pharmsol::{
-    prelude::{data::Data, simulator::Equation},
-    Subject,
-};
 
 use ndarray::Array1;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
+use serde::{Deserialize, Serialize};
 
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
+/// Configuration options for the Non-Parametric Optimal Design (NPOD) algorithm.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NpodConfig {
+    /// Maximum number of cycles to run the algorithm for.
+    pub max_cycles: usize,
+    /// Whether to print progress information during the first cycle.
+    pub progress: bool,
+}
+
+impl NpodConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn max_cycles(mut self, cycles: usize) -> Self {
+        self.max_cycles = cycles;
+        self
+    }
+
+    pub fn progress(mut self, progress: bool) -> Self {
+        self.progress = progress;
+        self
+    }
+}
+
+impl Default for NpodConfig {
+    fn default() -> Self {
+        Self {
+            max_cycles: 100,
+            progress: true,
+        }
+    }
+}
+
 pub struct NPOD<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
+    prior: Theta,
     theta: Theta,
     lambda: Weights,
     w: Weights,
@@ -36,21 +68,53 @@ pub struct NPOD<E: Equation + Send + 'static> {
     status: Status,
     cycle_log: CycleLog,
     data: Data,
-    config: NativeNonparametricConfig,
+    config: NpodConfig,
 }
 
-impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
-    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
-        NonparametricWorkspace::new(
+impl<E: Equation + Send + 'static> NPOD<E> {
+    pub(crate) fn from_parts(
+        equation: E,
+        data: Data,
+        error_models: AssayErrorModels,
+        theta: Theta,
+        config: NpodConfig,
+    ) -> Result<Self> {
+        let gamma_delta = vec![0.1; error_models.len()];
+
+        Ok(Self {
+            equation,
+            psi: Psi::new(),
+            prior: theta.clone(),
+            theta: theta,
+            lambda: Weights::default(),
+            w: Weights::default(),
+            last_objf: -1e30,
+            objf: f64::NEG_INFINITY,
+            cycle: 0,
+            gamma_delta,
+            error_models,
+            converged: false,
+            status: Status::Continue,
+            cycle_log: CycleLog::new(),
+            data,
+            config,
+        })
+    }
+}
+
+impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
+    fn into_result(&self) -> Result<NonParametricResult<E>> {
+        NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
+            self.error_models.clone(),
+            self.prior.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
             -2. * self.objf,
             self.cycle,
             self.status.clone(),
-            self.config.run_configuration.clone(),
             self.cycle_log.clone(),
         )
     }
@@ -65,14 +129,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
 
     fn data(&self) -> &Data {
         &self.data
-    }
-
-    fn get_prior(&self) -> Theta {
-        crate::estimation::nonparametric::sample_space_for_parameters(
-            &self.config.parameter_space,
-            &self.config.prior,
-        )
-        .unwrap()
     }
 
     fn increment_cycle(&mut self) -> usize {
@@ -184,7 +240,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
             self.cycle == 1 && self.config.progress,
         )?;
 
-        if let Err(err) = self.validate_psi() {
+        if let Err(err) = self.check_zero_probability_subjects() {
             bail!(err);
         }
 
@@ -344,76 +400,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for NPOD<E> {
         for cp in candididate_points {
             self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D)?;
         }
-        Ok(())
-    }
-}
-
-impl<E: Equation + Send + 'static> NPOD<E> {
-    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
-        let config = input.native_config()?;
-        let error_models = input.error_models().clone();
-        let gamma_delta = vec![0.1; error_models.len()];
-        let equation = input.equation;
-        let data = input.data;
-
-        Ok(Box::new(Self {
-            equation,
-            psi: Psi::new(),
-            theta: Theta::new(),
-            lambda: Weights::default(),
-            w: Weights::default(),
-            last_objf: -1e30,
-            objf: f64::NEG_INFINITY,
-            cycle: 0,
-            gamma_delta,
-            error_models,
-            converged: false,
-            status: Status::Continue,
-            cycle_log: CycleLog::new(),
-            data,
-            config,
-        }))
-    }
-
-    fn validate_psi(&mut self) -> Result<()> {
-        let mut psi = self.psi().matrix().to_owned();
-        // First coerce all NaN and infinite in psi to 0.0
-        let mut has_bad_values = false;
-        for i in 0..psi.nrows() {
-            for j in 0..psi.ncols() {
-                let val = psi[(i, j)];
-                if val.is_nan() || val.is_infinite() {
-                    has_bad_values = true;
-                    psi[(i, j)] = 0.0;
-                }
-            }
-        }
-        if has_bad_values {
-            tracing::warn!("Psi contains NaN or Inf values, coercing to 0.0");
-        }
-
-        // Calculate row sums and check for zero-probability subjects
-        let nrows = psi.nrows();
-        let ncols = psi.ncols();
-        let indices: Vec<usize> = (0..nrows)
-            .filter(|&i| {
-                let row_sum: f64 = (0..ncols).map(|j| psi[(i, j)]).sum();
-                let w: f64 = 1.0 / row_sum;
-                w.is_nan() || w.is_infinite()
-            })
-            .collect();
-
-        // If any elements in `w` are NaN or infinite, return the subject IDs for each index
-        if !indices.is_empty() {
-            let subject: Vec<&Subject> = self.data.subjects();
-            let zero_probability_subjects: Vec<&String> =
-                indices.iter().map(|&i| subject[i].id()).collect();
-
-            return Err(anyhow::anyhow!(
-                "The probability of one or more subjects, given the model, is zero. The following subjects have zero probability: {:?}", zero_probability_subjects
-            ));
-        }
-
         Ok(())
     }
 }

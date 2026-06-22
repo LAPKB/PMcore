@@ -11,11 +11,11 @@
 //! - NPOD (Non-Parametric Optimal Design)
 //! - POSTPROB (Posterior probability reweighting)
 //!
-//! # Public API
+//! # Public Interface
 //!
-//! PMcore centers on the model/problem API in [api]. Models are defined with
-//! [api::ModelDefinition], configured with [api::EstimationProblem], and executed through
-//! [api::fit].
+//! PMcore centers on the estimation interface in [estimation]. Models are defined in
+//! [model], configured with [estimation::EstimationProblem], and then executed with the
+//! selected algorithm.
 //!
 //! # Data format
 //!
@@ -28,12 +28,6 @@
 /// Provides the various algorithms used within the framework
 pub mod algorithms;
 
-/// New public modeling and execution API.
-pub mod api;
-
-/// Shared preprocessing and compilation layer.
-pub mod compile;
-
 /// Estimation family boundaries for the new architecture.
 pub mod estimation;
 
@@ -43,8 +37,8 @@ pub mod model;
 /// Shared result and summary types for the new API.
 pub mod results;
 
-/// Shared output writers for the new API.
-pub mod output;
+/// Logs
+pub mod logs;
 
 // Re-export commonly used items
 pub use anyhow::Result;
@@ -54,40 +48,43 @@ pub use std::collections::HashMap;
 pub mod bestdose;
 
 /// A collection of commonly used items to simplify imports.
-#[allow(ambiguous_glob_reexports)]
 pub mod prelude {
+    pub use super::logs::Logger;
     pub use super::HashMap;
     pub use super::Result;
     pub use crate::algorithms;
     pub use crate::algorithms::Algorithm;
-    pub use crate::api::fit;
-    pub use crate::api::fit_with_progress;
-    pub use crate::api::{
-        AlgorithmTuning, ConvergenceOptions, ErrorModels, EstimationProblem, FitProgress,
-        MethodSpec, ModelDefinition, NonparametricCycleProgress, Npag, Npod, OutputPlan, PostProb,
-        RuntimeOptions,
+
+    pub use crate::estimation::NonParametric;
+    pub use crate::estimation::Parametric;
+    pub use crate::estimation::{
+        ErrorModels, EstimationProblem, FitProgress, NonParametricAlgorithm,
+        NonparametricCycleProgress, NpagConfig, NpmapConfig, NpodConfig, ParametricAlgorithm,
+        SaemConfig,
     };
-    pub use crate::compile::{CompiledProblem, DesignContext, ObservationIndex};
+
+    pub use crate::model::parameter_space::{
+        BoundedParameter, Parameter, ParameterScale, ParameterSpace, UnboundedParameter,
+    };
+
     pub use crate::estimation::nonparametric::{
-        CycleLog, NPCycle, NPPredictions, NonparametricEngine, NonparametricWorkspace, Posterior,
-        Psi, Theta, Weights,
+        CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
     };
-    pub use crate::model::{
-        CovariateEffectsSpec, CovariateModel, CovariateSpec, EquationMetadataSource, ModelMetadata,
-        Parameter, ParameterDomain, ParameterSpace, ParameterTransform as ModelParameterTransform,
-        ParameterVariability, RandomEffectsSpec, VariabilityModel,
-    };
+    pub use crate::model::{EquationMetadataSource, ModelMetadata};
     pub use crate::results::{
-        ArtifactIndex, DiagnosticsBundle, FitResult, FitSummary, IndividualSummary,
-        ParameterSummary, PopulationSummary, PredictionsBundle,
+        FitResult, FitSummary, IndividualSummary, ParameterSummary, PopulationSummary,
     };
-    pub use pharmsol::optimize::effect::get_e2;
 
+    // pharmsol: re-export the crate itself and its curated prelude.
     pub use pharmsol;
+    pub use pharmsol::prelude::*;
 
-    pub use crate::api::SaemConfig;
-    pub use crate::estimation::nonparametric::{read_prior, Prior};
+    // Items required by downstream code that are not part of `pharmsol::prelude`.
+    pub use pharmsol::equation::{EquationTypes, Predictions};
+    pub use pharmsol::optimize::effect::get_e2;
+    pub use pharmsol::{ODE, SDE};
 
+    // Organized submodules mirroring pharmsol's grouping.
     pub mod simulator {
         pub use pharmsol::prelude::simulator::*;
     }
@@ -98,20 +95,6 @@ pub mod prelude {
         pub use pharmsol::prelude::models::*;
     }
 
-    //traits
-    pub use pharmsol::data::*;
-    pub use pharmsol::equation::Equation;
-    pub use pharmsol::equation::EquationTypes;
-    pub use pharmsol::equation::Predictions;
-    pub use pharmsol::equation::*;
-    pub use pharmsol::prelude::*;
-    pub use pharmsol::simulator::*;
-    pub use pharmsol::ODE;
-    pub use pharmsol::SDE;
-
-    //macros
-    pub use pharmsol::fa;
-    pub use pharmsol::fetch_cov;
-    pub use pharmsol::fetch_params;
-    pub use pharmsol::lag;
+    // macros
+    pub use pharmsol::{fa, fetch_cov, fetch_params, lag};
 }

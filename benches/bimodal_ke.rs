@@ -1,6 +1,6 @@
 use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
-use pmcore::prelude::*;
+use pmcore::{algorithms::Algorithm, prelude::*};
 
 use std::hint::black_box;
 
@@ -22,74 +22,87 @@ fn create_equation() -> equation::ODE {
     }
 }
 
-fn create_error_model() -> AssayErrorModel {
-    AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0)
-}
-
 fn load_data() -> Result<data::Data> {
     Ok(data::read_pmetrics("examples/bimodal_ke/bimodal_ke.csv")?)
 }
 
-fn setup_npag() -> Result<EstimationProblem<equation::ODE>> {
+fn setup_npag() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
-    EstimationProblem::builder(create_equation(), data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
-        .method(Npag::new())
-        .error("outeq_1", create_error_model())?
-        .progress(false)
-        .prior(Prior::sobol(2048, 22))
-        .build()
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+    EstimationProblem::nonparametric(create_equation(), data, prior, error_models)
 }
 
-fn setup_npod() -> Result<EstimationProblem<equation::ODE>> {
+fn setup_npod() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
-    EstimationProblem::builder(create_equation(), data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
-        .method(Npod::new())
-        .error("outeq_1", create_error_model())?
-        .progress(false)
-        .prior(Prior::sobol(2048, 22))
-        .build()
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+    EstimationProblem::nonparametric(create_equation(), data, prior, error_models)
 }
 
-fn setup_postprob() -> Result<EstimationProblem<equation::ODE>> {
+fn setup_postprob() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
     let data = load_data()?;
-    EstimationProblem::builder(create_equation(), data)
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))?
-        .parameter(Parameter::bounded("v", 25.0, 250.0))?
-        .method(PostProb::new())
-        .error("outeq_1", create_error_model())?
-        .progress(false)
-        .prior(Prior::sobol(2048, 22))
-        .build()
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
+    EstimationProblem::nonparametric(create_equation(), data, prior, error_models)
 }
 
-fn benchmark_algorithm<F>(c: &mut Criterion, bench_name: &str, setup_fn: F)
+fn benchmark_algorithm<F, A>(c: &mut Criterion, bench_name: &str, setup_fn: F, config: A)
 where
-    F: Fn() -> Result<EstimationProblem<equation::ODE>>,
+    F: Fn() -> Result<EstimationProblem<equation::ODE, NonParametric>>,
+    A: Algorithm<equation::ODE, NonParametric> + Clone,
 {
-    let problem = setup_fn().unwrap();
-
     c.bench_function(bench_name, |b| {
         b.iter_with_setup(
-            || problem.clone(),
-            |problem| black_box(problem.fit().unwrap()),
+            || setup_fn().unwrap(),
+            |problem| black_box(problem.fit_with(config.clone()).unwrap()),
         )
     });
 }
 
 fn benchmark_bimodal_ke_npag(c: &mut Criterion) {
-    benchmark_algorithm(c, "bimodal_ke_npag", setup_npag);
+    benchmark_algorithm(
+        c,
+        "bimodal_ke_npag",
+        setup_npag,
+        NonParametricAlgorithm::npag(),
+    );
 }
 
 fn benchmark_bimodal_ke_npod(c: &mut Criterion) {
-    benchmark_algorithm(c, "bimodal_ke_npod", setup_npod);
+    benchmark_algorithm(
+        c,
+        "bimodal_ke_npod",
+        setup_npod,
+        NonParametricAlgorithm::npod(),
+    );
 }
 
 fn benchmark_bimodal_ke_postprob(c: &mut Criterion) {
-    benchmark_algorithm(c, "bimodal_ke_postprob", setup_postprob);
+    benchmark_algorithm(
+        c,
+        "bimodal_ke_postprob",
+        setup_postprob,
+        NonParametricAlgorithm::npmap(),
+    );
 }
 
 criterion_group! {
@@ -98,3 +111,4 @@ criterion_group! {
     targets = benchmark_bimodal_ke_npag, benchmark_bimodal_ke_npod, benchmark_bimodal_ke_postprob
 }
 criterion_main!(benches);
+

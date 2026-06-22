@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let sde = sde! {
         name: "new_iov",
         params: [ke0, ske],
@@ -25,19 +25,18 @@ fn main() {
         },
     };
 
-    let data = data::read_pmetrics("examples/new_iov/data.csv").unwrap();
-    EstimationProblem::builder(sde, data)
-        .parameter(Parameter::bounded("ke0", 0.0001, 2.4))
-        .unwrap()
-        .parameter(Parameter::bounded("ske", 0.0001, 0.2))
-        .unwrap()
-        .method(Npag::new())
-        .error(
-            "outeq_1",
-            AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
-        )
-        .unwrap()
-        .prior(Prior::sobol(100, 347))
-        .fit()
-        .unwrap();
+    let data = data::read_pmetrics("examples/new_iov/data.csv")?;
+    let parameters = ParameterSpace::bounded()
+        .add("ke0", 0.0001, 2.4)
+        .add("ske", 0.0001, 0.2);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_1",
+        AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
+    )?;
+    EstimationProblem::nonparametric(sde, data, prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npag())?;
+
+    Ok(())
 }
+

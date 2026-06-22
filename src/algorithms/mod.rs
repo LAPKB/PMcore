@@ -1,320 +1,201 @@
 use std::fs;
 use std::path::Path;
-use std::time::Instant;
 
-use crate::api::estimation_problem::NonparametricMethod;
-use crate::api::{OutputPlan, RuntimeOptions};
-use crate::estimation::nonparametric::{NonparametricWorkspace, Prior, Psi, Theta};
-use crate::model::{ModelDefinition, ParameterSpace};
-use crate::output::shared::RunConfiguration;
+use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta};
+use crate::estimation::{EstimationProblem, Framework};
+use crate::results::FitResult;
+
 use anyhow::Context;
 use anyhow::Result;
 use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
-use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
-use nonparametric::npag::*;
-use nonparametric::npod::NPOD;
-use nonparametric::postprob::POSTPROB;
+
 use pharmsol::prelude::{data::Data, simulator::Equation};
-use pharmsol::AssayErrorModels;
+
 use pharmsol::{Predictions, Subject};
 use serde::{Deserialize, Serialize};
 
+/// Defines an algorithm that can fit an [`EstimationProblem`] to produce a result.
+///
+/// Implementors are the lightweight, user-facing configuration structs (e.g.
+/// `NpagConfig`). The heavy, mutable execution state used while fitting is an
+/// internal implementation detail.
+pub trait Algorithm<E: Equation, F: crate::estimation::Framework> {
+    /// The specific result struct (e.g. `NonParametricResult<E>`).
+    type Output: FitResult;
+
+    /// Consumes the configuration and the problem, runs the optimization to
+    /// completion, and returns the strictly-typed result.
+    fn fit(self, problem: EstimationProblem<E, F>) -> Result<Self::Output>;
+}
+
 // Module organization for algorithm types
 pub mod nonparametric;
+pub mod parametric;
 
-#[derive(Debug, Clone)]
-pub(crate) struct NonparametricAlgorithmInput<E: Equation> {
-    pub method: NonparametricMethod,
-    pub equation: E,
-    pub data: Data,
-    pub parameter_space: ParameterSpace,
-    pub error_models: AssayErrorModels,
-    pub output: OutputPlan,
-    pub runtime: RuntimeOptions,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct NativeNonparametricConfig {
-    pub parameter_space: ParameterSpace,
-    pub ranges: Vec<(f64, f64)>,
-    pub prior: Prior,
-    pub max_cycles: usize,
-    pub progress: bool,
-    pub run_configuration: RunConfiguration,
-}
-
-impl<E: Equation> NonparametricAlgorithmInput<E> {
-    pub(crate) fn new(
-        method: NonparametricMethod,
-        model: ModelDefinition<E>,
-        data: Data,
-        error_models: AssayErrorModels,
-        output: OutputPlan,
-        runtime: RuntimeOptions,
-    ) -> Self {
-        let ModelDefinition {
-            equation,
-            parameters,
-            ..
-        } = model;
-
-        Self {
-            method,
-            equation,
-            data,
-            parameter_space: parameters,
-            error_models,
-            output,
-            runtime,
-        }
-    }
-
-    pub(crate) fn algorithm(&self) -> Algorithm {
-        self.method.algorithm()
-    }
-
-    pub(crate) fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels {
-        &self.error_models
-    }
-
-    pub(crate) fn max_cycles(&self) -> usize {
-        self.runtime.cycles
-    }
-
-    pub(crate) fn progress_enabled(&self) -> bool {
-        self.runtime.progress
-    }
-
-    pub(crate) fn prior(&self) -> Prior {
-        self.runtime.prior.clone().unwrap_or_default()
-    }
-
-    pub(crate) fn run_configuration(&self) -> RunConfiguration {
-        RunConfiguration::new(
-            self.algorithm(),
-            &self.output,
-            &self.runtime,
-            self.parameter_space
-                .iter()
-                .map(|parameter| parameter.name.clone())
-                .collect(),
-        )
-    }
-
-    pub(crate) fn native_config(&self) -> Result<NativeNonparametricConfig> {
-        Ok(NativeNonparametricConfig {
-            ranges: self.parameter_space.finite_ranges()?,
-            parameter_space: self.parameter_space.clone(),
-            prior: self.prior(),
-            max_cycles: self.max_cycles(),
-            progress: self.progress_enabled(),
-            run_configuration: self.run_configuration(),
-        })
+impl<E: Equation, F: Framework> EstimationProblem<E, F> {
+    /// Consumes the problem and an algorithm configuration, runs the fit to
+    /// completion, and returns the result.
+    pub fn fit_with<A>(self, algorithm: A) -> Result<A::Output>
+    where
+        A: Algorithm<E, F>,
+    {
+        algorithm.fit(self)
     }
 }
 
-/// Algorithm type enumeration
-///
-/// This enum represents the baseline algorithms available on the structure branch.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub enum Algorithm {
-    /// Non-Parametric Adaptive Grid
-    NPAG,
-    /// Non-Parametric Optimal Design
-    NPOD,
-    /// Posterior Probability calculation
-    POSTPROB,
-}
+pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'static {
+    /// Identify subjects whose total probability given the model is zero or
+    /// non-finite.
+    ///
+    /// Each row of [`Psi`] holds the likelihood of a subject across every
+    /// support point, so a subject's probability is the sum across its row. A
+    /// subject is flagged when that sum is zero or not finite, meaning the model
+    /// cannot explain the subject's data. When any subject is flagged, detailed
+    /// per-subject diagnostics are logged and an error is returned.
+    fn check_zero_probability_subjects(&self) -> Result<()> {
+        let psi = self.psi().matrix();
 
-impl Algorithm {
-    /// Check if this is a non-parametric algorithm
-    pub fn is_nonparametric(&self) -> bool {
-        matches!(
-            self,
-            Algorithm::NPAG | Algorithm::NPOD | Algorithm::POSTPROB
-        )
-    }
-}
-
-pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
-    fn validate_psi(&mut self) -> Result<()> {
-        // Count problematic values in psi
-        let mut nan_count = 0;
-        let mut inf_count = 0;
-
-        let psi = self.psi().to_ndarray();
-        // First coerce all NaN and infinite in psi to 0.0
-        for i in 0..psi.nrows() {
-            for j in 0..self.psi().matrix().ncols() {
-                let val = psi.get((i, j)).unwrap();
-                if val.is_nan() {
-                    nan_count += 1;
-                    // *val = 0.0;
-                } else if val.is_infinite() {
-                    inf_count += 1;
-                    // *val = 0.0;
-                }
-            }
-        }
-
-        if nan_count + inf_count > 0 {
+        // Report non-finite entries; these propagate into the row sums below.
+        let nonfinite = psi
+            .row_iter()
+            .flat_map(|row| row.iter().copied())
+            .filter(|v| !v.is_finite())
+            .count();
+        if nonfinite > 0 {
             tracing::warn!(
-                "Psi matrix contains {} NaN, {} Infinite values of {} total values",
-                nan_count,
-                inf_count,
-                psi.ncols() * psi.nrows()
+                "Psi matrix contains {} non-finite value(s) of {} total",
+                nonfinite,
+                psi.nrows() * psi.ncols()
             );
         }
 
-        let (_, col) = psi.dim();
-        let ecol: ArrayBase<OwnedRepr<f64>, Dim<[usize; 1]>> = Array::ones(col);
-        let plam = psi.dot(&ecol);
-        let w = 1. / &plam;
+        // A subject's probability is the sum across its row.
+        let subjects = self.data().subjects();
+        let flagged: Vec<usize> = (0..psi.nrows())
+            .filter(|&i| {
+                let probability: f64 = (0..psi.ncols()).map(|j| psi[(i, j)]).sum();
+                !probability.is_finite() || probability == 0.0
+            })
+            .collect();
 
-        // Get the index of each element in `w` that is NaN or infinite
-        let indices: Vec<usize> = w
-            .iter()
+        if flagged.is_empty() {
+            return Ok(());
+        }
+
+        tracing::error!(
+            "{}/{} subjects have zero probability given the model",
+            flagged.len(),
+            psi.nrows()
+        );
+
+        for &i in &flagged {
+            self.log_zero_probability_subject(subjects[i]);
+        }
+
+        let ids: Vec<&String> = flagged.iter().map(|&i| subjects[i].id()).collect();
+        Err(anyhow::anyhow!(
+            "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
+            flagged.len(),
+            psi.nrows(),
+            ids
+        ))
+    }
+
+    /// Log detailed likelihood diagnostics for a single subject whose
+    /// probability given the model is zero or non-finite.
+    fn log_zero_probability_subject(&self, subject: &Subject) {
+        tracing::debug!("Subject with zero probability: {}", subject.id());
+
+        let error_model = self.error_models().clone();
+
+        // Simulate every support point for this subject in parallel.
+        let mut results: Vec<_> = self
+            .theta()
+            .matrix()
+            .row_iter()
             .enumerate()
-            .filter(|(_, x)| x.is_nan() || x.is_infinite())
-            .map(|(i, _)| i)
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .map(|(i, spp)| {
+                let support_point: Vec<f64> = spp.iter().copied().collect();
+                let (pred, ll) = self
+                    .equation()
+                    .simulate_subject_dense(subject, &support_point, Some(&error_model))
+                    .unwrap(); //TODO: Handle error
+                (i, support_point, pred.get_predictions(), ll)
+            })
+            .collect();
 
-        if !indices.is_empty() {
-            let subject: Vec<&Subject> = self.data().subjects();
-            let zero_probability_subjects: Vec<&String> =
-                indices.iter().map(|&i| subject[i].id()).collect();
-
-            tracing::error!(
-                "{}/{} subjects have zero probability given the model",
-                indices.len(),
-                psi.nrows()
-            );
-
-            // For each problematic subject
-            for index in &indices {
-                tracing::debug!("Subject with zero probability: {}", subject[*index].id());
-
-                let error_model = self.error_models().clone();
-
-                // Simulate all support points in parallel
-                let spp_results: Vec<_> = self
-                    .theta()
-                    .matrix()
-                    .row_iter()
-                    .enumerate()
-                    .collect::<Vec<_>>()
-                    .into_par_iter()
-                    .map(|(i, spp)| {
-                        let support_point: Vec<f64> = spp.iter().copied().collect();
-                        let (pred, ll) = self
-                            .equation()
-                            .simulate_subject_dense(
-                                subject[*index],
-                                &support_point,
-                                Some(&error_model),
-                            )
-                            .unwrap(); //TODO: Handle error
-                        (i, support_point, pred.get_predictions(), ll)
-                    })
-                    .collect();
-
-                // Count problematic likelihoods for this subject
-                let mut nan_ll = 0;
-                let mut inf_pos_ll = 0;
-                let mut inf_neg_ll = 0;
-                let mut zero_ll = 0;
-                let mut valid_ll = 0;
-
-                for (_, _, _, ll) in &spp_results {
-                    match ll {
-                        Some(ll_val) if ll_val.is_nan() => nan_ll += 1,
-                        Some(ll_val) if ll_val.is_infinite() && ll_val.is_sign_positive() => {
-                            inf_pos_ll += 1
-                        }
-                        Some(ll_val) if ll_val.is_infinite() && ll_val.is_sign_negative() => {
-                            inf_neg_ll += 1
-                        }
-                        Some(ll_val) if *ll_val == 0.0 => zero_ll += 1,
-                        Some(_) => valid_ll += 1,
-                        None => nan_ll += 1,
-                    }
-                }
-
-                tracing::debug!(
-                    "\tLikelihood analysis for subject {} ({} support points):",
-                    subject[*index].id(),
-                    spp_results.len()
-                );
-                tracing::debug!(
-                    "\tNaN likelihoods: {} ({:.1}%)",
-                    nan_ll,
-                    100.0 * nan_ll as f64 / spp_results.len() as f64
-                );
-                tracing::debug!(
-                    "\t+Inf likelihoods: {} ({:.1}%)",
-                    inf_pos_ll,
-                    100.0 * inf_pos_ll as f64 / spp_results.len() as f64
-                );
-                tracing::debug!(
-                    "\t-Inf likelihoods: {} ({:.1}%)",
-                    inf_neg_ll,
-                    100.0 * inf_neg_ll as f64 / spp_results.len() as f64
-                );
-                tracing::debug!(
-                    "\tZero likelihoods: {} ({:.1}%)",
-                    zero_ll,
-                    100.0 * zero_ll as f64 / spp_results.len() as f64
-                );
-                tracing::debug!(
-                    "\tValid likelihoods: {} ({:.1}%)",
-                    valid_ll,
-                    100.0 * valid_ll as f64 / spp_results.len() as f64
-                );
-
-                // Sort and show top 10 most likely support points
-                let mut sorted_results = spp_results;
-                sorted_results.sort_by(|a, b| {
-                    b.3.unwrap_or(f64::NEG_INFINITY)
-                        .partial_cmp(&a.3.unwrap_or(f64::NEG_INFINITY))
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-                let take = 3;
-
-                tracing::debug!("Top {} most likely support points:", take);
-                for (i, support_point, preds, ll) in sorted_results.iter().take(take) {
-                    tracing::debug!("\tSupport point #{}: {:?}", i, support_point);
-                    tracing::debug!("\t\tLog-likelihood: {:?}", ll);
-
-                    let times = preds.iter().map(|x| x.time()).collect::<Vec<f64>>();
-                    let observations = preds
-                        .iter()
-                        .map(|x| x.observation())
-                        .collect::<Vec<Option<f64>>>();
-                    let predictions = preds.iter().map(|x| x.prediction()).collect::<Vec<f64>>();
-                    let outeqs = preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>();
-                    let states = preds
-                        .iter()
-                        .map(|x| x.state().to_vec())
-                        .collect::<Vec<Vec<f64>>>();
-
-                    tracing::debug!("\t\tTimes: {:?}", times);
-                    tracing::debug!("\t\tObservations: {:?}", observations);
-                    tracing::debug!("\t\tPredictions: {:?}", predictions);
-                    tracing::debug!("\t\tOuteqs: {:?}", outeqs);
-                    tracing::debug!("\t\tStates: {:?}", states);
-                }
-                tracing::debug!("=====================");
+        // Summarise the distribution of likelihood values.
+        let mut nan = 0;
+        let mut pos_inf = 0;
+        let mut neg_inf = 0;
+        let mut zero = 0;
+        let mut valid = 0;
+        for (_, _, _, ll) in &results {
+            match ll {
+                Some(v) if v.is_nan() => nan += 1,
+                Some(v) if v.is_infinite() && v.is_sign_positive() => pos_inf += 1,
+                Some(v) if v.is_infinite() => neg_inf += 1,
+                Some(v) if *v == 0.0 => zero += 1,
+                Some(_) => valid += 1,
+                None => nan += 1,
             }
-
-            return Err(anyhow::anyhow!(
-                    "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
-                    indices.len(),
-                    self.psi().matrix().nrows(),
-                    zero_probability_subjects
-                ));
         }
 
-        Ok(())
+        let total = results.len();
+        let pct = |n: usize| 100.0 * n as f64 / total as f64;
+        tracing::debug!(
+            "\tLikelihood analysis for subject {} ({} support points):",
+            subject.id(),
+            total
+        );
+        tracing::debug!("\tNaN likelihoods: {} ({:.1}%)", nan, pct(nan));
+        tracing::debug!("\t+Inf likelihoods: {} ({:.1}%)", pos_inf, pct(pos_inf));
+        tracing::debug!("\t-Inf likelihoods: {} ({:.1}%)", neg_inf, pct(neg_inf));
+        tracing::debug!("\tZero likelihoods: {} ({:.1}%)", zero, pct(zero));
+        tracing::debug!("\tValid likelihoods: {} ({:.1}%)", valid, pct(valid));
+
+        // Show the most likely support points to aid debugging.
+        results.sort_by(|a, b| {
+            b.3.unwrap_or(f64::NEG_INFINITY)
+                .partial_cmp(&a.3.unwrap_or(f64::NEG_INFINITY))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        const TAKE: usize = 3;
+        tracing::debug!("Top {} most likely support points:", TAKE);
+        for (i, support_point, preds, ll) in results.iter().take(TAKE) {
+            tracing::debug!("\tSupport point #{}: {:?}", i, support_point);
+            tracing::debug!("\t\tLog-likelihood: {:?}", ll);
+            tracing::debug!(
+                "\t\tTimes: {:?}",
+                preds.iter().map(|x| x.time()).collect::<Vec<f64>>()
+            );
+            tracing::debug!(
+                "\t\tObservations: {:?}",
+                preds
+                    .iter()
+                    .map(|x| x.observation())
+                    .collect::<Vec<Option<f64>>>()
+            );
+            tracing::debug!(
+                "\t\tPredictions: {:?}",
+                preds.iter().map(|x| x.prediction()).collect::<Vec<f64>>()
+            );
+            tracing::debug!(
+                "\t\tOuteqs: {:?}",
+                preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>()
+            );
+            tracing::debug!(
+                "\t\tStates: {:?}",
+                preds
+                    .iter()
+                    .map(|x| x.state().to_vec())
+                    .collect::<Vec<Vec<f64>>>()
+            );
+        }
+        tracing::debug!("=====================");
     }
 
     fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels;
@@ -322,7 +203,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     fn equation(&self) -> &E;
     /// Get the data used in the algorithm
     fn data(&self) -> &Data;
-    fn get_prior(&self) -> Theta;
+
     /// Increment the cycle counter and return the new value
     fn increment_cycle(&mut self) -> usize;
     /// Get the current cycle number
@@ -357,7 +238,7 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
             fs::remove_file("stop").context("Unable to remove previous stop file")?;
         }
         self.set_status(Status::Continue);
-        self.set_theta(self.get_prior());
+
         Ok(())
     }
     fn estimation(&mut self) -> Result<()>;
@@ -405,76 +286,14 @@ pub trait Algorithms<E: Equation + Send + 'static>: Sync + Send + 'static {
     /// This method runs the full fitting process, starting with initialization,
     /// followed by iterative cycles of estimation, condensation, optimization, and evaluation
     /// until the algorithm converges or meets a stopping criteria.
-    fn fit(&mut self) -> Result<NonparametricWorkspace<E>> {
-        self.initialize().unwrap();
+    fn fit(&mut self) -> Result<NonParametricResult<E>> {
+        self.initialize()?;
         while let Status::Continue = self.next_cycle()? {}
-        self.into_workspace()
+        self.into_result()
     }
 
     #[allow(clippy::wrong_self_convention)]
-    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>>;
-}
-
-pub(crate) fn dispatch_nonparametric_algorithm<E: Equation + Send + 'static>(
-    input: NonparametricAlgorithmInput<E>,
-) -> Result<Box<dyn Algorithms<E>>> {
-    match input.method {
-        NonparametricMethod::Npag(_) => {
-            let algorithm: Box<dyn Algorithms<E>> = NPAG::from_input(input)?;
-            Ok(algorithm)
-        }
-        NonparametricMethod::Npod(_) => {
-            let algorithm: Box<dyn Algorithms<E>> = NPOD::from_input(input)?;
-            Ok(algorithm)
-        }
-        NonparametricMethod::PostProb(_) => {
-            let algorithm: Box<dyn Algorithms<E>> = POSTPROB::from_input(input)?;
-            Ok(algorithm)
-        }
-    }
-}
-
-pub(crate) fn run_nonparametric_algorithm_with_progress<E, F>(
-    input: NonparametricAlgorithmInput<E>,
-    mut on_progress: F,
-) -> Result<NonparametricWorkspace<E>>
-where
-    E: Equation + Send + 'static,
-    F: FnMut(usize, f64, Option<f64>, u64, Status),
-{
-    let mut algorithm = dispatch_nonparametric_algorithm(input)?;
-    algorithm.initialize()?;
-
-    let mut previous_objective: Option<f64> = None;
-
-    loop {
-        let cycle_started = Instant::now();
-        let status = algorithm.next_cycle()?;
-        let objective = algorithm.n2ll();
-        let objective_delta = previous_objective.map(|prev| objective - prev);
-        previous_objective = Some(objective);
-
-        on_progress(
-            algorithm.cycle(),
-            objective,
-            objective_delta,
-            cycle_started.elapsed().as_millis() as u64,
-            status.clone(),
-        );
-
-        if matches!(status, Status::Stop(_)) {
-            break;
-        }
-    }
-
-    algorithm.into_workspace()
-}
-
-pub(crate) fn run_nonparametric_algorithm<E: Equation + Send + 'static>(
-    input: NonparametricAlgorithmInput<E>,
-) -> Result<NonparametricWorkspace<E>> {
-    let mut algorithm = dispatch_nonparametric_algorithm(input)?;
-    algorithm.fit()
+    fn into_result(&self) -> Result<NonParametricResult<E>>;
 }
 
 /// Represents the status/result of the algorithm

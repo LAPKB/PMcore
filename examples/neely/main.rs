@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let eq = ode! {
         name: "neely",
         params: [cls, k30, k40, qs, vps, vs, fm1, fm2, theta1, theta2],
@@ -46,45 +46,35 @@ fn main() {
         },
     };
 
-    let data = data::read_pmetrics("examples/neely/data.csv").unwrap();
-    EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("cls", 0.0, 0.4))
-        .unwrap()
-        .parameter(Parameter::bounded("k30", 0.0, 0.5))
-        .unwrap()
-        .parameter(Parameter::bounded("k40", 0.3, 1.5))
-        .unwrap()
-        .parameter(Parameter::bounded("qs", 0.0, 0.5))
-        .unwrap()
-        .parameter(Parameter::bounded("vps", 0.0, 5.0))
-        .unwrap()
-        .parameter(Parameter::bounded("vs", 0.0, 2.0))
-        .unwrap()
-        .parameter(Parameter::bounded("fm1", 0.0, 0.2))
-        .unwrap()
-        .parameter(Parameter::bounded("fm2", 0.0, 0.1))
-        .unwrap()
-        .parameter(Parameter::bounded("theta1", -4.0, 2.0))
-        .unwrap()
-        .parameter(Parameter::bounded("theta2", -2.0, 0.5))
-        .unwrap()
-        .method(Npag::new())
-        .error(
+    let data = data::read_pmetrics("examples/neely/data.csv")?;
+    let parameters = ParameterSpace::bounded()
+        .add("cls", 0.0, 0.4)
+        .add("k30", 0.0, 0.5)
+        .add("k40", 0.3, 1.5)
+        .add("qs", 0.0, 0.5)
+        .add("vps", 0.0, 5.0)
+        .add("vs", 0.0, 2.0)
+        .add("fm1", 0.0, 0.2)
+        .add("fm2", 0.0, 0.1)
+        .add("theta1", -4.0, 2.0)
+        .add("theta2", -2.0, 0.5);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new()
+        .add(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
-        .unwrap()
-        .error(
+        )?
+        .add(
             "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
-        .unwrap()
-        .error(
+        )?
+        .add(
             "outeq_3",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
-        )
-        .unwrap()
-        .prior(Prior::sobol(2028, 22))
-        .fit()
-        .unwrap();
+        )?;
+    EstimationProblem::nonparametric(eq, data, prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npag())?;
+
+    Ok(())
 }
+

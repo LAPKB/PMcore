@@ -8,7 +8,6 @@ pub struct FitSummary {
     pub subject_count: usize,
     pub observation_count: usize,
     pub parameter_count: usize,
-    pub algorithm: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

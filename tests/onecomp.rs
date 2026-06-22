@@ -52,23 +52,26 @@ fn test_one_compartment_npag() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    let result = EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-        .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .method(Npag::new())
-        .error(
-            "0",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )?
-        .prior(Prior::sobol(64, 22))
-        .fit()?;
-    let result = result
-        .as_nonparametric()
-        .expect("NPAG should yield a nonparametric result");
+    let parameters = ParameterSpace::<BoundedParameter>::new()
+        .add("ke", 0.1, 1.0)
+        .add("v", 1.0, 20.0);
+
+    let prior = Theta::sobol(&parameters, 100)?;
+    let error_models = AssayErrorModels::new().add(
+        "0",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
+    )?;
+    let result = EstimationProblem::nonparametric(eq, data, prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npag())?;
 
     // Check the results
-    assert_eq!(result.cycles(), 32);
+    assert_eq!(result.cycles(), 31);
     assert!(result.objf() - 565.7749 < 0.01);
+
+    // The prior is preserved on the result and is distinct from the optimized
+    // solution (which is condensed to far fewer support points).
+    assert_eq!(result.prior().nspp(), 100);
+    assert!(result.get_theta().nspp() < result.prior().nspp());
 
     Ok(())
 }
@@ -116,19 +119,16 @@ fn test_one_compartment_npod() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    let result = EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-        .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .method(Npod::new())
-        .error(
-            "0",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )?
-        .prior(Prior::sobol(64, 22))
-        .fit()?;
-    let result = result
-        .as_nonparametric()
-        .expect("NPOD should yield a nonparametric result");
+    let parameters = ParameterSpace::<BoundedParameter>::new()
+        .add("ke", 0.1, 1.0)
+        .add("v", 1.0, 20.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "0",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
+    )?;
+    let result = EstimationProblem::nonparametric(eq, data, prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npod())?;
 
     // Check the results
     assert_eq!(result.cycles(), 11);
@@ -180,25 +180,26 @@ fn test_one_compartment_postprob() -> Result<()> {
 
     let data = data::Data::new(subjects);
 
-    let result = EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-        .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .method(PostProb::new())
-        .error(
-            "0",
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
-        )?
-        .prior(Prior::sobol(64, 22))
-        .fit()?;
-    let result = result
-        .as_nonparametric()
-        .expect("POSTPROB should yield a nonparametric result");
+    // Generate a prior distribution to test against
+    let parameters = ParameterSpace::<BoundedParameter>::new()
+        .add("ke", 0.1, 1.0)
+        .add("v", 1.0, 20.0);
+
+    let theta = Theta::sobol(&parameters, 100)?;
+
+    let error_models = AssayErrorModels::new().add(
+        "0",
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
+    )?;
+    let result = EstimationProblem::nonparametric(eq, data, theta.clone(), error_models)?
+        .fit_with(NonParametricAlgorithm::npmap())?;
 
     // Check the results
     assert_eq!(result.cycles(), 0);
 
-    // Should be 64 points in theta (no change in points)
-    assert_eq!(result.get_theta().nspp(), 64);
+    // Should be 100 points in theta (no change in points)
+    assert_eq!(result.get_theta().nspp(), theta.nspp());
 
     Ok(())
 }
+

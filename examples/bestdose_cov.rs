@@ -1,7 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose; // bestdose new
-                      // use pmcore::bestdose::bestdose_old as bestdose; // bestdose old
-
+use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, DoseRange, Target};
 use pmcore::prelude::*;
 
 fn main() -> Result<()> {
@@ -23,17 +21,16 @@ fn main() -> Result<()> {
         },
     };
 
-    let parameter_space = ParameterSpace::new()
-        .add(Parameter::bounded("ke", 0.001, 3.0))
-        .add(Parameter::bounded("v", 25.0 / 70.0, 250.0 / 70.0));
+    let parameter_space = ParameterSpace::<BoundedParameter>::new()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0 / 70.0, 250.0 / 70.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let config =
-        bestdose::BestDoseConfig::new(parameter_space.clone(), ems.clone()).with_progress(false);
+    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone()).with_progress(false);
 
     // Generate a patient with known parameters
     // Ke = 0.5, V = 50
@@ -93,29 +90,22 @@ fn main() -> Result<()> {
         .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
         .build();
 
-    let (mut theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
+    let (mut theta, prior) = Theta::from_file(
+        "examples/bimodal_ke/output/theta.csv",
+        &parameter_space,
+    )?;
 
     let m_t = theta.matrix_mut();
     for i in 0..m_t.nrows() {
         m_t[(i, 1)] /= 70.0;
     }
 
-    // Example usage - using new() constructor which calculates NPAGFULL11 posterior
-    // max_cycles controls NPAGFULL refinement:
-    //   0 = NPAGFULL11 only (fast but less accurate)
-    //   100 = moderate refinement
-    //   500 = full refinement (Fortran default, slow but most accurate)
-    let problem = bestdose::BestDoseProblem::new(
+    let posterior = BestDosePosterior::compute(
         &theta,
         &prior.unwrap(),
         Some(past_data.clone()), // Optional: past data for Bayesian updating
-        target_data.clone(),
-        None,
         eq.clone(),
-        bestdose::DoseRange::new(0.0, 300.0),
-        0.0,
         config.clone(),
-        bestdose::Target::Concentration, // Target concentrations (not AUCs)
     )?;
 
     println!("Optimizing dose...");
@@ -125,7 +115,13 @@ fn main() -> Result<()> {
 
     for bias_weight in &bias_weights {
         println!("Running optimization with bias weight: {}", bias_weight);
-        let optimal = problem.clone().with_bias_weight(*bias_weight).optimize()?;
+        let optimal = posterior.optimize(
+            target_data.clone(),
+            None,
+            DoseRange::new(0.0, 300.0),
+            *bias_weight,
+            Target::Concentration,
+        )?;
         results.push((bias_weight, optimal));
     }
 

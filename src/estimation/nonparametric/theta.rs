@@ -1,11 +1,12 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, fs::File, path::Path};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use faer::Mat;
 use serde::{Deserialize, Serialize};
 
+use super::sampling::{self, latin, sobol};
 use super::weights::Weights;
-use crate::model::ParameterSpace;
+use crate::model::{BoundedParameter, ParameterSpace};
 
 /// [Theta] is a structure that holds the support points
 /// These represent the joint population parameter distribution
@@ -14,14 +15,14 @@ use crate::model::ParameterSpace;
 #[derive(Clone, PartialEq)]
 pub struct Theta {
     matrix: Mat<f64>,
-    parameters: ParameterSpace,
+    parameters: ParameterSpace<BoundedParameter>,
 }
 
 impl Default for Theta {
     fn default() -> Self {
         Theta {
             matrix: Mat::new(),
-            parameters: ParameterSpace::new(),
+            parameters: ParameterSpace::<BoundedParameter>::new(),
         }
     }
 }
@@ -37,8 +38,10 @@ impl Theta {
     /// in the [ParameterSpace]
     ///
     /// The order of parameters in the [ParameterSpace] should match the order of columns in the matrix
-    pub fn from_parts(matrix: Mat<f64>, parameters: impl Into<ParameterSpace>) -> Result<Self> {
-        let parameters = parameters.into();
+    pub fn from_parts(
+        matrix: Mat<f64>,
+        parameters: ParameterSpace<BoundedParameter>,
+    ) -> Result<Self> {
         if matrix.ncols() != parameters.len() {
             bail!(
                 "Number of columns in matrix ({}) does not match number of parameters ({})",
@@ -63,12 +66,12 @@ impl Theta {
     }
 
     /// Get the [ParameterSpace] associated with this [Theta]
-    pub fn parameters(&self) -> &ParameterSpace {
+    pub fn parameters(&self) -> &ParameterSpace<BoundedParameter> {
         &self.parameters
     }
 
     /// Get a mutable reference to the [ParameterSpace]
-    pub fn parameters_mut(&mut self) -> &mut ParameterSpace {
+    pub fn parameters_mut(&mut self) -> &mut ParameterSpace<BoundedParameter> {
         &mut self.parameters
     }
 
@@ -124,10 +127,7 @@ impl Theta {
             return true;
         }
 
-        let limits = self
-            .parameters
-            .finite_ranges()
-            .expect("theta requires finite parameter bounds");
+        let limits = self.parameters.finite_ranges();
 
         for row_idx in 0..self.matrix.nrows() {
             let mut squared_dist = 0.0;
@@ -226,9 +226,142 @@ impl Theta {
         }
 
         let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
-        let parameters = ParameterSpace::new();
+        let parameters = ParameterSpace::<BoundedParameter>::new();
 
         Theta::from_parts(mat, parameters)
+    }
+
+    /// Generate a starting grid of `points` support points over `parameters`
+    /// using a Sobol sequence and the default seed ([`sampling::DEFAULT_SEED`]).
+    ///
+    /// The returned [Theta] carries `parameters`, so the chosen grid is explicit
+    /// and self-describing.
+    pub fn sobol(parameters: &ParameterSpace<BoundedParameter>, points: usize) -> Result<Self> {
+        Self::sobol_with_seed(parameters, points, sampling::DEFAULT_SEED)
+    }
+
+    /// Generate a starting grid over `parameters` using a Sobol sequence with the
+    /// default number of support points ([`sampling::DEFAULT_POINTS`]) and the
+    /// default seed ([`sampling::DEFAULT_SEED`]).
+    pub fn sobol_default(parameters: &ParameterSpace<BoundedParameter>) -> Result<Self> {
+        Self::sobol(parameters, sampling::DEFAULT_POINTS)
+    }
+
+    /// Like [`Theta::sobol`], with an explicit seed for the quasi-random sequence.
+    pub fn sobol_with_seed(
+        parameters: &ParameterSpace<BoundedParameter>,
+        points: usize,
+        seed: usize,
+    ) -> Result<Self> {
+        validate_bounds(parameters)?;
+        sobol::generate(parameters, points, seed)
+    }
+
+    /// Generate a starting grid of `points` support points over `parameters`
+    /// using Latin Hypercube Sampling and the default seed ([`sampling::DEFAULT_SEED`]).
+    ///
+    /// The returned [Theta] carries `parameters`, so the chosen grid is explicit
+    /// and self-describing.
+    pub fn latin(parameters: &ParameterSpace<BoundedParameter>, points: usize) -> Result<Self> {
+        Self::latin_with_seed(parameters, points, sampling::DEFAULT_SEED)
+    }
+
+    /// Like [`Theta::latin`], with an explicit seed for the quasi-random sequence.
+    pub fn latin_with_seed(
+        parameters: &ParameterSpace<BoundedParameter>,
+        points: usize,
+        seed: usize,
+    ) -> Result<Self> {
+        validate_bounds(parameters)?;
+        latin::generate(parameters, points, seed)
+    }
+
+    pub fn from_file(
+        path: impl AsRef<Path>,
+        parameters: &ParameterSpace<BoundedParameter>,
+    ) -> Result<(Theta, Option<Weights>)> {
+        let path = path.as_ref();
+        tracing::info!("Reading prior from {}", path.display());
+        let file = File::open(path).context(format!(
+            "Unable to open the prior file '{}'",
+            path.display()
+        ))?;
+        let mut reader = csv::ReaderBuilder::new()
+            .has_headers(true)
+            .from_reader(file);
+
+        let mut parameter_names: Vec<String> = reader
+            .headers()?
+            .clone()
+            .into_iter()
+            .map(|s| s.trim().to_owned())
+            .collect();
+
+        let prob_index = parameter_names.iter().position(|name| name == "prob");
+        if let Some(index) = prob_index {
+            parameter_names.remove(index);
+        }
+
+        let random_names: Vec<String> = parameters.names();
+
+        let mut reordered_indices: Vec<usize> = Vec::new();
+        for random_name in &random_names {
+            match parameter_names.iter().position(|name| name == random_name) {
+                Some(index) => {
+                    let adjusted_index = if let Some(prob_idx) = prob_index {
+                        if index >= prob_idx {
+                            index + 1
+                        } else {
+                            index
+                        }
+                    } else {
+                        index
+                    };
+                    reordered_indices.push(adjusted_index);
+                }
+                None => bail!("Parameter {} is not present in the CSV file.", random_name),
+            }
+        }
+
+        if parameter_names.len() > random_names.len() {
+            let extra_parameters: Vec<&String> = parameter_names.iter().collect();
+            bail!(
+                "Found parameters in the prior not present in configuration: {:?}",
+                extra_parameters
+            );
+        }
+
+        let mut theta_values = Vec::new();
+        let mut prob_values = Vec::new();
+
+        for result in reader.records() {
+            let record = result.unwrap();
+            let values: Vec<f64> = reordered_indices
+                .iter()
+                .map(|&i| record[i].parse::<f64>().unwrap())
+                .collect();
+            theta_values.push(values);
+
+            if let Some(prob_idx) = prob_index {
+                let prob_value: f64 = record[prob_idx].parse::<f64>().unwrap();
+                prob_values.push(prob_value);
+            }
+        }
+
+        let n_points = theta_values.len();
+        let n_params = random_names.len();
+        let theta_values: Vec<f64> = theta_values.into_iter().flatten().collect();
+        let theta_matrix: Mat<f64> =
+            Mat::from_fn(n_points, n_params, |i, j| theta_values[i * n_params + j]);
+
+        let theta = Theta::from_parts(theta_matrix, parameters.clone())?;
+        let weights = if !prob_values.is_empty() {
+            Some(Weights::from_vec(prob_values))
+        } else {
+            None
+        };
+
+        Ok((theta, weights))
     }
 }
 
@@ -281,7 +414,7 @@ impl<'de> Deserialize<'de> for Theta {
         #[derive(Deserialize)]
         struct ThetaSerde {
             matrix: Vec<Vec<f64>>,
-            parameters: ParameterSpace,
+            parameters: ParameterSpace<BoundedParameter>,
         }
 
         let decoded = ThetaSerde::deserialize(deserializer)?;
@@ -308,5 +441,88 @@ impl<'de> Deserialize<'de> for Theta {
 
         let matrix = Mat::from_fn(nrows, ncols, |i, j| decoded.matrix[i][j]);
         Self::from_parts(matrix, decoded.parameters).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Validates that every parameter has a strictly-ordered, finite bound interval.
+fn validate_bounds(parameters: &ParameterSpace<BoundedParameter>) -> Result<()> {
+    for parameter in parameters.iter() {
+        if parameter.lower >= parameter.upper {
+            bail!(
+                "Parameter '{}' has invalid bounds: [{}, {}]. Lower bound must be less than upper bound.",
+                parameter.name,
+                parameter.lower,
+                parameter.upper
+            );
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn parameters() -> ParameterSpace<BoundedParameter> {
+        ParameterSpace::<BoundedParameter>::new()
+            .add("ke", 0.1, 1.0)
+            .add("v", 5.0, 50.0)
+    }
+
+    fn temp_csv_path() -> String {
+        format!("test_temp_theta_{}.csv", rand::random::<u32>())
+    }
+
+    #[test]
+    fn sobol_generates_expected_shape() {
+        let theta = Theta::sobol_with_seed(&parameters(), 10, 42).unwrap();
+        assert_eq!(theta.nspp(), 10);
+        assert_eq!(theta.matrix().ncols(), 2);
+    }
+
+    #[test]
+    fn latin_generates_expected_shape() {
+        let theta = Theta::latin(&parameters(), 10).unwrap();
+        assert_eq!(theta.nspp(), 10);
+        assert_eq!(theta.matrix().ncols(), 2);
+    }
+
+    #[test]
+    fn sampling_rejects_invalid_bounds() {
+        let bad = ParameterSpace::<BoundedParameter>::new().add("ke", 1.0, 1.0);
+        let err = Theta::sobol(&bad, 10).unwrap_err();
+        assert!(err.to_string().contains("invalid bounds"));
+    }
+
+    #[test]
+    fn from_file_parses_weights_and_reorders_columns() {
+        let path = temp_csv_path();
+        fs::write(&path, "v,ke,prob\n10.0,0.5,0.3\n15.0,0.7,0.7\n").unwrap();
+
+        let (theta, weights) = Theta::from_file(&path, &parameters()).unwrap();
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(theta.nspp(), 2);
+        assert_eq!(theta.matrix()[(0, 0)], 0.5);
+        assert_eq!(theta.matrix()[(0, 1)], 10.0);
+
+        let weights = weights.expect("weights should be parsed from prob column");
+        assert_eq!(weights.len(), 2);
+        assert_eq!(weights[0], 0.3);
+        assert_eq!(weights[1], 0.7);
+    }
+
+    #[test]
+    fn from_file_rejects_extra_parameters() {
+        let path = temp_csv_path();
+        fs::write(&path, "ke,v,extra\n0.5,10.0,1.0\n").unwrap();
+
+        let err = Theta::from_file(&path, &parameters()).unwrap_err();
+        let _ = fs::remove_file(&path);
+
+        assert!(err
+            .to_string()
+            .contains("Found parameters in the prior not present in configuration"));
     }
 }

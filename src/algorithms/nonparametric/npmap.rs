@@ -1,23 +1,34 @@
 use crate::{
-    algorithms::{NativeNonparametricConfig, NonparametricAlgorithmInput, Status, StopReason},
+    algorithms::{NonParametricRunner, Status, StopReason},
     estimation::nonparametric::{
-        calculate_psi, CycleLog, NPCycle, NonparametricWorkspace, Psi, Theta, Weights,
+        calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
-    prelude::algorithms::Algorithms,
 };
-use anyhow::{Context, Result};
 
+use anyhow::{Context, Result};
 use pharmsol::prelude::{
     data::{AssayErrorModels, Data},
     simulator::Equation,
 };
 
 use crate::estimation::nonparametric::ipm::burke;
-use crate::estimation::nonparametric::sample_space_for_parameters;
+use serde::{Deserialize, Serialize};
 
-/// Posterior probability algorithm
-/// Reweights the prior probabilities to the observed data and error model
-pub struct POSTPROB<E: Equation + Send + 'static> {
+/// Configuration options for the non-parametric maximum a posteriori (NPMAP) algorithm
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct NpmapConfig {}
+
+impl NpmapConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Non-parametric maximum a posteriori (NPMAP) algorithm
+///
+/// This algorithm is a wrapper around the IPM algorithm that calculates the posterior probabilities of the support points
+/// given a prior distribution and the likelihood of the data.
+pub struct NPMAP<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
     theta: Theta,
@@ -26,26 +37,52 @@ pub struct POSTPROB<E: Equation + Send + 'static> {
     cycle: usize,
     status: Status,
     data: Data,
-    config: NativeNonparametricConfig,
     cyclelog: CycleLog,
     error_models: AssayErrorModels,
+    prior: Theta,
 }
 
-impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
-    fn into_workspace(&self) -> Result<NonparametricWorkspace<E>> {
-        NonparametricWorkspace::new(
+impl<E: Equation + Send + 'static> NPMAP<E> {
+    pub(crate) fn from_parts(
+        equation: E,
+        data: Data,
+        error_models: AssayErrorModels,
+        theta: Theta,
+        _config: NpmapConfig,
+    ) -> Result<Self> {
+        Ok(Self {
+            equation,
+            psi: Psi::new(),
+            theta: theta.clone(),
+            w: Weights::default(),
+            objf: f64::INFINITY,
+            cycle: 0,
+            status: Status::Continue,
+            data,
+            cyclelog: CycleLog::new(),
+            error_models,
+            prior: theta,
+        })
+    }
+}
+
+impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
+    fn into_result(&self) -> Result<NonParametricResult<E>> {
+        NonParametricResult::new(
             self.equation.clone(),
             self.data.clone(),
+            self.error_models.clone(),
+            self.prior.clone(),
             self.theta.clone(),
             self.psi.clone(),
             self.w.clone(),
             self.objf,
             self.cycle,
             self.status.clone(),
-            self.config.run_configuration.clone(),
             self.cyclelog.clone(),
         )
     }
+
     fn error_models(&self) -> &AssayErrorModels {
         &self.error_models
     }
@@ -56,10 +93,6 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
 
     fn data(&self) -> &Data {
         &self.data
-    }
-
-    fn get_prior(&self) -> Theta {
-        sample_space_for_parameters(&self.config.parameter_space, &self.config.prior).unwrap()
     }
 
     fn likelihood(&self) -> f64 {
@@ -114,6 +147,7 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
     fn condensation(&mut self) -> Result<()> {
         Ok(())
     }
+
     fn optimizations(&mut self) -> Result<()> {
         Ok(())
     }
@@ -135,27 +169,14 @@ impl<E: Equation + Send + 'static> Algorithms<E> for POSTPROB<E> {
         );
         self.cyclelog.push(state);
     }
-}
 
-impl<E: Equation + Send + 'static> POSTPROB<E> {
-    pub(crate) fn from_input(input: NonparametricAlgorithmInput<E>) -> Result<Box<Self>> {
-        let config = input.native_config()?;
-        let error_models = input.error_models().clone();
-        let equation = input.equation;
-        let data = input.data;
+    /// POSTPROB is a single-pass reweighting: it evaluates the likelihood of the
+    /// fixed prior support points once, rather than iterating cycles.
+    fn fit(&mut self) -> Result<NonParametricResult<E>> {
+        self.estimation()?;
+        self.evaluation()?;
+        self.log_cycle_state();
 
-        Ok(Box::new(Self {
-            equation,
-            psi: Psi::new(),
-            theta: Theta::new(),
-            w: Weights::default(),
-            objf: f64::INFINITY,
-            cycle: 0,
-            status: Status::Continue,
-            data,
-            config,
-            cyclelog: CycleLog::new(),
-            error_models,
-        }))
+        self.into_result()
     }
 }

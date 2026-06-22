@@ -1,6 +1,6 @@
 use pmcore::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     let analytical = analytical! {
         name: "theophylline",
         params: [ka, ke, v],
@@ -15,20 +15,19 @@ fn main() {
         },
     };
 
-    let data = data::read_pmetrics("examples/theophylline/theophylline.csv").unwrap();
-    EstimationProblem::builder(analytical, data)
-        .parameter(Parameter::bounded("ka", 0.001, 3.0))
-        .unwrap()
-        .parameter(Parameter::bounded("ke", 0.001, 3.0))
-        .unwrap()
-        .parameter(Parameter::bounded("v", 0.001, 50.0))
-        .unwrap()
-        .method(Npag::new())
-        .error(
-            "outeq_0",
-            AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
-        )
-        .unwrap()
-        .fit()
-        .unwrap();
+    let data = data::read_pmetrics("examples/theophylline/theophylline.csv")?;
+    let parameters = ParameterSpace::bounded()
+        .add("ka", 0.001, 3.0)
+        .add("ke", 0.001, 3.0)
+        .add("v", 0.001, 50.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add(
+        "outeq_0",
+        AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
+    )?;
+    EstimationProblem::nonparametric(analytical, data, prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npag())?;
+
+    Ok(())
 }
+

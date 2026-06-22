@@ -27,9 +27,9 @@ fn main() -> Result<()> {
         },
     };
 
-    let parameter_space = ParameterSpace::new()
-        .add(Parameter::bounded("ke", 0.001, 3.0))
-        .add(Parameter::bounded("v", 25.0, 250.0));
+    let parameter_space = ParameterSpace::<BoundedParameter>::new()
+        .add("ke", 0.001, 3.0)
+        .add("v", 25.0, 250.0);
 
     let ems = AssayErrorModels::new().add(
         0,
@@ -40,7 +40,10 @@ fn main() -> Result<()> {
 
     // Load realistic prior from previous NPAG run
     println!("Loading prior from bimodal_ke example...");
-    let (theta, prior) = read_prior("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
+    let (theta, prior) = Theta::from_file(
+        "examples/bimodal_ke/output/theta.csv",
+        &parameter_space,
+    )?;
     let weights = prior.as_ref().unwrap();
 
     println!("Prior: {} support points\n", theta.matrix().nrows());

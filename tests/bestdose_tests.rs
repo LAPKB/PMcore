@@ -1,16 +1,22 @@
 use anyhow::Result;
 use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, BestDoseProblem, DoseRange, Target};
 use pmcore::estimation::nonparametric::{Theta, Weights};
+use pmcore::model::{BoundedParameter, ParameterSpace};
 use pmcore::prelude::*;
 
-fn pk_parameter_space(ke_lower: f64, ke_upper: f64, v_lower: f64, v_upper: f64) -> ParameterSpace {
-    ParameterSpace::new()
-        .add(Parameter::bounded("ke", ke_lower, ke_upper))
-        .add(Parameter::bounded("v", v_lower, v_upper))
+fn pk_parameter_space(
+    ke_lower: f64,
+    ke_upper: f64,
+    v_lower: f64,
+    v_upper: f64,
+) -> ParameterSpace<BoundedParameter> {
+    ParameterSpace::<BoundedParameter>::new()
+        .add("ke", ke_lower, ke_upper)
+        .add("v", v_lower, v_upper)
 }
 
 fn bestdose_config(
-    params: &ParameterSpace,
+    params: &ParameterSpace<BoundedParameter>,
     error_models: AssayErrorModels,
     refinement_cycles: usize,
     prediction_interval: f64,

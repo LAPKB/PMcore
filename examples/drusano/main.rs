@@ -64,49 +64,51 @@ fn main() -> Result<()> {
     };
 
     let data = data::read_pmetrics("examples/drusano/data.csv")?;
-    EstimationProblem::builder(eq, data)
-        .parameter(Parameter::bounded("v1", 5.0, 160.0))?
-        .parameter(Parameter::bounded("cl1", 4.0, 9.0))?
-        .parameter(Parameter::bounded("v2", 100.0, 200.0))?
-        .parameter(Parameter::bounded("cl2", 25.0, 35.0))?
-        .parameter(Parameter::bounded("popmax", 100000000.0, 100000000000.0))?
-        .parameter(Parameter::bounded("kgs", 0.01, 0.25))?
-        .parameter(Parameter::bounded("kks", 0.01, 0.5))?
-        .parameter(Parameter::bounded("e50_1s", 0.1, 2.5))?
-        .parameter(Parameter::bounded("e50_2s", 0.1, 10.0))?
-        .parameter(Parameter::bounded("alpha_s", -8.0, 5.0))?
-        .parameter(Parameter::bounded("kgr1", 0.004, 0.1))?
-        .parameter(Parameter::bounded("kkr1", 0.08, 0.4))?
-        .parameter(Parameter::bounded("e50_1r1", 8.0, 17.0))?
-        .parameter(Parameter::bounded("alpha_r1", -8.0, 5.0))?
-        .parameter(Parameter::bounded("kgr2", 0.004, 0.3))?
-        .parameter(Parameter::bounded("kkr2", 0.1, 0.5))?
-        .parameter(Parameter::bounded("e50_2r2", 5.0, 8.0))?
-        .parameter(Parameter::bounded("alpha_r2", -5.0, 5.0))?
-        .parameter(Parameter::bounded("init_4", -1.0, 4.0))?
-        .parameter(Parameter::bounded("init_5", -1.0, 3.0))?
-        .parameter(Parameter::bounded("h1s", 0.5, 8.0))?
-        .parameter(Parameter::bounded("h2s", 0.1, 4.0))?
-        .parameter(Parameter::bounded("h1r1", 5.0, 25.0))?
-        .parameter(Parameter::bounded("h2r2", 10.0, 22.0))?
-        .method(Npag::new())
-        .error(
+    let parameters = ParameterSpace::bounded()
+        .add("v1", 5.0, 160.0)
+        .add("cl1", 4.0, 9.0)
+        .add("v2", 100.0, 200.0)
+        .add("cl2", 25.0, 35.0)
+        .add("popmax", 100000000.0, 100000000000.0)
+        .add("kgs", 0.01, 0.25)
+        .add("kks", 0.01, 0.5)
+        .add("e50_1s", 0.1, 2.5)
+        .add("e50_2s", 0.1, 10.0)
+        .add("alpha_s", -8.0, 5.0)
+        .add("kgr1", 0.004, 0.1)
+        .add("kkr1", 0.08, 0.4)
+        .add("e50_1r1", 8.0, 17.0)
+        .add("alpha_r1", -8.0, 5.0)
+        .add("kgr2", 0.004, 0.3)
+        .add("kkr2", 0.1, 0.5)
+        .add("e50_2r2", 5.0, 8.0)
+        .add("alpha_r2", -5.0, 5.0)
+        .add("init_4", -1.0, 4.0)
+        .add("init_5", -1.0, 3.0)
+        .add("h1s", 0.5, 8.0)
+        .add("h2s", 0.1, 4.0)
+        .add("h1r1", 5.0, 25.0)
+        .add("h2r2", 10.0, 22.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new()
+        .add(
             "outeq_1",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
-        .error(
+        .add(
             "outeq_2",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
-        .error(
+        .add(
             "outeq_3",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
-        .error(
+        .add(
             "outeq_4",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
-        )?
-        .prior(Prior::sobol(212900, 347))
-        .fit()?;
+        )?;
+    EstimationProblem::nonparametric(eq, data, prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npag())?;
     Ok(())
 }
+

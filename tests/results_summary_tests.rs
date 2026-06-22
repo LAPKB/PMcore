@@ -42,13 +42,11 @@ fn simple_data() -> Data {
 #[test]
 fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let result = EstimationProblem::builder(simple_equation(), simple_data())
-        .parameter(Parameter::bounded("ke", 0.1, 1.0))?
-        .parameter(Parameter::bounded("v", 1.0, 20.0))?
-        .method(Npag::new())
-        .error("0", assay_error)?
-        .progress(false)
-        .fit()?;
+    let parameters = ParameterSpace::bounded().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
+    let prior = Theta::sobol_default(&parameters)?;
+    let error_models = AssayErrorModels::new().add("0", assay_error)?;
+    let result = EstimationProblem::nonparametric(simple_equation(), simple_data(), prior, error_models)?
+        .fit_with(NonParametricAlgorithm::npag())?;
 
     let summary = result.summary();
 
@@ -57,20 +55,7 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     assert_eq!(summary.observation_count, 2);
     assert_eq!(result.population_summary().parameters.len(), 2);
     assert_eq!(result.individual_summaries().len(), 1);
-    let diagnostics = result.diagnostics();
-    assert_eq!(
-        diagnostics.estimator_metadata.get("algorithm"),
-        Some(&"NPAG".to_string())
-    );
-    assert_eq!(
-        diagnostics.estimator_metadata.get("outputs_requested"),
-        Some(&"false".to_string())
-    );
-    assert!(!diagnostics.convergence_notes.is_empty());
-    assert!(diagnostics.deferred_features.is_empty());
-    let predictions = result.predictions();
-    assert!(!predictions.available);
-    assert!(result.artifacts().files.is_empty());
-    assert!(result.artifacts().expected_files.is_empty());
+
     Ok(())
 }
+

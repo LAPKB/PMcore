@@ -61,6 +61,47 @@ impl Default for SaemConfig {
 }
 
 impl SaemConfig {
+    /// Creates a new `SaemConfig` with default values.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Number of exploration-phase (K1) iterations.
+    pub fn k1_iterations(mut self, iterations: usize) -> Self {
+        self.k1_iterations = iterations;
+        self
+    }
+
+    /// Number of smoothing-phase (K2) iterations.
+    pub fn k2_iterations(mut self, iterations: usize) -> Self {
+        self.k2_iterations = iterations;
+        self
+    }
+
+    /// Number of burn-in iterations.
+    pub fn burn_in(mut self, burn_in: usize) -> Self {
+        self.burn_in = burn_in;
+        self
+    }
+
+    /// Number of MCMC chains.
+    pub fn n_chains(mut self, n_chains: usize) -> Self {
+        self.n_chains = n_chains;
+        self
+    }
+
+    /// MCMC step size.
+    pub fn mcmc_step_size(mut self, step_size: f64) -> Self {
+        self.mcmc_step_size = step_size;
+        self
+    }
+
+    /// Random-number-generator seed.
+    pub fn seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
+        self
+    }
+
     pub fn total_iterations(&self) -> usize {
         self.k1_iterations + self.k2_iterations
     }
