@@ -126,19 +126,21 @@ pub mod prelude {
     }
 
     //traits
-    pub use pharmsol::data::*;
+    pub use pharmsol::equation::Analytical;
     pub use pharmsol::equation::Equation;
     pub use pharmsol::equation::EquationTypes;
     pub use pharmsol::equation::Predictions;
-    pub use pharmsol::equation::*;
     pub use pharmsol::prelude::*;
     pub use pharmsol::simulator::*;
     pub use pharmsol::ODE;
     pub use pharmsol::SDE;
 
     //macros
+    pub use pharmsol::analytical;
     pub use pharmsol::fa;
     pub use pharmsol::fetch_cov;
     pub use pharmsol::fetch_params;
     pub use pharmsol::lag;
+    pub use pharmsol::ode;
+    pub use pharmsol::sde;
 }

@@ -920,10 +920,17 @@ impl<E: Equation + Send + 'static> ParametricAlgorithm<E> for FSAEM<E> {
             .flat_map(|subject| subject.occasions().iter())
             .flat_map(|occasion| occasion.iter())
             .filter_map(|event| match event {
-                Event::Observation(observation) => Some(observation.outeq()),
+                Event::Observation(observation) => {
+                    Some(observation.outeq_index().ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "SAEM requires numeric observation output labels; got `{}`",
+                            observation.outeq()
+                        )
+                    }))
+                }
                 _ => None,
             })
-            .collect::<Vec<_>>();
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         finalize_saem_result(
             ParametricResultInput {

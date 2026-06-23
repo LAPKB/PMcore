@@ -18,13 +18,13 @@ fn build_problem<E: pharmsol::Equation + Clone>(
         .add(ParameterSpec::bounded("v", 25.0, 250.0));
 
     let assay_error_models = AssayErrorModels::new().add(
-        1,
+        0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?;
 
     let observations = ObservationSpec::new()
         .with_assay_error_models(assay_error_models)
-        .add_channel(ObservationChannel::continuous(1, "obs_1"));
+        .add_channel(ObservationChannel::continuous(0, "obs_1"));
 
     let model = ModelDefinition::builder(equation)
         .parameters(parameters)
@@ -52,19 +52,21 @@ fn build_problem<E: pharmsol::Equation + Clone>(
 }
 
 fn create_equation() -> equation::ODE {
-    equation::ODE::new(
-        |x, p, _t, dx, b, rateiv, _cov| {
-            fetch_params!(p, ke, _v);
-            dx[1] = -ke * x[1] + rateiv[1] + b[1];
+    ode! {
+        name: "compare_algorithms_bimodal_ke",
+        params: [ke, v],
+        states: [unused_state, central],
+        outputs: [1],
+        routes: [
+            infusion(1) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[1] = x[1] / v;
+        out: |x, _t, y| {
+            y[1] = x[central] / v;
         },
-    )
+    }
 }
 
 fn run_algorithm(

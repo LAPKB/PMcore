@@ -1,17 +1,19 @@
 use pmcore::prelude::*;
 
 fn main() {
-    let analytical = equation::Analytical::new(
-        one_compartment_with_absorption,
-        |_p, _t, _cov| {},
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ka, _ke, v);
-            y[0] = x[1] * 1000.0 / v;
+    let analytical = analytical! {
+        name: "theophylline",
+        params: [ka, ke, v],
+        states: [gut, central],
+        outputs: [0],
+        routes: [
+            bolus(0) -> gut,
+        ],
+        structure: one_compartment_with_absorption,
+        out: |x, _t, y| {
+            y[0] = x[central] * 1000.0 / v;
         },
-    );
+    };
 
     let observations = ObservationSpec::new()
         .add_channel(ObservationChannel::continuous(0, "cp"))

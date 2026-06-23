@@ -184,6 +184,9 @@ pub(crate) fn parse_prior_for_parameters(
     let random_names: Vec<String> = parameters.names();
 
     let mut reordered_indices: Vec<usize> = Vec::new();
+    // TODO(named-ingress): when PMcore is synchronized with the matching
+    // pharmsol version, replace this local header reorder with pharmsol's
+    // ParameterOrder contract so named validation stays single-owner.
     for random_name in &random_names {
         match parameter_names.iter().position(|name| name == random_name) {
             Some(index) => {

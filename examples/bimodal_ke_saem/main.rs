@@ -11,22 +11,19 @@ use pmcore::prelude::*;
 
 /// Create analytical one-compartment model (much faster than ODE)
 fn create_equation() -> equation::Analytical {
-    equation::Analytical::new(
-        |x, p, t, rateiv, _cov| {
-            let mut xout = x.clone();
-            fetch_params!(p, ke, _v);
-            xout[0] = x[0] * (-ke * t).exp() + rateiv[1] / ke * (1.0 - (-ke * t).exp());
-            xout
+    analytical! {
+        name: "bimodal_ke_saem",
+        params: [ke, v],
+        states: [central],
+        outputs: [1],
+        routes: [
+            infusion(1) -> central,
+        ],
+        structure: one_compartment,
+        out: |x, _t, y| {
+            y[1] = x[central] / v;
         },
-        |_p, _t, _cov| {},
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[1] = x[0] / v;
-        },
-    )
+    }
 }
 
 fn main() -> Result<()> {
@@ -41,10 +38,11 @@ fn main() -> Result<()> {
     // NPAG found: ke mean=0.191 (range 0.01-0.98), v mean=107 (range 67-209)
     // SAEM needs reasonable starting bounds since it initializes at midpoint
     // Use ranges that center near the expected values
+
     let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(1, "cp"))
+        .add_channel(ObservationChannel::continuous(0, "cp"))
         .with_residual_error_models(
-            ResidualErrorModels::new().add(1, ResidualErrorModel::proportional(0.1)),
+            ResidualErrorModels::new().add(0, ResidualErrorModel::proportional(0.1)),
         );
 
     let model = ModelDefinition::builder(eq)

@@ -6,19 +6,22 @@ use pmcore::prelude::*;
 
 fn main() {
     let eq = ode! {
-        diffeq: |x, p, _t, dx, b, rateiv, _cov| {
-            fetch_cov!(cov, t,);
-            fetch_params!(p, ka, ke);
-            dx[0] = -ka * x[0] + b[1];
-            dx[1] = ka * x[0] - ke * x[1];
+        name: "two_eq_lag",
+        params: [ka, ke, tlag, v],
+        states: [gut, central],
+        outputs: [0],
+        routes: [
+            bolus(0) -> gut,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[gut] = -ka * x[gut];
+            dx[central] = ka * x[gut] - ke * x[central];
         },
-        lag: |p, _t, _cov| {
-            fetch_params!(p, _ka, _ke, tlag, _v);
-            lag! {1=>tlag}
+        lag: |_t| {
+            lag! { 0 => tlag }
         },
-        out: |x, p, _t, _cov, y| {
-            fetch_params!(p, _ka, _ke, _tlag, v);
-            y[1] = x[1] / v;
+        out: |x, _t, y| {
+            y[0] = x[central] / v;
         },
     };
     // let eq = Equation::new_analytical(
@@ -65,11 +68,11 @@ fn main() {
     // );
 
     let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(1, "cp"))
+        .add_channel(ObservationChannel::continuous(0, "cp"))
         .with_assay_error_models(
             AssayErrorModels::new()
                 .add(
-                    1,
+                    0,
                     AssayErrorModel::additive(
                         ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537),
                         0.0,

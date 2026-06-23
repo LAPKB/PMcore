@@ -39,7 +39,7 @@ pub fn compile_problem<E: Equation + Clone>(
         &problem.model.covariates,
         &problem.data,
     );
-    let observation_index = build_observation_index(&problem.data);
+    let observation_index = build_observation_index(&problem.data)?;
     let caches = ExecutionCaches {
         prediction_cache_enabled: problem.runtime.cache,
     };
@@ -215,28 +215,40 @@ fn occasion_anchor_time(occasion: &pharmsol::Occasion) -> f64 {
         .unwrap_or(0.0)
 }
 
-fn build_observation_index(data: &Data) -> ObservationIndex {
+fn build_observation_index(data: &Data) -> Result<ObservationIndex> {
     let records =
         data.subjects()
             .iter()
             .enumerate()
             .flat_map(|(subject_index, subject)| {
                 subject.occasions().into_iter().flat_map(move |occasion| {
-                    occasion.events().into_iter().enumerate().filter_map(
-                        move |(event_index, event)| match event {
-                            Event::Observation(observation) => Some(ObservationRecord {
-                                subject_index,
-                                occasion_index: occasion.index(),
-                                event_index,
-                                outeq: observation.outeq(),
-                                time: observation.time(),
-                            }),
+                    occasion
+                        .events()
+                        .into_iter()
+                        .enumerate()
+                        .filter_map(move |(event_index, event)| match event {
+                            Event::Observation(observation) => Some(
+                                observation
+                                    .outeq_index()
+                                    .map(|outeq| ObservationRecord {
+                                        subject_index,
+                                        occasion_index: occasion.index(),
+                                        event_index,
+                                        outeq,
+                                        time: observation.time(),
+                                    })
+                                    .ok_or_else(|| {
+                                        anyhow::anyhow!(
+                                            "Compilation requires numeric observation output labels; got `{}`",
+                                            observation.outeq()
+                                        )
+                                    }),
+                            ),
                             _ => None,
-                        },
-                    )
+                        })
                 })
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
 
-    ObservationIndex { records }
+    Ok(ObservationIndex { records })
 }

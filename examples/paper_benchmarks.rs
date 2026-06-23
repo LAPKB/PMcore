@@ -90,87 +90,98 @@ fn bounded_parameter_space(bounds: &[(&str, f64, f64)]) -> ParameterSpace {
 // ============================================================================
 
 fn bimodal_ke_equation() -> equation::ODE {
-    equation::ODE::new(
-        |x, p, _t, dx, _b, rateiv, _cov| {
-            fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + rateiv[1];
+    ode! {
+        name: "paper_benchmarks_bimodal_ke",
+        params: [ke, v],
+        states: [central],
+        outputs: [1],
+        routes: [
+            infusion(1) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[1] = x[0] / v;
+        out: |x, _t, y| {
+            y[1] = x[central] / v;
         },
-    )
+    }
 }
 
 fn theophylline_equation() -> equation::Analytical {
-    equation::Analytical::new(
-        one_compartment_with_absorption,
-        |_p, _t, _cov| {},
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ka, _ke, v);
-            y[0] = x[1] * 1000.0 / v;
+    analytical! {
+        name: "paper_benchmarks_theophylline",
+        params: [ka, ke, v],
+        states: [gut, central],
+        outputs: [0],
+        routes: [
+            bolus(0) -> gut,
+        ],
+        structure: one_compartment_with_absorption,
+        out: |x, _t, y| {
+            y[0] = x[central] * 1000.0 / v;
         },
-    )
+    }
 }
 
 fn two_eq_lag_equation() -> equation::ODE {
-    equation::ODE::new(
-        |x, p, _t, dx, b, _rateiv, _cov| {
-            fetch_params!(p, ka, ke);
-            dx[0] = -ka * x[0] + b[0];
-            dx[1] = ka * x[0] - ke * x[1];
+    ode! {
+        name: "paper_benchmarks_two_eq_lag",
+        params: [ka, ke, tlag, v],
+        states: [gut, central],
+        outputs: [0],
+        routes: [
+            bolus(0) -> gut,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[gut] = -ka * x[gut];
+            dx[central] = ka * x[gut] - ke * x[central];
         },
-        |p, _t, _cov| {
-            fetch_params!(p, _ka, _ke, tlag, _v);
-            lag! {0=>tlag}
+        lag: |_t| {
+            lag! { 0 => tlag }
         },
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ka, _ke, _tlag, v);
-            y[0] = x[1] / v;
+        out: |x, _t, y| {
+            y[0] = x[central] / v;
         },
-    )
+    }
 }
 
 fn meta_equation() -> equation::ODE {
-    equation::ODE::new(
-        |x, p, t, dx, _b, rateiv, cov| {
-            fetch_cov!(cov, t, wt, pkvisit);
-            fetch_params!(p, cls, fm, k20, relv, theta1, theta2, vs);
+    ode! {
+        name: "paper_benchmarks_meta",
+        params: [cls, fm, k20, relv, theta1, theta2, vs],
+        covariates: [wt, pkvisit],
+        states: [central, metabolite],
+        outputs: [1, 2],
+        routes: [
+            infusion(1) -> central,
+        ],
+        diffeq: |x, _t, dx| {
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let ke = cl / v;
-            let _v2 = relv * v;
-            dx[0] = rateiv[1] - ke * x[0] * (1.0 - fm) - fm * x[0];
-            dx[1] = fm * x[0] - k20 * x[1];
+            dx[central] = -ke * x[central] * (1.0 - fm) - fm * x[central];
+            dx[metabolite] = fm * x[central] - k20 * x[metabolite];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, t, cov, y| {
-            fetch_cov!(cov, t, wt, pkvisit);
-            fetch_params!(p, cls, _fm, _k20, relv, theta1, theta2, vs);
-            let _cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
+        out: |x, _t, y| {
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let v2 = relv * v;
-            y[1] = x[0] / v;
-            y[2] = x[1] / v2;
+            y[1] = x[central] / v;
+            y[2] = x[metabolite] / v2;
         },
-    )
+    }
 }
 
 fn neely_equation() -> equation::ODE {
-    equation::ODE::new(
-        |x, p, t, dx, _b, rateiv, cov| {
-            fetch_params!(p, cls, k30, k40, qs, vps, vs, fm1, fm2, theta1, theta2);
-            fetch_cov!(cov, t, wt, pkvisit);
+    ode! {
+        name: "paper_benchmarks_neely",
+        params: [cls, k30, k40, qs, vps, vs, fm1, fm2, theta1, theta2],
+        covariates: [wt, pkvisit],
+        states: [central, peripheral, metabolite_1, metabolite_2],
+        outputs: [1, 2, 3],
+        routes: [
+            infusion(1) -> central,
+        ],
+        diffeq: |x, _t, dx| {
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let q = qs * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
@@ -178,31 +189,25 @@ fn neely_equation() -> equation::ODE {
             let ke = cl / v;
             let k12 = q / v;
             let k21 = q / vp;
-            dx[0] = rateiv[1] - ke * x[0] * (1.0 - fm1 - fm2) - (fm1 + fm2) * x[0] - k12 * x[0]
-                + k21 * x[1];
-            dx[1] = k12 * x[0] - k21 * x[1];
-            dx[2] = fm1 * x[0] - k30 * x[2];
-            dx[3] = fm2 * x[0] - k40 * x[3];
+            dx[central] = -ke * x[central] * (1.0 - fm1 - fm2)
+                - (fm1 + fm2) * x[central]
+                - k12 * x[central]
+                + k21 * x[peripheral];
+            dx[peripheral] = k12 * x[central] - k21 * x[peripheral];
+            dx[metabolite_1] = fm1 * x[central] - k30 * x[metabolite_1];
+            dx[metabolite_2] = fm2 * x[central] - k40 * x[metabolite_2];
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, t, cov, y| {
-            fetch_params!(p, cls, _k30, _k40, qs, vps, vs, _fm1, _fm2, theta1, theta2);
-            fetch_cov!(cov, t, wt, pkvisit);
+        out: |x, _t, y| {
             let vfrac1 = 0.068202;
             let vfrac2 = 0.022569;
-            let _cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
-            let _q = qs * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
-            let _vp = vps * (wt / 70.0);
             let vm1 = vfrac1 * v;
             let vm2 = vfrac2 * v;
-            y[1] = x[0] / v;
-            y[2] = x[2] / vm1;
-            y[3] = x[3] / vm2;
+            y[1] = x[central] / v;
+            y[2] = x[metabolite_1] / vm1;
+            y[3] = x[metabolite_2] / vm2;
         },
-    )
+    }
 }
 
 // ============================================================================
@@ -222,7 +227,7 @@ fn bimodal_ke_config() -> DatasetConfig {
         name: "bimodal_ke",
         data_path: "examples/bimodal_ke/bimodal_ke.csv",
         parameters: vec![("ke", 0.001, 3.0), ("v", 25.0, 250.0)],
-        error_models: vec![(1, 0.0, 0.5, 0.0, false)],
+        error_models: vec![(0, 0.0, 0.5, 0.0, false)],
     }
 }
 
@@ -262,7 +267,7 @@ fn meta_config() -> DatasetConfig {
             ("theta2", 0.1, 10.0),
             ("vs", 1.0, 10.0),
         ],
-        error_models: vec![(1, 1.0, 0.1, 5.0, true), (2, 1.0, 0.1, 5.0, true)],
+        error_models: vec![(0, 1.0, 0.1, 5.0, true), (1, 1.0, 0.1, 5.0, true)],
     }
 }
 
@@ -283,9 +288,9 @@ fn neely_config() -> DatasetConfig {
             ("theta2", -2.0, 0.5),
         ],
         error_models: vec![
+            (0, 1.0, 0.1, 5.0, true),
             (1, 1.0, 0.1, 5.0, true),
             (2, 1.0, 0.1, 5.0, true),
-            (3, 1.0, 0.1, 5.0, true),
         ],
     }
 }

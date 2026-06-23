@@ -220,14 +220,22 @@ pub fn update_residual_error_from_individuals<E: Equation>(
             .flat_map(|occasion| occasion.events().iter())
             .filter_map(|event| {
                 if let Event::Observation(observation) = event {
-                    observation
-                        .value()
-                        .map(|value| (value, observation.outeq()))
+                    observation.value().map(|value| {
+                        observation
+                            .outeq_index()
+                            .map(|outeq| (value, outeq))
+                            .ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "Residual-error updates require numeric observation output labels; got `{}`",
+                                    observation.outeq()
+                                )
+                            })
+                    })
                 } else {
                     None
                 }
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
 
         for ((observation_value, outeq), prediction) in observations
             .iter()

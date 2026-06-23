@@ -1,51 +1,33 @@
 use pmcore::prelude::*;
 
 fn main() {
-    let sde = equation::SDE::new(
-        |x, p, _t, dx, _rateiv, _cov| {
-            fetch_params!(p, ka, ke0, kcp, kpc, _vol);
-            dx[3] = -x[3] + ke0;
-            let ke = x[3];
-            // dbg!(x[3], ke0, dx[3]);
-            dx[0] = -ka * x[0];
-            dx[1] = ka * x[0] - (ke + kcp) * x[1] + kpc * x[2];
-            dx[2] = kcp * x[1] - kpc * x[2];
+    let sde = sde! {
+        name: "vanco_sde",
+        params: [ka, ke0, kcp, kpc, vol, ske],
+        covariates: [wt],
+        states: [gut, central, peripheral, ke_state],
+        outputs: [1],
+        particles: 100,
+        routes: [
+            bolus(1) -> gut,
+        ],
+        drift: |x, _t, dx| {
+            dx[ke_state] = -x[ke_state] + ke0;
+            let ke = x[ke_state];
+            dx[gut] = -ka * x[gut];
+            dx[central] = ka * x[gut] - (ke + kcp) * x[central] + kpc * x[peripheral];
+            dx[peripheral] = kcp * x[central] - kpc * x[peripheral];
         },
-        |p, d| {
-            fetch_params!(p, _ka, _ke0, _kcp, _kpc, _vol, ske);
-            d[3] = ske;
+        diffusion: |sigma| {
+            sigma[ke_state] = ske;
         },
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |p, _t, _cov, x| {
-            fetch_params!(p, _ka, ke0, _kcp, _kpc, _vol);
-            x[3] = ke0;
+        init: |_t, x| {
+            x[ke_state] = ke0;
         },
-        |x, p, t, cov, y| {
-            fetch_params!(p, _ka, _ke0, _kcp, _kpc, vol);
-            fetch_cov!(cov, t, wt);
-            y[0] = x[1] / (vol * wt);
+        out: |x, _t, y| {
+            y[1] = x[central] / (vol * wt);
         },
-        100,
-    );
-
-    // let ode = equation::ODE::new(
-    //     |x, p, _t, dx, _rateiv, _cov| {
-    //         fetch_params!(p, ka, ke0, kcp, kpc, _vol);
-    //         dx[0] = -ka * x[0];
-    //         dx[1] = ka * x[0] - (ke0 + kcp) * x[1] + kpc * x[2];
-    //         dx[2] = kcp * x[1] - kpc * x[2];
-    //     },
-    //     |_p, _t, _cov| lag! {},
-    //     |_p, _t, _cov| fa! {},
-    //     |_p, _t, _cov, _x| {},
-    //     |x, p, t, cov, y| {
-    //         fetch_params!(p, _ka, _ke0, _kcp, _kpc, vol);
-    //         fetch_cov!(cov, t, wt);
-    //         y[0] = x[1] / (vol);
-    //     },
-    //     (3, 1),
-    // );
+    };
 
     let observations = ObservationSpec::new()
         .add_channel(ObservationChannel::continuous(0, "central"))

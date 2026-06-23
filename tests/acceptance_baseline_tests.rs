@@ -8,13 +8,18 @@ mod saem_reference;
 
 fn bimodal_ode_equation() -> equation::ODE {
     ode! {
-        diffeq: |x, p, _t, dx, b, rateiv, _cov| {
-            fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + rateiv[1] + b[1];
+        name: "acceptance_baseline_bimodal_ke",
+        params: [ke, v],
+        states: [central],
+        outputs: [1],
+        routes: [
+            infusion(1) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        out: |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[1] = x[0] / v;
+        out: |x, _t, y| {
+            y[1] = x[central] / v;
         },
     }
     .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45))
@@ -61,9 +66,9 @@ fn bimodal_data() -> Result<Data> {
 
 fn bimodal_npag_model() -> Result<ModelDefinition<equation::ODE>> {
     let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(1, "cp"))
+        .add_channel(ObservationChannel::continuous(0, "cp"))
         .with_assay_error_models(AssayErrorModels::new().add(
-            1,
+            0,
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )?);
 
