@@ -17,6 +17,8 @@ use pharmsol::prelude::AssayErrorModel;
 
 use crate::estimation::nonparametric::adaptative_grid;
 
+use super::error_optim::{optimize_error_models, ErrorOptimConfig};
+
 use serde::{Deserialize, Serialize};
 
 /// Configuration options for the Non-Parametric Adaptive Grid (NPAG) algorithm.
@@ -29,10 +31,7 @@ pub struct NpagConfig {
     pub prune_threshold: f64,
     pub qr_tolerance: f64,
     pub grid_tolerance: f64,
-    pub error_step: f64,
-    pub min_error_step: f64,
-    pub error_step_growth: f64,
-    pub error_step_shrink: f64,
+    pub error_optim: ErrorOptimConfig,
     pub max_cycles: usize,
     pub progress: bool,
 }
@@ -47,10 +46,7 @@ impl Default for NpagConfig {
             prune_threshold: 1e-3,
             qr_tolerance: 1e-8,
             grid_tolerance: 1e-4,
-            error_step: 0.1,
-            min_error_step: 0.01,
-            error_step_growth: 4.0,
-            error_step_shrink: 0.5,
+            error_optim: ErrorOptimConfig::default(),
             max_cycles: 1000,
             progress: true,
         }
@@ -97,23 +93,8 @@ impl NpagConfig {
         self
     }
 
-    pub fn error_step(mut self, step: f64) -> Self {
-        self.error_step = step;
-        self
-    }
-
-    pub fn min_error_step(mut self, step: f64) -> Self {
-        self.min_error_step = step;
-        self
-    }
-
-    pub fn error_step_growth(mut self, factor: f64) -> Self {
-        self.error_step_growth = factor;
-        self
-    }
-
-    pub fn error_step_shrink(mut self, factor: f64) -> Self {
-        self.error_step_shrink = factor;
+    pub fn error_optim(mut self, config: ErrorOptimConfig) -> Self {
+        self.error_optim = config;
         self
     }
 
@@ -165,7 +146,7 @@ impl<E: Equation + Send + 'static> NPAG<E> {
         config: NpagConfig,
     ) -> Result<Self> {
         let ranges = theta.parameters().finite_ranges();
-        let gamma_delta = vec![config.error_step; error_models.len()];
+        let gamma_delta = vec![config.error_optim.step; error_models.len()];
         let eps = config.eps;
 
         Ok(Self {
@@ -405,98 +386,17 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPAG<E> {
     }
 
     fn optimizations(&mut self) -> Result<()> {
-        self.error_models
-            .clone()
-            .iter_mut()
-            .filter_map(|(outeq, em)| {
-                if em.optimize() {
-                    Some((outeq, em))
-                } else {
-                    None
-                }
-            })
-            .try_for_each(|(outeq, em)| -> Result<()> {
-                // Optime the best value of gamma/lambda
-
-                let gamma_up = em.factor()? * (1.0 + self.gamma_delta[outeq]);
-                let gamma_down = em.factor()? / (1.0 + self.gamma_delta[outeq]);
-
-                let mut error_model_up = self.error_models.clone();
-                error_model_up.set_factor(outeq, gamma_up)?;
-
-                let mut error_model_down = self.error_models.clone();
-                error_model_down.set_factor(outeq, gamma_down)?;
-
-                let psi_up = calculate_psi(
-                    &self.equation,
-                    &self.data,
-                    &self.theta,
-                    &error_model_up,
-                    false,
-                )?;
-                let psi_down = calculate_psi(
-                    &self.equation,
-                    &self.data,
-                    &self.theta,
-                    &error_model_down,
-                    false,
-                )?;
-
-                // Treat errors in IPM, such as subjects with zero probability or non-finite likelihoods
-                // as warnings, and continue with the other direction. If both directions fail, we will not update the error model factor.
-                let up = match burke(&psi_up) {
-                    Ok((lambda, objf)) => Some((lambda, objf)),
-                    Err(err) => {
-                        tracing::warn!(
-                            "Error in IPM during optim (up) for outeq {}: {:?}",
-                            outeq,
-                            err
-                        );
-                        None
-                    }
-                };
-                let down = match burke(&psi_down) {
-                    Ok((lambda, objf)) => Some((lambda, objf)),
-                    Err(err) => {
-                        tracing::warn!(
-                            "Error in IPM during optim (down) for outeq {}: {:?}",
-                            outeq,
-                            err
-                        );
-                        None
-                    }
-                };
-
-                // Select the best improving candidate (if any) over the current
-                // objective. Among the two directions, the one with the higher
-                // objective function wins.
-                let mut best: Option<(f64, Weights, Psi, f64)> = None;
-                if let Some((lambda_up, objf_up)) = up {
-                    if objf_up > self.objf {
-                        best = Some((objf_up, lambda_up, psi_up, gamma_up));
-                    }
-                }
-                if let Some((lambda_down, objf_down)) = down {
-                    let threshold = best.as_ref().map_or(self.objf, |(objf, ..)| *objf);
-                    if objf_down > threshold {
-                        best = Some((objf_down, lambda_down, psi_down, gamma_down));
-                    }
-                }
-                if let Some((objf, lambda, psi, gamma)) = best {
-                    self.error_models.set_factor(outeq, gamma)?;
-                    self.objf = objf;
-                    self.gamma_delta[outeq] *= self.config.error_step_growth;
-                    self.lambda = lambda;
-                    self.psi = psi;
-                }
-                self.gamma_delta[outeq] *= self.config.error_step_shrink;
-                if self.gamma_delta[outeq] <= self.config.min_error_step {
-                    self.gamma_delta[outeq] = self.config.error_step;
-                }
-                Ok(())
-            })?;
-
-        Ok(())
+        optimize_error_models(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            &mut self.error_models,
+            &mut self.gamma_delta,
+            &mut self.objf,
+            &mut self.lambda,
+            &mut self.psi,
+            &self.config.error_optim,
+        )
     }
 
     fn expansion(&mut self) -> Result<()> {
