@@ -8,7 +8,5 @@ pub use crate::algorithms::nonparametric::{
 };
 pub use crate::algorithms::parametric::{ParametricAlgorithm, SaemConfig};
 pub use error_models::ErrorModels;
-pub use problem::{
-    EstimationProblem, Framework, NonParametric, Parametric, ParametricBuilder,
-};
+pub use problem::{EstimationProblem, Framework, NonParametric, Parametric, ParametricBuilder};
 pub use progress::{FitProgress, NonparametricCycleProgress};

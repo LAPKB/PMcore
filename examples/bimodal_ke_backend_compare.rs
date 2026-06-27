@@ -313,4 +313,3 @@ fn print_summary(results: &[ComparisonResult]) -> Result<()> {
 
     Ok(())
 }
-

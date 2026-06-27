@@ -42,11 +42,14 @@ fn simple_data() -> Data {
 #[test]
 fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     let assay_error = AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0);
-    let parameters = ParameterSpace::bounded().add("ke", 0.1, 1.0).add("v", 1.0, 20.0);
+    let parameters = ParameterSpace::bounded()
+        .add("ke", 0.1, 1.0)
+        .add("v", 1.0, 20.0);
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new().add("0", assay_error)?;
-    let result = EstimationProblem::nonparametric(simple_equation(), simple_data(), prior, error_models)?
-        .fit_with(NonParametricAlgorithm::npag())?;
+    let result =
+        EstimationProblem::nonparametric(simple_equation(), simple_data(), prior, error_models)?
+            .fit_with(NonParametricAlgorithm::npag())?;
 
     let summary = result.summary();
 
@@ -58,4 +61,3 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
 
     Ok(())
 }
-

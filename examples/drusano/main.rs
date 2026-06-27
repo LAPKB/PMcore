@@ -111,4 +111,3 @@ fn main() -> Result<()> {
         .fit_with(NonParametricAlgorithm::npag())?;
     Ok(())
 }
-

@@ -5,10 +5,10 @@ pub(crate) mod ipm;
 mod posterior;
 mod predictions;
 
-pub mod sampling;
 mod psi;
 pub(crate) mod qr;
 mod result;
+pub mod sampling;
 mod statistics;
 mod summaries;
 mod theta;
