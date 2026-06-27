@@ -1,10 +1,14 @@
 use std::fs::{create_dir_all, OpenOptions};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use tracing::Level;
 use tracing_subscriber::fmt;
+use tracing_subscriber::fmt::format::Writer;
+use tracing_subscriber::fmt::time::FormatTime;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer, Registry};
@@ -18,10 +22,9 @@ const DEFAULT_DIRECTIVES: &str = "diffsol=off";
 /// Builder for an opinionated `tracing` subscriber.
 ///
 /// By default the subscriber writes `INFO` level events to stdout and does
-/// not write to a file. The subscriber itself does not render timestamps;
-/// callers that want elapsed-time information are expected to include it in
-/// their log messages, for example using [`format_elapsed`] with a start
-/// instant tracked on the algorithm.
+/// not write to a file. Each log line is prefixed with the elapsed wall-clock
+/// time since the subscriber was initialized, formatted as `HHh MMm SSs`. This
+/// column can be restarted at any time with [`Logger::reset_time`].
 #[derive(Debug, Clone)]
 pub struct Logger {
     level: Level,
@@ -95,8 +98,13 @@ impl Logger {
     pub fn init(self) -> Result<()> {
         let env_filter = self.build_env_filter();
 
+        // Anchor the process-start instant now so the elapsed-time column is
+        // measured from initialization. Every layer shares the same epoch.
+        let _ = process_start();
+        let timer = ElapsedTime;
+
         let file_layer = match self.file.as_deref() {
-            Some(path) => Some(open_file_layer(path)?),
+            Some(path) => Some(open_file_layer(path, timer)?),
             None => None,
         };
 
@@ -106,7 +114,7 @@ impl Logger {
                     .with_writer(std::io::stdout)
                     .with_ansi(true)
                     .with_target(false)
-                    .without_time()
+                    .with_timer(timer)
                     .boxed(),
             )
         } else {
@@ -120,6 +128,21 @@ impl Logger {
             .try_init();
 
         Ok(())
+    }
+
+    /// Restart the elapsed-time column so subsequent log lines count from now.
+    ///
+    /// The leading `HHh MMm SSs` column is process-wide and shared by every
+    /// layer of the installed subscriber. Calling this resets that column to
+    /// `00h 00m 00s`, which is useful before a fresh run when a single
+    /// subscriber is reused across back-to-back fits.
+    ///
+    /// This is an associated function rather than a method because the column
+    /// lives in process-wide subscriber state, not on a [`Logger`] instance
+    /// (which is consumed by [`Logger::init`]).
+    pub fn reset_time() {
+        let offset = process_start().elapsed();
+        EPOCH_OFFSET_NANOS.store(offset.as_nanos() as u64, Ordering::Relaxed);
     }
 
     fn build_env_filter(&self) -> EnvFilter {
@@ -140,6 +163,7 @@ impl Logger {
 
 fn open_file_layer<S>(
     path: &Path,
+    timer: ElapsedTime,
 ) -> Result<Box<dyn tracing_subscriber::Layer<S> + Send + Sync + 'static>>
 where
     S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
@@ -161,8 +185,36 @@ where
     Ok(fmt::layer()
         .with_writer(file)
         .with_ansi(false)
-        .without_time()
+        .with_timer(timer)
         .boxed())
+}
+
+/// The fixed process-start reference instant, anchored on first use.
+fn process_start() -> Instant {
+    static START: OnceLock<Instant> = OnceLock::new();
+    *START.get_or_init(Instant::now)
+}
+
+/// Nanoseconds from [`process_start`] to the current logger epoch. Updated by
+/// [`Logger::reset_time`] to restart the elapsed-time column.
+static EPOCH_OFFSET_NANOS: AtomicU64 = AtomicU64::new(0);
+
+/// A [`FormatTime`] implementation that prefixes each log line with the elapsed
+/// wall-clock time since the current logger epoch, formatted as `HHh MMm SSs`,
+/// e.g. `00h 00m 03s  INFO {Cycle 288}: ...`.
+///
+/// This is a process-wide "uptime" column (equivalent in spirit to
+/// [`tracing_subscriber::fmt::time::uptime`], but using the compact
+/// `HHh MMm SSs` format). The epoch can be restarted with [`Logger::reset_time`].
+#[derive(Debug, Clone, Copy, Default)]
+struct ElapsedTime;
+
+impl FormatTime for ElapsedTime {
+    fn format_time(&self, w: &mut Writer<'_>) -> std::fmt::Result {
+        let offset = Duration::from_nanos(EPOCH_OFFSET_NANOS.load(Ordering::Relaxed));
+        let elapsed = process_start().elapsed().saturating_sub(offset);
+        write!(w, "{}", format_elapsed(elapsed))
+    }
 }
 
 /// Format a [`Duration`] as a compact `HHh MMm SSs` string.

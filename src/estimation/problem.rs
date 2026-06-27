@@ -19,6 +19,7 @@ pub trait Framework {
     type Prior;
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Parametric;
 
 impl Framework for Parametric {
@@ -26,6 +27,7 @@ impl Framework for Parametric {
     type Prior = ParameterSpace<UnboundedParameter>;
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct NonParametric;
 
 impl Framework for NonParametric {
