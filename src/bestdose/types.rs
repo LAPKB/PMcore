@@ -194,7 +194,10 @@ pub struct BestDoseConfig {
 }
 
 impl BestDoseConfig {
-    pub fn new(parameter_space: ParameterSpace<BoundedParameter>, error_models: AssayErrorModels) -> Self {
+    pub fn new(
+        parameter_space: ParameterSpace<BoundedParameter>,
+        error_models: AssayErrorModels,
+    ) -> Self {
         Self {
             parameter_space,
             error_models,

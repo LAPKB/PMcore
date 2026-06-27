@@ -90,10 +90,8 @@ fn main() -> Result<()> {
         .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
         .build();
 
-    let (mut theta, prior) = Theta::from_file(
-        "examples/bimodal_ke/output/theta.csv",
-        &parameter_space,
-    )?;
+    let (mut theta, prior) =
+        Theta::from_file("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
 
     let m_t = theta.matrix_mut();
     for i in 0..m_t.nrows() {

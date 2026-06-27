@@ -111,4 +111,3 @@ criterion_group! {
     targets = benchmark_bimodal_ke_npag, benchmark_bimodal_ke_npod, benchmark_bimodal_ke_postprob
 }
 criterion_main!(benches);
-

@@ -6,7 +6,11 @@ use rand::rngs::StdRng;
 use crate::estimation::nonparametric::Theta;
 use crate::model::{BoundedParameter, ParameterSpace};
 
-pub fn generate(parameters: &ParameterSpace<BoundedParameter>, points: usize, seed: usize) -> Result<Theta> {
+pub fn generate(
+    parameters: &ParameterSpace<BoundedParameter>,
+    points: usize,
+    seed: usize,
+) -> Result<Theta> {
     let ranges = parameters.finite_ranges();
     let mut rng = StdRng::seed_from_u64(seed as u64);
 
