@@ -69,7 +69,6 @@ fn main() {
         .build();
 
     settings.set_cycles(usize::MAX);
-    settings.set_cache(true);
     settings.set_output_path("examples/vanco_sde/output");
     settings.set_prior(Prior::sobol(100, 347));
     settings.initialize_logs().unwrap();

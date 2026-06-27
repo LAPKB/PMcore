@@ -19,12 +19,10 @@ fn main() -> Result<()> {
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
-    let ems = AssayErrorModels::new()
-        .add(
-            1,
-            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
-        )
-        .unwrap();
+    let ems = AssayErrorModels::new().add(
+        1,
+        AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+    )?;
 
     let mut settings = Settings::builder()
         .set_algorithm(Algorithm::NPAG)

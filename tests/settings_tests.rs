@@ -97,10 +97,6 @@ fn test_settings_setters() -> Result<()> {
     settings.set_algorithm(Algorithm::NPOD);
     assert_eq!(settings.config().algorithm, Algorithm::NPOD);
 
-    // Test set_cache
-    settings.set_cache(false);
-    assert_eq!(settings.config().cache, false);
-
     // Test set_idelta
     settings.set_idelta(0.5);
     assert_eq!(settings.predictions().idelta, 0.5);
@@ -212,7 +208,6 @@ fn test_config_accessors() -> Result<()> {
     // Test default values
     assert_eq!(config.algorithm, Algorithm::NPAG);
     assert!(config.cycles > 0);
-    assert_eq!(config.cache, true);
 
     Ok(())
 }
