@@ -18,6 +18,9 @@
 //! trait, which defines the common interface for initialization, estimation, condensation,
 //! expansion, and convergence evaluation.
 
+// Shared error-model factor optimization
+pub mod error_optim;
+
 // Algorithm implementations
 pub mod npag;
 pub mod npmap;
@@ -29,6 +32,7 @@ pub use npmap::NPMAP;
 pub use npod::NPOD;
 
 // Re-export per-algorithm configuration structs
+pub use error_optim::ErrorOptimConfig;
 pub use npag::NpagConfig;
 pub use npmap::NpmapConfig;
 pub use npod::NpodConfig;

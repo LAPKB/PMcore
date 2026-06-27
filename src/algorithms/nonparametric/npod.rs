@@ -15,6 +15,8 @@ use ndarray::Array1;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 
+use super::error_optim::{optimize_error_models, ErrorOptimConfig};
+
 const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
@@ -23,6 +25,8 @@ const THETA_D: f64 = 1e-4;
 pub struct NpodConfig {
     /// Maximum number of cycles to run the algorithm for.
     pub max_cycles: usize,
+    /// Configuration for the error-model factor (gamma/lambda) optimization.
+    pub error_optim: ErrorOptimConfig,
     /// Whether to print progress information during the first cycle.
     pub progress: bool,
 }
@@ -37,6 +41,11 @@ impl NpodConfig {
         self
     }
 
+    pub fn error_optim(mut self, config: ErrorOptimConfig) -> Self {
+        self.error_optim = config;
+        self
+    }
+
     pub fn progress(mut self, progress: bool) -> Self {
         self.progress = progress;
         self
@@ -47,6 +56,7 @@ impl Default for NpodConfig {
     fn default() -> Self {
         Self {
             max_cycles: 100,
+            error_optim: ErrorOptimConfig::default(),
             progress: true,
         }
     }
@@ -79,7 +89,7 @@ impl<E: Equation + Send + 'static> NPOD<E> {
         theta: Theta,
         config: NpodConfig,
     ) -> Result<Self> {
-        let gamma_delta = vec![0.1; error_models.len()];
+        let gamma_delta = vec![config.error_optim.step; error_models.len()];
 
         Ok(Self {
             equation,
@@ -309,75 +319,17 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
     }
 
     fn optimizations(&mut self) -> Result<()> {
-        self.error_models
-            .clone()
-            .iter_mut()
-            .filter_map(|(outeq, em)| {
-                if *em == AssayErrorModel::None || em.is_factor_fixed().unwrap_or(true) {
-                    None
-                } else {
-                    Some((outeq, em))
-                }
-            })
-            .try_for_each(|(outeq, em)| -> Result<()> {
-                let gamma_up = em.factor()? * (1.0 + self.gamma_delta[outeq]);
-                let gamma_down = em.factor()? / (1.0 + self.gamma_delta[outeq]);
-
-                let mut error_model_up = self.error_models.clone();
-                error_model_up.set_factor(outeq, gamma_up)?;
-
-                let mut error_model_down = self.error_models.clone();
-                error_model_down.set_factor(outeq, gamma_down)?;
-
-                let psi_up = calculate_psi(
-                    &self.equation,
-                    &self.data,
-                    &self.theta,
-                    &error_model_up,
-                    false,
-                )?;
-                let psi_down = calculate_psi(
-                    &self.equation,
-                    &self.data,
-                    &self.theta,
-                    &error_model_down,
-                    false,
-                )?;
-
-                let (lambda_up, objf_up) = match burke(&psi_up) {
-                    Ok((lambda, objf)) => (lambda, objf),
-                    Err(err) => {
-                        bail!("Error in IPM during optim: {:?}", err);
-                    }
-                };
-                let (lambda_down, objf_down) = match burke(&psi_down) {
-                    Ok((lambda, objf)) => (lambda, objf),
-                    Err(err) => {
-                        bail!("Error in IPM during optim: {:?}", err);
-                    }
-                };
-                if objf_up > self.objf {
-                    self.error_models.set_factor(outeq, gamma_up)?;
-                    self.objf = objf_up;
-                    self.gamma_delta[outeq] *= 4.;
-                    self.lambda = lambda_up;
-                    self.psi = psi_up;
-                }
-                if objf_down > self.objf {
-                    self.error_models.set_factor(outeq, gamma_down)?;
-                    self.objf = objf_down;
-                    self.gamma_delta[outeq] *= 4.;
-                    self.lambda = lambda_down;
-                    self.psi = psi_down;
-                }
-                self.gamma_delta[outeq] *= 0.5;
-                if self.gamma_delta[outeq] <= 0.01 {
-                    self.gamma_delta[outeq] = 0.1;
-                }
-                Ok(())
-            })?;
-
-        Ok(())
+        optimize_error_models(
+            &self.equation,
+            &self.data,
+            &self.theta,
+            &mut self.error_models,
+            &mut self.gamma_delta,
+            &mut self.objf,
+            &mut self.lambda,
+            &mut self.psi,
+            &self.config.error_optim,
+        )
     }
 
     fn expansion(&mut self) -> Result<()> {
