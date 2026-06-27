@@ -344,31 +344,53 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
                     false,
                 )?;
 
-                let (lambda_up, objf_up) = match burke(&psi_up) {
-                    Ok((lambda, objf)) => (lambda, objf),
+                // A failure of the IPM for one perturbation direction should not
+                // abort the whole optimization. Treat a failed direction as simply
+                // unavailable and proceed with whichever direction(s) succeeded.
+                let up = match burke(&psi_up) {
+                    Ok((lambda, objf)) => Some((lambda, objf)),
                     Err(err) => {
-                        bail!("Error in IPM during optim: {:?}", err);
+                        tracing::warn!(
+                            "Error in IPM during optim (up) for outeq {}: {:?}",
+                            outeq,
+                            err
+                        );
+                        None
                     }
                 };
-                let (lambda_down, objf_down) = match burke(&psi_down) {
-                    Ok((lambda, objf)) => (lambda, objf),
+                let down = match burke(&psi_down) {
+                    Ok((lambda, objf)) => Some((lambda, objf)),
                     Err(err) => {
-                        bail!("Error in IPM during optim: {:?}", err);
+                        tracing::warn!(
+                            "Error in IPM during optim (down) for outeq {}: {:?}",
+                            outeq,
+                            err
+                        );
+                        None
                     }
                 };
-                if objf_up > self.objf {
-                    self.error_models.set_factor(outeq, gamma_up)?;
-                    self.objf = objf_up;
-                    self.gamma_delta[outeq] *= 4.;
-                    self.lambda = lambda_up;
-                    self.psi = psi_up;
+
+                // Select the best improving candidate (if any) over the current
+                // objective. Among the two directions, the one with the higher
+                // objective function wins.
+                let mut best: Option<(f64, Weights, Psi, f64)> = None;
+                if let Some((lambda_up, objf_up)) = up {
+                    if objf_up > self.objf {
+                        best = Some((objf_up, lambda_up, psi_up, gamma_up));
+                    }
                 }
-                if objf_down > self.objf {
-                    self.error_models.set_factor(outeq, gamma_down)?;
-                    self.objf = objf_down;
+                if let Some((lambda_down, objf_down)) = down {
+                    let threshold = best.as_ref().map_or(self.objf, |(objf, ..)| *objf);
+                    if objf_down > threshold {
+                        best = Some((objf_down, lambda_down, psi_down, gamma_down));
+                    }
+                }
+                if let Some((objf, lambda, psi, gamma)) = best {
+                    self.error_models.set_factor(outeq, gamma)?;
+                    self.objf = objf;
                     self.gamma_delta[outeq] *= 4.;
-                    self.lambda = lambda_down;
-                    self.psi = psi_down;
+                    self.lambda = lambda;
+                    self.psi = psi;
                 }
                 self.gamma_delta[outeq] *= 0.5;
                 if self.gamma_delta[outeq] <= 0.01 {
