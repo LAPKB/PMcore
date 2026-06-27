@@ -37,4 +37,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-

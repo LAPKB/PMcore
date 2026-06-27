@@ -202,4 +202,3 @@ fn test_one_compartment_postprob() -> Result<()> {
 
     Ok(())
 }
-

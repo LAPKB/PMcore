@@ -39,4 +39,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-
