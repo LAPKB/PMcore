@@ -38,5 +38,7 @@ fn main() -> Result<()> {
 
     let _result = problem.fit_with(NonParametricAlgorithm::npag())?;
 
+    _result.write_outputs("outputs/bimodal_ke", 0.0, 0.0)?;
+
     Ok(())
 }
