@@ -100,9 +100,7 @@ impl NPPredictions {
     pub fn write(&self, path: &Path) -> Result<()> {
         tracing::debug!("Writing predictions...");
 
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        super::create_parent_dir(path)?;
 
         let mut writer = csv::WriterBuilder::new()
             .has_headers(true)

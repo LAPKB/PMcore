@@ -26,3 +26,19 @@ pub use statistics::{median, population_mean_median, posterior_mean_median, weig
 pub use summaries::{fit_summary, individual_summaries, population_summary};
 pub use theta::Theta;
 pub use weights::Weights;
+
+use std::path::Path;
+
+/// Create the parent directory of `path` if it has a non-empty one.
+///
+/// For a bare relative file name such as `theta.csv`, [`Path::parent`] returns
+/// `Some("")` (the empty path); calling `create_dir_all("")` would error. This
+/// helper skips that case so writing to the current directory works.
+pub(crate) fn create_parent_dir(path: &Path) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+    Ok(())
+}

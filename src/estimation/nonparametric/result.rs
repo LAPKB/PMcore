@@ -114,12 +114,23 @@ impl<E: Equation> NonParametricResult<E> {
     /// value themselves.
     pub fn predictions(&self, idelta: f64, tad: f64) -> anyhow::Result<NPPredictions> {
         let posterior = self.posterior()?;
+        self.predictions_with(&posterior, idelta, tad)
+    }
+
+    /// Like [`predictions`](Self::predictions), but reuses an already-computed
+    /// [`Posterior`] instead of recomputing it.
+    fn predictions_with(
+        &self,
+        posterior: &Posterior,
+        idelta: f64,
+        tad: f64,
+    ) -> anyhow::Result<NPPredictions> {
         NPPredictions::calculate(
             &self.equation,
             &self.data,
             &self.theta,
             &self.weights,
-            &posterior,
+            posterior,
             idelta,
             tad,
         )
@@ -140,9 +151,7 @@ impl<E: Equation> NonParametricResult<E> {
             );
         }
 
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        crate::estimation::nonparametric::create_parent_dir(path)?;
         let file = std::fs::File::create(path)?;
         let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
@@ -169,9 +178,7 @@ impl<E: Equation> NonParametricResult<E> {
 
         tracing::debug!("Writing posterior parameter probabilities...");
 
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        crate::estimation::nonparametric::create_parent_dir(path)?;
         let file = std::fs::File::create(path)?;
         let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
@@ -214,9 +221,7 @@ impl<E: Equation> NonParametricResult<E> {
         use pharmsol::Event;
 
         tracing::debug!("Writing covariates...");
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        crate::estimation::nonparametric::create_parent_dir(path)?;
         let file = std::fs::File::create(path)?;
         let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
@@ -296,7 +301,7 @@ impl<E: Equation> NonParametricResult<E> {
     /// the embedded predictions (see [`predictions`](Self::predictions)).
     pub fn write_json(&self, path: &Path, idelta: f64, tad: f64) -> anyhow::Result<()> {
         let posterior = self.posterior()?;
-        let predictions = self.predictions(idelta, tad)?;
+        let predictions = self.predictions_with(&posterior, idelta, tad)?;
         self.write_json_with(path, &posterior, &predictions)
     }
 
@@ -308,9 +313,7 @@ impl<E: Equation> NonParametricResult<E> {
     ) -> anyhow::Result<()> {
         tracing::debug!("Writing result as JSON...");
 
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        crate::estimation::nonparametric::create_parent_dir(path)?;
 
         let view = NonParametricResultJson {
             data: &self.data,
@@ -357,7 +360,7 @@ impl<E: Equation> NonParametricResult<E> {
 
         // Compute the expensive artifacts a single time and reuse them.
         let posterior = self.posterior()?;
-        let predictions = self.predictions(idelta, tad)?;
+        let predictions = self.predictions_with(&posterior, idelta, tad)?;
 
         self.write_theta(&dir.join("theta.csv"))?;
         self.write_posterior_with(&dir.join("posterior.csv"), &posterior)?;
