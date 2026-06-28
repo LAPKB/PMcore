@@ -53,14 +53,14 @@
 use anyhow::Result;
 use faer::Mat;
 
-use crate::algorithms::npag::burke;
-use crate::algorithms::npag::NPAG;
-use crate::algorithms::Algorithms;
+use crate::algorithms::nonparametric::npag::burke;
+use crate::algorithms::nonparametric::npag::NPAG;
+use crate::algorithms::NonParametricRunner;
+
 use crate::algorithms::Status;
+use crate::bestdose::types::BestDoseConfig;
+use crate::estimation::nonparametric::{calculate_psi, Theta, Weights};
 use crate::prelude::*;
-use crate::structs::psi::calculate_psi;
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
 use pharmsol::prelude::*;
 
 // =============================================================================
@@ -172,21 +172,22 @@ pub fn npagfull_refinement(
     filtered_weights: &Weights,
     past_data: &Data,
     eq: &ODE,
-    settings: &Settings,
+    config: &BestDoseConfig,
 ) -> Result<(Theta, Weights)> {
-    if settings.config.cycles == 0 {
+    if config.refinement_cycles() == 0 {
         tracing::info!("Stage 1.2: NPAGFULL refinement skipped (max_cycles=0)");
         return Ok((filtered_theta.clone(), filtered_weights.clone()));
     }
 
     tracing::info!(
         "Stage 1.2: NPAGFULL refinement (max_cycles={})",
-        settings.config.cycles
+        config.refinement_cycles()
     );
 
     let mut refined_points = Vec::new();
     let mut kept_weights: Vec<f64> = Vec::new();
     let num_points = filtered_theta.matrix().nrows();
+    let parameter_space = config.parameter_space().clone();
 
     for i in 0..num_points {
         tracing::debug!("  Refining point {}/{}", i + 1, num_points);
@@ -197,19 +198,22 @@ pub fn npagfull_refinement(
         // Create a single-point theta for NPAG initialization
         let n_params = point.len();
         let single_point_matrix = Mat::from_fn(1, n_params, |_r, c| point[c]);
-        let single_point_theta =
-            Theta::from_parts(single_point_matrix, settings.parameters().clone()).unwrap();
-
-        // Configure NPAG for refinement
-        let mut npag_settings = settings.clone();
-        npag_settings.disable_output(); // Don't write files for each refinement
-        npag_settings.set_prior(crate::routines::initialization::Prior::Theta(
-            single_point_theta.clone(),
-        ));
+        let single_point_theta = Theta::from_parts(single_point_matrix, parameter_space.clone())?;
 
         // Create and run NPAG
-        let mut npag = NPAG::new(npag_settings, eq.clone(), past_data.clone())?;
-        npag.set_theta(single_point_theta);
+        let npag_config = NpagConfig {
+            max_cycles: config.refinement_cycles(),
+            progress: config.progress(),
+            ..Default::default()
+        };
+
+        let mut npag = NPAG::from_parts(
+            eq.clone(),
+            past_data.clone(),
+            config.error_models().clone(),
+            single_point_theta,
+            npag_config,
+        )?;
 
         // Run NPAG optimization
         let refinement_result = npag.initialize().and_then(|_| {
@@ -280,10 +284,10 @@ pub fn npagfull_refinement(
     }
 
     // Build refined theta matrix
-    let n_params = settings.parameters().len();
+    let n_params = parameter_space.len();
     let n_points = refined_points.len();
     let refined_matrix = Mat::from_fn(n_points, n_params, |r, c| refined_points[r][c]);
-    let refined_theta = Theta::from_parts(refined_matrix, settings.parameters().clone()).unwrap();
+    let refined_theta = Theta::from_parts(refined_matrix, parameter_space).unwrap();
 
     // Renormalize weights
     let weight_sum: f64 = kept_weights.iter().sum();
@@ -314,7 +318,7 @@ pub fn calculate_two_step_posterior(
     past_data: &Data,
     eq: &ODE,
     error_models: &AssayErrorModels,
-    settings: &Settings,
+    config: &BestDoseConfig,
 ) -> Result<(Theta, Weights, Weights)> {
     tracing::info!("=== STAGE 1: Posterior Density Calculation ===");
 
@@ -334,7 +338,7 @@ pub fn calculate_two_step_posterior(
         &filtered_posterior_weights,
         past_data,
         eq,
-        settings,
+        config,
     )?;
 
     tracing::info!(

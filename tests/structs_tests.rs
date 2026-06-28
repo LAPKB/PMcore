@@ -1,6 +1,6 @@
 use anyhow::Result;
 use faer::{Col, Mat};
-use pmcore::structs::{psi::Psi, theta::Theta, weights::Weights};
+use pmcore::estimation::nonparametric::{Psi, Theta, Weights};
 use std::io::Cursor;
 
 /// Test Psi creation and basic operations
