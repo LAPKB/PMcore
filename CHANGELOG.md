@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0](https://github.com/LAPKB/PMcore/compare/v0.25.2...v0.26.0) - 2026-07-01
+
+### Added
+
+- Chain fit methods using result ([#284](https://github.com/LAPKB/PMcore/pull/284))
+- Support parametric and non-parametric algorithms ([#276](https://github.com/LAPKB/PMcore/pull/276))
+
+### Fixed
+
+- Fix outputs generation ([#288](https://github.com/LAPKB/PMcore/pull/288))
+
+### Other
+
+- Update security audit workflow ([#289](https://github.com/LAPKB/PMcore/pull/289))
+
 ## [0.25.2](https://github.com/LAPKB/PMcore/compare/v0.25.1...v0.25.2) - 2026-04-20
 
 ### Fixed
