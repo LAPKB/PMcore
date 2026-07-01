@@ -1,0 +1,5 @@
+particles,ske_opt,log_likelihood,converged,iterations
+50,0.061562,-97.1737,true,30
+100,0.080302,-97.5285,false,40
+200,0.066287,-97.0671,false,40
+500,0.061691,-97.2952,false,40

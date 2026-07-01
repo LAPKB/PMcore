@@ -89,6 +89,36 @@ impl<E: Equation> NonParametricResult<E> {
         &self.cyclelog
     }
 
+    /// Chain this result into a new fit with a different algorithm.
+    ///
+    /// Uses the optimized theta as the prior for the new run. Keeps the same
+    /// equation, data, and error models. Consumes `self`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let result = problem
+    ///     .fit_with(NpagConfig::new().max_cycles(100))?
+    ///     .chain(NpodConfig::new().max_cycles(50))?;
+    /// ```
+    pub fn chain<A>(self, algorithm: A) -> anyhow::Result<NonParametricResult<E>>
+    where
+        A: crate::algorithms::Algorithm<
+            E,
+            crate::estimation::NonParametric,
+            Output = NonParametricResult<E>,
+        >,
+        E: crate::model::EquationMetadataSource,
+    {
+        crate::estimation::EstimationProblem::nonparametric(
+            self.equation,
+            self.data,
+            self.theta,
+            self.error_models,
+        )?
+        .fit_with(algorithm)
+    }
+
     pub fn psi(&self) -> &Psi {
         &self.psi
     }
@@ -260,5 +290,146 @@ impl<E: Equation> NonParametricResult<E> {
 
         writer.flush()?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::algorithms::nonparametric::{NpagConfig, NpodConfig};
+    use crate::estimation::EstimationProblem;
+    use crate::model::ParameterSpace;
+    use pharmsol::equation::metadata;
+    use pharmsol::prelude::data::{AssayErrorModel, AssayErrorModels};
+    use pharmsol::{ErrorPoly, SubjectBuilderExt};
+
+    fn minimal_ode() -> pharmsol::ODE {
+        pharmsol::equation::ODE::new(
+            |x, p, _t, dx, b, _rateiv, _cov| {
+                let ke = p[0];
+                dx[0] = -ke * x[0] + b[0];
+            },
+            |_p, _t, _cov| pharmsol::lag! {},
+            |_p, _t, _cov| pharmsol::fa! {},
+            |_p, _t, _cov, _x| {},
+            |x, p, _t, _cov, y| {
+                let v = p[1];
+                y[0] = x[0] / v;
+            },
+        )
+        .with_nstates(1)
+        .with_ndrugs(1)
+        .with_nout(1)
+        .with_metadata(
+            metadata::new("chain_test")
+                .parameters(["ke", "v"])
+                .states(["central"])
+                .outputs(["0"])
+                .route(pharmsol::equation::Route::bolus("0").to_state("central")),
+        )
+        .expect("metadata should validate")
+    }
+
+    fn minimal_data() -> pharmsol::Data {
+        let subject = pharmsol::Subject::builder("1")
+            .bolus(0.0, 100.0, 0)
+            .observation(1.0, 10.0, 0)
+            .observation(2.0, 8.0, 0)
+            .build();
+        pharmsol::Data::new(vec![subject])
+    }
+
+    #[test]
+    fn chain_npag_to_npod_preserves_support_points() {
+        let ode = minimal_ode();
+        let data = minimal_data();
+        let params = ParameterSpace::bounded()
+            .add("ke", 0.001, 3.0)
+            .add("v", 25.0, 250.0);
+        let prior = Theta::sobol_default(&params).unwrap();
+        let err = AssayErrorModels::new()
+            .add(
+                "0",
+                AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            )
+            .unwrap();
+
+        let r1 = EstimationProblem::nonparametric(ode, data, prior, err)
+            .unwrap()
+            .fit_with(NpagConfig::new().max_cycles(2))
+            .unwrap();
+
+        let n_spp = r1.get_theta().nspp();
+        assert!(n_spp > 0, "NPAG should produce support points");
+
+        // Chain into NPOD — should complete without error
+        let r2 = r1.chain(NpodConfig::new().max_cycles(1)).unwrap();
+
+        assert!(r2.get_theta().nspp() > 0);
+        assert_eq!(r2.data().subjects().len(), 1);
+        assert_eq!(r2.cycles(), 1);
+    }
+
+    #[test]
+    fn chain_npag_to_npag_maintains_or_improves_objf() {
+        let ode = minimal_ode();
+        let data = minimal_data();
+        let params = ParameterSpace::bounded()
+            .add("ke", 0.001, 3.0)
+            .add("v", 25.0, 250.0);
+        let prior = Theta::sobol_with_seed(&params, 5, 42).unwrap();
+        let err = AssayErrorModels::new()
+            .add(
+                "0",
+                AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            )
+            .unwrap();
+
+        let r1 = EstimationProblem::nonparametric(ode, data, prior, err)
+            .unwrap()
+            .fit_with(NpagConfig::new().max_cycles(5))
+            .unwrap();
+
+        let objf1 = r1.objf();
+
+        // Chain into another NPAG run
+        let r2 = r1.chain(NpagConfig::new().max_cycles(3)).unwrap();
+
+        // Second run should not regress significantly
+        assert!(
+            r2.objf() <= objf1 + 0.5,
+            "OBJF regressed: {} -> {}",
+            objf1,
+            r2.objf()
+        );
+    }
+
+    #[test]
+    fn chain_npag_to_npod_with_unconverged_result() {
+        let ode = minimal_ode();
+        let data = minimal_data();
+        let params = ParameterSpace::bounded()
+            .add("ke", 0.001, 3.0)
+            .add("v", 25.0, 250.0);
+        let prior = Theta::sobol_with_seed(&params, 5, 42).unwrap();
+        let err = AssayErrorModels::new()
+            .add(
+                "0",
+                AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            )
+            .unwrap();
+
+        // Run only 1 cycle — will be unconverged
+        let r1 = EstimationProblem::nonparametric(ode, data, prior, err)
+            .unwrap()
+            .fit_with(NpagConfig::new().max_cycles(1))
+            .unwrap();
+
+        // Chaining from unconverged should still work
+        let r2 = r1.chain(NpodConfig::new().max_cycles(1));
+        assert!(
+            r2.is_ok(),
+            "Chaining from unconverged result should succeed"
+        );
     }
 }
