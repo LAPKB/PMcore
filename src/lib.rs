@@ -73,7 +73,7 @@ pub mod prelude {
     pub use crate::estimation::nonparametric::{
         CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
     };
-    pub use crate::iov::{optimize_diffusion, DiffusionConfig, DiffusionOptimize, DiffusionResult};
+    pub use crate::iov::{DiffusionConfig, DiffusionOptimize, DiffusionResult};
     pub use crate::model::{EquationMetadataSource, ModelMetadata};
     pub use crate::results::{
         FitResult, FitSummary, IndividualSummary, ParameterSummary, PopulationSummary,
