@@ -48,3 +48,5 @@ Fortran/
 paper/
 docs/
 examples/**/outputs/
+examples/iov_synthetic/
+examples/iov_*.rs
