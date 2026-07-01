@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use pharmsol::Equation;
+use serde::Serialize;
 
 use crate::algorithms::{Status, StopReason};
 use crate::estimation::nonparametric::{CycleLog, NPPredictions, Posterior, Psi, Theta, Weights};
@@ -143,12 +144,23 @@ impl<E: Equation> NonParametricResult<E> {
     /// value themselves.
     pub fn predictions(&self, idelta: f64, tad: f64) -> anyhow::Result<NPPredictions> {
         let posterior = self.posterior()?;
+        self.predictions_with(&posterior, idelta, tad)
+    }
+
+    /// Like [`predictions`](Self::predictions), but reuses an already-computed
+    /// [`Posterior`] instead of recomputing it.
+    fn predictions_with(
+        &self,
+        posterior: &Posterior,
+        idelta: f64,
+        tad: f64,
+    ) -> anyhow::Result<NPPredictions> {
         NPPredictions::calculate(
             &self.equation,
             &self.data,
             &self.theta,
             &self.weights,
-            &posterior,
+            posterior,
             idelta,
             tad,
         )
@@ -169,7 +181,7 @@ impl<E: Equation> NonParametricResult<E> {
             );
         }
 
-        std::fs::create_dir_all(path)?;
+        crate::estimation::nonparametric::create_parent_dir(path)?;
         let file = std::fs::File::create(path)?;
         let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
@@ -186,12 +198,17 @@ impl<E: Equation> NonParametricResult<E> {
         Ok(())
     }
 
-    pub fn write_posterior(&self, path: &str) -> anyhow::Result<()> {
+    pub fn write_posterior(&self, path: &Path) -> anyhow::Result<()> {
+        let posterior = self.posterior()?;
+        self.write_posterior_with(path, &posterior)
+    }
+
+    fn write_posterior_with(&self, path: &Path, posterior: &Posterior) -> anyhow::Result<()> {
         use csv::WriterBuilder;
 
         tracing::debug!("Writing posterior parameter probabilities...");
 
-        std::fs::create_dir_all(path)?;
+        crate::estimation::nonparametric::create_parent_dir(path)?;
         let file = std::fs::File::create(path)?;
         let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
@@ -203,7 +220,6 @@ impl<E: Equation> NonParametricResult<E> {
         writer.write_field("prob")?;
         writer.write_record(None::<&[u8]>)?;
 
-        let posterior = self.posterior()?;
         let subjects = self.data.subjects();
         posterior
             .matrix()
@@ -235,7 +251,7 @@ impl<E: Equation> NonParametricResult<E> {
         use pharmsol::Event;
 
         tracing::debug!("Writing covariates...");
-        std::fs::create_dir_all(path)?;
+        crate::estimation::nonparametric::create_parent_dir(path)?;
         let file = std::fs::File::create(path)?;
         let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
@@ -291,6 +307,120 @@ impl<E: Equation> NonParametricResult<E> {
         writer.flush()?;
         Ok(())
     }
+
+    /// Write the cycle log to a CSV file readable by Pmetrics.
+    pub fn write_cycles(&self, path: &Path) -> anyhow::Result<()> {
+        self.cyclelog.write(path)
+    }
+
+    /// Compute and write the population and posterior predictions to a CSV file
+    /// readable by Pmetrics.
+    ///
+    /// `idelta` is the interval used to densify the prediction grid and `tad` is
+    /// the additional time after the last event to simulate.
+    pub fn write_predictions(&self, path: &Path, idelta: f64, tad: f64) -> anyhow::Result<()> {
+        let predictions = self.predictions(idelta, tad)?;
+        predictions.write(path)
+    }
+
+    /// Serialize the complete result to a single JSON file.
+    ///
+    /// This includes the data, error models, prior, optimized support points,
+    /// likelihoods, weights, objective function, status, cycle log, posterior
+    /// probabilities, and predictions. `idelta` and `tad` control the density of
+    /// the embedded predictions (see [`predictions`](Self::predictions)).
+    pub fn write_json(&self, path: &Path, idelta: f64, tad: f64) -> anyhow::Result<()> {
+        let posterior = self.posterior()?;
+        let predictions = self.predictions_with(&posterior, idelta, tad)?;
+        self.write_json_with(path, &posterior, &predictions)
+    }
+
+    fn write_json_with(
+        &self,
+        path: &Path,
+        posterior: &Posterior,
+        predictions: &NPPredictions,
+    ) -> anyhow::Result<()> {
+        tracing::debug!("Writing result as JSON...");
+
+        crate::estimation::nonparametric::create_parent_dir(path)?;
+
+        let view = NonParametricResultJson {
+            data: &self.data,
+            error_models: &self.error_models,
+            prior: &self.prior,
+            theta: &self.theta,
+            psi: &self.psi,
+            weights: &self.weights,
+            objf: self.objf,
+            cycles: self.cycles,
+            status: &self.status,
+            cyclelog: &self.cyclelog,
+            posterior,
+            predictions,
+        };
+
+        let file = std::fs::File::create(path)?;
+        serde_json::to_writer_pretty(file, &view)?;
+        Ok(())
+    }
+
+    /// Write the full set of result artifacts to `directory`.
+    ///
+    /// The directory is created if it does not exist, and the following files
+    /// are produced (matching the names expected by Pmetrics):
+    /// - `theta.csv` — optimized support points with weights
+    /// - `posterior.csv` — per-subject posterior probabilities
+    /// - `pred.csv` — population and posterior predictions
+    /// - `covs.csv` — interpolated covariates
+    /// - `cycles.csv` — cycle log
+    /// - `result.json` — the complete result as JSON
+    ///
+    /// The posterior and predictions are computed once and shared across the CSV
+    /// and JSON outputs. `idelta` and `tad` control the density of the
+    /// predictions (see [`predictions`](Self::predictions)).
+    pub fn write_outputs(
+        &self,
+        directory: impl AsRef<Path>,
+        idelta: f64,
+        tad: f64,
+    ) -> anyhow::Result<()> {
+        let dir = directory.as_ref();
+        std::fs::create_dir_all(dir)?;
+
+        // Compute the expensive artifacts a single time and reuse them.
+        let posterior = self.posterior()?;
+        let predictions = self.predictions_with(&posterior, idelta, tad)?;
+
+        self.write_theta(&dir.join("theta.csv"))?;
+        self.write_posterior_with(&dir.join("posterior.csv"), &posterior)?;
+        predictions.write(&dir.join("pred.csv"))?;
+        self.write_covariates(&dir.join("covs.csv"))?;
+        self.write_cycles(&dir.join("cycles.csv"))?;
+        self.write_json_with(&dir.join("result.json"), &posterior, &predictions)?;
+
+        tracing::info!("Results written to {}", dir.display());
+        Ok(())
+    }
+}
+
+/// A borrowed, serializable view over [`NonParametricResult`] used to emit a
+/// single JSON document. The equation is intentionally omitted because it is
+/// generic and not necessarily serializable.
+#[derive(Serialize)]
+struct NonParametricResultJson<'a> {
+    data: &'a Data,
+    error_models: &'a AssayErrorModels,
+    prior: &'a Theta,
+    theta: &'a Theta,
+    psi: &'a Psi,
+    weights: &'a Weights,
+    objf: f64,
+    cycles: usize,
+    status: &'a Status,
+    cyclelog: &'a CycleLog,
+    posterior: &'a Posterior,
+    predictions: &'a NPPredictions,
 }
 
 #[cfg(test)]

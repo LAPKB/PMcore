@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::{bail, Result};
 use pharmsol::{prelude::simulator::Prediction, Censor, Data, Predictions as PredTrait};
 use serde::{Deserialize, Serialize};
@@ -88,6 +90,28 @@ impl NPPredictions {
 
     pub fn predictions(&self) -> &[NPPredictionRow] {
         &self.predictions
+    }
+
+    /// Write the predictions to a CSV file readable by Pmetrics.
+    ///
+    /// The parent directory is created if it does not already exist. The header
+    /// matches the fields of [`NPPredictionRow`]:
+    /// `id,time,outeq,block,obs,cens,pop_mean,pop_median,post_mean,post_median`.
+    pub fn write(&self, path: &Path) -> Result<()> {
+        tracing::debug!("Writing predictions...");
+
+        super::create_parent_dir(path)?;
+
+        let mut writer = csv::WriterBuilder::new()
+            .has_headers(true)
+            .from_path(path)?;
+
+        for row in &self.predictions {
+            writer.serialize(row)?;
+        }
+
+        writer.flush()?;
+        Ok(())
     }
 
     pub fn calculate(
