@@ -158,7 +158,7 @@ impl DiffusionOptimize for SDE {
 /// method that requires fresh random evaluations every iteration. Ensure the SDE
 /// is constructed with `.disable_cache()` before passing it here. This function
 /// warns (but does not error) if caching may be enabled.
-pub fn optimize_diffusion(
+pub(crate) fn optimize_diffusion(
     sde: &SDE,
     data: &Data,
     theta: &mut Theta,
