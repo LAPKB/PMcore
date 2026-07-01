@@ -192,9 +192,10 @@ impl ParameterMeta for UnboundedParameter {
 }
 
 /// Scale transform for parametric parameters.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
 pub enum ParameterScale {
     /// Identity transform.
+    #[default]
     Identity,
     /// Log transform.
     Log,
@@ -202,12 +203,6 @@ pub enum ParameterScale {
     Logit { lower: f64, upper: f64 },
     /// Probit transform on `(lower, upper)`.
     Probit { lower: f64, upper: f64 },
-}
-
-impl Default for ParameterScale {
-    fn default() -> Self {
-        ParameterScale::Identity
-    }
 }
 
 /// Entry point for building parameter declarations.

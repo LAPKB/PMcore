@@ -19,8 +19,8 @@ impl ErrorModels {
     }
 }
 
-impl Into<AssayErrorModels> for ErrorModels {
-    fn into(self) -> AssayErrorModels {
-        self.models().clone()
+impl From<ErrorModels> for AssayErrorModels {
+    fn from(val: ErrorModels) -> Self {
+        val.models().clone()
     }
 }
