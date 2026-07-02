@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, DoseRange, Target};
+use pmcore::bestdose::{BestDosePosterior, DoseRange, Prior, Target};
 use pmcore::prelude::*;
 
 fn main() -> Result<()> {
@@ -15,15 +15,15 @@ fn main() -> Result<()> {
         name: "bestdose_auc_one_compartment",
         params: [ke, v],
         states: [central],
-        outputs: [cp],
+        outputs: [outeq_0],
         routes: [
-            bolus(dose) -> central,
+            bolus(input_0) -> central,
         ],
         diffeq: |x, _t, dx| {
             dx[central] = -ke * x[central];
         },
         out: |x, _t, y| {
-            y[cp] = x[central] / v;
+            y[outeq_0] = x[central] / v;
         },
     };
 
@@ -37,17 +37,11 @@ fn main() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone())
-        .with_progress(false)
-        .with_prediction_interval(60.0);
-
     // Load realistic prior from previous NPAG run (47 support points)
     println!("Loading prior from bimodal_ke example...");
-    let (theta, prior) =
-        Theta::from_file("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
-    let weights = prior.as_ref().unwrap();
+    let prior = Prior::from_file("outputs/bimodal_ke/theta.csv", &parameter_space)?;
 
-    println!("Prior: {} support points\n", theta.matrix().nrows());
+    println!("Prior: {} support points\n", prior.theta().matrix().nrows());
 
     // Target: achieve specific AUC values (simple targets)
     println!("Target AUCs:");
@@ -61,22 +55,17 @@ fn main() -> Result<()> {
         .build();
 
     println!("Creating BestDose posterior (no past data - use prior directly)...");
-    let posterior = BestDosePosterior::compute(
-        &theta,
-        weights,
-        None, // No past data - use prior directly
-        eq.clone(),
-        config.clone(),
-    )?;
+    let posterior = BestDosePosterior::builder(eq.clone(), ems.clone(), prior)
+        .progress(false)
+        .compute()?;
 
     println!("Optimizing dose...\n");
-    let optimal = posterior.optimize(
-        target_data.clone(),
-        None,
-        DoseRange::new(100.0, 2000.0),
-        0.8,
-        Target::AUCFromZero,
-    )?;
+    let optimal = posterior
+        .optimize(target_data.clone(), Target::AUCFromZero)
+        .dose_range(DoseRange::new(100.0, 2000.0))
+        .bias(0.8)
+        .prediction_interval(60.0)
+        .run()?;
 
     let opt_doses = optimal.doses();
 
@@ -136,13 +125,12 @@ fn main() -> Result<()> {
         .build();
 
     println!("Creating BestDose problem with interval AUC target...");
-    let optimal_interval = posterior.optimize(
-        target_interval.clone(),
-        None,
-        DoseRange::new(50.0, 500.0),
-        0.8,
-        Target::AUCFromLastDose,
-    )?;
+    let optimal_interval = posterior
+        .optimize(target_interval.clone(), Target::AUCFromLastDose)
+        .dose_range(DoseRange::new(50.0, 500.0))
+        .bias(0.8)
+        .prediction_interval(60.0)
+        .run()?;
 
     let doses: Vec<f64> = optimal_interval.doses();
 

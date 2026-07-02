@@ -211,76 +211,98 @@ impl Display for OptimizationStrategy {
     }
 }
 
+/// Estimation-stage settings for computing a patient posterior (Stage 1).
+///
+/// This is an internal configuration assembled by
+/// [`BestDosePosterior::builder`](crate::bestdose::BestDosePosterior::builder).
+/// It carries only estimation concerns; forecasting concerns (e.g. the
+/// prediction interval) live on the [`DoseOptimization`] builder instead.
 #[derive(Debug, Clone)]
-pub struct BestDoseConfig {
-    pub(crate) parameter_space: ParameterSpace<BoundedParameter>,
+pub(crate) struct BestDoseConfig {
     pub(crate) error_models: AssayErrorModels,
     pub(crate) refinement_cycles: usize,
     pub(crate) progress: bool,
-    pub(crate) prediction_interval: f64,
 }
 
 impl BestDoseConfig {
-    pub fn new(
-        parameter_space: ParameterSpace<BoundedParameter>,
-        error_models: AssayErrorModels,
-    ) -> Self {
-        Self {
-            parameter_space,
-            error_models,
-            refinement_cycles: 500,
-            progress: true,
-            prediction_interval: 0.12,
-        }
-    }
-
-    pub fn with_refinement_cycles(mut self, refinement_cycles: usize) -> Self {
-        self.refinement_cycles = refinement_cycles;
-        self
-    }
-
-    pub fn with_progress(mut self, progress: bool) -> Self {
-        self.progress = progress;
-        self
-    }
-
-    pub fn with_prediction_interval(mut self, prediction_interval: f64) -> Self {
-        self.prediction_interval = prediction_interval;
-        self
-    }
-
-    pub fn parameter_space(&self) -> &ParameterSpace<BoundedParameter> {
-        &self.parameter_space
-    }
-
-    pub fn error_models(&self) -> &AssayErrorModels {
+    pub(crate) fn error_models(&self) -> &AssayErrorModels {
         &self.error_models
     }
 
-    pub fn refinement_cycles(&self) -> usize {
+    pub(crate) fn refinement_cycles(&self) -> usize {
         self.refinement_cycles
     }
 
-    pub fn progress(&self) -> bool {
+    pub(crate) fn progress(&self) -> bool {
         self.progress
-    }
-
-    pub fn prediction_interval(&self) -> f64 {
-        self.prediction_interval
-    }
-
-    pub fn parameter_names(&self) -> Vec<String> {
-        self.parameter_space
-            .iter()
-            .map(|parameter| parameter.name.clone())
-            .collect()
     }
 }
 
+/// A population prior for BestDose: the joint support points ([`Theta`]) together
+/// with their probability [`Weights`].
+///
+/// The `Theta` already carries its own [`ParameterSpace`], so the parameter space
+/// does not need to be supplied again when computing a posterior.
+///
+/// # Examples
+/// ```rust,ignore
+/// let parameters = ParameterSpace::bounded().add("ke", 0.001, 3.0).add("v", 25.0, 250.0);
+/// let prior = Prior::from_file("outputs/theta.csv", &parameters)?;
+/// ```
+#[derive(Debug, Clone)]
+pub struct Prior {
+    pub(crate) theta: Theta,
+    pub(crate) weights: Weights,
+}
+
+impl Prior {
+    /// Creates a prior from support points and their weights.
+    ///
+    /// Returns an error if the number of weights does not match the number of
+    /// support points in `theta`.
+    pub fn new(theta: Theta, weights: Weights) -> anyhow::Result<Self> {
+        if weights.len() != theta.matrix().nrows() {
+            anyhow::bail!(
+                "number of weights ({}) does not match the number of support points ({})",
+                weights.len(),
+                theta.matrix().nrows()
+            );
+        }
+        Ok(Self { theta, weights })
+    }
+
+    /// Loads a prior from a `theta.csv` produced by a previous NPAG run.
+    ///
+    /// The `parameter_space` supplies the bounds/ordering used to interpret the
+    /// CSV columns. The file must contain a `prob` column with the weights.
+    pub fn from_file(
+        path: impl AsRef<std::path::Path>,
+        parameter_space: &ParameterSpace<BoundedParameter>,
+    ) -> anyhow::Result<Self> {
+        let (theta, weights) = Theta::from_file(path, parameter_space)?;
+        let weights = weights.ok_or_else(|| {
+            anyhow::anyhow!("prior file does not contain a `prob` column with weights")
+        })?;
+        Self::new(theta, weights)
+    }
+
+    /// The prior support points.
+    pub fn theta(&self) -> &Theta {
+        &self.theta
+    }
+
+    /// The prior weights.
+    pub fn weights(&self) -> &Weights {
+        &self.weights
+    }
+}
+
+
 /// The computed Bayesian posterior for a patient.
 ///
-/// This reusable object is the public two-stage BestDose entry point:
-/// first compute the posterior once, then optimize multiple future targets.
+/// Produced by [`BestDosePosterior::builder`]. Compute the posterior once, then
+/// reuse it to [`optimize`](BestDosePosterior::optimize) any number of future
+/// targets.
 #[derive(Debug, Clone)]
 pub struct BestDosePosterior {
     pub(crate) theta: Theta,
@@ -288,7 +310,52 @@ pub struct BestDosePosterior {
     pub(crate) population_weights: Weights,
     pub(crate) past_data: Option<Subject>,
     pub(crate) eq: ODE,
-    pub(crate) config: BestDoseConfig,
+}
+
+/// Builder for the estimation stage — see [`BestDosePosterior::builder`].
+///
+/// Carries only estimation-time settings. Call
+/// [`compute`](BestDosePosteriorBuilder::compute) to run Stage 1.
+#[derive(Debug, Clone)]
+pub struct BestDosePosteriorBuilder {
+    pub(crate) eq: ODE,
+    pub(crate) prior: Prior,
+    pub(crate) history: Option<Subject>,
+    pub(crate) error_models: AssayErrorModels,
+    pub(crate) refinement_cycles: usize,
+    pub(crate) progress: bool,
+}
+
+impl BestDosePosteriorBuilder {
+    /// Sets the patient history used for Bayesian updating.
+    ///
+    /// When omitted (or `None`, or a subject with no observations), the
+    /// population prior is used directly as the posterior.
+    pub fn history(mut self, past_data: Option<Subject>) -> Self {
+        self.history = past_data;
+        self
+    }
+
+    /// Number of NPAGFULL refinement cycles per support point (default 500).
+    /// Use `0` to skip refinement and keep the filtered points directly.
+    pub fn refinement_cycles(mut self, cycles: usize) -> Self {
+        self.refinement_cycles = cycles;
+        self
+    }
+
+    /// Whether to show progress output during refinement (default `true`).
+    pub fn progress(mut self, progress: bool) -> Self {
+        self.progress = progress;
+        self
+    }
+
+    pub(crate) fn config(&self) -> BestDoseConfig {
+        BestDoseConfig {
+            error_models: self.error_models.clone(),
+            refinement_cycles: self.refinement_cycles,
+            progress: self.progress,
+        }
+    }
 }
 
 impl BestDosePosterior {
@@ -308,6 +375,7 @@ impl BestDosePosterior {
         self.theta.matrix().nrows()
     }
 }
+
 
 /// The BestDose optimization problem
 ///
@@ -380,7 +448,7 @@ impl BestDosePosterior {
 /// # }
 /// ```
 #[derive(Debug, Clone)]
-pub struct BestDoseProblem {
+pub(crate) struct BestDoseProblem {
     /// Target subject with dosing template and target observations
     ///
     /// This [Subject] defines the targets for optimization, including
@@ -404,16 +472,66 @@ pub struct BestDoseProblem {
     pub(crate) theta: Theta,
     pub(crate) posterior: Weights,
 
-    // Model and configuration
+    // Model
     pub(crate) eq: ODE,
-    pub(crate) config: BestDoseConfig,
 
     // Optimization parameters
     pub(crate) doserange: DoseRange,
     pub(crate) bias_weight: f64, // λ: 0=personalized, 1=population
-    pub(crate) optimization_strategy: OptimizationStrategy,
+
+    /// Dense-grid interval used for prediction/AUC integration (forecasting knob).
+    pub(crate) prediction_interval: f64,
+}
+/// Builder for the forecasting stage — see [`BestDosePosterior::optimize`].
+///
+/// Carries only forecasting-time settings (dose range, bias, strategy,
+/// prediction interval, time offset). Call [`run`](DoseOptimization::run) to
+/// solve for the optimal doses.
+pub struct DoseOptimization<'a> {
+    pub(crate) posterior: &'a BestDosePosterior,
+    pub(crate) target: Subject,
+    pub(crate) target_type: Target,
+    pub(crate) dose_range: DoseRange,
+    pub(crate) bias_weight: f64,
+    pub(crate) strategy: OptimizationStrategy,
+    pub(crate) prediction_interval: f64,
+    pub(crate) time_offset: Option<f64>,
 }
 
+impl<'a> DoseOptimization<'a> {
+    /// Sets the allowable dose range (default: unbounded).
+    pub fn dose_range(mut self, dose_range: DoseRange) -> Self {
+        self.dose_range = dose_range;
+        self
+    }
+
+    /// Sets the bias weight λ ∈ [0, 1] (default `0.0` = full personalization;
+    /// `1.0` = population-typical).
+    pub fn bias(mut self, bias_weight: f64) -> Self {
+        self.bias_weight = bias_weight;
+        self
+    }
+
+    /// Sets the Stage-2 optimization strategy (default [`OptimizationStrategy::Dual`]).
+    pub fn strategy(mut self, strategy: OptimizationStrategy) -> Self {
+        self.strategy = strategy;
+        self
+    }
+
+    /// Sets the dense-grid interval used for AUC/prediction integration
+    /// (default `0.12`). Values `< 1.0` are interpreted as hours, `>= 1.0` as minutes.
+    pub fn prediction_interval(mut self, prediction_interval: f64) -> Self {
+        self.prediction_interval = prediction_interval;
+        self
+    }
+
+    /// Sets the gap (in hours) between the last past event and the first future
+    /// event, concatenating stored history with the offset target.
+    pub fn time_offset(mut self, time_offset: f64) -> Self {
+        self.time_offset = Some(time_offset);
+        self
+    }
+}
 /// Result from BestDose optimization
 ///
 /// Contains the optimal doses and associated predictions from running

@@ -246,7 +246,7 @@ pub fn npagfull_refinement(
     let mut refined_points = Vec::new();
     let mut kept_weights: Vec<f64> = Vec::new();
     let num_points = filtered_theta.matrix().nrows();
-    let parameter_space = config.parameter_space().clone();
+    let parameter_space = filtered_theta.parameters().clone();
 
     for i in 0..num_points {
         tracing::debug!("  Refining point {}/{}", i + 1, num_points);

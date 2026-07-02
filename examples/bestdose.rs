@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, DoseRange, Target};
+use pmcore::bestdose::{BestDosePosterior, DoseRange, OptimizationStrategy, Prior, Target};
 use pmcore::prelude::*;
 
 fn main() -> Result<()> {
@@ -8,15 +8,15 @@ fn main() -> Result<()> {
         name: "bestdose_one_compartment",
         params: [ke, v],
         states: [central],
-        outputs: [cp],
+        outputs: [outeq_0],
         routes: [
-            bolus(dose) -> central,
+            bolus(input_0) -> central,
         ],
         diffeq: |x, _t, dx| {
             dx[central] = -ke * x[central];
         },
         out: |x, _t, y| {
-            y[cp] = x[central] / v;
+            y[outeq_0] = x[central] / v;
         },
     };
 
@@ -28,7 +28,6 @@ fn main() -> Result<()> {
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
-    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone()).with_progress(false);
 
     // Generate a patient with known parameters
     // Ke = 0.5, V = 50
@@ -65,16 +64,14 @@ fn main() -> Result<()> {
         .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
         .build();
 
-    let (theta, prior) =
-        Theta::from_file("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
+    // Load the population prior produced by the `bimodal_ke` example.
+    // Run `cargo run --example bimodal_ke` first to generate this file.
+    let prior = Prior::from_file("outputs/bimodal_ke/theta.csv", &parameter_space)?;
 
-    let posterior = BestDosePosterior::compute(
-        &theta,
-        &prior.unwrap(),
-        Some(past_data.clone()), // Optional: past data for Bayesian updating
-        eq.clone(),
-        config.clone(),
-    )?;
+    let posterior = BestDosePosterior::builder(eq.clone(), ems.clone(), prior)
+        .history(Some(past_data.clone())) // Optional: past data for Bayesian updating
+        .progress(false)
+        .compute()?;
 
     println!("Optimizing dose...");
 
@@ -83,13 +80,11 @@ fn main() -> Result<()> {
 
     for bias_weight in &bias_weights {
         println!("Running optimization with bias weight: {}", bias_weight);
-        let optimal = posterior.optimize(
-            target_data.clone(),
-            None,
-            DoseRange::new(0.0, 300.0),
-            *bias_weight,
-            Target::Concentration,
-        )?;
+        let optimal = posterior
+            .optimize(target_data.clone(), Target::Concentration)
+            .dose_range(DoseRange::new(0.0, 300.0))
+            .bias(*bias_weight)
+            .run()?;
         results.push((bias_weight, optimal));
     }
 
@@ -106,6 +101,41 @@ fn main() -> Result<()> {
             optimal.optimization_method()
         );
     }
+
+    // ── Reuse the same posterior across different dose-range constraints ──
+    // The posterior is computed once and can be reused for any number of
+    // forecasting scenarios. Here we hold the bias weight fixed and vary the
+    // allowable dose range, illustrating how bounds constrain the optimum.
+    println!("\n=== Dose-range constraints (posterior reused, bias = 0.5) ===");
+    println!("{:<24} {:>18}", "Range", "Optimal doses");
+    for (min, max) in [(0.0, 300.0), (50.0, 150.0), (200.0, 300.0)] {
+        let result = posterior
+            .optimize(target_data.clone(), Target::Concentration)
+            .dose_range(DoseRange::new(min, max))
+            .bias(0.5)
+            .run()?;
+        println!(
+            "{:<24} {:>18}",
+            format!("[{min}, {max}] mg"),
+            format!("{:?}", result.doses())
+        );
+    }
+
+    // ── Optimization strategy ──
+    // By default BestDose runs a *dual* optimization (both posterior- and
+    // population-weighted) and keeps the cheaper result. To force the
+    // patient-specific path only, use `PosteriorOnly`.
+    let posterior_only = posterior
+        .optimize(target_data.clone(), Target::Concentration)
+        .dose_range(DoseRange::new(0.0, 300.0))
+        .bias(0.0)
+        .strategy(OptimizationStrategy::PosteriorOnly)
+        .run()?;
+    println!(
+        "\nPosterior-only (\u{3bb}=0) optimal doses: {:?} (method: {})",
+        posterior_only.doses(),
+        posterior_only.optimization_method()
+    );
 
     // Print concentration-time predictions for the optimal dose
     let optimal = &results.last().unwrap().1;

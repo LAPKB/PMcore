@@ -353,7 +353,7 @@ pub(crate) fn calculate_final_predictions(
                 })
                 .collect();
 
-            let idelta = problem.config.prediction_interval();
+            let idelta = problem.prediction_interval;
             let start_time = 0.0;
             let end_time = obs_times.last().copied().unwrap_or(0.0);
             let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);

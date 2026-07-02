@@ -129,7 +129,7 @@ use pharmsol::Equation;
 /// - Model simulation fails
 /// - Prediction length doesn't match observation count
 /// - AUC calculation fails (for AUC targets)
-pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
+pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
     // Validate candidate_doses length matches expected optimizable dose count
     let expected_optimizable = problem
         .target
@@ -254,7 +254,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             }
             Target::AUCFromZero => {
                 // For AUC: simulate at dense time grid and calculate cumulative AUC
-                let idelta = problem.config.prediction_interval();
+                let idelta = problem.prediction_interval;
                 let start_time = 0.0; // Future starts at 0
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
@@ -384,7 +384,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             }
             Target::AUCFromLastDose => {
                 // For interval AUC: simulate at dense time grid and calculate AUC from last dose
-                let idelta = problem.config.prediction_interval();
+                let idelta = problem.prediction_interval;
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
                 // Generate dense time grid from 0 to end_time (need full grid for intervals)
@@ -551,4 +551,80 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
     let cost = (1.0 - problem.bias_weight) * variance + problem.bias_weight * bias;
 
     Ok(cost)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::calculate_cost;
+    use crate::bestdose::types::{BestDoseProblem, DoseRange, Target};
+    use crate::estimation::nonparametric::{Theta, Weights};
+    use crate::model::{BoundedParameter, ParameterSpace};
+    use pharmsol::prelude::*;
+
+    fn one_compartment() -> pharmsol::ODE {
+        equation::ODE::new(
+            |x, p, _t, dx, b, _rateiv, _cov| {
+                fetch_params!(p, ke, _v);
+                dx[0] = -ke * x[0] + b[0];
+            },
+            |_p, _, _| lag! {},
+            |_p, _, _| fa! {},
+            |_p, _t, _cov, _x| {},
+            |x, p, _t, _cov, y| {
+                fetch_params!(p, _ke, v);
+                y[0] = x[0] / v;
+            },
+        )
+    }
+
+    fn single_point_theta() -> Theta {
+        let params = ParameterSpace::<BoundedParameter>::new()
+            .add("ke", 0.1, 0.5)
+            .add("v", 40.0, 60.0);
+        let mat = faer::Mat::from_fn(1, 2, |_r, c| if c == 0 { 0.3 } else { 50.0 });
+        Theta::from_parts(mat, params).unwrap()
+    }
+
+    fn problem_with(target: Subject) -> BestDoseProblem {
+        BestDoseProblem {
+            target,
+            target_type: Target::Concentration,
+            population_weights: Weights::uniform(1),
+            theta: single_point_theta(),
+            posterior: Weights::uniform(1),
+            eq: one_compartment(),
+            doserange: DoseRange::new(10.0, 300.0),
+            bias_weight: 0.5,
+            prediction_interval: 0.12,
+        }
+    }
+
+    #[test]
+    fn dose_count_mismatch_is_rejected() {
+        // Two optimizable doses, so a single candidate dose must be rejected.
+        let target = Subject::builder("test_patient")
+            .bolus(0.0, 0.0, 0)
+            .bolus(6.0, 0.0, 0)
+            .observation(2.0, 5.0, 0)
+            .observation(8.0, 3.0, 0)
+            .build();
+        let problem = problem_with(target);
+
+        let wrong = calculate_cost(&problem, &[100.0]);
+        assert!(wrong.is_err(), "wrong dose count should fail");
+        assert!(wrong.unwrap_err().to_string().contains("mismatch"));
+
+        let correct = calculate_cost(&problem, &[100.0, 150.0]);
+        assert!(correct.is_ok(), "correct dose count should succeed");
+    }
+
+    #[test]
+    fn empty_observations_are_rejected() {
+        let target = Subject::builder("test_patient").bolus(0.0, 0.0, 0).build();
+        let problem = problem_with(target);
+
+        let result = calculate_cost(&problem, &[100.0]);
+        assert!(result.is_err(), "no observations should fail");
+        assert!(result.unwrap_err().to_string().contains("no observations"));
+    }
 }
