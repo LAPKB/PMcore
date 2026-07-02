@@ -285,7 +285,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPAG<E> {
         // Stop if stopfile exists
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
-            self.set_status(Status::Stop(StopReason::Stopped));
+            self.set_status(Status::Stop(StopReason::StopFile));
             self.log_cycle_state();
             return Ok(self.status().clone());
         }
@@ -423,6 +423,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPAG<E> {
             -2. * self.objf,
             self.error_models.clone(),
             self.theta.clone(),
+            self.w.clone(),
             self.theta.nspp(),
             (self.last_objf - self.objf).abs(),
             self.status.clone(),
