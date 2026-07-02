@@ -594,6 +594,7 @@ impl BestDosePosterior {
             config: self.config.clone(),
             doserange: dose_range,
             bias_weight,
+            optimization_strategy: OptimizationStrategy::default(),
         };
 
         optimization::dual_optimization(&problem)

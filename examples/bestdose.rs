@@ -118,15 +118,18 @@ fn main() -> Result<()> {
     }
 
     // Print the posterior support points with their filtered population and posterior weights.
-    let posterior_theta = problem.posterior_theta();
-    let posterior_weights = problem.posterior_weights();
-    let population_weights = problem.population_weights();
+    let posterior_theta = posterior.theta();
+    let posterior_weights = posterior.posterior_weights();
+    let population_weights = posterior.population_weights();
     let param_names = posterior_theta.param_names();
 
     println!("\n=== Support Points Summary ===");
     println!("Number of support points: {}", posterior_theta.nspp());
 
-    print!("\n{:<8} {:<15} {:<15}", "Point", "Prior Weight", "Posterior Weight");
+    print!(
+        "\n{:<8} {:<15} {:<15}",
+        "Point", "Prior Weight", "Posterior Weight"
+    );
     for name in &param_names {
         print!(" {:<15}", name);
     }
@@ -138,9 +141,7 @@ fn main() -> Result<()> {
 
         print!(
             "{:<8} {:<15.6e} {:<15.6e}",
-            point_idx,
-            population_weights[point_idx],
-            posterior_weights[point_idx]
+            point_idx, population_weights[point_idx], posterior_weights[point_idx]
         );
 
         for value in row.iter() {

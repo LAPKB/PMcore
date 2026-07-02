@@ -1,25 +1,26 @@
 use anyhow::Result;
-use pmcore::bestdose; // bestdose new
-                      // use pmcore::bestdose::bestdose_old as bestdose; // bestdose old
-
+use pmcore::bestdose::{BestDoseConfig, BestDoseProblem, DoseRange, OptimizationStrategy, Target};
 use pmcore::prelude::*;
-use pmcore::routines::initialization::parse_prior;
 
 fn main() -> Result<()> {
     // Example model
     let eq = ode! {
-        diffeq: |x, p, _t, dx, b, _rateiv, _cov| {
-            // fetch_cov!(cov, t, wt);
-            fetch_params!(p, ke, _v);
-            dx[0] = -ke * x[0] + b[0];
+        name: "bestdose_one_compartment",
+        params: [ke, v],
+        states: [central],
+        outputs: [cp],
+        routes: [
+            bolus(dose) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
         },
-        out: |x, p, _t, _cov, y| {
-            fetch_params!(p, _ke, v);
-            y[0] = x[0] / v;
+        out: |x, _t, y| {
+            y[cp] = x[central] / v;
         },
     };
 
-    let params = Parameters::new()
+    let parameter_space = ParameterSpace::<BoundedParameter>::new()
         .add("ke", 0.001, 3.0)
         .add("v", 25.0, 250.0);
 
@@ -27,15 +28,7 @@ fn main() -> Result<()> {
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
-
-    // Make settings
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
+    let config = BestDoseConfig::new(parameter_space.clone(), ems.clone()).with_progress(false);
 
     // Generate a patient with known parameters
     // Ke = 0.5, V = 50
@@ -72,25 +65,22 @@ fn main() -> Result<()> {
         .observation(18.0, conc(6.0, 75.0) + conc(18.0, 150.0), 0)
         .build();
 
-    let (theta, prior) = parse_prior(
-        &"examples/bimodal_ke/prior.csv".to_string(),
-        &settings,
-    )
-    .unwrap();
+    let (theta, prior) =
+        Theta::from_file("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
 
-    let problem = bestdose::BestDoseProblem::new(
+    let problem = BestDoseProblem::new(
         &theta,
         &prior.unwrap(),
         Some(past_data.clone()),
         target_data.clone(),
         None,
         eq.clone(),
-        bestdose::DoseRange::new(0.0, 300.0),
+        DoseRange::new(0.0, 300.0),
         0.0,
-        settings.clone(),
-        bestdose::Target::Concentration,
+        config.clone(),
+        Target::Concentration,
     )?
-    .with_optimization_strategy(bestdose::OptimizationStrategy::PosteriorOnly);
+    .with_optimization_strategy(OptimizationStrategy::PosteriorOnly);
 
     println!("Optimizing dose with posterior-only strategy...");
 
@@ -133,7 +123,10 @@ fn main() -> Result<()> {
     println!("\n=== Support Points Summary ===");
     println!("Number of support points: {}", posterior_theta.nspp());
 
-    print!("\n{:<8} {:<15} {:<15}", "Point", "Prior Weight", "Posterior Weight");
+    print!(
+        "\n{:<8} {:<15} {:<15}",
+        "Point", "Prior Weight", "Posterior Weight"
+    );
     for name in &param_names {
         print!(" {:<15}", name);
     }
@@ -145,9 +138,7 @@ fn main() -> Result<()> {
 
         print!(
             "{:<8} {:<15.6e} {:<15.6e}",
-            point_idx,
-            population_weights[point_idx],
-            posterior_weights[point_idx]
+            point_idx, population_weights[point_idx], posterior_weights[point_idx]
         );
 
         for value in row.iter() {
