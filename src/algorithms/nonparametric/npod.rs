@@ -62,6 +62,7 @@ impl Default for NpodConfig {
     }
 }
 
+#[derive(Debug)]
 pub struct NPOD<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
