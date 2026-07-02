@@ -6,9 +6,7 @@ use pharmsol::{AssayErrorModel, AssayErrorModels};
 use serde::Serialize;
 
 use crate::{
-    algorithms::{Status, StopReason},
-    estimation::nonparametric::median,
-    estimation::nonparametric::theta::Theta,
+    algorithms::Status, estimation::nonparametric::median, estimation::nonparametric::theta::Theta,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -141,10 +139,7 @@ impl CycleLog {
 
         for cycle in &self.cycles {
             writer.write_field(format!("{}", cycle.cycle))?;
-            writer.write_field(format!(
-                "{}",
-                cycle.status == Status::Stop(StopReason::Converged)
-            ))?;
+            writer.write_field(format!("{}", cycle.status.converged()))?;
             writer.write_field(format!("{}", cycle.status))?;
             writer.write_field(format!("{}", cycle.objf))?;
             writer

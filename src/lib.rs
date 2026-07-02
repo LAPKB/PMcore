@@ -67,6 +67,7 @@ pub mod prelude {
         BoundedParameter, Parameter, ParameterScale, ParameterSpace, UnboundedParameter,
     };
 
+    pub use crate::algorithms::nonparametric::{CycleFlow, FitController, FitObserver};
     pub use crate::estimation::nonparametric::{
         CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
     };

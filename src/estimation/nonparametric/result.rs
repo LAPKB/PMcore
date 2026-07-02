@@ -2,7 +2,7 @@ use std::path::Path;
 
 use pharmsol::Equation;
 
-use crate::algorithms::{Status, StopReason};
+use crate::algorithms::Status;
 use crate::estimation::nonparametric::{CycleLog, NPPredictions, Posterior, Psi, Theta, Weights};
 
 use pharmsol::{AssayErrorModels, Data};
@@ -62,7 +62,7 @@ impl<E: Equation> NonParametricResult<E> {
     }
 
     pub fn converged(&self) -> bool {
-        self.status == Status::Stop(StopReason::Converged)
+        self.status.converged()
     }
 
     pub fn get_theta(&self) -> &Theta {

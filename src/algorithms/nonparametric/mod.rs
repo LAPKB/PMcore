@@ -26,6 +26,9 @@ pub mod npag;
 pub mod npmap;
 pub mod npod;
 
+// Incremental, observable fitting (stepping handle + per-cycle observers).
+pub mod controller;
+
 // Re-export algorithm structs
 pub use npag::NPAG;
 pub use npmap::NPMAP;
@@ -36,6 +39,9 @@ pub use error_optim::ErrorOptimConfig;
 pub use npag::NpagConfig;
 pub use npmap::NpmapConfig;
 pub use npod::NpodConfig;
+
+// Re-export the incremental fitting API
+pub use controller::{CycleFlow, FitController, FitObserver};
 
 use crate::algorithms::{Algorithm, NonParametricRunner};
 use crate::estimation::nonparametric::NonParametricResult;
@@ -125,40 +131,45 @@ impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NonParametric
     type Output = NonParametricResult<E>;
 
     fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        match self {
-            Self::Npag(config) => {
-                // `problem.prior` is the prior `Theta` (which also carries the parameter
-                // space) and `problem.error_models` is strictly `AssayErrorModels`.
-                let mut runner = NPAG::from_parts(
-                    problem.model.equation,
-                    problem.data,
-                    problem.error_models,
-                    problem.prior,
-                    config,
-                )?;
-                NonParametricRunner::fit(&mut runner)
-            }
-            Self::Npod(config) => {
-                let mut runner = NPOD::from_parts(
-                    problem.model.equation,
-                    problem.data,
-                    problem.error_models,
-                    problem.prior,
-                    config,
-                )?;
-                NonParametricRunner::fit(&mut runner)
-            }
-            Self::Npmap(config) => {
-                let mut runner = NPMAP::from_parts(
-                    problem.model.equation,
-                    problem.data,
-                    problem.error_models,
-                    problem.prior,
-                    config,
-                )?;
-                NonParametricRunner::fit(&mut runner)
-            }
-        }
+        let mut runner = self.into_runner(problem)?;
+        NonParametricRunner::fit(runner.as_mut())
+    }
+}
+
+impl NonParametricAlgorithm {
+    /// Build the boxed runner that executes this algorithm.
+    ///
+    /// This is the shared primitive behind both the one-shot [`fit`](Algorithm::fit) and the
+    /// incremental [`FitController`](crate::algorithms::nonparametric::FitController). The prior
+    /// [`Theta`](crate::estimation::nonparametric::Theta) carries the parameter space, and the
+    /// error models come straight from the problem.
+    pub(crate) fn into_runner<E: Equation + Send + 'static>(
+        self,
+        problem: EstimationProblem<E, NonParametric>,
+    ) -> Result<Box<dyn NonParametricRunner<E>>> {
+        Ok(match self {
+            Self::Npag(config) => Box::new(NPAG::from_parts(
+                problem.model.equation,
+                problem.data,
+                problem.error_models,
+                problem.prior,
+                config,
+            )?),
+            Self::Npod(config) => Box::new(NPOD::from_parts(
+                problem.model.equation,
+                problem.data,
+                problem.error_models,
+                problem.prior,
+                config,
+            )?),
+            Self::Npmap(config) => Box::new(NPMAP::from_parts(
+                problem.model.equation,
+                problem.data,
+                problem.error_models,
+                problem.prior,
+                config,
+            )?),
+        })
     }
 }
 

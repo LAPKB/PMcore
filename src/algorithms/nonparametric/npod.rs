@@ -229,7 +229,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
         if std::path::Path::new("stop").exists() {
             tracing::warn!("Stopfile detected - breaking");
             self.converged = true;
-            self.set_status(Status::Stop(StopReason::Stopped));
+            self.set_status(Status::Stop(StopReason::StopFile));
             self.log_cycle_state();
             return Ok(self.status.clone());
         }
