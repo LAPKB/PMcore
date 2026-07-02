@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, DoseRange, Target};
+use pmcore::bestdose::{BestDoseConfig, BestDoseProblem, DoseRange, OptimizationStrategy, Target};
 use pmcore::prelude::*;
 
 fn main() -> Result<()> {
@@ -68,32 +68,31 @@ fn main() -> Result<()> {
     let (theta, prior) =
         Theta::from_file("examples/bimodal_ke/output/theta.csv", &parameter_space)?;
 
-    let posterior = BestDosePosterior::compute(
+    let problem = BestDoseProblem::new(
         &theta,
         &prior.unwrap(),
-        Some(past_data.clone()), // Optional: past data for Bayesian updating
+        Some(past_data.clone()),
+        target_data.clone(),
+        None,
         eq.clone(),
+        DoseRange::new(0.0, 300.0),
+        0.0,
         config.clone(),
-    )?;
+        Target::Concentration,
+    )?
+    .with_optimization_strategy(OptimizationStrategy::PosteriorOnly);
 
-    println!("Optimizing dose...");
+    println!("Optimizing dose with posterior-only strategy...");
 
     let bias_weights = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     let mut results = Vec::new();
 
     for bias_weight in &bias_weights {
         println!("Running optimization with bias weight: {}", bias_weight);
-        let optimal = posterior.optimize(
-            target_data.clone(),
-            None,
-            DoseRange::new(0.0, 300.0),
-            *bias_weight,
-            Target::Concentration,
-        )?;
+        let optimal = problem.clone().with_bias_weight(*bias_weight).optimize()?;
         results.push((bias_weight, optimal));
     }
 
-    // Print results
     for (bias_weight, optimal) in &results {
         let opt_doses = optimal.doses();
 
@@ -107,20 +106,18 @@ fn main() -> Result<()> {
         );
     }
 
-    // Print concentration-time predictions for the optimal dose
     let optimal = &results.last().unwrap().1;
     println!("\nConcentration-time predictions for optimal dose:");
-    for pred in optimal.predictions().predictions().iter() {
+    for pred in optimal.predictions().predictions().into_iter() {
         println!(
             "Time: {:.2} h, Observed: {:.2}, (Pop Mean: {:.4}, Pop Median: {:.4}, Post Mean: {:.4}, Post Median: {:.4})",
             pred.time(), pred.obs().unwrap_or(0.0), pred.pop_mean(), pred.pop_median(), pred.post_mean(), pred.post_median()
         );
     }
 
-    // Print the posterior support points with their filtered population and posterior weights.
-    let posterior_theta = posterior.theta();
-    let posterior_weights = posterior.posterior_weights();
-    let population_weights = posterior.population_weights();
+    let posterior_theta = problem.posterior_theta();
+    let posterior_weights = problem.posterior_weights();
+    let population_weights = problem.population_weights();
     let param_names = posterior_theta.param_names();
 
     println!("\n=== Support Points Summary ===");

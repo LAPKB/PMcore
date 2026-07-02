@@ -299,7 +299,7 @@ mod types;
 // Re-export public API
 pub use types::{
     BestDoseConfig, BestDosePosterior, BestDoseProblem, BestDoseResult, BestDoseStatus, DoseRange,
-    OptimalMethod, Target,
+    OptimalMethod, OptimizationStrategy, Target,
 };
 
 /// Helper function to concatenate past and future subjects (Option 3: Fortran MAKETMP approach)
@@ -594,6 +594,7 @@ impl BestDosePosterior {
             config: self.config.clone(),
             doserange: dose_range,
             bias_weight,
+            optimization_strategy: OptimizationStrategy::default(),
         };
 
         optimization::dual_optimization(&problem)
@@ -845,6 +846,7 @@ impl BestDoseProblem {
         tracing::info!("  Support points: {}", posterior_theta.matrix().nrows());
         tracing::info!("  Target type: {:?}", target_type);
         tracing::info!("  Bias weight (λ): {}", bias_weight);
+        tracing::info!("  Optimization strategy: {}", OptimizationStrategy::Dual);
 
         Ok(BestDoseProblem {
             target: final_target,
@@ -856,6 +858,7 @@ impl BestDoseProblem {
             config,
             doserange,
             bias_weight,
+            optimization_strategy: OptimizationStrategy::Dual,
         })
     }
 
@@ -902,13 +905,24 @@ impl BestDoseProblem {
     /// - `auc_predictions`: AUC values (if target_type is AUC)
     /// - `optimization_method`: "posterior" or "uniform"
     pub fn optimize(self) -> Result<BestDoseResult> {
-        tracing::info!("╔══════════════════════════════════════════════════════════╗");
-        tracing::info!("║            BestDose Algorithm: STAGE 2 & 3               ║");
-        tracing::info!("║        Dual Optimization + Final Predictions             ║");
-        tracing::info!("╚══════════════════════════════════════════════════════════╝");
+        match self.optimization_strategy {
+            OptimizationStrategy::Dual => {
+                tracing::info!("╔══════════════════════════════════════════════════════════╗");
+                tracing::info!("║            BestDose Algorithm: STAGE 2 & 3               ║");
+                tracing::info!("║        Dual Optimization + Final Predictions             ║");
+                tracing::info!("╚══════════════════════════════════════════════════════════╝");
 
-        // STAGE 2 & 3: Dual optimization + predictions
-        optimization::dual_optimization(&self)
+                optimization::dual_optimization(&self)
+            }
+            OptimizationStrategy::PosteriorOnly => {
+                tracing::info!("╔══════════════════════════════════════════════════════════╗");
+                tracing::info!("║            BestDose Algorithm: STAGE 2 & 3               ║");
+                tracing::info!("║    Posterior Optimization Only + Final Predictions       ║");
+                tracing::info!("╚══════════════════════════════════════════════════════════╝");
+
+                optimization::posterior_optimization(&self)
+            }
+        }
     }
 
     /// Set the bias weight (lambda parameter)
@@ -918,6 +932,12 @@ impl BestDoseProblem {
     /// - λ = 1.0: Population-based (minimize deviation from population mean)
     pub fn with_bias_weight(mut self, weight: f64) -> Self {
         self.bias_weight = weight;
+        self
+    }
+
+    /// Set the Stage 2 optimization strategy.
+    pub fn with_optimization_strategy(mut self, strategy: OptimizationStrategy) -> Self {
+        self.optimization_strategy = strategy;
         self
     }
 
@@ -944,6 +964,11 @@ impl BestDoseProblem {
     /// Get the currently configured bias weight (λ)
     pub fn bias_weight(&self) -> f64 {
         self.bias_weight
+    }
+
+    /// Get the selected Stage 2 optimization strategy.
+    pub fn optimization_strategy(&self) -> OptimizationStrategy {
+        self.optimization_strategy
     }
 
     /// Get the selected optimization target type

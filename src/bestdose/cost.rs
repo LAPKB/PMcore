@@ -233,7 +233,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
 
     // Calculate variance (using posterior weights) and population mean (using prior weights)
 
-    for ((row, post_prob), prior_prob) in problem
+    for ((row, post_prob), _prior_prob) in problem
         .theta
         .matrix()
         .row_iter()
@@ -532,8 +532,8 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             let pj = preds_i[j];
             let se = (obs_val - pj).powi(2);
             sumsq_i += se;
-            // Calculate population mean using population probabilities
-            y_bar[j] += prior_prob * pj;
+            // Calculate population mean using posterior probabilities
+            y_bar[j] += post_prob * pj;
         }
 
         variance += post_prob * sumsq_i; // Weighted by posterior

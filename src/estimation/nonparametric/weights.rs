@@ -63,6 +63,18 @@ impl Weights {
     pub fn iter(&self) -> impl Iterator<Item = f64> + '_ {
         self.weights.iter().cloned()
     }
+
+    /// Normalizes the weights so that they sum to 1.
+    ///
+    /// If the sum is zero, it does nothing to avoid division by zero.
+    pub fn normalize(&mut self) {
+        let sum: f64 = self.weights.iter().sum();
+        if sum != 0.0 {
+            for weight in self.weights.iter_mut() {
+                *weight /= sum;
+            }
+        }
+    }
 }
 
 impl Serialize for Weights {

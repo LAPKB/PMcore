@@ -53,10 +53,8 @@
 use anyhow::Result;
 use faer::Mat;
 
-use crate::algorithms::nonparametric::npag::burke;
 use crate::algorithms::nonparametric::npag::NPAG;
 use crate::algorithms::NonParametricRunner;
-
 use crate::algorithms::Status;
 use crate::bestdose::types::BestDoseConfig;
 use crate::estimation::nonparametric::{calculate_psi, Theta, Weights};
@@ -86,7 +84,8 @@ const KEEP_UNREFINED_POINTS: bool = true;
 /// 2. Apply Bayes' rule to get P(θᵢ|data)
 /// 3. Filter: Keep points where P(θᵢ|data) > 1e-100 × max_weight
 ///
-/// Note: This uses only lambda filtering, NO QR decomposition or second burke call.
+/// Note: This uses only direct Bayesian filtering, with no QR decomposition or
+/// NPAG weight optimization.
 ///
 /// Returns: (filtered_theta, filtered_posterior_weights, filtered_population_weights)
 pub fn npagfull11_filter(
@@ -101,21 +100,81 @@ pub fn npagfull11_filter(
     // Calculate psi matrix P(data|theta_i) for all support points
     let psi = calculate_psi(eq, past_data, population_theta, error_models, false)?;
 
-    // First burke call to get initial posterior probabilities
-    let (initial_weights, _) = burke(&psi)?;
+    // NPAGFULL11 does a direct Bayes update on the incoming prior density:
+    // posterior_j ∝ prior_j * product_i P(data_i | theta_j).
+    // It does not run the NPAG/emint optimization path because the Fortran
+    // routine hard-codes MAXCYC = 0.
+    let n_points = population_theta.matrix().nrows();
+    let mut log_joint_weights = vec![f64::NEG_INFINITY; n_points];
+
+    for point_idx in 0..n_points {
+        let prior_weight = population_weights[point_idx];
+        if prior_weight <= 0.0 {
+            continue;
+        }
+
+        let mut log_weight = prior_weight.ln();
+        let mut is_zero = false;
+
+        for subject_idx in 0..psi.matrix().nrows() {
+            let likelihood = psi.matrix()[(subject_idx, point_idx)];
+            if likelihood <= 0.0 {
+                is_zero = true;
+                break;
+            }
+            log_weight += likelihood.ln();
+        }
+
+        if !is_zero {
+            log_joint_weights[point_idx] = log_weight;
+        }
+    }
+
+    let max_log_weight = log_joint_weights
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    if !max_log_weight.is_finite() {
+        return Err(anyhow::anyhow!(
+            "NPAGFULL11 filtering produced zero joint probability for every support point"
+        ));
+    }
+
+    let mut initial_weights: Vec<f64> = log_joint_weights
+        .iter()
+        .map(|&log_weight| {
+            if log_weight.is_finite() {
+                (log_weight - max_log_weight).exp()
+            } else {
+                0.0
+            }
+        })
+        .collect();
+
+    let total_weight: f64 = initial_weights.iter().sum();
+    if total_weight <= 0.0 {
+        return Err(anyhow::anyhow!(
+            "NPAGFULL11 filtering produced non-positive posterior mass"
+        ));
+    }
+
+    for weight in &mut initial_weights {
+        *weight /= total_weight;
+    }
 
     // NPAGFULL11 filtering: Keep all points within 1e-100 of the maximum weight
     // This is different from NPAG's condensation - NO QR decomposition here!
     let max_weight = initial_weights
         .iter()
-        .fold(f64::NEG_INFINITY, |a, b| a.max(b));
+        .fold(f64::NEG_INFINITY, |a, b| a.max(*b));
 
     let threshold = 1e-100; // NPAGFULL11-specific threshold
 
     let keep_lambda: Vec<usize> = initial_weights
         .iter()
         .enumerate()
-        .filter(|(_, lam)| *lam > threshold * max_weight)
+        .filter(|(_, lam)| **lam > threshold * max_weight)
         .map(|(i, _)| i)
         .collect();
 
