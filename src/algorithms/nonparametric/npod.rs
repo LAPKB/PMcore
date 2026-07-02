@@ -95,7 +95,7 @@ impl<E: Equation + Send + 'static> NPOD<E> {
             equation,
             psi: Psi::new(),
             prior: theta.clone(),
-            theta: theta,
+            theta,
             lambda: Weights::default(),
             w: Weights::default(),
             last_objf: -1e30,

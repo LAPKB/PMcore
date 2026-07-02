@@ -1,12 +1,21 @@
 name: Security Audit
 
 "on":
+  push:
+    paths:
+      - "Cargo.toml"
+      - ".github/workflows/security_audit.yml"
+  pull_request:
+    paths:
+      - "Cargo.toml"
   workflow_dispatch:
   schedule:
     - cron: "0 6 1,15 * *"
 
 permissions:
   contents: read
+  issues: write
+  checks: write
 
 jobs:
   security-audit:
@@ -14,6 +23,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Generate Cargo.lock
+        run: cargo generate-lockfile
       - name: Security audit
         uses: rustsec/audit-check@v2
         with:

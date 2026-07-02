@@ -105,7 +105,7 @@ impl CycleLog {
     pub fn write(&self, path: &Path) -> Result<()> {
         tracing::debug!("Writing cycles...");
 
-        std::fs::create_dir_all(path)?;
+        super::create_parent_dir(path)?;
         let file = File::create(path)?;
         let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 

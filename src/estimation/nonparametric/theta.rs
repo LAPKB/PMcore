@@ -144,6 +144,61 @@ impl Theta {
         true
     }
 
+    /// Create a new Theta with an additional parameter column.
+    ///
+    /// All existing rows keep their values. The new column is filled with
+    /// `initial_value` for every row. Returns a new `Theta` — does not
+    /// mutate in place.
+    ///
+    /// # Errors
+    ///
+    /// - `name` already exists in the parameter space
+    /// - `lower` or `upper` are non-finite
+    /// - `lower >= upper`
+    pub fn with_added_parameter(
+        &self,
+        name: &str,
+        lower: f64,
+        upper: f64,
+        initial_value: f64,
+    ) -> Result<Theta> {
+        // Validate uniqueness
+        if self.parameters().iter().any(|p| p.name.as_str() == name) {
+            bail!("parameter '{}' already exists in theta", name);
+        }
+
+        // Validate bounds
+        if !lower.is_finite() || !upper.is_finite() {
+            bail!(
+                "bounds must be finite for parameter '{}': [{}, {}]",
+                name,
+                lower,
+                upper
+            );
+        }
+        if lower >= upper {
+            bail!(
+                "lower bound ({}) must be strictly less than upper bound ({}) for parameter '{}'",
+                lower,
+                upper,
+                name
+            );
+        }
+
+        let (nrows, ncols) = (self.matrix().nrows(), self.matrix().ncols());
+        let new_matrix = faer::Mat::from_fn(nrows, ncols + 1, |r, c| {
+            if c < ncols {
+                self.matrix()[(r, c)]
+            } else {
+                initial_value
+            }
+        });
+
+        let new_params = self.parameters().clone().add(name, lower, upper);
+
+        Theta::from_parts(new_matrix, new_params)
+    }
+
     /// Write the matrix to a CSV file
     pub fn write(&self, path: &str) {
         let mut writer = csv::Writer::from_path(path).unwrap();

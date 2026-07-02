@@ -47,6 +47,9 @@ pub use std::collections::HashMap;
 // BestDose
 pub mod bestdose;
 
+/// SDE-based Inter-Occasion Variability optimization.
+pub mod iov;
+
 /// A collection of commonly used items to simplify imports.
 pub mod prelude {
     pub use super::logs::Logger;
@@ -71,6 +74,7 @@ pub mod prelude {
     pub use crate::estimation::nonparametric::{
         CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
     };
+    pub use crate::iov::{DiffusionConfig, DiffusionOptimize, DiffusionResult};
     pub use crate::model::{EquationMetadataSource, ModelMetadata};
     pub use crate::results::{
         FitResult, FitSummary, IndividualSummary, ParameterSummary, PopulationSummary,
