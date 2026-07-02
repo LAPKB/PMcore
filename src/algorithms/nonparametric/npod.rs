@@ -180,6 +180,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
             -2. * self.objf,
             self.error_models.clone(),
             self.theta.clone(),
+            self.w.clone(),
             self.theta.nspp(),
             (self.last_objf - self.objf).abs(),
             self.status.clone(),
