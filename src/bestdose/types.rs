@@ -1,6 +1,7 @@
 //! Core data types for the BestDose algorithm
 //!
 //! This module defines the main structures used throughout the BestDose optimization:
+//! - [`BestDosePosterior`]: Reusable posterior from stage 1
 //! - [`BestDoseProblem`]: The complete optimization problem specification
 //! - [`BestDoseResult`]: Output structure containing optimal doses and predictions
 //! - [`Target`]: Enum specifying concentration or AUC targets
@@ -8,11 +9,9 @@
 
 use std::fmt::Display;
 
+use crate::estimation::nonparametric::{NPPredictions, Theta, Weights};
+use crate::model::{BoundedParameter, ParameterSpace};
 use crate::prelude::*;
-use crate::routines::output::predictions::NPPredictions;
-use crate::routines::settings::Settings;
-use crate::structs::theta::Theta;
-use crate::structs::weights::Weights;
 use pharmsol::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +50,8 @@ use serde::{Deserialize, Serialize};
 /// - Formula: `AUC(t) = ∫ₜ_last_dose^t C(τ) dτ`
 /// - Automatically finds the most recent bolus/infusion before each observation
 ///
-/// Both methods use trapezoidal rule on a dense time grid controlled by `settings.predictions().idelta`.
+/// Both methods use trapezoidal rule on a dense time grid controlled by
+/// `BestDoseConfig::prediction_interval()`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
     /// Target concentrations at observation times
@@ -85,9 +85,10 @@ pub enum Target {
     ///
     /// # Time Grid Resolution
     ///
-    /// Control the time grid density via settings:
+    /// Control the time grid density via BestDoseConfig:
     /// ```rust,ignore
-    /// settings.predictions().idelta = 15;  // 15-minute intervals
+    /// let config = BestDoseConfig::new(parameter_space, error_models)
+    ///     .with_prediction_interval(15.0);
     /// ```
     AUCFromZero,
 
@@ -210,6 +211,104 @@ impl Display for OptimizationStrategy {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct BestDoseConfig {
+    pub(crate) parameter_space: ParameterSpace<BoundedParameter>,
+    pub(crate) error_models: AssayErrorModels,
+    pub(crate) refinement_cycles: usize,
+    pub(crate) progress: bool,
+    pub(crate) prediction_interval: f64,
+}
+
+impl BestDoseConfig {
+    pub fn new(
+        parameter_space: ParameterSpace<BoundedParameter>,
+        error_models: AssayErrorModels,
+    ) -> Self {
+        Self {
+            parameter_space,
+            error_models,
+            refinement_cycles: 500,
+            progress: true,
+            prediction_interval: 0.12,
+        }
+    }
+
+    pub fn with_refinement_cycles(mut self, refinement_cycles: usize) -> Self {
+        self.refinement_cycles = refinement_cycles;
+        self
+    }
+
+    pub fn with_progress(mut self, progress: bool) -> Self {
+        self.progress = progress;
+        self
+    }
+
+    pub fn with_prediction_interval(mut self, prediction_interval: f64) -> Self {
+        self.prediction_interval = prediction_interval;
+        self
+    }
+
+    pub fn parameter_space(&self) -> &ParameterSpace<BoundedParameter> {
+        &self.parameter_space
+    }
+
+    pub fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
+    }
+
+    pub fn refinement_cycles(&self) -> usize {
+        self.refinement_cycles
+    }
+
+    pub fn progress(&self) -> bool {
+        self.progress
+    }
+
+    pub fn prediction_interval(&self) -> f64 {
+        self.prediction_interval
+    }
+
+    pub fn parameter_names(&self) -> Vec<String> {
+        self.parameter_space
+            .iter()
+            .map(|parameter| parameter.name.clone())
+            .collect()
+    }
+}
+
+/// The computed Bayesian posterior for a patient.
+///
+/// This reusable object is the public two-stage BestDose entry point:
+/// first compute the posterior once, then optimize multiple future targets.
+#[derive(Debug, Clone)]
+pub struct BestDosePosterior {
+    pub(crate) theta: Theta,
+    pub(crate) posterior: Weights,
+    pub(crate) population_weights: Weights,
+    pub(crate) past_data: Option<Subject>,
+    pub(crate) eq: ODE,
+    pub(crate) config: BestDoseConfig,
+}
+
+impl BestDosePosterior {
+    pub fn theta(&self) -> &Theta {
+        &self.theta
+    }
+
+    pub fn posterior_weights(&self) -> &Weights {
+        &self.posterior
+    }
+
+    pub fn population_weights(&self) -> &Weights {
+        &self.population_weights
+    }
+
+    pub fn n_support_points(&self) -> usize {
+        self.theta.matrix().nrows()
+    }
+}
+
 /// The BestDose optimization problem
 ///
 /// Contains all data needed for the three-stage BestDose algorithm.
@@ -245,7 +344,7 @@ impl Display for OptimizationStrategy {
 ///
 /// ## Model Components
 /// - `eq`: Pharmacokinetic/pharmacodynamic ODE model
-/// - `settings`: NPAG configuration settings (used for prediction grid)
+/// - `config`: BestDose nonparametric configuration (used for prediction grid)
 ///
 /// ## Optimization Parameters
 /// - `doserange`: Min/max dose constraints
@@ -256,25 +355,23 @@ impl Display for OptimizationStrategy {
 /// ```rust,no_run,ignore
 /// use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
 ///
-/// # fn example(population_theta: pmcore::structs::theta::Theta,
-/// #            population_weights: pmcore::structs::weights::Weights,
+/// # fn example(population_theta: pmcore::estimation::nonparametric::Theta,
+/// #            population_weights: pmcore::estimation::nonparametric::Weights,
 /// #            past: pharmsol::prelude::Subject,
 /// #            target: pharmsol::prelude::Subject,
 /// #            eq: pharmsol::prelude::ODE,
-/// #            error_models: pharmsol::prelude::ErrorModels,
-/// #            settings: pmcore::routines::settings::Settings)
+/// #            config: pmcore::bestdose::BestDoseConfig)
 /// #            -> anyhow::Result<()> {
 /// let problem = BestDoseProblem::new(
 ///     &population_theta,
 ///     &population_weights,
 ///     Some(past),                      // Patient history
 ///     target,                          // Dosing template with targets
+///     None,                            // time offset
 ///     eq,
-///     error_models,
 ///     DoseRange::new(0.0, 1000.0),
 ///     0.5,                             // Balanced personalization
-///     settings,
-///     500,                             // NPAGFULL cycles
+///     config,
 ///     Target::Concentration,
 /// )?;
 ///
@@ -307,9 +404,9 @@ pub struct BestDoseProblem {
     pub(crate) theta: Theta,
     pub(crate) posterior: Weights,
 
-    // Model and settings
+    // Model and configuration
     pub(crate) eq: ODE,
-    pub(crate) settings: Settings,
+    pub(crate) config: BestDoseConfig,
 
     // Optimization parameters
     pub(crate) doserange: DoseRange,

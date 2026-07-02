@@ -1,8 +1,68 @@
 use anyhow::Result;
-use pmcore::bestdose::{BestDoseProblem, DoseRange, Target};
+use pmcore::bestdose::{BestDoseConfig, BestDosePosterior, BestDoseProblem, DoseRange, Target};
+use pmcore::estimation::nonparametric::{Theta, Weights};
+use pmcore::model::{BoundedParameter, ParameterSpace};
 use pmcore::prelude::*;
-use pmcore::structs::theta::Theta;
-use pmcore::structs::weights::Weights;
+
+fn pk_parameter_space(
+    ke_lower: f64,
+    ke_upper: f64,
+    v_lower: f64,
+    v_upper: f64,
+) -> ParameterSpace<BoundedParameter> {
+    ParameterSpace::<BoundedParameter>::new()
+        .add("ke", ke_lower, ke_upper)
+        .add("v", v_lower, v_upper)
+}
+
+fn bestdose_config(
+    params: &ParameterSpace<BoundedParameter>,
+    error_models: AssayErrorModels,
+    refinement_cycles: usize,
+    prediction_interval: f64,
+) -> BestDoseConfig {
+    BestDoseConfig::new(params.clone(), error_models)
+        .with_refinement_cycles(refinement_cycles)
+        .with_progress(false)
+        .with_prediction_interval(prediction_interval)
+}
+
+fn one_compartment_model() -> pharmsol::ODE {
+    equation::ODE::new(
+        |x, p, _t, dx, b, _rateiv, _cov| {
+            fetch_params!(p, ke, _v);
+            dx[0] = -ke * x[0] + b[0];
+        },
+        |_p, _, _| lag! {},
+        |_p, _, _| fa! {},
+        |_p, _t, _cov, _x| {},
+        |x, p, _t, _cov, y| {
+            fetch_params!(p, _ke, v);
+            y[0] = x[0] / v;
+        },
+    )
+}
+
+fn minimal_config() -> BestDoseConfig {
+    let params = pk_parameter_space(0.001, 3.0, 25.0, 250.0);
+    let ems = AssayErrorModels::new()
+        .add(
+            0,
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
+        )
+        .unwrap();
+    bestdose_config(&params, ems, 0, 0.12)
+}
+
+fn simple_prior(config: &BestDoseConfig) -> Result<(Theta, Weights)> {
+    let mat = faer::Mat::from_fn(1, 2, |_r, c| match c {
+        0 => 0.3,
+        1 => 50.0,
+        _ => 0.0,
+    });
+    let theta = Theta::from_parts(mat, config.parameter_space().clone())?;
+    Ok((theta, Weights::uniform(1)))
+}
 
 /// Test that infusions are properly included in the dose optimization mask
 /// This test verifies that infusions with amount=0 are treated as optimizable doses
@@ -23,21 +83,14 @@ fn test_infusion_mask_inclusion() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.1, 0.5, 40.0, 60.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_cycles(0);
+    let config = bestdose_config(&params, ems.clone(), 0, 0.12);
 
     // Create a target subject with an optimizable infusion
     // Use reasonable target concentrations that match typical PK behavior
@@ -54,7 +107,7 @@ fn test_infusion_mask_inclusion() -> Result<()> {
             1 => 50.0, // v
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -68,7 +121,7 @@ fn test_infusion_mask_inclusion() -> Result<()> {
         eq.clone(),
         DoseRange::new(10.0, 300.0),
         0.5,
-        settings.clone(),
+        config,
         Target::Concentration,
     )?;
 
@@ -137,23 +190,14 @@ fn test_fixed_infusion_preservation() -> Result<()> {
         },
     );
 
-    let params = Parameters::new()
-        .add("ke", 0.001, 3.0)
-        .add("v", 25.0, 250.0);
+    let params = pk_parameter_space(0.001, 3.0, 25.0, 250.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_cycles(0);
+    let config = bestdose_config(&params, ems.clone(), 0, 0.12);
 
     // Create past data with a fixed infusion
     let past = Subject::builder("test_patient")
@@ -173,7 +217,7 @@ fn test_fixed_infusion_preservation() -> Result<()> {
             1 => 50.0,
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -187,7 +231,7 @@ fn test_fixed_infusion_preservation() -> Result<()> {
         eq.clone(),
         DoseRange::new(0.0, 500.0),
         0.5,
-        settings.clone(),
+        config,
         Target::Concentration,
     )?;
 
@@ -226,19 +270,13 @@ fn test_dose_count_validation() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.1, 0.5, 40.0, 60.0);
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-    settings.disable_output();
-    settings.set_cycles(0);
+    let config = bestdose_config(&params, ems.clone(), 0, 0.12);
 
     // Create target with 2 optimizable doses
     let target = Subject::builder("test_patient")
@@ -254,7 +292,7 @@ fn test_dose_count_validation() -> Result<()> {
             1 => 50.0,
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -267,7 +305,7 @@ fn test_dose_count_validation() -> Result<()> {
         eq,
         DoseRange::new(10.0, 300.0),
         0.5,
-        settings,
+        config,
         Target::Concentration,
     )?;
 
@@ -305,19 +343,13 @@ fn test_empty_observations_validation() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.1, 0.5, 40.0, 60.0);
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-    settings.disable_output();
-    settings.set_cycles(0);
+    let config = bestdose_config(&params, ems.clone(), 0, 0.12);
 
     // Create target with doses but NO observations
     let target = Subject::builder("test_patient").bolus(0.0, 0.0, 0).build(); // No observations!
@@ -328,7 +360,7 @@ fn test_empty_observations_validation() -> Result<()> {
             1 => 50.0,
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -341,7 +373,7 @@ fn test_empty_observations_validation() -> Result<()> {
         eq,
         DoseRange::new(10.0, 300.0),
         0.5,
-        settings,
+        config,
         Target::Concentration,
     )?;
 
@@ -370,22 +402,14 @@ fn test_basic_auc_mode() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.1, 0.5, 40.0, 60.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_idelta(30.0);
-    settings.set_cycles(0);
+    let config = bestdose_config(&params, ems.clone(), 0, 30.0);
 
     let target = Subject::builder("test_patient")
         .bolus(0.0, 0.0, 0) // Optimizable bolus
@@ -398,7 +422,7 @@ fn test_basic_auc_mode() -> Result<()> {
             1 => 50.0,
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -411,7 +435,7 @@ fn test_basic_auc_mode() -> Result<()> {
         eq,
         DoseRange::new(100.0, 2000.0),
         0.8,
-        settings,
+        config,
         Target::AUCFromZero,
     )?;
 
@@ -460,22 +484,14 @@ fn test_infusion_auc_mode() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.1, 0.5, 40.0, 60.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_idelta(30.0); // 30-minute intervals for AUC calculation
-    settings.set_cycles(0);
+    let config = bestdose_config(&params, ems.clone(), 0, 30.0);
 
     // Create a target with an optimizable infusion and AUC targets
     let target = Subject::builder("test_patient")
@@ -490,7 +506,7 @@ fn test_infusion_auc_mode() -> Result<()> {
             1 => 50.0,
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -504,7 +520,7 @@ fn test_infusion_auc_mode() -> Result<()> {
         eq,
         DoseRange::new(100.0, 2000.0),
         0.8, // Higher bias weight typically works better for AUC targets
-        settings,
+        config,
         Target::AUCFromZero, // AUC mode!
     )?;
 
@@ -569,21 +585,14 @@ fn test_multi_outeq_auc_mode() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.1, 0.5, 40.0, 60.0);
 
     let error_model = AssayErrorModel::additive(ErrorPoly::new(0.0, 5.0, 0.0, 0.0), 0.0);
     let ems = AssayErrorModels::new()
         .add(0, error_model.clone())?
         .add(1, error_model)?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params.clone())
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_cycles(0);
+    let config = bestdose_config(&params, ems.clone(), 0, 0.12);
 
     // Subject with fixed dose and target observations at multiple outeqs
     let target = Subject::builder("test")
@@ -599,7 +608,7 @@ fn test_multi_outeq_auc_mode() -> Result<()> {
             1 => 50.0, // v
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -612,7 +621,7 @@ fn test_multi_outeq_auc_mode() -> Result<()> {
         eq,
         DoseRange::new(0.0, 2000.0),
         0.5,
-        settings,
+        config,
         Target::AUCFromZero,
     )?;
 
@@ -642,19 +651,13 @@ fn test_multi_outeq_auc_optimization() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.1, 0.5, 40.0, 60.0);
     let error_model = AssayErrorModel::additive(ErrorPoly::new(0.0, 5.0, 0.0, 0.0), 0.0);
     let ems = AssayErrorModels::new()
         .add(0, error_model.clone())?
         .add(1, error_model)?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params.clone())
-        .set_error_models(ems.clone())
-        .build();
-    settings.disable_output();
-    settings.set_cycles(3);
+    let config = bestdose_config(&params, ems.clone(), 3, 0.12);
 
     let target = Subject::builder("test")
         .bolus(0.0, 0.0, 0)
@@ -668,7 +671,7 @@ fn test_multi_outeq_auc_optimization() -> Result<()> {
             1 => 50.0,
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -681,7 +684,7 @@ fn test_multi_outeq_auc_optimization() -> Result<()> {
         eq,
         DoseRange::new(0.0, 2000.0),
         0.5,
-        settings,
+        config,
         Target::AUCFromZero,
     )?;
 
@@ -732,22 +735,14 @@ fn test_auc_from_zero_single_dose() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.2, 0.4, 40.0, 60.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_cycles(0);
-    settings.set_idelta(10.0); // 10-minute intervals for AUC calculation
+    let config = bestdose_config(&params, ems.clone(), 0, 10.0);
 
     // Target: Single dose, cumulative AUC from 0 to 12h
     let target = Subject::builder("patient_auc_zero")
@@ -761,7 +756,7 @@ fn test_auc_from_zero_single_dose() -> Result<()> {
             1 => 50.0, // v
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -774,7 +769,7 @@ fn test_auc_from_zero_single_dose() -> Result<()> {
         eq,
         DoseRange::new(100.0, 1000.0),
         0.8,
-        settings,
+        config,
         Target::AUCFromZero, // Cumulative AUC from time 0
     )?;
 
@@ -821,22 +816,14 @@ fn test_auc_from_last_dose_maintenance() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.2, 0.4, 40.0, 60.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_cycles(0);
-    settings.set_idelta(10.0);
+    let config = bestdose_config(&params, ems.clone(), 0, 10.0);
 
     // Target: Loading dose (fixed) + maintenance dose (optimize)
     // Target interval AUC from t=12 to t=24
@@ -852,7 +839,7 @@ fn test_auc_from_last_dose_maintenance() -> Result<()> {
             1 => 50.0, // v
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -865,7 +852,7 @@ fn test_auc_from_last_dose_maintenance() -> Result<()> {
         eq,
         DoseRange::new(50.0, 500.0),
         0.8,
-        settings,
+        config,
         Target::AUCFromLastDose, // Interval AUC from last dose
     )?;
 
@@ -914,22 +901,14 @@ fn test_auc_modes_comparison() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.3, 0.3).add("v", 50.0, 50.0);
+    let params = pk_parameter_space(0.3, 0.3, 50.0, 50.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_cycles(0);
-    settings.set_idelta(10.0);
+    let config = bestdose_config(&params, ems.clone(), 0, 10.0);
 
     let prior_theta = {
         let mat = faer::Mat::from_fn(1, 2, |_r, c| match c {
@@ -937,7 +916,7 @@ fn test_auc_modes_comparison() -> Result<()> {
             1 => 50.0, // v
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -960,7 +939,7 @@ fn test_auc_modes_comparison() -> Result<()> {
         eq.clone(),
         DoseRange::new(10.0, 2000.0),
         0.8,
-        settings.clone(),
+        config.clone(),
         Target::AUCFromZero,
     )?;
 
@@ -984,7 +963,7 @@ fn test_auc_modes_comparison() -> Result<()> {
         eq,
         DoseRange::new(10.0, 2000.0),
         0.8,
-        settings,
+        config,
         Target::AUCFromLastDose,
     )?;
 
@@ -1046,22 +1025,14 @@ fn test_auc_from_last_dose_multiple_observations() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.2, 0.4, 40.0, 60.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_cycles(0);
-    settings.set_idelta(10.0);
+    let config = bestdose_config(&params, ems.clone(), 0, 10.0);
 
     // Multiple doses and observations - each observation measures AUC from its preceding dose
     let target = Subject::builder("patient_multi")
@@ -1077,7 +1048,7 @@ fn test_auc_from_last_dose_multiple_observations() -> Result<()> {
             1 => 50.0, // v
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -1090,7 +1061,7 @@ fn test_auc_from_last_dose_multiple_observations() -> Result<()> {
         eq,
         DoseRange::new(50.0, 500.0),
         0.8,
-        settings,
+        config,
         Target::AUCFromLastDose,
     )?;
 
@@ -1145,22 +1116,14 @@ fn test_auc_from_last_dose_no_prior_dose() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.2, 0.4).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.2, 0.4, 40.0, 60.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_cycles(0);
-    settings.set_idelta(10.0);
+    let config = bestdose_config(&params, ems.clone(), 0, 10.0);
 
     // Edge case: observation at t=6, but dose is at t=12 (after the observation)
     let target = Subject::builder("patient_edge")
@@ -1174,7 +1137,7 @@ fn test_auc_from_last_dose_no_prior_dose() -> Result<()> {
             1 => 50.0, // v
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -1187,7 +1150,7 @@ fn test_auc_from_last_dose_no_prior_dose() -> Result<()> {
         eq,
         DoseRange::new(50.0, 500.0),
         0.8,
-        settings,
+        config,
         Target::AUCFromLastDose,
     )?;
 
@@ -1239,21 +1202,14 @@ fn test_dose_range_bounds_respected() -> Result<()> {
         },
     );
 
-    let params = Parameters::new().add("ke", 0.1, 0.5).add("v", 40.0, 60.0);
+    let params = pk_parameter_space(0.1, 0.5, 40.0, 60.0);
 
     let ems = AssayErrorModels::new().add(
         0,
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.20, 0.0, 0.0), 0.0),
     )?;
 
-    let mut settings = Settings::builder()
-        .set_algorithm(Algorithm::NPAG)
-        .set_parameters(params)
-        .set_error_models(ems.clone())
-        .build();
-
-    settings.disable_output();
-    settings.set_cycles(0);
+    let config = bestdose_config(&params, ems.clone(), 0, 0.12);
 
     // Target with high concentration requiring large dose
     let target = Subject::builder("test_patient")
@@ -1267,7 +1223,7 @@ fn test_dose_range_bounds_respected() -> Result<()> {
             1 => 50.0, // v
             _ => 0.0,
         });
-        Theta::from_parts(mat, settings.parameters().clone())?
+        Theta::from_parts(mat, params.clone())?
     };
     let prior_weights = Weights::uniform(1);
 
@@ -1283,7 +1239,7 @@ fn test_dose_range_bounds_respected() -> Result<()> {
         eq.clone(),
         dose_range,
         0.0,
-        settings.clone(),
+        config,
         Target::Concentration,
     )?;
 
@@ -1312,6 +1268,190 @@ fn test_dose_range_bounds_respected() -> Result<()> {
         "Expected dose near upper bound (200 mg), got {:.1} mg",
         doses[0]
     );
+
+    Ok(())
+}
+
+#[test]
+fn test_posterior_accessors() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, None, eq, config)?;
+
+    assert!(posterior.n_support_points() > 0);
+    assert_eq!(
+        posterior.theta().matrix().nrows(),
+        posterior.n_support_points()
+    );
+
+    let posterior_sum: f64 = posterior.posterior_weights().iter().sum();
+    assert!((posterior_sum - 1.0).abs() < 1e-6);
+
+    let population_sum: f64 = posterior.population_weights().iter().sum();
+    assert!((population_sum - 1.0).abs() < 1e-6);
+
+    Ok(())
+}
+
+#[test]
+fn test_result_accessors_for_two_stage_api() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, None, eq, config)?;
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let result = posterior.optimize(
+        target,
+        None,
+        DoseRange::new(10.0, 500.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    assert_eq!(result.doses().len(), 1);
+    assert!(result.doses()[0].is_finite());
+    assert!(result.objf().is_finite());
+    assert!(result.objf() >= 0.0);
+    assert_eq!(
+        *result.status(),
+        pmcore::bestdose::BestDoseStatus::Converged
+    );
+    assert!(!result.predictions().predictions().is_empty());
+    assert!(result.auc_predictions().is_none());
+
+    let method = result.optimization_method();
+    assert!(
+        method == pmcore::bestdose::OptimalMethod::Posterior
+            || method == pmcore::bestdose::OptimalMethod::Uniform
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_negative_time_offset_rejected() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, None, eq, config)?;
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let result = posterior.optimize(
+        target,
+        Some(-1.0),
+        DoseRange::new(10.0, 500.0),
+        0.5,
+        Target::Concentration,
+    );
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("negative"));
+
+    Ok(())
+}
+
+#[test]
+fn test_time_offset_zero_vs_nonzero_differ() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let past = Subject::builder("patient")
+        .bolus(0.0, 500.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, Some(past), eq, config)?;
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(1.0, 5.0, 0)
+        .build();
+
+    let result_gap0 = posterior.optimize(
+        target.clone(),
+        Some(0.0),
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let result_gap12 = posterior.optimize(
+        target,
+        Some(12.0),
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let doses_gap0 = result_gap0.doses();
+    let doses_gap12 = result_gap12.doses();
+
+    assert!((doses_gap0.last().unwrap() - doses_gap12.last().unwrap()).abs() > 1e-3);
+
+    Ok(())
+}
+
+#[test]
+fn test_posterior_reuse() -> Result<()> {
+    let eq = one_compartment_model();
+    let config = minimal_config();
+    let (theta, weights) = simple_prior(&config)?;
+
+    let posterior = BestDosePosterior::compute(&theta, &weights, None, eq, config)?;
+    let target = Subject::builder("patient")
+        .bolus(0.0, 0.0, 0)
+        .observation(6.0, 5.0, 0)
+        .build();
+
+    let result_narrow = posterior.optimize(
+        target.clone(),
+        None,
+        DoseRange::new(10.0, 100.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    let result_wide = posterior.optimize(
+        target.clone(),
+        None,
+        DoseRange::new(10.0, 1000.0),
+        0.5,
+        Target::Concentration,
+    )?;
+
+    assert!(result_narrow.doses()[0].is_finite());
+    assert!(result_wide.doses()[0].is_finite());
+    assert!(result_wide.objf() <= result_narrow.objf() + 1e-6);
+
+    let result_personal = posterior.optimize(
+        target.clone(),
+        None,
+        DoseRange::new(10.0, 500.0),
+        0.0,
+        Target::Concentration,
+    )?;
+
+    let result_population = posterior.optimize(
+        target,
+        None,
+        DoseRange::new(10.0, 500.0),
+        1.0,
+        Target::Concentration,
+    )?;
+
+    assert!(result_personal.doses()[0].is_finite());
+    assert!(result_population.doses()[0].is_finite());
 
     Ok(())
 }

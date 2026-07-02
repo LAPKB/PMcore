@@ -114,7 +114,7 @@ use pharmsol::Equation;
 ///
 /// - **AUC** ([`Target::AUC`]):
 ///   Predictions are cumulative AUC values calculated via trapezoidal rule
-///   on a dense time grid (controlled by `settings.predictions().idelta`)
+///   on a dense time grid (controlled by `config.prediction_interval()`)
 ///
 /// # Example
 ///
@@ -247,18 +247,19 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
         let preds_i: Vec<f64> = match problem.target_type {
             Target::Concentration => {
                 // Simulate at observation times only
-                let pred = problem.eq.simulate_subject(&target_subject, &spp, None)?;
+                let pred = problem
+                    .eq
+                    .simulate_subject_dense(&target_subject, &spp, None)?;
                 pred.0.flat_predictions()
             }
             Target::AUCFromZero => {
                 // For AUC: simulate at dense time grid and calculate cumulative AUC
-                let idelta = problem.settings.predictions().idelta;
+                let idelta = problem.config.prediction_interval();
                 let start_time = 0.0; // Future starts at 0
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
                 // Generate dense time grid
-                let dense_times =
-                    calculate_dense_times(start_time, end_time, &obs_times, idelta as usize);
+                let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
 
                 // Create temporary subject with dense time points for simulation
                 let subject_id = target_subject.id().to_string();
@@ -291,10 +292,19 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                     .iter()
                     .flat_map(|occ| occ.events())
                     .filter_map(|event| match event {
-                        Event::Observation(obs) => Some((obs.time(), obs.outeq())),
+                        Event::Observation(obs) => Some(
+                            obs.outeq_index()
+                                .map(|outeq| (obs.time(), outeq))
+                                .ok_or_else(|| {
+                                    anyhow::anyhow!(
+                                        "BestDose AUC calculations require numeric observation output labels; got `{}`",
+                                        obs.outeq()
+                                    )
+                                }),
+                        ),
                         _ => None,
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>>>()?;
 
                 let mut unique_outeqs: Vec<usize> =
                     obs_time_outeq.iter().map(|(_, outeq)| *outeq).collect();
@@ -311,7 +321,9 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                 let dense_subject = builder.build();
 
                 // Simulate at dense times
-                let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
+                let pred = problem
+                    .eq
+                    .simulate_subject_dense(&dense_subject, &spp, None)?;
                 let dense_predictions_with_outeq = pred.0.predictions();
 
                 // Group predictions by outeq using the Prediction struct
@@ -372,11 +384,11 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             }
             Target::AUCFromLastDose => {
                 // For interval AUC: simulate at dense time grid and calculate AUC from last dose
-                let idelta = problem.settings.predictions().idelta;
+                let idelta = problem.config.prediction_interval();
                 let end_time = obs_times.last().copied().unwrap_or(0.0);
 
                 // Generate dense time grid from 0 to end_time (need full grid for intervals)
-                let dense_times = calculate_dense_times(0.0, end_time, &obs_times, idelta as usize);
+                let dense_times = calculate_dense_times(0.0, end_time, &obs_times, idelta);
 
                 // Create temporary subject with dense time points for simulation
                 let subject_id = target_subject.id().to_string();
@@ -409,10 +421,19 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                     .iter()
                     .flat_map(|occ| occ.events())
                     .filter_map(|event| match event {
-                        Event::Observation(obs) => Some((obs.time(), obs.outeq())),
+                        Event::Observation(obs) => Some(
+                            obs.outeq_index()
+                                .map(|outeq| (obs.time(), outeq))
+                                .ok_or_else(|| {
+                                    anyhow::anyhow!(
+                                        "BestDose AUC calculations require numeric observation output labels; got `{}`",
+                                        obs.outeq()
+                                    )
+                                }),
+                        ),
                         _ => None,
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>>>()?;
 
                 let mut unique_outeqs: Vec<usize> =
                     obs_time_outeq.iter().map(|(_, outeq)| *outeq).collect();
@@ -429,7 +450,9 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
                 let dense_subject = builder.build();
 
                 // Simulate at dense times
-                let pred = problem.eq.simulate_subject(&dense_subject, &spp, None)?;
+                let pred = problem
+                    .eq
+                    .simulate_subject_dense(&dense_subject, &spp, None)?;
                 let dense_predictions_with_outeq = pred.0.predictions();
 
                 // Group predictions by outeq
@@ -509,7 +532,7 @@ pub fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Res
             let pj = preds_i[j];
             let se = (obs_val - pj).powi(2);
             sumsq_i += se;
-            // Calculate population mean using PRIOR probabilities
+            // Calculate population mean using posterior probabilities
             y_bar[j] += post_prob * pj;
         }
 
