@@ -68,6 +68,7 @@ use crate::bestdose::predictions::{
 use crate::bestdose::types::{Achievement, BestDoseObjective, Target};
 use pharmsol::prelude::*;
 use pharmsol::Equation;
+use pharmsol::Predictions;
 
 /// Cost together with the per-observation target achievements at a candidate
 /// dose regimen.
@@ -126,13 +127,19 @@ pub(crate) struct Evaluation {
 /// - Model simulation fails
 /// - Prediction length doesn't match observation count
 /// - AUC calculation fails (for AUC targets)
-pub(crate) fn calculate_cost(problem: &BestDoseObjective, candidate_doses: &[f64]) -> Result<f64> {
+pub(crate) fn calculate_cost<E: Equation>(
+    problem: &BestDoseObjective<E>,
+    candidate_doses: &[f64],
+) -> Result<f64> {
     Ok(evaluate(problem, candidate_doses)?.cost)
 }
 
 /// Evaluate a candidate dose regimen, returning both the cost and the expected
 /// achieved value at each target observation.
-pub(crate) fn evaluate(problem: &BestDoseObjective, candidate_doses: &[f64]) -> Result<Evaluation> {
+pub(crate) fn evaluate<E: Equation>(
+    problem: &BestDoseObjective<E>,
+    candidate_doses: &[f64],
+) -> Result<Evaluation> {
     // Validate candidate_doses length matches expected optimizable dose count
     let expected_optimizable = problem
         .target
@@ -263,7 +270,11 @@ pub(crate) fn evaluate(problem: &BestDoseObjective, candidate_doses: &[f64]) -> 
                 let pred = problem
                     .eq
                     .simulate_subject_dense(&target_subject, &spp, None)?;
-                pred.0.flat_predictions()
+                pred.0
+                    .get_predictions()
+                    .iter()
+                    .map(|p| p.prediction())
+                    .collect()
             }
             Target::AUCFromZero => {
                 // For AUC: simulate at dense time grid and calculate cumulative AUC
@@ -337,7 +348,7 @@ pub(crate) fn evaluate(problem: &BestDoseObjective, candidate_doses: &[f64]) -> 
                 let pred = problem
                     .eq
                     .simulate_subject_dense(&dense_subject, &spp, None)?;
-                let dense_predictions_with_outeq = pred.0.predictions();
+                let dense_predictions_with_outeq = pred.0.get_predictions();
 
                 // Group predictions by outeq using the Prediction struct
                 let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =
@@ -466,7 +477,7 @@ pub(crate) fn evaluate(problem: &BestDoseObjective, candidate_doses: &[f64]) -> 
                 let pred = problem
                     .eq
                     .simulate_subject_dense(&dense_subject, &spp, None)?;
-                let dense_predictions_with_outeq = pred.0.predictions();
+                let dense_predictions_with_outeq = pred.0.get_predictions();
 
                 // Group predictions by outeq
                 let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =
@@ -612,7 +623,7 @@ mod tests {
         Theta::from_parts(mat, params).unwrap()
     }
 
-    fn problem_with(target: Subject) -> BestDoseObjective {
+    fn problem_with(target: Subject) -> BestDoseObjective<pharmsol::ODE> {
         BestDoseObjective {
             target,
             target_type: Target::Concentration,

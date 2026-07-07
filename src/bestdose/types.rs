@@ -8,7 +8,7 @@
 
 use crate::estimation::nonparametric::{Theta, Weights};
 use pharmsol::prelude::*;
-use pharmsol::ODE;
+use pharmsol::Equation;
 use serde::{Deserialize, Serialize};
 
 /// Target type for dose optimization.
@@ -125,20 +125,20 @@ impl Default for BestDoseOptions {
 /// let optimal_subject = result.subject();
 /// let cost = result.cost();
 /// ```
-#[derive(Debug, Clone)]
-pub struct BestDoseProblem {
-    pub(crate) eq: ODE,
+#[derive(Clone)]
+pub struct BestDoseProblem<E: Equation> {
+    pub(crate) eq: E,
     pub(crate) theta: Theta,
     pub(crate) weights: Weights,
 }
 
-impl BestDoseProblem {
+impl<E: Equation> BestDoseProblem<E> {
     /// Creates a dose-optimization problem from a model and a parameter
     /// distribution.
     ///
     /// Returns an error if the number of weights does not match the number of
     /// support points in `theta`.
-    pub fn new(eq: ODE, theta: Theta, weights: Weights) -> anyhow::Result<Self> {
+    pub fn new(eq: E, theta: Theta, weights: Weights) -> anyhow::Result<Self> {
         if weights.len() != theta.matrix().nrows() {
             anyhow::bail!(
                 "number of weights ({}) does not match the number of support points ({})",
@@ -193,9 +193,9 @@ impl BestDoseProblem {
 /// Internal objective assembled by [`BestDoseProblem::optimize`]. Holds
 /// everything the Nelder-Mead cost function needs to evaluate a candidate dose
 /// regimen.
-#[derive(Debug, Clone)]
-pub(crate) struct BestDoseObjective {
-    pub(crate) eq: ODE,
+#[derive(Clone)]
+pub(crate) struct BestDoseObjective<E: Equation> {
+    pub(crate) eq: E,
     pub(crate) theta: Theta,
     pub(crate) weights: Weights,
     pub(crate) target: Subject,

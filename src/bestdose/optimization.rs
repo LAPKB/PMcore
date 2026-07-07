@@ -38,7 +38,7 @@ fn create_initial_simplex(initial_point: &[f64]) -> Vec<Vec<f64>> {
 }
 
 /// Let the Nelder-Mead optimizer evaluate candidate doses via the cost function.
-impl CostFunction for BestDoseObjective {
+impl<E: Equation> CostFunction for BestDoseObjective<E> {
     type Param = Vec<f64>;
     type Output = f64;
 
@@ -49,7 +49,7 @@ impl CostFunction for BestDoseObjective {
 
 /// Solve for the optimal doses of `objective.target` and return the optimal
 /// dosing subject together with the final cost.
-pub(crate) fn optimize(objective: &BestDoseObjective) -> Result<BestDoseResult> {
+pub(crate) fn optimize<E: Equation>(objective: &BestDoseObjective<E>) -> Result<BestDoseResult> {
     let min_dose = objective.doserange.min;
     let max_dose = objective.doserange.max;
 

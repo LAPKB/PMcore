@@ -58,3 +58,10 @@ faer = "0.24.0"
 [[bench]]
 name = "bimodal_ke"
 harness = false
+
+# The BestDose example defines its model from a DSL text string, which requires
+# a runtime DSL backend. Build/run it with: `--features dsl-jit`.
+[[example]]
+name = "bestdose"
+path = "examples/bestdose/main.rs"
+required-features = ["dsl-jit"]

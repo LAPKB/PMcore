@@ -1,29 +1,46 @@
 use anyhow::Result;
+use pharmsol::dsl::{
+    compile_module_source_to_runtime, CompiledRuntimeModel, RuntimeCompilationTarget,
+};
+use pharmsol::Equation;
 use pmcore::bestdose::{BestDoseOptions, BestDoseProblem, DoseRange, Target};
 use pmcore::prelude::*;
+
+/// The model, written in the pharmsol DSL and parsed/compiled at runtime.
+///
+/// A one-compartment model with a bolus input: `C(t) = Dose * exp(-ke * t) / V`.
+/// The route is named `input_0` and the output `outeq_0` so that subjects built
+/// with the numeric input/output index `0` resolve to them.
+const MODEL_SOURCE: &str = r#"
+name = bestdose_one_compartment
+kind = ode
+
+params = ke, v
+states = central
+outputs = outeq_0
+
+bolus(input_0) -> central
+
+dx(central) = -ke * central
+out(outeq_0) = central / v
+"#;
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::new("info,diffsol=off"))
         .init();
 
-    // ── Shared model, parameter space, and error model ──
-    // A simple one-compartment model with bolus input:
-    //   C(t) = Dose * exp(-ke * t) / V
-    let eq = ode! {
-        name: "bestdose_one_compartment",
-        params: [ke, v],
-        states: [central],
-        outputs: [outeq_0],
-        routes: [
-            bolus(input_0) -> central,
-        ],
-        diffeq: |x, _t, dx| {
-            dx[central] = -ke * x[central];
-        },
-        out: |x, _t, y| {
-            y[outeq_0] = x[central] / v;
-        },
+    // Parse and JIT-compile the model from the DSL text string.
+    let eq = match compile_module_source_to_runtime(
+        MODEL_SOURCE,
+        Some("bestdose_one_compartment"),
+        RuntimeCompilationTarget::Jit,
+        |_, _| {},
+    )
+    .map_err(|e| anyhow::anyhow!("failed to compile DSL model: {e}"))?
+    {
+        CompiledRuntimeModel::Ode(ode) => ode,
+        other => anyhow::bail!("expected an ODE model, got {:?}", other.kind()),
     };
 
     let parameter_space = ParameterSpace::<BoundedParameter>::new()
@@ -55,7 +72,11 @@ fn main() -> Result<()> {
 /// The population distribution is first updated to a patient-specific posterior
 /// using the NCNPAG algorithm on the patient's history, then doses are optimized
 /// against that posterior.
-fn concentration_target(eq: &ODE, ems: &AssayErrorModels, theta: &Theta) -> Result<()> {
+fn concentration_target<E: Equation + EquationMetadataSource + Send + 'static>(
+    eq: &E,
+    ems: &AssayErrorModels,
+    theta: &Theta,
+) -> Result<()> {
     println!("════════════════════════════════════════════════════════");
     println!("  Concentration target (patient-specific posterior via NCNPAG)");
     println!("════════════════════════════════════════════════════════\n");
@@ -150,7 +171,7 @@ fn concentration_target(eq: &ODE, ems: &AssayErrorModels, theta: &Theta) -> Resu
 
 /// AUC targeting integrated from time zero (`Target::AUCFromZero`) using the
 /// population distribution directly (no past data).
-fn auc_from_zero_target(eq: &ODE, theta: &Theta, weights: &Weights) -> Result<()> {
+fn auc_from_zero_target<E: Equation>(eq: &E, theta: &Theta, weights: &Weights) -> Result<()> {
     println!("\n════════════════════════════════════════════════════════");
     println!("  AUC target from zero (Target::AUCFromZero)");
     println!("════════════════════════════════════════════════════════\n");
@@ -194,7 +215,7 @@ fn auc_from_zero_target(eq: &ODE, theta: &Theta, weights: &Weights) -> Result<()
 
 /// Interval AUC targeting from the last dose (`Target::AUCFromLastDose`) using
 /// the population distribution directly.
-fn interval_auc_target(eq: &ODE, theta: &Theta, weights: &Weights) -> Result<()> {
+fn interval_auc_target<E: Equation>(eq: &E, theta: &Theta, weights: &Weights) -> Result<()> {
     println!("\n════════════════════════════════════════════════════════");
     println!("  Interval AUC target (Target::AUCFromLastDose)");
     println!("════════════════════════════════════════════════════════\n");
