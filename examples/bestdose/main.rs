@@ -220,29 +220,26 @@ fn auc_from_zero_target(
         .prediction_interval(60.0)
         .run()?;
 
-    tracing::info!(
+    println!(
         "Optimal dose: {:.1} mg | cost {:.6}",
         optimal.doses()[0],
         optimal.objf()
     );
 
     if let Some(auc_preds) = &optimal.auc_predictions() {
-        tracing::info!("AUC predictions:");
+        println!("\nAUC predictions:");
         let mut total_error = 0.0;
         for (time, auc) in auc_preds {
             let target = if (time - 6.0).abs() < 0.1 { 50.0 } else { 80.0 };
             let error_pct = ((auc - target) / target * 100.0).abs();
             total_error += error_pct;
-            tracing::info!(
+            println!(
                 "  t {:5.1}h | target {:6.1} | predicted {:6.2} | error {:5.1}%",
-                time,
-                target,
-                auc,
-                error_pct
+                time, target, auc, error_pct
             );
         }
-        tracing::info!(
-            "Mean absolute error: {:.1}%",
+        println!(
+            "\n  Mean absolute error: {:.1}%",
             total_error / auc_preds.len() as f64
         );
     }
@@ -280,30 +277,27 @@ fn interval_auc_target(
         .prediction_interval(60.0)
         .run()?;
 
-    tracing::info!(
+    println!(
         "Optimal maintenance dose (at t=12h): {:.1} mg | cost {:.6}",
         optimal.doses()[0],
         optimal.objf()
     );
 
     if let Some(auc_preds) = &optimal.auc_predictions() {
-        tracing::info!("Interval AUC predictions:");
+        println!("\nInterval AUC predictions:");
         for (time, auc) in auc_preds {
             let target = 60.0;
             let error_pct = ((auc - target) / target * 100.0).abs();
-            tracing::info!(
+            println!(
                 "  t {:5.1}h | target AUC(12-24) {:6.1} | predicted {:6.2} | error {:5.1}%",
-                time,
-                target,
-                auc,
-                error_pct
+                time, target, auc, error_pct
             );
         }
     }
 
-    tracing::info!("Key difference:");
-    tracing::info!("  - AUCFromZero:     integrates from t=0 to the observation");
-    tracing::info!("  - AUCFromLastDose: integrates from the last dose to the observation");
+    println!("\nKey difference:");
+    println!("  - AUCFromZero:     integrates from t=0 to the observation");
+    println!("  - AUCFromLastDose: integrates from the last dose to the observation");
 
     Ok(())
 }
