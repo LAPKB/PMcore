@@ -22,17 +22,20 @@
 pub mod error_optim;
 
 // Algorithm implementations
+pub mod ncnpag;
 pub mod npag;
 pub mod npmap;
 pub mod npod;
 
 // Re-export algorithm structs
+pub use ncnpag::NCNPAG;
 pub use npag::NPAG;
 pub use npmap::NPMAP;
 pub use npod::NPOD;
 
 // Re-export per-algorithm configuration structs
 pub use error_optim::ErrorOptimConfig;
+pub use ncnpag::NcnpagConfig;
 pub use npag::NpagConfig;
 pub use npmap::NpmapConfig;
 pub use npod::NpodConfig;
@@ -77,6 +80,8 @@ pub enum NonParametricAlgorithm {
     Npod(NpodConfig),
     /// Non-parametric maximum a posteriori (posterior probability reweighting).
     Npmap(NpmapConfig),
+    /// Non-collapsing NPAG (single-pass Bayesian reweighting of fixed support points).
+    Ncnpag(NcnpagConfig),
 }
 
 impl Default for NonParametricAlgorithm {
@@ -103,6 +108,12 @@ impl From<NpmapConfig> for NonParametricAlgorithm {
     }
 }
 
+impl From<NcnpagConfig> for NonParametricAlgorithm {
+    fn from(config: NcnpagConfig) -> Self {
+        Self::Ncnpag(config)
+    }
+}
+
 impl NonParametricAlgorithm {
     /// The Non-Parametric Adaptive Grid (NPAG) algorithm with its default configuration.
     pub fn npag() -> Self {
@@ -118,6 +129,11 @@ impl NonParametricAlgorithm {
     /// configuration.
     pub fn npmap() -> Self {
         Self::Npmap(NpmapConfig::default())
+    }
+
+    /// The non-collapsing NPAG (NCNPAG) algorithm with its default configuration.
+    pub fn ncnpag() -> Self {
+        Self::Ncnpag(NcnpagConfig::default())
     }
 }
 
@@ -158,6 +174,16 @@ impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NonParametric
                 )?;
                 NonParametricRunner::fit(&mut runner)
             }
+            Self::Ncnpag(config) => {
+                let mut runner = NCNPAG::from_parts(
+                    problem.model.equation,
+                    problem.data,
+                    problem.error_models,
+                    problem.prior,
+                    config,
+                )?;
+                NonParametricRunner::fit(&mut runner)
+            }
         }
     }
 }
@@ -182,6 +208,14 @@ impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpodConfig {
 }
 
 impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
+    type Output = NonParametricResult<E>;
+
+    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
+        NonParametricAlgorithm::from(self).fit(problem)
+    }
+}
+
+impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NcnpagConfig {
     type Output = NonParametricResult<E>;
 
     fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {

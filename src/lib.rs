@@ -61,7 +61,7 @@ pub mod prelude {
     pub use crate::estimation::NonParametric;
     pub use crate::estimation::Parametric;
     pub use crate::estimation::{
-        ErrorModels, EstimationProblem, FitProgress, NonParametricAlgorithm,
+        ErrorModels, EstimationProblem, FitProgress, NcnpagConfig, NonParametricAlgorithm,
         NonparametricCycleProgress, NpagConfig, NpmapConfig, NpodConfig, ParametricAlgorithm,
         SaemConfig,
     };

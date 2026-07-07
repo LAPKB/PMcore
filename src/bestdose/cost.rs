@@ -1,10 +1,15 @@
 //! Cost function calculation for BestDose optimization
 //!
-//! Implements the hybrid cost function that balances patient-specific performance
-//! (variance) with population-level robustness (bias). Also enforces dose range
-//! constraints through penalty-based bounds checking.
+//! Implements the hybrid cost function that trades off hitting the target on
+//! average against the spread of outcomes across the parameter distribution.
+//! Also enforces dose-range constraints through penalty-based bounds checking.
 //!
 //! # Cost Function
+//!
+//! Everything is computed from a single distribution over parameters — the
+//! support points and their probability weights `w` (see [`BestDoseObjective`]).
+//! Let `p[i,j]` be the prediction for support point `i` at observation `j`, and
+//! `t[j]` the target.
 //!
 //! ```text
 //! Cost = {
@@ -13,66 +18,78 @@
 //! }
 //! ```
 //!
-//! ## Variance Term (Patient-Specific)
+//! ## Variance term — expected squared error
 //!
-//! Expected squared prediction error using posterior weights:
 //! ```text
-//! Variance = Σᵢ posterior_weight[i] × Σⱼ (target[j] - pred[i,j])²
+//! Variance = Σᵢ wᵢ Σⱼ (t[j] - p[i,j])²   =   E_w[(t - p)²]
 //! ```
 //!
-//! - Weighted by patient-specific posterior probabilities
-//! - Minimizes expected error for this specific patient
-//! - Emphasizes parameter values compatible with patient history
+//! ## Bias term — squared error of the mean prediction
 //!
-//! ## Bias Term (Population-Level)
-//!
-//! Squared deviation from population mean prediction using prior weights:
 //! ```text
-//! Bias² = Σⱼ (target[j] - population_mean[j])²
-//! where population_mean[j] = Σᵢ prior_weight[i] × pred[i,j]
+//! Bias² = Σⱼ (t[j] - ȳ[j])²,   where ȳ[j] = Σᵢ wᵢ p[i,j]   (the weighted mean)
 //! ```
 //!
-//! - Weighted by population prior probabilities
-//! - Minimizes deviation from population-typical behavior
-//! - Provides robustness when patient history is limited
+//! ## Bias weight parameter (λ)
 //!
-//! ## Bias Weight Parameter (λ)
+//! Using the decomposition `E_w[(t-p)²] = (t - E_w[p])² + Var_w(p)`, the cost
+//! simplifies to:
 //!
-//! - `λ = 0.0`: Pure personalization (minimize variance only)
-//! - `λ = 0.5`: Balanced hybrid approach
-//! - `λ = 1.0`: Pure population (minimize bias only)
+//! ```text
+//! Cost = (t - E_w[p])² + (1-λ) · Var_w(p)
+//! ```
+//!
+//! So λ controls how strongly the *spread* of predicted outcomes across the
+//! distribution is penalized:
+//!
+//! - `λ = 0.0`: minimize the full expected squared error — hit the target on
+//!   average **and** keep the prediction spread small (robust across all
+//!   plausible parameter values).
+//! - `λ = 1.0`: only the weighted-mean prediction has to hit the target; the
+//!   spread is ignored.
+//! - `0 < λ < 1`: interpolates the variance penalty.
+//!
+//! Note: λ is independent of whether `w` is a population distribution or a
+//! patient-specific posterior — that choice is made upstream by the caller.
 //!
 //! # Implementation Notes
 //!
 //! The cost function handles both concentration and AUC targets:
 //! - **Concentration**: Simulates model at observation times directly
-//! - **AUC**: Generates dense time grid and calculates cumulative AUC via trapezoidal rule
+//! - **AUC**: Generates dense time grid and calculates AUC via trapezoidal rule
 //!
-//! See [`calculate_cost`] for the main implementation.
+//! See [`evaluate`] for the main implementation.
 
 use anyhow::Result;
 
 use crate::bestdose::predictions::{
     calculate_auc_at_times, calculate_dense_times, calculate_interval_auc_per_observation,
 };
-use crate::bestdose::types::{BestDoseProblem, Target};
+use crate::bestdose::types::{Achievement, BestDoseObjective, Target};
 use pharmsol::prelude::*;
 use pharmsol::Equation;
 
+/// Cost together with the per-observation target achievements at a candidate
+/// dose regimen.
+pub(crate) struct Evaluation {
+    pub cost: f64,
+    pub achievements: Vec<Achievement>,
+}
+
 /// Calculate cost function for a candidate dose regimen
 ///
-/// This is the core objective function minimized by the Nelder-Mead optimizer during
-/// Stage 2 of the BestDose algorithm.
+/// This is the core objective function minimized by the Nelder-Mead optimizer.
 ///
 /// # Arguments
 ///
-/// * `problem` - The [`BestDoseProblem`] containing all necessary data
+/// * `problem` - The [`BestDoseObjective`] containing the model, distribution,
+///   target, and optimization settings
 /// * `candidate_doses` - Dose amounts to evaluate (only for optimizable doses)
 ///
 /// # Returns
 ///
 /// The cost value `(1-λ) × Variance + λ × Bias²` for the candidate doses.
-/// Lower cost indicates better match to targets.
+/// Lower cost indicates a better match to targets.
 ///
 /// # Dose Masking
 ///
@@ -80,56 +97,42 @@ use pharmsol::Equation;
 /// Doses with non-zero amounts remain fixed at their specified values.
 ///
 /// The `candidate_doses` parameter contains only the optimizable doses, which are
-/// substituted into the target subject before simulation
+/// substituted into the target subject before simulation.
 ///
 /// # Cost Function Details
 ///
-/// ## Variance Term
+/// Both terms are computed from the single distribution `w` (support points and
+/// their weights). For each support point the model is simulated with the
+/// candidate doses to obtain `p[i,j]`.
 ///
-/// Expected squared prediction error using posterior weights:
-/// ```text
-/// Variance = Σᵢ P(θᵢ|data) × Σⱼ (target[j] - pred[i,j])²
-/// ```
+/// - **Variance** (expected squared error): `Σᵢ wᵢ Σⱼ (t[j] - p[i,j])²`
+/// - **Bias²** (error of the weighted mean): `Σⱼ (t[j] - Σᵢ wᵢ p[i,j])²`
 ///
-/// For each support point θᵢ:
-/// 1. Simulate model with candidate doses
-/// 2. Calculate squared error at each observation time j
-/// 3. Weight by posterior probability P(θᵢ|data)
-///
-/// ## Bias Term
-///
-/// Squared deviation from population mean:
-/// ```text
-/// Bias² = Σⱼ (target[j] - E[pred[j]])²
-/// where E[pred[j]] = Σᵢ P(θᵢ) × pred[i,j]  (prior weights)
-/// ```
-///
-/// The population mean uses **prior weights**, not posterior weights, to represent
-/// population-typical behavior independent of patient-specific data.
+/// `λ` (`problem.bias_weight`) trades between them; equivalently
+/// `Cost = (t - E_w[p])² + (1-λ)·Var_w(p)`, so `λ` sets how much predictive
+/// spread across the distribution is penalized.
 ///
 /// ## Target Types
 ///
-/// - **Concentration** ([`Target::Concentration`]):
-///   Predictions are concentrations at observation times
-///
-/// - **AUC** ([`Target::AUC`]):
-///   Predictions are cumulative AUC values calculated via trapezoidal rule
-///   on a dense time grid (controlled by `config.prediction_interval()`)
-///
-/// # Example
-///
-/// ```rust,ignore
-/// // Internal use by optimizer
-/// let cost = calculate_cost(&problem, &[100.0, 150.0])?;
-/// ```
+/// - **Concentration** ([`Target::Concentration`]): predictions are
+///   concentrations at observation times.
+/// - **AUC** ([`Target::AUCFromZero`] / [`Target::AUCFromLastDose`]):
+///   predictions are AUC values computed via the trapezoidal rule on a dense
+///   time grid (controlled by the prediction interval).
 ///
 /// # Errors
 ///
-/// Returns error if:
+/// Returns an error if:
 /// - Model simulation fails
 /// - Prediction length doesn't match observation count
 /// - AUC calculation fails (for AUC targets)
-pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64]) -> Result<f64> {
+pub(crate) fn calculate_cost(problem: &BestDoseObjective, candidate_doses: &[f64]) -> Result<f64> {
+    Ok(evaluate(problem, candidate_doses)?.cost)
+}
+
+/// Evaluate a candidate dose regimen, returning both the cost and the expected
+/// achieved value at each target observation.
+pub(crate) fn evaluate(problem: &BestDoseObjective, candidate_doses: &[f64]) -> Result<Evaluation> {
     // Validate candidate_doses length matches expected optimizable dose count
     let expected_optimizable = problem
         .target
@@ -165,7 +168,10 @@ pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64])
             } else {
                 dose - max_dose
             };
-            return Ok(1e12 + violation.powi(2) * 1e6);
+            return Ok(Evaluation {
+                cost: 1e12 + violation.powi(2) * 1e6,
+                achievements: Vec::new(),
+            });
         }
     }
 
@@ -225,21 +231,28 @@ pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64])
         })
         .collect();
 
+    let obs_outeqs: Vec<usize> = target_subject
+        .occasions()
+        .iter()
+        .flat_map(|occ| occ.events())
+        .filter_map(|event| match event {
+            Event::Observation(obs) => Some(obs.outeq_index().unwrap_or(0)),
+            _ => None,
+        })
+        .collect();
+
     let n_obs = obs_vec.len();
 
     // Accumulators
     let mut variance = 0.0_f64; // Expected squared error E[(target - pred)²]
-    let mut y_bar = vec![0.0_f64; n_obs]; // Population mean predictions
+    let mut y_bar = vec![0.0_f64; n_obs]; // Weighted-mean predictions
 
-    // Calculate variance (using posterior weights) and population mean (using prior weights)
-
-    for ((row, post_prob), _prior_prob) in problem
+    // Both cost terms are computed from the single distribution weights.
+    for (row, prob) in problem
         .theta
         .matrix()
         .row_iter()
-        .zip(problem.posterior.iter()) // Posterior from NPAGFULL11 (patient-specific)
-        .zip(problem.population_weights.iter())
-    // Prior (population)
+        .zip(problem.weights.iter())
     {
         let spp = row.iter().copied().collect::<Vec<f64>>();
 
@@ -526,37 +539,51 @@ pub(crate) fn calculate_cost(problem: &BestDoseProblem, candidate_doses: &[f64])
             ));
         }
 
-        // Calculate variance term: weighted by POSTERIOR probability
+        // Calculate variance term: weighted by the distribution probability
         let mut sumsq_i = 0.0_f64;
         for (j, &obs_val) in obs_vec.iter().enumerate() {
             let pj = preds_i[j];
             let se = (obs_val - pj).powi(2);
             sumsq_i += se;
-            // Calculate population mean using posterior probabilities
-            y_bar[j] += post_prob * pj;
+            // Weighted-mean prediction
+            y_bar[j] += prob * pj;
         }
 
-        variance += post_prob * sumsq_i; // Weighted by posterior
+        variance += prob * sumsq_i; // Weighted by the distribution
     }
 
-    // Calculate bias term: squared difference from population mean
+    // Bias term: squared error of the weighted-mean prediction.
     let mut bias = 0.0_f64;
     for (j, &obs_val) in obs_vec.iter().enumerate() {
         bias += (obs_val - y_bar[j]).powi(2);
     }
 
-    // Final cost: (1-λ)×Variance + λ×Bias²
-    // λ=0: Full personalization (minimize variance)
-    // λ=1: Population-based (minimize bias from population)
+    // Cost = (1-λ)×Variance + λ×Bias²  ≡  Bias² + (1-λ)·Var_w(pred).
+    // λ sets how much predictive spread across the distribution is penalized:
+    // λ=0 minimizes the full expected squared error; λ=1 only aims the mean.
     let cost = (1.0 - problem.bias_weight) * variance + problem.bias_weight * bias;
 
-    Ok(cost)
+    // Expected achieved value at each observation is the weighted-mean prediction.
+    let achievements = obs_times
+        .iter()
+        .zip(obs_outeqs.iter())
+        .zip(obs_vec.iter())
+        .zip(y_bar.iter())
+        .map(|(((&time, &outeq), &target), &achieved)| Achievement {
+            time,
+            outeq,
+            target,
+            achieved,
+        })
+        .collect();
+
+    Ok(Evaluation { cost, achievements })
 }
 
 #[cfg(test)]
 mod tests {
     use super::calculate_cost;
-    use crate::bestdose::types::{BestDoseProblem, DoseRange, Target};
+    use crate::bestdose::types::{BestDoseObjective, DoseRange, Target};
     use crate::estimation::nonparametric::{Theta, Weights};
     use crate::model::{BoundedParameter, ParameterSpace};
     use pharmsol::prelude::*;
@@ -585,13 +612,12 @@ mod tests {
         Theta::from_parts(mat, params).unwrap()
     }
 
-    fn problem_with(target: Subject) -> BestDoseProblem {
-        BestDoseProblem {
+    fn problem_with(target: Subject) -> BestDoseObjective {
+        BestDoseObjective {
             target,
             target_type: Target::Concentration,
-            population_weights: Weights::uniform(1),
             theta: single_point_theta(),
-            posterior: Weights::uniform(1),
+            weights: Weights::uniform(1),
             eq: one_compartment(),
             doserange: DoseRange::new(10.0, 300.0),
             bias_weight: 0.5,
