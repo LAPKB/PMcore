@@ -393,6 +393,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
             self.objf,
             self.error_models.clone(),
             self.theta.clone(),
+            self.w.clone(),
             self.theta.nspp(),
             0.0,
             self.status.clone(),

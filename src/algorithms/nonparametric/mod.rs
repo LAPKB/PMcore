@@ -141,56 +141,58 @@ impl NonParametricAlgorithm {
     pub fn ncnpag() -> Self {
         Self::Ncnpag(NcnpagConfig::default())
     }
+
+    /// Build the internal, mutable execution state (runner) for this algorithm.
+    ///
+    /// Both [`fit`](Algorithm::fit) and the stepping
+    /// [`FitController`](crate::algorithms::nonparametric::controller::FitController)
+    /// build on this primitive.
+    pub(crate) fn into_runner<E: Equation + Send + 'static>(
+        self,
+        problem: EstimationProblem<E, NonParametric>,
+    ) -> Result<Box<dyn NonParametricRunner<E>>> {
+        // `problem.prior` is the prior `Theta` (which also carries the parameter
+        // space) and `problem.error_models` is strictly `AssayErrorModels`.
+        let runner: Box<dyn NonParametricRunner<E>> = match self {
+            Self::Npag(config) => Box::new(NPAG::from_parts(
+                problem.model.equation,
+                problem.data,
+                problem.error_models,
+                problem.prior,
+                config,
+            )?),
+            Self::Npod(config) => Box::new(NPOD::from_parts(
+                problem.model.equation,
+                problem.data,
+                problem.error_models,
+                problem.prior,
+                config,
+            )?),
+            Self::Npmap(config) => Box::new(NPMAP::from_parts(
+                problem.model.equation,
+                problem.data,
+                problem.error_models,
+                problem.prior,
+                config,
+            )?),
+            Self::Ncnpag(config) => Box::new(NCNPAG::from_parts(
+                problem.model.equation,
+                problem.data,
+                problem.error_models,
+                problem.prior,
+                config,
+            )?),
+        };
+        Ok(runner)
+    }
 }
 
 impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NonParametricAlgorithm {
     type Output = NonParametricResult<E>;
 
     fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        match self {
-            Self::Npag(config) => {
-                // `problem.prior` is the prior `Theta` (which also carries the parameter
-                // space) and `problem.error_models` is strictly `AssayErrorModels`.
-                let mut runner = NPAG::from_parts(
-                    problem.model.equation,
-                    problem.data,
-                    problem.error_models,
-                    problem.prior,
-                    config,
-                )?;
-                NonParametricRunner::fit(&mut runner)
-            }
-            Self::Npod(config) => {
-                let mut runner = NPOD::from_parts(
-                    problem.model.equation,
-                    problem.data,
-                    problem.error_models,
-                    problem.prior,
-                    config,
-                )?;
-                NonParametricRunner::fit(&mut runner)
-            }
-            Self::Npmap(config) => {
-                let mut runner = NPMAP::from_parts(
-                    problem.model.equation,
-                    problem.data,
-                    problem.error_models,
-                    problem.prior,
-                    config,
-                )?;
-                NonParametricRunner::fit(&mut runner)
-            }
-            Self::Ncnpag(config) => {
-                let mut runner = NCNPAG::from_parts(
-                    problem.model.equation,
-                    problem.data,
-                    problem.error_models,
-                    problem.prior,
-                    config,
-                )?;
-                NonParametricRunner::fit(&mut runner)
-            }
-        }
+        let mut runner = self.into_runner(problem)?;
+        runner.fit()
     }
 }
 
