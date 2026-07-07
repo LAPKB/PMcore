@@ -218,6 +218,7 @@ pub enum ParameterScale {
 /// builder.parameter(Parameter::logit("frac", 0.0, 1.0));
 /// builder.parameter(Parameter::bounded("v", 25.0, 250.0)); // mapped to Logit
 /// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Parameter;
 
 impl Parameter {

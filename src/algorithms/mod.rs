@@ -296,27 +296,69 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
     fn into_result(&self) -> Result<NonParametricResult<E>>;
 }
 
-/// Represents the status/result of the algorithm
+/// Where a fit stands: still running, or stopped (and why).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
     Continue,
     Stop(StopReason),
 }
 
+impl Status {
+    /// Whether the fit is still running.
+    pub fn is_continue(&self) -> bool {
+        matches!(self, Status::Continue)
+    }
+
+    /// Whether the fit has stopped.
+    pub fn is_stop(&self) -> bool {
+        matches!(self, Status::Stop(_))
+    }
+
+    /// Why the fit stopped, or `None` if it's still running.
+    pub fn stop_reason(&self) -> Option<&StopReason> {
+        match self {
+            Status::Stop(reason) => Some(reason),
+            Status::Continue => None,
+        }
+    }
+
+    /// Whether the fit stopped because it converged, rather than being cut short.
+    pub fn converged(&self) -> bool {
+        matches!(self, Status::Stop(StopReason::Converged))
+    }
+}
+
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Status::Continue => write!(f, "Continue"),
-            Status::Stop(s) => write!(f, "Stop: {:?}", s),
+            Status::Stop(reason) => write!(f, "Stopped ({reason})"),
         }
     }
 }
 
+/// Why a fit stopped.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-
 pub enum StopReason {
+    /// The convergence criteria were met.
     Converged,
+    /// Hit the cycle limit before converging.
     MaxCycles,
-    Stopped,
-    Completed,
+    /// A `stop` file was found on disk.
+    StopFile,
+    /// Stopped from code — [`request_stop`](crate::algorithms::nonparametric::FitController::request_stop)
+    /// or an observer returning [`CycleFlow::Stop`](crate::algorithms::nonparametric::CycleFlow::Stop).
+    Aborted,
+}
+
+impl std::fmt::Display for StopReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let reason = match self {
+            StopReason::Converged => "converged",
+            StopReason::MaxCycles => "maximum cycles reached",
+            StopReason::StopFile => "stop file detected",
+            StopReason::Aborted => "aborted",
+        };
+        f.write_str(reason)
+    }
 }
