@@ -124,8 +124,8 @@ fn run_single_optimization(
     let num_fixed = all_doses.len() - num_optimizable;
     let num_support_points = problem.theta.matrix().nrows();
 
-    tracing::info!(
-        "  │  {} doses: {} optimizable, {} fixed | {} support points",
+    tracing::debug!(
+        "{} optimization: {} optimizable doses, {} fixed, {} support points",
         method_name,
         num_optimizable,
         num_fixed,
@@ -134,7 +134,7 @@ fn run_single_optimization(
 
     // If no doses to optimize, return current doses with zero cost
     if num_optimizable == 0 {
-        tracing::warn!("  │  ⚠ No doses to optimize (all fixed)");
+        tracing::warn!("No doses to optimize (all fixed)");
         return Ok((all_doses, 0.0));
     }
 
@@ -159,7 +159,7 @@ fn run_single_optimization(
     let optimized_doses = result.best_param.clone().unwrap();
     let final_cost = result.best_cost;
 
-    tracing::info!("  │  → Cost: {:.6}", final_cost);
+    tracing::debug!("{} optimization cost: {:.6}", method_name, final_cost);
 
     // Map optimized doses back to full vector
     // For past/future mode: combine fixed past doses + optimized future doses
@@ -187,14 +187,9 @@ fn finalize_optimization(
     method: OptimalMethod,
     final_weights: Weights,
 ) -> Result<BestDoseResult> {
-    // ═════════════════════════════════════════════════════════════
     // STAGE 3: Final Predictions
-    // ═════════════════════════════════════════════════════════════
-    tracing::info!("─────────────────────────────────────────────────────────────");
-    tracing::info!("STAGE 3: Final Predictions");
-    tracing::info!("─────────────────────────────────────────────────────────────");
-    tracing::info!(
-        "  Calculating predictions with optimal doses and {} weights",
+    tracing::debug!(
+        "Stage 3: calculating final predictions with {} weights",
         method
     );
 
@@ -221,8 +216,7 @@ fn finalize_optimization(
     let (preds, auc_predictions) =
         calculate_final_predictions(problem, &final_doses, &final_weights)?;
 
-    tracing::info!("  ✓ Predictions complete");
-    tracing::info!("─────────────────────────────────────────────────────────────");
+    tracing::debug!("Final predictions complete");
 
     Ok(BestDoseResult {
         optimal_subject,
@@ -235,11 +229,7 @@ fn finalize_optimization(
 }
 
 pub fn posterior_optimization(problem: &BestDoseProblem) -> Result<BestDoseResult> {
-    tracing::info!("─────────────────────────────────────────────────────────────");
-    tracing::info!("STAGE 2: Posterior Optimization Only");
-    tracing::info!("─────────────────────────────────────────────────────────────");
-    tracing::info!("│");
-    tracing::info!("└─ Optimization: Posterior Weights (Patient-Specific)");
+    tracing::info!("Stage 2: posterior optimization (patient-specific weights)");
 
     let (doses, cost) = run_single_optimization(problem, &problem.posterior, "Posterior")?;
 
@@ -290,32 +280,23 @@ pub fn posterior_optimization(problem: &BestDoseProblem) -> Result<BestDoseResul
 pub fn dual_optimization(problem: &BestDoseProblem) -> Result<BestDoseResult> {
     let n_points = problem.theta.matrix().nrows();
 
-    // ═════════════════════════════════════════════════════════════
     // STAGE 2: Dual Optimization
-    // ═════════════════════════════════════════════════════════════
-    tracing::info!("─────────────────────────────────────────────────────────────");
-    tracing::info!("STAGE 2: Dual Optimization");
-    tracing::info!("─────────────────────────────────────────────────────────────");
+    tracing::info!("Stage 2: dual optimization");
 
     // OPTIMIZATION 1: Posterior weights (patient-specific adaptation)
-    tracing::info!("│");
-    tracing::info!("├─ Optimization 1: Posterior Weights (Patient-Specific)");
+    tracing::debug!("Optimization 1: posterior weights (patient-specific)");
     let (doses1, cost1) = run_single_optimization(problem, &problem.posterior, "Posterior")?;
 
     // OPTIMIZATION 2: Uniform weights (population robustness)
-    tracing::info!("│");
-    tracing::info!("├─ Optimization 2: Uniform Weights (Population-Based)");
+    tracing::debug!("Optimization 2: uniform weights (population-based)");
     let uniform_weights = Weights::uniform(n_points);
     let (doses2, cost2) = run_single_optimization(problem, &uniform_weights, "Uniform")?;
 
     // SELECTION: Compare and choose the better result
-    tracing::info!("│");
-    tracing::info!("└─ Selection: Compare Results");
-    tracing::info!("     Posterior cost: {:.6}", cost1);
-    tracing::info!("     Uniform cost:   {:.6}", cost2);
+    tracing::debug!("Posterior cost: {:.6}, uniform cost: {:.6}", cost1, cost2);
 
     let (final_doses, final_cost, method, final_weights) = if cost1 <= cost2 {
-        tracing::info!("     → Winner: Posterior (lower cost) ✓");
+        tracing::info!("Selected posterior weights (lower cost)");
         (
             doses1,
             cost1,
@@ -323,7 +304,7 @@ pub fn dual_optimization(problem: &BestDoseProblem) -> Result<BestDoseResult> {
             problem.posterior.clone(),
         )
     } else {
-        tracing::info!("     → Winner: Uniform (lower cost) ✓");
+        tracing::info!("Selected uniform weights (lower cost)");
         (doses2, cost2, OptimalMethod::Uniform, uniform_weights)
     };
 

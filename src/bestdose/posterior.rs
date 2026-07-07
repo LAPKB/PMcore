@@ -200,7 +200,7 @@ pub fn npagfull11_filter(
     );
 
     tracing::info!(
-        "  {} → {} support points (lambda filter, threshold={:.0e})",
+        "Lambda filter: {} → {} support points (threshold={:.0e})",
         population_theta.matrix().nrows(),
         filtered_theta.matrix().nrows(),
         threshold * max_weight
@@ -357,7 +357,7 @@ pub fn npagfull_refinement(
     };
 
     tracing::info!(
-        "  {} → {} refined points",
+        "Refinement: {} → {} refined points",
         filtered_theta.matrix().nrows(),
         refined_theta.matrix().nrows()
     );
@@ -379,7 +379,7 @@ pub fn calculate_two_step_posterior(
     error_models: &AssayErrorModels,
     config: &BestDoseConfig,
 ) -> Result<(Theta, Weights, Weights)> {
-    tracing::info!("=== STAGE 1: Posterior Density Calculation ===");
+    tracing::debug!("Calculating two-step posterior (NPAGFULL11 + NPAGFULL)");
 
     // Step 1.1: NPAGFULL11 filtering (returns filtered posterior AND filtered prior)
     let (filtered_theta, filtered_posterior_weights, filtered_population_weights) =

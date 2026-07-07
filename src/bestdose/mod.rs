@@ -477,10 +477,7 @@ impl BestDosePosteriorBuilder {
     /// Runs Stage 1: computes the reusable posterior density from the population
     /// prior and patient history.
     pub fn compute(self) -> Result<BestDosePosterior> {
-        tracing::info!("╔══════════════════════════════════════════════════════════╗");
-        tracing::info!("║            BestDose Algorithm: STAGE 1                   ║");
-        tracing::info!("║           Posterior Density Calculation                  ║");
-        tracing::info!("╚══════════════════════════════════════════════════════════╝");
+        tracing::info!("Stage 1: posterior density calculation");
 
         let config = self.config();
         let BestDosePosteriorBuilder {
@@ -497,10 +494,10 @@ impl BestDosePosteriorBuilder {
                 &config,
             )?;
 
-        tracing::info!("╔══════════════════════════════════════════════════════════╗");
-        tracing::info!("║              Stage 1 Complete - Posterior Ready           ║");
-        tracing::info!("╚══════════════════════════════════════════════════════════╝");
-        tracing::info!("  Support points: {}", posterior_theta.matrix().nrows());
+        tracing::info!(
+            "Stage 1 complete: posterior ready with {} support points",
+            posterior_theta.matrix().nrows()
+        );
 
         Ok(BestDosePosterior {
             theta: posterior_theta,
@@ -518,12 +515,11 @@ impl DoseOptimization<'_> {
     pub fn run(self) -> Result<BestDoseResult> {
         let posterior = self.posterior;
 
-        tracing::info!("╔══════════════════════════════════════════════════════════╗");
-        tracing::info!("║            BestDose Algorithm: STAGE 2 & 3               ║");
-        tracing::info!("║        Dual Optimization + Final Predictions             ║");
-        tracing::info!("╚══════════════════════════════════════════════════════════╝");
-        tracing::info!("  Target type: {:?}", self.target_type);
-        tracing::info!("  Bias weight (λ): {}", self.bias_weight);
+        tracing::info!(
+            "Stage 2 & 3: optimization and final predictions (target: {:?}, bias weight: {})",
+            self.target_type,
+            self.bias_weight
+        );
 
         if let Some(t) = self.time_offset {
             if t < 0.0 {
@@ -557,18 +553,18 @@ impl DoseOptimization<'_> {
         let final_target = match effective_offset {
             None => self.target,
             Some(eff) => {
-                tracing::info!(
-                    "  Time offset gap: {:?} hours (effective absolute offset: {} hours)",
+                tracing::debug!(
+                    "Time offset gap: {:?} hours (effective absolute offset: {} hours)",
                     self.time_offset,
                     eff
                 );
                 match &posterior.past_data {
                     Some(past) => {
-                        tracing::info!("  Concatenating past doses with offset target events");
+                        tracing::debug!("Concatenating past doses with offset target events");
                         concatenate_past_and_future(past, &self.target, eff)
                     }
                     None => {
-                        tracing::info!("  No past data stored — offsetting target events only");
+                        tracing::debug!("No past data stored — offsetting target events only");
                         concatenate_past_and_future(
                             &Subject::builder("empty").build(),
                             &self.target,
@@ -649,7 +645,7 @@ fn calculate_posterior_density(
 ) -> Result<(Theta, Weights, Weights, Subject)> {
     match past_data {
         None => {
-            tracing::info!("  No past data → using prior directly");
+            tracing::debug!("No past data, using prior directly");
             Ok((
                 population_theta.clone(),
                 population_weights.clone(),
@@ -667,7 +663,7 @@ fn calculate_posterior_density(
                 });
 
             if !has_observations {
-                tracing::info!("  Past data has no observations → using prior directly");
+                tracing::debug!("Past data has no observations, using prior directly");
                 Ok((
                     population_theta.clone(),
                     population_weights.clone(),
@@ -676,9 +672,7 @@ fn calculate_posterior_density(
                 ))
             } else {
                 // Two-step posterior calculation
-                tracing::info!("  Past data with observations → calculating two-step posterior");
-                tracing::info!("    Step 1.1: NPAGFULL11 (Bayesian filtering)");
-                tracing::info!("    Step 1.2: NPAGFULL (local refinement)");
+                tracing::debug!("Past data with observations, calculating two-step posterior");
 
                 let past_data_obj = Data::new(vec![past_subject.clone()]);
 
