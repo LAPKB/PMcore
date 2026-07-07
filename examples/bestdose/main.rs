@@ -43,7 +43,7 @@ fn main() -> Result<()> {
         theta.matrix().nrows()
     );
 
-    concentration_target(&eq, &ems, &theta, &weights)?;
+    concentration_target(&eq, &ems, &theta)?;
     auc_from_zero_target(&eq, &theta, &weights)?;
     interval_auc_target(&eq, &theta, &weights)?;
 
@@ -55,12 +55,7 @@ fn main() -> Result<()> {
 /// The population distribution is first updated to a patient-specific posterior
 /// using the NCNPAG algorithm on the patient's history, then doses are optimized
 /// against that posterior.
-fn concentration_target(
-    eq: &ODE,
-    ems: &AssayErrorModels,
-    theta: &Theta,
-    _weights: &Weights,
-) -> Result<()> {
+fn concentration_target(eq: &ODE, ems: &AssayErrorModels, theta: &Theta) -> Result<()> {
     println!("════════════════════════════════════════════════════════");
     println!("  Concentration target (patient-specific posterior via NCNPAG)");
     println!("════════════════════════════════════════════════════════\n");

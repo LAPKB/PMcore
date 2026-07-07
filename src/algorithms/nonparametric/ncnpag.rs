@@ -289,7 +289,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
         // Flat (uniform) prior: postⱼ ∝ ∏ᵢ P(dataᵢ | θⱼ). Accumulate in log space.
         let n_points = self.theta.matrix().nrows();
         let mut log_weights = vec![f64::NEG_INFINITY; n_points];
-        for j in 0..n_points {
+        for (j, slot) in log_weights.iter_mut().enumerate() {
             let mut log_weight = 0.0; // ln(uniform prior) is constant, drops out on normalization
             let mut is_zero = false;
             for s in 0..psi.matrix().nrows() {
@@ -301,7 +301,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
                 log_weight += likelihood.ln();
             }
             if !is_zero {
-                log_weights[j] = log_weight;
+                *slot = log_weight;
             }
         }
 
