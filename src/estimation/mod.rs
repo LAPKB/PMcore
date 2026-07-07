@@ -4,7 +4,7 @@ pub mod problem;
 pub mod progress;
 
 pub use crate::algorithms::nonparametric::{
-    NonParametricAlgorithm, NpagConfig, NpmapConfig, NpodConfig,
+    NcnpagConfig, NonParametricAlgorithm, NpagConfig, NpmapConfig, NpodConfig,
 };
 pub use crate::algorithms::parametric::{ParametricAlgorithm, SaemConfig};
 pub use error_models::ErrorModels;

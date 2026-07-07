@@ -22,6 +22,7 @@
 pub mod error_optim;
 
 // Algorithm implementations
+pub mod ncnpag;
 pub mod npag;
 pub mod npmap;
 pub mod npod;
@@ -30,12 +31,14 @@ pub mod npod;
 pub mod controller;
 
 // Re-export algorithm structs
+pub use ncnpag::NCNPAG;
 pub use npag::NPAG;
 pub use npmap::NPMAP;
 pub use npod::NPOD;
 
 // Re-export per-algorithm configuration structs
 pub use error_optim::ErrorOptimConfig;
+pub use ncnpag::NcnpagConfig;
 pub use npag::NpagConfig;
 pub use npmap::NpmapConfig;
 pub use npod::NpodConfig;
@@ -83,6 +86,8 @@ pub enum NonParametricAlgorithm {
     Npod(NpodConfig),
     /// Non-parametric maximum a posteriori (posterior probability reweighting).
     Npmap(NpmapConfig),
+    /// Non-collapsing NPAG (single-pass Bayesian reweighting of fixed support points).
+    Ncnpag(NcnpagConfig),
 }
 
 impl Default for NonParametricAlgorithm {
@@ -109,6 +114,12 @@ impl From<NpmapConfig> for NonParametricAlgorithm {
     }
 }
 
+impl From<NcnpagConfig> for NonParametricAlgorithm {
+    fn from(config: NcnpagConfig) -> Self {
+        Self::Ncnpag(config)
+    }
+}
+
 impl NonParametricAlgorithm {
     /// The Non-Parametric Adaptive Grid (NPAG) algorithm with its default configuration.
     pub fn npag() -> Self {
@@ -125,29 +136,24 @@ impl NonParametricAlgorithm {
     pub fn npmap() -> Self {
         Self::Npmap(NpmapConfig::default())
     }
-}
 
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NonParametricAlgorithm {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        let mut runner = self.into_runner(problem)?;
-        NonParametricRunner::fit(runner.as_mut())
+    /// The non-collapsing NPAG (NCNPAG) algorithm with its default configuration.
+    pub fn ncnpag() -> Self {
+        Self::Ncnpag(NcnpagConfig::default())
     }
-}
 
-impl NonParametricAlgorithm {
-    /// Build the boxed runner that executes this algorithm.
+    /// Build the internal, mutable execution state (runner) for this algorithm.
     ///
-    /// This is the shared primitive behind both the one-shot [`fit`](Algorithm::fit) and the
-    /// incremental [`FitController`](crate::algorithms::nonparametric::FitController). The prior
-    /// [`Theta`](crate::estimation::nonparametric::Theta) carries the parameter space, and the
-    /// error models come straight from the problem.
+    /// Both [`fit`](Algorithm::fit) and the stepping
+    /// [`FitController`](crate::algorithms::nonparametric::controller::FitController)
+    /// build on this primitive.
     pub(crate) fn into_runner<E: Equation + Send + 'static>(
         self,
         problem: EstimationProblem<E, NonParametric>,
     ) -> Result<Box<dyn NonParametricRunner<E>>> {
-        Ok(match self {
+        // `problem.prior` is the prior `Theta` (which also carries the parameter
+        // space) and `problem.error_models` is strictly `AssayErrorModels`.
+        let runner: Box<dyn NonParametricRunner<E>> = match self {
             Self::Npag(config) => Box::new(NPAG::from_parts(
                 problem.model.equation,
                 problem.data,
@@ -169,7 +175,24 @@ impl NonParametricAlgorithm {
                 problem.prior,
                 config,
             )?),
-        })
+            Self::Ncnpag(config) => Box::new(NCNPAG::from_parts(
+                problem.model.equation,
+                problem.data,
+                problem.error_models,
+                problem.prior,
+                config,
+            )?),
+        };
+        Ok(runner)
+    }
+}
+
+impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NonParametricAlgorithm {
+    type Output = NonParametricResult<E>;
+
+    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
+        let mut runner = self.into_runner(problem)?;
+        runner.fit()
     }
 }
 
@@ -193,6 +216,14 @@ impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpodConfig {
 }
 
 impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
+    type Output = NonParametricResult<E>;
+
+    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
+        NonParametricAlgorithm::from(self).fit(problem)
+    }
+}
+
+impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NcnpagConfig {
     type Output = NonParametricResult<E>;
 
     fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {

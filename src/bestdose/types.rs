@@ -1,160 +1,56 @@
 //! Core data types for the BestDose algorithm
 //!
-//! This module defines the main structures used throughout the BestDose optimization:
-//! - [`BestDosePosterior`]: Reusable posterior from stage 1
-//! - [`BestDoseProblem`]: The complete optimization problem specification
-//! - [`BestDoseResult`]: Output structure containing optimal doses and predictions
-//! - [`Target`]: Enum specifying concentration or AUC targets
-//! - [`DoseRange`]: Dose constraint specification
+//! - [`BestDoseProblem`]: a dose-optimization problem over a parameter distribution.
+//! - [`BestDoseOptions`]: optional forecasting settings.
+//! - [`BestDoseResult`]: the optimal dosing subject and its cost.
+//! - [`Target`]: concentration or AUC target.
+//! - [`DoseRange`]: dose constraint specification.
 
-use std::fmt::Display;
-
-use crate::estimation::nonparametric::{NPPredictions, Theta, Weights};
-use crate::model::{BoundedParameter, ParameterSpace};
-use crate::prelude::*;
+use crate::estimation::nonparametric::{Theta, Weights};
 use pharmsol::prelude::*;
+use pharmsol::Equation;
 use serde::{Deserialize, Serialize};
 
-/// Target type for dose optimization
+/// Target type for dose optimization.
 ///
-/// Specifies whether the optimization targets are drug concentrations at specific times
-/// or Area Under the Curve (AUC) values.
-///
-/// # Examples
-///
-/// ```rust
-/// use pmcore::bestdose::Target;
-///
-/// // Optimize to achieve target concentrations
-/// let target_type = Target::Concentration;
-///
-/// // Optimize to achieve target cumulative AUC from time 0
-/// let target_type = Target::AUCFromZero;
-///
-/// // Optimize to achieve target interval AUC from last dose
-/// let target_type = Target::AUCFromLastDose;
-/// ```
+/// Specifies whether the optimization targets drug concentrations at specific
+/// times or Area Under the Curve (AUC) values.
 ///
 /// # AUC Calculation Methods
 ///
-/// The algorithm supports two AUC calculation approaches:
+/// - [`Target::AUCFromZero`]: integrates from time 0 to the observation time.
+/// - [`Target::AUCFromLastDose`]: integrates from the most recent dose before
+///   each observation to the observation time (e.g. steady-state AUCτ).
 ///
-/// ## AUCFromZero (Cumulative AUC)
-/// - Integrates from time 0 to the observation time
-/// - Useful for total drug exposure assessment
-/// - Formula: `AUC(t) = ∫₀ᵗ C(τ) dτ`
-///
-/// ## AUCFromLastDose (Interval AUC)
-/// - Integrates from the last dose time to the observation time
-/// - Useful for steady-state dosing intervals (e.g., AUCτ)
-/// - Formula: `AUC(t) = ∫ₜ_last_dose^t C(τ) dτ`
-/// - Automatically finds the most recent bolus/infusion before each observation
-///
-/// Both methods use trapezoidal rule on a dense time grid controlled by
-/// `BestDoseConfig::prediction_interval()`.
+/// Both AUC methods use the trapezoidal rule on a dense time grid controlled by
+/// [`BestDoseOptions::prediction_interval`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
-    /// Target concentrations at observation times
+    /// Target concentrations at observation times.
     ///
-    /// The optimizer finds doses to achieve specified concentration values
-    /// at the observation times in the target subject.
-    ///
-    /// # Example Target Subject
-    /// ```rust,ignore
-    /// let target = Subject::builder("patient")
-    ///     .bolus(0.0, 100.0, 0)        // Dose to optimize
-    ///     .observation(12.0, 10.0, 0)  // Target: 10 mg/L at 12h
-    ///     .observation(24.0, 5.0, 0)   // Target: 5 mg/L at 24h
-    ///     .build();
-    /// ```
+    /// The optimizer finds doses to achieve specified concentration values at
+    /// the observation times in the target subject.
     Concentration,
 
-    /// Target cumulative AUC values from time 0
+    /// Target cumulative AUC values from time 0.
     ///
     /// The optimizer finds doses to achieve specified cumulative AUC values
     /// calculated from the beginning of the dosing regimen (time 0).
-    ///
-    /// # Example Target Subject
-    /// ```rust,ignore
-    /// let target = Subject::builder("patient")
-    ///     .bolus(0.0, 100.0, 0)         // Dose to optimize
-    ///     .bolus(12.0, 100.0, 0)        // Second dose to optimize
-    ///     .observation(24.0, 400.0, 0)  // Target: AUC₀₋₂₄ = 400 mg·h/L
-    ///     .build();
-    /// ```
-    ///
-    /// # Time Grid Resolution
-    ///
-    /// Control the time grid density via BestDoseConfig:
-    /// ```rust,ignore
-    /// let config = BestDoseConfig::new(parameter_space, error_models)
-    ///     .with_prediction_interval(15.0);
-    /// ```
     AUCFromZero,
 
-    /// Target interval AUC values from last dose to observation
+    /// Target interval AUC values from the last dose to each observation.
     ///
-    /// The optimizer finds doses to achieve specified interval AUC values
-    /// calculated from the most recent dose before each observation.
-    /// This is particularly useful for steady-state dosing intervals (AUCτ).
-    ///
-    /// # Example Target Subject
-    /// ```rust,ignore
-    /// let target = Subject::builder("patient")
-    ///     .bolus(0.0, 200.0, 0)         // Loading dose (fixed at 200 mg)
-    ///     .bolus(12.0, 0.0, 0)          // Maintenance dose to optimize
-    ///     .observation(24.0, 200.0, 0)  // Target: AUC₁₂₋₂₄ = 200 mg·h/L
-    ///     .build();
-    /// // The observation at t=24h targets AUC from t=12h (last dose) to t=24h
-    /// ```
-    ///
-    /// # Behavior
-    ///
-    /// For each observation at time t:
-    /// - Finds the most recent bolus or infusion before time t
-    /// - Calculates AUC from that dose time to t
-    /// - If no dose exists before t, integrates from time 0
-    ///
-    /// This allows different observations to have different integration intervals,
-    /// each relative to their respective preceding dose.
+    /// For each observation at time `t`, finds the most recent bolus/infusion
+    /// before `t` and integrates from that dose time to `t`. If no dose exists
+    /// before `t`, integrates from time 0.
     AUCFromLastDose,
 }
 
-/// Allowable dose range constraints
+/// Allowable dose range for optimization.
 ///
-/// Specifies minimum and maximum allowable doses for optimization.
-/// The Nelder-Mead optimizer will search within these bounds via penalty-based
-/// constraint enforcement.
-///
-/// # Bounds Enforcement
-///
-/// When candidate doses violate the bounds, the cost function returns a large
-/// penalty value proportional to the violation distance. This effectively
-/// constrains the Nelder-Mead simplex to remain within the valid range.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use pmcore::bestdose::DoseRange;
-///
-/// // Large range: 0-1000 mg
-/// let range = DoseRange::new(0.0, 1000.0);
-///
-/// // Narrow range: 50-150 mg
-/// let range = DoseRange::new(50.0, 150.0);
-///
-/// // Access bounds
-/// assert_eq!(range.min(), 0.0);
-/// assert_eq!(range.max(), 1000.0);
-/// ```
-///
-/// # Clinical Considerations
-///
-/// - Set bounds appropriate for your drug's clinical use
-/// - Consider patient-specific factors (weight, renal function, etc.)
-/// - If optimization hits a bound, consider widening the range
-/// - Monitor the cost function value - sudden increases may indicate constraint violation
-/// - Default range is `[0.0, f64::MAX]` (effectively unbounded)
+/// Doses outside `[min, max]` are penalized by the cost function, constraining
+/// the optimizer to search within the range. The default range is
+/// `[0.0, f64::MAX]` (effectively unbounded).
 #[derive(Debug, Clone)]
 pub struct DoseRange {
     pub(crate) min: f64,
@@ -184,334 +80,177 @@ impl Default for DoseRange {
     }
 }
 
+/// Optional forecasting settings for [`BestDoseProblem::optimize`].
+///
+/// Constructed with [`Default`] and overridden field-by-field, e.g.
+/// `BestDoseOptions { prediction_interval: 0.1 }`.
 #[derive(Debug, Clone)]
-pub struct BestDoseConfig {
-    pub(crate) parameter_space: ParameterSpace<BoundedParameter>,
-    pub(crate) error_models: AssayErrorModels,
-    pub(crate) refinement_cycles: usize,
-    pub(crate) progress: bool,
-    pub(crate) prediction_interval: f64,
+pub struct BestDoseOptions {
+    /// Spacing of the dense grid used for AUC integration, in the model's time
+    /// units (the same units as observation times and dose times).
+    ///
+    /// Smaller values give more accurate trapezoidal AUC at higher cost. Only
+    /// used for the AUC targets; ignored for [`Target::Concentration`].
+    pub prediction_interval: f64,
 }
 
-impl BestDoseConfig {
-    pub fn new(
-        parameter_space: ParameterSpace<BoundedParameter>,
-        error_models: AssayErrorModels,
-    ) -> Self {
+impl Default for BestDoseOptions {
+    fn default() -> Self {
         Self {
-            parameter_space,
-            error_models,
-            refinement_cycles: 500,
-            progress: true,
-            prediction_interval: 0.12,
+            prediction_interval: 0.1,
         }
     }
-
-    pub fn with_refinement_cycles(mut self, refinement_cycles: usize) -> Self {
-        self.refinement_cycles = refinement_cycles;
-        self
-    }
-
-    pub fn with_progress(mut self, progress: bool) -> Self {
-        self.progress = progress;
-        self
-    }
-
-    pub fn with_prediction_interval(mut self, prediction_interval: f64) -> Self {
-        self.prediction_interval = prediction_interval;
-        self
-    }
-
-    pub fn parameter_space(&self) -> &ParameterSpace<BoundedParameter> {
-        &self.parameter_space
-    }
-
-    pub fn error_models(&self) -> &AssayErrorModels {
-        &self.error_models
-    }
-
-    pub fn refinement_cycles(&self) -> usize {
-        self.refinement_cycles
-    }
-
-    pub fn progress(&self) -> bool {
-        self.progress
-    }
-
-    pub fn prediction_interval(&self) -> f64 {
-        self.prediction_interval
-    }
-
-    pub fn parameter_names(&self) -> Vec<String> {
-        self.parameter_space
-            .iter()
-            .map(|parameter| parameter.name.clone())
-            .collect()
-    }
 }
 
-/// The computed Bayesian posterior for a patient.
+/// A dose-optimization problem over a parameter distribution.
 ///
-/// This reusable object is the public two-stage BestDose entry point:
-/// first compute the posterior once, then optimize multiple future targets.
-#[derive(Debug, Clone)]
-pub struct BestDosePosterior {
+/// A `BestDoseProblem` pairs a model with a distribution over its parameters —
+/// the support points ([`Theta`]) and their probability [`Weights`]. The
+/// distribution is supplied by the caller: it may be a population fit, or a
+/// patient-specific posterior computed with NCNPAG/NPMAP from past data.
+///
+/// Call [`optimize`](Self::optimize) to solve for the doses that best hit a
+/// target profile.
+///
+/// # Example
+/// ```rust,no_run,ignore
+/// let problem = BestDoseProblem::new(eq, theta, weights)?;
+/// let result = problem.optimize(
+///     target,
+///     Target::Concentration,
+///     DoseRange::new(0.0, 300.0),
+///     0.5,
+///     BestDoseOptions::default(),
+/// )?;
+/// let optimal_subject = result.subject();
+/// let cost = result.cost();
+/// ```
+#[derive(Clone)]
+pub struct BestDoseProblem<E: Equation> {
+    pub(crate) eq: E,
     pub(crate) theta: Theta,
-    pub(crate) posterior: Weights,
-    pub(crate) population_weights: Weights,
-    pub(crate) past_data: Option<Subject>,
-    pub(crate) eq: ODE,
-    pub(crate) config: BestDoseConfig,
+    pub(crate) weights: Weights,
 }
 
-impl BestDosePosterior {
+impl<E: Equation> BestDoseProblem<E> {
+    /// Creates a dose-optimization problem from a model and a parameter
+    /// distribution.
+    ///
+    /// Returns an error if the number of weights does not match the number of
+    /// support points in `theta`.
+    pub fn new(eq: E, theta: Theta, weights: Weights) -> anyhow::Result<Self> {
+        if weights.len() != theta.matrix().nrows() {
+            anyhow::bail!(
+                "number of weights ({}) does not match the number of support points ({})",
+                weights.len(),
+                theta.matrix().nrows()
+            );
+        }
+        Ok(Self { eq, theta, weights })
+    }
+
+    /// Solves for the optimal doses that hit `target`.
+    ///
+    /// Doses in the `target` subject with amount `0.0` are optimized; non-zero
+    /// doses stay fixed. `bias` (λ ∈ [0, 1]) trades off minimizing the expected
+    /// squared error over the distribution (λ = 0) against minimizing the error
+    /// of the weighted-mean prediction (λ = 1).
+    ///
+    /// Returns the optimal dosing [`Subject`] and its cost. Predictions can be
+    /// generated afterwards by simulating the returned subject.
+    pub fn optimize(
+        &self,
+        target: Subject,
+        target_type: Target,
+        dose_range: DoseRange,
+        bias: f64,
+        options: BestDoseOptions,
+    ) -> anyhow::Result<BestDoseResult> {
+        let objective = BestDoseObjective {
+            eq: self.eq.clone(),
+            theta: self.theta.clone(),
+            weights: self.weights.clone(),
+            target,
+            target_type,
+            doserange: dose_range,
+            bias_weight: bias,
+            prediction_interval: options.prediction_interval,
+        };
+        crate::bestdose::optimization::optimize(&objective)
+    }
+
+    /// The support points of the distribution.
     pub fn theta(&self) -> &Theta {
         &self.theta
     }
 
-    pub fn posterior_weights(&self) -> &Weights {
-        &self.posterior
-    }
-
-    pub fn population_weights(&self) -> &Weights {
-        &self.population_weights
-    }
-
-    pub fn n_support_points(&self) -> usize {
-        self.theta.matrix().nrows()
+    /// The probability weights of the distribution.
+    pub fn weights(&self) -> &Weights {
+        &self.weights
     }
 }
 
-/// The BestDose optimization problem
-///
-/// Contains all data needed for the three-stage BestDose algorithm.
-/// Create via [`BestDoseProblem::new()`], then call [`.optimize()`](BestDoseProblem::optimize)
-/// to run the full algorithm.
-///
-/// # Three-Stage Algorithm
-///
-/// 1. **Posterior Density Calculation** (automatic in `new()`)
-///    - NPAGFULL11: Bayesian filtering of prior support points
-///    - NPAGFULL: Local refinement of each filtered point
-///
-/// 2. **Dual Optimization** (automatic in `optimize()`)
-///    - Optimization with posterior weights (patient-specific)
-///    - Optimization with uniform weights (population-based)
-///    - Selection of better result
-///
-/// 3. **Final Predictions** (automatic in `optimize()`)
-///    - Concentration or AUC predictions with optimal doses
-///
-/// # Fields
-///
-/// ## Input Data
-/// - `target`: Future dosing template with target observations
-/// - `target_type`: [`Target::Concentration`] or [`Target::AUC`]
-///
-/// ## Population Prior
-/// - `population_weights`: Filtered population probability weights (used for bias term)
-///
-/// ## Patient-Specific Posterior
-/// - `theta`: Refined posterior support points (from NPAGFULL11 + NPAGFULL)
-/// - `posterior`: Posterior probability weights
-///
-/// ## Model Components
-/// - `eq`: Pharmacokinetic/pharmacodynamic ODE model
-/// - `config`: BestDose nonparametric configuration (used for prediction grid)
-///
-/// ## Optimization Parameters
-/// - `doserange`: Min/max dose constraints
-/// - `bias_weight` (λ): Personalization parameter (0=personalized, 1=population)
-///
-/// # Example
-///
-/// ```rust,no_run,ignore
-/// use pmcore::bestdose::{BestDoseProblem, Target, DoseRange};
-///
-/// # fn example(population_theta: pmcore::estimation::nonparametric::Theta,
-/// #            population_weights: pmcore::estimation::nonparametric::Weights,
-/// #            past: pharmsol::prelude::Subject,
-/// #            target: pharmsol::prelude::Subject,
-/// #            eq: pharmsol::prelude::ODE,
-/// #            config: pmcore::bestdose::BestDoseConfig)
-/// #            -> anyhow::Result<()> {
-/// let problem = BestDoseProblem::new(
-///     &population_theta,
-///     &population_weights,
-///     Some(past),                      // Patient history
-///     target,                          // Dosing template with targets
-///     None,                            // time offset
-///     eq,
-///     DoseRange::new(0.0, 1000.0),
-///     0.5,                             // Balanced personalization
-///     config,
-///     Target::Concentration,
-/// )?;
-///
-/// let result = problem.optimize()?;
-/// # Ok(())
-/// # }
-/// ```
-#[derive(Debug, Clone)]
-pub struct BestDoseProblem {
-    /// Target subject with dosing template and target observations
-    ///
-    /// This [Subject] defines the targets for optimization, including
-    /// dose events (with amounts to be optimized) and observation events
-    /// (with desired target values).
-    ///
-    /// For a `Target::Concentration`, observation values are target concentrations.
-    /// For a `Target::AUC`, observation values are target cumulative AUC.
-    ///
-    /// Only doses with a value of `0.0` will be optimized; non-zero doses remain fixed.
-    pub(crate) target: Subject,
-    /// Target type for optimization
-    ///
-    /// Specifies whether to optimize for concentrations or AUC values.
-    pub(crate) target_type: Target,
-
-    /// The population prior weights ([Weights]), representing the probability of each support point in the population.
-    pub(crate) population_weights: Weights,
-
-    // Patient-specific posterior (from NPAGFULL11 + NPAGFULL)
+/// Internal objective assembled by [`BestDoseProblem::optimize`]. Holds
+/// everything the Nelder-Mead cost function needs to evaluate a candidate dose
+/// regimen.
+#[derive(Clone)]
+pub(crate) struct BestDoseObjective<E: Equation> {
+    pub(crate) eq: E,
     pub(crate) theta: Theta,
-    pub(crate) posterior: Weights,
-
-    // Model and configuration
-    pub(crate) eq: ODE,
-    pub(crate) config: BestDoseConfig,
-
-    // Optimization parameters
+    pub(crate) weights: Weights,
+    pub(crate) target: Subject,
+    pub(crate) target_type: Target,
     pub(crate) doserange: DoseRange,
-    pub(crate) bias_weight: f64, // λ: 0=personalized, 1=population
+    pub(crate) bias_weight: f64,
+    pub(crate) prediction_interval: f64,
 }
 
-/// Result from BestDose optimization
+/// How well the optimal doses hit a single target observation.
 ///
-/// Contains the optimal doses and associated predictions from running
-/// [`BestDoseProblem::optimize()`].
-///
-/// # Fields
-///
-/// - `dose`: Optimal dose amount(s) in the same order as doses in target subject
-/// - `objf`: Final cost function value at optimal doses
-/// - `status`: Optimization status message (e.g., "converged", "max iterations")
-/// - `preds`: Concentration-time predictions using optimal doses
-/// - `auc_predictions`: AUC values at observation times (only for [`Target::AUC`])
-/// - `optimization_method`: Which method won: `"posterior"` or `"uniform"`
-///
-/// # Interpretation
-///
-/// ## Optimization Method
-///
-/// - **"posterior"**: Patient-specific optimization won (uses posterior weights)
-///   - Indicates patient differs from population or has sufficient history
-///   - Doses are highly personalized
-///
-/// - **"uniform"**: Population-based optimization won (uses uniform weights)
-///   - Indicates patient is population-typical or has limited history
-///   - Doses are more conservative/robust
-///
-/// ## Cost Function (`objf`)
-///
-/// Lower is better. The cost combines variance and bias:
-/// ```text
-/// Cost = (1-λ) × Variance + λ × Bias²
-/// ```
-///
-/// # Examples
-///
-/// ## Extracting Results
-///
-/// ```rust,no_run,ignore
-/// # use pmcore::bestdose::BestDoseProblem;
-/// # fn example(problem: BestDoseProblem) -> anyhow::Result<()> {
-/// let result = problem.optimize()?;
-///
-/// // Single dose
-/// println!("Optimal dose: {} mg", result.dose[0]);
-///
-/// // Multiple doses
-/// for (i, &dose) in result.dose.iter().enumerate() {
-///     println!("Dose {}: {} mg", i + 1, dose);
-/// }
-///
-/// // Check which method was used
-/// match result.optimization_method.as_str() {
-///     "posterior" => println!("Patient-specific optimization"),
-///     "uniform" => println!("Population-based optimization"),
-///     _ => {}
-/// }
-///
-/// // Access predictions
-/// for pred in result.preds.iter() {
-///     println!("t={:.1}h: {:.2} mg/L", pred.time(), pred.prediction());
-/// }
-///
-/// // For AUC targets
-/// if let Some(auc_values) = result.auc_predictions {
-///     for (time, auc) in auc_values {
-///         println!("AUC at t={:.1}h: {:.1} mg·h/L", time, auc);
-///     }
-/// }
-/// # Ok(())
-/// # }
-/// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// `achieved` is the expected value under the distribution (the weighted mean
+/// prediction across support points) — a concentration for
+/// [`Target::Concentration`] or an AUC for the AUC targets.
+#[derive(Debug, Clone, Copy)]
+pub struct Achievement {
+    /// Observation time.
+    pub time: f64,
+    /// Output equation index of the observation.
+    pub outeq: usize,
+    /// The requested target value at this observation.
+    pub target: f64,
+    /// The expected achieved value at the optimal doses.
+    pub achieved: f64,
+}
+
+/// Result of a BestDose optimization: the optimal dosing subject, its cost, and
+/// how well each target was achieved.
+#[derive(Debug, Clone)]
 pub struct BestDoseResult {
-    /// Subject with optimal doses
-    ///
-    /// The [Subject] contains the same events as the target subject,
-    /// but with the dose amounts updated to the optimal values.
-    pub(crate) optimal_subject: Subject,
-
-    /// Final cost function value
-    ///
-    /// Lower is better. Represents the weighted combination of variance
-    /// (patient-specific error) and bias (deviation from population).
-    pub(crate) objf: f64,
-
-    /// Optimization status message
-    ///
-    /// Examples: "converged", "maximum iterations reached", etc.
-    pub(crate) status: BestDoseStatus,
-
-    /// Concentration-time predictions for optimal doses
-    ///
-    /// Contains predicted concentrations at observation times using the
-    /// optimal doses. Predictions use the weights from the winning optimization
-    /// method (posterior or uniform).
-    pub(crate) preds: NPPredictions,
-
-    /// AUC values at observation times
-    ///
-    /// Only populated when `target_type` is [`Target::AUC`].
-    /// Each tuple contains `(time, cumulative_auc)`.
-    ///
-    /// For [`Target::Concentration`], this field is `None`.
-    pub(crate) auc_predictions: Option<Vec<(f64, f64)>>,
-
-    /// Which optimization method produced the best result
-    ///
-    /// - `"posterior"`: Patient-specific optimization (uses posterior weights)
-    /// - `"uniform"`: Population-based optimization (uses uniform weights)
-    ///
-    /// The algorithm runs both optimizations and selects the one with lower cost.
-    pub(crate) optimization_method: OptimalMethod,
+    pub(crate) subject: Subject,
+    pub(crate) cost: f64,
+    pub(crate) achievements: Vec<Achievement>,
 }
 
 impl BestDoseResult {
-    /// Get the optimized subject
-    pub fn optimal_subject(&self) -> &Subject {
-        &self.optimal_subject
+    /// The subject with optimal dose amounts substituted in.
+    pub fn subject(&self) -> &Subject {
+        &self.subject
     }
 
-    /// Get the dose amounts of the optimized subject
-    ///
-    /// This includes all doses (bolus and infusion) in the order they appear
-    /// in the optimal subject, and returns their amounts as a vector of f64.
+    /// The final cost function value (lower is better).
+    pub fn cost(&self) -> f64 {
+        self.cost
+    }
+
+    /// Per-observation targets and their expected achieved values at the optimal
+    /// doses, in observation order.
+    pub fn achievements(&self) -> &[Achievement] {
+        &self.achievements
+    }
+
+    /// The optimal dose amounts, in the order they appear in the subject.
     pub fn doses(&self) -> Vec<f64> {
-        self.optimal_subject()
+        self.subject
             .iter()
             .flat_map(|occ| {
                 occ.events()
@@ -523,58 +262,6 @@ impl BestDoseResult {
                     })
                     .collect::<Vec<_>>()
             })
-            .collect::<Vec<f64>>()
+            .collect()
     }
-
-    /// Get the objective cost function value
-    pub fn objf(&self) -> f64 {
-        self.objf
-    }
-
-    /// Get the optimization status
-    pub fn status(&self) -> &BestDoseStatus {
-        &self.status
-    }
-
-    /// Get the concentration-time predictions
-    pub fn predictions(&self) -> &NPPredictions {
-        &self.preds
-    }
-
-    /// Get the AUC predictions, if available
-    pub fn auc_predictions(&self) -> Option<Vec<(f64, f64)>> {
-        self.auc_predictions.clone()
-    }
-
-    /// Get the optimization method used
-    pub fn optimization_method(&self) -> OptimalMethod {
-        self.optimization_method
-    }
-}
-
-/// Optimization method used in BestDose
-///
-/// This returns the type of optimization method that produced the best result:
-/// - `Posterior`: Patient-specific optimization using posterior weights
-/// - `Uniform`: Population-based optimization using uniform weights
-#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
-pub enum OptimalMethod {
-    Posterior,
-    Uniform,
-}
-
-impl Display for OptimalMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            OptimalMethod::Posterior => write!(f, "Posterior"),
-            OptimalMethod::Uniform => write!(f, "Uniform"),
-        }
-    }
-}
-
-/// Status of the BestDose optimization
-#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
-pub enum BestDoseStatus {
-    Converged,
-    MaxIterations,
 }
