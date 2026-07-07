@@ -28,6 +28,7 @@ impl NpmapConfig {
 ///
 /// This algorithm is a wrapper around the IPM algorithm that calculates the posterior probabilities of the support points
 /// given a prior distribution and the likelihood of the data.
+#[derive(Debug)]
 pub struct NPMAP<E: Equation + Send + 'static> {
     equation: E,
     psi: Psi,
@@ -163,6 +164,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
             self.objf,
             self.error_models.clone(),
             self.theta.clone(),
+            self.w.clone(),
             self.theta.nspp(),
             0.0,
             self.status.clone(),

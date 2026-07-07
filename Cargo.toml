@@ -28,13 +28,10 @@ tracing-subscriber = { version = "0.3.19", features = [
     "time",
 ] }
 faer = "0.24.0"
-pharmsol = { version = "=0.27.1" }
+pharmsol = { version = "=0.28.0" }
 anyhow = "1.0.100"
 rayon = "1.10.0"
 rand = "0.10.1"
-cobyla = "0.8.0"
-rand_distr = "0.6.0"
-statrs = "0.18"
 
 [features]
 default = []

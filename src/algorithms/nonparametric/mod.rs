@@ -27,6 +27,9 @@ pub mod npag;
 pub mod npmap;
 pub mod npod;
 
+// Incremental, observable fitting (stepping handle + per-cycle observers).
+pub mod controller;
+
 // Re-export algorithm structs
 pub use ncnpag::NCNPAG;
 pub use npag::NPAG;
@@ -39,6 +42,9 @@ pub use ncnpag::NcnpagConfig;
 pub use npag::NpagConfig;
 pub use npmap::NpmapConfig;
 pub use npod::NpodConfig;
+
+// Re-export the incremental fitting API
+pub use controller::{CycleFlow, FitController, FitObserver};
 
 use crate::algorithms::{Algorithm, NonParametricRunner};
 use crate::estimation::nonparametric::NonParametricResult;

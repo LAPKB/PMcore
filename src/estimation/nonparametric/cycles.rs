@@ -6,9 +6,8 @@ use pharmsol::{AssayErrorModel, AssayErrorModels};
 use serde::Serialize;
 
 use crate::{
-    algorithms::{Status, StopReason},
-    estimation::nonparametric::median,
-    estimation::nonparametric::theta::Theta,
+    algorithms::Status,
+    estimation::nonparametric::{median, theta::Theta, weights::Weights},
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -17,6 +16,7 @@ pub struct NPCycle {
     objf: f64,
     error_models: AssayErrorModels,
     theta: Theta,
+    weights: Weights,
     nspp: usize,
     delta_objf: f64,
     status: Status,
@@ -28,6 +28,7 @@ impl NPCycle {
         objf: f64,
         error_models: AssayErrorModels,
         theta: Theta,
+        weights: Weights,
         nspp: usize,
         delta_objf: f64,
         status: Status,
@@ -37,6 +38,7 @@ impl NPCycle {
             objf,
             error_models,
             theta,
+            weights,
             nspp,
             delta_objf,
             status,
@@ -55,6 +57,9 @@ impl NPCycle {
     pub fn theta(&self) -> &Theta {
         &self.theta
     }
+    pub fn weights(&self) -> &Weights {
+        &self.weights
+    }
     pub fn nspp(&self) -> usize {
         self.nspp
     }
@@ -71,6 +76,7 @@ impl NPCycle {
             objf: 0.0,
             error_models: AssayErrorModels::default(),
             theta: Theta::new(),
+            weights: Weights::default(),
             nspp: 0,
             delta_objf: 0.0,
             status: Status::Continue,
@@ -141,10 +147,7 @@ impl CycleLog {
 
         for cycle in &self.cycles {
             writer.write_field(format!("{}", cycle.cycle))?;
-            writer.write_field(format!(
-                "{}",
-                cycle.status == Status::Stop(StopReason::Converged)
-            ))?;
+            writer.write_field(format!("{}", cycle.status.converged()))?;
             writer.write_field(format!("{}", cycle.status))?;
             writer.write_field(format!("{}", cycle.objf))?;
             writer
