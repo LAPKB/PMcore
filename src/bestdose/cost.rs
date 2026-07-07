@@ -7,7 +7,7 @@
 //! # Cost Function
 //!
 //! Everything is computed from a single distribution over parameters — the
-//! support points and their probability weights `w` (see [`BestDoseObjective`]).
+//! support points and their probability weights `w` (see `BestDoseObjective`).
 //! Let `p[i,j]` be the prediction for support point `i` at observation `j`, and
 //! `t[j]` the target.
 //!
@@ -58,7 +58,7 @@
 //! - **Concentration**: Simulates model at observation times directly
 //! - **AUC**: Generates dense time grid and calculates AUC via trapezoidal rule
 //!
-//! See [`evaluate`] for the main implementation.
+//! See `evaluate` for the main implementation.
 
 use anyhow::Result;
 

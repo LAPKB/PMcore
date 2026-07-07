@@ -8,7 +8,7 @@
 //!
 //! - [`NPAG`](npag): Non-Parametric Adaptive Grid
 //! - [`NPOD`](npod): Non-Parametric Optimal Design
-//! - [`POSTPROB`](postprob): Posterior probability reweighting
+//! - [`NPMAP`](npmap): Maximum a posteriori reweighting
 //!
 //! # Algorithm Selection
 //!

@@ -12,10 +12,9 @@ pub trait FitResult {
     fn individual_summaries(&self) -> Vec<IndividualSummary>;
 }
 
-// Placeholder for your future Parametric implementation
+// TODO: Implement ParametricResult once parametric fitting is available.
 #[derive(Debug)]
 #[allow(unused)]
-//TODO: Implement ParametricResult
 pub struct ParametricResult<E: Equation> {
     _phantom: std::marker::PhantomData<E>,
 }
