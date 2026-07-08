@@ -6,7 +6,6 @@ pub mod metadata;
 pub mod parameter_space;
 
 pub use metadata::ModelMetadata;
-// Re-exporting the new typestate parameter elements for easy access downstream
 pub use parameter_space::{
     BoundedParameter, Parameter, ParameterMeta, ParameterScale, ParameterSpace, UnboundedParameter,
 };
@@ -14,8 +13,6 @@ pub use parameter_space::{
 #[derive(Debug, Clone)]
 pub struct Model<E: Equation> {
     pub equation: E,
-    // Note: No 'parameters' field here! It is now managed by EstimationProblem<E, F>.
-    // This struct is ready to hold Covariates or Variability specs if you add them later.
 }
 
 impl<E: Equation> Model<E> {

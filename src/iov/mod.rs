@@ -1,16 +1,17 @@
 //! SDE-based Inter-Occasion Variability (IOV) analysis.
 //!
-//! This module provides [`optimize_diffusion`], which optimizes SDE diffusion
-//! (sigma) parameters for each support point independently, using the NelderMead
-//! algorithm. The optimization runs in parallel over support points via rayon.
+//! This module provides [`optimize_diffusion`](crate::iov::DiffusionOptimize::optimize_diffusion),
+//! which optimizes SDE diffusion (sigma) parameters for each support point independently, using the
+//! NelderMead algorithm. The optimization runs in parallel over support points via rayon.
 //!
 //! # Workflow
 //!
 //! 1. Fit an ODE model with NPAG/NPOD to obtain support points (Stage 1).
-//! 2. Add sigma parameter columns to the theta using [`Theta::with_added_parameter`].
+//! 2. Add sigma parameter columns to the theta using
+//!    [`Theta::with_added_parameter`](crate::estimation::nonparametric::Theta::with_added_parameter).
 //! 3. Construct an SDE model (user-provided) that maps sigma parameters to
 //!    diffusion terms.
-//! 4. Call [`optimize_diffusion`] to optimize sigma per support point.
+//! 4. Call [`optimize_diffusion`](crate::iov::DiffusionOptimize::optimize_diffusion) to optimize sigma per support point.
 //!
 //! # Example
 //!

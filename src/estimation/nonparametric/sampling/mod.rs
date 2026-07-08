@@ -1,4 +1,4 @@
-//! Methods for generating the initial set of support points ([`Theta`]).
+//! Methods for generating the initial set of support points ([`Theta`](crate::estimation::nonparametric::Theta)).
 
 pub mod latin;
 pub mod sobol;

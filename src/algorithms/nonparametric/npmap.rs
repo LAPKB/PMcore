@@ -158,7 +158,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
     }
 
     fn log_cycle_state(&mut self) {
-        // Postprob doesn't track last_objf, so we use 0.0 as the delta
+        // NPMAP doesn't track last_objf, so we use 0.0 as the delta
         let state = NPCycle::new(
             self.cycle,
             self.objf,
@@ -172,7 +172,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
         self.cyclelog.push(state);
     }
 
-    /// POSTPROB is a single-pass reweighting: it evaluates the likelihood of the
+    /// NPMAP is a single-pass reweighting: it evaluates the likelihood of the
     /// fixed prior support points once, rather than iterating cycles.
     fn fit(&mut self) -> Result<NonParametricResult<E>> {
         self.estimation()?;

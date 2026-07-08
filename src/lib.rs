@@ -1,15 +1,17 @@
 //! PMcore is a framework for developing and running population pharmacokinetic algorithms.
 //!
-//! The structure branch keeps the refactored platform surface together with the baseline
-//! non-parametric workflows that existed on `main`.
-//!
 //! # Algorithm Types
 //!
 //! ## Non-Parametric Algorithms
 //! Represent the population distribution as a discrete set of support points with associated weights.
 //! - NPAG (Non-Parametric Adaptive Grid)
 //! - NPOD (Non-Parametric Optimal Design)
-//! - POSTPROB (Posterior probability reweighting)
+//! - NPMAP (Maximum a posteriori reweighting)
+//!
+//! ## Parametric Algorithms (planned)
+//! Represent the population distribution with a parametric form (e.g. a normal distribution) and
+//! estimate the parameters of that distribution. This family is not yet implemented; the API is
+//! present but calling it will panic until a solver (SAEM) is available.
 //!
 //! # Public Interface
 //!
@@ -21,30 +23,30 @@
 //!
 //! PMcore is heavily linked to [pharmsol], which provides the data structures and routines for handling
 //! pharmacokinetic data. The data is stored in a [pharmsol::Data] structure, and can either be read
-//! from a CSV file, using [pharmsol::data::parse_pmetrics::read_pmetrics], or created dynamically
+//! from a CSV file, using `pharmsol::data::parse_pmetrics::read_pmetrics`, or created dynamically
 //! using the [pharmsol::data::builder::SubjectBuilder].
 //!
 
 /// Provides the various algorithms used within the framework
 pub mod algorithms;
 
-/// Estimation family boundaries for the new architecture.
+/// Estimation problems and the non-parametric and parametric fitting families.
 pub mod estimation;
 
-/// Public model-domain types used by the new API.
+/// Model-domain types: parameters, parameter spaces, and metadata.
 pub mod model;
 
-/// Shared result and summary types for the new API.
+/// Result and summary types shared across algorithms.
 pub mod results;
 
-/// Logs
+/// Logging utilities.
 pub mod logs;
 
 // Re-export commonly used items
 pub use anyhow::Result;
 pub use std::collections::HashMap;
 
-// BestDose
+/// Dose optimization and forecasting (BestDose).
 pub mod bestdose;
 
 /// SDE-based Inter-Occasion Variability optimization.

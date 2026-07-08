@@ -3,8 +3,10 @@
 //! BestDose finds dosing regimens that hit target drug concentrations or AUC
 //! values for a given distribution over model parameters.
 //!
-//! The distribution is supplied by the caller as support points ([`Theta`]) and
-//! probability [`Weights`]. It typically comes from a population fit, optionally
+//! The distribution is supplied by the caller as support points
+//! ([`Theta`](crate::estimation::nonparametric::Theta)) and probability
+//! [`Weights`](crate::estimation::nonparametric::Weights). It typically comes from a
+//! population fit, optionally
 //! updated to a patient-specific posterior with the NCNPAG or NPMAP algorithms.
 //!
 //! # Flow
