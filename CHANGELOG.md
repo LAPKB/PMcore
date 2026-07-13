@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0](https://github.com/LAPKB/PMcore/compare/v0.25.2...v0.26.0) - 2026-07-13
+
+### Added
+
+- Update BestDose API ([#296](https://github.com/LAPKB/PMcore/pull/296))
+- Add controller to step through a fit manually ([#294](https://github.com/LAPKB/PMcore/pull/294))
+- Chain fit methods using result ([#284](https://github.com/LAPKB/PMcore/pull/284))
+- Support parametric and non-parametric algorithms ([#276](https://github.com/LAPKB/PMcore/pull/276))
+
+### Fixed
+
+- Fix outputs generation ([#288](https://github.com/LAPKB/PMcore/pull/288))
+
+### Other
+
+- Bump pharmsol to 0.28.1 ([#298](https://github.com/LAPKB/PMcore/pull/298))
+- Update documentation ([#297](https://github.com/LAPKB/PMcore/pull/297))
+- Bump pharmsol ([#295](https://github.com/LAPKB/PMcore/pull/295))
+- Add missing implementations ([#292](https://github.com/LAPKB/PMcore/pull/292))
+- Remove unused dependencies ([#291](https://github.com/LAPKB/PMcore/pull/291))
+- Update security audit workflow ([#289](https://github.com/LAPKB/PMcore/pull/289))
+
 ## [0.25.2](https://github.com/LAPKB/PMcore/compare/v0.25.1...v0.25.2) - 2026-04-20
 
 ### Fixed
