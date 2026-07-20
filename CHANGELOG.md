@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1](https://github.com/LAPKB/PMcore/compare/v0.26.0...v0.26.1) - 2026-07-20
+
+### Fixed
+
+- Normalize psi to prevent likelihood underflow ([#300](https://github.com/LAPKB/PMcore/pull/300))
+
+### Other
+
+- Update pharmsol to 0.28.2 ([#303](https://github.com/LAPKB/PMcore/pull/303))
+
 ## [0.26.0](https://github.com/LAPKB/PMcore/compare/v0.25.2...v0.26.0) - 2026-07-13
 
 ### Added
