@@ -1,7 +1,7 @@
 use anyhow::bail;
 use anyhow::Result;
 use faer::Mat;
-use ndarray::Array2;
+use ndarray::{Array2, Axis};
 use pharmsol::prelude::simulator::log_likelihood_matrix;
 use pharmsol::AssayErrorModels;
 use pharmsol::Data;
@@ -14,15 +14,52 @@ use super::theta::Theta;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Psi {
     matrix: Mat<f64>,
+    /// Per-subject log-likelihood offsets removed before exponentiation.
+    /// Row scaling leaves the optimal weights unchanged; these offsets restore
+    /// the original likelihood scale where required by an algorithm.
+    row_log_scales: Vec<f64>,
 }
 
 impl Psi {
     pub fn new() -> Self {
-        Psi { matrix: Mat::new() }
+        Psi {
+            matrix: Mat::new(),
+            row_log_scales: Vec::new(),
+        }
     }
 
     pub fn matrix(&self) -> &Mat<f64> {
         &self.matrix
+    }
+
+    pub(crate) fn log_scale(&self) -> f64 {
+        self.row_log_scales.iter().sum()
+    }
+
+    pub(crate) fn row_log_scales(&self) -> &[f64] {
+        &self.row_log_scales
+    }
+
+    pub(crate) fn from_log_likelihoods(mut log_likelihoods: Array2<f64>) -> Result<Self> {
+        let mut row_log_scales = Vec::with_capacity(log_likelihoods.nrows());
+
+        for mut row in log_likelihoods.axis_iter_mut(Axis(0)) {
+            let row_max = row.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            if !row_max.is_finite() {
+                bail!("Each subject must have at least one finite log-likelihood");
+            }
+
+            row_log_scales.push(row_max);
+            row.mapv_inplace(|value| (value - row_max).exp());
+        }
+
+        let matrix = Mat::from_fn(log_likelihoods.nrows(), log_likelihoods.ncols(), |i, j| {
+            log_likelihoods[(i, j)]
+        });
+        Ok(Self {
+            matrix,
+            row_log_scales,
+        })
     }
 
     pub fn nspp(&self) -> usize {
@@ -95,7 +132,10 @@ impl Psi {
 
         let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
-        Ok(Psi { matrix: mat })
+        Ok(Psi {
+            matrix: mat,
+            row_log_scales: vec![0.0; nrows],
+        })
     }
 }
 
@@ -107,21 +147,33 @@ impl Default for Psi {
 
 impl From<Array2<f64>> for Psi {
     fn from(array: Array2<f64>) -> Self {
-        let matrix = Mat::from_fn(array.nrows(), array.ncols(), |i, j| array[(i, j)]);
-        Psi { matrix }
+        let nrows = array.nrows();
+        let matrix = Mat::from_fn(nrows, array.ncols(), |i, j| array[(i, j)]);
+        Psi {
+            matrix,
+            row_log_scales: vec![0.0; nrows],
+        }
     }
 }
 
 impl From<Mat<f64>> for Psi {
     fn from(matrix: Mat<f64>) -> Self {
-        Psi { matrix }
+        let nrows = matrix.nrows();
+        Psi {
+            matrix,
+            row_log_scales: vec![0.0; nrows],
+        }
     }
 }
 
 impl From<&Array2<f64>> for Psi {
     fn from(array: &Array2<f64>) -> Self {
-        let matrix = Mat::from_fn(array.nrows(), array.ncols(), |i, j| array[(i, j)]);
-        Psi { matrix }
+        let nrows = array.nrows();
+        let matrix = Mat::from_fn(nrows, array.ncols(), |i, j| array[(i, j)]);
+        Psi {
+            matrix,
+            row_log_scales: vec![0.0; nrows],
+        }
     }
 }
 
@@ -192,7 +244,10 @@ impl<'de> Deserialize<'de> for Psi {
 
                 let mat = Mat::from_fn(nrows, ncols, |i, j| rows[i][j]);
 
-                Ok(Psi { matrix: mat })
+                Ok(Psi {
+                    matrix: mat,
+                    row_log_scales: vec![0.0; nrows],
+                })
             }
         }
 
@@ -211,15 +266,29 @@ pub(crate) fn calculate_psi(
     let theta_ndarray = Array2::from_shape_fn((tm.nrows(), tm.ncols()), |(i, j)| tm[(i, j)]);
     let log_psi =
         log_likelihood_matrix(equation, subjects, &theta_ndarray, error_models, progress)?;
-    let psi_ndarray = log_psi.mapv(f64::exp);
 
-    Ok(Psi::from(psi_ndarray))
+    Psi::from_log_likelihoods(log_psi)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use ndarray::Array2;
+
+    #[test]
+    fn log_likelihood_rows_are_scaled_before_exponentiation() -> Result<()> {
+        let log_likelihoods = Array2::from_shape_vec((2, 2), vec![-1000.0, -1001.0, -2.0, -4.0])?;
+
+        let psi = Psi::from_log_likelihoods(log_likelihoods)?;
+
+        assert_eq!(psi.log_scale(), -1002.0);
+        assert_eq!(psi.row_log_scales(), &[-1000.0, -2.0]);
+        assert_eq!(psi.matrix()[(0, 0)], 1.0);
+        assert_eq!(psi.matrix()[(1, 0)], 1.0);
+        assert!((psi.matrix()[(0, 1)] - (-1.0_f64).exp()).abs() < 1e-12);
+        assert!((psi.matrix()[(1, 1)] - (-2.0_f64).exp()).abs() < 1e-12);
+        Ok(())
+    }
 
     #[test]
     fn test_from_array2() {

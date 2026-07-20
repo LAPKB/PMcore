@@ -7,6 +7,7 @@ use rayon::prelude::*;
 
 /// Applies Burke's Interior Point Method (IPM) to solve a convex optimization problem.
 pub fn burke(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
+    let log_scale = psi.log_scale();
     let mut psi = psi.matrix().to_owned();
 
     psi.row_iter_mut().try_for_each(|row| {
@@ -183,7 +184,7 @@ pub fn burke(psi: &Psi) -> anyhow::Result<(Weights, f64)> {
     }
 
     lam /= n_sub as f64;
-    let obj = (psi * &lam).iter().map(|x| x.ln()).sum();
+    let obj = (psi * &lam).iter().map(|x| x.ln()).sum::<f64>() + log_scale;
     let lam_sum: f64 = lam.iter().sum();
     lam = &lam / lam_sum;
 
@@ -223,6 +224,20 @@ mod tests {
         for i in 0..n_point {
             assert_relative_eq!(lam[i], expected, epsilon = 1e-10);
         }
+    }
+
+    #[test]
+    fn test_burke_restores_log_likelihood_scale() -> anyhow::Result<()> {
+        let log_likelihoods =
+            ndarray::Array2::from_shape_vec((2, 2), vec![-1000.0, -1001.0, -2.0, -4.0])?;
+        let psi = Psi::from_log_likelihoods(log_likelihoods)?;
+
+        let (weights, objective) = burke(&psi)?;
+        let expected_objective = -1000.0 + (weights[0] + (-1.0_f64).exp() * weights[1]).ln() - 2.0
+            + (weights[0] + (-2.0_f64).exp() * weights[1]).ln();
+
+        assert_relative_eq!(objective, expected_objective, epsilon = 1e-8);
+        Ok(())
     }
 
     #[test]
