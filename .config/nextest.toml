@@ -1,0 +1,18 @@
+# Nextest configuration
+# https://nexte.st/docs/configuration/
+
+[profile.default]
+# Terminate a test if it runs longer than 60s, warning at 30s.
+slow-timeout = { period = "30s", terminate-after = 2 }
+# Show output for failing tests immediately.
+failure-output = "immediate"
+final-status-level = "flaky"
+
+[profile.ci]
+# Don't stop at the first failure — surface everything in one run.
+fail-fast = false
+# Retry flaky tests a couple of times before marking them failed.
+retries = 2
+# Emit JUnit XML for CI test reporting.
+[profile.ci.junit]
+path = "junit.xml"

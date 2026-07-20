@@ -1,5 +1,6 @@
 permissions:
   contents: read
+  checks: write
 
 name: Build
 "on":
@@ -51,6 +52,9 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
 
@@ -64,10 +68,29 @@ jobs:
         run: cargo build --verbose --all-features
 
       - name: Run tests (no features)
-        run: cargo test --verbose --no-default-features
+        run: cargo nextest run --profile ci --no-default-features
 
       - name: Run tests (default features)
-        run: cargo test --verbose
+        run: cargo nextest run --profile ci
 
       - name: Run tests (all features)
-        run: cargo test --verbose --all-features
+        run: cargo nextest run --profile ci --all-features
+
+      - name: Run doctests (all features)
+        run: cargo test --doc --all-features
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "junit-${{ matrix.os }}"
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: ignore
+
+      - name: Publish test report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: target/nextest/ci/junit.xml
+          check_name: "Test report (${{ matrix.os }})"
+          include_passed: false
