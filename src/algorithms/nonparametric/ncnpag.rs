@@ -207,7 +207,8 @@ fn marginal_loglik(psi: &Psi, w: &Weights) -> f64 {
             let acc: f64 = (0..m.ncols()).map(|j| *m.get(s, j) * w[j]).sum();
             acc.max(f64::MIN_POSITIVE).ln()
         })
-        .sum()
+        .sum::<f64>()
+        + psi.log_scale()
 }
 
 impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
@@ -409,5 +410,25 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
         self.log_cycle_state();
 
         self.into_result()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use ndarray::Array2;
+
+    #[test]
+    fn marginal_loglik_restores_subject_scaling() -> anyhow::Result<()> {
+        let log_likelihoods = Array2::from_shape_vec((2, 2), vec![-1000.0, -1001.0, -2.0, -4.0])?;
+        let psi = Psi::from_log_likelihoods(log_likelihoods)?;
+        let weights = Weights::from_vec(vec![0.6, 0.4]);
+
+        let expected = -1000.0 + (0.6 + 0.4 * (-1.0_f64).exp()).ln() - 2.0
+            + (0.6 + 0.4 * (-2.0_f64).exp()).ln();
+
+        assert_relative_eq!(marginal_loglik(&psi, &weights), expected, epsilon = 1e-12);
+        Ok(())
     }
 }
