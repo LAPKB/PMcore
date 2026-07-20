@@ -14,17 +14,17 @@ use super::theta::Theta;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Psi {
     matrix: Mat<f64>,
-    /// Sum of per-subject log-likelihood offsets removed before exponentiation.
-    /// Row scaling leaves the optimal weights unchanged; this offset restores
-    /// the unscaled log-likelihood objective returned by the estimator.
-    log_scale: f64,
+    /// Per-subject log-likelihood offsets removed before exponentiation.
+    /// Row scaling leaves the optimal weights unchanged; these offsets restore
+    /// the original likelihood scale where required by an algorithm.
+    row_log_scales: Vec<f64>,
 }
 
 impl Psi {
     pub fn new() -> Self {
         Psi {
             matrix: Mat::new(),
-            log_scale: 0.0,
+            row_log_scales: Vec::new(),
         }
     }
 
@@ -33,11 +33,15 @@ impl Psi {
     }
 
     pub(crate) fn log_scale(&self) -> f64 {
-        self.log_scale
+        self.row_log_scales.iter().sum()
+    }
+
+    pub(crate) fn row_log_scales(&self) -> &[f64] {
+        &self.row_log_scales
     }
 
     pub(crate) fn from_log_likelihoods(mut log_likelihoods: Array2<f64>) -> Result<Self> {
-        let mut log_scale = 0.0;
+        let mut row_log_scales = Vec::with_capacity(log_likelihoods.nrows());
 
         for mut row in log_likelihoods.axis_iter_mut(Axis(0)) {
             let row_max = row.iter().copied().fold(f64::NEG_INFINITY, f64::max);
@@ -45,14 +49,17 @@ impl Psi {
                 bail!("Each subject must have at least one finite log-likelihood");
             }
 
-            log_scale += row_max;
+            row_log_scales.push(row_max);
             row.mapv_inplace(|value| (value - row_max).exp());
         }
 
         let matrix = Mat::from_fn(log_likelihoods.nrows(), log_likelihoods.ncols(), |i, j| {
             log_likelihoods[(i, j)]
         });
-        Ok(Self { matrix, log_scale })
+        Ok(Self {
+            matrix,
+            row_log_scales,
+        })
     }
 
     pub fn nspp(&self) -> usize {
@@ -127,7 +134,7 @@ impl Psi {
 
         Ok(Psi {
             matrix: mat,
-            log_scale: 0.0,
+            row_log_scales: vec![0.0; nrows],
         })
     }
 }
@@ -140,29 +147,32 @@ impl Default for Psi {
 
 impl From<Array2<f64>> for Psi {
     fn from(array: Array2<f64>) -> Self {
-        let matrix = Mat::from_fn(array.nrows(), array.ncols(), |i, j| array[(i, j)]);
+        let nrows = array.nrows();
+        let matrix = Mat::from_fn(nrows, array.ncols(), |i, j| array[(i, j)]);
         Psi {
             matrix,
-            log_scale: 0.0,
+            row_log_scales: vec![0.0; nrows],
         }
     }
 }
 
 impl From<Mat<f64>> for Psi {
     fn from(matrix: Mat<f64>) -> Self {
+        let nrows = matrix.nrows();
         Psi {
             matrix,
-            log_scale: 0.0,
+            row_log_scales: vec![0.0; nrows],
         }
     }
 }
 
 impl From<&Array2<f64>> for Psi {
     fn from(array: &Array2<f64>) -> Self {
-        let matrix = Mat::from_fn(array.nrows(), array.ncols(), |i, j| array[(i, j)]);
+        let nrows = array.nrows();
+        let matrix = Mat::from_fn(nrows, array.ncols(), |i, j| array[(i, j)]);
         Psi {
             matrix,
-            log_scale: 0.0,
+            row_log_scales: vec![0.0; nrows],
         }
     }
 }
@@ -236,7 +246,7 @@ impl<'de> Deserialize<'de> for Psi {
 
                 Ok(Psi {
                     matrix: mat,
-                    log_scale: 0.0,
+                    row_log_scales: vec![0.0; nrows],
                 })
             }
         }
@@ -272,6 +282,7 @@ mod tests {
         let psi = Psi::from_log_likelihoods(log_likelihoods)?;
 
         assert_eq!(psi.log_scale(), -1002.0);
+        assert_eq!(psi.row_log_scales(), &[-1000.0, -2.0]);
         assert_eq!(psi.matrix()[(0, 0)], 1.0);
         assert_eq!(psi.matrix()[(1, 0)], 1.0);
         assert!((psi.matrix()[(0, 1)] - (-1.0_f64).exp()).abs() < 1e-12);

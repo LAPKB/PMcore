@@ -336,7 +336,14 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
 
     fn expansion(&mut self) -> Result<()> {
         let pyl_col = self.psi().matrix().as_ref() * self.w.weights().as_ref();
-        let pyl: Array1<f64> = pyl_col.iter().copied().collect();
+        let mut pyl: Array1<f64> = pyl_col.iter().copied().collect();
+
+        // ParameterOptimizer currently evaluates raw likelihoods, so restore
+        // pyl to the same scale before calculating directional derivatives.
+        // TODO: Move NPOD and its parameter optimizer fully into log space.
+        for (pyl_i, row_log_scale) in pyl.iter_mut().zip(self.psi().row_log_scales()) {
+            *pyl_i *= row_log_scale.exp();
+        }
 
         let error_model: AssayErrorModels = self.error_models.clone();
 
