@@ -149,6 +149,7 @@ impl From<BoundedParameter> for UnboundedParameter {
             },
             initial: None,
             estimate: true,
+            random_effect: true,
         }
     }
 }
@@ -160,6 +161,11 @@ pub struct UnboundedParameter {
     pub scale: ParameterScale,
     pub initial: Option<f64>,
     pub estimate: bool,
+    /// Whether this population parameter has an IIV random effect η.
+    ///
+    /// Defaults to `true`.
+    #[serde(default = "default_true")]
+    pub random_effect: bool,
 }
 
 impl UnboundedParameter {
@@ -170,6 +176,7 @@ impl UnboundedParameter {
             scale,
             initial: None,
             estimate: true,
+            random_effect: true,
         }
     }
 
@@ -178,11 +185,40 @@ impl UnboundedParameter {
         Self::new(name, ParameterScale::Identity)
     }
 
-    /// Sets an initial value.
+    /// Sets the natural-scale typical value at zero eta, kappa, and covariate offsets.
     pub fn with_initial(mut self, value: f64) -> Self {
         self.initial = Some(value);
         self
     }
+
+    /// Enables or disables estimation of the population parameter value.
+    pub fn with_estimate(mut self, enabled: bool) -> Self {
+        self.estimate = enabled;
+        self
+    }
+
+    /// Fixes the population parameter at its initial value.
+    ///
+    /// This is independent of IIV: a fixed population parameter may still have
+    /// a random effect unless [`without_random_effect`](Self::without_random_effect) is used.
+    pub fn fixed(self) -> Self {
+        self.with_estimate(false)
+    }
+
+    /// Enables or disables the parameter's IIV random effect η.
+    pub fn with_random_effect(mut self, enabled: bool) -> Self {
+        self.random_effect = enabled;
+        self
+    }
+
+    /// Declares that this population parameter has no IIV random effect.
+    pub fn without_random_effect(self) -> Self {
+        self.with_random_effect(false)
+    }
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl ParameterMeta for UnboundedParameter {
@@ -250,5 +286,23 @@ impl Parameter {
     /// Creates a parametric parameter on probit scale.
     pub fn probit(name: impl Into<String>, lower: f64, upper: f64) -> UnboundedParameter {
         UnboundedParameter::new(name, ParameterScale::Probit { lower, upper })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parametric_parameters_default_to_iiv() {
+        assert!(Parameter::log("cl").random_effect);
+        assert!(!Parameter::log("v").without_random_effect().random_effect);
+    }
+
+    #[test]
+    fn fixing_population_estimation_is_independent_from_iiv() {
+        let parameter = Parameter::log("cl").fixed();
+        assert!(!parameter.estimate);
+        assert!(parameter.random_effect);
     }
 }

@@ -6,14 +6,12 @@ use crate::{
     estimation::nonparametric::{
         calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
+    AssayErrorModels,
 };
 
 use anyhow::Result;
 use faer::Mat;
-use pharmsol::prelude::{
-    data::{AssayErrorModels, Data},
-    simulator::Equation,
-};
+use pharmsol::prelude::{data::Data, simulator::Equation};
 
 use serde::{Deserialize, Serialize};
 

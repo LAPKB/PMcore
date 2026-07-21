@@ -13,6 +13,11 @@ pub fn fit_summary<E: Equation>(result: &NonParametricResult<E>) -> FitSummary {
         subject_count: result.data().subjects().len(),
         observation_count: count_observations(result.data()),
         parameter_count: result.get_theta().parameters().len(),
+        marginal_log_likelihood: None,
+        marginal_n2ll: None,
+        marginal_n2ll_mcse: None,
+        marginal_likelihood_status: None,
+        information_criteria: None,
     }
 }
 
@@ -32,23 +37,26 @@ pub fn population_summary<E: Equation>(result: &NonParametricResult<E>) -> Popul
             let column = theta_matrix.column(index).to_vec();
             let mean_value = mean[index];
             let sd = weighted_sd(&column, &weights, mean_value);
-            let cv_percent = if mean_value.abs() > f64::EPSILON {
-                (sd / mean_value.abs()) * 100.0
-            } else {
-                0.0
-            };
+            let cv_percent =
+                (mean_value.abs() > f64::EPSILON).then_some((sd / mean_value.abs()) * 100.0);
 
             ParameterSummary {
                 name,
-                mean: mean_value,
-                median: median[index],
-                sd,
+                estimate: mean_value,
+                mean: Some(mean_value),
+                median: Some(median[index]),
+                sd: Some(sd),
                 cv_percent,
             }
         })
         .collect();
 
-    PopulationSummary { parameters }
+    PopulationSummary {
+        parameters,
+        information_criteria: None,
+        population_uncertainty: None,
+        shrinkage: None,
+    }
 }
 
 pub fn individual_summaries<E: Equation>(
@@ -71,6 +79,7 @@ pub fn individual_summaries<E: Equation>(
             parameter_names: parameter_names.clone(),
             estimates: means.row(subject_index).to_vec(),
             standard_errors: None,
+            conditional_uncertainty: None,
         })
         .collect()
 }

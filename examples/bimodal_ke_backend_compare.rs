@@ -66,9 +66,18 @@ struct ComparisonResult {
 }
 
 fn main() -> Result<()> {
-    let mut results = Vec::new();
-    results.push(run_legacy()?);
-    results.push(run_macro()?);
+    #[cfg(any(
+        feature = "dsl-jit",
+        all(feature = "dsl-aot", feature = "dsl-aot-load"),
+        feature = "dsl-wasm"
+    ))]
+    let mut results = vec![run_legacy()?, run_macro()?];
+    #[cfg(not(any(
+        feature = "dsl-jit",
+        all(feature = "dsl-aot", feature = "dsl-aot-load"),
+        feature = "dsl-wasm"
+    )))]
+    let results = vec![run_legacy()?, run_macro()?];
 
     #[cfg(feature = "dsl-jit")]
     results.push(run_runtime_jit()?);

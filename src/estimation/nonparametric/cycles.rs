@@ -2,8 +2,9 @@ use std::{fs::File, path::Path};
 
 use anyhow::Result;
 use csv::WriterBuilder;
-use pharmsol::{AssayErrorModel, AssayErrorModels};
 use serde::Serialize;
+
+use crate::{AssayErrorModel, AssayErrorModels};
 
 use crate::{
     algorithms::Status,
@@ -23,6 +24,7 @@ pub struct NPCycle {
 }
 
 impl NPCycle {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         cycle: usize,
         objf: f64,

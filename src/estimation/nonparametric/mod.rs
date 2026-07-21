@@ -2,6 +2,7 @@ mod cycles;
 
 mod expansion;
 pub(crate) mod ipm;
+mod parameter_optimizer;
 mod posterior;
 mod predictions;
 
@@ -17,6 +18,7 @@ mod weights;
 pub use cycles::{CycleLog, NPCycle};
 pub(crate) use expansion::adaptative_grid;
 pub use ipm::burke;
+pub(crate) use parameter_optimizer::ParameterOptimizer;
 pub use posterior::{posterior, Posterior};
 pub use predictions::{NPPredictionRow, NPPredictions};
 pub(crate) use psi::calculate_psi;

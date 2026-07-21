@@ -5,8 +5,9 @@ use serde::Serialize;
 
 use crate::algorithms::Status;
 use crate::estimation::nonparametric::{CycleLog, NPPredictions, Posterior, Psi, Theta, Weights};
+use crate::AssayErrorModels;
 
-use pharmsol::{AssayErrorModels, Data};
+use pharmsol::Data;
 
 /// Contains the results of a nonparametric estimation, including the final parameter
 #[derive(Debug)]
@@ -429,9 +430,9 @@ mod tests {
     use crate::algorithms::nonparametric::{NpagConfig, NpodConfig};
     use crate::estimation::EstimationProblem;
     use crate::model::ParameterSpace;
+    use crate::{AssayErrorModel, AssayErrorModels, ErrorPoly};
     use pharmsol::equation::metadata;
-    use pharmsol::prelude::data::{AssayErrorModel, AssayErrorModels};
-    use pharmsol::{ErrorPoly, SubjectBuilderExt};
+    use pharmsol::SubjectBuilderExt;
 
     fn minimal_ode() -> pharmsol::ODE {
         pharmsol::equation::ODE::new(

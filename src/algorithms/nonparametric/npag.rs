@@ -8,12 +8,9 @@ pub(crate) use crate::estimation::nonparametric::qr;
 
 use anyhow::bail;
 use anyhow::Result;
-use pharmsol::prelude::{
-    data::{AssayErrorModels, Data},
-    simulator::Equation,
-};
+use pharmsol::prelude::{data::Data, simulator::Equation};
 
-use pharmsol::prelude::AssayErrorModel;
+use crate::{AssayErrorModel, AssayErrorModels};
 
 use crate::estimation::nonparametric::adaptative_grid;
 
