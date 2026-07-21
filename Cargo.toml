@@ -65,7 +65,7 @@ tracing-subscriber = { version = "0.3.19", features = [
   "time",
 ] }
 faer = "0.24.0"
-pharmsol = { path = "../pharmsol-likelihood-ownership", version = "=0.28.2" }
+pharmsol = { git = "https://github.com/LAPKB/pharmsol", branch = "feature/likelihood-extraction", version = "=0.28.2" }
 anyhow = "1.0.100"
 statrs = "0.18.0"
 rayon = "1.10.0"
