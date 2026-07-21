@@ -1,15 +1,15 @@
 use crate::{
     algorithms::{NonParametricRunner, Status, StopReason},
     estimation::nonparametric::{
-        calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
+        calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, ParameterOptimizer,
+        Psi, Theta, Weights,
     },
 };
-use pharmsol::ParameterOptimizer;
 
+use crate::{AssayErrorModel, AssayErrorModels};
 use anyhow::bail;
 use anyhow::Result;
 use pharmsol::prelude::{data::Data, simulator::Equation};
-use pharmsol::{prelude::AssayErrorModel, AssayErrorModels};
 
 use ndarray::Array1;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
@@ -353,11 +353,14 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
             let spp = Array1::from(candidate);
             candididate_points.push(spp.to_owned());
         }
-        candididate_points.par_iter_mut().for_each(|spp| {
-            let optimizer = ParameterOptimizer::new(&self.equation, &self.data, &error_model, &pyl);
-            let candidate_point = optimizer.optimize_point(spp.to_owned()).unwrap();
-            *spp = candidate_point;
-        });
+        candididate_points
+            .par_iter_mut()
+            .try_for_each(|spp| -> Result<()> {
+                let optimizer =
+                    ParameterOptimizer::new(&self.equation, &self.data, &error_model, &pyl);
+                *spp = optimizer.optimize_point(spp.to_owned())?;
+                Ok(())
+            })?;
         for cp in candididate_points {
             self.theta.suggest_point(cp.to_vec().as_slice(), THETA_D)?;
         }

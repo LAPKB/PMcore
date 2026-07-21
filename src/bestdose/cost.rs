@@ -269,9 +269,8 @@ pub(crate) fn evaluate<E: Equation>(
                 // Simulate at observation times only
                 let pred = problem
                     .eq
-                    .simulate_subject_dense(&target_subject, &spp, None)?;
-                pred.0
-                    .get_predictions()
+                    .estimate_predictions_dense(&target_subject, &spp)?;
+                pred.get_predictions()
                     .iter()
                     .map(|p| p.prediction())
                     .collect()
@@ -347,8 +346,8 @@ pub(crate) fn evaluate<E: Equation>(
                 // Simulate at dense times
                 let pred = problem
                     .eq
-                    .simulate_subject_dense(&dense_subject, &spp, None)?;
-                let dense_predictions_with_outeq = pred.0.get_predictions();
+                    .estimate_predictions_dense(&dense_subject, &spp)?;
+                let dense_predictions_with_outeq = pred.get_predictions();
 
                 // Group predictions by outeq using the Prediction struct
                 let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =
@@ -476,8 +475,8 @@ pub(crate) fn evaluate<E: Equation>(
                 // Simulate at dense times
                 let pred = problem
                     .eq
-                    .simulate_subject_dense(&dense_subject, &spp, None)?;
-                let dense_predictions_with_outeq = pred.0.get_predictions();
+                    .estimate_predictions_dense(&dense_subject, &spp)?;
+                let dense_predictions_with_outeq = pred.get_predictions();
 
                 // Group predictions by outeq
                 let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =

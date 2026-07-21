@@ -7,6 +7,138 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- SAEM for deterministic analytical and ODE models with IIV, IOV, and supported
+  residual-error models.
+- Assay and residual likelihood scoring for estimation objectives.
+- Explicit SDE particle filtering and bounded diffusion optimization.
+- Deterministic one-compartment analytical/ODE prediction and normalized
+  conditional-objective parity coverage.
+- Typed parametric numerical-failure termination that returns no partial fit result.
+- SAEM lifecycle, cycle diagnostics, guardrail, and truthful termination tracing.
+- Owned live parametric fit snapshots, clamped cycle progress, post-cycle
+  observers, reason-preserving user/stop-file termination, and stale stop-file cleanup.
+- SAEM results retain the original equation, data, and ordered parameter names
+  for prediction and follow-up-run APIs.
+- Parametric results generate population and conditional predictions on demand.
+- Parametric results retain requested SAEM configuration, effective chain count,
+  ordered parameter metadata, and covariance masks.
+- Parametric results provide structured population, covariance, residual,
+  individual, iteration, statistic, and prediction tables with table-owned CSV
+  writers, plus a versioned equation-free JSON result and output manifest.
+- Population parameter summaries distinguish the primary estimate from optional
+  distribution and uncertainty statistics. Natural-scale standard deviations
+  and coefficients of variation are present only for free population parameters
+  with available strict observed-information uncertainty; unsupported and fixed
+  coordinates remain absent.
+- Deterministic free-coordinate metadata, analytic complete-data score/Hessian
+  recursion, and immutable observed-information diagnostics. Residual derivatives
+  exactly follow the active likelihood scale floor, canonical proportional
+  coordinates join persisted residual rows, and every long-form information row
+  carries its availability status. These remain diagnostic rather than standard
+  errors.
+- An opt-in `AveragedIterates { alpha }` SAEM policy with compatible smoothing
+  gain, direct phi/raw-covariance/raw-SD Cesaro averaging, eta rebasing, canonical
+  post-average result recomputation and result metadata. Terminal-iterate
+  trajectories remain the default and unchanged.
+- An opt-in frozen-kernel Markov simulation-variance and mixing diagnostic with
+  explicit chain/draw/memory budgets and independently seeded prior draws at the
+  frozen averaged Omega/Omega_IOV. The same retained transitions provide full
+  complete-score and eta/kappa traces, per-chain multivariate lugsail batch
+  means, diagnostic-mean and fit-operational LRV scales, rank-normalized and
+  folded split-Rhat, and bulk ESS. Checked trace allocation fails before model
+  execution; invalid coordinates retain typed statuses without hiding valid
+  coordinates. A separate explicit operational policy applies Vehtari rank
+  thresholds, Gong/Flegal relative fixed width, and caller-supplied PMcore
+  stationarity thresholds at deterministic checkpoints. A joint pass yields
+  `Converged`; the default and every failed/ineligible finite schedule yield
+  `MaxCycles`. Stationarity, mixing, Poisson-equation, and controlled-Markov CLT
+  assumptions remain unverified, and no uncertainty claim is made. Derived
+  normal-quantile/implied-ESS values now fail validation before fitting when
+  unusable; lifecycle warnings distinguish unevaluated, failed, ineligible, and
+  passed checks; and operational CSV rows retain explicit status for every
+  criterion, trace statistic, LRV, and information-mapped matrix. Accepted
+  machine-roundoff asymmetry is canonicalized only after the finite-
+  symmetry tolerance succeeds, preventing exact-symmetry factorization from
+  misclassifying a positive-definite matrix without jitter or repair.
+- Caller-declared covariance-stability diagnostics record a scale-invariant
+  generalized SPD margin for Omega/Omega_IOV, emit typed warnings after a
+  complete consecutive near-boundary rejection window, and make operational
+  convergence fail closed after such a run. Thresholds and windows have no
+  PMcore default and do not alter fixed-schedule trajectories.
+- Explicit opt-in post-fit population marginal likelihood jointly integrates
+  eta and each actual-occasion kappa with normalized Student-t importance
+  sampling around retained conditional modes. Exact no-latent evaluation,
+  independent subject streams, ESS, zero-weight counts, delta-method N2LL MCSE,
+  typed unavailable/nonconverged-mode statuses, immutable result accessors,
+  warm-start recomputation semantics, and complete CSV/JSON output are included.
+  The compatibility objective and all conditional APIs remain unchanged.
+- Pure post-fit AIC and independent-subject BIC derived only from available
+  population marginal N2LL, with deterministic free-coordinate counts, exact
+  N2LL-MCSE propagation, typed availability, result/summary accessors, and
+  status-bearing CSV/statistics output. Criteria never use the conditional
+  compatibility objective.
+- Parametric result and manifest schema 9 retains typed marginal-likelihood,
+  information-criteria, uncertainty, correlated-residual, shrinkage,
+  information, and Markov diagnostics. Schema versions 1-8 are intentionally
+  rejected; derived rows are recomputed and checked against retained inputs.
+- Masked Louis observed information supplies strict unregularized population
+  covariance and exact identity/log/logit/probit delta-method standard errors.
+  One joint eta/kappa central-difference curvature supplies conditional
+  covariance and standard errors plus an opt-in Student-t proposal. Raw Omega
+  blocks remain the default proposal. Shrinkage uses unclamped `N-1` sample
+  variance for separately named posterior-mean and MAP eta/kappa.
+- A scalar within-observation correlated additive/proportional residual family
+  implements `Var(Y|f) = a² + 2 rho a b f + b²f²`, independent fixed/free
+  controls, log-SD/Fisher-rho optimization, analytic Louis derivatives, IOV
+  coexistence, and schema-9 lifecycle support. It does not imply serial,
+  cross-time, cross-output, or general block-sigma residual correlation.
+- Support for numerically estimating population and covariate effects
+  without IIV from the current latent-trace observation likelihood, using the
+  ordinary SAEM gain. Observed-information uncertainty remains unsupported.
+- Explicit variance- and SD-based diagonal constructors for `Omega` and `Iov`;
+  legacy `diagonal` remains variance-based and SD overflow fails closed.
+
+### Changed
+
+- Exponential residual likelihood scoring now uses the same machine-scale floor
+  as the canonical residual scale and observed-information derivatives.
+- Integrate with pharmsol prediction and simulation APIs.
+- Generic SDE fitting is unsupported; use `SdeParticleFilter` for
+  observation-conditioned filtering.
+- Define the deterministic analytical/ODE SAEM support matrix and fail closed on
+  invalid parameter, data, residual, and operational configuration values.
+
+### Fixed
+
+- Update coupled covariate raw first/second moments with one common SAEM gain so
+  the Gaussian moment history remains realizable. Apply exploration robustness
+  as an objective-checked, mask-preserving under-relaxation of the accepted
+  Omega/GEM displacement, with no second smoothing gain. Capped exploration
+  floors the solved target before interpolation; uncapped covariate smoothing
+  and non-covariate IIV/IOV preserve legacy floor-after-interpolation
+  backtracking. Reject estimated initial Omega/Omega_IOV diagonals below their
+  configured floors while exempting fixed diagonals.
+- Keep operational covariance-rejection criteria unavailable until a complete
+  active-cycle window exists; a short healthy prefix no longer satisfies a
+  longer configured consecutive window.
+- Correct Vehtari/Geyer bulk ESS pair indexing and tau assembly, retain separate
+  rank-Rhat/folded-Rhat/ESS statuses, preserve failed LRV chain indices, and
+  report checked required versus actually allocated peak trace memory.
+- Update IIV covariance from a dedicated eta second-moment statistic after
+  population recentering instead of mixing differently stepped phi moments.
+- Apply annealing, exploration replacement, and smoothing steps independently to
+  estimated combined-residual components while preserving fixed components.
+- Assemble default MAP-enabled results for models without eta or kappa dimensions.
+- Reconstruct IOV individual-parameter output separately for every subject and
+  occasion from the matching eta and kappa source.
+- Reject rank-deficient covariance updates with scale-stable factorization while
+  retaining finite high-scale positive-definite candidates.
+- Preserve sparse residual-output indices and valid fixed-zero combined-error
+  components when reconstructing parametric warm starts and when accumulating,
+  validating, and installing averaged SAEM estimates.
+
 ## [0.26.1](https://github.com/LAPKB/PMcore/compare/v0.26.0...v0.26.1) - 2026-07-20
 
 ### Fixed
@@ -102,7 +234,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- Remove unsed dependency (argmin-math) ([#225](https://github.com/LAPKB/PMcore/pull/225))
+- Remove unused dependency (argmin-math) ([#225](https://github.com/LAPKB/PMcore/pull/225))
 
 ## [0.21.1](https://github.com/LAPKB/PMcore/compare/v0.21.0...v0.21.1) - 2025-11-12
 

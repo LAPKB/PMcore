@@ -1,13 +1,11 @@
 //! Error-model factor optimization used by non-parametric algorithms.
 
 use anyhow::Result;
-use pharmsol::prelude::{
-    data::{AssayErrorModels, Data},
-    simulator::Equation,
-};
+use pharmsol::prelude::{data::Data, simulator::Equation};
 use serde::{Deserialize, Serialize};
 
 use crate::estimation::nonparametric::{calculate_psi, ipm::burke, Psi, Theta, Weights};
+use crate::AssayErrorModels;
 
 /// Configuration for the error-model factor (gamma/lambda) optimization.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

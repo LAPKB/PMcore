@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use crate::estimation::likelihood::observation::assay_error_model_log_likelihoods;
 use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta};
 use crate::estimation::{EstimationProblem, Framework};
 use crate::results::FitResult;
@@ -118,10 +119,11 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
             .into_par_iter()
             .map(|(i, spp)| {
                 let support_point: Vec<f64> = spp.iter().copied().collect();
-                let (pred, ll) = self
+                let pred = self
                     .equation()
-                    .simulate_subject_dense(subject, &support_point, Some(&error_model))
+                    .estimate_predictions_dense(subject, &support_point)
                     .unwrap(); //TODO: Handle error
+                let ll = assay_error_model_log_likelihoods(&pred, &error_model).unwrap_or(f64::NAN);
                 (i, support_point, pred.get_predictions(), ll)
             })
             .collect();
@@ -133,13 +135,16 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
         let mut zero = 0;
         let mut valid = 0;
         for (_, _, _, ll) in &results {
-            match ll {
-                Some(v) if v.is_nan() => nan += 1,
-                Some(v) if v.is_infinite() && v.is_sign_positive() => pos_inf += 1,
-                Some(v) if v.is_infinite() => neg_inf += 1,
-                Some(v) if *v == 0.0 => zero += 1,
-                Some(_) => valid += 1,
-                None => nan += 1,
+            if ll.is_nan() {
+                nan += 1;
+            } else if ll.is_infinite() && ll.is_sign_positive() {
+                pos_inf += 1;
+            } else if ll.is_infinite() {
+                neg_inf += 1;
+            } else if *ll == 0.0 {
+                zero += 1;
+            } else {
+                valid += 1;
             }
         }
 
@@ -157,11 +162,7 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
         tracing::debug!("\tValid likelihoods: {} ({:.1}%)", valid, pct(valid));
 
         // Show the most likely support points to aid debugging.
-        results.sort_by(|a, b| {
-            b.3.unwrap_or(f64::NEG_INFINITY)
-                .partial_cmp(&a.3.unwrap_or(f64::NEG_INFINITY))
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        results.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
 
         const TAKE: usize = 3;
         tracing::debug!("Top {} most likely support points:", TAKE);
@@ -198,7 +199,7 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
         tracing::debug!("=====================");
     }
 
-    fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels;
+    fn error_models(&self) -> &crate::AssayErrorModels;
     /// Get the equation used in the algorithm
     fn equation(&self) -> &E;
     /// Get the data used in the algorithm
@@ -249,7 +250,7 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
     /// It is typically performed after the estimation step in each cycle of the algorithm.
     fn condensation(&mut self) -> Result<()>;
 
-    /// Performs optimizations on the current `AssayErrorModels` and updates [Psi] accordingly
+    /// Optimizes the current assay error models and updates [`Psi`] accordingly.
     ///
     /// This step refines the error model parameters to better fit the data,
     /// and subsequently updates the [Psi] matrix to reflect these changes.
@@ -349,6 +350,8 @@ pub enum StopReason {
     /// Stopped from code — [`request_stop`](crate::algorithms::nonparametric::FitController::request_stop)
     /// or an observer returning [`CycleFlow::Stop`](crate::algorithms::nonparametric::CycleFlow::Stop).
     Aborted,
+    /// A runtime numerical operation failed.
+    NumericalFailure,
 }
 
 impl std::fmt::Display for StopReason {
@@ -358,6 +361,7 @@ impl std::fmt::Display for StopReason {
             StopReason::MaxCycles => "maximum cycles reached",
             StopReason::StopFile => "stop file detected",
             StopReason::Aborted => "aborted",
+            StopReason::NumericalFailure => "numerical failure",
         };
         f.write_str(reason)
     }

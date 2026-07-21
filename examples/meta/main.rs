@@ -29,7 +29,9 @@ fn main() -> Result<()> {
             y[outeq_1] = x[central] / v;
             y[outeq_2] = x[metabolite] / v2;
         },
-    };
+    }
+    .with_tolerances(1e-10, 1e-12)
+    .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
 
     let data = data::read_pmetrics("examples/meta/meta.csv")?;
     let parameters = ParameterSpace::bounded()
