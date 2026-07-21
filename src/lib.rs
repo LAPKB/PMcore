@@ -1,31 +1,10 @@
-//! PMcore is a framework for developing and running population pharmacokinetic algorithms.
+//! Population pharmacokinetic estimation algorithms and result types.
 //!
-//! # Algorithm Types
-//!
-//! ## Non-Parametric Algorithms
-//! Represent the population distribution as a discrete set of support points with associated weights.
-//! - NPAG (Non-Parametric Adaptive Grid)
-//! - NPOD (Non-Parametric Optimal Design)
-//! - NPMAP (Maximum a posteriori reweighting)
-//!
-//! ## Parametric Algorithms (planned)
-//! Represent the population distribution with a parametric form (e.g. a normal distribution) and
-//! estimate the parameters of that distribution. This family is not yet implemented; the API is
-//! present but calling it will panic until a solver (SAEM) is available.
-//!
-//! # Public Interface
-//!
-//! PMcore centers on the estimation interface in [estimation]. Models are defined in
-//! [model], configured with [estimation::EstimationProblem], and then executed with the
-//! selected algorithm.
-//!
-//! # Data format
-//!
-//! PMcore is heavily linked to [pharmsol], which provides the data structures and routines for handling
-//! pharmacokinetic data. The data is stored in a [pharmsol::Data] structure, and can either be read
-//! from a CSV file, using `pharmsol::data::parse_pmetrics::read_pmetrics`, or created dynamically
-//! using the [pharmsol::data::builder::SubjectBuilder].
-//!
+//! PMcore provides nonparametric algorithms, SAEM for deterministic analytical
+//! and ODE models, and explicit SDE particle filtering. Models and data are
+//! supplied through [pharmsol], configured with [`estimation::EstimationProblem`],
+//! and run with an algorithm from [`algorithms`]. Generic SDE fitting through
+//! [`estimation::EstimationProblem`] is unsupported.
 
 /// Provides the various algorithms used within the framework
 pub mod algorithms;
@@ -46,6 +25,24 @@ pub mod logs;
 pub use anyhow::Result;
 pub use std::collections::HashMap;
 
+#[allow(deprecated)]
+pub use estimation::{
+    AssayErrorModel, AssayErrorModels, AssayLikelihoodError, BoundAssayErrorModels,
+    ConditionalCurvatureDiagnostics, ConditionalCurvatureRegularization,
+    ConditionalCurvatureStatus, ConditionalCurvatureUnavailableReason, ConditionalModeMetadata,
+    CovariateEffect, CovariateEffectFamily, CovariateEstimate, CovariateGlsProblem, CovariateModel,
+    CovariateMstepError, CovariateValidationError, ErrorModel, ErrorModelError, ErrorPoly,
+    EtaMapShrinkage, EtaPosteriorMeanShrinkage, Factor, JointLatentCoordinate,
+    JointLatentCoordinateKind, KappaMapShrinkage, KappaPosteriorMeanShrinkage,
+    MarginalLikelihoodConfig, MarginalLikelihoodDiagnostics, MarginalLikelihoodFailureReason,
+    MarginalLikelihoodMethod, MarginalLikelihoodProposal, MarginalLikelihoodStatus,
+    MarginalLikelihoodSubjectFailure, NormalDistributionError, ParametricConstraint,
+    ProposalScaleSource, ResidualErrorModel, ResidualErrorModels, SdeParticleConfig,
+    SdeParticleError, SdeParticleFilter, SdeParticleRecord, SdeParticleResult,
+    ShrinkageDiagnostics, ShrinkageUnavailableReason, ShrinkageValue, SubjectCovariateDesign,
+    SubjectCovariateValue, SubjectPopulationParameters,
+};
+
 /// Dose optimization and forecasting (BestDose).
 pub mod bestdose;
 
@@ -62,10 +59,27 @@ pub mod prelude {
 
     pub use crate::estimation::NonParametric;
     pub use crate::estimation::Parametric;
+    #[allow(deprecated)]
     pub use crate::estimation::{
-        ErrorModels, EstimationProblem, FitProgress, NcnpagConfig, NonParametricAlgorithm,
-        NonparametricCycleProgress, NpagConfig, NpmapConfig, NpodConfig, ParametricAlgorithm,
-        SaemConfig,
+        AssayErrorModel, AssayErrorModels, AssayLikelihoodError, BoundAssayErrorModels,
+        ConditionalCurvatureDiagnostics, ConditionalCurvatureRegularization,
+        ConditionalCurvatureStatus, ConditionalCurvatureUnavailableReason, ConditionalModeMetadata,
+        CovarianceStabilityConfig, CovariateEffect, CovariateEffectFamily, CovariateEstimate,
+        CovariateGlsProblem, CovariateModel, CovariateMstepError, CovariateValidationError,
+        ErrorModel, ErrorModelError, ErrorModels, ErrorPoly, EstimationProblem, EtaMapShrinkage,
+        EtaPosteriorMeanShrinkage, Factor, FitProgress, Iov, JointLatentCoordinate,
+        JointLatentCoordinateKind, KappaMapShrinkage, KappaPosteriorMeanShrinkage, LugsailConfig,
+        MarginalLikelihoodConfig, MarginalLikelihoodDiagnostics, MarginalLikelihoodFailureReason,
+        MarginalLikelihoodMethod, MarginalLikelihoodProposal, MarginalLikelihoodStatus,
+        MarginalLikelihoodSubjectFailure, MarkovSimulationVarianceConfig, NcnpagConfig,
+        NonParametricAlgorithm, NonparametricCycleProgress, NormalDistributionError, NpagConfig,
+        NpmapConfig, NpodConfig, Omega, OperationalConvergenceConfig, ParametricAlgorithm,
+        ParametricConstraint, ParametricErrorModel, ParametricErrorModels, ParametricPrior,
+        ProposalScaleSource, ResidualErrorModel, ResidualErrorModels, SaemConfig,
+        SaemEstimatorPolicy, SdeParticleConfig, SdeParticleError, SdeParticleFilter,
+        SdeParticleRecord, SdeParticleResult, ShrinkageDiagnostics, ShrinkageUnavailableReason,
+        ShrinkageValue, SubjectCovariateDesign, SubjectCovariateValue,
+        SubjectMarginalLikelihoodDiagnostics, SubjectPopulationParameters,
     };
 
     pub use crate::model::parameter_space::{
@@ -73,13 +87,37 @@ pub mod prelude {
     };
 
     pub use crate::algorithms::nonparametric::{CycleFlow, FitController, FitObserver};
+    pub use crate::algorithms::parametric::{
+        CycleFlow as ParametricCycleFlow, FitController as ParametricFitController,
+        FitObserver as ParametricFitObserver, NumericalFailure, NumericalFailurePhase,
+        ParametricFitSnapshot,
+    };
     pub use crate::estimation::nonparametric::{
         CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
     };
     pub use crate::iov::{DiffusionConfig, DiffusionOptimize, DiffusionResult};
     pub use crate::model::{EquationMetadataSource, ModelMetadata};
     pub use crate::results::{
-        FitResult, FitSummary, IndividualSummary, ParameterSummary, PopulationSummary,
+        CovarianceCycleUpdateDiagnostics, CovarianceCycleUpdateOutcome,
+        CovarianceTrialRejectionReason, CovarianceUpdateNotAttemptedReason,
+        CovarianceUpdateRejectionReason, DiagnosticTraceCoordinate, FitResult, FitSummary,
+        IndividualEffectRow, IndividualParameterRow, IndividualSummary,
+        InformationCriteriaDiagnostics, InformationCriteriaParameterCount, InformationCriteriaRow,
+        InformationCriteriaSampleSizeConvention, InformationCriteriaStatus,
+        InformationCriteriaUnavailableReason, IterationRow, MarginalLikelihoodRow,
+        MarkovSimulationVarianceChainDiagnostics, MarkovSimulationVarianceDiagnostics,
+        MarkovSimulationVarianceStatus, OccasionKappaEstimate, OmegaRow,
+        OperationalConvergenceCheck, OperationalConvergenceCriterion,
+        OperationalConvergenceCriterionStatus, OperationalConvergenceDiagnostics,
+        OperationalConvergenceOutcome, ParameterSummary, ParametricResult, ParametricResultRecord,
+        ParametricResultTables, ParametricSourceCovariance, ParametricSourceEffect,
+        ParametricSourceMetadata, ParametricSourceParameter, ParametricSourceResidual,
+        ParametricWarning, ParametricWarningRecord, PopulationParameterRow, PopulationSummary,
+        PopulationUncertaintyDiagnostics, PopulationUncertaintyRegularization,
+        PopulationUncertaintyStatus, PopulationUncertaintyUnavailableReason, PredictionRow,
+        RankDiagnosticStatus, RankMixingDiagnostic, RankMixingDiagnostics,
+        ResidualCycleDiagnostics, ResidualErrorEstimate, ResidualErrorRow, SaemCycleDiagnostics,
+        SaemEstimatorMetadata, SaemPhase, StatisticRow, SubjectConditionalMode, SubjectEtaEstimate,
     };
 
     // pharmsol: re-export the crate itself and its curated prelude.

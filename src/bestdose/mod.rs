@@ -17,7 +17,7 @@
 //!
 //! # fn example(eq: pharmsol::prelude::ODE, pop_data: pharmsol::prelude::Data,
 //! #            prior_theta: pmcore::estimation::nonparametric::Theta,
-//! #            ems: pharmsol::prelude::AssayErrorModels,
+//! #            ems: pmcore::AssayErrorModels,
 //! #            past_data: Option<pharmsol::prelude::Subject>,
 //! #            target: pharmsol::prelude::Subject) -> anyhow::Result<()> {
 //! // 1. Fit the population model with any algorithm.
