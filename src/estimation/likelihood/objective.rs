@@ -23,7 +23,7 @@ where
         &problem.model.equation,
         &problem.data,
         individual_parameters,
-        problem.error_models.models(),
+        &problem.error_models,
     )
 }
 
@@ -64,7 +64,7 @@ mod tests {
             .route(equation::Route::bolus("0").to_state("central"))
     }
 
-    fn one_compartment() -> pharmsol::ODE {
+    fn one_compartment() -> pharmsol::equation::ODE {
         equation::ODE::new(
             |x, p, _t, dx, b, _rateiv, _cov| {
                 fetch_params!(p, ke);
@@ -85,7 +85,7 @@ mod tests {
         .unwrap()
     }
 
-    fn problem() -> EstimationProblem<pharmsol::ODE, Parametric> {
+    fn problem() -> EstimationProblem<pharmsol::equation::ODE, Parametric> {
         let data = Data::new(vec![
             Subject::builder("s1")
                 .bolus(0.0, 100.0, "0")
@@ -120,7 +120,7 @@ mod tests {
             &problem.model.equation,
             &problem.data,
             &parameters,
-            problem.error_models.models(),
+            &problem.error_models,
         )
         .unwrap();
         let actual = parametric_subject_log_likelihoods(&problem, &parameters).unwrap();

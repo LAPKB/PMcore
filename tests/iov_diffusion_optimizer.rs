@@ -1,6 +1,6 @@
 use faer::Mat;
-use pharmsol::equation::{metadata, ModelKind, Route};
-use pharmsol::{fa, lag, Data, SubjectBuilderExt, SDE};
+use pharmsol::equation::{metadata, ModelKind, Route, SDE};
+use pharmsol::{fa, lag, Data, SubjectBuilderExt};
 use pmcore::iov::{DiffusionConfig, DiffusionOptimize};
 use pmcore::prelude::{BoundedParameter, ParameterSpace, Posterior, Theta};
 use pmcore::{AssayErrorModel, AssayErrorModels, ErrorPoly};

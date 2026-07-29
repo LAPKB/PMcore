@@ -3809,22 +3809,55 @@ impl<E: Equation> ParametricResult<E> {
                 .get(subject_index)
                 .context("prediction subject index exceeds retained data")?;
             let conditional_predictions = conditional.as_ref().map(|value| &value.0[subject_index]);
+            if predictions.occasions().len() != predictions.predictions().len() {
+                bail!(
+                    "population prediction occasion count mismatch for subject '{}'",
+                    subject.id()
+                );
+            }
             if let Some(other) = conditional_predictions {
-                if other.predictions().len() != predictions.predictions().len() {
+                if other.predictions().len() != predictions.predictions().len()
+                    || other.occasions().len() != predictions.occasions().len()
+                {
                     bail!("prediction count mismatch for subject '{}'", subject.id());
                 }
             }
-            for (point_index, point) in predictions.predictions().iter().enumerate() {
+            for (point_index, (point, block)) in predictions
+                .predictions()
+                .iter()
+                .zip(predictions.occasions())
+                .enumerate()
+            {
                 let conditional_point =
                     conditional_predictions.map(|values| &values.predictions()[point_index]);
                 if let Some(other) = conditional_point {
-                    validate_prediction_pair(subject.id(), point, other)?;
+                    validate_prediction_pair(
+                        subject.id(),
+                        point,
+                        *block,
+                        other,
+                        conditional_predictions
+                            .expect("conditional predictions exist")
+                            .occasions()[point_index],
+                    )?;
                 }
+                let output_index = self
+                    .residual_error_estimates
+                    .iter()
+                    .find(|estimate| estimate.output == point.output().as_str())
+                    .map(|estimate| estimate.output_index)
+                    .with_context(|| {
+                        format!(
+                            "prediction output '{}' is not declared for subject '{}'",
+                            point.output(),
+                            subject.id()
+                        )
+                    })?;
                 rows.push(PredictionRow {
                     subject: subject.id().clone(),
                     time: point.time(),
-                    output_index: point.outeq(),
-                    block: point.occasion(),
+                    output_index,
+                    block: *block,
                     observation: point.observation(),
                     censoring: censor_text(point.censoring()).to_string(),
                     population_prediction: point.prediction(),
@@ -6046,11 +6079,13 @@ fn statistic(
 fn validate_prediction_pair(
     subject: &str,
     population: &Prediction,
+    population_occasion: usize,
     conditional: &Prediction,
+    conditional_occasion: usize,
 ) -> Result<()> {
     if population.time() != conditional.time()
-        || population.outeq() != conditional.outeq()
-        || population.occasion() != conditional.occasion()
+        || population.output() != conditional.output()
+        || population_occasion != conditional_occasion
         || population.observation() != conditional.observation()
         || population.censoring() != conditional.censoring()
     {

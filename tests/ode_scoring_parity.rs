@@ -1,6 +1,6 @@
-use pharmsol::equation::{metadata, AnalyticalKernel, ModelKind, Route};
+use pharmsol::equation::{metadata, Analytical, AnalyticalKernel, ModelKind, Route, ODE};
 use pharmsol::prelude::models::one_compartment;
-use pharmsol::{fa, fetch_params, lag, Analytical, Equation, Parameters, SubjectBuilderExt, ODE};
+use pharmsol::{fa, fetch_params, lag, Equation, Parameters, SubjectBuilderExt};
 use pmcore::{
     AssayErrorModel, AssayErrorModels, AssayLikelihoodError, ErrorModelError, ErrorPoly,
     NormalDistributionError,
@@ -82,6 +82,9 @@ fn likelihood_calculation_matches_analytical() {
         ErrorPoly::new(0.0, 0.1, 0.0, 0.0),
         0.0,
     )]);
+    let bound_error_models = error_models
+        .bind_outputs(["cp"])
+        .expect("bind dense assay model to the declared output");
     let analytical_params = Parameters::with_model(&analytical, [("ke", 0.1), ("v", 50.0)])
         .expect("analytical parameters should validate");
     let ode_params = Parameters::with_model(&ode, [("ke", 0.1), ("v", 50.0)])
@@ -94,7 +97,7 @@ fn likelihood_calculation_matches_analytical() {
         .estimate_predictions(&subject, &ode_params)
         .expect("ODE predictions");
 
-    let dense_log_likelihood = error_models
+    let dense_log_likelihood = bound_error_models
         .log_likelihood(&analytical_predictions)
         .expect("PMcore dense analytical likelihood");
     let named_error_models = AssayErrorModels::new()
@@ -135,7 +138,7 @@ fn likelihood_calculation_matches_analytical() {
     ));
 
     let ll_analytical = dense_log_likelihood.exp();
-    let ll_ode = error_models
+    let ll_ode = bound_error_models
         .log_likelihood(&ode_predictions)
         .expect("PMcore ODE likelihood")
         .exp();
@@ -155,8 +158,11 @@ fn likelihood_calculation_matches_analytical() {
         ErrorPoly::new(0.0, 0.0, 0.0, 0.0),
         0.0,
     )]);
+    let bound_zero_sigma_models = zero_sigma_models
+        .bind_outputs(["cp"])
+        .expect("bind zero-sigma assay model to the declared output");
     assert!(matches!(
-        zero_sigma_models.log_likelihood(&analytical_predictions),
+        bound_zero_sigma_models.log_likelihood(&analytical_predictions),
         Err(AssayLikelihoodError::Distribution(
             NormalDistributionError::InvalidSigma(sigma)
         )) if sigma == 0.0
@@ -172,8 +178,11 @@ fn likelihood_calculation_matches_analytical() {
         ErrorPoly::new(1.0, 0.0, 0.0, 0.0),
         0.0,
     )]);
+    let bound_constant_sigma_models = constant_sigma_models
+        .bind_outputs(["cp"])
+        .expect("bind constant-sigma assay model to the declared output");
     assert!(matches!(
-        constant_sigma_models.log_likelihood(&impossible_predictions),
+        bound_constant_sigma_models.log_likelihood(&impossible_predictions),
         Err(AssayLikelihoodError::Impossible)
     ));
 }

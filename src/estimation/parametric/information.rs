@@ -563,11 +563,14 @@ impl CompleteDerivative {
             if failure.is_some() {
                 return;
             }
-            let Some(model) = error_models.get(prediction.outeq()).copied() else {
+            let Some(output) = error_models.output_index(prediction.output()) else {
+                return;
+            };
+            let Some(model) = error_models.get(output).copied() else {
                 return;
             };
             if let Err(error) = self.add_residual(
-                prediction.outeq(),
+                output,
                 prediction.observation(),
                 prediction.prediction(),
                 prediction.censoring(),
@@ -596,7 +599,10 @@ impl CompleteDerivative {
             if failure.is_some() || prediction.observation().is_none() {
                 return;
             }
-            let Some(model) = error_models.get(prediction.outeq()).copied() else {
+            let Some(output) = error_models.output_index(prediction.output()) else {
+                return;
+            };
+            let Some(model) = error_models.get(output).copied() else {
                 return;
             };
             let raw_scale = match model {
@@ -620,7 +626,7 @@ impl CompleteDerivative {
                     "retained Markov scores are unsupported on an active or equal likelihood-floor branch"
                 ));
             } else if let Err(error) = self.add_residual(
-                prediction.outeq(),
+                output,
                 prediction.observation(),
                 prediction.prediction(),
                 prediction.censoring(),

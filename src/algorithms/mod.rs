@@ -185,15 +185,11 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
                 preds.iter().map(|x| x.prediction()).collect::<Vec<f64>>()
             );
             tracing::debug!(
-                "\t\tOuteqs: {:?}",
-                preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>()
-            );
-            tracing::debug!(
-                "\t\tStates: {:?}",
+                "\t\tOutputs: {:?}",
                 preds
                     .iter()
-                    .map(|x| x.state().to_vec())
-                    .collect::<Vec<Vec<f64>>>()
+                    .map(|x| x.output().to_string())
+                    .collect::<Vec<String>>()
             );
         }
         tracing::debug!("=====================");

@@ -35,7 +35,8 @@
 mod optimizer;
 
 use anyhow::{bail, Context};
-use pharmsol::{Data, SDE};
+use pharmsol::equation::SDE;
+use pharmsol::Data;
 use rayon::prelude::*;
 
 use crate::estimation::nonparametric::Theta;

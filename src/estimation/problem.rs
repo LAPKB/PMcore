@@ -448,8 +448,8 @@ fn validate_nonparametric_error_models<E: Equation + EquationMetadataSource>(
         .map_err(|e| anyhow!("invalid assay error model output(s): {e}"))?;
 
     // Collect the set of model output indices that are actually observed in the
-    // data, resolving each observation's output label the same way the simulator
-    // does (exact name, then the `outeq_<N>` numeric alias).
+    // data, using pharmsol's metadata resolver: exact names first, then a bare
+    // numeric label only when the corresponding `outeq_<N>` output is declared.
     let mut observed_outputs: BTreeSet<usize> = BTreeSet::new();
     let mut unresolved_labels: BTreeSet<String> = BTreeSet::new();
     for subject in data.subjects() {
@@ -505,17 +505,16 @@ fn validate_nonparametric_error_models<E: Equation + EquationMetadataSource>(
     Ok((*bound).clone())
 }
 
-/// Resolves an observation output `label` to a model output index, mirroring the
-/// simulator: exact metadata name, then numeric `N` only for a declared `outeq_N`.
+/// Resolves an observation output using pharmsol's public-label compatibility
+/// rules, without positional fallback.
 fn resolve_output_index<E: Equation + EquationMetadataSource>(
     model: &Model<E>,
     label: &str,
 ) -> Option<usize> {
-    model.output_index(label).or_else(|| {
-        (!label.is_empty() && label.chars().all(|ch| ch.is_ascii_digit()))
-            .then(|| format!("outeq_{label}"))
-            .and_then(|alias| model.output_index(&alias))
-    })
+    model
+        .equation
+        .equation_metadata()
+        .and_then(|metadata| metadata.output_for_label(label))
 }
 
 fn validate_parametric_data<E: Equation + EquationMetadataSource>(
@@ -734,7 +733,7 @@ mod tests {
     use pharmsol::prelude::*;
     use pharmsol::{Censor, Data, Subject, SubjectBuilderExt};
 
-    fn equation_with_outputs(outputs: [&str; 2]) -> pharmsol::ODE {
+    fn equation_with_outputs(outputs: [&str; 2]) -> pharmsol::equation::ODE {
         pharmsol::equation::ODE::new(
             |_x, _p, _t, dx, _b, _rateiv, _cov| dx[0] = 0.0,
             |_p, _t, _cov| lag! {},
@@ -758,7 +757,7 @@ mod tests {
         .unwrap()
     }
 
-    fn equation() -> pharmsol::ODE {
+    fn equation() -> pharmsol::equation::ODE {
         equation_with_outputs(["cp", "effect"])
     }
 
@@ -770,10 +769,10 @@ mod tests {
 
     #[test]
     fn deterministic_model_kind_support_is_fail_closed() {
-        assert!(reject_sde_estimation::<pharmsol::Analytical>().is_ok());
-        assert!(reject_sde_estimation::<pharmsol::ODE>().is_ok());
+        assert!(reject_sde_estimation::<pharmsol::equation::Analytical>().is_ok());
+        assert!(reject_sde_estimation::<pharmsol::equation::ODE>().is_ok());
 
-        let error = reject_sde_estimation::<pharmsol::SDE>()
+        let error = reject_sde_estimation::<pharmsol::equation::SDE>()
             .expect_err("EstimationProblem must reject SDE models")
             .to_string();
         assert!(error.contains("SDE"));
@@ -927,15 +926,17 @@ mod tests {
     }
 
     #[test]
-    fn numeric_output_aliases_preserve_leading_zeroes() {
-        assert!(EstimationProblem::parametric(
-            equation_with_outputs(["outeq_00", "effect"]),
-            measured_data("00"),
-        )
-        .parameter(Parameter::log("value"))
-        .error_model("outeq_00", ResidualErrorModel::constant(1.0))
-        .build()
-        .is_ok());
+    fn numeric_output_aliases_resolve_only_declared_canonical_labels() {
+        for (declared, observed) in [("outeq_0", "0"), ("outeq_00", "00")] {
+            assert!(EstimationProblem::parametric(
+                equation_with_outputs([declared, "effect"]),
+                measured_data(observed),
+            )
+            .parameter(Parameter::log("value"))
+            .error_model(declared, ResidualErrorModel::constant(1.0))
+            .build()
+            .is_ok());
+        }
 
         let error = EstimationProblem::parametric(
             equation_with_outputs(["outeq_0", "effect"]),
@@ -944,7 +945,7 @@ mod tests {
         .parameter(Parameter::log("value"))
         .error_model("outeq_0", ResidualErrorModel::constant(1.0))
         .build()
-        .expect_err("00 must not resolve to outeq_0")
+        .expect_err("numeric aliases must preserve their exact canonical suffix")
         .to_string();
         assert!(error.contains("unknown model output '00'"));
     }

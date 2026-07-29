@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use ndarray::{Array2, Axis};
 use pharmsol::{Data, Equation, Occasion, Subject};
 
-use crate::ResidualErrorModels;
+use crate::estimation::ParametricErrorModels;
 use rayon::prelude::*;
 
 use super::residual::residual_error_model_log_likelihoods;
@@ -16,14 +16,14 @@ pub(crate) fn parametric_subject_log_likelihood(
     equation: &impl Equation,
     subject: &Subject,
     parameter_row: &[f64],
-    residual_error_models: &ResidualErrorModels,
+    error_models: &ParametricErrorModels,
 ) -> f64 {
     let predictions = match equation.estimate_predictions_dense(subject, parameter_row) {
         Ok(predictions) => predictions,
         Err(_) => return f64::NEG_INFINITY,
     };
 
-    residual_error_model_log_likelihoods(&predictions, residual_error_models)
+    residual_error_model_log_likelihoods(&predictions, error_models)
 }
 
 /// Score one occasion under its own κ-adjusted parameter vector.
@@ -36,15 +36,10 @@ pub(crate) fn parametric_occasion_log_likelihood(
     subject_id: &str,
     occasion: &Occasion,
     parameter_row: &[f64],
-    residual_error_models: &ResidualErrorModels,
+    error_models: &ParametricErrorModels,
 ) -> f64 {
     let occasion_subject = Subject::from_occasions(subject_id.to_owned(), vec![occasion.clone()]);
-    parametric_subject_log_likelihood(
-        equation,
-        &occasion_subject,
-        parameter_row,
-        residual_error_models,
-    )
+    parametric_subject_log_likelihood(equation, &occasion_subject, parameter_row, error_models)
 }
 
 /// Compute parametric subject log-likelihoods in PMcore.
@@ -55,7 +50,7 @@ pub(crate) fn parametric_log_likelihood_batch(
     equation: &impl Equation,
     subjects: &Data,
     parameters: &Array2<f64>,
-    residual_error_models: &ResidualErrorModels,
+    error_models: &ParametricErrorModels,
 ) -> Result<Vec<f64>> {
     let subject_refs = subjects.subjects();
     if parameters.nrows() != subject_refs.len() {
@@ -77,7 +72,7 @@ pub(crate) fn parametric_log_likelihood_batch(
                     equation,
                     subject,
                     &flat_parameters[start..start + width],
-                    residual_error_models,
+                    error_models,
                 )
             })
             .collect())
@@ -95,7 +90,7 @@ pub(crate) fn parametric_log_likelihood_batch(
                     equation,
                     subject,
                     &parameter_rows[i],
-                    residual_error_models,
+                    error_models,
                 )
             })
             .collect())
@@ -105,6 +100,7 @@ pub(crate) fn parametric_log_likelihood_batch(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::estimation::ParametricErrorModel;
     use crate::ResidualErrorModel;
     use pharmsol::prelude::*;
     use pharmsol::SubjectBuilderExt;
@@ -117,7 +113,7 @@ mod tests {
             .route(equation::Route::bolus("0").to_state("central"))
     }
 
-    fn one_compartment() -> pharmsol::ODE {
+    fn one_compartment() -> pharmsol::equation::ODE {
         equation::ODE::new(
             |x, p, _t, dx, b, _rateiv, _cov| {
                 fetch_params!(p, ke);
@@ -159,8 +155,11 @@ mod tests {
         let equation = one_compartment();
         let data = data();
         let parameters = ndarray::array![[0.15, 8.0], [0.30, 12.0]];
-        let error_models =
-            ResidualErrorModels::new().add(0, ResidualErrorModel::combined(0.5, 0.1));
+        let error_models = ParametricErrorModels::new().add(
+            0,
+            "0",
+            ParametricErrorModel::from(ResidualErrorModel::combined(0.5, 0.1)),
+        );
 
         let scores = parametric_log_likelihood_batch(&equation, &data, &parameters, &error_models)
             .expect("pmcore batch");

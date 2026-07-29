@@ -1,5 +1,5 @@
-use pharmsol::equation::{metadata, ModelKind, Route, SdeSessionError};
-use pharmsol::{fa, lag, Censor, Parameters, Subject, SubjectBuilderExt, SDE};
+use pharmsol::equation::{metadata, ModelKind, Route, SdeSessionError, SDE};
+use pharmsol::{fa, lag, Censor, Parameters, Subject, SubjectBuilderExt};
 use pmcore::{
     AssayErrorModel, AssayErrorModels, ErrorPoly, SdeParticleConfig, SdeParticleError,
     SdeParticleFilter,
