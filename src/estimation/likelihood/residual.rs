@@ -1,7 +1,8 @@
 use pharmsol::prelude::simulator::Prediction;
 use pharmsol::Predictions;
 
-use crate::{ResidualErrorModel, ResidualErrorModels};
+use crate::estimation::ParametricErrorModels;
+use crate::ResidualErrorModel;
 
 use super::distributions::log_normal_pdf;
 
@@ -49,13 +50,16 @@ fn residual_log_likelihood_values(
 #[inline]
 pub(crate) fn residual_error_model_log_likelihood(
     prediction: &Prediction,
-    error_models: &ResidualErrorModels,
+    error_models: &ParametricErrorModels,
 ) -> f64 {
     let Some(obs) = prediction.observation() else {
         return 0.0;
     };
 
-    let Some(model) = error_models.get(prediction.outeq()) else {
+    let Some(output) = error_models.output_index(prediction.output()) else {
+        return f64::NEG_INFINITY;
+    };
+    let Some(model) = error_models.get(output) else {
         return f64::NEG_INFINITY;
     };
 
@@ -64,7 +68,7 @@ pub(crate) fn residual_error_model_log_likelihood(
 
 pub(crate) fn residual_error_model_log_likelihoods<P>(
     predictions: &P,
-    error_models: &ResidualErrorModels,
+    error_models: &ParametricErrorModels,
 ) -> f64
 where
     P: Predictions,
@@ -200,7 +204,7 @@ mod tests {
         assert_eq!(
             residual_error_model_log_likelihood(
                 &Prediction::default(),
-                &ResidualErrorModels::new(),
+                &ParametricErrorModels::new(),
             ),
             0.0
         );

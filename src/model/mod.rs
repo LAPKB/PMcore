@@ -1,6 +1,6 @@
 use anyhow::Result;
-use pharmsol::equation::Equation;
-use pharmsol::{Analytical, ValidatedModelMetadata, ODE, SDE};
+use pharmsol::equation::{Analytical, Equation, ODE, SDE};
+use pharmsol::ValidatedModelMetadata;
 
 pub mod metadata;
 pub mod parameter_space;

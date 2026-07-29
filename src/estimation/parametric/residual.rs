@@ -42,7 +42,7 @@ impl ResidualSufficientStatistics {
         }
     }
 
-    pub(crate) fn from_predictions<P>(predictions: &P, error_models: &ResidualErrorModels) -> Self
+    pub(crate) fn from_predictions<P>(predictions: &P, error_models: &ParametricErrorModels) -> Self
     where
         P: Predictions,
     {
@@ -56,12 +56,14 @@ impl ResidualSufficientStatistics {
     fn accumulate_prediction(
         &mut self,
         prediction: &Prediction,
-        error_models: &ResidualErrorModels,
+        error_models: &ParametricErrorModels,
     ) {
         let Some(observation) = prediction.observation() else {
             return;
         };
-        let outeq = prediction.outeq();
+        let Some(outeq) = error_models.output_index(prediction.output()) else {
+            return;
+        };
         let Some(model) = error_models.get(outeq) else {
             return;
         };
@@ -156,7 +158,7 @@ pub(crate) fn residual_statistics_for_subject<E: Equation>(
     equation: &E,
     subject: &Subject,
     parameters: &[f64],
-    error_models: &ResidualErrorModels,
+    error_models: &ParametricErrorModels,
 ) -> Result<ResidualSufficientStatistics> {
     let predictions = equation.estimate_predictions_dense(subject, parameters)?;
     Ok(ResidualSufficientStatistics::from_predictions(

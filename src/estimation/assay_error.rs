@@ -72,9 +72,12 @@ impl Factor {
 
 impl From<Vec<AssayErrorModel>> for AssayErrorModels {
     fn from(models: Vec<AssayErrorModel>) -> Self {
+        let output_lookup = (0..models.len())
+            .map(|index| (OutputLabel::new(index.to_string()), index))
+            .collect();
         Self {
             models,
-            output_lookup: BTreeMap::new(),
+            output_lookup,
             named_models: BTreeMap::new(),
         }
     }
@@ -177,6 +180,7 @@ impl AssayErrorModels {
         Self::empty()
     }
 
+    #[cfg(test)]
     pub(crate) fn assert_compatible_output_names<I, S>(
         &self,
         outputs: I,
@@ -224,9 +228,31 @@ impl AssayErrorModels {
             .collect::<Vec<_>>();
 
         if !self.output_lookup.is_empty() {
-            self.assert_compatible_output_names(outputs.iter().map(String::as_str))?;
-            return Ok(BoundAssayErrorModels {
-                storage: BoundAssayErrorModelsStorage::Borrowed(self),
+            let expected = self.bound_output_names();
+            if expected == outputs {
+                return Ok(BoundAssayErrorModels {
+                    storage: BoundAssayErrorModelsStorage::Borrowed(self),
+                });
+            }
+
+            let dense_context = expected
+                .iter()
+                .all(|output| output.parse::<usize>().is_ok());
+            if dense_context {
+                let mut bound = self.clone();
+                bound.output_lookup = outputs
+                    .iter()
+                    .enumerate()
+                    .map(|(index, output)| (OutputLabel::new(output), index))
+                    .collect();
+                return Ok(BoundAssayErrorModels {
+                    storage: BoundAssayErrorModelsStorage::Owned(bound),
+                });
+            }
+
+            return Err(ErrorModelError::IncompatibleOutputContext {
+                expected,
+                found: outputs,
             });
         }
 
@@ -298,8 +324,19 @@ impl AssayErrorModels {
         self.output_lookup
             .get(&label)
             .copied()
-            .or_else(|| label.index())
             .ok_or_else(|| ErrorModelError::UnknownOutputLabel(label.to_string()))
+    }
+
+    fn resolve_prediction_output(&self, output: &OutputLabel) -> Result<usize, ErrorModelError> {
+        match self.resolve_output_binding(output) {
+            Ok(index) => Ok(index),
+            Err(error) => match output.as_str().parse::<usize>() {
+                Ok(index) if index >= self.models.len() => {
+                    Err(ErrorModelError::InvalidOutputEquation(index))
+                }
+                _ => Err(error),
+            },
+        }
     }
 
     fn insert_model_at(
@@ -348,12 +385,21 @@ impl AssayErrorModels {
         let label = OutputLabel::new(outeq);
 
         if !self.output_lookup.is_empty() {
-            let outeq = self.resolve_output_binding(label.clone())?;
-            self.insert_model_at(outeq, model)?;
-            return Ok(self);
+            if let Some(outeq) = self.output_lookup.get(&label).copied() {
+                self.insert_model_at(outeq, model)?;
+                return Ok(self);
+            }
+            let dense_context = self
+                .bound_output_names()
+                .iter()
+                .all(|output| output.parse::<usize>().is_ok());
+            if !dense_context {
+                return Err(ErrorModelError::UnknownOutputLabel(label.to_string()));
+            }
         }
 
-        if let Some(outeq) = label.index() {
+        if let Ok(outeq) = label.as_str().parse::<usize>() {
+            self.output_lookup.insert(label, outeq);
             self.insert_model_at(outeq, model)?;
             return Ok(self);
         }
@@ -696,14 +742,14 @@ impl AssayErrorModels {
     ///
     /// A [`Result`] containing the computed sigma value or an [`ErrorModelError`] if the calculation fails.
     pub fn sigma(&self, prediction: &Prediction) -> Result<f64, ErrorModelError> {
-        let outeq = prediction.outeq();
+        let outeq = self.resolve_prediction_output(prediction.output())?;
         if outeq >= self.models.len() {
             return Err(ErrorModelError::InvalidOutputEquation(outeq));
         }
         if self.models[outeq] == AssayErrorModel::None {
             return Err(ErrorModelError::NoneErrorModel(outeq));
         }
-        self.models[prediction.outeq()].sigma(prediction)
+        self.models[outeq].sigma(prediction)
     }
 
     /// Computes the variance for the specified output equation and prediction.
@@ -717,14 +763,14 @@ impl AssayErrorModels {
     ///
     /// A [`Result`] containing the computed variance or an [`ErrorModelError`] if the calculation fails.
     pub fn variance(&self, prediction: &Prediction) -> Result<f64, ErrorModelError> {
-        let outeq = prediction.outeq();
+        let outeq = self.resolve_prediction_output(prediction.output())?;
         if outeq >= self.models.len() {
             return Err(ErrorModelError::InvalidOutputEquation(outeq));
         }
         if self.models[outeq] == AssayErrorModel::None {
             return Err(ErrorModelError::NoneErrorModel(outeq));
         }
-        self.models[prediction.outeq()].variance(prediction)
+        self.models[outeq].variance(prediction)
     }
 
     /// Computes the standard deviation (sigma) for the specified output equation and value.
@@ -1199,11 +1245,11 @@ pub enum ErrorModelError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pharmsol::{Event, Observation, SubjectBuilderExt};
+    use pharmsol::{Equation, Event, Observation, SubjectBuilderExt};
 
-    fn test_observation(value: f64, outeq: usize) -> Observation {
+    fn test_observation(value: f64, output: impl ToString) -> Observation {
         let subject = pharmsol::Subject::builder("test")
-            .observation(0.0, value, outeq)
+            .observation(0.0, value, output)
             .build();
         match &subject.occasions()[0].events()[0] {
             Event::Observation(observation) => observation.clone(),
@@ -1211,10 +1257,50 @@ mod tests {
         }
     }
 
+    fn test_prediction(observation: &Observation) -> Prediction {
+        let output_names = match observation.outeq().as_str() {
+            "cp" | "effect" => ["cp", "effect"],
+            _ => ["0", "1"],
+        };
+        let equation = pharmsol::equation::ODE::new(
+            |_x, _p, _t, dx, _bolus, _rateiv, _cov| dx[0] = 0.0,
+            |_p, _t, _cov| std::collections::HashMap::new(),
+            |_p, _t, _cov| std::collections::HashMap::new(),
+            |_p, _t, _cov, _x| {},
+            |_x, p, _t, _cov, y| {
+                y[0] = p[0];
+                y[1] = p[0];
+            },
+        )
+        .with_nstates(1)
+        .with_ndrugs(1)
+        .with_nout(2)
+        .with_metadata(
+            pharmsol::equation::metadata::new("assay_error_test_fixture")
+                .parameters(["prediction_value"])
+                .states(["central"])
+                .outputs(output_names)
+                .route(pharmsol::equation::Route::bolus("input").to_state("central")),
+        )
+        .expect("test fixture metadata is valid");
+        let subject = pharmsol::Subject::builder("test")
+            .observation(
+                observation.time(),
+                observation.value().expect("test observation has a value"),
+                observation.outeq().clone(),
+            )
+            .build();
+        equation
+            .estimate_predictions_dense(&subject, &[10.0])
+            .expect("test fixture simulation succeeds")
+            .predictions()[0]
+            .clone()
+    }
+
     #[test]
     fn test_additive_error_model() {
         let observation = test_observation(20.0, 0);
-        let prediction = observation.to_prediction(10.0, vec![]);
+        let prediction = test_prediction(&observation);
         let model = AssayErrorModel::additive(ErrorPoly::new(1.0, 0.0, 0.0, 0.0), 5.0);
         assert_eq!(model.sigma(&prediction).unwrap(), (26.0_f64).sqrt());
     }
@@ -1222,7 +1308,7 @@ mod tests {
     #[test]
     fn test_proportional_error_model() {
         let observation = test_observation(20.0, 0);
-        let prediction = observation.to_prediction(10.0, vec![]);
+        let prediction = test_prediction(&observation);
         let model = AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.0, 0.0, 0.0), 2.0);
         assert_eq!(model.sigma(&prediction).unwrap(), 2.0);
     }
@@ -1382,8 +1468,8 @@ mod tests {
             .add("cp", model)
             .unwrap();
 
-        let observation = test_observation(20.0, 0);
-        let prediction = observation.to_prediction(10.0, vec![]);
+        let observation = test_observation(20.0, "cp");
+        let prediction = test_prediction(&observation);
 
         assert_eq!(models.sigma(&prediction).unwrap(), (26.0_f64).sqrt());
     }
@@ -1509,7 +1595,7 @@ mod tests {
         let models = AssayErrorModels::empty().add(0, model).unwrap();
 
         let observation = test_observation(20.0, 0);
-        let prediction = observation.to_prediction(10.0, vec![]);
+        let prediction = test_prediction(&observation);
 
         // Non-parametric: sigma from observation
         let sigma = models.sigma(&prediction).unwrap();
@@ -1522,7 +1608,7 @@ mod tests {
         let models = AssayErrorModels::empty().add(0, model).unwrap();
 
         let observation = test_observation(20.0, 1); // outeq=1 not in models
-        let prediction = observation.to_prediction(10.0, vec![]);
+        let prediction = test_prediction(&observation);
 
         let result = models.sigma(&prediction);
         assert!(result.is_err());
@@ -1538,7 +1624,7 @@ mod tests {
         let models = AssayErrorModels::empty().add(0, model).unwrap();
 
         let observation = test_observation(20.0, 0);
-        let prediction = observation.to_prediction(10.0, vec![]);
+        let prediction = test_prediction(&observation);
 
         let variance = models.variance(&prediction).unwrap();
         let expected_sigma = (26.0_f64).sqrt();
@@ -1551,7 +1637,7 @@ mod tests {
         let models = AssayErrorModels::empty().add(0, model).unwrap();
 
         let observation = test_observation(20.0, 1); // outeq=1 not in models
-        let prediction = observation.to_prediction(10.0, vec![]);
+        let prediction = test_prediction(&observation);
 
         let result = models.variance(&prediction);
         assert!(result.is_err());
@@ -1692,13 +1778,13 @@ mod tests {
 
         // Test with outeq=0 (additive model)
         let obs1 = test_observation(20.0, 0);
-        let pred1 = obs1.to_prediction(10.0, vec![]);
+        let pred1 = test_prediction(&obs1);
         let sigma1 = models.sigma(&pred1).unwrap();
         assert_eq!(sigma1, (26.0_f64).sqrt()); // additive: sqrt(alpha^2 + lambda^2) = sqrt(1^2 + 5^2) = sqrt(26)
 
         // Test with outeq=1 (proportional model)
         let obs2 = test_observation(20.0, 1);
-        let pred2 = obs2.to_prediction(10.0, vec![]);
+        let pred2 = test_prediction(&obs2);
         let sigma2 = models.sigma(&pred2).unwrap();
         assert_eq!(sigma2, 2.0); // proportional: gamma * alpha = 2 * 1 = 2
     }
@@ -1840,7 +1926,7 @@ mod tests {
     fn test_fixed_parameters_in_calculations() {
         // Test that fixed and variable parameters produce the same calculation results
         let observation = test_observation(20.0, 0);
-        let prediction = observation.to_prediction(10.0, vec![]);
+        let prediction = test_prediction(&observation);
 
         let model_variable = AssayErrorModel::additive(ErrorPoly::new(1.0, 0.0, 0.0, 0.0), 5.0);
         let model_fixed = AssayErrorModel::additive_fixed(ErrorPoly::new(1.0, 0.0, 0.0, 0.0), 5.0);

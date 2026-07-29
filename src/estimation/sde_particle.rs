@@ -1,5 +1,5 @@
-use pharmsol::equation::SdeSessionError;
-use pharmsol::{Parameters, Subject, SDE};
+use pharmsol::equation::{SdeSessionError, SDE};
+use pharmsol::{Parameters, Subject};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use thiserror::Error;
