@@ -6,89 +6,84 @@
 //! Run with: cargo run --example bimodal_ke_saem --release
 
 use anyhow::Result;
+use faer::Par;
 use pharmsol::{ResidualErrorModel, ResidualErrorModels};
 use pmcore::prelude::*;
 
 use log::LevelFilter;
 
 /// Create analytical one-compartment model (much faster than ODE)
-fn create_equation() -> equation::Analytical {
-    equation::Analytical::new(
-        |x, p, t, _rateiv, _cov| {
-            let mut xout = x.clone();
-            let ka = p[0];
-            let ke = p[1];
+// fn create_equation() -> equation::Analytical {
+//     equation::Analytical::new(
+//         |x, p, t, _rateiv, _cov| {
+//             let mut xout = x.clone();
+//             let ka = p[0];
+//             let ke = p[1];
 
-            xout[0] = x[0] * (-ka * t).exp();
+//             xout[0] = x[0] * (-ka * t).exp();
 
-            xout[1] = x[1] * (-ke * t).exp()
-                + ((ka * x[0]) / (ka - ke)) * ((-ke * t).exp() - (-ka * t).exp());
+//             xout[1] = x[1] * (-ke * t).exp()
+//                 + ((ka * x[0]) / (ka - ke)) * ((-ke * t).exp() - (-ka * t).exp());
 
-            xout
-        },
-        |_p, _t, _cov| {},
-        |_p, _t, _cov| lag! {},
-        |_p, _t, _cov| fa! {},
-        |_p, _t, _cov, _x| {},
-        |x, p, _t, _cov, y| {
-            fetch_params!(p, _ka, _ke, v);
-            y[1] = x[1] / v;
-            y[1];
-        },
-    )
-}
+//             xout
+//         },
+//         |_p, _t, _cov| {},
+//         |_p, _t, _cov| lag! {},
+//         |_p, _t, _cov| fa! {},
+//         |_p, _t, _cov, _x| {},
+//         |x, p, _t, _cov, y| {
+//             fetch_params!(p, _ka, _ke, v);
+//             y[1] = x[1] / v;
+//             y[1];
+//         },
+//     )
+// }
 
 fn main() -> Result<()> {
     let _ = simple_logging::log_to_file("examples/analytical_saem_test/logs/pmcore.log", LevelFilter::Info);
 
+    // Create model
+    let eq = analytical! {
+        name: "theophylline",
+        params: [ka, ke, v],
+        states: [depot, central],
+        outputs: [outeq_0],
+        routes: [
+            bolus(input_0) -> depot,
+        ],
+        structure: one_compartment_with_absorption,
+        out: |x, _t, y| {
+            y[outeq_0] = x[central] / v;
+        },
+    };
+
     // Load data
-    // let data = data::read_pmetrics("exmaples/bimodal_ke/bimodal_ke.csv")
     let data = data::read_pmetrics("examples/analytical_saem_test/converted_data_theo.csv")?;
     println!("Loaded {} subjects", data.len());
 
-    // Create model
-    let eq = create_equation();
-
-    // Parameter ranges
-    // NPAG found: ke mean=0.191 (range 0.01-0.98), v mean=107 (range 67-209)
-    // SAEM needs reasonable starting bounds since it initializes at midpoint
-    // Use ranges that center near the expected values
-    let observations = ObservationSpec::new()
-        .add_channel(ObservationChannel::continuous(1, "cp"))
-        .with_residual_error_models(
-            ResidualErrorModels::new().add(1, ResidualErrorModel::constant(1.0)),
-        );
-
-    let model = ModelDefinition::builder(eq)
-        .parameters(
-            ParameterSpace::new()
-                .add(ParameterSpec::bounded("ka", 0.001, 3.0))
-                .add(ParameterSpec::bounded("ke", 0.001, 3.0))
-                .add(ParameterSpec::bounded("v", 0.001, 50.0)),
-        )
-        .observations(observations)
+    let problem = EstimationProblem::parametric(eq, data)
+        .parameter(Parameter::log("ka").with_initial(1.0))
+        .parameter(Parameter::log("v").with_initial(20.0))
+        .parameter(Parameter::log("ke").with_initial(0.5/20.0))
+        .error_model("outeq_0", ResidualErrorModel::constant(1.0))
         .build()?;
 
-    println!("Running SAEM algorithm...");
+    let config = SaemConfig::new()
+        .seed(632545)
+        .n_chains(25)
+        .mcmc_iterations(2)
+        .burn_in(100)
+        .k1_iterations(300)
+        .k2_iterations(150);
 
-    let mut fit_result = EstimationProblem::builder(model, data)
-        .method(EstimationMethod::Parametric(ParametricMethod::Saem(
-            SaemOptions::default(),
-        )))
-        .output(OutputPlan {
-            write: true,
-            path: Some("examples/analytical_saem_test/pmcore_output/".to_string()),
-        })
-        .run()?;
+    println!("Running SAEM algorithm...");
+    let result = problem.fit_with(config)?;
 
     // Write all output files
-    fit_result.write_outputs()?;
-    println!("\nOutput files written to: examples/bimodal_ke_saem/output/");
+    result.write_outputs("examples/analytical_saem_test/pmcore_output/", 0.0, 0.0)?;
+    println!("\nOutput files written to: examples/analytical_saem_test/pmcore_output/");
 
     // Print comprehensive results summary (matching R saemix format)
-    let result = fit_result
-        .as_parametric()
-        .expect("SAEM example should produce a parametric result");
     print_saem_report(result);
 
     Ok(())

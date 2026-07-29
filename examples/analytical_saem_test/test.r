@@ -32,13 +32,23 @@ model1cpt<-function(psi,id,xidep) {
 
 saemix.model<-saemixModel(model=model1cpt,
   description="One-compartment model with first-order absorption",
-  # psi0=matrix(c(1.,20,0.5,0.1,0,-0.01),ncol=3, byrow=TRUE,dimnames=list(NULL, c("ka","V","CL"))),
   psi0=matrix(c(1.,20,0.5),ncol=3, byrow=TRUE,dimnames=list(NULL, c("ka","V","CL"))),
   transform.par=c(1,1,1),
-  # covariate.model=matrix(c(0,0,1,0,0,0),ncol=3,byrow=TRUE),fixed.estim=c(1,1,1),
-  covariance.model=matrix(c(1,0,0,0,1,0,0,0,1),ncol=3,byrow=TRUE),
   omega.init=matrix(c(1,0,0,0,1,0,0,0,1),ncol=3,byrow=TRUE),
-  error.model="constant"
+  error.model="constant",
+
+  # psi0=matrix(c(1.,20,0.5,0.1,0,-0.01),ncol=3, byrow=TRUE,dimnames=list(NULL, c("ka","V","CL"))),
+  # covariate.model=matrix(c(0,0,1,0,0,0),ncol=3,byrow=TRUE),fixed.estim=c(1,1,1),
+  # covariance.model=matrix(c(1,0,0,0,1,0,0,0,1),ncol=3,byrow=TRUE),
 )
 
-saemix.fit<-saemix(saemix.model,saemix.data,list(seed=632545,nb.chains=5, nbiter.saemix = c(300, 150)))
+saemix.config = saemixControl(
+  seed = 632545, 
+  nb.chains = 25, 
+  nbiter.mcmc = c(2, 2, 2, 2), 
+  nbiter.burn = 100, 
+  nbiter.saemix = c(300, 150),
+  directory = "examples/analytical_saem_test/SAEMix_output"
+)
+
+saemix.fit<-saemix(saemix.model, saemix.data, saemix.config)

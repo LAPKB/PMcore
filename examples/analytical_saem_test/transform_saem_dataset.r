@@ -8,11 +8,11 @@ new.csv <- read.csv("examples/analytical_saem_test/data_theo.csv") %>%
   mutate("ADDL" = NA) %>%
   mutate("II" = NA) %>%
   mutate("INPUT" = NA) %>%
-  mutate("OUTEQ" = 1) %>%
-  mutate("C0" = 0) %>%
-  mutate("C1" = 0.10000000000000001) %>%
-  mutate("C2" = 0) %>%
-  mutate("C3" = 0) %>%
+  mutate("OUTEQ" = 0) %>%
+  mutate("C0" = NA) %>%
+  mutate("C1" = NA) %>%
+  mutate("C2" = NA) %>%
+  mutate("C3" = NA) %>%
   group_by(Id) %>%
   group_modify(~ add_row(.x, .before = 0, EVID = 1, Time = 0, Dose = first(.$Dose), Weight = first(.$Weight), Sex = first(.$Sex), INPUT = 0, DUR = 0))
 

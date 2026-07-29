@@ -1,0 +1,114 @@
+Nonlinear mixed-effects model fit by the SAEM algorithm
+-----------------------------------
+----          Data             ----
+-----------------------------------
+Object of class SaemixData
+    longitudinal data for use with the SAEM algorithm
+Dataset data 
+    Structured data: Concentration ~ Dose + Time | Id 
+    X variable for graphs: Time (hr) 
+    covariates: Weight (kg), Sex (-) 
+Dataset characteristics:
+    number of subjects:     2 
+    number of observations: 20 
+    average/min/max nb obs: 10.00  /  10  /  10 
+First 10 lines of data:
+   Id    Dose  Time Concentration Weight Sex mdv cens occ ytype
+1   1 319.992  0.25          2.84      1   1   0    0   1     1
+2   1 319.992  0.57          6.57      1   1   0    0   1     1
+3   1 319.992  1.12         10.50      1   1   0    0   1     1
+4   1 319.992  2.02          9.66      1   1   0    0   1     1
+5   1 319.992  3.82          8.58      1   1   0    0   1     1
+6   1 319.992  5.10          8.36      1   1   0    0   1     1
+7   1 319.992  7.03          7.47      1   1   0    0   1     1
+8   1 319.992  9.05          6.89      1   1   0    0   1     1
+9   1 319.992 12.12          5.94      1   1   0    0   1     1
+10  1 319.992 24.37          3.28      1   1   0    0   1     1
+-----------------------------------
+----          Model            ----
+-----------------------------------
+Nonlinear mixed-effects model
+  Model function:  One-compartment model with first-order absorption
+  Model type:  structural
+function(psi,id,xidep) {
+  dose<-xidep[,1]
+  tim<-xidep[,2]
+  ka<-psi[id,1]
+  V<-psi[id,2]
+  CL<-psi[id,3]
+  ke<-CL/V
+  ypred<-dose*ka/(V*(ka-ke))*(exp(-ke*tim)-exp(-ka*tim))
+  return(ypred)
+}
+<bytecode: 0x119212b88>
+  Nb of parameters: 3 
+      parameter names:  ka V CL 
+      distribution:
+     Parameter Distribution Estimated
+[1,] ka        log-normal   Estimated
+[2,] V         log-normal   Estimated
+[3,] CL        log-normal   Estimated
+  Variance-covariance matrix:
+   ka V CL
+ka  1 0  0
+V   0 1  0
+CL  0 0  1
+  Error model: constant , initial values: a.1=1 
+    No covariate in the model.
+    Initial values
+             ka  V  CL
+Pop.CondInit  1 20 0.5
+-----------------------------------
+----    Key algorithm options  ----
+-----------------------------------
+    Estimation of individual parameters (MAP)
+    Estimation of standard errors and linearised log-likelihood
+    Estimation of log-likelihood by importance sampling
+    Number of iterations:  K1=300, K2=150 
+    Number of chains:  25 
+    Seed:  632545 
+    Number of MCMC iterations for IS:  5000 
+    Simulations:
+        nb of simulated datasets used for npde:  1000 
+        nb of simulated datasets used for VPC:  100 
+    Input/output
+        save the results to a file:  TRUE 
+        save the graphs to files:  TRUE 
+        directory where results should be saved:  examples/analytical_saem_test/SAEMix_output 
+----------------------------------------------------
+----                  Results                   ----
+----------------------------------------------------
+-----------------  Fixed effects  ------------------
+----------------------------------------------------
+     Parameter Estimate SE   CV(%)
+[1,] ka         1.83    0.28 15.3 
+[2,] V         30.49    1.74  5.7 
+[3,] CL         2.25    0.65 28.9 
+[4,] a.1        0.85    0.15 18.0 
+----------------------------------------------------
+-----------  Variance of random effects  -----------
+----------------------------------------------------
+   Parameter Estimate SE     CV(%)  
+ka omega2.ka 9.6e-07  0.0273 2826099
+V  omega2.V  3.6e-07  0.0036 1004813
+CL omega2.CL 1.5e-01  0.1603     109
+----------------------------------------------------
+------  Correlation matrix of random effects  ------
+----------------------------------------------------
+          omega2.ka omega2.V omega2.CL
+omega2.ka 1         0        0        
+omega2.V  0         1        0        
+omega2.CL 0         0        1        
+----------------------------------------------------
+---------------  Statistical criteria  -------------
+----------------------------------------------------
+Likelihood computed by linearisation
+      -2LL= 55.38894 
+      AIC = 69.38894 
+      BIC = 60.24097 
+
+Likelihood computed by importance sampling
+      -2LL= 55.35871 
+      AIC = 69.35871 
+      BIC = 60.21074 
+----------------------------------------------------
