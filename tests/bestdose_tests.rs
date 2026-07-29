@@ -58,7 +58,7 @@ fn parameter_space() -> ParameterSpace<BoundedParameter> {
 fn error_models() -> AssayErrorModels {
     AssayErrorModels::new()
         .add(
-            0,
+            "outeq_0",
             AssayErrorModel::additive(ErrorPoly::new(0.0, 0.2, 0.0, 0.0), 0.0),
         )
         .unwrap()
@@ -335,10 +335,10 @@ fn auc_from_last_dose_optimizes_maintenance_dose() -> Result<()> {
 fn history_from(point: [f64; 2]) -> Subject {
     let [ke, v] = point;
     Subject::builder("history")
-        .bolus(0.0, 100.0, 0)
-        .observation(1.0, conc(100.0, ke, v, 1.0), 0)
-        .observation(3.0, conc(100.0, ke, v, 3.0), 0)
-        .observation(6.0, conc(100.0, ke, v, 6.0), 0)
+        .bolus(0.0, 100.0, "input_0")
+        .observation(1.0, conc(100.0, ke, v, 1.0), "outeq_0")
+        .observation(3.0, conc(100.0, ke, v, 3.0), "outeq_0")
+        .observation(6.0, conc(100.0, ke, v, 6.0), "outeq_0")
         .build()
 }
 

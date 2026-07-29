@@ -1,5 +1,5 @@
-use pharmsol::equation::{metadata, ModelKind, Route};
-use pharmsol::{fa, lag, Parameters, SubjectBuilderExt, SDE};
+use pharmsol::equation::{metadata, ModelKind, Route, SDE};
+use pharmsol::{fa, lag, Parameters, SubjectBuilderExt};
 use pmcore::{AssayErrorModel, AssayErrorModels, ErrorPoly, SdeParticleConfig, SdeParticleFilter};
 
 /// Scientific check that the SDE particle-filter likelihood stays finite.

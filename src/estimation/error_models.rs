@@ -1,3 +1,4 @@
+use pharmsol::OutputLabel;
 use serde::{Deserialize, Serialize};
 
 use super::{AssayErrorModels, ResidualErrorModel, ResidualErrorModels};
@@ -234,5 +235,11 @@ impl ParametricErrorModels {
 
     pub fn output_name(&self, outeq: usize) -> Option<&str> {
         self.output_names.get(outeq).and_then(Option::as_deref)
+    }
+
+    pub(crate) fn output_index(&self, output: &OutputLabel) -> Option<usize> {
+        self.output_names
+            .iter()
+            .position(|name| name.as_deref() == Some(output.as_str()))
     }
 }

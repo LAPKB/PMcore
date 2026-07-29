@@ -77,6 +77,23 @@ pub(crate) struct Evaluation {
     pub achievements: Vec<Achievement>,
 }
 
+fn numeric_output_index(output: &pharmsol::OutputLabel) -> Result<usize> {
+    let label = output.as_str();
+    label
+        .parse::<usize>()
+        .ok()
+        .or_else(|| {
+            label
+                .strip_prefix("outeq_")
+                .and_then(|index| index.parse::<usize>().ok())
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "BestDose AUC calculations require numeric observation output labels; got `{output}`"
+            )
+        })
+}
+
 /// Calculate cost function for a candidate dose regimen
 ///
 /// This is the core objective function minimized by the Nelder-Mead optimizer.
@@ -243,10 +260,10 @@ pub(crate) fn evaluate<E: Equation>(
         .iter()
         .flat_map(|occ| occ.events())
         .filter_map(|event| match event {
-            Event::Observation(obs) => Some(obs.outeq_index().unwrap_or(0)),
+            Event::Observation(obs) => Some(numeric_output_index(obs.outeq())),
             _ => None,
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
 
     let n_obs = obs_vec.len();
 
@@ -315,16 +332,9 @@ pub(crate) fn evaluate<E: Equation>(
                     .iter()
                     .flat_map(|occ| occ.events())
                     .filter_map(|event| match event {
-                        Event::Observation(obs) => Some(
-                            obs.outeq_index()
-                                .map(|outeq| (obs.time(), outeq))
-                                .ok_or_else(|| {
-                                    anyhow::anyhow!(
-                                        "BestDose AUC calculations require numeric observation output labels; got `{}`",
-                                        obs.outeq()
-                                    )
-                                }),
-                        ),
+                        Event::Observation(obs) => {
+                            Some(numeric_output_index(obs.outeq()).map(|outeq| (obs.time(), outeq)))
+                        }
                         _ => None,
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -355,7 +365,7 @@ pub(crate) fn evaluate<E: Equation>(
 
                 for prediction in dense_predictions_with_outeq {
                     outeq_predictions
-                        .entry(prediction.outeq())
+                        .entry(numeric_output_index(prediction.output())?)
                         .or_default()
                         .push(prediction.prediction());
                 }
@@ -444,16 +454,9 @@ pub(crate) fn evaluate<E: Equation>(
                     .iter()
                     .flat_map(|occ| occ.events())
                     .filter_map(|event| match event {
-                        Event::Observation(obs) => Some(
-                            obs.outeq_index()
-                                .map(|outeq| (obs.time(), outeq))
-                                .ok_or_else(|| {
-                                    anyhow::anyhow!(
-                                        "BestDose AUC calculations require numeric observation output labels; got `{}`",
-                                        obs.outeq()
-                                    )
-                                }),
-                        ),
+                        Event::Observation(obs) => {
+                            Some(numeric_output_index(obs.outeq()).map(|outeq| (obs.time(), outeq)))
+                        }
                         _ => None,
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -484,7 +487,7 @@ pub(crate) fn evaluate<E: Equation>(
 
                 for prediction in dense_predictions_with_outeq {
                     outeq_predictions
-                        .entry(prediction.outeq())
+                        .entry(numeric_output_index(prediction.output())?)
                         .or_default()
                         .push(prediction.prediction());
                 }
@@ -598,7 +601,7 @@ mod tests {
     use crate::model::{BoundedParameter, ParameterSpace};
     use pharmsol::prelude::*;
 
-    fn one_compartment() -> pharmsol::ODE {
+    fn one_compartment() -> pharmsol::equation::ODE {
         equation::ODE::new(
             |x, p, _t, dx, b, _rateiv, _cov| {
                 fetch_params!(p, ke, _v);
@@ -612,6 +615,17 @@ mod tests {
                 y[0] = x[0] / v;
             },
         )
+        .with_nstates(1)
+        .with_ndrugs(1)
+        .with_nout(1)
+        .with_metadata(
+            equation::metadata::new("bestdose_cost_test")
+                .parameters(["ke", "v"])
+                .states(["central"])
+                .outputs(["0"])
+                .route(equation::Route::bolus("0").to_state("central")),
+        )
+        .expect("BestDose test metadata should validate")
     }
 
     fn single_point_theta() -> Theta {
@@ -622,7 +636,7 @@ mod tests {
         Theta::from_parts(mat, params).unwrap()
     }
 
-    fn problem_with(target: Subject) -> BestDoseObjective<pharmsol::ODE> {
+    fn problem_with(target: Subject) -> BestDoseObjective<pharmsol::equation::ODE> {
         BestDoseObjective {
             target,
             target_type: Target::Concentration,

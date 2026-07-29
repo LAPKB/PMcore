@@ -103,16 +103,10 @@ fn one_compartment_scale_and_time_panel_meets_d1() {
         for (index, (release_point, &time)) in release.iter().zip(times).enumerate() {
             let expected = dose * (-ke * time).exp();
             assert_eq!(release_point.time().to_bits(), time.to_bits());
-            assert_eq!(release_point.outeq(), 0);
-            assert_eq!(release_point.state().len(), 1);
+            assert_eq!(release_point.output().as_str(), "amount");
             assert_d1(
                 &format!("S1 case {case_index} point {index} release output"),
                 release_point.prediction(),
-                expected,
-            );
-            assert_d1(
-                &format!("S1 case {case_index} point {index} release state"),
-                release_point.state()[0],
                 expected,
             );
         }
@@ -161,16 +155,10 @@ fn event_driven_bolus_and_infusion_panel_meets_d1() {
             + infusion_contribution(80.0, 3.0, 4.0, time, ke)
             + bolus_contribution(25.0, 9.0, time, ke);
         assert_eq!(release_point.time().to_bits(), time.to_bits());
-        assert_eq!(release_point.outeq(), 0);
-        assert_eq!(release_point.state().len(), 1);
+        assert_eq!(release_point.output().as_str(), "amount");
         assert_d1(
             &format!("S2 point {index} release output"),
             release_point.prediction(),
-            expected,
-        );
-        assert_d1(
-            &format!("S2 point {index} release state"),
-            release_point.state()[0],
             expected,
         );
     }
@@ -221,20 +209,15 @@ fn two_compartment_stiffness_panel_meets_d1() {
             let time = times[time_index];
             let expected = two_compartment_closed_form(dose, k10, k12, k21, time);
             assert_eq!(release_point.time().to_bits(), time.to_bits());
-            assert_eq!(release_point.outeq(), output_index);
-            assert_eq!(release_point.state().len(), 2);
+            assert_eq!(
+                release_point.output().as_str(),
+                ["central_amount", "peripheral_amount"][output_index]
+            );
             assert_d1(
                 &format!("S3 case {case_index} point {index} release output"),
                 release_point.prediction(),
                 expected[output_index],
             );
-            for (state_index, expected_state) in expected.iter().copied().enumerate() {
-                assert_d1(
-                    &format!("S3 case {case_index} point {index} release state {state_index}"),
-                    release_point.state()[state_index],
-                    expected_state,
-                );
-            }
         }
     }
 }

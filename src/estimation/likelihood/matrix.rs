@@ -78,7 +78,7 @@ mod tests {
             .route(equation::Route::bolus("0").to_state("central"))
     }
 
-    fn one_compartment() -> pharmsol::ODE {
+    fn one_compartment() -> pharmsol::equation::ODE {
         equation::ODE::new(
             |x, p, _t, dx, b, _rateiv, _cov| {
                 fetch_params!(p, ke);
@@ -99,7 +99,7 @@ mod tests {
         .unwrap()
     }
 
-    fn direct_output() -> pharmsol::ODE {
+    fn direct_output() -> pharmsol::equation::ODE {
         equation::ODE::new(
             |_x, _p, _t, dx, _b, _rateiv, _cov| dx[0] = 0.0,
             |_p, _t, _cov| lag! {},

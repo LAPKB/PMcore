@@ -5,7 +5,8 @@ use std::sync::{
 
 use argmin::core::{CostFunction, Error, Executor};
 use argmin::solver::neldermead::NelderMead;
-use pharmsol::{Data, Parameters, SDE};
+use pharmsol::equation::SDE;
+use pharmsol::{Data, Parameters};
 
 use super::DiffusionConfig;
 use crate::{AssayErrorModels, SdeParticleConfig, SdeParticleFilter};

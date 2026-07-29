@@ -865,7 +865,7 @@ impl<E: Equation> ParametricResult<E> {
         E: pharmsol::equation::EquationTypes<P = SubjectPredictions>,
     {
         self.validate_prediction_metadata()?;
-        let expanded = self.data.clone().expand(idelta, tad);
+        let expanded = self.data.clone().expand(idelta, tad, &[]);
         self.validate_expanded_subjects(&expanded)?;
         let population_phi = self
             .covariate_model
@@ -921,7 +921,7 @@ impl<E: Equation> ParametricResult<E> {
             );
         }
 
-        let expanded = self.data.clone().expand(idelta, tad);
+        let expanded = self.data.clone().expand(idelta, tad, &[]);
         self.validate_expanded_subjects(&expanded)?;
         if self.conditional_modes.len() != expanded.subjects().len() {
             bail!(
@@ -998,7 +998,8 @@ impl<E: Equation> ParametricResult<E> {
                         subject.occasions().len()
                     );
                 }
-                let mut combined = Vec::new();
+                let mut combined = SubjectPredictions::default();
+                combined.set_id(subject.id().clone());
                 for (occasion, kappa) in subject.occasions().iter().zip(&mode.kappas) {
                     if kappa.subject_id != *subject.id() {
                         bail!(
@@ -1068,12 +1069,11 @@ impl<E: Equation> ParametricResult<E> {
                             expected_points
                         );
                     }
-                    for mut prediction in predictions.predictions().iter().cloned() {
-                        *prediction.mut_occasion() = occasion.index();
-                        combined.push(prediction);
+                    for prediction in predictions.predictions().iter().cloned() {
+                        combined.add_prediction(prediction, occasion.index());
                     }
                 }
-                Ok(SubjectPredictions::from(combined))
+                Ok(combined)
             })
             .collect()
     }

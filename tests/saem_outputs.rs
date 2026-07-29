@@ -693,14 +693,21 @@ fn iov_tables_include_lower_triangle_and_ordered_kappas() {
             population_subject.predictions().len(),
             conditional_subject.predictions().len()
         );
-        for (population_point, conditional_point) in population_subject
-            .predictions()
-            .iter()
-            .zip(conditional_subject.predictions())
+        for ((population_point, population_occasion), (conditional_point, conditional_occasion)) in
+            population_subject
+                .predictions()
+                .iter()
+                .zip(population_subject.occasions())
+                .zip(
+                    conditional_subject
+                        .predictions()
+                        .iter()
+                        .zip(conditional_subject.occasions()),
+                )
         {
             assert_eq!(population_point.time(), conditional_point.time());
-            assert_eq!(population_point.outeq(), conditional_point.outeq());
-            assert_eq!(population_point.occasion(), conditional_point.occasion());
+            assert_eq!(population_point.output(), conditional_point.output());
+            assert_eq!(population_occasion, conditional_occasion);
             assert_eq!(
                 population_point.observation(),
                 conditional_point.observation()
@@ -809,7 +816,7 @@ fn averaged_iov_result_rebuilds_all_deterministic_outputs_from_canonical_state()
         assert!((row.value - expected).abs() < 1e-12);
     }
 
-    let expanded = averaged.data().clone().expand(0.25, 0.0);
+    let expanded = averaged.data().clone().expand(0.25, 0.0, &[]);
     let population = averaged.population_predictions(0.25, 0.0).unwrap();
     let mut differs_from_terminal_prediction = false;
     for (subject, actual) in expanded.subjects().iter().zip(&population) {
@@ -822,19 +829,24 @@ fn averaged_iov_result_rebuilds_all_deterministic_outputs_from_canonical_state()
             .estimate_predictions_dense(subject, &terminal_cycle.population_parameters)
             .unwrap();
         assert_eq!(actual.predictions().len(), expected.predictions().len());
-        for ((actual, expected), terminal_expected) in actual
+        let actual_occasions = actual.occasions();
+        let expected_prediction_occasions = expected.occasions();
+        for (point_index, ((actual, expected), terminal_expected)) in actual
             .predictions()
             .iter()
             .zip(expected.predictions())
             .zip(terminal_expected.predictions())
+            .enumerate()
         {
             assert_eq!(actual.time(), expected.time());
             assert!((actual.prediction() - expected.prediction()).abs() < 1e-12);
             assert_eq!(actual.observation(), expected.observation());
-            assert_eq!(actual.outeq(), expected.outeq());
+            assert_eq!(actual.output(), expected.output());
             assert_errorpoly_close(actual.errorpoly(), expected.errorpoly());
-            assert_float_slice_close(actual.state(), expected.state());
-            assert_eq!(actual.occasion(), expected.occasion());
+            assert_eq!(
+                actual_occasions[point_index],
+                expected_prediction_occasions[point_index]
+            );
             assert_eq!(actual.censoring(), expected.censoring());
             differs_from_terminal_prediction |=
                 (actual.prediction() - terminal_expected.prediction()).abs() > 1e-5;
@@ -846,6 +858,7 @@ fn averaged_iov_result_rebuilds_all_deterministic_outputs_from_canonical_state()
     for (subject, actual) in expanded.subjects().iter().zip(&conditional) {
         let mode = averaged.conditional_mode(subject.id()).unwrap();
         let mut expected = Vec::new();
+        let mut expected_occasions = Vec::new();
         for (occasion, kappa) in subject.occasions().iter().zip(&mode.kappas) {
             assert_eq!(occasion.index(), kappa.occasion_index);
             let parameters = [
@@ -854,25 +867,30 @@ fn averaged_iov_result_rebuilds_all_deterministic_outputs_from_canonical_state()
             ];
             let occasion_subject =
                 Subject::from_occasions(subject.id().clone(), vec![occasion.clone()]);
-            expected.extend(
-                averaged
-                    .equation()
-                    .estimate_predictions_dense(&occasion_subject, &parameters)
-                    .unwrap()
-                    .predictions()
-                    .iter()
-                    .cloned(),
-            );
+            let occasion_predictions = averaged
+                .equation()
+                .estimate_predictions_dense(&occasion_subject, &parameters)
+                .unwrap();
+            expected.extend(occasion_predictions.predictions().iter().cloned());
+            expected_occasions.extend(std::iter::repeat_n(
+                occasion.index(),
+                occasion_predictions.predictions().len(),
+            ));
         }
         assert_eq!(actual.predictions().len(), expected.len());
-        for (actual, expected) in actual.predictions().iter().zip(&expected) {
+        let actual_occasions = actual.occasions();
+        for (point_index, (actual, expected)) in
+            actual.predictions().iter().zip(&expected).enumerate()
+        {
             assert_eq!(actual.time(), expected.time());
             assert!((actual.prediction() - expected.prediction()).abs() < 1e-12);
             assert_eq!(actual.observation(), expected.observation());
-            assert_eq!(actual.outeq(), expected.outeq());
+            assert_eq!(actual.output(), expected.output());
             assert_errorpoly_close(actual.errorpoly(), expected.errorpoly());
-            assert_float_slice_close(actual.state(), expected.state());
-            assert_eq!(actual.occasion(), expected.occasion());
+            assert_eq!(
+                actual_occasions[point_index],
+                expected_occasions[point_index]
+            );
             assert_eq!(actual.censoring(), expected.censoring());
         }
     }
