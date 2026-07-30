@@ -60,36 +60,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-
-
-// /// Create analytical one-compartment model (much faster than ODE)
-// fn create_equation() -> equation::Analytical {
-//     equation::Analytical::new(
-//         |x, p, t, _rateiv, _cov| {
-//             let mut xout = x.clone();
-//             let ka = p[0];
-//             let ke = p[1];
-
-//             xout[0] = x[0] * (-ka * t).exp();
-
-//             xout[1] = x[1] * (-ke * t).exp()
-//                 + ((ka * x[0]) / (ka - ke)) * ((-ke * t).exp() - (-ka * t).exp());
-
-//             xout
-//         },
-//         |_p, _t, _cov| {},
-//         |_p, _t, _cov| lag! {},
-//         |_p, _t, _cov| fa! {},
-//         |_p, _t, _cov, _x| {},
-//         |x, p, _t, _cov, y| {
-//             fetch_params!(p, _ka, _ke, v);
-//             y[1] = x[1] / v;
-//             y[1];
-//         },
-//     )
-// }
-
-
 // /// Print a comprehensive SAEM report matching R saemix output format
 // fn print_saem_report<E: pharmsol::Equation>(result: &pmcore::prelude::ParametricWorkspace<E>) {
 //     let n_subjects = result.data().len();
