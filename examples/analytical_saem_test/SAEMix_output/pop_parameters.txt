@@ -28,36 +28,35 @@ First 10 lines of data:
 ----          Model            ----
 -----------------------------------
 Nonlinear mixed-effects model
-  Model function:  One-compartment model with first-order absorption
+  Model function
   Model type:  structural
 function(psi,id,xidep) {
-  dose<-xidep[,1]
-  tim<-xidep[,2]
-  ka<-psi[id,1]
-  V<-psi[id,2]
-  CL<-psi[id,3]
-  ke<-CL/V
-  ypred<-dose*ka/(V*(ka-ke))*(exp(-ke*tim)-exp(-ka*tim))
-  return(ypred)
+  dose <- xidep[, 1]
+  time <- xidep[, 2]
+  ka <- psi[id, 1]
+  V  <- psi[id, 2]
+  ke <- psi[id, 3]
+  dose * ka / (V * (ka - ke)) *
+    (exp(-ke * time) - exp(-ka * time))
 }
-<bytecode: 0x119212b88>
+<bytecode: 0x139712238>
   Nb of parameters: 3 
-      parameter names:  ka V CL 
+      parameter names:  ka V ke 
       distribution:
      Parameter Distribution Estimated
 [1,] ka        log-normal   Estimated
 [2,] V         log-normal   Estimated
-[3,] CL        log-normal   Estimated
+[3,] ke        log-normal   Estimated
   Variance-covariance matrix:
-   ka V CL
+   ka V ke
 ka  1 0  0
 V   0 1  0
-CL  0 0  1
+ke  0 0  1
   Error model: constant , initial values: a.1=1 
     No covariate in the model.
     Initial values
-             ka  V  CL
-Pop.CondInit  1 20 0.5
+             ka  V    ke
+Pop.CondInit  1 20 0.025
 -----------------------------------
 ----    Key algorithm options  ----
 -----------------------------------
@@ -80,35 +79,35 @@ Pop.CondInit  1 20 0.5
 ----------------------------------------------------
 -----------------  Fixed effects  ------------------
 ----------------------------------------------------
-     Parameter Estimate SE   CV(%)
-[1,] ka         1.83    0.28 15.3 
-[2,] V         30.49    1.74  5.7 
-[3,] CL         2.25    0.65 28.9 
-[4,] a.1        0.85    0.15 18.0 
+     Parameter Estimate SE    CV(%)
+[1,] ka         1.848   0.282 15.3 
+[2,] V         30.547   1.733  5.7 
+[3,] ke         0.073   0.022 30.5 
+[4,] a.1        0.853   0.153 18.0 
 ----------------------------------------------------
 -----------  Variance of random effects  -----------
 ----------------------------------------------------
-   Parameter Estimate SE     CV(%)  
-ka omega2.ka 9.6e-07  0.0273 2826099
-V  omega2.V  3.6e-07  0.0036 1004813
-CL omega2.CL 1.5e-01  0.1603     109
+   Parameter Estimate SE     CV(%) 
+ka omega2.ka 2.1e-05  0.0270 127253
+V  omega2.V  1.9e-06  0.0034 178228
+ke omega2.ke 1.5e-01  0.1602    110
 ----------------------------------------------------
 ------  Correlation matrix of random effects  ------
 ----------------------------------------------------
-          omega2.ka omega2.V omega2.CL
+          omega2.ka omega2.V omega2.ke
 omega2.ka 1         0        0        
 omega2.V  0         1        0        
-omega2.CL 0         0        1        
+omega2.ke 0         0        1        
 ----------------------------------------------------
 ---------------  Statistical criteria  -------------
 ----------------------------------------------------
 Likelihood computed by linearisation
-      -2LL= 55.38894 
-      AIC = 69.38894 
-      BIC = 60.24097 
+      -2LL= 55.3899 
+      AIC = 69.3899 
+      BIC = 60.24193 
 
 Likelihood computed by importance sampling
-      -2LL= 55.35871 
-      AIC = 69.35871 
-      BIC = 60.21074 
+      -2LL= 55.36839 
+      AIC = 69.36839 
+      BIC = 60.22042 
 ----------------------------------------------------

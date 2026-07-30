@@ -1,0 +1,7 @@
+row,column,estimate,structural,estimated
+ka,ka,0.0009764639895045839,true,true
+ke,ka,0.0,false,false
+ke,ke,0.14246620960019635,true,true
+v,ka,0.0,false,false
+v,ke,0.0,false,false
+v,v,0.000394004977182008,true,true
