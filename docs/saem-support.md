@@ -38,7 +38,8 @@ accuracy.
 
 Eta and kappa are additive in transformed parameter space. Model execution uses
 natural parameter values. `Parameter::with_initial` is the natural-scale value
-at zero eta, kappa, and covariate offsets.
+at zero eta, kappa, and covariate offsets. Named parameter declarations are
+canonicalized to model metadata order before any numerical vector is built.
 
 `Omega::diagonal_variances` and `Iov::diagonal_variances` accept variances.
 `diagonal_standard_deviations` accepts finite positive SDs and checks overflow
@@ -82,10 +83,18 @@ Burn-in performs MCMC without parameter updates. Exploration uses gain one.
 Smoothing uses a decreasing gain. The default estimator returns the terminal
 iterate. `AveragedIterates { alpha }` requires `k2 > 0` and `0.5 < alpha < 1`.
 
-MCMC chain counts, iteration counts, adaptation intervals, and proposal scales
-must be positive. `eta_block_iterations = 0` disables eta block proposals. Raw
-Omega blocks are the default block scale. Conditional-curvature scaling is
-opt-in and fails with a typed status when strict curvature is unavailable.
+MCMC chain counts, the PMcore component-iteration count, adaptation intervals,
+and proposal scales must be positive. `eta_block_iterations = 0` disables eta
+block proposals. Raw Omega blocks are the default PMcore block scale. A SAEMix
+policy may set individual kernel counts to zero but must enable at least one.
+
+`SaemConfig::saemix_mcmc([q1, q2, q3, q4])` explicitly selects the SAEMix IIV
+kernel order: prior independence, component random walk, rotating subsets, and
+early MAP-informed independence. The policy has its own MAP window, optimizer,
+and adaptation settings; post-fit `compute_map` remains independent. SAEMix
+compatibility rejects IOV rather than approximating its eta/kappa semantics.
+Strict q4 curvature failure terminates through the typed expectation-failure
+path without regularization or fallback.
 
 Covariate raw first and second moments always use the same SA gain. PMcore forms
 a centered covariance target before applying masks and the constrained local

@@ -16,8 +16,8 @@ use crate::estimation::likelihood::batch::{
 };
 use crate::estimation::likelihood::objective::parametric_subject_log_likelihoods;
 use crate::estimation::parametric::conditional_uncertainty::{
-    conditional_mode_curvature, ConditionalModeMetadata, JointLatentCoordinate,
-    JointLatentCoordinateKind,
+    conditional_mode_curvature, ConditionalCurvatureStatus, ConditionalModeMetadata,
+    JointLatentCoordinate, JointLatentCoordinateKind,
 };
 use crate::estimation::parametric::covariance::{
     cholesky_lower, relative_spd_margin, worst_contrast,
@@ -73,12 +73,13 @@ use crate::results::{
     OperationalConvergenceCriterionStatus, OperationalConvergenceDiagnostics,
     OperationalConvergenceOutcome, ParametricWarning, RankDiagnosticStatus, RankMixingDiagnostic,
     RankMixingDiagnostics, ResidualCycleDiagnostics, ResidualErrorEstimate, SaemCycleDiagnostics,
-    SaemEstimatorMetadata, SaemPhase, SubjectConditionalMode,
+    SaemEstimatorMetadata, SaemMcmcKernel, SaemMcmcKernelDiagnostics, SaemPhase,
+    SubjectConditionalMode,
 };
 
 use super::{
     CovarianceStabilityConfig, NumericalFailure, OperationalConvergenceConfig, SaemConfig,
-    SaemEstimatorPolicy,
+    SaemEstimatorPolicy, SaemixMcmcConfig,
 };
 
 fn pending_covariance_update_diagnostics(
@@ -125,6 +126,39 @@ const COMPONENT_TARGET_ACCEPTANCE: f64 = 0.44;
 const ETA_BLOCK_TARGET_ACCEPTANCE: f64 = 0.40;
 const KAPPA_BLOCK_TARGET_ACCEPTANCE: f64 = 0.40;
 const PROPOSAL_SCALE_INCREASE: f64 = 1.1;
+
+fn saemix_adapt_step_size(
+    current: f64,
+    acceptance_rate: f64,
+    policy: SaemixMcmcConfig,
+) -> Result<f64> {
+    let adapted =
+        current * (1.0 + policy.adaptation_gain * (acceptance_rate - policy.target_acceptance));
+    if !adapted.is_finite() || adapted <= 0.0 {
+        anyhow::bail!("SAEMix proposal-scale adaptation produced a non-positive value");
+    }
+    Ok(adapted)
+}
+
+fn saemix_prior_independence_log_acceptance(
+    current: SubjectPosteriorScore,
+    proposed: SubjectPosteriorScore,
+) -> f64 {
+    proposed.log_likelihood - current.log_likelihood
+}
+
+fn saemix_map_independence_log_acceptance(
+    current: SubjectPosteriorScore,
+    proposed: SubjectPosteriorScore,
+    current_centered: &[f64],
+    proposed_centered: &[f64],
+    covariance: &Array2<f64>,
+) -> Result<f64> {
+    Ok(proposed.log_posterior() - current.log_posterior()
+        + eta_log_prior_from_omega(current_centered, covariance)?
+        - eta_log_prior_from_omega(proposed_centered, covariance)?)
+}
+
 const MARKOV_VARIANCE_ASSUMPTIONS: &str = concat!(
     "diagnostic only: prior draws at frozen averaged Omega/Omega_IOV; ",
     "per-chain seed = config.seed.wrapping_add(i).wrapping_mul(0x9E3779B97F4A7C15); ",
@@ -451,6 +485,16 @@ impl SaemInitialization {
                 )
             })
             .unwrap_or_else(|| (Vec::new(), Vec::new(), None));
+        if config.saemix_mcmc.is_some() {
+            if random_effect_indices.is_empty() {
+                anyhow::bail!("SAEMix MCMC kernels require at least one IIV random effect");
+            }
+            if omega_iov.is_some() {
+                anyhow::bail!(
+                    "SAEMix MCMC compatibility does not support IOV; use PMcore's established eta/kappa kernel policy"
+                );
+            }
+        }
         validate_initial_estimated_variance_floor(
             "Omega",
             "omega_min_variance",

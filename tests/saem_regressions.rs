@@ -98,6 +98,19 @@ fn validation_problem() -> EstimationProblem<pharmsol::equation::Analytical, Par
         .expect("V01 analytical validation problem should build")
 }
 
+fn reordered_validation_problem() -> EstimationProblem<pharmsol::equation::Analytical, Parametric> {
+    EstimationProblem::parametric(analytical_one_compartment(), validation_data())
+        .parameter(Parameter::log("v").with_initial(20.0))
+        .parameter(Parameter::log("ke").with_initial(0.30))
+        .omega(Omega::diagonal([("v", 0.09), ("ke", 0.09)]))
+        .error_model(
+            "cp",
+            ParametricErrorModel::new(ResidualErrorModel::constant(0.25)).fixed(),
+        )
+        .build()
+        .expect("out-of-order analytical validation problem should build")
+}
+
 fn validation_config(seed: u64) -> SaemConfig {
     SaemConfig::new()
         .seed(seed)
@@ -146,6 +159,38 @@ fn analytical_same_seed_is_exactly_reproducible() {
         .iter()
         .all(|value| value.is_finite() && *value > 0.0));
     assert!(first.omega().iter().all(|value| value.is_finite()));
+}
+
+#[test]
+fn analytical_fit_is_invariant_to_parameter_declaration_order() {
+    let canonical = validation_problem()
+        .fit_with(validation_config(20_260_711))
+        .expect("canonical-order fit should complete");
+    let reordered = reordered_validation_problem()
+        .fit_with(validation_config(20_260_711))
+        .expect("out-of-order fit should complete");
+
+    assert_eq!(reordered.parameter_names(), ["ke", "v"]);
+    assert_eq!(canonical.objf().to_bits(), reordered.objf().to_bits());
+    assert_eq!(
+        canonical.population_parameters(),
+        reordered.population_parameters()
+    );
+    assert_eq!(canonical.omega(), reordered.omega());
+    assert_eq!(canonical.cycle_diagnostics(), reordered.cycle_diagnostics());
+    assert_eq!(canonical.eta_chain_means(), reordered.eta_chain_means());
+    let canonical_predictions = canonical
+        .population_predictions(0.1, 24.0)
+        .expect("canonical predictions should succeed");
+    let reordered_predictions = reordered
+        .population_predictions(0.1, 24.0)
+        .expect("reordered predictions should succeed");
+    assert_eq!(canonical_predictions.len(), reordered_predictions.len());
+    for (canonical, reordered) in canonical_predictions.iter().zip(&reordered_predictions) {
+        assert_eq!(canonical.id(), reordered.id());
+        assert_eq!(canonical.flat_times(), reordered.flat_times());
+        assert_eq!(canonical.flat_predictions(), reordered.flat_predictions());
+    }
 }
 
 fn standard_normal(rng: &mut StdRng) -> f64 {

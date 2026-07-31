@@ -37,10 +37,74 @@ The support matrix and failure semantics are maintained in
 semantics are maintained in
 [`docs/saem-convergence.md`](../docs/saem-convergence.md).
 
+## Must Have — completed release blockers
+
+M7 and M8 are implemented and validated in the current branch.
+
+### M7 — Canonical parameter ordering — Complete
+
+PMcore now validates parameter declarations by name and canonicalizes them to
+model metadata order before constructing covariates, Omega, IOV, scoring state,
+persistence metadata, or results.
+
+- Canonicalize every parameter-aligned structure to
+  `model.parameter_names()` before model execution, scoring, diagnostics,
+  persistence, and result construction.
+- Preserve name-based Omega, IOV, covariate, fixed/free, warm-start, and
+  persistence semantics through the reorder.
+- Continue to reject duplicate, unknown, and missing declarations explicitly.
+- Add analytical and ODE regressions proving that out-of-order declarations
+  produce the same predictions, objectives, estimates, and labels as canonical
+  declarations.
+- Do not retain a positional fallback or merely document the unsafe ordering
+  requirement.
+
+Completion evidence includes ODE metadata/Omega/IOV resolution and exact
+analytical fit, objective, diagnostic, and prediction parity for reordered
+declarations.
+
+### M8 — SAEMix four-kernel compatibility — Complete
+
+PMcore retains its established component/full-Omega-block policy and now offers
+an explicit SAEMix-compatible IIV policy implementing kernels 1 through 4. The
+compatibility policy fails closed for IOV; PMcore's established eta/kappa policy
+continues to support IOV.
+
+- Add explicit iteration counts for the prior-independence, componentwise,
+  rotating-subset, and early MAP-informed kernels without overloading the
+  existing post-fit MAP controls.
+- Implement the kernels in SAEMix order, including the rotating subset-size
+  schedule, the early-cycle MAP proposal window, Metropolis-Hastings proposal
+  corrections, and SAEMix-compatible proposal-scale adaptation.
+- Retain the current PMcore kernel policy as an explicit supported mode; exact
+  SAEMix behavior must be selected deliberately rather than introduced as a
+  silent default change.
+- Record proposals, acceptance, non-finite rejection, and adapted scales
+  separately for each kernel in cycle diagnostics and controller snapshots.
+- Add deterministic kernel-level tests and cross-engine tests on equivalent
+  parameterizations. Cross-engine acceptance must compare estimates and
+  distributions over multiple seeds, not identical RNG trajectories.
+- Keep post-fit `compute_map` behavior distinct from the in-E-step MAP-informed
+  kernel.
+
+Completion evidence includes deterministic kernel tests and a bounded
+three-seed PMcore/SAEMix theophylline panel with equivalent `ka/V/ke`, diagonal
+Omega, residual, schedule, and `c(2,2,2,2)` settings. Mean PMcore-versus-SAEMix
+differences were -3.40% for ka, -1.13% for V, +2.68% for ke, +0.31% for sigma,
+and -5.70% for the estimable ke variance; run products remain outside the
+repository.
+
+The release validation commands pass after both slices:
+
+- `cargo fmt --check`
+- `cargo check`
+- `cargo test saem --lib`
+- `cargo test parametric --lib`
+- `cargo test likelihood --lib`
+
 ## Deferred post-release work
 
-There is no active implementation slice. The following work is deferred until
-after release:
+The following work remains deferred post-release:
 
 ### Reference-model coverage
 
@@ -71,7 +135,8 @@ after release:
 
 These are not release commitments:
 
-- shared-random-stream studies and alternative MCMC kernels;
+- shared-random-stream studies and alternative MCMC kernels beyond the required
+  SAEMix-compatible four-kernel policy;
 - Hamiltonian Monte Carlo;
 - automatic differentiation and shared sensitivity infrastructure;
 - FO, FOCE, and FOCE-I;

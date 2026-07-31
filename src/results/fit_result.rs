@@ -135,6 +135,30 @@ impl CovarianceCycleUpdateDiagnostics {
     }
 }
 
+/// One SAEMix-compatible E-step kernel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SaemMcmcKernel {
+    PriorIndependence,
+    ComponentRandomWalk,
+    RotatingSubset,
+    MapIndependence,
+}
+
+/// Proposal and adaptation diagnostics for one E-step kernel in one cycle.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SaemMcmcKernelDiagnostics {
+    pub kernel: SaemMcmcKernel,
+    pub proposals: usize,
+    pub accepted: usize,
+    pub rejected: usize,
+    pub non_finite: usize,
+    /// Kernel-specific proposal scales. Component kernels use one row; rotating
+    /// subsets use one row per eta and one column per subset size.
+    pub proposal_scales_before: Vec<Vec<f64>>,
+    pub proposal_scales_after: Vec<Vec<f64>>,
+}
+
 /// MCMC, covariance, and residual diagnostics captured after one complete SAEM cycle.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct SaemCycleDiagnostics {
@@ -142,6 +166,8 @@ pub struct SaemCycleDiagnostics {
     pub phase: SaemPhase,
     pub stochastic_approximation_step: f64,
     pub covariance_step: f64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mcmc_kernel_diagnostics: Vec<SaemMcmcKernelDiagnostics>,
     pub eta_proposals: usize,
     pub eta_accepted: usize,
     pub eta_rejected: usize,

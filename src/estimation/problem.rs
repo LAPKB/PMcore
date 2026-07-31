@@ -220,9 +220,10 @@ impl<E: Equation> ParametricBuilder<E> {
 }
 
 impl<E: Equation + EquationMetadataSource> ParametricBuilder<E> {
-    pub fn build(self) -> Result<EstimationProblem<E, Parametric>> {
+    pub fn build(mut self) -> Result<EstimationProblem<E, Parametric>> {
         reject_sde_estimation::<E>()?;
         validate_parametric_parameters(&self.model, &self.parameters)?;
+        canonicalize_parametric_parameters(&self.model, &mut self.parameters)?;
         validate_parametric_error_models(&self.model, &self.error_models)?;
         reject_constraints(&self.constraints)?;
         let covariates = if self.covariate_effects.is_empty() {
@@ -382,6 +383,29 @@ fn validate_parametric_parameters<E: Equation + EquationMetadataSource>(
         .map(|parameter| parameter.name.clone())
         .collect();
     validate_parameter_declarations(model, &names)
+}
+
+fn canonicalize_parametric_parameters<E: Equation + EquationMetadataSource>(
+    model: &ModelBuilder<E>,
+    parameters: &mut ParameterSpace<UnboundedParameter>,
+) -> Result<()> {
+    let canonical_names = model.parameter_names();
+    parameters.items.sort_by_key(|parameter| {
+        canonical_names
+            .iter()
+            .position(|name| name == &parameter.name)
+            .unwrap_or(usize::MAX)
+    });
+
+    let ordered_names = parameters.names();
+    if ordered_names != canonical_names {
+        anyhow::bail!(
+            "failed to canonicalize parameter declarations: expected {}, found {}",
+            canonical_names.join(", "),
+            ordered_names.join(", ")
+        );
+    }
+    Ok(())
 }
 
 fn validate_parameter_declarations<E: Equation + EquationMetadataSource>(
@@ -727,8 +751,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::{reject_sde_estimation, EstimationProblem, RESIDUAL_OPTIMIZER_MAX_SIGMA};
+    use crate::estimation::parametric::{Iov, Omega};
     use crate::estimation::ParametricErrorModel;
-    use crate::model::parameter_space::Parameter;
+    use crate::model::parameter_space::{Parameter, ParameterScale};
     use crate::ResidualErrorModel;
     use pharmsol::prelude::*;
     use pharmsol::{Censor, Data, Subject, SubjectBuilderExt};
@@ -759,6 +784,27 @@ mod tests {
 
     fn equation() -> pharmsol::equation::ODE {
         equation_with_outputs(["cp", "effect"])
+    }
+
+    fn ordered_parameter_equation() -> pharmsol::equation::ODE {
+        pharmsol::equation::ODE::new(
+            |_x, _p, _t, dx, _b, _rateiv, _cov| dx[0] = 0.0,
+            |_p, _t, _cov| lag! {},
+            |_p, _t, _cov| fa! {},
+            |_p, _t, _cov, _x| {},
+            |_x, p, _t, _cov, y| y[0] = p[0] + 2.0 * p[1],
+        )
+        .with_nstates(1)
+        .with_ndrugs(1)
+        .with_nout(1)
+        .with_metadata(
+            equation::metadata::new("ordered_parameters")
+                .parameters(["first", "second"])
+                .states(["state"])
+                .outputs(["cp"])
+                .route(equation::Route::bolus("dose").to_state("state")),
+        )
+        .unwrap()
     }
 
     fn measured_data(output: &str) -> Data {
@@ -818,6 +864,34 @@ mod tests {
                 "supported parameter scale must build"
             );
         }
+    }
+
+    #[test]
+    fn parametric_parameters_are_canonicalized_to_model_metadata_order() {
+        let problem =
+            EstimationProblem::parametric(ordered_parameter_equation(), measured_data("cp"))
+                .parameter(Parameter::log("second").with_initial(20.0).fixed())
+                .parameter(Parameter::real("first").with_initial(0.3))
+                .omega(Omega::diagonal([("second", 0.2), ("first", 0.1)]))
+                .iov(Iov::diagonal([("second", 0.3)]))
+                .error_model("cp", ResidualErrorModel::constant(1.0))
+                .build()
+                .expect("out-of-order declarations should canonicalize by name");
+
+        let parameters = &problem.parameters().items;
+        assert_eq!(parameters[0].name, "first");
+        assert_eq!(parameters[0].initial, Some(0.3));
+        assert_eq!(parameters[0].scale, ParameterScale::Identity);
+        assert!(parameters[0].estimate);
+        assert_eq!(parameters[1].name, "second");
+        assert_eq!(parameters[1].initial, Some(20.0));
+        assert_eq!(parameters[1].scale, ParameterScale::Log);
+        assert!(!parameters[1].estimate);
+        assert_eq!(problem.random_effect_names(), ["first", "second"]);
+        assert_eq!(problem.omega()[[0, 0]], 0.1);
+        assert_eq!(problem.omega()[[1, 1]], 0.2);
+        assert_eq!(problem.iov_effect_names().unwrap(), ["second"]);
+        assert_eq!(problem.omega_iov().unwrap()[[0, 0]], 0.3);
     }
 
     #[test]

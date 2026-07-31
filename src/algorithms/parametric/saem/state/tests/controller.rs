@@ -205,6 +205,119 @@ fn component_scale_adaptation_uses_acceptance_bands_and_clamps() {
 }
 
 #[test]
+fn saemix_acceptance_and_adaptation_formulas_are_explicit() {
+    let current = SubjectPosteriorScore {
+        log_likelihood: -8.0,
+        eta_log_prior: -1.0,
+        kappa_log_prior: 0.0,
+    };
+    let proposed = SubjectPosteriorScore {
+        log_likelihood: -6.5,
+        eta_log_prior: -20.0,
+        kappa_log_prior: 0.0,
+    };
+    assert_eq!(
+        saemix_prior_independence_log_acceptance(current, proposed),
+        1.5
+    );
+
+    let policy = SaemixMcmcConfig::new([0, 1, 0, 0]);
+    assert!((saemix_adapt_step_size(0.5, 0.5, policy).unwrap() - 0.52).abs() < 1e-12);
+    assert!((saemix_adapt_step_size(0.5, 0.3, policy).unwrap() - 0.48).abs() < 1e-12);
+
+    let covariance = ndarray::array![[1.0]];
+    let ratio =
+        saemix_map_independence_log_acceptance(current, proposed, &[0.5], &[1.0], &covariance)
+            .unwrap();
+    let expected = proposed.log_posterior() - current.log_posterior()
+        + eta_log_prior_from_omega(&[0.5], &covariance).unwrap()
+        - eta_log_prior_from_omega(&[1.0], &covariance).unwrap();
+    assert_eq!(ratio, expected);
+}
+
+#[test]
+fn saemix_rotating_subset_schedule_changes_only_selected_coordinates() {
+    let mut state =
+        SaemState::from_problem(problem(), &SaemConfig::new().n_chains(1).seed(2024)).unwrap();
+    state.cycle = 2;
+    let (subset_size, groups) = state.saemix_subset_groups(3);
+    assert_eq!(subset_size, 2);
+    assert_eq!(groups.len(), 3);
+    assert!(groups.iter().all(|group| group.len() == 2));
+    assert!(groups
+        .iter()
+        .all(|group| group[0] != group[1] && group.iter().all(|index| *index < 3)));
+
+    state.saemix_subset_step_sizes = vec![vec![0.5; 3]; 3];
+    let current = vec![1.0, 2.0, 3.0];
+    let proposed = state.subset_random_walk_eta(&current, &groups[0], subset_size);
+    for index in 0..3 {
+        if groups[0].contains(&index) {
+            assert_ne!(proposed[index], current[index]);
+        } else {
+            assert_eq!(proposed[index], current[index]);
+        }
+    }
+}
+
+#[test]
+fn saemix_four_kernel_policy_records_order_counts_and_map_window() {
+    let config = SaemConfig::new()
+        .n_chains(1)
+        .k1_iterations(2)
+        .k2_iterations(0)
+        .burn_in(2)
+        .compute_map(false)
+        .saemix_mcmc_config(SaemixMcmcConfig::new([1, 1, 1, 1]).map_cycles(2));
+    let mut state = SaemState::from_problem(problem(), &config).unwrap();
+
+    state.step().unwrap();
+    state.step().unwrap();
+
+    let expected = [
+        SaemMcmcKernel::PriorIndependence,
+        SaemMcmcKernel::ComponentRandomWalk,
+        SaemMcmcKernel::RotatingSubset,
+        SaemMcmcKernel::MapIndependence,
+    ];
+    for cycle in &state.cycle_diagnostics {
+        assert_eq!(
+            cycle
+                .mcmc_kernel_diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.kernel)
+                .collect::<Vec<_>>(),
+            expected
+        );
+        assert!(cycle
+            .mcmc_kernel_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.accepted + diagnostic.rejected == diagnostic.proposals));
+        assert!(cycle
+            .mcmc_kernel_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.non_finite == 0));
+    }
+    assert!(state.cycle_diagnostics[0].mcmc_kernel_diagnostics[0].proposals > 0);
+    assert!(state.cycle_diagnostics[0].mcmc_kernel_diagnostics[1].proposals > 0);
+    assert!(state.cycle_diagnostics[0].mcmc_kernel_diagnostics[2].proposals > 0);
+    assert!(state.cycle_diagnostics[0].mcmc_kernel_diagnostics[3].proposals > 0);
+    assert_eq!(
+        state.cycle_diagnostics[1].mcmc_kernel_diagnostics[3].proposals,
+        0
+    );
+}
+
+#[test]
+fn saemix_compatibility_fails_closed_for_iov() {
+    let error =
+        SaemState::from_problem(iov_problem(), &SaemConfig::new().saemix_mcmc([0, 1, 0, 0]))
+            .expect_err("SAEMix compatibility must not silently approximate IOV")
+            .to_string();
+    assert!(error.contains("does not support IOV"));
+}
+
+#[test]
 fn component_scale_adaptation_waits_for_interval_and_resets_counts() {
     let mut state =
         SaemState::from_problem(problem(), &SaemConfig::new().n_chains(2).adapt_interval(2))
