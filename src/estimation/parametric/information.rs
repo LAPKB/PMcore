@@ -538,7 +538,7 @@ impl CompleteDerivative {
                 self.hessian[[*coordinate, omega_coord]] += cross;
                 self.hessian[[omega_coord, *coordinate]] += cross;
             }
-            // Omega-Omega (same as original add_gaussian)
+            // Omega-Omega Hessian block.
             for other in covariance_coordinates {
                 let other_basis = symmetric_basis(n_random, other.row, other.column);
                 let abs = inverse.dot(&other_basis);

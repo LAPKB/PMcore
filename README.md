@@ -37,8 +37,7 @@ variances and covariances; undeclared covariances are structural zeros.
 
 The default finite schedule ends with `MaxCycles`. `Converged` is available only
 through an explicit operational policy whose information, movement, rank,
-precision, stationarity, and covariance-stability checks all pass. See
-[SAEM convergence](docs/saem-convergence.md).
+precision, stationarity, and covariance-stability checks all pass.
 
 `FitResult::objf()` and cycle objectives are conditional N2LL values. An
 independent opt-in calculation provides population marginal likelihood by
@@ -51,10 +50,6 @@ strict positive-definite information matrix. They are unavailable when
 estimated structural effects omit IIV because structural observation
 sensitivities are not implemented. PMcore reports unavailable diagnostics
 instead of repairing matrices or fabricating partial uncertainty.
-
-See the [SAEM support matrix](docs/saem-support.md),
-[IIV parameterization guide](iiv.md), and
-[NONMEM comparison](docs/nonmem-comparison.md) for detailed behavior and syntax.
 
 ### Stochastic differential equations
 
