@@ -11,11 +11,11 @@
 //! Both drive the same underlying runner and finish at the same result.
 
 use anyhow::Result;
-use pharmsol::prelude::{data::AssayErrorModels, simulator::Equation};
+use pharmsol::prelude::simulator::Equation;
 
 use crate::algorithms::{NonParametricRunner, Status, StopReason};
 use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta};
-use crate::estimation::{EstimationProblem, NonParametric};
+use crate::estimation::{AssayErrorModels, EstimationProblem, NonParametric};
 
 use super::NonParametricAlgorithm;
 

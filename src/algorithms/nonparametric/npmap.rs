@@ -5,11 +5,9 @@ use crate::{
     },
 };
 
+use crate::AssayErrorModels;
 use anyhow::{Context, Result};
-use pharmsol::prelude::{
-    data::{AssayErrorModels, Data},
-    simulator::Equation,
-};
+use pharmsol::prelude::{data::Data, simulator::Equation};
 
 use crate::estimation::nonparametric::ipm::burke;
 use serde::{Deserialize, Serialize};

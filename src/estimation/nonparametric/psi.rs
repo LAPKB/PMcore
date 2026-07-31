@@ -2,13 +2,13 @@ use anyhow::bail;
 use anyhow::Result;
 use faer::Mat;
 use ndarray::{Array2, Axis};
-use pharmsol::prelude::simulator::log_likelihood_matrix;
-use pharmsol::AssayErrorModels;
 use pharmsol::Data;
 use pharmsol::Equation;
 use serde::{Deserialize, Serialize};
 
 use super::theta::Theta;
+use crate::estimation::likelihood::matrix::nonparametric_log_likelihood_matrix;
+use crate::AssayErrorModels;
 
 /// [Psi] is a structure that holds the likelihood for each subject (row), for each support point (column)
 #[derive(Debug, Clone, PartialEq)]
@@ -264,8 +264,13 @@ pub(crate) fn calculate_psi(
 ) -> Result<Psi> {
     let tm = theta.matrix();
     let theta_ndarray = Array2::from_shape_fn((tm.nrows(), tm.ncols()), |(i, j)| tm[(i, j)]);
-    let log_psi =
-        log_likelihood_matrix(equation, subjects, &theta_ndarray, error_models, progress)?;
+    let log_psi = nonparametric_log_likelihood_matrix(
+        equation,
+        subjects,
+        &theta_ndarray,
+        error_models,
+        progress,
+    )?;
 
     Psi::from_log_likelihoods(log_psi)
 }

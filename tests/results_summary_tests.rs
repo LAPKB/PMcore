@@ -1,5 +1,4 @@
 use anyhow::Result;
-use pharmsol::{AssayErrorModel, ErrorPoly};
 use pmcore::prelude::*;
 
 fn simple_equation() -> equation::ODE {
@@ -56,7 +55,17 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     assert_eq!(summary.parameter_count, 2);
     assert_eq!(summary.subject_count, 1);
     assert_eq!(summary.observation_count, 2);
-    assert_eq!(result.population_summary().parameters.len(), 2);
+    let population = result.population_summary();
+    assert_eq!(population.parameters.len(), 2);
+    for parameter in population.parameters {
+        assert_eq!(
+            parameter.estimate,
+            parameter.mean.expect("mean should be available")
+        );
+        assert!(parameter.median.is_some());
+        assert!(parameter.sd.is_some());
+        assert!(parameter.cv_percent.is_some());
+    }
     assert_eq!(result.individual_summaries().len(), 1);
 
     Ok(())

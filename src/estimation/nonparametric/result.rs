@@ -1,12 +1,16 @@
 use std::path::Path;
 
+use pharmsol::equation::EquationTypes;
+use pharmsol::prelude::simulator::SubjectPredictions;
 use pharmsol::Equation;
 use serde::Serialize;
 
 use crate::algorithms::Status;
 use crate::estimation::nonparametric::{CycleLog, NPPredictions, Posterior, Psi, Theta, Weights};
+use crate::model::EquationMetadataSource;
+use crate::AssayErrorModels;
 
-use pharmsol::{AssayErrorModels, Data};
+use pharmsol::Data;
 
 /// Contains the results of a nonparametric estimation, including the final parameter
 #[derive(Debug)]
@@ -142,7 +146,10 @@ impl<E: Equation> NonParametricResult<E> {
     /// Compute predictions on demand. Nothing is cached on the result; callers
     /// that need the predictions repeatedly should hold on to the returned
     /// value themselves.
-    pub fn predictions(&self, idelta: f64, tad: f64) -> anyhow::Result<NPPredictions> {
+    pub fn predictions(&self, idelta: f64, tad: f64) -> anyhow::Result<NPPredictions>
+    where
+        E: EquationMetadataSource + EquationTypes<P = SubjectPredictions>,
+    {
         let posterior = self.posterior()?;
         self.predictions_with(&posterior, idelta, tad)
     }
@@ -154,7 +161,10 @@ impl<E: Equation> NonParametricResult<E> {
         posterior: &Posterior,
         idelta: f64,
         tad: f64,
-    ) -> anyhow::Result<NPPredictions> {
+    ) -> anyhow::Result<NPPredictions>
+    where
+        E: EquationMetadataSource + EquationTypes<P = SubjectPredictions>,
+    {
         NPPredictions::calculate(
             &self.equation,
             &self.data,
@@ -318,7 +328,10 @@ impl<E: Equation> NonParametricResult<E> {
     ///
     /// `idelta` is the interval used to densify the prediction grid and `tad` is
     /// the additional time after the last event to simulate.
-    pub fn write_predictions(&self, path: &Path, idelta: f64, tad: f64) -> anyhow::Result<()> {
+    pub fn write_predictions(&self, path: &Path, idelta: f64, tad: f64) -> anyhow::Result<()>
+    where
+        E: EquationMetadataSource + EquationTypes<P = SubjectPredictions>,
+    {
         let predictions = self.predictions(idelta, tad)?;
         predictions.write(path)
     }
@@ -329,7 +342,10 @@ impl<E: Equation> NonParametricResult<E> {
     /// likelihoods, weights, objective function, status, cycle log, posterior
     /// probabilities, and predictions. `idelta` and `tad` control the density of
     /// the embedded predictions (see [`predictions`](Self::predictions)).
-    pub fn write_json(&self, path: &Path, idelta: f64, tad: f64) -> anyhow::Result<()> {
+    pub fn write_json(&self, path: &Path, idelta: f64, tad: f64) -> anyhow::Result<()>
+    where
+        E: EquationMetadataSource + EquationTypes<P = SubjectPredictions>,
+    {
         let posterior = self.posterior()?;
         let predictions = self.predictions_with(&posterior, idelta, tad)?;
         self.write_json_with(path, &posterior, &predictions)
@@ -384,7 +400,10 @@ impl<E: Equation> NonParametricResult<E> {
         directory: impl AsRef<Path>,
         idelta: f64,
         tad: f64,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        E: EquationMetadataSource + EquationTypes<P = SubjectPredictions>,
+    {
         let dir = directory.as_ref();
         std::fs::create_dir_all(dir)?;
 
@@ -429,11 +448,11 @@ mod tests {
     use crate::algorithms::nonparametric::{NpagConfig, NpodConfig};
     use crate::estimation::EstimationProblem;
     use crate::model::ParameterSpace;
+    use crate::{AssayErrorModel, AssayErrorModels, ErrorPoly};
     use pharmsol::equation::metadata;
-    use pharmsol::prelude::data::{AssayErrorModel, AssayErrorModels};
-    use pharmsol::{ErrorPoly, SubjectBuilderExt};
+    use pharmsol::SubjectBuilderExt;
 
-    fn minimal_ode() -> pharmsol::ODE {
+    fn minimal_ode() -> pharmsol::equation::ODE {
         pharmsol::equation::ODE::new(
             |x, p, _t, dx, b, _rateiv, _cov| {
                 let ke = p[0];
@@ -467,6 +486,62 @@ mod tests {
             .observation(2.0, 8.0, 0)
             .build();
         pharmsol::Data::new(vec![subject])
+    }
+
+    fn sparse_output_ode() -> pharmsol::equation::ODE {
+        pharmsol::equation::ODE::new(
+            |x, p, _t, dx, b, _rateiv, _cov| {
+                dx[0] = -p[0] * x[0] + b[0];
+            },
+            |_p, _t, _cov| pharmsol::lag! {},
+            |_p, _t, _cov| pharmsol::fa! {},
+            |_p, _t, _cov, _x| {},
+            |x, p, _t, _cov, y| {
+                y[0] = x[0];
+                y[1] = x[0] / p[1];
+            },
+        )
+        .with_nstates(1)
+        .with_ndrugs(1)
+        .with_nout(2)
+        .with_metadata(
+            metadata::new("sparse_nonparametric_predictions")
+                .parameters(["ke", "v"])
+                .states(["central"])
+                .outputs(["unmeasured", "measured"])
+                .route(pharmsol::equation::Route::bolus("dose").to_state("central")),
+        )
+        .expect("sparse-output metadata should validate")
+    }
+
+    #[test]
+    fn sparse_output_prediction_expansion_preserves_observed_outputs_only() {
+        let data = pharmsol::Data::new(vec![pharmsol::Subject::builder("sparse")
+            .bolus(0.0, 100.0, "dose")
+            .observation(1.0, 10.0, "measured")
+            .observation(2.0, 8.0, "measured")
+            .build()]);
+        let params = ParameterSpace::bounded()
+            .add("ke", 0.001, 3.0)
+            .add("v", 5.0, 250.0);
+        let prior = Theta::sobol_with_seed(&params, 5, 42).unwrap();
+        let error_models = AssayErrorModels::new()
+            .add(
+                "measured",
+                AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+            )
+            .unwrap();
+        let result =
+            EstimationProblem::nonparametric(sparse_output_ode(), data, prior, error_models)
+                .unwrap()
+                .fit_with(NpagConfig::new().max_cycles(1))
+                .unwrap();
+
+        let predictions = result.predictions(0.25, 0.0).unwrap();
+        assert!(predictions
+            .predictions()
+            .iter()
+            .all(|prediction| prediction.outeq() == 1));
     }
 
     #[test]

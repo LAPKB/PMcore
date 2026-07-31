@@ -1,12 +1,16 @@
 use std::path::Path;
 
-use anyhow::{bail, Result};
-use pharmsol::{prelude::simulator::Prediction, Censor, Data, Predictions as PredTrait};
+use anyhow::{bail, Context, Result};
+use pharmsol::{
+    prelude::simulator::{Prediction, SubjectPredictions},
+    Censor, Data, Predictions as PredTrait,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     estimation::nonparametric::{theta::Theta, weights::Weights},
     estimation::nonparametric::{weighted_median, Posterior},
+    model::EquationMetadataSource,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,7 +119,8 @@ impl NPPredictions {
     }
 
     pub fn calculate(
-        equation: &impl pharmsol::prelude::simulator::Equation,
+        equation: &(impl pharmsol::equation::EquationTypes<P = SubjectPredictions>
+              + EquationMetadataSource),
         data: &Data,
         theta: &Theta,
         w: &Weights,
@@ -125,7 +130,7 @@ impl NPPredictions {
     ) -> Result<Self> {
         let mut container = NPPredictions::new();
 
-        let data = data.clone().expand(idelta, tad);
+        let data = data.clone().expand(idelta, tad, &[]);
         let subjects = data.subjects();
 
         if subjects.len() != posterior.matrix().nrows() {
@@ -134,14 +139,19 @@ impl NPPredictions {
 
         for (subject_index, subject) in subjects.iter().enumerate() {
             let mut predictions: Vec<Vec<Prediction>> = Vec::new();
+            let mut prediction_occasions = None;
 
             for spp in theta.matrix().row_iter() {
                 let spp_values = spp.iter().cloned().collect::<Vec<f64>>();
-                let pred = equation
-                    .simulate_subject_dense(subject, &spp_values, None)?
-                    .0
-                    .get_predictions();
-                predictions.push(pred);
+                let pred = equation.estimate_predictions_dense(subject, &spp_values)?;
+                match prediction_occasions.as_ref() {
+                    Some(expected) if expected != pred.occasions() => {
+                        bail!("prediction occasion metadata changed across support points")
+                    }
+                    None => prediction_occasions = Some(pred.occasions().clone()),
+                    _ => {}
+                }
+                predictions.push(pred.get_predictions());
             }
 
             if predictions.is_empty() {
@@ -191,12 +201,28 @@ impl NPPredictions {
             }
 
             if let Some(first_spp_preds) = predictions.first() {
+                let occasions = prediction_occasions
+                    .as_ref()
+                    .context("predictions are present without occasion metadata")?;
                 for (j, p) in first_spp_preds.iter().enumerate() {
+                    let outeq = equation
+                        .equation_metadata()
+                        .and_then(|metadata| metadata.output_for_label(p.output().as_str()))
+                        .with_context(|| {
+                            format!(
+                                "prediction output '{}' is not declared by the model",
+                                p.output()
+                            )
+                        })?;
+                    let block = occasions
+                        .get(j)
+                        .copied()
+                        .context("prediction is missing parallel occasion metadata")?;
                     let row = NPPredictionRow {
                         id: subject.id().clone(),
                         time: p.time(),
-                        outeq: p.outeq(),
-                        block: p.occasion(),
+                        outeq,
+                        block,
                         obs: p.observation(),
                         cens: p.censoring(),
                         pop_mean: pop_mean[j],
