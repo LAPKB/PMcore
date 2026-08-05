@@ -2,6 +2,7 @@ library(saemix)
 library(ggplot2)
 library(gridExtra)
 library(tidyverse)
+
 data(theo.saemix)
 
 
@@ -11,7 +12,7 @@ use_one <- TRUE
 data <- theo.saemix
 
 if (use_one == TRUE) {
-  data <- filter(data, Id < 3)
+  data <- dplyr::filter(data, Id < 3)
 }
 
 saemix.data<-saemixData(name.data=data,header=TRUE,sep=" ",na=NA,

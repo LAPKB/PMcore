@@ -39,7 +39,7 @@ function(psi,id,xidep) {
   dose * ka / (V * (ka - ke)) *
     (exp(-ke * time) - exp(-ka * time))
 }
-<bytecode: 0x139712238>
+<bytecode: 0x12abd05b8>
   Nb of parameters: 3 
       parameter names:  ka V ke 
       distribution:

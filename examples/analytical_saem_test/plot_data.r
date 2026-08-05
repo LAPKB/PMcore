@@ -7,9 +7,9 @@ saemix_trace <- as.data.frame(saemix.fit@results@allpar)[-1, , drop = FALSE]
 
 pmcore_stats <- read.csv("examples/analytical_saem_test/pmcore_output/statistics.csv")
 pmcore_trace <- data.frame(matrix(NA, nrow = max(pmcore_stats$cycle), ncol = 0))
-pmcore_trace$ka <- filter(pmcore_stats, name == "ka", kind == "theta")$value
-pmcore_trace$V <- filter(pmcore_stats, name == "v", kind == "theta")$value
-pmcore_trace$ke <- filter(pmcore_stats, name == "ke", kind == "theta")$value
+pmcore_trace$ka <- dplyr::filter(pmcore_stats, name == "ka", kind == "theta")$value
+pmcore_trace$V <- dplyr::filter(pmcore_stats, name == "v", kind == "theta")$value
+pmcore_trace$ke <- dplyr::filter(pmcore_stats, name == "ke", kind == "theta")$value
 
 stopifnot(all(c("ka", "V", "ke") %in% names(pmcore_trace)))
 # stopifnot(nrow(saemix_trace) == nrow(pmcore_trace))
