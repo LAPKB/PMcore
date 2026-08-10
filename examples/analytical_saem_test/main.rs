@@ -8,13 +8,67 @@
 use anyhow::Result;
 use pmcore::prelude::*;
 
-use log::LevelFilter;
+use std::fs::{remove_dir_all, File};
+use std::path::Path;
+use csv::Reader;
 
+
+// arguments (ka: f64, ke: f64, v: f64, trial_id: u64)
 fn main() -> Result<()> {
-    let _ = simple_logging::log_to_file("examples/analytical_saem_test/logs/pmcore.log", LevelFilter::Info);
+    remove_dir_all("examples/analytical_saem_test/pmcore_output")?;
 
-    let data = data::read_pmetrics("examples/analytical_saem_test/converted_data_theo.csv")?;
-    println!("Loaded {} subjects", data.len());
+    // let args: Vec<String> = env::args().collect();
+
+    // let ka = args[1].parse::<f64>().expect("Ka argument is not of type f64!");
+    // let ke = args[2].parse::<f64>().expect("Ke argument is not of type f64!");
+    // let v = args[3].parse::<f64>().expect("V argument is not of type f64!");
+    // let data = &args[4];
+    // let output = &args[5];
+
+    // let ka = 1.0;
+    // let ke = 0.025;
+    // let v = 20.0;
+
+    let init_file = File::open(Path::new("examples/analytical_saem_test/random_init.csv"))?;
+    let mut init_reader = Reader::from_reader(init_file);
+
+    for init_state in init_reader.records() {
+        let record = init_state?;
+
+        let ka = record.get(0).unwrap().parse::<f64>().expect("Ka argument is not of type f64!");
+        let ke = record.get(1).unwrap().parse::<f64>().expect("Ke argument is not of type f64!");
+        let v = record.get(2).unwrap().parse::<f64>().expect("V argument is not of type f64!");
+        let trial_id = record.get(3).unwrap();
+
+        println!("Starting trial number: {}", trial_id);
+
+        pmcore_loop(ka, ke, v, "examples/analytical_saem_test/converted_data_theo.csv", 
+                                "examples/analytical_saem_test/pmcore_output/run_data")?;
+        
+        let output_file = File::open(Path::new("examples/analytical_saem_test/pmcore_output/run_data/statstics.csv"))?;
+        let mut output_reader = Reader::from_reader(output_file);
+        let valid_rows: Vec<(u64, String, f64)> = output_reader.records()
+            .filter_map(|result| {
+                let record = result.unwrap();
+                let kind = record.get(1).unwrap();
+                if kind.eq("theta") {
+                    let cycle = record.get(0).unwrap().parse::<u64>().unwrap();
+                    let name = record.get(2).unwrap().to_string();
+                    let value = record.get(7).unwrap().parse::<f64>().unwrap();
+                    return Some((cycle, name, value));
+                }
+                None
+            })
+            .collect();
+    }
+
+    Ok(())
+}
+
+fn pmcore_loop(ka: f64, ke: f64, v: f64, data: impl Into<String>, output: &str) -> Result<()> {
+    // let data = data::read_pmetrics("examples/analytical_saem_test/converted_data_theo.csv")?;
+    let data = data::read_pmetrics(data)?;
+    // println!("Loaded {} subjects", data.len());
 
     // Create model
     let equation = analytical! {
@@ -32,10 +86,13 @@ fn main() -> Result<()> {
     };
 
     let problem = EstimationProblem::parametric(equation, data)
+        // .parameter(Parameter::log("ka").with_initial(1.0))
+        // .parameter(Parameter::log("ke").with_initial(0.025))
+        // .parameter(Parameter::log("v").with_initial(20.0))
         // Must currently follow the model metadata order: ka, ke, v.
-        .parameter(Parameter::log("ka").with_initial(1.0))
-        .parameter(Parameter::log("ke").with_initial(0.025))
-        .parameter(Parameter::log("v").with_initial(20.0))
+        .parameter(Parameter::log("ka").with_initial(ka))
+        .parameter(Parameter::log("ke").with_initial(ke))
+        .parameter(Parameter::log("v").with_initial(v))
         .error_model("outeq_0", ResidualErrorModel::constant(1.0))
         .build()?;
 
@@ -51,8 +108,8 @@ fn main() -> Result<()> {
     let result = problem.fit_with(config)?;
 
     // Write all output files
-    result.write_outputs("examples/analytical_saem_test/pmcore_output/", 0.0, 0.0)?;
-    println!("\nOutput files written to: examples/analytical_saem_test/pmcore_output/");
+    // let output_dir = "examples/analytical_saem_test/pmcore_output/";
+    result.write_outputs(output, 0.0, 0.0)?;
 
     // Print comprehensive results summary (matching R saemix format)
     // print_saem_report(result);

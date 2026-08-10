@@ -1,0 +1,13 @@
+subject,occasion,parameter,value,source,mode_converged
+1,,ka,0.02905166211060544,chain_mean,
+1,,ke,27.25103491988941,chain_mean,
+1,,v,0.043088390427711024,chain_mean,
+2,,ka,0.0271182790766101,chain_mean,
+2,,ke,28.436375290294777,chain_mean,
+2,,v,0.04538036876557297,chain_mean,
+1,,ka,0.028219183461230916,conditional_mode,true
+1,,ke,26.58451411922731,conditional_mode,true
+1,,v,0.04250987222936448,conditional_mode,true
+2,,ka,0.02707053298587611,conditional_mode,true
+2,,ke,28.287931052508878,conditional_mode,true
+2,,v,0.04584062873278289,conditional_mode,true

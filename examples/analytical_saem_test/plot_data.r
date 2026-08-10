@@ -2,10 +2,13 @@ library(saemix)
 library(ggplot2)
 library(gridExtra)
 library(tidyverse)
+library(here)
+
+i_am("plot_data.r")
 
 saemix_trace <- as.data.frame(saemix.fit@results@allpar)[-1, , drop = FALSE]
 
-pmcore_stats <- read.csv("examples/analytical_saem_test/pmcore_output/statistics.csv")
+pmcore_stats <- read.csv(here("pmcore_output", "statistics.csv"))
 pmcore_trace <- data.frame(matrix(NA, nrow = max(pmcore_stats$cycle), ncol = 0))
 pmcore_trace$ka <- dplyr::filter(pmcore_stats, name == "ka", kind == "theta")$value
 pmcore_trace$V <- dplyr::filter(pmcore_stats, name == "v", kind == "theta")$value
