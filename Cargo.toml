@@ -41,7 +41,6 @@ dsl-core = ["pharmsol/dsl-core"]
 dsl-jit = ["pharmsol/dsl-jit"]
 dsl-aot = ["pharmsol/dsl-aot"]
 dsl-aot-load = ["pharmsol/dsl-aot-load"]
-dsl-wasm = ["pharmsol/dsl-wasm"]
 
 [profile.release]
 codegen-units = 1
