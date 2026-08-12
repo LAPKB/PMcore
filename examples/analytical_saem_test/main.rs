@@ -8,9 +8,9 @@
 use anyhow::Result;
 use pmcore::prelude::*;
 
-use std::fs::{remove_dir_all, File};
+use std::fs::{remove_dir_all, File, OpenOptions};
 use std::path::Path;
-use csv::Reader;
+use csv::{Reader, Writer};
 
 
 // arguments (ka: f64, ke: f64, v: f64, trial_id: u64)
@@ -36,18 +36,18 @@ fn main() -> Result<()> {
         let record = init_state?;
 
         let ka = record.get(0).unwrap().parse::<f64>().expect("Ka argument is not of type f64!");
-        let ke = record.get(1).unwrap().parse::<f64>().expect("Ke argument is not of type f64!");
-        let v = record.get(2).unwrap().parse::<f64>().expect("V argument is not of type f64!");
-        let trial_id = record.get(3).unwrap();
+        let v = record.get(1).unwrap().parse::<f64>().expect("V argument is not of type f64!");
+        let ke = record.get(2).unwrap().parse::<f64>().expect("Ke argument is not of type f64!");
+        let trial_id = record.get(3).unwrap().parse::<u64>().expect("trial_id argument is not of type u64!");
 
         println!("Starting trial number: {}", trial_id);
 
         pmcore_loop(ka, ke, v, "examples/analytical_saem_test/converted_data_theo.csv", 
                                 "examples/analytical_saem_test/pmcore_output/run_data")?;
         
-        let output_file = File::open(Path::new("examples/analytical_saem_test/pmcore_output/run_data/statstics.csv"))?;
+        let output_file = File::open(Path::new("examples/analytical_saem_test/pmcore_output/run_data/statistics.csv"))?;
         let mut output_reader = Reader::from_reader(output_file);
-        let valid_rows: Vec<(u64, String, f64)> = output_reader.records()
+        let valid_rows: Vec<(u64, String, f64, u64)> = output_reader.records()
             .filter_map(|result| {
                 let record = result.unwrap();
                 let kind = record.get(1).unwrap();
@@ -55,11 +55,25 @@ fn main() -> Result<()> {
                     let cycle = record.get(0).unwrap().parse::<u64>().unwrap();
                     let name = record.get(2).unwrap().to_string();
                     let value = record.get(7).unwrap().parse::<f64>().unwrap();
-                    return Some((cycle, name, value));
+                    return Some((cycle, name, value, trial_id));
                 }
                 None
             })
             .collect();
+            
+        let trace_file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open("examples/analytical_saem_test/pmcore_output/pmcore_trace.csv")
+            .unwrap();
+        let mut trace_writer = Writer::from_writer(trace_file);
+        if trial_id == 0 {
+            trace_writer.write_record(["cycle", "name", "value", "trial_id"])?;
+        }
+        for row in valid_rows {
+            trace_writer.serialize(row)?;
+        }
     }
 
     Ok(())

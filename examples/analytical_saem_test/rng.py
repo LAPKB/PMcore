@@ -6,7 +6,7 @@ seed = 632545
 
 random.seed(seed)
 
-header = ['ka', 'ke', 'v', 'trial_id']
+header = ['ka', 'v', 'ke', 'trial_id']
 data = []
 
 for i in range(trial_iterations):
