@@ -53,8 +53,8 @@ for (i in 1:(length(pmcore_stats))) {
 
   ke_v_pmcore <- array(ke_pmcore$value)/array(v_pmcore$value)
   ke_v_saemix <- array(ke_saemix$ke)/array(v_saemix$V)
-  ka_v_dif <- array(ke_v_pmcore) - array(ke_v_saemix)
-  ke_v_difs[[length(ke_v_difs) + 1]] <- ka_v_dif
+  ke_v_dif <- array(ke_v_pmcore) - array(ke_v_saemix)
+  ke_v_difs[[length(ke_v_difs) + 1]] <- ke_v_dif
 }
 
 # average final values
@@ -67,15 +67,18 @@ final_average <- c(
 
 
 # Element-wise average
-ka_difs_average <- Reduce("+", ka_difs) / length(ka_difs) / final_average[[1]]
-v_difs_average <- Reduce("+", v_difs) / length(v_difs) / final_average[[2]]
-ke_difs_average <- Reduce("+", ke_difs) / length(ke_difs) / final_average[[3]]
+# ka_difs_average <- Reduce("+", ka_difs) / length(ka_difs) / final_average[[1]]
+# v_difs_average <- Reduce("+", v_difs) / length(v_difs) / final_average[[2]]
+# ke_difs_average <- Reduce("+", ke_difs) / length(ke_difs) / final_average[[3]]
+ka_difs_average <- Reduce("+", ka_difs) / length(ka_difs)
+v_difs_average <- Reduce("+", v_difs) / length(v_difs)
+ke_difs_average <- Reduce("+", ke_difs) / length(ke_difs)
 ke_v_difs_average <- Reduce("+", ke_v_difs) / length(ke_v_difs)
 
 
 # , ylim=c(-.1, .1)
 par(pty = "s")
-plot(ka_difs_average, main="ka difference", xlab="cycle", ylab="ka", col="blue", pch=19, panel.first = grid(nx = NULL, ny = NULL), ylim=c(-1, 1)) # -final_average[[1]], final_average[[1]]
-plot(v_difs_average, main="v difference", xlab="cycle", ylab="v", col="blue", pch=19, panel.first = grid(nx = NULL, ny = NULL), ylim=c(-1, 1))
-plot(ke_difs_average, main="ke difference", xlab="cycle", ylab="ke", col="blue", pch=19, panel.first = grid(nx = NULL, ny = NULL), ylim=c(-1, 1))
+plot(ka_difs_average, main="ka difference", xlab="cycle", ylab="ka", col="blue", pch=19, panel.first = grid(nx = NULL, ny = NULL)) # -final_average[[1]], final_average[[1]]
+plot(v_difs_average, main="v difference", xlab="cycle", ylab="v", col="blue", pch=19, panel.first = grid(nx = NULL, ny = NULL))
+plot(ke_difs_average, main="ke difference", xlab="cycle", ylab="ke", col="blue", pch=19, panel.first = grid(nx = NULL, ny = NULL))
 plot(ke_v_difs_average, main="ke/v difference", xlab="cycle", ylab="ke/v", col="blue", pch=19, panel.first = grid(nx = NULL, ny = NULL))
