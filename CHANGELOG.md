@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.1](https://github.com/LAPKB/PMcore/compare/v0.27.0...v0.27.1) - 2026-08-19
+
+### Other
+
+- Update pharmsol to 0.28.8 ([#313](https://github.com/LAPKB/PMcore/pull/313))
+
 ## [0.27.0](https://github.com/LAPKB/PMcore/compare/v0.26.3...v0.27.0) - 2026-08-12
 
 ### Other
