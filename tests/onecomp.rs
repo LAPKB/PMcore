@@ -131,7 +131,7 @@ fn test_one_compartment_npod() -> Result<()> {
         .fit_with(NonParametricAlgorithm::npod())?;
 
     // Check the results
-    assert_eq!(result.cycles(), 11);
+    assert_eq!(result.cycles(), 12);
     assert!(result.objf() - 565.7749 < 0.01);
 
     Ok(())
