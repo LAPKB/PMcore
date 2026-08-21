@@ -1,2 +1,0 @@
-scope,subject,method,status,samples_per_subject,seed,degrees_of_freedom,covariance_scale_multiplier,proposal_scale_source,dimension,occasion_indices,mode,mode_converged,log_marginal_likelihood,n2ll,n2ll_mcse,effective_sample_size,effective_sample_fraction,zero_weight_count,failure
-total,,disabled,disabled,0,,0,0.0,not_applicable,0,[],[],,,,,,,0,

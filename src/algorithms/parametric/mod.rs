@@ -21,7 +21,7 @@ pub use controller::{CycleFlow, FitController, FitObserver, ParametricFitSnapsho
 use saem::SaemState;
 pub use saem_config::{
     CovarianceStabilityConfig, LugsailConfig, MarkovSimulationVarianceConfig,
-    OperationalConvergenceConfig, SaemConfig, SaemEstimatorPolicy,
+    OperationalConvergenceConfig, SaemConfig, SaemEstimatorPolicy, SaemixMcmcConfig,
 };
 
 use crate::algorithms::{Algorithm, Status, StopReason};

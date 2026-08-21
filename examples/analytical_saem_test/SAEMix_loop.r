@@ -8,9 +8,9 @@ data(theo.saemix)
 i_am("SAEMix_loop.r")
 
 
-file.remove(here("SAEMix_output", "saemix_trace.csv"))
+file.remove(here("outputs", "SAEMix_output", "saemix_trace.csv"))
 
-use_one <- TRUE
+use_one <- FALSE
 
 data <- theo.saemix
 
@@ -61,7 +61,7 @@ trial_loop <- function(ka, ke, v, trial_id) {
     print = FALSE,
     save = FALSE,
     save.graphs = FALSE,
-    directory = here("SAEMix_output")
+    directory = here("outputs", "SAEMix_output")
   )
 
   saemix.fit<-saemix(saemix.model, saemix.data, saemix.config)
@@ -74,7 +74,7 @@ trial_loop <- function(ka, ke, v, trial_id) {
   if (trial_id == 0) {col_names = TRUE}
 
   write.table(saemix_trace, 
-              file = here("SAEMix_output", "saemix_trace.csv"), 
+              file = here("outputs", "SAEMix_output", "saemix_trace.csv"), 
               append = TRUE, 
               sep = ",", 
               col.names = col_names, 

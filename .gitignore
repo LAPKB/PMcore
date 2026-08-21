@@ -41,10 +41,11 @@ op.csv
 /r.csv
 /correlation.csv
 
-# Local research and validation artifacts
+# Local planning, documentation, research, and validation artifacts
+/plans/
+/docs/
+/iiv.md
 /validation/
-/docs/roadmap/
-/docs/saem-ode-solver-validation*.md
 /tests/reference/
 /examples/_validation_*.rs
 /examples/paper_benchmarks/

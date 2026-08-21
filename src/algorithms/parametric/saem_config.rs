@@ -204,6 +204,107 @@ pub enum SaemEstimatorPolicy {
     AveragedIterates { alpha: f64 },
 }
 
+/// Explicit SAEMix-compatible four-kernel E-step policy.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct SaemixMcmcConfig {
+    /// Iteration counts for q1 prior independence, q2 component random walk,
+    /// q3 rotating subsets, and q4 MAP-informed independence proposals.
+    pub iterations: [usize; 4],
+    /// Early SAEM cycles eligible for q4. The reference runs q4 while
+    /// `cycle < map_cycles`.
+    pub map_cycles: usize,
+    /// Target acceptance probability for q2 and q3 scale adaptation.
+    pub target_acceptance: f64,
+    /// Multiplicative adaptation gain for q2 and q3.
+    pub adaptation_gain: f64,
+    /// Independent q4 conditional-mode optimization budget.
+    pub map_max_iterations: usize,
+    pub map_sd_tolerance: f64,
+    pub map_initial_step: f64,
+}
+
+impl Default for SaemixMcmcConfig {
+    fn default() -> Self {
+        Self {
+            iterations: [0; 4],
+            map_cycles: 5,
+            target_acceptance: 0.4,
+            adaptation_gain: 0.4,
+            map_max_iterations: 100,
+            map_sd_tolerance: 1e-8,
+            map_initial_step: 0.1,
+        }
+    }
+}
+
+impl SaemixMcmcConfig {
+    pub fn new(iterations: [usize; 4]) -> Self {
+        Self {
+            iterations,
+            ..Self::default()
+        }
+    }
+
+    pub fn map_cycles(mut self, cycles: usize) -> Self {
+        self.map_cycles = cycles;
+        self
+    }
+
+    pub fn target_acceptance(mut self, target: f64) -> Self {
+        self.target_acceptance = target;
+        self
+    }
+
+    pub fn adaptation_gain(mut self, gain: f64) -> Self {
+        self.adaptation_gain = gain;
+        self
+    }
+
+    pub fn map_optimizer(mut self, max_iterations: usize, sd_tolerance: f64) -> Self {
+        self.map_max_iterations = max_iterations;
+        self.map_sd_tolerance = sd_tolerance;
+        self
+    }
+
+    pub fn map_initial_step(mut self, step: f64) -> Self {
+        self.map_initial_step = step;
+        self
+    }
+
+    fn validate(self) -> Result<()> {
+        if self.iterations.iter().all(|iterations| *iterations == 0) {
+            anyhow::bail!("SAEMix MCMC requires at least one enabled kernel");
+        }
+        if self.iterations[3] > 0 {
+            if self.map_cycles == 0 {
+                anyhow::bail!("SAEMix q4 requires map_cycles greater than zero");
+            }
+            if self.map_max_iterations == 0 {
+                anyhow::bail!("SAEMix q4 map_max_iterations must be greater than zero");
+            }
+            if !self.map_sd_tolerance.is_finite() || self.map_sd_tolerance <= 0.0 {
+                anyhow::bail!("SAEMix q4 map tolerance must be finite and positive");
+            }
+            if !self.map_initial_step.is_finite() || self.map_initial_step <= 0.0 {
+                anyhow::bail!("SAEMix q4 map initial step must be finite and positive");
+            }
+        }
+        if !self.target_acceptance.is_finite() || !(0.0..1.0).contains(&self.target_acceptance) {
+            anyhow::bail!("SAEMix MCMC target acceptance must be finite and in (0, 1)");
+        }
+        if !self.adaptation_gain.is_finite()
+            || self.adaptation_gain <= 0.0
+            || self.adaptation_gain * self.target_acceptance >= 1.0
+        {
+            anyhow::bail!(
+                "SAEMix MCMC adaptation gain must be finite, positive, and keep adaptation multipliers positive"
+            );
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct SaemConfig {
@@ -223,6 +324,10 @@ pub struct SaemConfig {
     pub n_chains: usize,
     pub mcmc_iterations: usize,
     pub eta_block_iterations: usize,
+    /// Explicit SAEMix-compatible q1-q4 policy. `None` preserves PMcore's
+    /// established component/full-block behavior.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saemix_mcmc: Option<SaemixMcmcConfig>,
     pub adapt_interval: usize,
     /// Maximum early covariance stabilization fraction. For covariate IIV,
     /// this under-relaxes the accepted exploration Ω/GEM displacement. For
@@ -271,6 +376,7 @@ impl Default for SaemConfig {
             mcmc_iterations: 1,
             // Disabled by default; opt in to the block-mixture kernel.
             eta_block_iterations: 0,
+            saemix_mcmc: None,
             adapt_interval: 50,
             // Guard against one-draw correlated Ω collapse in exploration.
             omega_sa_max_step: 0.1,
@@ -344,6 +450,18 @@ impl SaemConfig {
     /// block kernel. The default is zero, which disables the block kernel.
     pub fn eta_block_iterations(mut self, iterations: usize) -> Self {
         self.eta_block_iterations = iterations;
+        self
+    }
+
+    /// Select SAEMix-compatible q1-q4 E-step behavior.
+    pub fn saemix_mcmc(mut self, iterations: [usize; 4]) -> Self {
+        self.saemix_mcmc = Some(SaemixMcmcConfig::new(iterations));
+        self
+    }
+
+    /// Select a fully configured SAEMix-compatible q1-q4 policy.
+    pub fn saemix_mcmc_config(mut self, config: SaemixMcmcConfig) -> Self {
+        self.saemix_mcmc = Some(config);
         self
     }
 
@@ -628,6 +746,14 @@ impl SaemConfig {
         if self.mcmc_iterations == 0 {
             anyhow::bail!("SAEM mcmc_iterations must be greater than zero");
         }
+        if let Some(config) = self.saemix_mcmc {
+            config.validate()?;
+            if self.eta_block_iterations > 0 {
+                anyhow::bail!(
+                    "SAEMix MCMC compatibility cannot be combined with PMcore eta_block_iterations"
+                );
+            }
+        }
         if self.adapt_interval == 0 {
             anyhow::bail!("SAEM adapt_interval must be greater than zero");
         }
@@ -685,7 +811,7 @@ impl SaemConfig {
 mod tests {
     use super::{
         CovarianceStabilityConfig, LugsailConfig, MarkovSimulationVarianceConfig,
-        OperationalConvergenceConfig, SaemConfig, SaemEstimatorPolicy,
+        OperationalConvergenceConfig, SaemConfig, SaemEstimatorPolicy, SaemixMcmcConfig,
         RESIDUAL_OPTIMIZER_MAX_SIGMA,
     };
     use crate::estimation::MarginalLikelihoodConfig;
@@ -703,6 +829,39 @@ mod tests {
         assert_eq!(config.eta_block_iterations, 2);
         let decoded: SaemConfig = serde_json::from_str(r#"{"eta_block_iterations":3}"#).unwrap();
         assert_eq!(decoded.eta_block_iterations, 3);
+    }
+
+    #[test]
+    fn saemix_mcmc_is_explicit_validated_and_serde_compatible() {
+        assert!(SaemConfig::default().saemix_mcmc.is_none());
+        let legacy: SaemConfig = serde_json::from_str("{}").unwrap();
+        assert!(legacy.saemix_mcmc.is_none());
+
+        let policy = SaemixMcmcConfig::new([2, 2, 2, 2]);
+        let config = SaemConfig::new().saemix_mcmc_config(policy);
+        assert_eq!(config.saemix_mcmc, Some(policy));
+        assert!(config.validate().is_ok());
+        let decoded: SaemConfig = serde_json::from_value(serde_json::to_value(config).unwrap())
+            .expect("SAEMix policy should round-trip");
+        assert_eq!(decoded.saemix_mcmc, Some(policy));
+
+        let partial: SaemConfig =
+            serde_json::from_str(r#"{"saemix_mcmc":{"iterations":[0,2,0,0]}}"#).unwrap();
+        assert_eq!(
+            partial.saemix_mcmc,
+            Some(SaemixMcmcConfig::new([0, 2, 0, 0]))
+        );
+
+        assert!(SaemConfig::new().saemix_mcmc([0; 4]).validate().is_err());
+        assert!(SaemConfig::new()
+            .saemix_mcmc([0, 2, 0, 0])
+            .eta_block_iterations(1)
+            .validate()
+            .is_err());
+        assert!(SaemConfig::new()
+            .saemix_mcmc_config(SaemixMcmcConfig::new([0, 0, 0, 1]).map_cycles(0),)
+            .validate()
+            .is_err());
     }
 
     #[test]

@@ -12,6 +12,20 @@ struct SaemIterateAverage {
     count: usize,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+struct KernelCounters {
+    proposals: usize,
+    accepted: usize,
+    rejected: usize,
+    non_finite: usize,
+}
+
+struct SaemixMapDistribution {
+    mode: Vec<f64>,
+    covariance: Array2<f64>,
+    lower: Vec<Vec<f64>>,
+}
+
 // ─── Operational convergence lifecycle ────────────────────────────────────
 //
 // Result types live in `crate::results::fit_result`.
@@ -52,9 +66,11 @@ pub(crate) struct SaemState<E: Equation> {
     information: InformationRecursion,
     proposal_step_sizes: Vec<f64>,
     eta_block_step_sizes: Vec<f64>,
+    saemix_subset_step_sizes: Vec<Vec<f64>>,
     kappa_proposal_step_sizes: Vec<f64>,
     mcmc_iterations: usize,
     eta_block_iterations: usize,
+    saemix_mcmc: Option<SaemixMcmcConfig>,
     adapt_interval: usize,
     residual_optimizer_max_iterations: usize,
     compute_map: bool,
@@ -225,6 +241,17 @@ impl<E: Equation> SaemState<E> {
         } else {
             Vec::new()
         };
+        let saemix_subset_step_sizes = if config
+            .saemix_mcmc
+            .is_some_and(|policy| policy.iterations[2] > 0)
+        {
+            proposal_step_sizes
+                .iter()
+                .map(|step| vec![*step; n_random_effects])
+                .collect()
+        } else {
+            Vec::new()
+        };
         let kappa_proposal_step_sizes = omega_iov
             .as_ref()
             .map(|_| vec![config.rw_init; initialization.subject_ids.len()])
@@ -332,9 +359,11 @@ impl<E: Equation> SaemState<E> {
             information,
             proposal_step_sizes,
             eta_block_step_sizes,
+            saemix_subset_step_sizes,
             kappa_proposal_step_sizes,
             mcmc_iterations,
             eta_block_iterations,
+            saemix_mcmc: config.saemix_mcmc,
             adapt_interval,
             residual_optimizer_max_iterations: config.residual_optimizer_max_iterations,
             compute_map: config.compute_map,
@@ -409,6 +438,49 @@ impl<E: Equation> SaemState<E> {
         let mut subject_proposal_counts = vec![0usize; self.initialization.subject_ids.len()];
         let mut parameter_accept_counts = vec![0usize; n_parameters];
         let mut parameter_proposal_counts = vec![0usize; n_parameters];
+        let mut kernel_counts = [KernelCounters::default(); 4];
+        let subset_step_sizes_before = self.saemix_subset_step_sizes.clone();
+        let mut saemix_component_step_sizes_after = None;
+
+        if let Some(policy) = self.saemix_mcmc {
+            let lower = cholesky_lower(&self.omega)?;
+            for _ in 0..policy.iterations[0] {
+                for subject_index in 0..self.initialization.subject_ids.len() {
+                    for chain_index in 0..self.initialization.n_chains {
+                        let current_eta = self.etas[subject_index][chain_index].clone();
+                        let current_score = self.score_subject_latents(
+                            subject_index,
+                            &current_eta,
+                            &self.kappas[subject_index][chain_index],
+                        )?;
+                        let proposed_eta = self.prior_independence_eta(&lower)?;
+                        let proposed_score = self.score_subject_latents(
+                            subject_index,
+                            &proposed_eta,
+                            &self.kappas[subject_index][chain_index],
+                        )?;
+                        let log_acceptance_ratio =
+                            saemix_prior_independence_log_acceptance(current_score, proposed_score);
+                        subject_log_acceptance_sums[subject_index] += log_acceptance_ratio;
+                        subject_proposal_counts[subject_index] += 1;
+                        kernel_counts[0].proposals += 1;
+                        eta_proposed += 1;
+                        if !log_acceptance_ratio.is_finite() {
+                            kernel_counts[0].non_finite += 1;
+                            eta_non_finite += 1;
+                        }
+                        if self.accept_proposal(log_acceptance_ratio) {
+                            self.etas[subject_index][chain_index] = proposed_eta;
+                            kernel_counts[0].accepted += 1;
+                            eta_accepted += 1;
+                        } else {
+                            kernel_counts[0].rejected += 1;
+                            eta_rejected += 1;
+                        }
+                    }
+                }
+            }
+        }
 
         // Compound-kernel order: Omega-scaled eta blocks first, followed by
         // component eta walks and occasion-level kappa blocks. Eta blocks are
@@ -447,7 +519,10 @@ impl<E: Equation> SaemState<E> {
             }
         }
 
-        for _ in 0..self.mcmc_iterations {
+        let component_iterations = self
+            .saemix_mcmc
+            .map_or(self.mcmc_iterations, |policy| policy.iterations[1]);
+        for _ in 0..component_iterations {
             for subject_index in 0..self.initialization.subject_ids.len() {
                 for chain_index in 0..self.initialization.n_chains {
                     for parameter_index in 0..n_parameters {
@@ -463,15 +538,27 @@ impl<E: Equation> SaemState<E> {
                         subject_proposal_counts[subject_index] += 1;
                         parameter_proposal_counts[parameter_index] += 1;
                         eta_proposed += 1;
+                        if self.saemix_mcmc.is_some() {
+                            kernel_counts[1].proposals += 1;
+                        }
                         if !log_acceptance_ratio.is_finite() {
                             eta_non_finite += 1;
+                            if self.saemix_mcmc.is_some() {
+                                kernel_counts[1].non_finite += 1;
+                            }
                         }
                         if self.accept_proposal(log_acceptance_ratio) {
                             self.etas[subject_index][chain_index] = proposed_eta;
                             parameter_accept_counts[parameter_index] += 1;
                             eta_accepted += 1;
+                            if self.saemix_mcmc.is_some() {
+                                kernel_counts[1].accepted += 1;
+                            }
                         } else {
                             eta_rejected += 1;
+                            if self.saemix_mcmc.is_some() {
+                                kernel_counts[1].rejected += 1;
+                            }
                         }
                     }
 
@@ -506,6 +593,157 @@ impl<E: Equation> SaemState<E> {
                                 self.kappa_adaptation_accept_counts[subject_index] += 1;
                             } else {
                                 kappa_rejected += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(policy) = self.saemix_mcmc {
+            for parameter_index in 0..n_parameters {
+                let proposed = parameter_proposal_counts[parameter_index];
+                if proposed > 0 {
+                    let acceptance =
+                        parameter_accept_counts[parameter_index] as f64 / proposed as f64;
+                    self.proposal_step_sizes[parameter_index] = saemix_adapt_step_size(
+                        self.proposal_step_sizes[parameter_index],
+                        acceptance,
+                        policy,
+                    )?;
+                }
+            }
+            saemix_component_step_sizes_after = Some(self.proposal_step_sizes.clone());
+
+            let mut subset_accept_counts = vec![0usize; n_parameters];
+            let mut subset_proposal_counts = vec![0usize; n_parameters];
+            let mut active_subset_size = None;
+            for _ in 0..policy.iterations[2] {
+                let (subset_size, groups) = self.saemix_subset_groups(n_parameters);
+                active_subset_size = Some(subset_size);
+                for group in groups {
+                    for subject_index in 0..self.initialization.subject_ids.len() {
+                        for chain_index in 0..self.initialization.n_chains {
+                            let current_eta = self.etas[subject_index][chain_index].clone();
+                            let proposed_eta =
+                                self.subset_random_walk_eta(&current_eta, &group, subset_size);
+                            let log_acceptance_ratio = self.proposal_log_acceptance_ratio(
+                                subject_index,
+                                chain_index,
+                                &proposed_eta,
+                            )?;
+                            subject_log_acceptance_sums[subject_index] += log_acceptance_ratio;
+                            subject_proposal_counts[subject_index] += 1;
+                            kernel_counts[2].proposals += 1;
+                            eta_proposed += 1;
+                            for parameter in &group {
+                                subset_proposal_counts[*parameter] += 1;
+                            }
+                            if !log_acceptance_ratio.is_finite() {
+                                kernel_counts[2].non_finite += 1;
+                                eta_non_finite += 1;
+                            }
+                            if self.accept_proposal(log_acceptance_ratio) {
+                                self.etas[subject_index][chain_index] = proposed_eta;
+                                kernel_counts[2].accepted += 1;
+                                eta_accepted += 1;
+                                for parameter in &group {
+                                    subset_accept_counts[*parameter] += 1;
+                                }
+                            } else {
+                                kernel_counts[2].rejected += 1;
+                                eta_rejected += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(subset_size) = active_subset_size {
+                for parameter_index in 0..n_parameters {
+                    let proposed = subset_proposal_counts[parameter_index];
+                    if proposed > 0 {
+                        let acceptance =
+                            subset_accept_counts[parameter_index] as f64 / proposed as f64;
+                        if n_parameters == 1 {
+                            self.proposal_step_sizes[0] = saemix_adapt_step_size(
+                                self.proposal_step_sizes[0],
+                                acceptance,
+                                policy,
+                            )?;
+                            self.saemix_subset_step_sizes[0][0] = self.proposal_step_sizes[0];
+                        } else {
+                            let current =
+                                self.saemix_subset_step_sizes[parameter_index][subset_size - 1];
+                            self.saemix_subset_step_sizes[parameter_index][subset_size - 1] =
+                                saemix_adapt_step_size(current, acceptance, policy)?;
+                        }
+                    }
+                }
+            }
+
+            if policy.iterations[3] > 0 && self.cycle < policy.map_cycles {
+                let mut distributions = Vec::with_capacity(self.initialization.subject_ids.len());
+                for subject_index in 0..self.initialization.subject_ids.len() {
+                    let distribution = self.saemix_map_distribution(subject_index, policy)?;
+                    for chain in &mut self.etas[subject_index] {
+                        *chain = distribution.mode.clone();
+                    }
+                    distributions.push(distribution);
+                }
+                for _ in 0..policy.iterations[3] {
+                    for (subject_index, distribution) in distributions.iter().enumerate() {
+                        let mode = &distribution.mode;
+                        let covariance = &distribution.covariance;
+                        let lower = &distribution.lower;
+                        for chain_index in 0..self.initialization.n_chains {
+                            let current_eta = self.etas[subject_index][chain_index].clone();
+                            let standard_normals = (0..n_parameters)
+                                .map(|_| self.standard_normal())
+                                .collect::<Vec<_>>();
+                            let proposed_eta =
+                                correlated_random_walk(mode, lower, &standard_normals, 1.0)?;
+                            let current_score = self.score_subject_latents(
+                                subject_index,
+                                &current_eta,
+                                &self.kappas[subject_index][chain_index],
+                            )?;
+                            let proposed_score = self.score_subject_latents(
+                                subject_index,
+                                &proposed_eta,
+                                &self.kappas[subject_index][chain_index],
+                            )?;
+                            let current_centered = current_eta
+                                .iter()
+                                .zip(mode)
+                                .map(|(value, center)| value - center)
+                                .collect::<Vec<_>>();
+                            let proposed_centered = proposed_eta
+                                .iter()
+                                .zip(mode)
+                                .map(|(value, center)| value - center)
+                                .collect::<Vec<_>>();
+                            let log_acceptance_ratio = saemix_map_independence_log_acceptance(
+                                current_score,
+                                proposed_score,
+                                &current_centered,
+                                &proposed_centered,
+                                covariance,
+                            )?;
+                            subject_log_acceptance_sums[subject_index] += log_acceptance_ratio;
+                            subject_proposal_counts[subject_index] += 1;
+                            kernel_counts[3].proposals += 1;
+                            eta_proposed += 1;
+                            if !log_acceptance_ratio.is_finite() {
+                                kernel_counts[3].non_finite += 1;
+                                eta_non_finite += 1;
+                            }
+                            if self.accept_proposal(log_acceptance_ratio) {
+                                self.etas[subject_index][chain_index] = proposed_eta;
+                                kernel_counts[3].accepted += 1;
+                                eta_accepted += 1;
+                            } else {
+                                kernel_counts[3].rejected += 1;
+                                eta_rejected += 1;
                             }
                         }
                     }
@@ -549,14 +787,54 @@ impl<E: Equation> SaemState<E> {
                 }
             })
             .collect();
-        for parameter_index in 0..n_parameters {
-            self.adaptation_accept_counts[parameter_index] +=
-                parameter_accept_counts[parameter_index];
-            self.adaptation_proposal_counts[parameter_index] +=
-                parameter_proposal_counts[parameter_index];
+        if self.saemix_mcmc.is_none() {
+            for parameter_index in 0..n_parameters {
+                self.adaptation_accept_counts[parameter_index] +=
+                    parameter_accept_counts[parameter_index];
+                self.adaptation_proposal_counts[parameter_index] +=
+                    parameter_proposal_counts[parameter_index];
+            }
+            self.steps_since_adapt += 1;
+            self.adapt_proposal_step_sizes();
         }
-        self.steps_since_adapt += 1;
-        self.adapt_proposal_step_sizes();
+        let mcmc_kernel_diagnostics = if self.saemix_mcmc.is_some() {
+            let kernels = [
+                SaemMcmcKernel::PriorIndependence,
+                SaemMcmcKernel::ComponentRandomWalk,
+                SaemMcmcKernel::RotatingSubset,
+                SaemMcmcKernel::MapIndependence,
+            ];
+            kernels
+                .into_iter()
+                .enumerate()
+                .map(|(index, kernel)| {
+                    let (before, after) = match kernel {
+                        SaemMcmcKernel::ComponentRandomWalk => (
+                            vec![eta_step_sizes_before.clone()],
+                            vec![saemix_component_step_sizes_after
+                                .clone()
+                                .unwrap_or_else(|| self.proposal_step_sizes.clone())],
+                        ),
+                        SaemMcmcKernel::RotatingSubset => (
+                            subset_step_sizes_before.clone(),
+                            self.saemix_subset_step_sizes.clone(),
+                        ),
+                        _ => (Vec::new(), Vec::new()),
+                    };
+                    SaemMcmcKernelDiagnostics {
+                        kernel,
+                        proposals: kernel_counts[index].proposals,
+                        accepted: kernel_counts[index].accepted,
+                        rejected: kernel_counts[index].rejected,
+                        non_finite: kernel_counts[index].non_finite,
+                        proposal_scales_before: before,
+                        proposal_scales_after: after,
+                    }
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         let phase = self.initialization.schedule.phase(self.cycle);
         let omega_update = pending_covariance_update_diagnostics(
             phase,
@@ -579,6 +857,7 @@ impl<E: Equation> SaemState<E> {
                 .schedule
                 .stochastic_approximation_step(self.cycle),
             covariance_step: self.initialization.schedule.covariance_step(self.cycle),
+            mcmc_kernel_diagnostics,
             eta_proposals: eta_proposed,
             eta_accepted,
             eta_rejected,
@@ -1537,6 +1816,130 @@ impl<E: Equation> SaemState<E> {
         proposed_eta[parameter_index] +=
             self.proposal_step_sizes[parameter_index] * self.standard_normal();
         proposed_eta
+    }
+
+    fn prior_independence_eta(&mut self, lower: &[Vec<f64>]) -> Result<Vec<f64>> {
+        let standard_normals = (0..lower.len())
+            .map(|_| self.standard_normal())
+            .collect::<Vec<_>>();
+        correlated_random_walk(&vec![0.0; lower.len()], lower, &standard_normals, 1.0)
+    }
+
+    fn saemix_subset_groups(&mut self, n_parameters: usize) -> (usize, Vec<Vec<usize>>) {
+        if n_parameters == 1 {
+            return (1, vec![vec![0]]);
+        }
+        let subset_size = self.cycle % (n_parameters - 1) + 2;
+        if subset_size == n_parameters {
+            return (subset_size, vec![(0..n_parameters).collect()]);
+        }
+
+        let mut candidates = (1..n_parameters).collect::<Vec<_>>();
+        for index in 0..(subset_size - 1) {
+            let selected = self.rng.random_range(index..candidates.len());
+            candidates.swap(index, selected);
+        }
+        let mut offsets = vec![0];
+        offsets.extend_from_slice(&candidates[..subset_size - 1]);
+        let groups = (0..n_parameters)
+            .map(|start| {
+                offsets
+                    .iter()
+                    .map(|offset| (start + offset) % n_parameters)
+                    .collect()
+            })
+            .collect();
+        (subset_size, groups)
+    }
+
+    fn subset_random_walk_eta(
+        &mut self,
+        current_eta: &[f64],
+        parameters: &[usize],
+        subset_size: usize,
+    ) -> Vec<f64> {
+        let mut proposed_eta = current_eta.to_vec();
+        for parameter in parameters {
+            let step = if current_eta.len() == 1 {
+                self.proposal_step_sizes[*parameter]
+            } else {
+                self.saemix_subset_step_sizes[*parameter][subset_size - 1]
+            };
+            proposed_eta[*parameter] += step * self.standard_normal();
+        }
+        proposed_eta
+    }
+
+    fn saemix_map_distribution(
+        &self,
+        subject_index: usize,
+        policy: SaemixMcmcConfig,
+    ) -> Result<SaemixMapDistribution> {
+        let n_eta = self.initialization.random_effect_indices.len();
+        let initial = self.etas[subject_index][0].clone();
+        let scales = (0..n_eta)
+            .map(|index| self.omega[[index, index]].sqrt() * policy.map_initial_step)
+            .collect::<Vec<_>>();
+        let solution = optimize_conditional_mode(
+            initial,
+            &scales,
+            policy.map_max_iterations as u64,
+            policy.map_sd_tolerance,
+            |eta| match self.score_subject_latents(subject_index, eta, &[]) {
+                Ok(score) if score.log_posterior().is_finite() => -score.log_posterior(),
+                _ => f64::INFINITY,
+            },
+        )?;
+        let coordinates = (0..n_eta)
+            .map(|index| JointLatentCoordinate {
+                index,
+                name: format!("eta:{}", self.initialization.random_effect_names[index]),
+                kind: JointLatentCoordinateKind::Eta {
+                    parameter_index: self.initialization.random_effect_indices[index],
+                },
+                prior_sd: self.omega[[index, index]].sqrt(),
+            })
+            .collect::<Vec<_>>();
+        let prior_sds = coordinates
+            .iter()
+            .map(|coordinate| coordinate.prior_sd)
+            .collect::<Vec<_>>();
+        let mode_metadata = ConditionalModeMetadata {
+            converged: solution.converged,
+            iterations: solution.iterations,
+            objective_value: solution.objective,
+            termination_message: solution.termination,
+        };
+        let curvature = conditional_mode_curvature(
+            &solution.coordinates,
+            &prior_sds,
+            &coordinates,
+            &mode_metadata,
+            |eta| match self.score_subject_latents(subject_index, eta, &[]) {
+                Ok(score) if score.log_posterior().is_finite() => -score.log_posterior(),
+                _ => f64::INFINITY,
+            },
+        );
+        if !matches!(curvature.status, ConditionalCurvatureStatus::Available) {
+            anyhow::bail!(
+                "SAEMix q4 conditional curvature is unavailable for subject '{}': {:?}",
+                self.initialization.subject_ids[subject_index],
+                curvature.status
+            );
+        }
+        let covariance_rows = curvature.latent_covariance.ok_or_else(|| {
+            anyhow::anyhow!("available SAEMix q4 curvature lacks latent covariance")
+        })?;
+        let covariance = Array2::from_shape_vec(
+            (n_eta, n_eta),
+            covariance_rows.into_iter().flatten().collect(),
+        )?;
+        let lower = cholesky_lower(&covariance)?;
+        Ok(SaemixMapDistribution {
+            mode: solution.coordinates,
+            covariance,
+            lower,
+        })
     }
 
     fn block_random_walk_eta(

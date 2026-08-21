@@ -3,7 +3,7 @@ library(saemix)
 library(here)
 data(theo.saemix)
 
-use_one <- TRUE
+use_one <- FALSE
 
 new.csv <- theo.saemix %>% 
   mutate("EVID" = 0) %>%

@@ -5,7 +5,7 @@ use super::covariance::{cholesky_log_determinant, cholesky_lower, solve_lower};
 
 const LOG_2PI: f64 = 1.8378770664093453_f64;
 
-/// Subject-level proposal score used by SAEM MCMC kernels and future FOCE diagnostics.
+/// Subject-level posterior score used by SAEM MCMC kernels.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct SubjectPosteriorScore {
     pub(crate) log_likelihood: f64,

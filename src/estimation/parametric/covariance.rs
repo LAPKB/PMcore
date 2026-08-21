@@ -9,10 +9,7 @@ pub(crate) fn identity_matrix(size: usize) -> Array2<f64> {
     )
 }
 
-/// Lower Cholesky factor of a symmetric positive-definite covariance matrix.
-///
-/// Kept small and ndarray-native for now. This is the shared PMcore path for
-/// η/Ω prior scoring until a crate-wide linear algebra backend is selected.
+/// Lower Cholesky factor used for strict covariance validation and solves.
 pub(crate) fn cholesky_lower(matrix: &Array2<f64>) -> Result<Vec<Vec<f64>>> {
     if matrix.nrows() != matrix.ncols() {
         anyhow::bail!("omega must be square");

@@ -6,10 +6,10 @@ library(here)
 
 i_am("compare_data.r")
 
-pmcore_stats <- read.csv(here("pmcore_output", "pmcore_trace.csv"))
+pmcore_stats <- read.csv(here("outputs", "pmcore_output", "pmcore_trace.csv"))
 pmcore_stats <- split(pmcore_stats, pmcore_stats$trial_id)
 
-saemix_stats <- read.csv(here("SAEMix_output", "saemix_trace.csv"))
+saemix_stats <- read.csv(here("outputs", "SAEMix_output", "saemix_trace.csv"))
 saemix_stats <- split(saemix_stats, saemix_stats$trial_id)
 
 

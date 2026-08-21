@@ -76,9 +76,9 @@ pub mod prelude {
         NpmapConfig, NpodConfig, Omega, OperationalConvergenceConfig, ParametricAlgorithm,
         ParametricConstraint, ParametricErrorModel, ParametricErrorModels, ParametricPrior,
         ProposalScaleSource, ResidualErrorModel, ResidualErrorModels, SaemConfig,
-        SaemEstimatorPolicy, SdeParticleConfig, SdeParticleError, SdeParticleFilter,
-        SdeParticleRecord, SdeParticleResult, ShrinkageDiagnostics, ShrinkageUnavailableReason,
-        ShrinkageValue, SubjectCovariateDesign, SubjectCovariateValue,
+        SaemEstimatorPolicy, SaemixMcmcConfig, SdeParticleConfig, SdeParticleError,
+        SdeParticleFilter, SdeParticleRecord, SdeParticleResult, ShrinkageDiagnostics,
+        ShrinkageUnavailableReason, ShrinkageValue, SubjectCovariateDesign, SubjectCovariateValue,
         SubjectMarginalLikelihoodDiagnostics, SubjectPopulationParameters,
     };
 
@@ -117,7 +117,8 @@ pub mod prelude {
         PopulationUncertaintyStatus, PopulationUncertaintyUnavailableReason, PredictionRow,
         RankDiagnosticStatus, RankMixingDiagnostic, RankMixingDiagnostics,
         ResidualCycleDiagnostics, ResidualErrorEstimate, ResidualErrorRow, SaemCycleDiagnostics,
-        SaemEstimatorMetadata, SaemPhase, StatisticRow, SubjectConditionalMode, SubjectEtaEstimate,
+        SaemEstimatorMetadata, SaemMcmcKernel, SaemMcmcKernelDiagnostics, SaemPhase, StatisticRow,
+        SubjectConditionalMode, SubjectEtaEstimate,
     };
 
     // pharmsol: re-export the crate itself and its curated prelude.

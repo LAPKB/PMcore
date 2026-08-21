@@ -14,6 +14,7 @@ pub use crate::algorithms::nonparametric::{
 pub use crate::algorithms::parametric::{
     CovarianceStabilityConfig, LugsailConfig, MarkovSimulationVarianceConfig,
     OperationalConvergenceConfig, ParametricAlgorithm, SaemConfig, SaemEstimatorPolicy,
+    SaemixMcmcConfig,
 };
 #[allow(deprecated)]
 pub use assay_error::{

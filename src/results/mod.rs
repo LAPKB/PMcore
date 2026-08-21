@@ -15,8 +15,8 @@ pub use fit_result::{
     PopulationUncertaintyDiagnostics, PopulationUncertaintyRegularization,
     PopulationUncertaintyStatus, PopulationUncertaintyUnavailableReason, RankDiagnosticStatus,
     RankMixingDiagnostic, RankMixingDiagnostics, ResidualCycleDiagnostics, ResidualErrorEstimate,
-    SaemCycleDiagnostics, SaemEstimatorMetadata, SaemPhase, SubjectConditionalMode,
-    SubjectEtaEstimate,
+    SaemCycleDiagnostics, SaemEstimatorMetadata, SaemMcmcKernel, SaemMcmcKernelDiagnostics,
+    SaemPhase, SubjectConditionalMode, SubjectEtaEstimate,
 };
 
 pub(crate) use information_criteria::derive_information_criteria;

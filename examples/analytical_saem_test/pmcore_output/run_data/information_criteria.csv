@@ -1,2 +1,0 @@
-status,sample_size_convention,subject_count,population_parameter_count,omega_parameter_count,omega_iov_parameter_count,residual_parameter_count,free_parameter_count,source_marginal_n2ll,source_marginal_n2ll_mcse,aic,bic,aic_mcse,bic_mcse,failure_reason
-not_requested,independent_subjects,2,3,3,0,1,7,,,,,,,

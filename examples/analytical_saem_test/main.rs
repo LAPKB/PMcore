@@ -15,7 +15,7 @@ use csv::{Reader, Writer};
 
 // arguments (ka: f64, ke: f64, v: f64, trial_id: u64)
 fn main() -> Result<()> {
-    remove_dir_all("examples/analytical_saem_test/pmcore_output")?;
+    remove_dir_all("examples/analytical_saem_test/outputs/pmcore_output")?;
 
     // let args: Vec<String> = env::args().collect();
 
@@ -43,9 +43,9 @@ fn main() -> Result<()> {
         println!("Starting trial number: {}", trial_id);
 
         pmcore_loop(ka, ke, v, "examples/analytical_saem_test/converted_data_theo.csv", 
-                                "examples/analytical_saem_test/pmcore_output/run_data")?;
+                                "examples/analytical_saem_test/outputs/pmcore_output/run_data")?;
         
-        let output_file = File::open(Path::new("examples/analytical_saem_test/pmcore_output/run_data/statistics.csv"))?;
+        let output_file = File::open(Path::new("examples/analytical_saem_test/outputs/pmcore_output/run_data/statistics.csv"))?;
         let mut output_reader = Reader::from_reader(output_file);
         let valid_rows: Vec<(u64, String, f64, u64)> = output_reader.records()
             .filter_map(|result| {
@@ -65,7 +65,7 @@ fn main() -> Result<()> {
             .write(true)
             .append(true)
             .create(true)
-            .open("examples/analytical_saem_test/pmcore_output/pmcore_trace.csv")
+            .open("examples/analytical_saem_test/outputs/pmcore_output/pmcore_trace.csv")
             .unwrap();
         let mut trace_writer = Writer::from_writer(trace_file);
         if trial_id == 0 {
@@ -122,7 +122,7 @@ fn pmcore_loop(ka: f64, ke: f64, v: f64, data: impl Into<String>, output: &str) 
     let result = problem.fit_with(config)?;
 
     // Write all output files
-    // let output_dir = "examples/analytical_saem_test/pmcore_output/";
+    // let output_dir = "examples/analytical_saem_test/outputs/pmcore_output/";
     result.write_outputs(output, 0.0, 0.0)?;
 
     // Print comprehensive results summary (matching R saemix format)
