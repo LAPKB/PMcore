@@ -17,18 +17,6 @@ use csv::{Reader, Writer};
 fn main() -> Result<()> {
     remove_dir_all("examples/analytical_saem_test/outputs/pmcore_output")?;
 
-    // let args: Vec<String> = env::args().collect();
-
-    // let ka = args[1].parse::<f64>().expect("Ka argument is not of type f64!");
-    // let ke = args[2].parse::<f64>().expect("Ke argument is not of type f64!");
-    // let v = args[3].parse::<f64>().expect("V argument is not of type f64!");
-    // let data = &args[4];
-    // let output = &args[5];
-
-    // let ka = 1.0;
-    // let ke = 0.025;
-    // let v = 20.0;
-
     let init_file = File::open(Path::new("examples/analytical_saem_test/random_init.csv"))?;
     let mut init_reader = Reader::from_reader(init_file);
 
