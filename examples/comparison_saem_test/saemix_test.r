@@ -15,15 +15,31 @@ saemix.data<-saemixData(
   units=list(x="hr",y="mg/L"), name.X="Time")
 
 model1cpt<-function(psi,id,xidep) {
+  get_dose <- function(doses_applied, dose, time, tau, ka, ke, V) {
+    if (max(unlist(doses_applied)) == 0) {
+      return(doses_applied)
+    }
+
+    apply_new_dose <- doses_applied
+    apply_new_dose[apply_new_dose > 0] <- 1
+    doses_applied <- doses_applied - 1
+    doses_applied[doses_applied < 0] <- 0
+
+    (dose + get_dose(doses_applied, tau, time, tau, ka, ke, V) * apply_new_dose) * 
+      ka / (V * (ka - ke)) *
+      (exp(-ke * time) - exp(-ka * time))
+  }
+
   dose <- xidep[, 1]
   time <- xidep[, 2]
   tau  <- xidep[, 3]
   ka <- psi[id, 1]
   ke <- psi[id, 2]
   V  <- psi[id, 3]
-  ypred <- dose * ka / (V * (ka - ke)) * 
-    (exp(-ke * time)/(1 - exp(-ke * tau)) - exp(-ka * time)/(1 - exp(-ka * tau)))
-  return(ypred)
+
+  doses_applied <- time %/% tau
+
+  return(get_dose(doses_applied, tau, time, tau, ka, ke, V))
 }
 
 saemix.model <- saemixModel(
