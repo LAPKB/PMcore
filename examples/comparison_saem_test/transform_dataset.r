@@ -3,23 +3,25 @@ library(tidyverse)
 
 i_am("transform_dataset.r")
 
-data <- read.csv(here("saem_valid001_one_comp_no_error_oversampled.csv"))
+data <- read.csv(here("datatmp.csv"))
 
-data$INPUT[data$INPUT == 1] <- 0
-data$OUTEQ[data$OUTEQ == 1] <- 0
-data$ID <- substr(data$ID, 3, nchar(data$ID))
+data$input[data$input == 1] <- 0
+data$outeq[data$outeq == 1] <- 0
+data$id <- substr(data$id, 3, nchar(data$id))
+
+data$X <- NULL
 
 write.csv(data, here("data_pmcore.csv"), row.names = FALSE)
 
 
 saemix_data <- data %>% 
-  select(-c(C0, C1, C2, C3, WTMG, CFU0, CENS, OUTEQ, EVID, DUR, ADDL, II, INPUT)) %>%
-  relocate(ID, DOSE, TIME, OUT) %>%
+  select(-c(c0, c1, c2, c3, wtmg, cfu0, cens, outeq, evid, dur, addl, ii, input)) %>%
+  relocate(id, dose, time, out) %>%
   rename(
-    Id = ID,
-    Dose = DOSE,
-    Time = TIME,
-    Concentration = OUT
+    Id = id,
+    Dose = dose,
+    Time = time,
+    Concentration = out
   ) %>%
   mutate(Dose = first(Dose)) %>%
   filter(Concentration != ".")
