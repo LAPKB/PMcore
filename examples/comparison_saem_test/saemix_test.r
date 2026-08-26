@@ -25,7 +25,7 @@ model1cpt<-function(psi,id,xidep) {
     doses_applied <- doses_applied - 1
     doses_applied[doses_applied < 0] <- 0
 
-    (dose + get_dose(doses_applied, tau, time, tau, ka, ke, V) * apply_new_dose) * 
+    (dose + (get_dose(doses_applied, dose, tau, tau, ka, ke, V) * apply_new_dose)) * 
       ka / (V * (ka - ke)) *
       (exp(-ke * time) - exp(-ka * time))
   }
@@ -38,6 +38,7 @@ model1cpt<-function(psi,id,xidep) {
   V  <- psi[id, 3]
 
   doses_applied <- time %/% tau
+  time <- time - tau * doses_applied
 
   return(get_dose(doses_applied, tau, time, tau, ka, ke, V))
 }
@@ -65,7 +66,7 @@ saemix.config = saemixControl(
   nbiter.saemix = c(300, 150),
   directory = here("outputs", "saemix_output"),
   save.graphs = FALSE,
-  alpha.sa = 1.0
+  alpha.sa = 1.0,
 )
 
 saemix.fit<-saemix(saemix.model, saemix.data, saemix.config)
