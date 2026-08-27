@@ -28,7 +28,7 @@ tracing-subscriber = { version = "0.3.19", features = [
     "time",
 ] }
 faer = "0.24.0"
-pharmsol = { version = "=0.28.8" }
+pharmsol = { version = "=0.29.0" }
 anyhow = "1.0.100"
 rayon = "1.10.0"
 rand = "0.10.1"
@@ -37,10 +37,7 @@ rand = "0.10.1"
 default = []
 json = []
 exa = []
-dsl-core = ["pharmsol/dsl-core"]
-dsl-jit = ["pharmsol/dsl-jit"]
-dsl-aot = ["pharmsol/dsl-aot"]
-dsl-aot-load = ["pharmsol/dsl-aot-load"]
+dsl = ["pharmsol/dsl"]
 
 [profile.release]
 codegen-units = 1
@@ -59,8 +56,8 @@ name = "bimodal_ke"
 harness = false
 
 # The BestDose example defines its model from a DSL text string, which requires
-# a runtime DSL backend. Build/run it with: `--features dsl-jit`.
+# a runtime DSL backend. Build/run it with: `--features dsl`.
 [[example]]
 name = "bestdose"
 path = "examples/bestdose/main.rs"
-required-features = ["dsl-jit"]
+required-features = ["dsl"]
