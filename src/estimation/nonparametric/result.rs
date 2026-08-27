@@ -374,11 +374,10 @@ impl<E: Equation> NonParametricResult<E> {
     /// - `pred.csv` — population and posterior predictions
     /// - `covs.csv` — interpolated covariates
     /// - `cycles.csv` — cycle log
-    /// - `result.json` — the complete result as JSON
     ///
-    /// The posterior and predictions are computed once and shared across the CSV
-    /// and JSON outputs. `idelta` and `tad` control the density of the
-    /// predictions (see [`predictions`](Self::predictions)).
+    /// Use [`write_json`](Self::write_json) to explicitly write the complete result.
+    /// `idelta` and `tad` control the density of the predictions (see
+    /// [`predictions`](Self::predictions)).
     pub fn write_outputs(
         &self,
         directory: impl AsRef<Path>,
@@ -397,7 +396,6 @@ impl<E: Equation> NonParametricResult<E> {
         predictions.write(&dir.join("pred.csv"))?;
         self.write_covariates(&dir.join("covs.csv"))?;
         self.write_cycles(&dir.join("cycles.csv"))?;
-        self.write_json_with(&dir.join("result.json"), &posterior, &predictions)?;
 
         tracing::info!("Results written to {}", dir.display());
         Ok(())
