@@ -61,3 +61,8 @@ harness = false
 name = "bestdose"
 path = "examples/bestdose/main.rs"
 required-features = ["dsl"]
+
+[[example]]
+name = "bimodal_ke_backend_compare"
+path = "examples/bimodal_ke_backend_compare.rs"
+required-features = ["dsl"]
