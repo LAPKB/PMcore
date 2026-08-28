@@ -139,11 +139,7 @@ impl_metadata_opt!(ODE, Analytical, SDE);
 macro_rules! impl_metadata_some {
     ($($t:ty),+) => {
         $(
-            #[cfg(any(
-                feature = "dsl-jit",
-                all(feature = "dsl-aot", feature = "dsl-aot-load"),
-                all(feature = "dsl-wasm", not(all(target_arch = "wasm32", target_os = "unknown")))
-            ))]
+            #[cfg(feature = "dsl")]
             impl EquationMetadataSource for $t {
                 fn equation_metadata(&self) -> Option<&ValidatedModelMetadata> {
                     Some(self.metadata())
