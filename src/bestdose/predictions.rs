@@ -7,25 +7,27 @@
 //! AUC(t) = Σᵢ (C[i] + C[i-1]) / 2 × (t[i] - t[i-1])
 //! ```
 
+use anyhow::{anyhow, Result};
 use pharmsol::prelude::*;
 
 /// Find the time of the last dose (bolus or infusion) before a given observation
 /// time. Returns `0.0` if no dose exists before `obs_time`.
-pub fn find_last_dose_time_before(subject: &Subject, obs_time: f64) -> f64 {
+///
+/// Scoped to one occasion: the model state resets between occasions, so a dose
+/// in an earlier occasion is not the last dose for this one.
+pub fn find_last_dose_time_before(occasion: &Occasion, obs_time: f64) -> f64 {
     let mut last_dose_time = 0.0;
 
-    for occasion in subject.occasions() {
-        for event in occasion.events() {
-            let event_time = match event {
-                Event::Bolus(b) => Some(b.time()),
-                Event::Infusion(i) => Some(i.time()),
-                Event::Observation(_) => None,
-            };
+    for event in occasion.events() {
+        let event_time = match event {
+            Event::Bolus(b) => Some(b.time()),
+            Event::Infusion(i) => Some(i.time()),
+            Event::Observation(_) => None,
+        };
 
-            if let Some(t) = event_time {
-                if t < obs_time && t > last_dose_time {
-                    last_dose_time = t;
-                }
+        if let Some(t) = event_time {
+            if t < obs_time && t > last_dose_time {
+                last_dose_time = t;
             }
         }
     }
@@ -60,7 +62,7 @@ pub fn calculate_dense_times(
         times.push(end_time);
     }
 
-    times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    times.sort_by(f64::total_cmp);
 
     let tolerance = 1e-10;
     let mut unique_times = Vec::new();
@@ -84,8 +86,14 @@ pub fn calculate_auc_at_times(
     dense_times: &[f64],
     dense_predictions: &[f64],
     target_times: &[f64],
-) -> Vec<f64> {
-    assert_eq!(dense_times.len(), dense_predictions.len());
+) -> Result<Vec<f64>> {
+    if dense_times.len() != dense_predictions.len() {
+        return Err(anyhow!(
+            "dense time grid ({}) and prediction ({}) lengths differ",
+            dense_times.len(),
+            dense_predictions.len()
+        ));
+    }
 
     let mut target_aucs = Vec::with_capacity(target_times.len());
     let mut auc = 0.0;
@@ -105,7 +113,7 @@ pub fn calculate_auc_at_times(
         }
     }
 
-    target_aucs
+    Ok(target_aucs)
 }
 
 /// Calculate interval AUC for each observation independently.
@@ -113,18 +121,35 @@ pub fn calculate_auc_at_times(
 /// For each observation at time `t`, integrates from the last dose before `t` to
 /// `t` (e.g. dosing-interval AUCτ at steady state).
 pub fn calculate_interval_auc_per_observation(
-    subject: &Subject,
+    occasion: &Occasion,
     dense_times: &[f64],
     dense_predictions: &[f64],
     obs_times: &[f64],
-) -> Vec<f64> {
-    assert_eq!(dense_times.len(), dense_predictions.len());
+) -> Result<Vec<f64>> {
+    if dense_times.len() != dense_predictions.len() {
+        return Err(anyhow!(
+            "dense time grid ({}) and prediction ({}) lengths differ",
+            dense_times.len(),
+            dense_predictions.len()
+        ));
+    }
+
+    if obs_times.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    if dense_times.is_empty() {
+        return Err(anyhow!(
+            "cannot compute interval AUC for {} observations on an empty time grid",
+            obs_times.len()
+        ));
+    }
 
     let mut interval_aucs = Vec::with_capacity(obs_times.len());
     let tolerance = 1e-10;
 
     for &obs_time in obs_times {
-        let last_dose_time = find_last_dose_time_before(subject, obs_time);
+        let last_dose_time = find_last_dose_time_before(occasion, obs_time);
 
         let start_idx = dense_times
             .iter()
@@ -146,5 +171,5 @@ pub fn calculate_interval_auc_per_observation(
         interval_aucs.push(auc);
     }
 
-    interval_aucs
+    Ok(interval_aucs)
 }

@@ -85,6 +85,12 @@ pub(crate) fn optimize<E: Equation>(objective: &BestDoseObjective<E>) -> Result<
         let initial_point = vec![initial_guess; num_optimizable];
         let initial_simplex = create_initial_simplex(&initial_point);
 
+        // Nelder-Mead unwraps cost errors while evaluating the initial simplex,
+        // so evaluate it here first to report any failure as an error.
+        for vertex in &initial_simplex {
+            calculate_cost(objective, vertex)?;
+        }
+
         let solver: NelderMead<Vec<f64>, f64> =
             NelderMead::new(initial_simplex).with_sd_tolerance(1e-10)?;
 
@@ -92,7 +98,10 @@ pub(crate) fn optimize<E: Equation>(objective: &BestDoseObjective<E>) -> Result<
             .configure(|state| state.max_iters(1000))
             .run()?;
 
-        opt.state().best_param.clone().unwrap()
+        opt.state()
+            .best_param
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("Nelder-Mead returned no best dose vector"))?
     };
 
     // Evaluate once at the optimum to recover the cost and target achievements.
