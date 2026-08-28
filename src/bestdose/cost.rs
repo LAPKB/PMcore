@@ -406,6 +406,12 @@ pub(crate) fn evaluate<E: Equation>(
         ));
     }
 
+    if let Some(bad) = obs_times.iter().find(|t| !t.is_finite()) {
+        return Err(anyhow::anyhow!(
+            "Target observation times must be finite, got {bad}"
+        ));
+    }
+
     let obs_vec: Vec<f64> = target_subject
         .occasions()
         .iter()

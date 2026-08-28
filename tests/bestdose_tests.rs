@@ -229,6 +229,40 @@ fn all_fixed_doses_return_unchanged() -> Result<()> {
     Ok(())
 }
 
+/// A failing cost function must surface as an error, never a panic.
+#[test]
+fn optimize_errors_instead_of_panicking() -> Result<()> {
+    let problem = BestDoseProblem::new(bolus_model(), theta(&[[0.3, 50.0]]), Weights::uniform(1))?;
+
+    let no_observations = Subject::builder("p").bolus(0.0, 0.0, 0).build();
+    let err = problem
+        .optimize(
+            no_observations,
+            Target::Concentration,
+            DoseRange::new(0.0, 300.0),
+            0.0,
+            BestDoseOptions::default(),
+        )
+        .expect_err("a target without observations must error");
+    assert!(err.to_string().contains("no observations"), "{err}");
+
+    let nan_time = Subject::builder("p")
+        .bolus(0.0, 0.0, 0)
+        .observation(f64::NAN, 5.0, 0)
+        .build();
+    let err = problem
+        .optimize(
+            nan_time,
+            Target::AUCFromZero,
+            DoseRange::new(0.0, 300.0),
+            0.0,
+            BestDoseOptions::default(),
+        )
+        .expect_err("a non-finite observation time must error");
+    assert!(err.to_string().contains("finite"), "{err}");
+    Ok(())
+}
+
 #[test]
 fn infusions_are_optimizable() -> Result<()> {
     let problem =
