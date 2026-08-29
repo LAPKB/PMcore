@@ -68,13 +68,191 @@ use crate::bestdose::predictions::{
 use crate::bestdose::types::{Achievement, BestDoseObjective, Target};
 use pharmsol::prelude::*;
 use pharmsol::Equation;
+use pharmsol::OutputLabel;
 use pharmsol::Predictions;
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+use std::collections::HashMap;
 
 /// Cost together with the per-observation target achievements at a candidate
 /// dose regimen.
 pub(crate) struct Evaluation {
     pub cost: f64,
     pub achievements: Vec<Achievement>,
+}
+
+/// Dense-grid setup for the AUC targets.
+///
+/// Holds one dense-sampling subject per distinct output label. Every prediction
+/// a simulation returns then belongs to that label, so labels never have to be
+/// resolved to the dense output indices carried by `Prediction`.
+struct AucGrid {
+    /// Output labels of the target observations, in their original order.
+    obs_labels: Vec<OutputLabel>,
+    groups: Vec<AucGroup>,
+}
+
+struct AucGroup {
+    label: OutputLabel,
+    dense_subject: Subject,
+    /// Per occasion of `dense_subject`, in order.
+    occasions: Vec<AucOccasion>,
+}
+
+struct AucOccasion {
+    dense_times: Vec<f64>,
+    obs_times: Vec<f64>,
+}
+
+fn build_auc_grid(target_subject: &Subject, prediction_interval: f64) -> AucGrid {
+    let obs_labels: Vec<OutputLabel> = target_subject
+        .occasions()
+        .iter()
+        .flat_map(|occ| occ.events())
+        .filter_map(|event| match event {
+            Event::Observation(obs) => Some(obs.outeq().clone()),
+            _ => None,
+        })
+        .collect();
+
+    let mut unique_labels = obs_labels.clone();
+    unique_labels.sort();
+    unique_labels.dedup();
+
+    let groups = unique_labels
+        .into_iter()
+        .map(|label| build_auc_group(target_subject, label, prediction_interval))
+        .collect();
+
+    AucGrid { obs_labels, groups }
+}
+
+fn build_auc_group(
+    target_subject: &Subject,
+    label: OutputLabel,
+    prediction_interval: f64,
+) -> AucGroup {
+    // Cloning preserves the covariates and occasion structure the simulation needs;
+    // only the observations are swapped for dense sampling times of `label`.
+    let mut dense_subject = target_subject.clone();
+    let mut occasions = Vec::with_capacity(dense_subject.occasions().len());
+
+    for occasion in dense_subject.iter_mut() {
+        let obs_times: Vec<f64> = occasion
+            .events()
+            .iter()
+            .filter_map(|event| match event {
+                Event::Observation(obs) if obs.outeq() == &label => Some(obs.time()),
+                _ => None,
+            })
+            .collect();
+
+        let dense_times = if obs_times.is_empty() {
+            Vec::new()
+        } else {
+            let end_time = obs_times.last().copied().unwrap_or(0.0);
+            calculate_dense_times(0.0, end_time, &obs_times, prediction_interval)
+        };
+
+        occasion
+            .events_mut()
+            .retain(|event| !matches!(event, Event::Observation(_)));
+        for &t in &dense_times {
+            occasion.add_missing_observation(t, &label);
+        }
+
+        occasions.push(AucOccasion {
+            dense_times,
+            obs_times,
+        });
+    }
+
+    AucGroup {
+        label,
+        dense_subject,
+        occasions,
+    }
+}
+
+fn concentration_predictions<E: Equation>(
+    eq: &E,
+    target_subject: &Subject,
+    spp: &[f64],
+) -> Result<Vec<f64>> {
+    let pred = eq.simulate_subject_dense(target_subject, spp, None)?;
+    Ok(pred
+        .0
+        .get_predictions()
+        .iter()
+        .map(|p| p.prediction())
+        .collect())
+}
+
+fn auc_predictions<E: Equation>(
+    eq: &E,
+    grid: &AucGrid,
+    target_type: Target,
+    spp: &[f64],
+) -> Result<Vec<f64>> {
+    let mut aucs_by_label: HashMap<&OutputLabel, Vec<f64>> = HashMap::new();
+
+    for group in &grid.groups {
+        let pred = eq.simulate_subject_dense(&group.dense_subject, spp, None)?;
+        let dense_predictions: Vec<f64> = pred
+            .0
+            .get_predictions()
+            .iter()
+            .map(|p| p.prediction())
+            .collect();
+
+        // State resets between occasions, so integrate within one, never across.
+        let mut aucs = Vec::with_capacity(group.occasions.len());
+        let mut offset = 0;
+        for (occasion, plan) in group.dense_subject.occasions().iter().zip(&group.occasions) {
+            let end = offset + plan.dense_times.len();
+            let preds = dense_predictions.get(offset..end).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "expected {} dense predictions for output `{}`, got {}",
+                    end,
+                    group.label,
+                    dense_predictions.len()
+                )
+            })?;
+            offset = end;
+
+            aucs.extend(match target_type {
+                Target::AUCFromLastDose => calculate_interval_auc_per_observation(
+                    occasion,
+                    &plan.dense_times,
+                    preds,
+                    &plan.obs_times,
+                )?,
+                _ => calculate_auc_at_times(&plan.dense_times, preds, &plan.obs_times)?,
+            });
+        }
+
+        aucs_by_label.insert(&group.label, aucs);
+    }
+
+    // Reassemble into the original observation order.
+    let mut taken: HashMap<&OutputLabel, usize> = HashMap::new();
+    grid.obs_labels
+        .iter()
+        .map(|label| {
+            let aucs = aucs_by_label
+                .get(label)
+                .ok_or_else(|| anyhow::anyhow!("no AUC group for output `{}`", label))?;
+            let index = taken.entry(label).or_insert(0);
+            let auc = aucs.get(*index).copied().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "AUC could not be computed for observation {} of output `{}`",
+                    index,
+                    label
+                )
+            })?;
+            *index += 1;
+            Ok(auc)
+        })
+        .collect()
 }
 
 /// Calculate cost function for a candidate dose regimen
@@ -228,6 +406,12 @@ pub(crate) fn evaluate<E: Equation>(
         ));
     }
 
+    if let Some(bad) = obs_times.iter().find(|t| !t.is_finite()) {
+        return Err(anyhow::anyhow!(
+            "Target observation times must be finite, got {bad}"
+        ));
+    }
+
     let obs_vec: Vec<f64> = target_subject
         .occasions()
         .iter()
@@ -238,318 +422,55 @@ pub(crate) fn evaluate<E: Equation>(
         })
         .collect();
 
-    let obs_outeqs: Vec<usize> = target_subject
+    let obs_labels: Vec<OutputLabel> = target_subject
         .occasions()
         .iter()
         .flat_map(|occ| occ.events())
         .filter_map(|event| match event {
-            Event::Observation(obs) => Some(obs.outeq_index().unwrap_or(0)),
+            Event::Observation(obs) => Some(obs.outeq().clone()),
             _ => None,
         })
         .collect();
 
     let n_obs = obs_vec.len();
 
+    let auc_grid = match problem.target_type {
+        Target::Concentration => None,
+        Target::AUCFromZero | Target::AUCFromLastDose => {
+            Some(build_auc_grid(&target_subject, problem.prediction_interval))
+        }
+    };
+
+    // Simulation dominates the cost of an evaluation, so support points — which
+    // are independent — are simulated in parallel.
+    let theta = problem.theta.matrix();
+    let preds: Vec<Vec<f64>> = (0..theta.nrows())
+        .into_par_iter()
+        .map(|i| {
+            let spp: Vec<f64> = theta.row(i).iter().copied().collect();
+            let preds_i = match &auc_grid {
+                None => concentration_predictions(&problem.eq, &target_subject, &spp)?,
+                Some(grid) => auc_predictions(&problem.eq, grid, problem.target_type, &spp)?,
+            };
+
+            if preds_i.len() != n_obs {
+                return Err(anyhow::anyhow!(
+                    "prediction length ({}) != observation length ({})",
+                    preds_i.len(),
+                    n_obs
+                ));
+            }
+
+            Ok(preds_i)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
     // Accumulators
     let mut variance = 0.0_f64; // Expected squared error E[(target - pred)²]
     let mut y_bar = vec![0.0_f64; n_obs]; // Weighted-mean predictions
 
     // Both cost terms are computed from the single distribution weights.
-    for (row, prob) in problem
-        .theta
-        .matrix()
-        .row_iter()
-        .zip(problem.weights.iter())
-    {
-        let spp = row.iter().copied().collect::<Vec<f64>>();
-
-        // Get predictions based on target type
-        let preds_i: Vec<f64> = match problem.target_type {
-            Target::Concentration => {
-                // Simulate at observation times only
-                let pred = problem
-                    .eq
-                    .simulate_subject_dense(&target_subject, &spp, None)?;
-                pred.0
-                    .get_predictions()
-                    .iter()
-                    .map(|p| p.prediction())
-                    .collect()
-            }
-            Target::AUCFromZero => {
-                // For AUC: simulate at dense time grid and calculate cumulative AUC
-                let idelta = problem.prediction_interval;
-                let start_time = 0.0; // Future starts at 0
-                let end_time = obs_times.last().copied().unwrap_or(0.0);
-
-                // Generate dense time grid
-                let dense_times = calculate_dense_times(start_time, end_time, &obs_times, idelta);
-
-                // Create temporary subject with dense time points for simulation
-                let subject_id = target_subject.id().to_string();
-                let mut builder = Subject::builder(&subject_id);
-
-                // Add all doses from original subject
-                for occasion in target_subject.occasions() {
-                    for event in occasion.events() {
-                        match event {
-                            Event::Bolus(bolus) => {
-                                builder =
-                                    builder.bolus(bolus.time(), bolus.amount(), bolus.input());
-                            }
-                            Event::Infusion(infusion) => {
-                                builder = builder.infusion(
-                                    infusion.time(),
-                                    infusion.amount(),
-                                    infusion.input(),
-                                    infusion.duration(),
-                                );
-                            }
-                            Event::Observation(_) => {} // Skip original observations
-                        }
-                    }
-                }
-
-                // Collect observations with (time, outeq) pairs to preserve original order
-                let obs_time_outeq: Vec<(f64, usize)> = target_subject
-                    .occasions()
-                    .iter()
-                    .flat_map(|occ| occ.events())
-                    .filter_map(|event| match event {
-                        Event::Observation(obs) => Some(
-                            obs.outeq_index()
-                                .map(|outeq| (obs.time(), outeq))
-                                .ok_or_else(|| {
-                                    anyhow::anyhow!(
-                                        "BestDose AUC calculations require numeric observation output labels; got `{}`",
-                                        obs.outeq()
-                                    )
-                                }),
-                        ),
-                        _ => None,
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-
-                let mut unique_outeqs: Vec<usize> =
-                    obs_time_outeq.iter().map(|(_, outeq)| *outeq).collect();
-                unique_outeqs.sort();
-                unique_outeqs.dedup();
-
-                // Add observations at dense times (with dummy values for timing only)
-                for outeq in unique_outeqs.iter() {
-                    for &t in &dense_times {
-                        builder = builder.missing_observation(t, *outeq);
-                    }
-                }
-
-                let dense_subject = builder.build();
-
-                // Simulate at dense times
-                let pred = problem
-                    .eq
-                    .simulate_subject_dense(&dense_subject, &spp, None)?;
-                let dense_predictions_with_outeq = pred.0.get_predictions();
-
-                // Group predictions by outeq using the Prediction struct
-                let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =
-                    std::collections::HashMap::new();
-
-                for prediction in dense_predictions_with_outeq {
-                    outeq_predictions
-                        .entry(prediction.outeq())
-                        .or_default()
-                        .push(prediction.prediction());
-                }
-
-                // Calculate AUC for each outeq separately
-                let mut outeq_aucs: std::collections::HashMap<usize, Vec<f64>> =
-                    std::collections::HashMap::new();
-
-                for &outeq in unique_outeqs.iter() {
-                    let outeq_preds = outeq_predictions.get(&outeq).ok_or_else(|| {
-                        anyhow::anyhow!("Missing predictions for outeq {}", outeq)
-                    })?;
-
-                    // Get observation times for this outeq only
-                    let outeq_obs_times: Vec<f64> = obs_time_outeq
-                        .iter()
-                        .filter(|(_, o)| *o == outeq)
-                        .map(|(t, _)| *t)
-                        .collect();
-
-                    // Calculate AUC at observation times for this outeq
-                    let aucs = calculate_auc_at_times(&dense_times, outeq_preds, &outeq_obs_times);
-                    outeq_aucs.insert(outeq, aucs);
-                }
-
-                // Build final AUC vector in original observation order
-                let mut result_aucs = Vec::with_capacity(obs_time_outeq.len());
-                let mut outeq_counters: std::collections::HashMap<usize, usize> =
-                    std::collections::HashMap::new();
-
-                for (_, outeq) in obs_time_outeq.iter() {
-                    let aucs = outeq_aucs
-                        .get(outeq)
-                        .ok_or_else(|| anyhow::anyhow!("Missing AUC for outeq {}", outeq))?;
-
-                    let counter = outeq_counters.entry(*outeq).or_insert(0);
-                    if *counter < aucs.len() {
-                        result_aucs.push(aucs[*counter]);
-                        *counter += 1;
-                    } else {
-                        return Err(anyhow::anyhow!(
-                            "AUC index out of bounds for outeq {}",
-                            outeq
-                        ));
-                    }
-                }
-
-                result_aucs
-            }
-            Target::AUCFromLastDose => {
-                // For interval AUC: simulate at dense time grid and calculate AUC from last dose
-                let idelta = problem.prediction_interval;
-                let end_time = obs_times.last().copied().unwrap_or(0.0);
-
-                // Generate dense time grid from 0 to end_time (need full grid for intervals)
-                let dense_times = calculate_dense_times(0.0, end_time, &obs_times, idelta);
-
-                // Create temporary subject with dense time points for simulation
-                let subject_id = target_subject.id().to_string();
-                let mut builder = Subject::builder(&subject_id);
-
-                // Add all doses from original subject
-                for occasion in target_subject.occasions() {
-                    for event in occasion.events() {
-                        match event {
-                            Event::Bolus(bolus) => {
-                                builder =
-                                    builder.bolus(bolus.time(), bolus.amount(), bolus.input());
-                            }
-                            Event::Infusion(infusion) => {
-                                builder = builder.infusion(
-                                    infusion.time(),
-                                    infusion.amount(),
-                                    infusion.input(),
-                                    infusion.duration(),
-                                );
-                            }
-                            Event::Observation(_) => {} // Skip original observations
-                        }
-                    }
-                }
-
-                // Collect observations with (time, outeq) pairs to preserve original order
-                let obs_time_outeq: Vec<(f64, usize)> = target_subject
-                    .occasions()
-                    .iter()
-                    .flat_map(|occ| occ.events())
-                    .filter_map(|event| match event {
-                        Event::Observation(obs) => Some(
-                            obs.outeq_index()
-                                .map(|outeq| (obs.time(), outeq))
-                                .ok_or_else(|| {
-                                    anyhow::anyhow!(
-                                        "BestDose AUC calculations require numeric observation output labels; got `{}`",
-                                        obs.outeq()
-                                    )
-                                }),
-                        ),
-                        _ => None,
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-
-                let mut unique_outeqs: Vec<usize> =
-                    obs_time_outeq.iter().map(|(_, outeq)| *outeq).collect();
-                unique_outeqs.sort();
-                unique_outeqs.dedup();
-
-                // Add observations at dense times
-                for outeq in unique_outeqs.iter() {
-                    for &t in &dense_times {
-                        builder = builder.missing_observation(t, *outeq);
-                    }
-                }
-
-                let dense_subject = builder.build();
-
-                // Simulate at dense times
-                let pred = problem
-                    .eq
-                    .simulate_subject_dense(&dense_subject, &spp, None)?;
-                let dense_predictions_with_outeq = pred.0.get_predictions();
-
-                // Group predictions by outeq
-                let mut outeq_predictions: std::collections::HashMap<usize, Vec<f64>> =
-                    std::collections::HashMap::new();
-
-                for prediction in dense_predictions_with_outeq {
-                    outeq_predictions
-                        .entry(prediction.outeq())
-                        .or_default()
-                        .push(prediction.prediction());
-                }
-
-                // Calculate interval AUC for each outeq separately
-                let mut outeq_aucs: std::collections::HashMap<usize, Vec<f64>> =
-                    std::collections::HashMap::new();
-
-                for &outeq in unique_outeqs.iter() {
-                    let outeq_preds = outeq_predictions.get(&outeq).ok_or_else(|| {
-                        anyhow::anyhow!("Missing predictions for outeq {}", outeq)
-                    })?;
-
-                    // Get observation times for this outeq only
-                    let outeq_obs_times: Vec<f64> = obs_time_outeq
-                        .iter()
-                        .filter(|(_, o)| *o == outeq)
-                        .map(|(t, _)| *t)
-                        .collect();
-
-                    // Calculate interval AUC at observation times for this outeq
-                    let aucs = calculate_interval_auc_per_observation(
-                        &target_subject,
-                        &dense_times,
-                        outeq_preds,
-                        &outeq_obs_times,
-                    );
-                    outeq_aucs.insert(outeq, aucs);
-                }
-
-                // Build final AUC vector in original observation order
-                let mut result_aucs = Vec::with_capacity(obs_time_outeq.len());
-                let mut outeq_counters: std::collections::HashMap<usize, usize> =
-                    std::collections::HashMap::new();
-
-                for (_, outeq) in obs_time_outeq.iter() {
-                    let aucs = outeq_aucs
-                        .get(outeq)
-                        .ok_or_else(|| anyhow::anyhow!("Missing AUC for outeq {}", outeq))?;
-
-                    let counter = outeq_counters.entry(*outeq).or_insert(0);
-                    if *counter < aucs.len() {
-                        result_aucs.push(aucs[*counter]);
-                        *counter += 1;
-                    } else {
-                        return Err(anyhow::anyhow!(
-                            "AUC index out of bounds for outeq {}",
-                            outeq
-                        ));
-                    }
-                }
-
-                result_aucs
-            }
-        };
-
-        if preds_i.len() != n_obs {
-            return Err(anyhow::anyhow!(
-                "prediction length ({}) != observation length ({})",
-                preds_i.len(),
-                n_obs
-            ));
-        }
-
+    for (preds_i, prob) in preds.iter().zip(problem.weights.iter()) {
         // Calculate variance term: weighted by the distribution probability
         let mut sumsq_i = 0.0_f64;
         for (j, &obs_val) in obs_vec.iter().enumerate() {
@@ -577,12 +498,12 @@ pub(crate) fn evaluate<E: Equation>(
     // Expected achieved value at each observation is the weighted-mean prediction.
     let achievements = obs_times
         .iter()
-        .zip(obs_outeqs.iter())
+        .zip(obs_labels.iter())
         .zip(obs_vec.iter())
         .zip(y_bar.iter())
-        .map(|(((&time, &outeq), &target), &achieved)| Achievement {
+        .map(|(((&time, outeq), &target), &achieved)| Achievement {
             time,
-            outeq,
+            outeq: outeq.clone(),
             target,
             achieved,
         })
