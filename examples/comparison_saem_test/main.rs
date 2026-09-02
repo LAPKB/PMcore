@@ -38,12 +38,38 @@ fn main() -> Result<()> {
         .build()?;
 
     let config = SaemConfig::new()
-        .seed(632545) // weird, typically you have something like "13" or "9", we use -17
-        .n_chains(25)
-        // .mcmc_iterations(2)
-        .burn_in(5)
         .k1_iterations(300)
-        .k2_iterations(150);
+        .k2_iterations(100)
+        .burn_in(5)
+        
+        .n_chains(1)
+        .seed(632545)
+
+        // sa_iterations: 0,
+        // sa_cooling_factor: 0.97,
+        // rw_init: 0.5,
+        .mcmc_iterations(1)
+        // Disabled by default; opt in to the block-mixture kernel.
+        .eta_block_iterations(0)
+        // .saemix_mcmc(None)
+        .adapt_interval(50)
+        // Guard against one-draw correlated Ω collapse in exploration.
+        .omega_sa_max_step(0.1)
+        // omega_min_variance: 1e-6,
+        .omega_iov_min_variance(1e-8)
+        // Uses the established 1e-12 residual-variance guard on the SD scale.
+        .residual_min_sigma(1e-6)
+        .residual_optimizer_max_iterations(200)
+        .compute_map(true)
+        .map_max_iterations(200)
+        .map_sd_tolerance(1e-8)
+        .map_initial_step(0.1)
+        .estimator_policy(SaemEstimatorPolicy::TerminalIterate)
+        // .markov_simulation_variance(None)
+        // .covariance_stability(None)
+        // .operational_convergence(None)
+        // .marginal_likelihood(None)
+        ;
 
     let result = problem.fit_with(config)?;
 
