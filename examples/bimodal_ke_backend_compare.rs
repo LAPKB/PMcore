@@ -128,7 +128,7 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
         compile_time,
         fit_time,
         total_time: compile_time + fit_time,
-        objf: result.objf(),
+        objf: result.n2ll(),
     })
 }
 

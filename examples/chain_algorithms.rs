@@ -51,8 +51,8 @@ fn main() -> Result<()> {
         .chain(NpodConfig::new().max_cycles(5))?;
 
     println!(
-        "Chained NPAG→NPOD: OBJF = {:.2}, {} support points, {} total cycles",
-        result.objf(),
+        "Chained NPAG→NPOD: -2LL = {:.2}, {} support points, {} total cycles",
+        result.n2ll(),
         result.get_theta().nspp(),
         result.cycles(),
     );

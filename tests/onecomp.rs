@@ -66,7 +66,7 @@ fn test_one_compartment_npag() -> Result<()> {
 
     // Check the results
     assert_eq!(result.cycles(), 31);
-    assert!(result.objf() - 565.7749 < 0.01);
+    assert!(result.n2ll() - 565.7749 < 0.01);
 
     // The prior is preserved on the result and is distinct from the optimized
     // solution (which is condensed to far fewer support points).
@@ -132,7 +132,7 @@ fn test_one_compartment_npod() -> Result<()> {
 
     // Check the results
     assert_eq!(result.cycles(), 11);
-    assert!(result.objf() - 565.7749 < 0.01);
+    assert!(result.n2ll() - 565.7749 < 0.01);
 
     Ok(())
 }
@@ -194,8 +194,9 @@ fn test_one_compartment_postprob() -> Result<()> {
     let result = EstimationProblem::nonparametric(eq, data, theta.clone(), error_models)?
         .fit_with(NonParametricAlgorithm::npmap())?;
 
-    // Check the results
-    assert_eq!(result.cycles(), 0);
+    // NPMAP is single-pass: exactly one cycle is evaluated and logged
+    assert_eq!(result.cycles(), 1);
+    assert_eq!(result.cycle_log().cycles().len(), 1);
 
     // Should be 100 points in theta (no change in points)
     assert_eq!(result.get_theta().nspp(), theta.nspp());

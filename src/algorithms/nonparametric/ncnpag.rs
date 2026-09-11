@@ -1,7 +1,7 @@
 use crate::{
     algorithms::{
         nonparametric::{npag::NPAG, NpagConfig},
-        NonParametricRunner, Status, StopReason,
+        FitState, NonParametricRunner, Status, StopReason,
     },
     estimation::nonparametric::{
         calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
@@ -78,14 +78,14 @@ pub struct NCNPAG<E: Equation + Send + 'static> {
     psi: Psi,
     theta: Theta,
     w: Weights,
-    objf: f64,
+    log_likelihood: f64,
     cycle: usize,
     status: Status,
     data: Data,
     cyclelog: CycleLog,
     error_models: AssayErrorModels,
     prior: Theta,
-    cycles: usize,
+    refinement_cycles: usize,
     progress: bool,
 }
 
@@ -102,14 +102,14 @@ impl<E: Equation + Send + 'static> NCNPAG<E> {
             psi: Psi::new(),
             theta: theta.clone(),
             w: Weights::default(),
-            objf: f64::INFINITY,
+            log_likelihood: f64::INFINITY,
             cycle: 0,
             status: Status::Continue,
             data,
             cyclelog: CycleLog::new(),
             error_models,
             prior: theta,
-            cycles: config.cycles,
+            refinement_cycles: config.cycles,
             progress: config.progress,
         })
     }
@@ -211,27 +211,7 @@ fn marginal_loglik(psi: &Psi, w: &Weights) -> f64 {
         + psi.log_scale()
 }
 
-impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
-    fn into_result(&self) -> Result<NonParametricResult<E>> {
-        NonParametricResult::new(
-            self.equation.clone(),
-            self.data.clone(),
-            self.error_models.clone(),
-            self.prior.clone(),
-            self.theta.clone(),
-            self.psi.clone(),
-            self.w.clone(),
-            self.objf,
-            self.cycle,
-            self.status.clone(),
-            self.cyclelog.clone(),
-        )
-    }
-
-    fn error_models(&self) -> &AssayErrorModels {
-        &self.error_models
-    }
-
+impl<E: Equation + Send + 'static> FitState<E> for NCNPAG<E> {
     fn equation(&self) -> &E {
         &self.equation
     }
@@ -240,20 +220,8 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
         &self.data
     }
 
-    fn likelihood(&self) -> f64 {
-        self.objf
-    }
-
-    fn increment_cycle(&mut self) -> usize {
-        0
-    }
-
-    fn cycle(&self) -> usize {
-        0
-    }
-
-    fn set_theta(&mut self, theta: Theta) {
-        self.theta = theta;
+    fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
     fn theta(&self) -> &Theta {
@@ -264,17 +232,62 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
         &self.psi
     }
 
-    fn set_status(&mut self, status: Status) {
-        self.status = status;
+    fn weights(&self) -> &Weights {
+        &self.w
+    }
+
+    fn cycle(&self) -> usize {
+        self.cycle
     }
 
     fn status(&self) -> &Status {
         &self.status
     }
 
+    fn log_likelihood(&self) -> f64 {
+        self.log_likelihood
+    }
+}
+
+impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
+    type Output = NonParametricResult<E>;
+
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn increment_cycle(&mut self) -> usize {
+        self.cycle += 1;
+        self.cycle
+    }
+
+    fn into_result(self: Box<Self>) -> Result<Self::Output> {
+        let this = *self;
+        let n2ll = this.n2ll();
+
+        NonParametricResult::new(
+            this.equation,
+            this.data,
+            this.error_models,
+            this.prior,
+            this.theta,
+            this.psi,
+            this.w,
+            n2ll,
+            this.cycle,
+            this.status,
+            this.cyclelog,
+        )
+    }
+
+    fn push_cycle(&mut self, cycle: NPCycle) {
+        self.cyclelog.push(cycle);
+    }
+
+    /// NCNPAG is a single-pass reweighting of the prior support points, so the
+    /// only cycle stops as soon as it has been evaluated.
     fn evaluation(&mut self) -> Result<Status> {
-        self.status = Status::Stop(StopReason::Converged);
-        Ok(self.status.clone())
+        Ok(Status::Stop(StopReason::Converged))
     }
 
     fn estimation(&mut self) -> Result<()> {
@@ -349,14 +362,14 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
         self.w = Weights::from_vec(kept.iter().map(|w| w / sum).collect());
 
         // NPAGFULL: refine each surviving point with a full NPAG seeded from it.
-        if self.cycles > 0 {
+        if self.refinement_cycles > 0 {
             let (refined_theta, refined_weights) = refine_points(
                 &self.equation,
                 &self.data,
                 &self.error_models,
                 &self.theta,
                 &self.w,
-                self.cycles,
+                self.refinement_cycles,
                 self.progress,
             )?;
             self.theta = refined_theta;
@@ -372,44 +385,8 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
             false,
         )?;
 
-        self.objf = marginal_loglik(&self.psi, &self.w);
+        self.log_likelihood = marginal_loglik(&self.psi, &self.w);
         Ok(())
-    }
-
-    fn condensation(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn optimizations(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn expansion(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn log_cycle_state(&mut self) {
-        let state = NPCycle::new(
-            self.cycle,
-            self.objf,
-            self.error_models.clone(),
-            self.theta.clone(),
-            self.w.clone(),
-            self.theta.nspp(),
-            0.0,
-            self.status.clone(),
-        );
-        self.cyclelog.push(state);
-    }
-
-    /// NCNPAG is a single-pass reweighting: it evaluates the likelihood of the
-    /// fixed prior support points once, rather than iterating cycles.
-    fn fit(&mut self) -> Result<NonParametricResult<E>> {
-        self.estimation()?;
-        self.evaluation()?;
-        self.log_cycle_state();
-
-        self.into_result()
     }
 }
 

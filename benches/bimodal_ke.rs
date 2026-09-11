@@ -68,7 +68,7 @@ fn setup_postprob() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
 fn benchmark_algorithm<F, A>(c: &mut Criterion, bench_name: &str, setup_fn: F, config: A)
 where
     F: Fn() -> Result<EstimationProblem<equation::ODE, NonParametric>>,
-    A: Algorithm<equation::ODE, NonParametric> + Clone,
+    A: Algorithm<EstimationProblem<equation::ODE, NonParametric>> + Clone,
 {
     c.bench_function(bench_name, |b| {
         b.iter_with_setup(
