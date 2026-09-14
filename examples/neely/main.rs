@@ -7,9 +7,6 @@ fn main() -> Result<()> {
         covariates: [wt, pkvisit],
         states: [central, peripheral, metabolite_1, metabolite_2],
         outputs: [outeq_1, outeq_2, outeq_3],
-        routes: [
-            infusion(input_1) -> central,
-        ],
         diffeq: |x, _t, dx| {
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let q = qs * (wt / 70.0).powf(0.75);
@@ -19,7 +16,7 @@ fn main() -> Result<()> {
             let k12 = q / v;
             let k21 = q / vp;
 
-            dx[central] = -ke * x[central] * (1.0 - fm1 - fm2)
+            dx[central] = infusion[input_1] - ke * x[central] * (1.0 - fm1 - fm2)
                 - (fm1 + fm2) * x[central]
                 - k12 * x[central]
                 + k21 * x[peripheral];
