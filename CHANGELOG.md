@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0](https://github.com/LAPKB/PMcore/compare/v0.28.0...v0.29.0) - 2026-09-15
+
+### Other
+
+- Bump version from 0.28.0 to 0.29.0 ([#328](https://github.com/LAPKB/PMcore/pull/328))
+- update pharmsol to 0.29.2 ([#327](https://github.com/LAPKB/PMcore/pull/327))
+- Generate predictions in parallell ([#324](https://github.com/LAPKB/PMcore/pull/324))
+- update pharmsol to 0.29.1 ([#325](https://github.com/LAPKB/PMcore/pull/325))
+
 ## [0.28.0](https://github.com/LAPKB/PMcore/compare/v0.27.1...v0.28.0) - 2026-08-28
 
 ### Added
