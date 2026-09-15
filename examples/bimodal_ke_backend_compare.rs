@@ -15,9 +15,7 @@ params = ke, v
 states = central
 outputs = outeq_1
 
-infusion(input_1) -> central
-
-dx(central) = -ke * central
+dx(central) = infusion(input_1) - ke * central
 
 out(outeq_1) = central / v
 "#;
@@ -78,11 +76,8 @@ fn macro_equation() -> equation::ODE {
         params: [ke, v],
         states: [central],
         outputs: [outeq_1],
-        routes: [
-            infusion(input_1) -> central,
-        ],
         diffeq: |x, _t, dx| {
-            dx[central] = -ke * x[central];
+            dx[central] = infusion[input_1] - ke * x[central];
         },
         out: |x, _t, y| {
             y[outeq_1] = x[central] / v;

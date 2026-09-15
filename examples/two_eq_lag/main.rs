@@ -6,11 +6,8 @@ fn main() -> Result<()> {
         params: [ka, ke, tlag, v],
         states: [gut, central],
         outputs: [outeq_0],
-        routes: [
-            bolus(input_0) -> gut,
-        ],
         diffeq: |x, _t, dx| {
-            dx[gut] = -ka * x[gut];
+            dx[gut] = bolus[input_0] - ka * x[gut];
             dx[central] = ka * x[gut] - ke * x[central];
         },
         lag: |_t| {

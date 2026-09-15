@@ -5,11 +5,8 @@ fn main() -> Result<()> {
         params: [ke, kcp, kpc],
         states: [central, peripheral],
         outputs: [peripheral_amount],
-        routes: [
-            bolus(dose) -> central,
-        ],
         diffeq: |x, _t, dx| {
-            dx[central] = -ke * x[central] - kcp * x[central] + kpc * x[peripheral];
+            dx[central] = bolus[dose] - ke * x[central] - kcp * x[central] + kpc * x[peripheral];
             dx[peripheral] = -kpc * x[peripheral] + kcp * x[central];
         },
         init: |_t, x| {

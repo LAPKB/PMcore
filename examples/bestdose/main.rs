@@ -17,9 +17,7 @@ params = ke, v
 states = central
 outputs = outeq_0
 
-bolus(input_0) -> central
-
-dx(central) = -ke * central
+dx(central) = bolus(input_0) - ke * central
 out(outeq_0) = central / v
 "#;
 
