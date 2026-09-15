@@ -25,7 +25,7 @@ use super::NonParametricAlgorithm;
 /// The accessors read the current state between steps, and [`finish`](Self::finish) or
 /// [`into_result`](Self::into_result) turn it into a result.
 pub struct FitController<E: Equation + Send + 'static> {
-    runner: Box<dyn NonParametricRunner<E>>,
+    runner: Box<dyn NonParametricRunner<E, Output = NonParametricResult<E>>>,
 }
 
 impl<E: Equation + Send + 'static> FitController<E> {
@@ -49,8 +49,9 @@ impl<E: Equation + Send + 'static> FitController<E> {
 
     /// Flag the fit as [`Aborted`](StopReason::Aborted) so the result shows an early stop.
     ///
-    /// This only sets the status; it won't halt a later [`step`](Self::step), which runs a full
-    /// cycle and overwrites it. Call it just before [`into_result`](Self::into_result).
+    /// A stop is final: the status is remembered, so the fit stays stopped even if you keep
+    /// calling [`step`](Self::step) — later steps return [`Stop`](Status::Stop) without
+    /// advancing the fit.
     pub fn request_stop(&mut self) {
         self.runner.set_status(Status::Stop(StopReason::Aborted));
     }
@@ -75,12 +76,13 @@ impl<E: Equation + Send + 'static> FitController<E> {
         self.runner.psi()
     }
 
-    /// The current log-likelihood.
-    pub fn likelihood(&self) -> f64 {
-        self.runner.likelihood()
+    /// The current log-likelihood (higher is better).
+    pub fn log_likelihood(&self) -> f64 {
+        self.runner.log_likelihood()
     }
 
-    /// The current negative two log-likelihood (objective function).
+    /// The current negative two log-likelihood, the objective function that is minimized
+    /// (lower is better).
     pub fn n2ll(&self) -> f64 {
         self.runner.n2ll()
     }
@@ -138,8 +140,8 @@ where
 impl<E: Equation + Send + 'static> EstimationProblem<E, NonParametric> {
     /// Start a fit you drive yourself, one [`step`](FitController::step) at a time.
     ///
-    /// Takes any non-parametric config (`NpagConfig`, `NpodConfig`, `NpmapConfig`) or a
-    /// [`NonParametricAlgorithm`].
+    /// Takes any non-parametric config (`NpagConfig`, `NpodConfig`, `NpmapConfig`,
+    /// `NcnpagConfig`) or a [`NonParametricAlgorithm`].
     ///
     /// ```no_run
     /// use pmcore::prelude::*;

@@ -1,272 +1,177 @@
-use std::fs;
-use std::path::Path;
-
-use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta};
+use crate::estimation::nonparametric::{NPCycle, Psi, Theta, Weights};
 use crate::estimation::{EstimationProblem, Framework};
 use crate::results::FitResult;
 
-use anyhow::Context;
 use anyhow::Result;
-use ndarray::parallel::prelude::{IntoParallelIterator, ParallelIterator};
 
-use pharmsol::prelude::{data::Data, simulator::Equation};
+use pharmsol::prelude::data::{AssayErrorModels, Data};
+use pharmsol::prelude::simulator::Equation;
 
-use pharmsol::{Predictions, Subject};
 use serde::{Deserialize, Serialize};
+
+pub mod diagnostics;
+pub mod nonparametric;
+pub mod parametric;
+mod stop;
 
 /// Defines an algorithm that can fit an [`EstimationProblem`] to produce a result.
 ///
 /// Implementors are the lightweight, user-facing configuration structs (e.g.
-/// `NpagConfig`). The heavy, mutable execution state used while fitting is an
-/// internal implementation detail.
-pub trait Algorithm<E: Equation, F: crate::estimation::Framework> {
+/// [`NpagConfig`](nonparametric::NpagConfig)). The heavy, mutable execution
+/// state used while fitting is an internal implementation detail.
+pub trait Algorithm<P> {
     /// The specific result struct (e.g. `NonParametricResult<E>`).
     type Output: FitResult;
 
     /// Consumes the configuration and the problem, runs the optimization to
     /// completion, and returns the strictly-typed result.
-    fn fit(self, problem: EstimationProblem<E, F>) -> Result<Self::Output>;
+    fn fit(self, problem: P) -> Result<Self::Output>;
 }
-
-// Module organization for algorithm types
-pub mod nonparametric;
-pub mod parametric;
 
 impl<E: Equation, F: Framework> EstimationProblem<E, F> {
     /// Consumes the problem and an algorithm configuration, runs the fit to
     /// completion, and returns the result.
     pub fn fit_with<A>(self, algorithm: A) -> Result<A::Output>
     where
-        A: Algorithm<E, F>,
+        A: Algorithm<Self>,
     {
         algorithm.fit(self)
     }
 }
 
-pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'static {
-    /// Identify subjects whose total probability given the model is zero or
-    /// non-finite.
-    ///
-    /// Each row of [`Psi`] holds the likelihood of a subject across every
-    /// support point, so a subject's probability is the sum across its row. A
-    /// subject is flagged when that sum is zero or not finite, meaning the model
-    /// cannot explain the subject's data. When any subject is flagged, detailed
-    /// per-subject diagnostics are logged and an error is returned.
-    fn check_zero_probability_subjects(&self) -> Result<()> {
-        let psi = self.psi().matrix();
-
-        // Report non-finite entries; these propagate into the row sums below.
-        let nonfinite = psi
-            .row_iter()
-            .flat_map(|row| row.iter().copied())
-            .filter(|v| !v.is_finite())
-            .count();
-        if nonfinite > 0 {
-            tracing::warn!(
-                "Psi matrix contains {} non-finite value(s) of {} total",
-                nonfinite,
-                psi.nrows() * psi.ncols()
-            );
-        }
-
-        // A subject's probability is the sum across its row.
-        let subjects = self.data().subjects();
-        let flagged: Vec<usize> = (0..psi.nrows())
-            .filter(|&i| {
-                let probability: f64 = (0..psi.ncols()).map(|j| psi[(i, j)]).sum();
-                !probability.is_finite() || probability == 0.0
-            })
-            .collect();
-
-        if flagged.is_empty() {
-            return Ok(());
-        }
-
-        tracing::error!(
-            "{}/{} subjects have zero probability given the model",
-            flagged.len(),
-            psi.nrows()
-        );
-
-        for &i in &flagged {
-            self.log_zero_probability_subject(subjects[i]);
-        }
-
-        let ids: Vec<&String> = flagged.iter().map(|&i| subjects[i].id()).collect();
-        Err(anyhow::anyhow!(
-            "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
-            flagged.len(),
-            psi.nrows(),
-            ids
-        ))
-    }
-
-    /// Log detailed likelihood diagnostics for a single subject whose
-    /// probability given the model is zero or non-finite.
-    fn log_zero_probability_subject(&self, subject: &Subject) {
-        tracing::debug!("Subject with zero probability: {}", subject.id());
-
-        let error_model = self.error_models().clone();
-
-        // Simulate every support point for this subject in parallel.
-        let mut results: Vec<_> = self
-            .theta()
-            .matrix()
-            .row_iter()
-            .enumerate()
-            .collect::<Vec<_>>()
-            .into_par_iter()
-            .map(|(i, spp)| {
-                let support_point: Vec<f64> = spp.iter().copied().collect();
-                let (pred, ll) = self
-                    .equation()
-                    .simulate_subject_dense(subject, &support_point, Some(&error_model))
-                    .unwrap(); //TODO: Handle error
-                (i, support_point, pred.get_predictions(), ll)
-            })
-            .collect();
-
-        // Summarise the distribution of likelihood values.
-        let mut nan = 0;
-        let mut pos_inf = 0;
-        let mut neg_inf = 0;
-        let mut zero = 0;
-        let mut valid = 0;
-        for (_, _, _, ll) in &results {
-            match ll {
-                Some(v) if v.is_nan() => nan += 1,
-                Some(v) if v.is_infinite() && v.is_sign_positive() => pos_inf += 1,
-                Some(v) if v.is_infinite() => neg_inf += 1,
-                Some(v) if *v == 0.0 => zero += 1,
-                Some(_) => valid += 1,
-                None => nan += 1,
-            }
-        }
-
-        let total = results.len();
-        let pct = |n: usize| 100.0 * n as f64 / total as f64;
-        tracing::debug!(
-            "\tLikelihood analysis for subject {} ({} support points):",
-            subject.id(),
-            total
-        );
-        tracing::debug!("\tNaN likelihoods: {} ({:.1}%)", nan, pct(nan));
-        tracing::debug!("\t+Inf likelihoods: {} ({:.1}%)", pos_inf, pct(pos_inf));
-        tracing::debug!("\t-Inf likelihoods: {} ({:.1}%)", neg_inf, pct(neg_inf));
-        tracing::debug!("\tZero likelihoods: {} ({:.1}%)", zero, pct(zero));
-        tracing::debug!("\tValid likelihoods: {} ({:.1}%)", valid, pct(valid));
-
-        // Show the most likely support points to aid debugging.
-        results.sort_by(|a, b| {
-            b.3.unwrap_or(f64::NEG_INFINITY)
-                .partial_cmp(&a.3.unwrap_or(f64::NEG_INFINITY))
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        const TAKE: usize = 3;
-        tracing::debug!("Top {} most likely support points:", TAKE);
-        for (i, support_point, preds, ll) in results.iter().take(TAKE) {
-            tracing::debug!("\tSupport point #{}: {:?}", i, support_point);
-            tracing::debug!("\t\tLog-likelihood: {:?}", ll);
-            tracing::debug!(
-                "\t\tTimes: {:?}",
-                preds.iter().map(|x| x.time()).collect::<Vec<f64>>()
-            );
-            tracing::debug!(
-                "\t\tObservations: {:?}",
-                preds
-                    .iter()
-                    .map(|x| x.observation())
-                    .collect::<Vec<Option<f64>>>()
-            );
-            tracing::debug!(
-                "\t\tPredictions: {:?}",
-                preds.iter().map(|x| x.prediction()).collect::<Vec<f64>>()
-            );
-            tracing::debug!(
-                "\t\tOuteqs: {:?}",
-                preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>()
-            );
-            tracing::debug!(
-                "\t\tStates: {:?}",
-                preds
-                    .iter()
-                    .map(|x| x.state().to_vec())
-                    .collect::<Vec<Vec<f64>>>()
-            );
-        }
-        tracing::debug!("=====================");
-    }
-
-    fn error_models(&self) -> &pharmsol::prelude::data::AssayErrorModels;
+/// Read-only view of the state of a running fit.
+///
+/// A runner exposes this state between cycles. Log-likelihoods are reported on
+/// their natural scale: [`log_likelihood`](Self::log_likelihood) returns the
+/// log-likelihood of the data under the current model (higher is better), and
+/// [`n2ll`](Self::n2ll) the objective function actually minimized,
+/// `-2 × log_likelihood` (lower is better). Runners that converge on a
+/// different statistic (NCNPAG's marginal log-likelihood) report that statistic
+/// instead, so `n2ll` is always the quantity being optimized.
+pub trait FitState<E: Equation> {
     /// Get the equation used in the algorithm
     fn equation(&self) -> &E;
     /// Get the data used in the algorithm
     fn data(&self) -> &Data;
-
-    /// Increment the cycle counter and return the new value
-    fn increment_cycle(&mut self) -> usize;
-    /// Get the current cycle number
-    fn cycle(&self) -> usize;
-    /// Set the current [Theta]
-    fn set_theta(&mut self, theta: Theta);
+    /// Get the error models used in the algorithm
+    fn error_models(&self) -> &AssayErrorModels;
     /// Get the current [Theta]
     fn theta(&self) -> &Theta;
     /// Get the current [Psi]
     fn psi(&self) -> &Psi;
-    /// Get the current likelihood
-    fn likelihood(&self) -> f64;
-    /// Get the current negative two log-likelihood
-    fn n2ll(&self) -> f64 {
-        -2.0 * self.likelihood()
-    }
+    /// Get the current support point weights
+    fn weights(&self) -> &Weights;
+    /// Get the current cycle number
+    fn cycle(&self) -> usize;
     /// Get the current [Status] of the algorithm
     fn status(&self) -> &Status;
+    /// Get the current log-likelihood (higher is better)
+    fn log_likelihood(&self) -> f64;
+    /// Get the current objective function, `-2 × log_likelihood` (lower is better)
+    fn n2ll(&self) -> f64 {
+        -2.0 * self.log_likelihood()
+    }
+}
+
+/// The mutable state of a non-parametric fit, advanced one cycle at a time.
+///
+/// Most algorithms run the same cycle: estimate the likelihood of every support
+/// point, condense the support points, optimize the error models, then evaluate
+/// the convergence criteria. Stages that don't apply default to no-ops, so an
+/// algorithm only implements what it needs. Single-pass algorithms (NPMAP,
+/// NCNPAG) implement `estimation` and `evaluation`, and report
+/// [`StopReason::Converged`] once their single pass is done.
+///
+/// Only [`next_cycle`](Self::next_cycle) writes the [`Status`], so the status an
+/// observer sees always matches the state of the fit.
+pub trait NonParametricRunner<E: Equation + Send + 'static>: FitState<E> + Send + 'static {
+    /// The result produced when the fit finishes.
+    type Output: FitResult;
+
     /// Set the current [Status] of the algorithm
     fn set_status(&mut self, status: Status);
-    /// Evaluate convergence criteria and update status
+    /// Increment the cycle counter and return the new value
+    fn increment_cycle(&mut self) -> usize;
+    /// Evaluate the convergence criteria and return the resulting [Status]
+    ///
+    /// Implementations must not store the status they return:
+    /// [`next_cycle`](Self::next_cycle) is the single writer.
     fn evaluation(&mut self) -> Result<Status>;
-
-    /// Create and log a cycle state with the current algorithm state
-    fn log_cycle_state(&mut self);
-
-    /// Initialize the algorithm, setting up initial [Theta] and [Status]
-    fn initialize(&mut self) -> Result<()> {
-        // If a stop file exists in the current directory, remove it
-        if Path::new("stop").exists() {
-            tracing::info!("Removing existing stop file prior to run");
-            fs::remove_file("stop").context("Unable to remove previous stop file")?;
-        }
-        self.set_status(Status::Continue);
-
-        Ok(())
-    }
+    /// Estimate the likelihood of every support point for every subject
     fn estimation(&mut self) -> Result<()>;
+    /// Consume the runner and build the final result
+    #[allow(clippy::wrong_self_convention)]
+    fn into_result(self: Box<Self>) -> Result<Self::Output>;
+    /// Append a cycle to the cycle log
+    fn push_cycle(&mut self, cycle: NPCycle);
+
     /// Performs condensation of [Theta] and updates [Psi]
     ///
     /// This step reduces the number of support points in [Theta] based on the current weights,
     /// and updates the [Psi] matrix accordingly to reflect the new set of support points.
     /// It is typically performed after the estimation step in each cycle of the algorithm.
-    fn condensation(&mut self) -> Result<()>;
-
+    fn condensation(&mut self) -> Result<()> {
+        Ok(())
+    }
     /// Performs optimizations on the current `AssayErrorModels` and updates [Psi] accordingly
     ///
     /// This step refines the error model parameters to better fit the data,
     /// and subsequently updates the [Psi] matrix to reflect these changes.
-    fn optimizations(&mut self) -> Result<()>;
-
+    fn optimizations(&mut self) -> Result<()> {
+        Ok(())
+    }
     /// Performs expansion of [Theta]
     ///
     /// This step increases the number of support points in [Theta] based on the current distribution,
     /// allowing for exploration of the parameter space.
-    fn expansion(&mut self) -> Result<()>;
+    fn expansion(&mut self) -> Result<()> {
+        Ok(())
+    }
+    /// Change in the objective function since the last logged cycle
+    ///
+    /// Called once per logged cycle, before the cycle is pushed to the log.
+    /// Implementations may use this to update their own bookkeeping.
+    fn objective_delta(&mut self) -> f64 {
+        0.0
+    }
+
+    /// Initialize the algorithm, setting up initial [Theta] and [Status]
+    fn initialize(&mut self) -> Result<()> {
+        // If a stop file exists in the current directory, remove it
+        crate::algorithms::stop::remove_stop_file()?;
+        self.set_status(Status::Continue);
+
+        Ok(())
+    }
+
+    /// Create and log a cycle state with the current algorithm state
+    fn log_cycle_state(&mut self) {
+        let delta = self.objective_delta();
+        let state = NPCycle::new(
+            self.cycle(),
+            self.n2ll(),
+            self.error_models().clone(),
+            self.theta().clone(),
+            self.weights().clone(),
+            delta,
+            self.status().clone(),
+        );
+        self.push_cycle(state);
+    }
 
     /// Proceed to the next cycle of the algorithm
     ///
     /// This method increments the cycle counter, performs expansion if necessary,
     /// and then runs the estimation, condensation, optimization, logging, and evaluation steps
-    /// in sequence. It returns the current [Status] of the algorithm after completing these steps.
+    /// in sequence. It returns the [Status] of the algorithm after completing these steps.
+    ///
+    /// A stop is final: once the runner has stopped, further cycles return the
+    /// same [Status] without touching the fit state.
     fn next_cycle(&mut self) -> Result<Status> {
+        if self.status().is_stop() {
+            return Ok(self.status().clone());
+        }
+
         let cycle = self.increment_cycle();
 
         if cycle > 1 {
@@ -278,7 +183,10 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
         self.estimation()?;
         self.condensation()?;
         self.optimizations()?;
-        self.evaluation()
+        let status = self.evaluation()?;
+        self.set_status(status.clone());
+        self.log_cycle_state();
+        Ok(status)
     }
 
     /// Fit the model until convergence or stopping criteria are met
@@ -286,14 +194,12 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
     /// This method runs the full fitting process, starting with initialization,
     /// followed by iterative cycles of estimation, condensation, optimization, and evaluation
     /// until the algorithm converges or meets a stopping criteria.
-    fn fit(&mut self) -> Result<NonParametricResult<E>> {
-        self.initialize()?;
-        while let Status::Continue = self.next_cycle()? {}
-        self.into_result()
+    fn fit(self: Box<Self>) -> Result<Self::Output> {
+        let mut runner = self;
+        runner.initialize()?;
+        while runner.next_cycle()?.is_continue() {}
+        runner.into_result()
     }
-
-    #[allow(clippy::wrong_self_convention)]
-    fn into_result(&self) -> Result<NonParametricResult<E>>;
 }
 
 /// Where a fit stands: still running, or stopped (and why).

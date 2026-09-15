@@ -7,7 +7,7 @@ use crate::results::{FitSummary, IndividualSummary, ParameterSummary, Population
 
 pub fn fit_summary<E: Equation>(result: &NonParametricResult<E>) -> FitSummary {
     FitSummary {
-        objective_function: result.objf(),
+        objective_function: result.n2ll(),
         converged: result.converged(),
         iterations: result.cycles(),
         subject_count: result.data().subjects().len(),

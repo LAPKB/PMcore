@@ -5,7 +5,10 @@ use crate::results::{FitSummary, IndividualSummary, PopulationSummary};
 
 /// A shared trait for the output of any estimation algorithm.
 pub trait FitResult {
-    fn objf(&self) -> f64;
+    /// The objective function minimized by the algorithm, `-2 × log-likelihood`
+    /// for likelihood-based algorithms (lower is better).
+    fn n2ll(&self) -> f64;
+    /// Whether the fit stopped because it converged, rather than being cut short.
     fn converged(&self) -> bool;
     fn summary(&self) -> FitSummary;
     fn population_summary(&self) -> PopulationSummary;
@@ -20,7 +23,7 @@ pub struct ParametricResult<E: Equation> {
 }
 
 impl<E: Equation> FitResult for ParametricResult<E> {
-    fn objf(&self) -> f64 {
+    fn n2ll(&self) -> f64 {
         unimplemented!("Parametric result not yet implemented")
     }
     fn converged(&self) -> bool {
@@ -40,12 +43,12 @@ impl<E: Equation> FitResult for ParametricResult<E> {
 use crate::estimation::nonparametric;
 
 impl<E: Equation> FitResult for NonParametricResult<E> {
-    fn objf(&self) -> f64 {
-        self.objf() // Assuming the struct has this native method
+    fn n2ll(&self) -> f64 {
+        NonParametricResult::n2ll(self)
     }
 
     fn converged(&self) -> bool {
-        self.converged() // Assuming the struct has this native method
+        NonParametricResult::converged(self)
     }
 
     fn summary(&self) -> FitSummary {

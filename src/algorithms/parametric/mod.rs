@@ -77,24 +77,21 @@ impl ParametricAlgorithm {
     }
 }
 
-impl<E: Equation + Send + 'static> Algorithm<E, Parametric> for ParametricAlgorithm {
+/// Every configuration that converts into a [`ParametricAlgorithm`] is itself an
+/// [`Algorithm`], so [`SaemConfig`] can be passed straight to
+/// [`fit_with`](crate::estimation::EstimationProblem::fit_with).
+impl<E, A> Algorithm<EstimationProblem<E, Parametric>> for A
+where
+    E: Equation + Send + 'static,
+    A: Into<ParametricAlgorithm>,
+{
     type Output = ParametricResult<E>;
 
     fn fit(self, _problem: EstimationProblem<E, Parametric>) -> Result<Self::Output> {
-        match self {
-            Self::Saem(_config) => {
+        match self.into() {
+            ParametricAlgorithm::Saem(_config) => {
                 unimplemented!("SAEM fitting is not yet implemented")
             }
         }
-    }
-}
-
-// `SaemConfig` delegates to the matching `ParametricAlgorithm` variant so it can be passed
-// directly to `fit_with`, keeping its setters compile-time checked.
-impl<E: Equation + Send + 'static> Algorithm<E, Parametric> for SaemConfig {
-    type Output = ParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, Parametric>) -> Result<Self::Output> {
-        ParametricAlgorithm::from(self).fit(problem)
     }
 }

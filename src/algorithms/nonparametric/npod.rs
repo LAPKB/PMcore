@@ -1,23 +1,20 @@
 use crate::{
-    algorithms::{NonParametricRunner, Status, StopReason},
-    estimation::nonparametric::{
-        calculate_psi, ipm::burke, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
-    },
+    algorithms::{FitState, NonParametricRunner, Status, StopReason},
+    estimation::nonparametric::{CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights},
 };
 use pharmsol::ParameterOptimizer;
 
-use anyhow::bail;
 use anyhow::Result;
 use pharmsol::prelude::{data::Data, simulator::Equation};
-use pharmsol::{prelude::AssayErrorModel, AssayErrorModels};
+use pharmsol::AssayErrorModels;
 
 use ndarray::Array1;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 
 use super::error_optim::{optimize_error_models, ErrorOptimConfig};
+use super::stages::{self, CondensationOptions};
 
-const THETA_F: f64 = 1e-2;
 const THETA_D: f64 = 1e-4;
 
 /// Configuration options for the Non-Parametric Optimal Design (NPOD) algorithm.
@@ -29,6 +26,12 @@ pub struct NpodConfig {
     pub error_optim: ErrorOptimConfig,
     /// Whether to print progress information during the first cycle.
     pub progress: bool,
+    /// Convergence tolerance on the change in the objective function.
+    pub objective_tolerance: f64,
+    /// Support points whose weight is below `max_weight × prune_threshold` are dropped.
+    pub prune_threshold: f64,
+    /// Minimum `|r_ii| / ‖r_i‖` ratio for a support point to survive the QR decomposition.
+    pub qr_tolerance: f64,
 }
 
 impl NpodConfig {
@@ -50,6 +53,26 @@ impl NpodConfig {
         self.progress = progress;
         self
     }
+
+    /// Set the convergence tolerance on the change in the objective function.
+    pub fn objective_tolerance(mut self, tolerance: f64) -> Self {
+        self.objective_tolerance = tolerance;
+        self
+    }
+
+    /// Set the weight below which support points are dropped, relative to the
+    /// largest weight.
+    pub fn prune_threshold(mut self, threshold: f64) -> Self {
+        self.prune_threshold = threshold;
+        self
+    }
+
+    /// Set the minimum `|r_ii| / ‖r_i‖` ratio for a support point to survive the
+    /// QR decomposition.
+    pub fn qr_tolerance(mut self, tolerance: f64) -> Self {
+        self.qr_tolerance = tolerance;
+        self
+    }
 }
 
 impl Default for NpodConfig {
@@ -58,6 +81,9 @@ impl Default for NpodConfig {
             max_cycles: 100,
             error_optim: ErrorOptimConfig::default(),
             progress: true,
+            objective_tolerance: 1e-2,
+            prune_threshold: 1e-3,
+            qr_tolerance: 1e-8,
         }
     }
 }
@@ -70,12 +96,11 @@ pub struct NPOD<E: Equation + Send + 'static> {
     theta: Theta,
     lambda: Weights,
     w: Weights,
-    last_objf: f64,
-    objf: f64,
+    last_log_likelihood: f64,
+    log_likelihood: f64,
     cycle: usize,
     gamma_delta: Vec<f64>,
     error_models: AssayErrorModels,
-    converged: bool,
     status: Status,
     cycle_log: CycleLog,
     data: Data,
@@ -99,12 +124,11 @@ impl<E: Equation + Send + 'static> NPOD<E> {
             theta,
             lambda: Weights::default(),
             w: Weights::default(),
-            last_objf: -1e30,
-            objf: f64::NEG_INFINITY,
+            last_log_likelihood: -1e30,
+            log_likelihood: f64::NEG_INFINITY,
             cycle: 0,
             gamma_delta,
             error_models,
-            converged: false,
             status: Status::Continue,
             cycle_log: CycleLog::new(),
             data,
@@ -113,46 +137,17 @@ impl<E: Equation + Send + 'static> NPOD<E> {
     }
 }
 
-impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
-    fn into_result(&self) -> Result<NonParametricResult<E>> {
-        NonParametricResult::new(
-            self.equation.clone(),
-            self.data.clone(),
-            self.error_models.clone(),
-            self.prior.clone(),
-            self.theta.clone(),
-            self.psi.clone(),
-            self.w.clone(),
-            -2. * self.objf,
-            self.cycle,
-            self.status.clone(),
-            self.cycle_log.clone(),
-        )
-    }
-
+impl<E: Equation + Send + 'static> FitState<E> for NPOD<E> {
     fn equation(&self) -> &E {
         &self.equation
-    }
-
-    fn error_models(&self) -> &AssayErrorModels {
-        &self.error_models
     }
 
     fn data(&self) -> &Data {
         &self.data
     }
 
-    fn increment_cycle(&mut self) -> usize {
-        self.cycle += 1;
-        self.cycle
-    }
-
-    fn cycle(&self) -> usize {
-        self.cycle
-    }
-
-    fn set_theta(&mut self, theta: Theta) {
-        self.theta = theta;
+    fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
     fn theta(&self) -> &Theta {
@@ -163,160 +158,126 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
         &self.psi
     }
 
-    fn likelihood(&self) -> f64 {
-        self.objf
+    fn weights(&self) -> &Weights {
+        &self.w
     }
 
-    fn set_status(&mut self, status: Status) {
-        self.status = status;
+    fn cycle(&self) -> usize {
+        self.cycle
     }
 
     fn status(&self) -> &Status {
         &self.status
     }
 
-    fn log_cycle_state(&mut self) {
-        let state = NPCycle::new(
-            self.cycle,
-            -2. * self.objf,
-            self.error_models.clone(),
-            self.theta.clone(),
-            self.w.clone(),
-            self.theta.nspp(),
-            (self.last_objf - self.objf).abs(),
-            self.status.clone(),
-        );
-        self.cycle_log.push(state);
-        self.last_objf = self.objf;
+    fn log_likelihood(&self) -> f64 {
+        self.log_likelihood
+    }
+}
+
+impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
+    type Output = NonParametricResult<E>;
+
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn increment_cycle(&mut self) -> usize {
+        self.cycle += 1;
+        self.cycle
+    }
+
+    fn into_result(self: Box<Self>) -> Result<Self::Output> {
+        let this = *self;
+        let n2ll = this.n2ll();
+
+        NonParametricResult::new(
+            this.equation,
+            this.data,
+            this.error_models,
+            this.prior,
+            this.theta,
+            this.psi,
+            this.w,
+            n2ll,
+            this.cycle,
+            this.status,
+            this.cycle_log,
+        )
+    }
+
+    fn push_cycle(&mut self, cycle: NPCycle) {
+        self.cycle_log.push(cycle);
+    }
+
+    fn objective_delta(&mut self) -> f64 {
+        let delta = (self.last_log_likelihood - self.log_likelihood).abs();
+        self.last_log_likelihood = self.log_likelihood;
+        delta
     }
 
     fn evaluation(&mut self) -> Result<Status> {
-        tracing::info!("Objective function = {:.4}", -2.0 * self.objf);
-        tracing::debug!("Support points: {}", self.theta.nspp());
-        self.error_models.iter().for_each(|(outeq, em)| {
-            if AssayErrorModel::None == *em {
-                return;
-            }
-            tracing::debug!(
-                "Error model for outeq {}: {:.16}",
-                outeq,
-                em.factor().unwrap_or_default()
-            );
-        });
-        if self.last_objf > self.objf + 1e-4 {
-            tracing::warn!(
-                "Objective function decreased from {:.4} to {:.4} (delta = {})",
-                -2.0 * self.last_objf,
-                -2.0 * self.objf,
-                -2.0 * self.last_objf - -2.0 * self.objf
-            );
-        }
+        stages::log_objective(
+            self.log_likelihood,
+            self.last_log_likelihood,
+            &self.theta,
+            &self.error_models,
+        );
 
-        if (self.last_objf - self.objf).abs() <= THETA_F {
+        if (self.last_log_likelihood - self.log_likelihood).abs() <= self.config.objective_tolerance
+        {
             tracing::info!("Objective function convergence reached");
-            self.converged = true;
-            self.set_status(Status::Stop(StopReason::Converged));
-            self.log_cycle_state();
-            return Ok(self.status.clone());
+            return Ok(Status::Stop(StopReason::Converged));
         }
 
         if self.cycle >= self.config.max_cycles {
             tracing::warn!("Maximum number of cycles reached");
-            self.converged = true;
-            self.set_status(Status::Stop(StopReason::MaxCycles));
-            self.log_cycle_state();
-            return Ok(self.status.clone());
+            return Ok(Status::Stop(StopReason::MaxCycles));
         }
 
-        if std::path::Path::new("stop").exists() {
+        if crate::algorithms::stop::stop_file_present() {
             tracing::warn!("Stopfile detected - breaking");
-            self.converged = true;
-            self.set_status(Status::Stop(StopReason::StopFile));
-            self.log_cycle_state();
-            return Ok(self.status.clone());
+            return Ok(Status::Stop(StopReason::StopFile));
         }
 
-        self.status = Status::Continue;
-        self.log_cycle_state();
-        Ok(self.status.clone())
+        Ok(Status::Continue)
     }
 
     fn estimation(&mut self) -> Result<()> {
-        let error_model: AssayErrorModels = self.error_models.clone();
-
-        self.psi = calculate_psi(
+        let (psi, lambda, log_likelihood) = stages::estimate(
             &self.equation,
             &self.data,
+            &self.error_models,
             &self.theta,
-            &error_model,
             self.cycle == 1 && self.config.progress,
         )?;
 
-        if let Err(err) = self.check_zero_probability_subjects() {
-            bail!(err);
-        }
+        self.psi = psi;
+        self.lambda = lambda;
+        self.log_likelihood = log_likelihood;
 
-        (self.lambda, _) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                bail!(err);
-            }
-        };
         Ok(())
     }
 
     fn condensation(&mut self) -> Result<()> {
-        let max_lambda = self
-            .lambda
-            .iter()
-            .fold(f64::NEG_INFINITY, |acc, x| x.max(acc));
+        let (lambda, log_likelihood) = stages::condense(
+            &self.equation,
+            &self.data,
+            &self.error_models,
+            &mut self.theta,
+            &mut self.psi,
+            &self.lambda,
+            &CondensationOptions {
+                prune_threshold: self.config.prune_threshold,
+                qr_tolerance: self.config.qr_tolerance,
+                check_zero_probability: true,
+            },
+        )?;
 
-        let mut keep = Vec::<usize>::new();
-        for (index, lam) in self.lambda.iter().enumerate() {
-            if lam > max_lambda / 1000_f64 {
-                keep.push(index);
-            }
-        }
-        if self.psi.matrix().ncols() != keep.len() {
-            tracing::debug!(
-                "Lambda (max/1000) dropped {} support point(s)",
-                self.psi.matrix().ncols() - keep.len(),
-            );
-        }
-
-        self.theta.filter_indices(keep.as_slice());
-        self.psi.filter_column_indices(keep.as_slice());
-
-        let (r, perm) = qr::qrd(&self.psi)?;
-
-        let mut keep = Vec::<usize>::new();
-        let keep_n = self.psi.matrix().ncols().min(self.psi.matrix().nrows());
-        for i in 0..keep_n {
-            let test = r.col(i).norm_l2();
-            let r_diag_val = r.get(i, i);
-            let ratio = r_diag_val / test;
-            if ratio.abs() >= 1e-8 {
-                keep.push(*perm.get(i).unwrap());
-            }
-        }
-
-        if self.psi.matrix().ncols() != keep.len() {
-            tracing::debug!(
-                "QR decomposition dropped {} support point(s)",
-                self.psi.matrix().ncols() - keep.len(),
-            );
-        }
-
-        self.theta.filter_indices(keep.as_slice());
-        self.psi.filter_column_indices(keep.as_slice());
-
-        (self.lambda, self.objf) = match burke(&self.psi) {
-            Ok((lambda, objf)) => (lambda, objf),
-            Err(err) => {
-                return Err(anyhow::anyhow!("Error in IPM: {:?}", err));
-            }
-        };
+        self.lambda = lambda;
+        self.log_likelihood = log_likelihood;
         self.w = self.lambda.clone();
+
         Ok(())
     }
 
@@ -327,7 +288,7 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPOD<E> {
             &self.theta,
             &mut self.error_models,
             &mut self.gamma_delta,
-            &mut self.objf,
+            &mut self.log_likelihood,
             &mut self.lambda,
             &mut self.psi,
             &self.config.error_optim,

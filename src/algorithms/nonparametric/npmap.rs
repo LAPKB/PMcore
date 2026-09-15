@@ -1,5 +1,5 @@
 use crate::{
-    algorithms::{NonParametricRunner, Status, StopReason},
+    algorithms::{FitState, NonParametricRunner, Status, StopReason},
     estimation::nonparametric::{
         calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
     },
@@ -67,27 +67,7 @@ impl<E: Equation + Send + 'static> NPMAP<E> {
     }
 }
 
-impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
-    fn into_result(&self) -> Result<NonParametricResult<E>> {
-        NonParametricResult::new(
-            self.equation.clone(),
-            self.data.clone(),
-            self.error_models.clone(),
-            self.prior.clone(),
-            self.theta.clone(),
-            self.psi.clone(),
-            self.w.clone(),
-            self.objf,
-            self.cycle,
-            self.status.clone(),
-            self.cyclelog.clone(),
-        )
-    }
-
-    fn error_models(&self) -> &AssayErrorModels {
-        &self.error_models
-    }
-
+impl<E: Equation + Send + 'static> FitState<E> for NPMAP<E> {
     fn equation(&self) -> &E {
         &self.equation
     }
@@ -96,20 +76,8 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
         &self.data
     }
 
-    fn likelihood(&self) -> f64 {
-        self.objf
-    }
-
-    fn increment_cycle(&mut self) -> usize {
-        0
-    }
-
-    fn cycle(&self) -> usize {
-        0
-    }
-
-    fn set_theta(&mut self, theta: Theta) {
-        self.theta = theta;
+    fn error_models(&self) -> &AssayErrorModels {
+        &self.error_models
     }
 
     fn theta(&self) -> &Theta {
@@ -120,17 +88,62 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
         &self.psi
     }
 
-    fn set_status(&mut self, status: Status) {
-        self.status = status;
+    fn weights(&self) -> &Weights {
+        &self.w
+    }
+
+    fn cycle(&self) -> usize {
+        self.cycle
     }
 
     fn status(&self) -> &Status {
         &self.status
     }
 
+    fn log_likelihood(&self) -> f64 {
+        self.objf
+    }
+}
+
+impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
+    type Output = NonParametricResult<E>;
+
+    fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    fn increment_cycle(&mut self) -> usize {
+        self.cycle += 1;
+        self.cycle
+    }
+
+    fn into_result(self: Box<Self>) -> Result<Self::Output> {
+        let this = *self;
+        let objf = this.n2ll();
+
+        NonParametricResult::new(
+            this.equation,
+            this.data,
+            this.error_models,
+            this.prior,
+            this.theta,
+            this.psi,
+            this.w,
+            objf,
+            this.cycle,
+            this.status,
+            this.cyclelog,
+        )
+    }
+
+    fn push_cycle(&mut self, cycle: NPCycle) {
+        self.cyclelog.push(cycle);
+    }
+
+    /// NPMAP is a single-pass reweighting of the prior support points, so the
+    /// only cycle stops as soon as it has been evaluated.
     fn evaluation(&mut self) -> Result<Status> {
-        self.status = Status::Stop(StopReason::Converged);
-        Ok(self.status.clone())
+        Ok(Status::Stop(StopReason::Converged))
     }
 
     fn estimation(&mut self) -> Result<()> {
@@ -143,42 +156,5 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
         )?;
         (self.w, self.objf) = burke(&self.psi).context("Error in IPM")?;
         Ok(())
-    }
-
-    fn condensation(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn optimizations(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn expansion(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn log_cycle_state(&mut self) {
-        // NPMAP doesn't track last_objf, so we use 0.0 as the delta
-        let state = NPCycle::new(
-            self.cycle,
-            self.objf,
-            self.error_models.clone(),
-            self.theta.clone(),
-            self.w.clone(),
-            self.theta.nspp(),
-            0.0,
-            self.status.clone(),
-        );
-        self.cyclelog.push(state);
-    }
-
-    /// NPMAP is a single-pass reweighting: it evaluates the likelihood of the
-    /// fixed prior support points once, rather than iterating cycles.
-    fn fit(&mut self) -> Result<NonParametricResult<E>> {
-        self.estimation()?;
-        self.evaluation()?;
-        self.log_cycle_state();
-
-        self.into_result()
     }
 }

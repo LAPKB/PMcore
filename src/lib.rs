@@ -58,7 +58,7 @@ pub mod prelude {
     pub use super::HashMap;
     pub use super::Result;
     pub use crate::algorithms;
-    pub use crate::algorithms::Algorithm;
+    pub use crate::algorithms::{Algorithm, FitState, NonParametricRunner, Status, StopReason};
 
     pub use crate::estimation::NonParametric;
     pub use crate::estimation::Parametric;

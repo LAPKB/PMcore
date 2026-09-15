@@ -18,7 +18,7 @@ pub struct NonParametricResult<E: Equation> {
     theta: Theta,
     psi: Psi,
     weights: Weights,
-    objf: f64,
+    n2ll: f64,
     cycles: usize,
     status: Status,
     cyclelog: CycleLog,
@@ -34,7 +34,7 @@ impl<E: Equation> NonParametricResult<E> {
         theta: Theta,
         psi: Psi,
         weights: Weights,
-        objf: f64,
+        n2ll: f64,
         cycles: usize,
         status: Status,
         cyclelog: CycleLog,
@@ -47,21 +47,37 @@ impl<E: Equation> NonParametricResult<E> {
             theta,
             psi,
             weights,
-            objf,
+            n2ll,
             cycles,
             status,
             cyclelog,
         })
     }
 
+    /// The number of cycles the algorithm ran
+    ///
+    /// This is the number of entries in the [cycle log](Self::cycle_log): every
+    /// cycle that was evaluated is logged, including the final one. Single-pass
+    /// algorithms such as NPMAP and NCNPAG therefore report `1`.
     pub fn cycles(&self) -> usize {
         self.cycles
     }
 
-    pub fn objf(&self) -> f64 {
-        self.objf
+    /// The objective function the algorithm minimized, `-2 × log-likelihood`
+    /// (lower is better).
+    ///
+    /// Reported on the same scale for every algorithm, so results from different
+    /// algorithms can be compared directly.
+    pub fn n2ll(&self) -> f64 {
+        self.n2ll
     }
 
+    /// The log-likelihood of the data under the fitted model (higher is better).
+    pub fn log_likelihood(&self) -> f64 {
+        -0.5 * self.n2ll
+    }
+
+    /// Whether the fit stopped because it converged, rather than being cut short.
     pub fn converged(&self) -> bool {
         self.status.converged()
     }
@@ -105,8 +121,7 @@ impl<E: Equation> NonParametricResult<E> {
     pub fn chain<A>(self, algorithm: A) -> anyhow::Result<NonParametricResult<E>>
     where
         A: crate::algorithms::Algorithm<
-            E,
-            crate::estimation::NonParametric,
+            crate::estimation::EstimationProblem<E, crate::estimation::NonParametric>,
             Output = NonParametricResult<E>,
         >,
         E: crate::model::EquationMetadataSource,
@@ -352,7 +367,7 @@ impl<E: Equation> NonParametricResult<E> {
             theta: &self.theta,
             psi: &self.psi,
             weights: &self.weights,
-            objf: self.objf,
+            n2ll: self.n2ll,
             cycles: self.cycles,
             status: &self.status,
             cyclelog: &self.cyclelog,
@@ -413,7 +428,7 @@ struct NonParametricResultJson<'a> {
     theta: &'a Theta,
     psi: &'a Psi,
     weights: &'a Weights,
-    objf: f64,
+    n2ll: f64,
     cycles: usize,
     status: &'a Status,
     cyclelog: &'a CycleLog,
@@ -499,7 +514,7 @@ mod tests {
     }
 
     #[test]
-    fn chain_npag_to_npag_maintains_or_improves_objf() {
+    fn chain_npag_to_npag_maintains_or_improves_n2ll() {
         let ode = minimal_ode();
         let data = minimal_data();
         let params = ParameterSpace::bounded()
@@ -518,17 +533,17 @@ mod tests {
             .fit_with(NpagConfig::new().max_cycles(5))
             .unwrap();
 
-        let objf1 = r1.objf();
+        let n2ll1 = r1.n2ll();
 
         // Chain into another NPAG run
         let r2 = r1.chain(NpagConfig::new().max_cycles(3)).unwrap();
 
         // Second run should not regress significantly
         assert!(
-            r2.objf() <= objf1 + 0.5,
-            "OBJF regressed: {} -> {}",
-            objf1,
-            r2.objf()
+            r2.n2ll() <= n2ll1 + 0.5,
+            "-2LL regressed: {} -> {}",
+            n2ll1,
+            r2.n2ll()
         );
     }
 

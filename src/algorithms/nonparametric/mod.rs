@@ -9,6 +9,7 @@
 //! - [`NPAG`](npag): Non-Parametric Adaptive Grid
 //! - [`NPOD`](npod): Non-Parametric Optimal Design
 //! - [`NPMAP`](npmap): Maximum a posteriori reweighting
+//! - [`NCNPAG`](ncnpag): Non-collapsing NPAG
 //!
 //! # Algorithm Selection
 //!
@@ -26,6 +27,9 @@ pub mod ncnpag;
 pub mod npag;
 pub mod npmap;
 pub mod npod;
+
+// Cycle stages shared by the non-parametric algorithms
+mod stages;
 
 // Incremental, observable fitting (stepping handle + per-cycle observers).
 pub mod controller;
@@ -75,9 +79,9 @@ use pharmsol::prelude::simulator::Equation;
 /// // `problem.fit_with(config)` accepts the config directly.
 /// ```
 ///
-/// Each configuration type ([`NpagConfig`], [`NpodConfig`], [`NpmapConfig`]) implements
-/// [`Algorithm`] by delegating to the matching enum variant, so configs can be passed to
-/// `fit_with` without converting them first.
+/// Each configuration type ([`NpagConfig`], [`NpodConfig`], [`NpmapConfig`],
+/// [`NcnpagConfig`]) converts into this enum and therefore implements [`Algorithm`], so
+/// configs can be passed to `fit_with` without converting them first.
 #[derive(Debug, Clone)]
 pub enum NonParametricAlgorithm {
     /// Non-Parametric Adaptive Grid.
@@ -150,10 +154,10 @@ impl NonParametricAlgorithm {
     pub(crate) fn into_runner<E: Equation + Send + 'static>(
         self,
         problem: EstimationProblem<E, NonParametric>,
-    ) -> Result<Box<dyn NonParametricRunner<E>>> {
+    ) -> Result<Box<dyn NonParametricRunner<E, Output = NonParametricResult<E>>>> {
         // `problem.prior` is the prior `Theta` (which also carries the parameter
         // space) and `problem.error_models` is strictly `AssayErrorModels`.
-        let runner: Box<dyn NonParametricRunner<E>> = match self {
+        let runner: Box<dyn NonParametricRunner<E, Output = NonParametricResult<E>>> = match self {
             Self::Npag(config) => Box::new(NPAG::from_parts(
                 problem.model.equation,
                 problem.data,
@@ -187,46 +191,19 @@ impl NonParametricAlgorithm {
     }
 }
 
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NonParametricAlgorithm {
+/// Every configuration that converts into a [`NonParametricAlgorithm`] is itself an
+/// [`Algorithm`], so the algorithm-specific config structs can be passed straight to
+/// [`fit_with`](crate::estimation::EstimationProblem::fit_with) without converting them
+/// first.
+impl<E, A> Algorithm<EstimationProblem<E, NonParametric>> for A
+where
+    E: Equation + Send + 'static,
+    A: Into<NonParametricAlgorithm>,
+{
     type Output = NonParametricResult<E>;
 
     fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        let mut runner = self.into_runner(problem)?;
+        let runner = self.into().into_runner(problem)?;
         runner.fit()
-    }
-}
-
-// Each configuration struct delegates to its matching `NonParametricAlgorithm` variant so it
-// can be passed directly to `fit_with`. This keeps the variant-specific setters on the config
-// types (compile-time checked) while the enum remains the single source of fitting logic.
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpagConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        NonParametricAlgorithm::from(self).fit(problem)
-    }
-}
-
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpodConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        NonParametricAlgorithm::from(self).fit(problem)
-    }
-}
-
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        NonParametricAlgorithm::from(self).fit(problem)
-    }
-}
-
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NcnpagConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        NonParametricAlgorithm::from(self).fit(problem)
     }
 }

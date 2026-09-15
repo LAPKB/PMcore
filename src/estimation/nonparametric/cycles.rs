@@ -10,37 +10,43 @@ use crate::{
     estimation::nonparametric::{median, theta::Theta, weights::Weights},
 };
 
+/// A snapshot of the fit state after one cycle.
+///
+/// The objective function is stored on the scale that is actually minimized,
+/// `-2 × log-likelihood`, so that cycles logged by different algorithms are
+/// directly comparable.
 #[derive(Debug, Clone, Serialize)]
 pub struct NPCycle {
     cycle: usize,
-    objf: f64,
+    n2ll: f64,
     error_models: AssayErrorModels,
     theta: Theta,
     weights: Weights,
     nspp: usize,
-    delta_objf: f64,
+    delta_log_likelihood: f64,
     status: Status,
 }
 
 impl NPCycle {
     pub fn new(
         cycle: usize,
-        objf: f64,
+        n2ll: f64,
         error_models: AssayErrorModels,
         theta: Theta,
         weights: Weights,
-        nspp: usize,
-        delta_objf: f64,
+        delta_log_likelihood: f64,
         status: Status,
     ) -> Self {
+        let nspp = theta.nspp();
+
         Self {
             cycle,
-            objf,
+            n2ll,
             error_models,
             theta,
             weights,
             nspp,
-            delta_objf,
+            delta_log_likelihood,
             status,
         }
     }
@@ -48,8 +54,9 @@ impl NPCycle {
     pub fn cycle(&self) -> usize {
         self.cycle
     }
-    pub fn objf(&self) -> f64 {
-        self.objf
+    /// The objective function minimized by the algorithm, `-2 × log-likelihood`.
+    pub fn n2ll(&self) -> f64 {
+        self.n2ll
     }
     pub fn error_models(&self) -> &AssayErrorModels {
         &self.error_models
@@ -63,8 +70,9 @@ impl NPCycle {
     pub fn nspp(&self) -> usize {
         self.nspp
     }
-    pub fn delta_objf(&self) -> f64 {
-        self.delta_objf
+    /// Change in log-likelihood since the previous cycle.
+    pub fn delta_log_likelihood(&self) -> f64 {
+        self.delta_log_likelihood
     }
     pub fn status(&self) -> &Status {
         &self.status
@@ -73,12 +81,12 @@ impl NPCycle {
     pub fn placeholder() -> Self {
         Self {
             cycle: 0,
-            objf: 0.0,
+            n2ll: 0.0,
             error_models: AssayErrorModels::default(),
             theta: Theta::new(),
             weights: Weights::default(),
             nspp: 0,
-            delta_objf: 0.0,
+            delta_log_likelihood: 0.0,
             status: Status::Continue,
         }
     }
@@ -149,10 +157,8 @@ impl CycleLog {
             writer.write_field(format!("{}", cycle.cycle))?;
             writer.write_field(format!("{}", cycle.status.converged()))?;
             writer.write_field(format!("{}", cycle.status))?;
-            writer.write_field(format!("{}", cycle.objf))?;
-            writer
-                .write_field(format!("{}", cycle.theta.nspp()))
-                .unwrap();
+            writer.write_field(format!("{}", cycle.n2ll))?;
+            writer.write_field(format!("{}", cycle.nspp))?;
 
             cycle.error_models.iter().try_for_each(
                 |(_, errmod): (usize, &AssayErrorModel)| -> Result<()> {

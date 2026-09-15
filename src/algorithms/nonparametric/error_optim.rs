@@ -63,9 +63,9 @@ impl ErrorOptimConfig {
 ///
 /// For each optimizable error model, the factor is perturbed up and down,
 /// `psi` is recomputed for each perturbation, and the IPM ([`burke`]) is run.
-/// The direction with the highest objective function that also improves on the
-/// current `objf` is adopted, updating `error_models`, `objf`, `lambda`, and
-/// `psi` in place. The per-output adaptive step in `gamma_delta` is grown on
+/// The direction with the highest log-likelihood that also improves on the
+/// current one is adopted, updating `error_models`, `log_likelihood`, `lambda`,
+/// and `psi` in place. The per-output adaptive step in `gamma_delta` is grown on
 /// improvement and shrunk every pass, resetting once it falls to `config.min_step`.
 ///
 /// A failure of the IPM for one perturbation direction is treated as a warning
@@ -78,7 +78,7 @@ pub(crate) fn optimize_error_models<E: Equation + Send + 'static>(
     theta: &Theta,
     error_models: &mut AssayErrorModels,
     gamma_delta: &mut [f64],
-    objf: &mut f64,
+    log_likelihood: &mut f64,
     lambda: &mut Weights,
     psi: &mut Psi,
     config: &ErrorOptimConfig,
@@ -112,7 +112,7 @@ pub(crate) fn optimize_error_models<E: Equation + Send + 'static>(
             // likelihoods as warnings, and continue with the other direction. If both
             // directions fail, we will not update the error model factor.
             let up = match burke(&psi_up) {
-                Ok((lambda, objf)) => Some((lambda, objf)),
+                Ok((lambda, ll)) => Some((lambda, ll)),
                 Err(err) => {
                     tracing::warn!(
                         "Error in IPM during optim (up) for outeq {}: {:?}",
@@ -123,7 +123,7 @@ pub(crate) fn optimize_error_models<E: Equation + Send + 'static>(
                 }
             };
             let down = match burke(&psi_down) {
-                Ok((lambda, objf)) => Some((lambda, objf)),
+                Ok((lambda, ll)) => Some((lambda, ll)),
                 Err(err) => {
                     tracing::warn!(
                         "Error in IPM during optim (down) for outeq {}: {:?}",
@@ -135,23 +135,23 @@ pub(crate) fn optimize_error_models<E: Equation + Send + 'static>(
             };
 
             // Select the best improving candidate (if any) over the current
-            // objective. Among the two directions, the one with the higher
-            // objective function wins.
+            // log-likelihood. Among the two directions, the one with the higher
+            // log-likelihood wins.
             let mut best: Option<(f64, Weights, Psi, f64)> = None;
-            if let Some((lambda_up, objf_up)) = up {
-                if objf_up > *objf {
-                    best = Some((objf_up, lambda_up, psi_up, gamma_up));
+            if let Some((lambda_up, ll_up)) = up {
+                if ll_up > *log_likelihood {
+                    best = Some((ll_up, lambda_up, psi_up, gamma_up));
                 }
             }
-            if let Some((lambda_down, objf_down)) = down {
-                let threshold = best.as_ref().map_or(*objf, |(o, ..)| *o);
-                if objf_down > threshold {
-                    best = Some((objf_down, lambda_down, psi_down, gamma_down));
+            if let Some((lambda_down, ll_down)) = down {
+                let threshold = best.as_ref().map_or(*log_likelihood, |(o, ..)| *o);
+                if ll_down > threshold {
+                    best = Some((ll_down, lambda_down, psi_down, gamma_down));
                 }
             }
-            if let Some((new_objf, new_lambda, new_psi, gamma)) = best {
+            if let Some((new_log_likelihood, new_lambda, new_psi, gamma)) = best {
                 error_models.set_factor(outeq, gamma)?;
-                *objf = new_objf;
+                *log_likelihood = new_log_likelihood;
                 gamma_delta[outeq] *= config.growth;
                 *lambda = new_lambda;
                 *psi = new_psi;
