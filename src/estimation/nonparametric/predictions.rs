@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::{bail, Result};
 use pharmsol::{prelude::simulator::Prediction, Censor, Data, Predictions as PredTrait};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -115,7 +116,7 @@ impl NPPredictions {
     }
 
     pub fn calculate(
-        equation: &impl pharmsol::prelude::simulator::Equation,
+        equation: &(impl pharmsol::prelude::simulator::Equation + Sync),
         data: &Data,
         theta: &Theta,
         w: &Weights,
@@ -123,8 +124,6 @@ impl NPPredictions {
         idelta: f64,
         tad: f64,
     ) -> Result<Self> {
-        let mut container = NPPredictions::new();
-
         let data = data.clone().expand(idelta, tad);
         let subjects = data.subjects();
 
@@ -132,67 +131,76 @@ impl NPPredictions {
             bail!("Number of subjects and number of posterior means do not match");
         };
 
-        for (subject_index, subject) in subjects.iter().enumerate() {
-            let mut predictions: Vec<Vec<Prediction>> = Vec::new();
+        let support_points: Vec<Vec<f64>> = theta
+            .matrix()
+            .row_iter()
+            .map(|spp| spp.iter().cloned().collect())
+            .collect();
 
-            for spp in theta.matrix().row_iter() {
-                let spp_values = spp.iter().cloned().collect::<Vec<f64>>();
-                let pred = equation
-                    .simulate_subject_dense(subject, &spp_values, None)?
-                    .0
-                    .get_predictions();
-                predictions.push(pred);
-            }
+        let per_subject: Vec<Vec<NPPredictionRow>> = subjects
+            .par_iter()
+            .enumerate()
+            .map(|(subject_index, subject)| -> Result<Vec<NPPredictionRow>> {
+                let predictions: Vec<Vec<Prediction>> = support_points
+                    .par_iter()
+                    .map(|spp| {
+                        Ok(equation
+                            .simulate_subject_dense(subject, spp, None)?
+                            .0
+                            .get_predictions())
+                    })
+                    .collect::<Result<Vec<_>>>()?;
 
-            if predictions.is_empty() {
-                continue;
-            }
+                let Some(first_spp_preds) = predictions.first() else {
+                    return Ok(Vec::new());
+                };
+                let n_points = first_spp_preds.len();
 
-            let mut pop_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
-            for (i, outer_pred) in predictions.iter().enumerate() {
-                for (j, pred) in outer_pred.iter().enumerate() {
-                    pop_mean[j] += pred.prediction() * w[i];
-                }
-            }
-
-            let mut pop_median: Vec<f64> = Vec::new();
-            for j in 0..predictions.first().unwrap().len() {
-                let mut values: Vec<f64> = Vec::new();
-                let mut weights: Vec<f64> = Vec::new();
-
+                let mut pop_mean: Vec<f64> = vec![0.0; n_points];
                 for (i, outer_pred) in predictions.iter().enumerate() {
-                    values.push(outer_pred[j].prediction());
-                    weights.push(w[i]);
+                    for (j, pred) in outer_pred.iter().enumerate() {
+                        pop_mean[j] += pred.prediction() * w[i];
+                    }
                 }
 
-                let median_val = weighted_median(&values, &weights);
-                pop_median.push(median_val);
-            }
+                let mut pop_median: Vec<f64> = Vec::with_capacity(n_points);
+                for j in 0..n_points {
+                    let mut values: Vec<f64> = Vec::new();
+                    let mut weights: Vec<f64> = Vec::new();
 
-            let mut posterior_mean: Vec<f64> = vec![0.0; predictions.first().unwrap().len()];
-            for (i, outer_pred) in predictions.iter().enumerate() {
-                for (j, pred) in outer_pred.iter().enumerate() {
-                    posterior_mean[j] += pred.prediction() * posterior.matrix()[(subject_index, i)];
+                    for (i, outer_pred) in predictions.iter().enumerate() {
+                        values.push(outer_pred[j].prediction());
+                        weights.push(w[i]);
+                    }
+
+                    pop_median.push(weighted_median(&values, &weights));
                 }
-            }
 
-            let mut posterior_median: Vec<f64> = Vec::new();
-            for j in 0..predictions.first().unwrap().len() {
-                let mut values: Vec<f64> = Vec::new();
-                let mut weights: Vec<f64> = Vec::new();
-
+                let mut posterior_mean: Vec<f64> = vec![0.0; n_points];
                 for (i, outer_pred) in predictions.iter().enumerate() {
-                    values.push(outer_pred[j].prediction());
-                    weights.push(posterior.matrix()[(subject_index, i)]);
+                    for (j, pred) in outer_pred.iter().enumerate() {
+                        posterior_mean[j] +=
+                            pred.prediction() * posterior.matrix()[(subject_index, i)];
+                    }
                 }
 
-                let median_val = weighted_median(&values, &weights);
-                posterior_median.push(median_val);
-            }
+                let mut posterior_median: Vec<f64> = Vec::with_capacity(n_points);
+                for j in 0..n_points {
+                    let mut values: Vec<f64> = Vec::new();
+                    let mut weights: Vec<f64> = Vec::new();
 
-            if let Some(first_spp_preds) = predictions.first() {
-                for (j, p) in first_spp_preds.iter().enumerate() {
-                    let row = NPPredictionRow {
+                    for (i, outer_pred) in predictions.iter().enumerate() {
+                        values.push(outer_pred[j].prediction());
+                        weights.push(posterior.matrix()[(subject_index, i)]);
+                    }
+
+                    posterior_median.push(weighted_median(&values, &weights));
+                }
+
+                Ok(first_spp_preds
+                    .iter()
+                    .enumerate()
+                    .map(|(j, p)| NPPredictionRow {
                         id: subject.id().clone(),
                         time: p.time(),
                         outeq: p.outeq(),
@@ -203,9 +211,15 @@ impl NPPredictions {
                         pop_median: pop_median[j],
                         post_mean: posterior_mean[j],
                         post_median: posterior_median[j],
-                    };
-                    container.add(row);
-                }
+                    })
+                    .collect())
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let mut container = NPPredictions::new();
+        for rows in per_subject {
+            for row in rows {
+                container.add(row);
             }
         }
 
