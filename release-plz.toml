@@ -1,0 +1,6 @@
+# cargo-semver-checks cannot rebuild the pmcore 0.28.0 baseline: its
+# `pharmsol = "=0.29.0"` pin resolves a pharmsol-dsl that does not compile
+# against pharmsol 0.29.0. Remove once 0.28.1 is published.
+[[package]]
+name = "pmcore"
+semver_check = false
