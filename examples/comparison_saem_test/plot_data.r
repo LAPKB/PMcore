@@ -1,4 +1,4 @@
-library(saemix)
+# library(saemix)
 
 par(pty = "s")
 
@@ -14,9 +14,9 @@ plot(x,y, ylab = "Observation", xlab = "Population Prediction", xlim = c(0, 140)
 curve(x+0, from = 0, to = 140, col = "blue", lwd = 2, add = TRUE)
 grid()
 
-plot(saemix.fit, plot.type="observations.vs.predictions")
+# plot(saemix.fit, plot.type="observations.vs.predictions")
 
 
-ka <- saemix.fit@results@fixed.psi[1]
-ke <- saemix.fit@results@fixed.psi[2]
-V  <- saemix.fit@results@fixed.psi[3]
+# ka <- saemix.fit@results@fixed.psi[1]
+# ke <- saemix.fit@results@fixed.psi[2]
+# V  <- saemix.fit@results@fixed.psi[3]

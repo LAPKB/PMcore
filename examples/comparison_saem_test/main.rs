@@ -34,6 +34,7 @@ fn main() -> Result<()> {
         .parameter(Parameter::log("ka").with_initial(1.0))
         .parameter(Parameter::log("ke").with_initial(0.1))
         .parameter(Parameter::log("v").with_initial(60.0))
+        // .omega(Omega::)
         .error_model("outeq_0", ResidualErrorModel::proportional(0.1))
         .build()?;
 

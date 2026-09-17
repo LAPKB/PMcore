@@ -1,6 +1,9 @@
 library(here)
 library(tidyverse)
 
+
+use_less <- TRUE
+
 i_am("transform_dataset.r")
 
 data <- read.csv(here("datatmp.csv"))
@@ -10,6 +13,10 @@ data$outeq[data$outeq == 1] <- 0
 data$id <- substr(data$id, 3, nchar(data$id))
 
 data$X <- NULL
+
+if (use_less) {
+  data <- data %>% filter(id %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+}
 
 write.csv(data, here("data_pmcore.csv"), row.names = FALSE)
 
