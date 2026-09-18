@@ -21,6 +21,9 @@ pub mod results;
 /// Logging utilities.
 pub mod logs;
 
+/// fixed rng
+pub mod rng;
+
 // Re-export commonly used items
 pub use anyhow::Result;
 pub use std::collections::HashMap;
