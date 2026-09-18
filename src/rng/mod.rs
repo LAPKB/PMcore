@@ -2,7 +2,8 @@ use std::{fs, io::Cursor};
 use std::sync::{Mutex, LazyLock};
 
 use byteorder::{BigEndian, ReadBytesExt};
-use statrs::distribution::{ContinuousCDF, Normal};
+use faer::rand::distr::uniform::{SampleRange, SampleUniform};
+use statrs::distribution::Normal;
 
 
 static FIXED_RNG_FILE: LazyLock<Mutex<String>> = LazyLock::new(|| {
@@ -26,4 +27,18 @@ pub fn random() -> f64 {
 /// sample value from standard normal distribution
 pub fn standard_normal() -> f64 {
     Normal::standard().inverse_cdf(random())
+}
+
+/// sample value from chi-squared distribution
+pub fn chi_squared() -> f64 {
+    todo!("working on it")
+}
+
+/// sample from a random range
+pub fn random_range<T, R>(range: R) -> T 
+where
+    T: SampleUniform,
+    R: SampleRange<T>
+{
+    todo!("working on it")
 }
