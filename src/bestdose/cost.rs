@@ -310,6 +310,17 @@ pub(crate) fn evaluate<E: Equation>(
                     }
                 }
 
+                // Carry the target subject's covariates onto the dense subject,
+                // so covariate-dependent parameters (e.g. weight-scaled volume)
+                // are simulated with the patient's real values.
+                for occasion in target_subject.occasions() {
+                    for (name, covariate) in occasion.covariates().covariates() {
+                        for (time, value) in covariate.observations() {
+                            builder = builder.covariate(&name, time, value);
+                        }
+                    }
+                }
+
                 // Collect observations with (time, outeq) pairs to preserve original order
                 let obs_time_outeq: Vec<(f64, usize)> = target_subject
                     .occasions()
@@ -435,6 +446,17 @@ pub(crate) fn evaluate<E: Equation>(
                                 );
                             }
                             Event::Observation(_) => {} // Skip original observations
+                        }
+                    }
+                }
+
+                // Carry the target subject's covariates onto the dense subject,
+                // so covariate-dependent parameters (e.g. weight-scaled volume)
+                // are simulated with the patient's real values.
+                for occasion in target_subject.occasions() {
+                    for (name, covariate) in occasion.covariates().covariates() {
+                        for (time, value) in covariate.observations() {
+                            builder = builder.covariate(&name, time, value);
                         }
                     }
                 }
