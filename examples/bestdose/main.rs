@@ -1,7 +1,5 @@
 use anyhow::Result;
-use pharmsol::dsl::{
-    compile_module_source_to_runtime, CompiledRuntimeModel, RuntimeCompilationTarget,
-};
+use pharmsol::dsl::{compile_module_source_to_runtime, CompiledRuntimeModel};
 use pharmsol::Equation;
 use pmcore::bestdose::{BestDoseOptions, BestDoseProblem, DoseRange, Target};
 use pmcore::prelude::*;
@@ -19,9 +17,7 @@ params = ke, v
 states = central
 outputs = outeq_0
 
-bolus(input_0) -> central
-
-dx(central) = -ke * central
+dx(central) = bolus(input_0) - ke * central
 out(outeq_0) = central / v
 "#;
 
@@ -34,7 +30,6 @@ fn main() -> Result<()> {
     let eq = match compile_module_source_to_runtime(
         MODEL_SOURCE,
         Some("bestdose_one_compartment"),
-        RuntimeCompilationTarget::Jit,
         |_, _| {},
     )
     .map_err(|e| anyhow::anyhow!("failed to compile DSL model: {e}"))?

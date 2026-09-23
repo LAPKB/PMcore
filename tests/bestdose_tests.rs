@@ -18,11 +18,8 @@ fn bolus_model() -> ODE {
         params: [ke, v],
         states: [central],
         outputs: [outeq_0],
-        routes: [
-            bolus(input_0) -> central,
-        ],
         diffeq: |x, _t, dx| {
-            dx[central] = -ke * x[central];
+            dx[central] = bolus[input_0] - ke * x[central];
         },
         out: |x, _t, y| {
             y[outeq_0] = x[central] / v;
@@ -37,11 +34,8 @@ fn infusion_model() -> ODE {
         params: [ke, v],
         states: [central],
         outputs: [outeq_0],
-        routes: [
-            infusion(input_0) -> central,
-        ],
         diffeq: |x, _t, dx| {
-            dx[central] = -ke * x[central];
+            dx[central] = infusion[input_0] - ke * x[central];
         },
         out: |x, _t, y| {
             y[outeq_0] = x[central] / v;
