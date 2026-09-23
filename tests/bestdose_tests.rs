@@ -43,6 +43,26 @@ fn infusion_model() -> ODE {
     }
 }
 
+/// One-compartment bolus model whose volume scales with a `wt` covariate.
+fn covariate_model() -> ODE {
+    ode! {
+        name: "one_compartment_bolus_wt",
+        params: [ke, v],
+        covariates: [wt],
+        states: [central],
+        outputs: [outeq_0],
+        routes: [
+            bolus(input_0) -> central,
+        ],
+        diffeq: |x, _t, dx| {
+            dx[central] = -ke * x[central];
+        },
+        out: |x, _t, y| {
+            y[outeq_0] = x[central] / (v * wt / 70.0);
+        },
+    }
+}
+
 fn parameter_space() -> ParameterSpace<BoundedParameter> {
     ParameterSpace::<BoundedParameter>::new()
         .add("ke", 0.001, 3.0)
@@ -203,6 +223,40 @@ fn all_fixed_doses_return_unchanged() -> Result<()> {
     Ok(())
 }
 
+/// A failing cost function must surface as an error, never a panic.
+#[test]
+fn optimize_errors_instead_of_panicking() -> Result<()> {
+    let problem = BestDoseProblem::new(bolus_model(), theta(&[[0.3, 50.0]]), Weights::uniform(1))?;
+
+    let no_observations = Subject::builder("p").bolus(0.0, 0.0, 0).build();
+    let err = problem
+        .optimize(
+            no_observations,
+            Target::Concentration,
+            DoseRange::new(0.0, 300.0),
+            0.0,
+            BestDoseOptions::default(),
+        )
+        .expect_err("a target without observations must error");
+    assert!(err.to_string().contains("no observations"), "{err}");
+
+    let nan_time = Subject::builder("p")
+        .bolus(0.0, 0.0, 0)
+        .observation(f64::NAN, 5.0, 0)
+        .build();
+    let err = problem
+        .optimize(
+            nan_time,
+            Target::AUCFromZero,
+            DoseRange::new(0.0, 300.0),
+            0.0,
+            BestDoseOptions::default(),
+        )
+        .expect_err("a non-finite observation time must error");
+    assert!(err.to_string().contains("finite"), "{err}");
+    Ok(())
+}
+
 #[test]
 fn infusions_are_optimizable() -> Result<()> {
     let problem =
@@ -289,6 +343,122 @@ fn auc_from_zero_hits_target() -> Result<()> {
         rel_error
     );
     assert!(result.doses()[0] > 0.0);
+    Ok(())
+}
+
+/// AUC targets must accept named output labels, not just numeric ones.
+#[test]
+fn auc_target_accepts_named_output_labels() -> Result<()> {
+    let problem = BestDoseProblem::new(bolus_model(), theta(&[[0.3, 50.0]]), Weights::uniform(1))?;
+
+    let target_auc = 100.0;
+    let target = Subject::builder("p")
+        .bolus(0.0, 0.0, 0)
+        .observation(12.0, target_auc, "outeq_0")
+        .build();
+
+    let result = problem.optimize(
+        target,
+        Target::AUCFromZero,
+        DoseRange::new(0.0, 5000.0),
+        0.0,
+        BestDoseOptions {
+            prediction_interval: 0.05,
+        },
+    )?;
+
+    let achievement = &result.achievements()[0];
+    assert_eq!(achievement.outeq.as_str(), "outeq_0");
+    let rel_error = ((achievement.achieved - target_auc) / target_auc).abs();
+    assert!(
+        rel_error < 0.02,
+        "achieved AUC {} vs target {} (rel error {})",
+        achievement.achieved,
+        target_auc,
+        rel_error
+    );
+    Ok(())
+}
+
+/// The dense AUC grid must keep the target's covariates, not just its doses.
+#[test]
+fn auc_target_uses_subject_covariates() -> Result<()> {
+    let problem = BestDoseProblem::new(
+        covariate_model(),
+        theta(&[[0.3, 50.0]]),
+        Weights::uniform(1),
+    )?;
+
+    let dose_for = |wt: f64| -> Result<f64> {
+        let target = Subject::builder("p")
+            .bolus(0.0, 0.0, 0)
+            .observation(12.0, 100.0, 0)
+            .covariate("wt", 0.0, wt)
+            .build();
+
+        let result = problem.optimize(
+            target,
+            Target::AUCFromZero,
+            DoseRange::new(0.0, 20_000.0),
+            0.0,
+            BestDoseOptions {
+                prediction_interval: 0.05,
+            },
+        )?;
+        Ok(result.doses()[0])
+    };
+
+    // Volume is proportional to wt, so the dose hitting a fixed AUC must be too.
+    let light = dose_for(70.0)?;
+    let heavy = dose_for(140.0)?;
+    assert!(
+        (heavy / light - 2.0).abs() < 0.02,
+        "dose must scale with the wt covariate: {light} vs {heavy}"
+    );
+    Ok(())
+}
+
+/// The dense AUC grid must keep the target's occasions, which reset model state.
+#[test]
+fn auc_target_preserves_occasions() -> Result<()> {
+    let problem = BestDoseProblem::new(bolus_model(), theta(&[[0.3, 50.0]]), Weights::uniform(1))?;
+
+    let target_auc = 100.0;
+    let target = Subject::builder("p")
+        .bolus(0.0, 0.0, 0)
+        .observation(12.0, target_auc, 0)
+        .reset()
+        .bolus(0.0, 0.0, 0)
+        .observation(12.0, target_auc, 0)
+        .build();
+
+    let result = problem.optimize(
+        target,
+        Target::AUCFromZero,
+        DoseRange::new(0.0, 5000.0),
+        0.0,
+        BestDoseOptions {
+            prediction_interval: 0.05,
+        },
+    )?;
+
+    let doses = result.doses();
+    assert_eq!(doses.len(), 2);
+    assert!(
+        (doses[0] - doses[1]).abs() / doses[0] < 0.01,
+        "identical occasions must need identical doses: {doses:?}"
+    );
+
+    let achievements = result.achievements();
+    assert_eq!(achievements.len(), 2);
+    for a in achievements {
+        let rel_error = ((a.achieved - target_auc) / target_auc).abs();
+        assert!(
+            rel_error < 0.02,
+            "achieved AUC {} vs target {target_auc}",
+            a.achieved
+        );
+    }
     Ok(())
 }
 
