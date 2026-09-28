@@ -9,6 +9,7 @@
 use crate::estimation::nonparametric::{Theta, Weights};
 use pharmsol::prelude::*;
 use pharmsol::Equation;
+use pharmsol::OutputLabel;
 use serde::{Deserialize, Serialize};
 
 /// Target type for dose optimization.
@@ -210,12 +211,12 @@ pub(crate) struct BestDoseObjective<E: Equation> {
 /// `achieved` is the expected value under the distribution (the weighted mean
 /// prediction across support points) — a concentration for
 /// [`Target::Concentration`] or an AUC for the AUC targets.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Achievement {
     /// Observation time.
     pub time: f64,
-    /// Output equation index of the observation.
-    pub outeq: usize,
+    /// Output label of the observation.
+    pub outeq: OutputLabel,
     /// The requested target value at this observation.
     pub target: f64,
     /// The expected achieved value at the optimal doses.
