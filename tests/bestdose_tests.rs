@@ -51,11 +51,8 @@ fn covariate_model() -> ODE {
         covariates: [wt],
         states: [central],
         outputs: [outeq_0],
-        routes: [
-            bolus(input_0) -> central,
-        ],
         diffeq: |x, _t, dx| {
-            dx[central] = -ke * x[central];
+            dx[central] = -ke * x[central] + bolus(input_0) ;
         },
         out: |x, _t, y| {
             y[outeq_0] = x[central] / (v * wt / 70.0);
