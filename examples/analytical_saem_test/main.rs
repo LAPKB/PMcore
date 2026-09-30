@@ -8,7 +8,7 @@
 use anyhow::Result;
 use pmcore::prelude::*;
 
-use std::fs::{remove_dir_all, File, OpenOptions};
+use std::fs::{remove_dir_all, File, OpenOptions, read_dir};
 use std::path::Path;
 use csv::{Reader, Writer};
 
@@ -17,25 +17,25 @@ use csv::{Reader, Writer};
 fn main() -> Result<()> {
     remove_dir_all("examples/analytical_saem_test/outputs/pmcore_output")?;
 
-    let init_file = File::open(Path::new("examples/analytical_saem_test/random_init.csv"))?;
-    let mut init_reader = Reader::from_reader(init_file);
+    let paths = read_dir("examples/analytical_saem_test/test_data");
 
-    for init_state in init_reader.records() {
-        let record = init_state?;
+    let mut trial_id = 0;
 
-        let ka = record.get(0).unwrap().parse::<f64>().expect("Ka argument is not of type f64!");
-        let v = record.get(1).unwrap().parse::<f64>().expect("V argument is not of type f64!");
-        let ke = record.get(2).unwrap().parse::<f64>().expect("Ke argument is not of type f64!");
-        let trial_id = record.get(3).unwrap().parse::<u64>().expect("trial_id argument is not of type u64!");
+    for entry in paths.unwrap() {
+        let path = entry?.path();
 
-        println!("Starting trial number: {}", trial_id);
+        if !path.is_file() {
+            continue;
+        }
 
-        pmcore_loop(ka, ke, v, "examples/analytical_saem_test/converted_data_theo.csv", 
-                                "examples/analytical_saem_test/outputs/pmcore_output/run_data")?;
+        println!("Starting trial with file: {:?}", path);
+
+        pmcore_loop(path.to_str().unwrap(), "examples/analytical_saem_test/outputs/pmcore_output/run_data")?;
         
         let output_file = File::open(Path::new("examples/analytical_saem_test/outputs/pmcore_output/run_data/statistics.csv"))?;
         let mut output_reader = Reader::from_reader(output_file);
-        let valid_rows: Vec<(u64, String, f64, u64)> = output_reader.records()
+
+        let valid_rows: Vec<(u64, String, f64, String)> = output_reader.records()
             .filter_map(|result| {
                 let record = result.unwrap();
                 let kind = record.get(1).unwrap();
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
                     let cycle = record.get(0).unwrap().parse::<u64>().unwrap();
                     let name = record.get(2).unwrap().to_string();
                     let value = record.get(7).unwrap().parse::<f64>().unwrap();
-                    return Some((cycle, name, value, trial_id));
+                    return Some((cycle, name, value, path.to_str()?.strip_prefix("examples/analytical_saem_test/test_data/")?.to_string()));
                 }
                 None
             })
@@ -55,19 +55,21 @@ fn main() -> Result<()> {
             .create(true)
             .open("examples/analytical_saem_test/outputs/pmcore_output/pmcore_trace.csv")
             .unwrap();
+        
         let mut trace_writer = Writer::from_writer(trace_file);
         if trial_id == 0 {
-            trace_writer.write_record(["cycle", "name", "value", "trial_id"])?;
+            trace_writer.write_record(["cycle", "name", "value", "data_path"])?;
         }
         for row in valid_rows {
             trace_writer.serialize(row)?;
         }
+        trial_id += 1;
     }
 
     Ok(())
 }
 
-fn pmcore_loop(ka: f64, ke: f64, v: f64, data: impl Into<String>, output: &str) -> Result<()> {
+fn pmcore_loop(data: impl Into<String>, output: &str) -> Result<()> {
     // let data = data::read_pmetrics("examples/analytical_saem_test/converted_data_theo.csv")?;
     let data = data::read_pmetrics(data)?;
     // println!("Loaded {} subjects", data.len());
@@ -88,13 +90,10 @@ fn pmcore_loop(ka: f64, ke: f64, v: f64, data: impl Into<String>, output: &str) 
     };
 
     let problem = EstimationProblem::parametric(equation, data)
-        // .parameter(Parameter::log("ka").with_initial(1.0))
-        // .parameter(Parameter::log("ke").with_initial(0.025))
-        // .parameter(Parameter::log("v").with_initial(20.0))
         // Must currently follow the model metadata order: ka, ke, v.
-        .parameter(Parameter::log("ka").with_initial(ka))
-        .parameter(Parameter::log("ke").with_initial(ke))
-        .parameter(Parameter::log("v").with_initial(v))
+        .parameter(Parameter::log("ka").with_initial(1.0))
+        .parameter(Parameter::log("ke").with_initial(0.025))
+        .parameter(Parameter::log("v").with_initial(20.0))
         .error_model("outeq_0", ResidualErrorModel::constant(1.0))
         .build()?;
 
