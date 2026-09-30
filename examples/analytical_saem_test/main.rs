@@ -17,7 +17,7 @@ use csv::{Reader, Writer};
 fn main() -> Result<()> {
     remove_dir_all("examples/analytical_saem_test/outputs/pmcore_output")?;
 
-    let paths = read_dir("examples/analytical_saem_test/test_data");
+    let paths = read_dir("examples/analytical_saem_test/test_data/pmcore_data");
 
     let mut trial_id = 0;
 
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
                     let cycle = record.get(0).unwrap().parse::<u64>().unwrap();
                     let name = record.get(2).unwrap().to_string();
                     let value = record.get(7).unwrap().parse::<f64>().unwrap();
-                    return Some((cycle, name, value, path.to_str()?.strip_prefix("examples/analytical_saem_test/test_data/")?.to_string()));
+                    return Some((cycle, name, value, path.to_str()?.strip_prefix("examples/analytical_saem_test/test_data/pmcore_data/")?.to_string()));
                 }
                 None
             })

@@ -10,19 +10,6 @@ i_am("SAEMix_loop.r")
 
 file.remove(here("outputs", "SAEMix_output", "saemix_trace.csv"))
 
-use_one <- FALSE
-
-data <- theo.saemix
-
-if (use_one == TRUE) {
-  data <- dplyr::filter(data, Id < 3)
-}
-
-saemix.data<-saemixData(name.data=data,header=TRUE,sep=" ",na=NA,
-  name.group=c("Id"),name.predictors=c("Dose","Time"),name.response=c("Concentration"),
-  name.covariates=c("Weight","Sex"),units=list(x="hr",y="mg/L",covariates=c("kg","-")),
-  name.X="Time")
-
 model1cpt<-function(psi,id,xidep) {
   dose <- xidep[, 1]
   time <- xidep[, 2]
@@ -33,42 +20,50 @@ model1cpt<-function(psi,id,xidep) {
     (exp(-ke * time) - exp(-ka * time))
 }
 
+saemix.model <- saemixModel(
+  model = model1cpt,
+  psi0 = matrix(
+    c(1.0, 20, 0.1),
+    ncol = 3,
+    byrow = TRUE,
+    dimnames = list(NULL, c("ka", "V", "ke"))
+  ),
+  transform.par = c(1, 1, 1),
+  covariance.model = diag(3),
+  omega.init = diag(c(1, 1, 1)),
+  error.model = "constant",
+  verbose = FALSE
+)
 
-trial_loop <- function(ka, ke, v, trial_id) {
-  cat("Starting trial number: ", as.character(trial_id), "\n")
+saemix.config = saemixControl(
+  seed = 632545, 
+  nb.chains = 25, 
+  nbiter.mcmc = c(0, 2, 0, 0), 
+  nbiter.burn = 100, 
+  nbiter.saemix = c(300, 150),
+  print = FALSE,
+  save = FALSE,
+  save.graphs = FALSE,
+  directory = here("outputs", "SAEMix_output")
+)
 
-  saemix.model <- saemixModel(
-    model = model1cpt,
-    psi0 = matrix(
-      c(ka, v, ke),
-      ncol = 3,
-      byrow = TRUE,
-      dimnames = list(NULL, c("ka", "V", "ke"))
-    ),
-    transform.par = c(1, 1, 1),
-    covariance.model = diag(3),
-    omega.init = diag(c(1, 1, 1)),
-    error.model = "constant",
-    verbose = FALSE
-  )
 
-  saemix.config = saemixControl(
-    seed = 632545, 
-    nb.chains = 25, 
-    nbiter.mcmc = c(0, 2, 0, 0), 
-    nbiter.burn = 100, 
-    nbiter.saemix = c(300, 150),
-    print = FALSE,
-    save = FALSE,
-    save.graphs = FALSE,
-    directory = here("outputs", "SAEMix_output")
-  )
+files <- list.files(path=here("test_data", "saemix_data"), pattern="*.csv", full.names=TRUE, recursive=FALSE)
+trial_id <- 0
+
+lapply(files, function(file) {
+  saemix.data<-saemixData(name.data=file,header=TRUE,sep=",",na=NA,
+    name.group=c("Id"),name.predictors=c("Dose","Time"),name.response=c("Concentration"),
+    name.covariates=c("Weight","Sex"),units=list(x="hr",y="mg/L",covariates=c("kg","-")),
+    name.X="Time")
+
+  cat("Starting trial with file: ", file, "\n")
 
   saemix.fit<-saemix(saemix.model, saemix.data, saemix.config)
 
   saemix_trace <- as.data.frame(saemix.fit@results@allpar)[-1, c("ka", "V", "ke"), drop = FALSE]
   saemix_trace$cycle <- 1:nrow(saemix_trace)
-  saemix_trace$trial_id <- trial_id
+  saemix_trace$data_path <- sub(paste0(".*", "examples/analytical_saem_test/test_data/saemix_data/") , "", file)
 
   col_names = FALSE
   if (trial_id == 0) {col_names = TRUE}
@@ -79,11 +74,6 @@ trial_loop <- function(ka, ke, v, trial_id) {
               sep = ",", 
               col.names = col_names, 
               row.names = FALSE)
-}
-
-inits <- read.csv(here("random_init.csv"))
-
-for (i in 1:nrow(inits)) {
-  row <- inits[i, ]
-  trial_loop(row$ka, row$ke, row$v, row$trial_id)
-}
+    
+  trial_id <- trial_id + 1
+})

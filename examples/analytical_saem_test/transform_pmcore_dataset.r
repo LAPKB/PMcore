@@ -1,9 +1,8 @@
 library(tidyverse)
 library(saemix)
 library(here)
-data(theo.saemix)
 
-use_one <- FALSE
+i_am("transform_pmcore_dataset.r")
 
 new.csv <- theo.saemix %>% 
   mutate("EVID" = 0) %>%
