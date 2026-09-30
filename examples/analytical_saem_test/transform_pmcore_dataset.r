@@ -4,25 +4,16 @@ library(here)
 
 i_am("transform_pmcore_dataset.r")
 
-new.csv <- theo.saemix %>% 
-  mutate("EVID" = 0) %>%
-  mutate("DUR" = NA) %>%
-  mutate("ADDL" = NA) %>%
-  mutate("II" = NA) %>%
-  mutate("INPUT" = NA) %>%
-  mutate("OUTEQ" = 0) %>%
-  mutate("C0" = NA) %>%
-  mutate("C1" = NA) %>%
-  mutate("C2" = NA) %>%
-  mutate("C3" = NA) %>%
-  group_by(Id) %>%
-  group_modify(~ add_row(.x, .before = 0, EVID = 1, Time = 0, Dose = first(.$Dose), Weight = first(.$Weight), Sex = first(.$Sex), INPUT = 0, DUR = 0))
+files_to_clear <- list.files(here("test_data", "saemix_data"), full.names = TRUE)
+file.remove(files_to_clear)
 
-if (use_one) {
-  new.csv <- dplyr::filter(new.csv, Id < 3)
-}
-
-new.csv$Dose[duplicated(new.csv$Id)] <- NA
-new.csv <- select(new.csv, "Id", "EVID", "Time", "DUR", "Dose", "ADDL", "II", "INPUT", "Concentration", "OUTEQ", "C0", "C1", "C2", "C3", "Weight", "Sex")
-new.csv <- rename(new.csv, ID = Id, TIME = Time, DOSE = Dose, OUT = Concentration)
-write.csv(new.csv, here("converted_data_theo.csv"), row.names = FALSE, na = ".")
+files <- list.files(path=here("test_data", "pmcore_data"), pattern="*.csv", full.names=TRUE, recursive=FALSE)
+lapply(files, function(file) {
+  file_name <- sub(paste0(".*", "examples/analytical_saem_test/test_data/pmcore_data/") , "", file)
+  converted_csv <- read.csv(file, na.strings = ".") %>%
+    select(ID, DOSE, TIME, OUT) %>%
+    rename(Id = ID, Dose = DOSE, Time = TIME, Concentration = OUT) %>%
+    fill(Dose, .by = Id, .direction = "down") %>%
+    slice(-1, .by = Id)
+  write.csv(converted_csv, here("test_data", "saemix_data", file_name), row.names = FALSE, na = ".")
+})

@@ -63,10 +63,12 @@ lapply(files, function(file) {
 
   saemix_trace <- as.data.frame(saemix.fit@results@allpar)[-1, c("ka", "V", "ke"), drop = FALSE]
   saemix_trace$cycle <- 1:nrow(saemix_trace)
-  saemix_trace$data_path <- sub(paste0(".*", "examples/analytical_saem_test/test_data/saemix_data/") , "", file)
+  saemix_trace$file_name <- sub(paste0(".*", "examples/analytical_saem_test/test_data/saemix_data/") , "", file)
 
   col_names = FALSE
-  if (trial_id == 0) {col_names = TRUE}
+  if (trial_id == 0) {
+    col_names = TRUE
+  }
 
   write.table(saemix_trace, 
               file = here("outputs", "SAEMix_output", "saemix_trace.csv"), 
@@ -74,6 +76,6 @@ lapply(files, function(file) {
               sep = ",", 
               col.names = col_names, 
               row.names = FALSE)
-    
-  trial_id <- trial_id + 1
+
+  trial_id <<- trial_id + 1
 })

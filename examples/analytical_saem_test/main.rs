@@ -58,7 +58,7 @@ fn main() -> Result<()> {
         
         let mut trace_writer = Writer::from_writer(trace_file);
         if trial_id == 0 {
-            trace_writer.write_record(["cycle", "name", "value", "data_path"])?;
+            trace_writer.write_record(["cycle", "name", "value", "file_name"])?;
         }
         for row in valid_rows {
             trace_writer.serialize(row)?;
