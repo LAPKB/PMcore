@@ -4,17 +4,52 @@
 //! one-compartment model with elimination rate constant (ke) and volume (v).
 //!
 //! Run with: cargo run --example bimodal_ke_saem --release
+//! 
+//! run 128 times, pop truth mean/standard deviation, individual truths
 
 use anyhow::Result;
 use pmcore::prelude::*;
+use rand::SeedableRng;
 
 use std::fs::{remove_dir_all, File, OpenOptions, read_dir};
 use std::path::Path;
 use csv::{Reader, Writer};
 
+use rand_distr::{Distribution, Normal};
+use rand::rngs::StdRng;
+
+
+const SEED: u64 = 17;
+const TRIALS_PER_DATASET: u64 = 128;
+
+
+#[derive(serde::Serialize)]
+struct Entry<'a> {
+    dataset_file_name: &'a str,
+    ka: f64,
+    ke: f64,
+    v: f64,
+    trial: u64
+}
+
+
+#[derive(serde::Deserialize)]
+struct PopEntry {
+    name: String,
+    estimate: f64,
+    _scale: String,
+    _estimated: bool,
+    _iiv: bool,
+    _iov: bool
+}
 
 // arguments (ka: f64, ke: f64, v: f64, trial_id: u64)
 fn main() -> Result<()> {
+    let mut rng = StdRng::seed_from_u64(SEED);
+    let ka_dist = Normal::new(0.8, 3.0*0.0064).unwrap();
+    let ke_dist = Normal::new(0.18, 3.0*0.000324).unwrap();
+    let v_dist = Normal::new(63.0, 3.0*39.69).unwrap();
+    
     remove_dir_all("examples/analytical_saem_test/outputs/pmcore_output")?;
 
     let paths = read_dir("examples/analytical_saem_test/test_data/pmcore_data");
@@ -22,54 +57,61 @@ fn main() -> Result<()> {
     let mut trial_id = 0;
 
     for entry in paths.unwrap() {
+
         let path = entry?.path();
 
         if !path.is_file() {
             continue;
         }
 
-        println!("Starting trial with file: {:?}", path);
+        println!("Starting trials with file: {:?}", path);
 
-        pmcore_loop(path.to_str().unwrap(), "examples/analytical_saem_test/outputs/pmcore_output/run_data")?;
-        
-        let output_file = File::open(Path::new("examples/analytical_saem_test/outputs/pmcore_output/run_data/statistics.csv"))?;
-        let mut output_reader = Reader::from_reader(output_file);
+        for i in 0..TRIALS_PER_DATASET {
 
-        let valid_rows: Vec<(u64, String, f64, String)> = output_reader.records()
-            .filter_map(|result| {
-                let record = result.unwrap();
-                let kind = record.get(1).unwrap();
-                if kind.eq("theta") {
-                    let cycle = record.get(0).unwrap().parse::<u64>().unwrap();
-                    let name = record.get(2).unwrap().to_string();
-                    let value = record.get(7).unwrap().parse::<f64>().unwrap();
-                    return Some((cycle, name, value, path.to_str()?.strip_prefix("examples/analytical_saem_test/test_data/pmcore_data/")?.to_string()));
-                }
-                None
-            })
-            .collect();
+            pmcore_loop(path.to_str().unwrap(), "examples/analytical_saem_test/outputs/pmcore_output/run_data", ka_dist.sample(&mut rng), ke_dist.sample(&mut rng), v_dist.sample(&mut rng))?;
             
-        let trace_file = OpenOptions::new()
-            .write(true)
-            .append(true)
-            .create(true)
-            .open("examples/analytical_saem_test/outputs/pmcore_output/pmcore_trace.csv")
-            .unwrap();
-        
-        let mut trace_writer = Writer::from_writer(trace_file);
-        if trial_id == 0 {
-            trace_writer.write_record(["cycle", "name", "value", "file_name"])?;
+            let output_file = File::open(Path::new("examples/analytical_saem_test/outputs/pmcore_output/run_data/population.csv"))?;
+            let mut output_reader = Reader::from_reader(output_file);
+
+            let mut final_ka: f64 = -1.0;
+            let mut final_ke: f64 = -1.0;
+            let mut final_v: f64 = -1.0;
+
+            for entry in output_reader.deserialize() {
+                let record: PopEntry = entry?;
+                if record.name == "ka" { final_ka = record.estimate; }
+                else if record.name == "ke" { final_ke = record.estimate; }
+                else if record.name == "v" { final_v = record.estimate; }
+            }
+                
+            let trace_file = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open("examples/analytical_saem_test/outputs/pmcore_output/pmcore_trace.csv")
+                .unwrap();
+            
+            let mut trace_writer = Writer::from_writer(trace_file);
+            if trial_id == 0 {
+                trace_writer.write_record(["dataset_file_name", "ka", "ke", "v", "trial"])?;
+            }
+
+            trace_writer.serialize(Entry {
+                dataset_file_name: path.to_str().unwrap_or("failed to read file name"),
+                ka: final_ka,
+                ke: final_ke,
+                v: final_v,
+                trial: i+1,
+            })?;
+            
+            trial_id += 1;
         }
-        for row in valid_rows {
-            trace_writer.serialize(row)?;
-        }
-        trial_id += 1;
     }
 
     Ok(())
 }
 
-fn pmcore_loop(data: impl Into<String>, output: &str) -> Result<()> {
+fn pmcore_loop(data: impl Into<String>, output: &str, ka: f64, ke: f64, v: f64) -> Result<()> {
     // let data = data::read_pmetrics("examples/analytical_saem_test/converted_data_theo.csv")?;
     let data = data::read_pmetrics(data)?;
     // println!("Loaded {} subjects", data.len());
@@ -89,14 +131,6 @@ fn pmcore_loop(data: impl Into<String>, output: &str) -> Result<()> {
         },
     };
 
-    let problem = EstimationProblem::parametric(equation, data)
-        // Must currently follow the model metadata order: ka, ke, v.
-        .parameter(Parameter::log("ka").with_initial(1.0))
-        .parameter(Parameter::log("ke").with_initial(0.025))
-        .parameter(Parameter::log("v").with_initial(20.0))
-        .error_model("outeq_0", ResidualErrorModel::constant(1.0))
-        .build()?;
-
     let config = SaemConfig::new()
         .seed(632545)
         .n_chains(25)
@@ -105,6 +139,14 @@ fn pmcore_loop(data: impl Into<String>, output: &str) -> Result<()> {
         .burn_in(100)
         .k1_iterations(300)
         .k2_iterations(150);
+
+    let problem = EstimationProblem::parametric(equation, data)
+        // Must currently follow the model metadata order: ka 0.8 3*0.0064, ke 0.18 3*.000324, v 63.0 3*39.69 mean/variance
+        .parameter(Parameter::log("ka").with_initial(ka))
+        .parameter(Parameter::log("ke").with_initial(ke))
+        .parameter(Parameter::log("v").with_initial(v))
+        .error_model("outeq_0", ResidualErrorModel::constant(1.0))
+        .build()?;
 
     let result = problem.fit_with(config)?;
 
@@ -117,218 +159,3 @@ fn pmcore_loop(data: impl Into<String>, output: &str) -> Result<()> {
 
     Ok(())
 }
-
-// /// Print a comprehensive SAEM report matching R saemix output format
-// fn print_saem_report<E: pharmsol::Equation>(result: &pmcore::prelude::ParametricWorkspace<E>) {
-//     let n_subjects = result.data().len();
-//     // Count observations from all occasions
-//     let n_obs: usize = result
-//         .data()
-//         .subjects()
-//         .iter()
-//         .flat_map(|s| s.occasions())
-//         .flat_map(|o| o.events())
-//         .filter(|e| matches!(e, pharmsol::Event::Observation(_)))
-//         .count();
-//     let param_names = result.population().param_names();
-//     let n_params = param_names.len();
-//     let mu = result.mu();
-//     let omega = result.omega();
-
-//     println!("\n{}", "=".repeat(60));
-//     println!("{:^60}", "SAEM Algorithm Results");
-//     println!("{}", "=".repeat(60));
-
-//     // Dataset characteristics
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Data");
-//     println!("{}", "-".repeat(60));
-//     println!("  Number of subjects:     {}", n_subjects);
-//     println!("  Number of observations: {}", n_obs);
-//     println!(
-//         "  Average obs/subject:    {:.1}",
-//         n_obs as f64 / n_subjects as f64
-//     );
-
-//     // Algorithm info
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Algorithm");
-//     println!("{}", "-".repeat(60));
-//     println!("  Iterations completed:   {}", result.iterations());
-//     println!("  Status:                 {:?}", result.status());
-
-//     // Fixed effects (population means)
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Fixed Effects (Population Means)");
-//     println!("{}", "-".repeat(60));
-//     println!("  {:12} {:>12} {:>12}", "Parameter", "Estimate", "");
-//     println!("  {:12} {:>12} {:>12}", "---------", "--------", "");
-//     for (i, name) in param_names.iter().enumerate() {
-//         println!("  {:12} {:>12.4}", name, mu[i]);
-//     }
-
-//     // Variance of random effects
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Variance of Random Effects");
-//     println!("{}", "-".repeat(60));
-//     println!("  {:12} {:>12}", "Parameter", "Estimate");
-//     println!("  {:12} {:>12}", "---------", "--------");
-//     for (i, name) in param_names.iter().enumerate() {
-//         let var = omega[(i, i)];
-//         println!("  omega2.{:<4} {:>12.4}", name, var);
-//     }
-
-//     // Covariances (if any non-zero off-diagonal)
-//     let mut has_covariances = false;
-//     for i in 0..n_params {
-//         for j in (i + 1)..n_params {
-//             if omega[(i, j)].abs() > 1e-10 {
-//                 if !has_covariances {
-//                     println!("\n  Covariances:");
-//                     has_covariances = true;
-//                 }
-//                 println!(
-//                     "  cov.{}.{:<6} {:>12.4}",
-//                     param_names[i],
-//                     param_names[j],
-//                     omega[(i, j)]
-//                 );
-//             }
-//         }
-//     }
-
-//     // Correlation matrix
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Correlation Matrix of Random Effects");
-//     println!("{}", "-".repeat(60));
-
-//     // Header
-//     print!("  {:12}", "");
-//     for name in &param_names {
-//         print!(" {:>10}", name);
-//     }
-//     println!();
-
-//     // Matrix rows
-//     for i in 0..n_params {
-//         print!("  {:12}", param_names[i]);
-//         for j in 0..n_params {
-//             let sd_i = omega[(i, i)].sqrt();
-//             let sd_j = omega[(j, j)].sqrt();
-//             let corr = if sd_i > 0.0 && sd_j > 0.0 {
-//                 omega[(i, j)] / (sd_i * sd_j)
-//             } else if i == j {
-//                 1.0
-//             } else {
-//                 0.0
-//             };
-//             print!(" {:>10.4}", corr);
-//         }
-//         println!();
-//     }
-
-//     // Residual error
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Residual Error");
-//     println!("{}", "-".repeat(60));
-//     println!("  σ estimates:          {:?}", result.sigma().as_vec());
-
-//     // Statistical criteria
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Statistical Criteria");
-//     println!("{}", "-".repeat(60));
-
-//     let _ll = -result.objf() / 2.0; // Convert -2LL to LL
-//     let n_fixed = n_params;
-//     let n_random = n_params; // diagonal omega
-//     let n_resid = 1; // residual error
-//     let n_total_params = n_fixed + n_random + n_resid;
-
-//     let aic = result.objf() + 2.0 * n_total_params as f64;
-//     let bic = result.objf() + (n_total_params as f64) * (n_subjects as f64).ln();
-
-//     println!("  -2LL = {:.4}", result.objf());
-//     println!("  AIC  = {:.4}", aic);
-//     println!("  BIC  = {:.4}", bic);
-
-//     // Individual parameters (first 10 subjects) on the canonical ψ-space result surface.
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Individual Parameters (first 10 subjects)");
-//     println!("{}", "-".repeat(60));
-
-//     // Header
-//     print!("  {:>4}", "ID");
-//     for name in &param_names {
-//         print!(" {:>12}", name);
-//     }
-//     println!();
-
-//     // Get individual estimates
-//     let individuals = result.individual_estimates();
-//     let show_count = std::cmp::min(10, individuals.nsubjects());
-
-//     for i in 0..show_count {
-//         if let Some(ind) = individuals.get(i) {
-//             print!("  {:>4}", i + 1);
-//             for j in 0..n_params {
-//                 print!(" {:>12.6}", ind.psi()[j]);
-//             }
-//             println!();
-//         }
-//     }
-
-//     // Summary statistics for each parameter
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Summary of Individual Estimates");
-//     println!("{}", "-".repeat(60));
-
-//     for (p, name) in param_names.iter().enumerate() {
-//         let mut values: Vec<f64> = Vec::new();
-//         for i in 0..individuals.nsubjects() {
-//             if let Some(ind) = individuals.get(i) {
-//                 values.push(ind.psi()[p]);
-//             }
-//         }
-
-//         if !values.is_empty() {
-//             values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-//             let n = values.len();
-//             let min = values[0];
-//             let max = values[n - 1];
-//             let mean: f64 = values.iter().sum::<f64>() / n as f64;
-//             let median = if n % 2 == 0 {
-//                 (values[n / 2 - 1] + values[n / 2]) / 2.0
-//             } else {
-//                 values[n / 2]
-//             };
-//             let q1 = values[n / 4];
-//             let q3 = values[3 * n / 4];
-//             let variance: f64 = values.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n as f64;
-//             let sd = variance.sqrt();
-
-//             println!("\n  --- {} ---", name);
-//             println!("    Min:    {:>10.5}", min);
-//             println!("    1st Qu: {:>10.5}", q1);
-//             println!("    Median: {:>10.5}", median);
-//             println!("    Mean:   {:>10.5}", mean);
-//             println!("    3rd Qu: {:>10.5}", q3);
-//             println!("    Max:    {:>10.5}", max);
-//             println!("    SD:     {:>10.5}", sd);
-//         }
-//     }
-
-//     // Derived statistics
-//     println!("\n{}", "-".repeat(60));
-//     println!("{:^60}", "Population Parameter Summary");
-//     println!("{}", "-".repeat(60));
-//     println!("  {:12} {:>10} {:>10}", "Parameter", "SD(ω)", "CV(%)");
-//     println!("  {:12} {:>10} {:>10}", "---------", "------", "-----");
-//     let cvs = result.cv_percent();
-//     for (i, name) in param_names.iter().enumerate() {
-//         let omega2 = omega[(i, i)];
-//         let sd = omega2.sqrt();
-//         println!("  {:12} {:>10.4} {:>10.1}", name, sd, cvs[i]);
-//     }
-
-//     println!("\n{}", "=".repeat(60));
-// }
