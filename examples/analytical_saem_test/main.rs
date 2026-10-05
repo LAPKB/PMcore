@@ -11,16 +11,15 @@ use anyhow::Result;
 use pmcore::prelude::*;
 use rand::SeedableRng;
 
-use std::fs::{remove_dir_all, File, OpenOptions, read_dir};
-use std::path::Path;
-use csv::{Reader, Writer};
+use std::fs::{remove_dir_all, OpenOptions, read_dir, metadata, create_dir};
+use csv::Writer;
 
 use rand_distr::{Distribution, Normal};
 use rand::rngs::StdRng;
 
 
 const SEED: u64 = 17;
-const TRIALS_PER_DATASET: u64 = 2;
+const TRIALS_PER_DATASET: u64 = 1;
 
 
 #[derive(serde::Serialize)]
@@ -32,20 +31,6 @@ struct Entry<'a> {
     trial: u64
 }
 
-#[derive(serde::Deserialize)]
-struct PopEntry {
-    name: String,
-    estimate: f64,
-    #[serde(rename = "scale")]
-    _scale: String,
-    #[serde(rename = "estimated")]
-    _estimated: bool,
-    #[serde(rename = "iiv")]
-    _iiv: bool,
-    #[serde(rename = "iov")]
-    _iov: bool
-}
-
 // arguments (ka: f64, ke: f64, v: f64, trial_id: u64)
 fn main() -> Result<()> {
     let mut rng = StdRng::seed_from_u64(SEED);
@@ -53,7 +38,11 @@ fn main() -> Result<()> {
     let ke_dist: Normal<f64> = Normal::new(0.18, 3.0*(0.000324_f64.sqrt())).unwrap();
     let v_dist: Normal<f64> = Normal::new(63.0, 3.0*(39.69_f64.sqrt())).unwrap();
     
-    remove_dir_all("examples/analytical_saem_test/outputs/pmcore_output")?;
+    let output_path = "examples/analytical_saem_test/outputs";
+    if metadata(output_path).is_ok() {
+        remove_dir_all(output_path)?;
+    }
+    create_dir(output_path)?;
 
     let paths = read_dir("examples/analytical_saem_test/test_data/pmcore_data");
 
@@ -67,35 +56,23 @@ fn main() -> Result<()> {
             continue;
         }
 
-        println!("Starting trials with file: {:?}", path);
+        let file_name = path.to_str().unwrap_or("failed to read file name").strip_prefix("examples/analytical_saem_test/test_data/pmcore_data/").unwrap();
 
         for i in 0..TRIALS_PER_DATASET {
+            
+            println!("Starting trial {} for dataset {}", i, file_name);
 
-            pmcore_loop(path.to_str().unwrap(), "examples/analytical_saem_test/outputs/pmcore_output/run_data", 
+            let output_parameters = pmcore_loop(path.to_str().unwrap(), 
                 ka_dist.sample(&mut rng).max(0.000001),
                 ke_dist.sample(&mut rng).max(0.000001),
                 v_dist.sample(&mut rng).max(0.000001)
             )?;
-            
-            let output_file = File::open(Path::new("examples/analytical_saem_test/outputs/pmcore_output/run_data/population.csv"))?;
-            let mut output_reader = Reader::from_reader(output_file);
-
-            let mut final_ka: f64 = -1.0;
-            let mut final_ke: f64 = -1.0;
-            let mut final_v: f64 = -1.0;
-
-            for entry in output_reader.deserialize() {
-                let record: PopEntry = entry?;
-                if record.name == "ka" { final_ka = record.estimate; }
-                else if record.name == "ke" { final_ke = record.estimate; }
-                else if record.name == "v" { final_v = record.estimate; }
-            }
                 
             let trace_file = OpenOptions::new()
                 .write(true)
                 .append(true)
                 .create(true)
-                .open("examples/analytical_saem_test/outputs/pmcore_output/pmcore_trace.csv")
+                .open("examples/analytical_saem_test/outputs/pmcore_trace.csv")
                 .unwrap();
             
             let mut trace_writer = Writer::from_writer(trace_file);
@@ -105,9 +82,9 @@ fn main() -> Result<()> {
 
             trace_writer.serialize(Entry {
                 dataset_file_name: path.to_str().unwrap_or("failed to read file name").strip_prefix("examples/analytical_saem_test/test_data/pmcore_data/").unwrap(),
-                ka: final_ka,
-                ke: final_ke,
-                v: final_v,
+                ka: output_parameters[0],
+                ke: output_parameters[1],
+                v: output_parameters[2],
                 trial: i+1,
             })?;
             
@@ -118,8 +95,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn pmcore_loop(data: impl Into<String>, output: &str, ka: f64, ke: f64, v: f64) -> Result<()> {
-    println!("Initial values - ka: {}, ke: {}, v: {}", ka, ke, v);
+fn pmcore_loop(data: impl Into<String>, ka: f64, ke: f64, v: f64) -> Result<Vec<f64>> {
     // let data = data::read_pmetrics("examples/analytical_saem_test/converted_data_theo.csv")?;
     let data = data::read_pmetrics(data)?;
     // println!("Loaded {} subjects", data.len());
@@ -160,10 +136,9 @@ fn pmcore_loop(data: impl Into<String>, output: &str, ka: f64, ke: f64, v: f64) 
 
     // Write all output files
     // let output_dir = "examples/analytical_saem_test/outputs/pmcore_output/";
-    result.write_outputs(output, 0.0, 0.0)?;
+    // result.write_outputs(output, 0.0, 0.0)?;
 
-    // Print comprehensive results summary (matching R saemix format)
-    // print_saem_report(result);
+    let final_parameters = result.population_parameters().to_vec();
 
-    Ok(())
+    Ok(final_parameters)
 }
