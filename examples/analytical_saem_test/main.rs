@@ -46,7 +46,16 @@ fn main() -> Result<()> {
 
     let paths = read_dir("examples/analytical_saem_test/test_data/pmcore_data");
 
-    let mut trial_id = 0;
+    let trace_file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open("examples/analytical_saem_test/outputs/pmcore_trace.csv")
+        .unwrap();
+
+    let mut trace_writer = Writer::from_writer(trace_file);
+
+    trace_writer.write_record(["dataset_file_name", "ka", "ke", "v", "trial"])?;
 
     for entry in paths.unwrap() {
 
@@ -67,18 +76,6 @@ fn main() -> Result<()> {
                 ke_dist.sample(&mut rng).max(0.000001),
                 v_dist.sample(&mut rng).max(0.000001)
             )?;
-                
-            let trace_file = OpenOptions::new()
-                .write(true)
-                .append(true)
-                .create(true)
-                .open("examples/analytical_saem_test/outputs/pmcore_trace.csv")
-                .unwrap();
-            
-            let mut trace_writer = Writer::from_writer(trace_file);
-            if trial_id == 0 {
-                trace_writer.write_record(["dataset_file_name", "ka", "ke", "v", "trial"])?;
-            }
 
             trace_writer.serialize(Entry {
                 dataset_file_name: path.to_str().unwrap_or("failed to read file name").strip_prefix("examples/analytical_saem_test/test_data/pmcore_data/").unwrap(),
@@ -87,8 +84,6 @@ fn main() -> Result<()> {
                 v: output_parameters[2],
                 trial: i+1,
             })?;
-            
-            trial_id += 1;
         }
     }
 
