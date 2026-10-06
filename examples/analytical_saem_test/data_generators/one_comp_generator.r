@@ -1,9 +1,12 @@
 library(Pmetrics)
+library(here)
+
+i_am("one_comp_generator.r")
 
 # simulate a known model
 # pass observations to Romain to model in monolix and Joshua to model in pmetrics
 
-setwd("~/Documents/lapk/saem_validation")
+setwd(here("test_data", "saemix_data"))
 
 #
 # One compartment
@@ -51,8 +54,7 @@ sim001 <- PM_sim$new( # PM_result$sim( #
 
 plot(sim001,log=F)
 
-#
-for (x in 1:32) {
+generation_loop <- function(x) {
   if (x > 9) {
     d.file <- paste("saem_valid002_",x,"_one_comp_random_oversampled.csv",sep='')
     d.file.parsed <- paste("saem_valid002_",x,".csv",sep='')
@@ -61,38 +63,44 @@ for (x in 1:32) {
     d.file.parsed <- paste("saem_valid002_0",x,".csv",sep='')
   }
 
-# NPAG optimization; parse dense output first.
-newdata <- read.csv(d.file)
-id_list <- unique(newdata$ID) # this should be aligned w/sim001$parValues
-newdata <- read.csv(d.file) %>%
-  # filter(TIME %in% c(0,7.5,8,9.0,15.5,16,17.0,23.5,24,25.0,31.5,32,33.0,39.5,40,41.0,47.5,48,49.0,55.5,56)) %>%
-  group_by(ID) %>%
-    filter(TIME %in% c(0,sample(seq(0.5,7.5,0.5),size=1),
-       8,sample(seq( 8.5,15.5,0.5),size=1),
-      16,sample(seq(16.5,23.5,0.5),size=1),
-      24,sample(seq(24.5,31.5,0.5),size=1),
-      32,sample(seq(32.5,39.5,0.5),size=1),
-      40,sample(seq(40.5,64.0,0.5),size=1))
-    ) %>% # mutate(obs_no = id_list[which(id_list == ID)]) %>%
-    mutate(ka = sim001$parValues$ka[which(id_list == ID)]) %>%
-    mutate(ke = sim001$parValues$ke[which(id_list == ID)]) %>%
-    mutate(v = sim001$parValues$v[which(id_list == ID)]) %>%
-  ungroup() %>%
-  rename_with(tolower) %>%
-  mutate(nonoise=as.numeric(out)) %>%
-  mutate(obserr=(nonoise/20)^2) %>%
-  mutate(obserr=rnorm(n(),0,obserr)) %>%
-  mutate(out=nonoise+obserr) %>%
-  mutate(out=if_else(out>0,out,0,missing=NA)) %>%
-  mutate(nonoise=if_else(time==0,0,nonoise)) %>%
-  mutate(obserr=if_else(time==0,0,obserr)) %>%
-  mutate(outeq=if_else(outeq==1,0,NA)) %>% # not sure why these have to be recast to 0 ... as Joshua
-  mutate(input=if_else(input==1,0,NA)) %>%
-  filter_out(time %in% c(0,8,16,24,32,40,48,56) & out > 0)
-# newdata$out[which(newdata$out < 0)]
-write.csv(newdata,file=d.file.parsed, na='.')
+  # NPAG optimization; parse dense output first.
+  newdata <- read.csv(d.file)
+  id_list <- unique(newdata$ID) # this should be aligned w/sim001$parValues
+
+  newdata <- read.csv(d.file) %>%
+    # filter(TIME %in% c(0,7.5,8,9.0,15.5,16,17.0,23.5,24,25.0,31.5,32,33.0,39.5,40,41.0,47.5,48,49.0,55.5,56)) %>%
+    group_by(ID) %>%
+      filter(TIME %in% c(0,sample(seq(0.5,7.5,0.5),size=1),
+        8,sample(seq( 8.5,15.5,0.5),size=1),
+        16,sample(seq(16.5,23.5,0.5),size=1),
+        24,sample(seq(24.5,31.5,0.5),size=1),
+        32,sample(seq(32.5,39.5,0.5),size=1),
+        40,sample(seq(40.5,64.0,0.5),size=1))
+      ) %>% # mutate(obs_no = id_list[which(id_list == ID)]) %>%
+      mutate(ka = sim001$parValues$ka[which(id_list == ID)]) %>%
+      mutate(ke = sim001$parValues$ke[which(id_list == ID)]) %>%
+      mutate(v = sim001$parValues$v[which(id_list == ID)]) %>%
+    ungroup() %>%
+    rename_with(tolower) %>%
+    mutate(nonoise=as.numeric(out)) %>%
+    mutate(obserr=(nonoise/20)^2) %>%
+    mutate(obserr=rnorm(n(),0,obserr)) %>%
+    mutate(out=nonoise+obserr) %>%
+    mutate(out=if_else(out>0,out,0,missing=NA)) %>%
+    mutate(nonoise=if_else(time==0,0,nonoise)) %>%
+    mutate(obserr=if_else(time==0,0,obserr)) %>%
+    mutate(outeq=if_else(outeq==1,0,NA)) %>% # not sure why these have to be recast to 0 ... as Joshua
+    mutate(input=if_else(input==1,0,NA)) %>%
+    filter_out(time %in% c(0,8,16,24,32,40,48,56) & out > 0)
+    
+  # newdata$out[which(newdata$out < 0)]
+  write.csv(newdata,file=d.file.parsed, na='.')
 }
-  # optimize
+
+for (x in 1:32) {
+  generation_loop(x)
+}
+# optimize
 simdata <- PM_data$new(d.file.parsed)
 run1 <- mod$fit(data = simdata, run = 1, overwrite = TRUE, path = "Runs", cycles=5000)
 
