@@ -19,7 +19,7 @@ use rand::rngs::StdRng;
 
 
 const SEED: u64 = 17;
-const TRIALS_PER_DATASET: u64 = 1;
+const TRIALS_PER_DATASET: u64 = 7;
 
 
 #[derive(serde::Serialize)]
