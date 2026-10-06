@@ -17,6 +17,8 @@ use csv::Writer;
 use rand_distr::{Distribution, Normal};
 use rand::rngs::StdRng;
 
+use std::time::Instant;
+
 
 const SEED: u64 = 17;
 const TRIALS_PER_DATASET: u64 = 1;
@@ -33,6 +35,8 @@ struct Entry<'a> {
 
 // arguments (ka: f64, ke: f64, v: f64, trial_id: u64)
 fn main() -> Result<()> {
+    let start = Instant::now();
+
     let mut rng = StdRng::seed_from_u64(SEED);
     let ka_dist: Normal<f64> = Normal::new(0.8, 3.0*(0.0064_f64.sqrt())).unwrap();
     let ke_dist: Normal<f64> = Normal::new(0.18, 3.0*(0.000324_f64.sqrt())).unwrap();
@@ -86,6 +90,8 @@ fn main() -> Result<()> {
             })?;
         }
     }
+
+    println!("Time elapsed: {:?}", start.elapsed());
 
     Ok(())
 }
