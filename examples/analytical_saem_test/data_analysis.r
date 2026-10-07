@@ -5,9 +5,9 @@ library(ggplot2)
 
 i_am("data_analysis.r")
 
-data_file_list <- list.files(here("test_data", "pmcore_data"), pattern = "*.csv", full.names = TRUE)
-combined_data <- read_csv(data_file_list, id = "dataset_file_name", n_max = 1, col_select = c("ka", "ke", "v"))
-combined_data$dataset_file_name <- sub(".*test_data/pmcore_data/", "", combined_data$dataset_file_name)
+combined_data <- read_csv(here("test_data", "pmcore_data", "saem_valid002_01.csv"), col_select = c("ka", "ke", "v"))
+# combined_data$dataset_file_name <- sub(".*test_data/pmcore_data/", "", combined_data$dataset_file_name)
+truth <- c(mean(combined_data$ka), mean(combined_data$ke), mean(combined_data$v))
 
 trace <- read.csv(here("outputs", "pmcore_trace.csv")) 
 
@@ -16,9 +16,9 @@ trace$ke_dif <- NA
 trace$v_dif <- NA
 
 for (i in seq_len(nrow(trace))) {
-  trace[i, "ka_dif"] <- combined_data[combined_data$dataset_file_name == trace[i, "dataset_file_name"], "ka"] - trace[i, "ka"]
-  trace[i, "ke_dif"] <- combined_data[combined_data$dataset_file_name == trace[i, "dataset_file_name"], "ke"] - trace[i, "ke"]
-  trace[i, "v_dif"] <- combined_data[combined_data$dataset_file_name == trace[i, "dataset_file_name"], "v"] - trace[i, "v"]
+  trace[i, "ka_dif"] <- truth[1] - trace[i, "ka"]
+  trace[i, "ke_dif"] <- truth[2] - trace[i, "ke"]
+  trace[i, "v_dif"] <- truth[3] - trace[i, "v"]
 }
 
 ka_dif_mean <- mean(trace$ka_dif, na.rm = TRUE)
