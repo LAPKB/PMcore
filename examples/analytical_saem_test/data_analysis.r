@@ -31,28 +31,28 @@ v_dif_mean <- mean(trace$v_dif, na.rm = TRUE)
 v_dif_sd <- sd(trace$v_dif, na.rm = TRUE)
 
 ggplot(trace, aes(x = ka_dif)) +
-  # Plot empirical density histogram
-  geom_histogram(aes(y = ..density..), binwidth = 1, fill = "lightgray", color = "black") +
+#   # Plot empirical density histogram
+#   geom_histogram(aes(y = ..density..), binwidth = 0.001, fill = "lightgray", color = "black") +
   # Overlay theoretical normal distribution curve
   stat_function(fun = dnorm, args = list(mean = ka_dif_mean, sd = ka_dif_sd), 
                 color = "blue", size = 1) +
-  labs(title = "Normal Curve Over Column", x = "Values", y = "Density") +
+  labs(title = "Ka Dif Normal Curve Over Column", x = "Values", y = "Density") +
   theme_minimal()
 
 ggplot(trace, aes(x = ke_dif)) +
-  # Plot empirical density histogram
-  geom_histogram(aes(y = ..density..), binwidth = 1, fill = "lightgray", color = "black") +
+#   # Plot empirical density histogram
+#   geom_histogram(aes(y = ..density..), binwidth = 0.001, fill = "lightgray", color = "black") +
   # Overlay theoretical normal distribution curve
   stat_function(fun = dnorm, args = list(mean = ke_dif_mean, sd = ke_dif_sd), 
                 color = "blue", size = 1) +
-  labs(title = "Normal Curve Over Column", x = "Values", y = "Density") +
+  labs(title = "Ke Dif Normal Curve Over Column", x = "Values", y = "Density") +
   theme_minimal()
 
 ggplot(trace, aes(x = v_dif)) +
-  # Plot empirical density histogram
-  geom_histogram(aes(y = ..density..), binwidth = 1, fill = "lightgray", color = "black") +
+#   # Plot empirical density histogram
+#   geom_histogram(aes(y = ..density..), binwidth = 0.1, fill = "lightgray", color = "black") +
   # Overlay theoretical normal distribution curve
   stat_function(fun = dnorm, args = list(mean = v_dif_mean, sd = v_dif_sd), 
                 color = "blue", size = 1) +
-  labs(title = "Normal Curve Over Column", x = "Values", y = "Density") +
+  labs(title = "V Dif Normal Curve Over Column", x = "Values", y = "Density") +
   theme_minimal()
