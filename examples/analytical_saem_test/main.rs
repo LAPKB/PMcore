@@ -73,7 +73,7 @@ fn main() -> Result<()> {
 
         for i in 0..TRIALS_PER_DATASET {
             
-            println!("Starting trial {} for dataset {}", i, file_name);
+            println!("Starting trial {} for dataset {}", i+1, file_name);
 
             let output_parameters = pmcore_loop(path.to_str().unwrap(), 
                 ka_dist.sample(&mut rng).max(0.000001),
