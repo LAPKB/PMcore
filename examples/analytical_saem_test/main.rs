@@ -27,6 +27,7 @@ const TRIALS_PER_DATASET: u64 = 7;
 #[derive(serde::Serialize)]
 struct Entry<'a> {
     dataset_file_name: &'a str,
+    subject: &'a str,
     ka: f64,
     ke: f64,
     v: f64,
@@ -82,12 +83,24 @@ fn main() -> Result<()> {
             )?;
 
             trace_writer.serialize(Entry {
-                dataset_file_name: path.to_str().unwrap_or("failed to read file name").strip_prefix("examples/analytical_saem_test/test_data/pmcore_data/").unwrap(),
-                ka: output_parameters[0],
-                ke: output_parameters[1],
-                v: output_parameters[2],
+                dataset_file_name: file_name,
+                subject: "population",
+                ka: output_parameters.0[0],
+                ke: output_parameters.0[1],
+                v: output_parameters.0[2],
                 trial: i+1,
             })?;
+
+            for parameter in output_parameters.1 {
+                trace_writer.serialize(Entry {
+                    dataset_file_name: file_name,
+                    subject: &parameter.id,
+                    ka: parameter.estimates[0],
+                    ke: parameter.estimates[1],
+                    v: parameter.estimates[2],
+                    trial: i+1,
+                })?;
+            }
         }
     }
 
@@ -96,7 +109,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn pmcore_loop(data: impl Into<String>, ka: f64, ke: f64, v: f64) -> Result<Vec<f64>> {
+fn pmcore_loop(data: impl Into<String>, ka: f64, ke: f64, v: f64) -> Result<(Vec<f64>, Vec<IndividualSummary>)> {
     // let data = data::read_pmetrics("examples/analytical_saem_test/converted_data_theo.csv")?;
     let data = data::read_pmetrics(data)?;
     // println!("Loaded {} subjects", data.len());
@@ -140,6 +153,7 @@ fn pmcore_loop(data: impl Into<String>, ka: f64, ke: f64, v: f64) -> Result<Vec<
     // result.write_outputs(output, 0.0, 0.0)?;
 
     let final_parameters = result.population_parameters().to_vec();
+    let individual_summaries = result.individual_summaries();
 
-    Ok(final_parameters)
+    Ok((final_parameters, individual_summaries))
 }
