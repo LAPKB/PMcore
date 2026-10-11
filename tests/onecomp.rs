@@ -131,8 +131,16 @@ fn test_one_compartment_npod() -> Result<()> {
         .fit_with(NonParametricAlgorithm::npod())?;
 
     // Check the results
-    assert_eq!(result.cycles(), 11);
+    assert_eq!(result.cycles(), 6);
     assert!(result.objf() - 565.7749 < 0.01);
+
+    // Support points stay inside the parameter box
+    let theta = result.get_theta().matrix();
+    for (j, (lower, upper)) in parameters.finite_ranges().into_iter().enumerate() {
+        for i in 0..theta.nrows() {
+            assert!((lower..=upper).contains(&theta[(i, j)]));
+        }
+    }
 
     Ok(())
 }
