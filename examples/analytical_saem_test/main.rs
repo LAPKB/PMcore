@@ -21,7 +21,7 @@ use std::time::Instant;
 
 
 const SEED: u64 = 17;
-const TRIALS_PER_DATASET: u64 = 7;
+const TRIALS_PER_DATASET: u64 = 2;
 
 
 #[derive(serde::Serialize)]
@@ -60,7 +60,7 @@ fn main() -> Result<()> {
 
     let mut trace_writer = Writer::from_writer(trace_file);
 
-    trace_writer.write_record(["dataset_file_name", "ka", "ke", "v", "trial"])?;
+    // trace_writer.write_record(["dataset_file_name", "subject", "ka", "ke", "v", "trial"])?;
 
     for entry in paths.unwrap() {
 
