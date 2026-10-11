@@ -112,11 +112,16 @@ impl Theta {
     }
 
     /// Suggest a new support point to add to the matrix
-    /// The point is only added if it is at least `min_dist` away from all existing support points
-    /// and within the limits specified by `limits`
+    /// The point is first clamped to the parameter bounds, and is only added if it is
+    /// at least `min_dist` away from all existing support points
     pub(crate) fn suggest_point(&mut self, spp: &[f64], min_dist: f64) -> Result<()> {
-        if self.check_point(spp, min_dist) {
-            self.add_point(spp)?;
+        let spp: Vec<f64> = spp
+            .iter()
+            .zip(self.parameters.finite_ranges())
+            .map(|(val, (lower, upper))| val.clamp(lower, upper))
+            .collect();
+        if self.check_point(&spp, min_dist) {
+            self.add_point(&spp)?;
         }
         Ok(())
     }
@@ -523,6 +528,19 @@ mod tests {
         ParameterSpace::<BoundedParameter>::new()
             .add("ke", 0.1, 1.0)
             .add("v", 5.0, 50.0)
+    }
+
+    #[test]
+    fn suggest_point_clamps_to_bounds() {
+        let params = parameters();
+        let mut theta =
+            Theta::from_parts(Mat::from_fn(1, 2, |_, j| [0.5, 20.0][j]), params).unwrap();
+
+        theta.suggest_point(&[6.8, 1.0], 1e-4).unwrap();
+
+        assert_eq!(theta.nspp(), 2);
+        assert_eq!(*theta.matrix().get(1, 0), 1.0);
+        assert_eq!(*theta.matrix().get(1, 1), 5.0);
     }
 
     fn temp_csv_path() -> String {
