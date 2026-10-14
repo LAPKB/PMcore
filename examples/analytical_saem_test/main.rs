@@ -27,11 +27,11 @@ const TRIALS_PER_DATASET: u64 = 2;
 #[derive(serde::Serialize)]
 struct Entry<'a> {
     dataset_file_name: &'a str,
+    trial: u64,
     subject: &'a str,
     ka: f64,
     ke: f64,
     v: f64,
-    trial: u64
 }
 
 // arguments (ka: f64, ke: f64, v: f64, trial_id: u64)
@@ -55,7 +55,7 @@ fn main() -> Result<()> {
         .write(true)
         .append(true)
         .create(true)
-        .open("examples/analytical_saem_test/outputs/pmcore_trace.csv")
+        .open("examples/analytical_saem_test/outputs/pmcore_final_estimates.csv")
         .unwrap();
 
     let mut trace_writer = Writer::from_writer(trace_file);
