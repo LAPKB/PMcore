@@ -155,5 +155,8 @@ fn pmcore_loop(data: impl Into<String>, ka: f64, ke: f64, v: f64) -> Result<(Vec
     let final_parameters = result.population_parameters().to_vec();
     let individual_summaries = result.individual_summaries();
 
+    // let pop_predictions = result.population_predictions(64.0, 24.0);
+    // let cond_predictions = result.conditional_predictions(64.0, 24.0);
+
     Ok((final_parameters, individual_summaries))
 }
