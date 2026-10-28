@@ -5,10 +5,10 @@ fn main() -> Result<()> {
         name: "new_iov",
         params: [ke0, ske],
         states: [central, ke_latent],
-        outputs: [outeq_1],
+        outputs: [1],
         particles: 11,
         routes: [
-            bolus(input_1) -> central,
+            bolus(1) -> central,
         ],
         drift: |x, _t, dx| {
             dx[ke_latent] = -x[ke_latent] + ke0;
@@ -21,7 +21,7 @@ fn main() -> Result<()> {
             x[ke_latent] = ke0;
         },
         out: |x, _t, y| {
-            y[outeq_1] = x[central] / 50.0;
+            y[1] = x[central] / 50.0;
         },
     };
 
@@ -31,7 +31,7 @@ fn main() -> Result<()> {
         .add("ske", 0.0001, 0.2);
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new().add(
-        "outeq_1",
+        "1",
         AssayErrorModel::additive(ErrorPoly::new(-0.00119, 0.44379, -0.45864, 0.16537), 0.0),
     )?;
     EstimationProblem::nonparametric(sde, data, prior, error_models)?

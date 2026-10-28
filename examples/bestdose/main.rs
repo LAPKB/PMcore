@@ -7,18 +7,18 @@ use pmcore::prelude::*;
 /// The model, written in the pharmsol DSL and parsed/compiled at runtime.
 ///
 /// A one-compartment model with a bolus input: `C(t) = Dose * exp(-ke * t) / V`.
-/// The route is named `input_0` and the output `outeq_0` so that subjects built
-/// with the numeric input/output index `0` resolve to them.
+/// The route and the output are both named `0` so that subjects built with the
+/// numeric input/output index `0` resolve to them.
 const MODEL_SOURCE: &str = r#"
 name = bestdose_one_compartment
 kind = ode
 
 params = ke, v
 states = central
-outputs = outeq_0
+outputs = 0
 
-dx(central) = bolus(input_0) - ke * central
-out(outeq_0) = central / v
+dx(central) = bolus(0) - ke * central
+out(0) = central / v
 "#;
 
 fn main() -> Result<()> {

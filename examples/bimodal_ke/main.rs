@@ -8,12 +8,12 @@ fn main() -> Result<()> {
         name: "bimodal_ke",
         params: [ke, v],
         states: [central],
-        outputs: [outeq_1],
+        outputs: [1],
         diffeq: |x, _t, dx| {
-            dx[central] = infusion[input_1] - ke * x[central];
+            dx[central] = infusion[1] - ke * x[central];
         },
         out: |x, _t, y| {
-            y[outeq_1] = x[central] / v;
+            y[1] = x[central] / v;
         },
     }
     .with_solver(OdeSolver::ExplicitRk(ExplicitRkTableau::Tsit45));
@@ -27,7 +27,7 @@ fn main() -> Result<()> {
     let prior = Theta::sobol_default(&parameters)?;
 
     let error_models = AssayErrorModels::new().add(
-        "outeq_1",
+        "1",
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?;
 

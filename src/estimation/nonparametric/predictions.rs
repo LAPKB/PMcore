@@ -1,7 +1,9 @@
 use std::path::Path;
 
 use anyhow::{bail, Result};
-use pharmsol::{prelude::simulator::Prediction, Censor, Data, Predictions as PredTrait};
+use pharmsol::{
+    prelude::simulator::Prediction, Censor, Data, OutputLabel, Predictions as PredTrait,
+};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +16,7 @@ use crate::{
 pub struct NPPredictionRow {
     id: String,
     time: f64,
-    outeq: usize,
+    outeq: OutputLabel,
     block: usize,
     obs: Option<f64>,
     cens: Censor,
@@ -31,8 +33,8 @@ impl NPPredictionRow {
     pub fn time(&self) -> f64 {
         self.time
     }
-    pub fn outeq(&self) -> usize {
-        self.outeq
+    pub fn outeq(&self) -> &OutputLabel {
+        &self.outeq
     }
     pub fn block(&self) -> usize {
         self.block
@@ -143,12 +145,7 @@ impl NPPredictions {
             .map(|(subject_index, subject)| -> Result<Vec<NPPredictionRow>> {
                 let predictions: Vec<Vec<Prediction>> = support_points
                     .par_iter()
-                    .map(|spp| {
-                        Ok(equation
-                            .simulate_subject_dense(subject, spp, None)?
-                            .0
-                            .get_predictions())
-                    })
+                    .map(|spp| Ok(equation.simulate(subject, spp, None)?.0.get_predictions()))
                     .collect::<Result<Vec<_>>>()?;
 
                 let Some(first_spp_preds) = predictions.first() else {
@@ -203,7 +200,7 @@ impl NPPredictions {
                     .map(|(j, p)| NPPredictionRow {
                         id: subject.id().clone(),
                         time: p.time(),
-                        outeq: p.outeq(),
+                        outeq: p.outeq().clone(),
                         block: p.occasion(),
                         obs: p.observation(),
                         cens: p.censoring(),

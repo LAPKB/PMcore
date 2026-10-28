@@ -5,13 +5,13 @@ fn main() -> Result<()> {
         name: "theophylline",
         params: [ka, ke, v],
         states: [depot, central],
-        outputs: [outeq_0],
+        outputs: [0],
         routes: [
-            bolus(input_0) -> depot,
+            bolus(0) -> depot,
         ],
         structure: one_compartment_with_absorption,
         out: |x, _t, y| {
-            y[outeq_0] = x[central] * 1000.0 / v;
+            y[0] = x[central] * 1000.0 / v;
         },
     };
 
@@ -22,7 +22,7 @@ fn main() -> Result<()> {
         .add("v", 0.001, 50.0);
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new().add(
-        "outeq_0",
+        "0",
         AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
     )?;
     EstimationProblem::nonparametric(analytical, data, prior, error_models)?

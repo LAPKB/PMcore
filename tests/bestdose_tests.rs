@@ -17,12 +17,12 @@ fn bolus_model() -> ODE {
         name: "one_compartment_bolus",
         params: [ke, v],
         states: [central],
-        outputs: [outeq_0],
+        outputs: [0],
         diffeq: |x, _t, dx| {
-            dx[central] = bolus[input_0] - ke * x[central];
+            dx[central] = bolus[0] - ke * x[central];
         },
         out: |x, _t, y| {
-            y[outeq_0] = x[central] / v;
+            y[0] = x[central] / v;
         },
     }
 }
@@ -33,12 +33,12 @@ fn infusion_model() -> ODE {
         name: "one_compartment_infusion",
         params: [ke, v],
         states: [central],
-        outputs: [outeq_0],
+        outputs: [0],
         diffeq: |x, _t, dx| {
-            dx[central] = infusion[input_0] - ke * x[central];
+            dx[central] = infusion[0] - ke * x[central];
         },
         out: |x, _t, y| {
-            y[outeq_0] = x[central] / v;
+            y[0] = x[central] / v;
         },
     }
 }
