@@ -21,12 +21,22 @@
 //! Every algorithm runs on the same engine (see the `fit` module): the state shared by all
 //! algorithms (support points, likelihoods, weights, cycle log) lives in one place, and each
 //! algorithm only supplies what a single cycle does to it.
+//!
+//! # Stopping a running fit
+//!
+//! A fit started through [`fit_with`](crate::estimation::EstimationProblem::fit_with),
+//! [`fit_controller`](crate::estimation::EstimationProblem::fit_controller) or
+//! [`fit_with_observer`](crate::estimation::EstimationProblem::fit_with_observer) stops after
+//! the current cycle if a file named `stop` appears in the working directory, with
+//! [`StopReason::StopFile`](crate::algorithms::StopReason::StopFile). A `stop` file left over
+//! from an earlier run is removed when the fit starts.
 
 // Shared error-model factor optimization
 pub mod error_optim;
 
 // The engine every algorithm runs on.
 mod fit;
+mod solution;
 
 // Algorithm implementations
 pub mod ncnpag;
@@ -158,13 +168,24 @@ impl NonParametricAlgorithm {
         problem: EstimationProblem<E, NonParametric>,
     ) -> Result<Fit<E>> {
         let state = FitState::new(problem);
-        let runner: Box<dyn Runner<E>> = match self {
-            Self::Npag(config) => Box::new(Npag::new(config, &state.prior, &state.error_models)),
-            Self::Npod(config) => Box::new(Npod::new(config, &state.error_models)),
-            Self::Npmap(_) => Box::new(Npmap),
-            Self::Ncnpag(config) => Box::new(Ncnpag::new(config)),
+        let (runner, max_cycles): (Box<dyn Runner<E>>, usize) = match self {
+            Self::Npag(config) => {
+                let max_cycles = config.max_cycles;
+                let runner = Npag::new(config, state.solution().theta(), state.error_models());
+                (Box::new(runner), max_cycles)
+            }
+            Self::Npod(config) => {
+                let max_cycles = config.max_cycles;
+                (
+                    Box::new(Npod::new(config, state.error_models())),
+                    max_cycles,
+                )
+            }
+            // Single-pass algorithms.
+            Self::Npmap(_) => (Box::new(Npmap), 1),
+            Self::Ncnpag(config) => (Box::new(Ncnpag::new(config)), 1),
         };
-        Fit::new(state, runner)
+        Fit::new(state, runner, max_cycles).watch_stop_file()
     }
 }
 

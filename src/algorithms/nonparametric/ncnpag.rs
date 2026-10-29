@@ -1,15 +1,12 @@
 use anyhow::Result;
 use faer::Mat;
-use pharmsol::prelude::{
-    data::{AssayErrorModels, Data},
-    simulator::Equation,
-};
+use pharmsol::prelude::simulator::Equation;
 use serde::{Deserialize, Serialize};
 
-use super::fit::{Fit, FitState, Runner};
+use super::fit::{CycleOutcome, Fit, FitState, Runner};
 use super::npag::{Npag, NpagConfig};
-use crate::algorithms::{Status, StopReason};
-use crate::estimation::nonparametric::{calculate_psi, Psi, Theta, Weights};
+use super::solution::Solution;
+use crate::estimation::nonparametric::{Theta, Weights};
 
 /// Configuration options for the non-collapsing NPAG (NCNPAG) algorithm.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -82,9 +79,7 @@ impl Ncnpag {
 /// preserving the point's filter weight (NPAGFULL). Points whose refinement
 /// fails or produces no output are kept at their original location.
 fn refine_points<E: Equation>(
-    equation: &E,
-    data: &Data,
-    error_models: &AssayErrorModels,
+    state: &FitState<E>,
     theta: &Theta,
     weights: &Weights,
     cycles: usize,
@@ -105,21 +100,20 @@ fn refine_points<E: Equation>(
             progress,
             ..Default::default()
         };
-        let npag = Npag::new(npag_config, &single_theta, error_models);
-        let state = FitState::from_parts(
-            equation.clone(),
-            data.clone(),
-            error_models.clone(),
+        let npag = Npag::new(npag_config, &single_theta, state.error_models());
+        let nested = FitState::from_parts(
+            state.equation().clone(),
+            state.data().clone(),
+            state.error_models().clone(),
             single_theta,
         );
-        let run = Fit::new(state, Box::new(npag)).and_then(|mut fit| {
-            fit.run()?;
-            Ok(fit)
-        });
+        let mut fit = Fit::new(nested, Box::new(npag), cycles);
+        let run = fit.run().map(|()| fit);
 
         match run {
-            Ok(fit) if fit.state().theta.nspp() > 0 => {
-                let refined: Vec<f64> = fit.state().theta.matrix().row(0).iter().copied().collect();
+            Ok(fit) if fit.state().solution().theta().nspp() > 0 => {
+                let theta = fit.state().solution().theta();
+                let refined: Vec<f64> = theta.matrix().row(0).iter().copied().collect();
                 refined_points.push(refined);
             }
             Ok(_) => {
@@ -155,31 +149,14 @@ fn refine_points<E: Equation>(
     Ok((refined_theta, refined_weights))
 }
 
-/// Marginal log-likelihood of the data under a discrete `(psi, weights)` model.
-fn marginal_loglik(psi: &Psi, w: &Weights) -> f64 {
-    let m = psi.matrix();
-    (0..m.nrows())
-        .map(|s| {
-            let acc: f64 = (0..m.ncols()).map(|j| *m.get(s, j) * w[j]).sum();
-            acc.max(f64::MIN_POSITIVE).ln()
-        })
-        .sum::<f64>()
-        + psi.log_scale()
-}
-
 impl<E: Equation> Runner<E> for Ncnpag {
-    fn step(&mut self, state: &mut FitState<E>) -> Result<Status> {
+    fn step(&mut self, state: &mut FitState<E>) -> Result<CycleOutcome> {
         // Likelihood of each fixed support point for the data.
-        let psi = calculate_psi(
-            &state.equation,
-            &state.data,
-            &state.theta,
-            &state.error_models,
-            false,
-        )?;
+        let mut theta = state.solution().theta().clone();
+        let psi = state.compute_psi(&theta, false)?;
 
         // Flat (uniform) prior: postⱼ ∝ ∏ᵢ P(dataᵢ | θⱼ). Accumulate in log space.
-        let n_points = state.theta.matrix().nrows();
+        let n_points = theta.nspp();
         let mut log_weights = vec![f64::NEG_INFINITY; n_points];
         for (j, slot) in log_weights.iter_mut().enumerate() {
             let mut log_weight = 0.0; // ln(uniform prior) is constant, drops out on normalization
@@ -234,56 +211,25 @@ impl<E: Equation> Runner<E> for Ncnpag {
             .collect();
 
         // Filter theta and renormalize the surviving weights (NPAGFULL11).
-        state.theta.filter_indices(&keep);
+        theta.filter_indices(&keep);
         let kept: Vec<f64> = keep.iter().map(|&i| weights[i]).collect();
         let sum: f64 = kept.iter().sum();
-        state.weights = Weights::from_vec(kept.iter().map(|w| w / sum).collect());
+        let mut weights = Weights::from_vec(kept.iter().map(|w| w / sum).collect());
 
         // NPAGFULL: refine each surviving point with a full NPAG seeded from it.
         if self.config.cycles > 0 {
-            let (refined_theta, refined_weights) = refine_points(
-                &state.equation,
-                &state.data,
-                &state.error_models,
-                &state.theta,
-                &state.weights,
+            (theta, weights) = refine_points(
+                state,
+                &theta,
+                &weights,
                 self.config.cycles,
                 self.config.progress,
             )?;
-            state.theta = refined_theta;
-            state.weights = refined_weights;
         }
 
         // Recompute psi over the final support points so psi/weights stay aligned.
-        state.psi = calculate_psi(
-            &state.equation,
-            &state.data,
-            &state.theta,
-            &state.error_models,
-            false,
-        )?;
-
-        state.log_likelihood = marginal_loglik(&state.psi, &state.weights);
-        Ok(Status::Stop(StopReason::Converged))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use approx::assert_relative_eq;
-    use ndarray::Array2;
-
-    #[test]
-    fn marginal_loglik_restores_subject_scaling() -> anyhow::Result<()> {
-        let log_likelihoods = Array2::from_shape_vec((2, 2), vec![-1000.0, -1001.0, -2.0, -4.0])?;
-        let psi = Psi::from_log_likelihoods(log_likelihoods)?;
-        let weights = Weights::from_vec(vec![0.6, 0.4]);
-
-        let expected = -1000.0 + (0.6 + 0.4 * (-1.0_f64).exp()).ln() - 2.0
-            + (0.6 + 0.4 * (-2.0_f64).exp()).ln();
-
-        assert_relative_eq!(marginal_loglik(&psi, &weights), expected, epsilon = 1e-12);
-        Ok(())
+        let psi = state.compute_psi(&theta, false)?;
+        state.set_solution(Solution::with_weights(theta, psi, weights));
+        Ok(CycleOutcome::Converged)
     }
 }

@@ -14,7 +14,7 @@ use anyhow::Result;
 use pharmsol::prelude::{data::AssayErrorModels, simulator::Equation};
 
 use crate::algorithms::Status;
-use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta};
+use crate::estimation::nonparametric::{NonParametricResult, Psi, Theta, Weights};
 use crate::estimation::{EstimationProblem, NonParametric};
 
 use super::fit::Fit;
@@ -58,37 +58,55 @@ impl<E: Equation> FitController<E> {
 
     /// The current cycle number (0 before the first [`step`](Self::step)).
     pub fn cycle(&self) -> usize {
-        self.fit.state().cycle
+        self.fit.state().cycle()
     }
 
     /// The current [`Status`] of the fit.
     pub fn status(&self) -> &Status {
-        &self.fit.state().status
+        self.fit.state().status()
     }
 
-    /// The current support points and weights.
+    /// The current support points.
     pub fn theta(&self) -> &Theta {
-        &self.fit.state().theta
+        self.fit.state().solution().theta()
+    }
+
+    /// The current weight of each support point in [`theta`](Self::theta).
+    pub fn weights(&self) -> &Weights {
+        self.fit.state().solution().weights()
     }
 
     /// The current likelihood matrix.
     pub fn psi(&self) -> &Psi {
-        &self.fit.state().psi
+        self.fit.state().solution().psi()
     }
 
     /// The current log-likelihood.
-    pub fn likelihood(&self) -> f64 {
-        self.fit.state().log_likelihood
+    pub fn log_likelihood(&self) -> f64 {
+        self.fit.state().solution().log_likelihood()
     }
 
-    /// The current negative two log-likelihood (objective function).
+    /// The current objective function, -2 × log-likelihood, as reported by
+    /// [`NonParametricResult::objf`].
+    pub fn objf(&self) -> f64 {
+        self.fit.state().objf()
+    }
+
+    /// The current log-likelihood.
+    #[deprecated(note = "renamed to `log_likelihood`")]
+    pub fn likelihood(&self) -> f64 {
+        self.log_likelihood()
+    }
+
+    /// The current objective function, -2 × log-likelihood.
+    #[deprecated(note = "renamed to `objf`, matching `NonParametricResult::objf`")]
     pub fn n2ll(&self) -> f64 {
-        self.fit.state().n2ll()
+        self.objf()
     }
 
     /// The current error models (updated when the algorithm optimizes them).
     pub fn error_models(&self) -> &AssayErrorModels {
-        &self.fit.state().error_models
+        self.fit.state().error_models()
     }
 
     /// Run the fit to completion and return the result.
@@ -145,7 +163,7 @@ impl<E: Equation> EstimationProblem<E, NonParametric> {
     /// # fn run(problem: EstimationProblem<pmcore::prelude::ODE, NonParametric>) -> Result<()> {
     /// let mut controller = problem.fit_controller(NpagConfig::new())?;
     /// while controller.step()?.is_continue() {
-    ///     println!("cycle {} | -2LL {:.4}", controller.cycle(), controller.n2ll());
+    ///     println!("cycle {} | -2LL {:.4}", controller.cycle(), controller.objf());
     /// }
     /// let result = controller.into_result()?;
     /// # let _ = result; Ok(())
@@ -168,7 +186,7 @@ impl<E: Equation> EstimationProblem<E, NonParametric> {
     /// use pmcore::prelude::*;
     /// # fn run(problem: EstimationProblem<pmcore::prelude::ODE, NonParametric>) -> Result<()> {
     /// let result = problem.fit_with_observer(NpagConfig::new(), |c: &FitController<_>| {
-    ///     println!("cycle {} | -2LL {:.4}", c.cycle(), c.n2ll());
+    ///     println!("cycle {} | -2LL {:.4}", c.cycle(), c.objf());
     ///     CycleFlow::Continue
     /// })?;
     /// # let _ = result; Ok(())

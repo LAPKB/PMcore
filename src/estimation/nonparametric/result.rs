@@ -58,6 +58,7 @@ impl<E: Equation> NonParametricResult<E> {
         self.cycles
     }
 
+    /// The objective function, -2 × log-likelihood (`neg2ll` in `cycles.csv`).
     pub fn objf(&self) -> f64 {
         self.objf
     }

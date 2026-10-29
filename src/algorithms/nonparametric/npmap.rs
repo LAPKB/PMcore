@@ -1,10 +1,8 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use pharmsol::prelude::simulator::Equation;
 use serde::{Deserialize, Serialize};
 
-use super::fit::{FitState, Runner};
-use crate::algorithms::{Status, StopReason};
-use crate::estimation::nonparametric::{calculate_psi, ipm::burke};
+use super::fit::{CycleOutcome, FitState, Runner};
 
 /// Configuration options for the non-parametric maximum a posteriori (NPMAP) algorithm
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -24,16 +22,10 @@ impl NpmapConfig {
 pub(crate) struct Npmap;
 
 impl<E: Equation> Runner<E> for Npmap {
-    fn step(&mut self, state: &mut FitState<E>) -> Result<Status> {
-        state.psi = calculate_psi(
-            &state.equation,
-            &state.data,
-            &state.theta,
-            &state.error_models,
-            false,
-        )?;
-        (state.weights, state.log_likelihood) = burke(&state.psi).context("Error in IPM")?;
-        Ok(Status::Stop(StopReason::Converged))
+    fn step(&mut self, state: &mut FitState<E>) -> Result<CycleOutcome> {
+        let solution = state.estimate(state.solution().theta().clone(), false)?;
+        state.set_solution(solution);
+        Ok(CycleOutcome::Converged)
     }
 }
 

@@ -6,7 +6,8 @@ use pharmsol::OutputLabel;
 use serde::{Deserialize, Serialize};
 
 use super::fit::FitState;
-use crate::estimation::nonparametric::{calculate_psi, ipm::burke, Psi};
+use super::solution::Solution;
+use crate::estimation::nonparametric::calculate_psi;
 
 /// Configuration for the error-model factor (gamma/lambda) optimization.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -76,17 +77,16 @@ impl ErrorModelOptimizer {
 
     /// Run one optimization pass over every optimizable error model in `state`.
     ///
-    /// Each factor is perturbed up and down, [`Psi`] is recomputed for both, and the IPM
-    /// ([`burke`]) is run. The direction with the highest log-likelihood is adopted if it
-    /// improves on the current one, updating the error models, `psi` and `log_likelihood` in
-    /// place. The step grows on improvement and shrinks every pass, resetting to
+    /// Each factor is perturbed up and down, and the current support points are re-solved
+    /// under both. The direction with the highest log-likelihood is adopted if it improves on
+    /// the current one. The step grows on improvement and shrinks every pass, resetting to
     /// `config.step` once it falls to `config.min_step`.
     ///
     /// An IPM failure in one direction is logged and that direction is skipped; if both fail
     /// the factor is left unchanged for this pass.
     pub(crate) fn optimize<E: Equation>(&mut self, state: &mut FitState<E>) -> Result<()> {
         let targets: Vec<(usize, OutputLabel, f64)> = state
-            .error_models
+            .error_models()
             .iter()
             .enumerate()
             .filter(|(_, (_, em))| em.optimize())
@@ -102,12 +102,13 @@ impl ErrorModelOptimizer {
             let down = evaluate_factor(state, &outeq, gamma_down, "down")?;
 
             // Of the directions that improve on the current log-likelihood, keep the best.
+            let current = state.solution().log_likelihood();
             let best = [up, down]
                 .into_iter()
                 .flatten()
-                .filter(|candidate| candidate.log_likelihood > state.log_likelihood)
+                .filter(|candidate| candidate.solution.log_likelihood() > current)
                 .reduce(|best, candidate| {
-                    if candidate.log_likelihood > best.log_likelihood {
+                    if candidate.solution.log_likelihood() > best.solution.log_likelihood() {
                         candidate
                     } else {
                         best
@@ -115,9 +116,11 @@ impl ErrorModelOptimizer {
                 });
 
             if let Some(best) = best {
-                state.error_models.set_factor(&outeq, best.factor)?;
-                state.log_likelihood = best.log_likelihood;
-                state.psi = best.psi;
+                let weights = state.solution().weights().clone();
+                state.adopt_error_models(
+                    best.error_models,
+                    best.solution.with_stale_weights(weights),
+                );
                 *step *= self.config.growth;
             }
             *step *= self.config.shrink;
@@ -129,14 +132,13 @@ impl ErrorModelOptimizer {
     }
 }
 
-/// The fit obtained by setting one error model's factor to a trial value.
+/// The error models with one factor set to a trial value, and the solution they give.
 struct Candidate {
-    factor: f64,
-    psi: Psi,
-    log_likelihood: f64,
+    error_models: AssayErrorModels,
+    solution: Solution,
 }
 
-/// Recompute [`Psi`] and the IPM log-likelihood with the factor of `outeq` set to `factor`.
+/// Re-solve the current support points with the factor of `outeq` set to `factor`.
 ///
 /// Returns `None` (after logging a warning) if the IPM fails for this factor.
 fn evaluate_factor<E: Equation>(
@@ -145,21 +147,15 @@ fn evaluate_factor<E: Equation>(
     factor: f64,
     direction: &str,
 ) -> Result<Option<Candidate>> {
-    let mut error_models = state.error_models.clone();
+    let mut error_models = state.error_models().clone();
     error_models.set_factor(outeq, factor)?;
-    let psi = calculate_psi(
-        &state.equation,
-        &state.data,
-        &state.theta,
-        &error_models,
-        false,
-    )?;
+    let theta = state.solution().theta();
+    let psi = calculate_psi(state.equation(), state.data(), theta, &error_models, false)?;
 
-    match burke(&psi) {
-        Ok((_, log_likelihood)) => Ok(Some(Candidate {
-            factor,
-            psi,
-            log_likelihood,
+    match Solution::optimal(theta.clone(), psi) {
+        Ok(solution) => Ok(Some(Candidate {
+            error_models,
+            solution,
         })),
         Err(err) => {
             tracing::warn!(

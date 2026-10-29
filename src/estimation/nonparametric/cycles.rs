@@ -48,6 +48,7 @@ impl NPCycle {
     pub fn cycle(&self) -> usize {
         self.cycle
     }
+    /// The objective function at the end of this cycle, -2 × log-likelihood.
     pub fn objf(&self) -> f64 {
         self.objf
     }

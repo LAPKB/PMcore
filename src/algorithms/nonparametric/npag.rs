@@ -3,8 +3,7 @@ use pharmsol::prelude::{data::AssayErrorModels, simulator::Equation};
 use serde::{Deserialize, Serialize};
 
 use super::error_optim::{ErrorModelOptimizer, ErrorOptimConfig};
-use super::fit::{FitState, Runner};
-use crate::algorithms::{Status, StopReason};
+use super::fit::{CycleOutcome, FitState, Runner};
 use crate::estimation::nonparametric::{adaptative_grid, Theta};
 
 /// Configuration options for the Non-Parametric Adaptive Grid (NPAG) algorithm.
@@ -141,7 +140,8 @@ impl Npag {
             return false;
         }
 
-        let pyl = state.psi.matrix() * state.weights.weights();
+        let solution = state.solution();
+        let pyl = solution.psi().matrix() * solution.weights().weights();
         let objective: f64 = pyl.iter().map(|x| x.ln()).sum();
         if (objective - self.last_fine_objective).abs() <= self.config.pyl_tolerance {
             return true;
@@ -153,32 +153,31 @@ impl Npag {
 }
 
 impl<E: Equation> Runner<E> for Npag {
-    fn step(&mut self, state: &mut FitState<E>) -> Result<Status> {
-        if state.cycle > 1 {
+    fn step(&mut self, state: &mut FitState<E>) -> Result<CycleOutcome> {
+        let mut theta = state.solution().theta().clone();
+        if !state.is_first_cycle() {
             adaptative_grid(
-                &mut state.theta,
+                &mut theta,
                 self.eps,
                 &self.ranges,
                 self.config.grid_tolerance,
             )?;
         }
 
-        let lambda = state.estimate(self.config.progress && state.cycle == 1)?;
-        state.condense(
-            &lambda,
+        let estimate = state.estimate(theta, self.config.progress && state.is_first_cycle())?;
+        let solution = state.condense(
+            estimate,
             self.config.prune_threshold,
             self.config.qr_tolerance,
         )?;
+        state.set_solution(solution);
         self.error_optimizer.optimize(state)?;
-        state.log_cycle_summary();
 
-        if self.converged(state) {
-            tracing::info!("The model converged after {} cycles", state.cycle);
-            return Ok(Status::Stop(StopReason::Converged));
-        }
-        Ok(state
-            .limit_reached(self.config.max_cycles)
-            .map_or(Status::Continue, Status::Stop))
+        Ok(if self.converged(state) {
+            CycleOutcome::Converged
+        } else {
+            CycleOutcome::Continue
+        })
     }
 }
 
@@ -248,5 +247,33 @@ mod tests {
             "NPAG algorithm should run without error, but got: {:?}",
             result.err()
         );
+    }
+
+    #[test]
+    fn controller_exposes_a_consistent_solution_between_steps() -> anyhow::Result<()> {
+        let parameters = ParameterSpace::bounded()
+            .add("ke", 0.001, 3.0)
+            .add("v", 25.0, 250.0);
+        let error_models = AssayErrorModels::new().add(
+            "0",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+        )?;
+        let problem = EstimationProblem::nonparametric(
+            simple_equation(),
+            simple_data(),
+            Theta::sobol_default(&parameters)?,
+            error_models,
+        )?;
+
+        let mut controller = problem.fit_controller(NpagConfig::new().progress(false))?;
+        for _ in 0..3 {
+            controller.step()?;
+            let nspp = controller.theta().nspp();
+            assert_eq!(controller.weights().len(), nspp);
+            assert_eq!(controller.psi().matrix().ncols(), nspp);
+            assert_eq!(controller.objf(), -2.0 * controller.log_likelihood());
+        }
+        assert_eq!(controller.cycle(), 3);
+        Ok(())
     }
 }
