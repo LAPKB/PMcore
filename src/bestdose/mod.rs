@@ -28,11 +28,11 @@
 //! let (theta, weights) = match past_data {
 //!     Some(past) => {
 //!         let post = EstimationProblem::nonparametric(
-//!                 eq.clone(), data::Data::new(vec![past]), fit.get_theta().clone(), ems.clone())?
+//!                 eq.clone(), data::Data::new(vec![past]), fit.theta().clone(), ems.clone())?
 //!             .fit_with(NcnpagConfig::default())?; // or NpmapConfig::default()
-//!         (post.get_theta().clone(), post.weights().clone())
+//!         (post.theta().clone(), post.weights().clone())
 //!     }
-//!     None => (fit.get_theta().clone(), fit.weights().clone()),
+//!     None => (fit.theta().clone(), fit.weights().clone()),
 //! };
 //!
 //! // 3. Optimize doses.

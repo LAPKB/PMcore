@@ -62,7 +62,7 @@ fn test_one_compartment_npag() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
     )?;
     let result = EstimationProblem::nonparametric(eq, data, prior, error_models)?
-        .fit_with(NonParametricAlgorithm::npag())?;
+        .fit_with(NpagConfig::new())?;
 
     // Check the results
     assert_eq!(result.cycles(), 31);
@@ -71,7 +71,7 @@ fn test_one_compartment_npag() -> Result<()> {
     // The prior is preserved on the result and is distinct from the optimized
     // solution (which is condensed to far fewer support points).
     assert_eq!(result.prior().nspp(), 100);
-    assert!(result.get_theta().nspp() < result.prior().nspp());
+    assert!(result.theta().nspp() < result.prior().nspp());
 
     Ok(())
 }
@@ -128,7 +128,7 @@ fn test_one_compartment_npod() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
     )?;
     let result = EstimationProblem::nonparametric(eq, data, prior, error_models)?
-        .fit_with(NonParametricAlgorithm::npod())?;
+        .fit_with(NpodConfig::new())?;
 
     // Check the results
     assert_eq!(result.cycles(), 11);
@@ -192,14 +192,14 @@ fn test_one_compartment_postprob() -> Result<()> {
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.10, 0.0, 0.0), 2.0),
     )?;
     let result = EstimationProblem::nonparametric(eq, data, theta.clone(), error_models)?
-        .fit_with(NonParametricAlgorithm::npmap())?;
+        .fit_with(NpmapConfig::new())?;
 
     // NPMAP is a single reweighting pass
     assert_eq!(result.cycles(), 1);
     assert_eq!(result.cycle_log().cycles().len(), 1);
 
     // Should be 100 points in theta (no change in points)
-    assert_eq!(result.get_theta().nspp(), theta.nspp());
+    assert_eq!(result.theta().nspp(), theta.nspp());
 
     Ok(())
 }

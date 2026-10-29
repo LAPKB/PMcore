@@ -12,18 +12,18 @@ pub fn fit_summary<E: Equation>(result: &NonParametricResult<E>) -> FitSummary {
         iterations: result.cycles(),
         subject_count: result.data().subjects().len(),
         observation_count: count_observations(result.data()),
-        parameter_count: result.get_theta().parameters().len(),
+        parameter_count: result.theta().parameters().len(),
     }
 }
 
 pub fn population_summary<E: Equation>(result: &NonParametricResult<E>) -> PopulationSummary {
-    let theta_matrix = to_ndarray_matrix(result.get_theta().matrix());
+    let theta_matrix = to_ndarray_matrix(result.theta().matrix());
     let weights = Array1::from_iter(result.weights().iter());
     let (mean, median) = population_mean_median(&theta_matrix, &weights)
         .expect("population summary should be derivable from theta and weights");
 
     let parameters = result
-        .get_theta()
+        .theta()
         .parameters()
         .names()
         .into_iter()
@@ -54,12 +54,12 @@ pub fn population_summary<E: Equation>(result: &NonParametricResult<E>) -> Popul
 pub fn individual_summaries<E: Equation>(
     result: &NonParametricResult<E>,
 ) -> Vec<IndividualSummary> {
-    let theta_matrix = to_ndarray_matrix(result.get_theta().matrix());
+    let theta_matrix = to_ndarray_matrix(result.theta().matrix());
     let psi_matrix = to_ndarray_matrix(result.psi().matrix());
     let weights = Array1::from_iter(result.weights().iter());
     let (means, _) = posterior_mean_median(&theta_matrix, &psi_matrix, &weights)
         .expect("individual summaries should be derivable from theta, psi, and weights");
-    let parameter_names = result.get_theta().parameters().names();
+    let parameter_names = result.theta().parameters().names();
 
     result
         .data()

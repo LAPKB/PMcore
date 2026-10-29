@@ -84,8 +84,9 @@ pub enum StopReason {
     MaxCycles,
     /// A `stop` file was found on disk.
     StopFile,
-    /// Stopped from code — [`request_stop`](crate::algorithms::nonparametric::FitController::request_stop)
-    /// or an observer returning [`CycleFlow::Stop`](crate::algorithms::nonparametric::CycleFlow::Stop).
+    /// Stopped from code, with
+    /// [`FitController::request_stop`](crate::algorithms::nonparametric::FitController::request_stop)
+    /// or [`FitController::run_until`](crate::algorithms::nonparametric::FitController::run_until).
     Aborted,
 }
 

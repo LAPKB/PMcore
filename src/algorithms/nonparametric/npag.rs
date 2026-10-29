@@ -183,6 +183,7 @@ impl<E: Equation> Runner<E> for Npag {
 
 #[cfg(test)]
 mod tests {
+    use crate::algorithms::{Status, StopReason};
     use crate::prelude::*;
 
     use pharmsol::{fa, fetch_params, lag, Subject, SubjectBuilderExt};
@@ -240,7 +241,7 @@ mod tests {
             EstimationProblem::nonparametric(simple_equation(), simple_data(), prior, error_models)
                 .expect("Failed to build problem");
 
-        let result = problem.fit_with(NonParametricAlgorithm::npag());
+        let result = problem.fit_with(NpagConfig::new());
 
         assert!(
             result.is_ok(),
@@ -274,6 +275,83 @@ mod tests {
             assert_eq!(controller.objf(), -2.0 * controller.log_likelihood());
         }
         assert_eq!(controller.cycle(), 3);
+        Ok(())
+    }
+
+    fn problem() -> anyhow::Result<EstimationProblem<pharmsol::equation::ODE, NonParametric>> {
+        let parameters = ParameterSpace::bounded()
+            .add("ke", 0.001, 3.0)
+            .add("v", 25.0, 250.0);
+        let error_models = AssayErrorModels::new().add(
+            "0",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
+        )?;
+        EstimationProblem::nonparametric(
+            simple_equation(),
+            simple_data(),
+            Theta::sobol_default(&parameters)?,
+            error_models,
+        )
+    }
+
+    #[test]
+    fn a_stopped_fit_stays_stopped() -> anyhow::Result<()> {
+        let mut controller = problem()?.fit_controller(NpagConfig::new().progress(false))?;
+        controller.step()?;
+        controller.request_stop();
+        let aborted = Status::Stop(StopReason::Aborted);
+
+        assert_eq!(controller.step()?, aborted);
+        assert_eq!(controller.cycle(), 1);
+
+        let result = controller.finish()?;
+        assert_eq!(result.cycles(), 1);
+        assert_eq!(result.cycle_log().cycles().len(), 1);
+        assert_eq!(result.stop_reason(), Some(&StopReason::Aborted));
+        Ok(())
+    }
+
+    #[test]
+    fn request_stop_keeps_the_reason_of_a_finished_fit() -> anyhow::Result<()> {
+        let mut controller =
+            problem()?.fit_controller(NpagConfig::new().progress(false).max_cycles(2))?;
+        while controller.step()?.is_continue() {}
+        controller.request_stop();
+
+        let result = controller.into_result()?;
+        assert_eq!(result.status(), &Status::Stop(StopReason::MaxCycles));
+        assert_eq!(result.cycles(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn run_until_sees_every_cycle_and_stops_when_asked() -> anyhow::Result<()> {
+        let mut seen = Vec::new();
+        let result = problem()?
+            .fit_controller(NpagConfig::new().progress(false))?
+            .run_until(|fit| {
+                seen.push(fit.cycle());
+                fit.cycle() >= 5
+            })?;
+
+        assert_eq!(seen, vec![1, 2, 3, 4, 5]);
+        assert_eq!(result.cycles(), 5);
+        assert_eq!(result.stop_reason(), Some(&StopReason::Aborted));
+        Ok(())
+    }
+
+    #[test]
+    fn run_until_ends_with_the_algorithms_own_reason() -> anyhow::Result<()> {
+        let mut calls = 0;
+        let result = problem()?
+            .fit_controller(NpagConfig::new().progress(false).max_cycles(3))?
+            .run_until(|_| {
+                calls += 1;
+                false
+            })?;
+
+        assert_eq!(calls, 3);
+        assert_eq!(result.stop_reason(), Some(&StopReason::MaxCycles));
         Ok(())
     }
 }

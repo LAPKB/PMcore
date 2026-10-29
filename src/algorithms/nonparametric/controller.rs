@@ -1,14 +1,11 @@
 //! Step through a fit cycle by cycle, rather than running it all at once.
 //!
 //! [`fit_with`](crate::estimation::EstimationProblem::fit_with) runs to the end and gives back
-//! only the final result. For debugging or third-party monitoring, you can instead drive the fit yourself and inspect the state between cycles.
-//!
-//! - [`FitController`] — hold the fit and advance it one [`step`](FitController::step) at a
-//!   time, inspecting state in between.
-//! - [`fit_with_observer`](crate::estimation::EstimationProblem::fit_with_observer) — let it
-//!   run, but get a callback after every cycle.
-//!
-//! Both drive the same underlying fit and finish at the same result.
+//! only the final result. For debugging or monitoring, start a [`FitController`] with
+//! [`fit_controller`](crate::estimation::EstimationProblem::fit_controller) instead, and either
+//! advance it one [`step`](FitController::step) at a time or let it
+//! [`run_until`](FitController::run_until) a condition of yours. Every route runs the same fit
+//! and ends in the same result.
 
 use anyhow::Result;
 use pharmsol::prelude::{data::AssayErrorModels, simulator::Equation};
@@ -23,7 +20,9 @@ use super::NonParametricAlgorithm;
 /// A running fit that you advance one cycle at a time.
 ///
 /// It's ready to go as soon as it's built, so the first [`step`](Self::step) runs cycle 1.
-/// The accessors read the current state between steps, and [`finish`](Self::finish) or
+/// The accessors read the current state between steps. Once the fit has stopped, whether on
+/// its own or through [`request_stop`](Self::request_stop), it stays stopped: further steps do
+/// nothing. [`finish`](Self::finish), [`run_until`](Self::run_until) and
 /// [`into_result`](Self::into_result) turn it into a result.
 pub struct FitController<E: Equation> {
     fit: Fit<E>,
@@ -42,16 +41,15 @@ impl<E: Equation> FitController<E> {
 
     /// Run one cycle and return the new [`Status`].
     ///
-    /// [`Continue`](Status::Continue) means there's more to do; [`Stop`](Status::Stop) means the
-    /// algorithm is finished and further steps won't change the outcome.
+    /// [`Continue`](Status::Continue) means there's more to do. [`Stop`](Status::Stop) means the
+    /// fit is finished: from then on, `step` does nothing and returns the same status.
     pub fn step(&mut self) -> Result<Status> {
         self.fit.step()
     }
 
-    /// Flag the fit as [`Aborted`](crate::algorithms::StopReason::Aborted) so the result shows an early stop.
+    /// Stop the fit now, as [`Aborted`](crate::algorithms::StopReason::Aborted).
     ///
-    /// This only sets the status; it won't halt a later [`step`](Self::step), which runs a full
-    /// cycle and overwrites it. Call it just before [`into_result`](Self::into_result).
+    /// Further steps do nothing. A fit that has already stopped keeps its original reason.
     pub fn request_stop(&mut self) {
         self.fit.request_stop();
     }
@@ -92,18 +90,6 @@ impl<E: Equation> FitController<E> {
         self.fit.state().objf()
     }
 
-    /// The current log-likelihood.
-    #[deprecated(note = "renamed to `log_likelihood`")]
-    pub fn likelihood(&self) -> f64 {
-        self.log_likelihood()
-    }
-
-    /// The current objective function, -2 × log-likelihood.
-    #[deprecated(note = "renamed to `objf`, matching `NonParametricResult::objf`")]
-    pub fn n2ll(&self) -> f64 {
-        self.objf()
-    }
-
     /// The current error models (updated when the algorithm optimizes them).
     pub fn error_models(&self) -> &AssayErrorModels {
         self.fit.state().error_models()
@@ -117,38 +103,40 @@ impl<E: Equation> FitController<E> {
         self.fit.into_result()
     }
 
+    /// Run until the fit stops on its own or `stop` returns `true`, then return the result.
+    ///
+    /// `stop` is called after every cycle, the last one included, so it can also report
+    /// progress. If it returns `true` while the fit is still running, the fit stops as
+    /// [`Aborted`](crate::algorithms::StopReason::Aborted).
+    ///
+    /// ```no_run
+    /// use pmcore::prelude::*;
+    /// # fn run(problem: EstimationProblem<pmcore::prelude::ODE, NonParametric>) -> Result<()> {
+    /// let result = problem
+    ///     .fit_controller(NpagConfig::new())?
+    ///     .run_until(|fit| {
+    ///         println!("cycle {} | -2LL {:.4}", fit.cycle(), fit.objf());
+    ///         fit.cycle() >= 50
+    ///     })?;
+    /// # let _ = result; Ok(())
+    /// # }
+    /// ```
+    pub fn run_until(
+        mut self,
+        mut stop: impl FnMut(&Self) -> bool,
+    ) -> Result<NonParametricResult<E>> {
+        while self.status().is_continue() {
+            self.step()?;
+            if stop(&self) {
+                self.request_stop();
+            }
+        }
+        self.into_result()
+    }
+
     /// Turn the current state into a result as-is, without running more cycles.
     pub fn into_result(self) -> Result<NonParametricResult<E>> {
         self.fit.into_result()
-    }
-}
-
-/// An observer's verdict after a cycle: keep going, or stop.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CycleFlow {
-    /// Keep going — the algorithm may still stop on its own.
-    Continue,
-    /// Stop now.
-    Stop,
-}
-
-/// A callback run after every cycle of a fit.
-///
-/// It receives the live [`FitController`] to read the current state, and returns a
-/// [`CycleFlow`] to keep going or bail out. Any `FnMut(&FitController<E>) -> CycleFlow` works,
-/// so you can hand a plain closure to
-/// [`fit_with_observer`](crate::estimation::EstimationProblem::fit_with_observer).
-pub trait FitObserver<E: Equation> {
-    fn on_cycle(&mut self, controller: &FitController<E>) -> CycleFlow;
-}
-
-impl<E, F> FitObserver<E> for F
-where
-    E: Equation,
-    F: FnMut(&FitController<E>) -> CycleFlow,
-{
-    fn on_cycle(&mut self, controller: &FitController<E>) -> CycleFlow {
-        self(controller)
     }
 }
 
@@ -174,42 +162,5 @@ impl<E: Equation> EstimationProblem<E, NonParametric> {
         algorithm: impl Into<NonParametricAlgorithm>,
     ) -> Result<FitController<E>> {
         FitController::new(algorithm.into(), self)
-    }
-
-    /// Run a fit to completion, calling `observer` after every cycle.
-    ///
-    /// The observer sees every cycle, the last one included, and can return
-    /// [`CycleFlow::Stop`] to bail out early. Returns the same result as
-    /// [`fit_with`](Self::fit_with).
-    ///
-    /// ```no_run
-    /// use pmcore::prelude::*;
-    /// # fn run(problem: EstimationProblem<pmcore::prelude::ODE, NonParametric>) -> Result<()> {
-    /// let result = problem.fit_with_observer(NpagConfig::new(), |c: &FitController<_>| {
-    ///     println!("cycle {} | -2LL {:.4}", c.cycle(), c.objf());
-    ///     CycleFlow::Continue
-    /// })?;
-    /// # let _ = result; Ok(())
-    /// # }
-    /// ```
-    pub fn fit_with_observer<O: FitObserver<E>>(
-        self,
-        algorithm: impl Into<NonParametricAlgorithm>,
-        mut observer: O,
-    ) -> Result<NonParametricResult<E>> {
-        let mut controller = self.fit_controller(algorithm)?;
-        loop {
-            let status = controller.step()?;
-            let flow = observer.on_cycle(&controller);
-            // Stop on the algorithm's own criteria, or when the observer asks us to.
-            if status.is_stop() {
-                break;
-            }
-            if flow == CycleFlow::Stop {
-                controller.request_stop();
-                break;
-            }
-        }
-        controller.into_result()
     }
 }

@@ -100,7 +100,6 @@ fn main() -> Result<()> {
             "4",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?;
-    EstimationProblem::nonparametric(eq, data, prior, error_models)?
-        .fit_with(NonParametricAlgorithm::npag())?;
+    EstimationProblem::nonparametric(eq, data, prior, error_models)?.fit_with(NpagConfig::new())?;
     Ok(())
 }

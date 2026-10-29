@@ -24,9 +24,8 @@
 //!
 //! # Stopping a running fit
 //!
-//! A fit started through [`fit_with`](crate::estimation::EstimationProblem::fit_with),
-//! [`fit_controller`](crate::estimation::EstimationProblem::fit_controller) or
-//! [`fit_with_observer`](crate::estimation::EstimationProblem::fit_with_observer) stops after
+//! A fit started through [`fit_with`](crate::estimation::EstimationProblem::fit_with) or
+//! [`fit_controller`](crate::estimation::EstimationProblem::fit_controller) stops after
 //! the current cycle if a file named `stop` appears in the working directory, with
 //! [`StopReason::StopFile`](crate::algorithms::StopReason::StopFile). A `stop` file left over
 //! from an earlier run is removed when the fit starts.
@@ -55,7 +54,7 @@ pub use npmap::NpmapConfig;
 pub use npod::NpodConfig;
 
 // Re-export the incremental fitting API
-pub use controller::{CycleFlow, FitController, FitObserver};
+pub use controller::FitController;
 
 use crate::algorithms::Algorithm;
 use crate::estimation::nonparametric::NonParametricResult;
@@ -70,30 +69,35 @@ use pharmsol::prelude::simulator::Equation;
 
 /// The non-parametric algorithms supported by PMcore.
 ///
-/// Use the constructors to select an algorithm with its default configuration:
+/// To run an algorithm, pass its configuration struct straight to
+/// [`fit_with`](crate::estimation::EstimationProblem::fit_with) or
+/// [`fit_controller`](crate::estimation::EstimationProblem::fit_controller). Each one exposes
+/// only the settings valid for its algorithm:
 ///
 /// ```no_run
 /// use pmcore::prelude::*;
-///
-/// // Default NPAG configuration.
-/// let algorithm = NonParametricAlgorithm::npag();
+/// # fn run(problem: EstimationProblem<pmcore::prelude::ODE, NonParametric>) -> Result<()> {
+/// let result = problem.fit_with(NpagConfig::new().eps(0.1).max_cycles(500))?;
+/// # let _ = result; Ok(())
+/// # }
 /// ```
 ///
-/// To customize an algorithm, build its configuration struct (which exposes only the
-/// setters valid for that algorithm) and pass it directly to
-/// [`fit_with`](crate::estimation::EstimationProblem::fit_with):
+/// Use this enum when the algorithm is only known at runtime, for example when it comes from
+/// a settings file. Every configuration converts into it, and it can be passed to the same
+/// functions:
 ///
 /// ```no_run
 /// use pmcore::prelude::*;
-///
-/// // NPAG with a tighter convergence criterion and a cycle cap.
-/// let config = NpagConfig::new().eps(0.1).max_cycles(500);
-/// // `problem.fit_with(config)` accepts the config directly.
+/// # fn run(problem: EstimationProblem<pmcore::prelude::ODE, NonParametric>, use_npod: bool) -> Result<()> {
+/// let algorithm: NonParametricAlgorithm = if use_npod {
+///     NpodConfig::new().into()
+/// } else {
+///     NpagConfig::new().into()
+/// };
+/// let result = problem.fit_with(algorithm)?;
+/// # let _ = result; Ok(())
+/// # }
 /// ```
-///
-/// Anything that converts into a `NonParametricAlgorithm`, including each configuration type
-/// ([`NpagConfig`], [`NpodConfig`], [`NpmapConfig`], [`NcnpagConfig`]), implements
-/// [`Algorithm`], so configs can be passed to `fit_with` without converting them first.
 #[derive(Debug, Clone)]
 pub enum NonParametricAlgorithm {
     /// Non-Parametric Adaptive Grid.

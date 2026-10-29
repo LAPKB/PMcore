@@ -27,7 +27,7 @@ use rayon::prelude::*;
 use super::solution::Solution;
 use crate::algorithms::{Status, StopReason};
 use crate::estimation::nonparametric::{
-    calculate_psi, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta,
+    calculate_psi, qr, CycleLog, NPCycle, NonParametricResult, Psi, Theta, ZeroProbabilityError,
 };
 use crate::estimation::{EstimationProblem, NonParametric};
 
@@ -157,6 +157,9 @@ impl<E: Equation> FitState<E> {
     }
 
     /// Compute [`Psi`] for `theta` under the current error models.
+    ///
+    /// If some subjects have zero probability at every support point, likelihood diagnostics
+    /// for them are logged before the [`ZeroProbabilityError`] is returned.
     pub(crate) fn compute_psi(&self, theta: &Theta, progress: bool) -> Result<Psi> {
         calculate_psi(
             &self.equation,
@@ -165,6 +168,15 @@ impl<E: Equation> FitState<E> {
             &self.error_models,
             progress,
         )
+        .inspect_err(|err| {
+            if let Some(zero) = err.downcast_ref::<ZeroProbabilityError>() {
+                for subject in self.data.subjects() {
+                    if zero.subjects().contains(subject.id()) {
+                        self.log_zero_probability_subject(subject, theta);
+                    }
+                }
+            }
+        })
     }
 
     /// Evaluate `theta` and solve for its optimal weights.
@@ -307,22 +319,11 @@ impl<E: Equation> FitState<E> {
             return Ok(());
         }
 
-        tracing::error!(
-            "{}/{} subjects have zero probability given the model",
-            flagged.len(),
-            psi.nrows()
-        );
         for &i in &flagged {
             self.log_zero_probability_subject(subjects[i], theta);
         }
-
-        let ids: Vec<&String> = flagged.iter().map(|&i| subjects[i].id()).collect();
-        anyhow::bail!(
-            "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
-            flagged.len(),
-            psi.nrows(),
-            ids
-        )
+        let ids = flagged.iter().map(|&i| subjects[i].id().clone()).collect();
+        Err(ZeroProbabilityError::new(ids, psi.nrows()).into())
     }
 
     /// Log likelihood diagnostics for a subject with zero probability at the support points
@@ -461,7 +462,12 @@ impl<E: Equation> Fit<E> {
     }
 
     /// Run the next cycle, record it in the cycle log, and return the new [`Status`].
+    ///
+    /// Once the fit has stopped, this does nothing and returns the final status.
     pub(crate) fn step(&mut self) -> Result<Status> {
+        if self.state.status.is_stop() {
+            return Ok(self.state.status.clone());
+        }
         self.state.cycle += 1;
         let span = tracing::info_span!("", "{}", format!("Cycle {}", self.state.cycle));
         let _enter = span.enter();
@@ -501,9 +507,12 @@ impl<E: Equation> Fit<E> {
         Ok(())
     }
 
-    /// Mark the fit as [`Aborted`](StopReason::Aborted).
+    /// Stop a running fit as [`Aborted`](StopReason::Aborted). A fit that has already stopped
+    /// keeps its reason.
     pub(crate) fn request_stop(&mut self) {
-        self.state.status = Status::Stop(StopReason::Aborted);
+        if self.state.status.is_continue() {
+            self.state.status = Status::Stop(StopReason::Aborted);
+        }
     }
 
     pub(crate) fn into_result(self) -> Result<NonParametricResult<E>> {

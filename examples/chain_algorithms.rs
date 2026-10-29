@@ -52,7 +52,7 @@ fn main() -> Result<()> {
     println!(
         "Chained NPAG→NPOD: OBJF = {:.2}, {} support points, {} total cycles",
         result.objf(),
-        result.get_theta().nspp(),
+        result.theta().nspp(),
         result.cycles(),
     );
 
