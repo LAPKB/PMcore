@@ -10,7 +10,7 @@ fn main() -> Result<()> {
         ],
         covariates: [ic_t],
         states: [drug_1_amount, drug_2_amount, total_bacteria, resistant_1, resistant_2],
-        outputs: [outeq_1, outeq_2, outeq_3, outeq_4],
+        outputs: [1, 2, 3, 4],
         diffeq: |x, _t, dx| {
 
             let e50_2r1 = e50_2s;
@@ -18,8 +18,8 @@ fn main() -> Result<()> {
             let h2r1 = h2s;
             let h1r2 = h1s;
 
-            dx[drug_1_amount] = bolus[input_1] - cl1 * x[drug_1_amount] / v1;
-            dx[drug_2_amount] = bolus[input_2] - cl2 * x[drug_2_amount] / v2;
+            dx[drug_1_amount] = bolus[1] - cl1 * x[drug_1_amount] / v1;
+            dx[drug_2_amount] = bolus[2] - cl2 * x[drug_2_amount] / v2;
 
             let xns = x[total_bacteria];
             let xnr1 = x[resistant_1];
@@ -49,10 +49,10 @@ fn main() -> Result<()> {
             x[resistant_2] = 10.0_f64.powf(init_5);
         },
         out: |x, _t, y| {
-            y[outeq_1] = x[drug_1_amount] / v1;
-            y[outeq_2] = x[drug_2_amount] / v2;
-            y[outeq_3] = (x[total_bacteria] + x[resistant_1] + x[resistant_2]).log10();
-            y[outeq_4] = x[resistant_1].log10();
+            y[1] = x[drug_1_amount] / v1;
+            y[2] = x[drug_2_amount] / v2;
+            y[3] = (x[total_bacteria] + x[resistant_1] + x[resistant_2]).log10();
+            y[4] = x[resistant_1].log10();
         },
     };
 
@@ -85,19 +85,19 @@ fn main() -> Result<()> {
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new()
         .add(
-            "outeq_1",
+            "1",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .add(
-            "outeq_2",
+            "2",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .add(
-            "outeq_3",
+            "3",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?
         .add(
-            "outeq_4",
+            "4",
             AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 1.0),
         )?;
     EstimationProblem::nonparametric(eq, data, prior, error_models)?

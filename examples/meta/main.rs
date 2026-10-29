@@ -10,12 +10,12 @@ fn main() -> Result<()> {
         params: [cls, fm, k20, relv, theta1, theta2, vs],
         covariates: [wt, pkvisit],
         states: [central, metabolite],
-        outputs: [outeq_1, outeq_2],
+        outputs: [1, 2],
         diffeq: |x, _t, dx| {
             let cl = cls * ((pkvisit - 1.0) * theta1).exp() * (wt / 70.0).powf(0.75);
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let ke = cl / v;
-            dx[central] = infusion[input_1] - ke * x[central] * (1.0 - fm) - fm * x[central];
+            dx[central] = infusion[1] - ke * x[central] * (1.0 - fm) - fm * x[central];
             dx[metabolite] = fm * x[central] - k20 * x[metabolite];
         },
         out: |x, _t, y| {
@@ -23,8 +23,8 @@ fn main() -> Result<()> {
             let v = vs * ((pkvisit - 1.0) * theta2).exp() * (wt / 70.0);
             let v2 = relv * v;
             let _ke = cl / v;
-            y[outeq_1] = x[central] / v;
-            y[outeq_2] = x[metabolite] / v2;
+            y[1] = x[central] / v;
+            y[2] = x[metabolite] / v2;
         },
     };
 
@@ -40,11 +40,11 @@ fn main() -> Result<()> {
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new()
         .add(
-            "outeq_1",
+            "1",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )?
         .add(
-            "outeq_2",
+            "2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )?;
     EstimationProblem::nonparametric(eq, data, prior, error_models)?

@@ -87,7 +87,7 @@ impl CostFunction for SigmaCost<'_> {
         for subject in self.data.subjects().iter() {
             let (_, likelihood) = self
                 .sde
-                .simulate_subject_dense(subject, &full_params, Some(self.error_models))
+                .simulate(subject, &full_params, Some(self.error_models))
                 .map_err(|e| Error::msg(e.to_string()))?;
 
             match likelihood {
