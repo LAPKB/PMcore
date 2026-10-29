@@ -1,13 +1,12 @@
 //! Error-model factor optimization used by non-parametric algorithms.
 
 use anyhow::Result;
-use pharmsol::prelude::{
-    data::{AssayErrorModels, Data},
-    simulator::Equation,
-};
+use pharmsol::prelude::{data::AssayErrorModels, simulator::Equation};
+use pharmsol::OutputLabel;
 use serde::{Deserialize, Serialize};
 
-use crate::estimation::nonparametric::{calculate_psi, ipm::burke, Psi, Theta, Weights};
+use super::fit::FitState;
+use crate::estimation::nonparametric::{calculate_psi, ipm::burke, Psi};
 
 /// Configuration for the error-model factor (gamma/lambda) optimization.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -59,110 +58,117 @@ impl ErrorOptimConfig {
     }
 }
 
-/// Perform one pass of the error-model factor (gamma/lambda) optimization.
+/// Optimizes the error-model factors (gamma/lambda) of a fit, one pass per cycle.
 ///
-/// For each optimizable error model, the factor is perturbed up and down,
-/// `psi` is recomputed for each perturbation, and the IPM ([`burke`]) is run.
-/// The direction with the highest objective function that also improves on the
-/// current `objf` is adopted, updating `error_models`, `objf`, `lambda`, and
-/// `psi` in place. The per-output adaptive step in `gamma_delta` is grown on
-/// improvement and shrunk every pass, resetting once it falls to `config.min_step`.
+/// Holds the per-output adaptive step that carries over between cycles.
+#[derive(Debug)]
+pub(crate) struct ErrorModelOptimizer {
+    config: ErrorOptimConfig,
+    /// Current relative perturbation step for each error model, in iteration order.
+    steps: Vec<f64>,
+}
+
+impl ErrorModelOptimizer {
+    pub(crate) fn new(config: ErrorOptimConfig, error_models: &AssayErrorModels) -> Self {
+        let steps = vec![config.step; error_models.len()];
+        Self { config, steps }
+    }
+
+    /// Run one optimization pass over every optimizable error model in `state`.
+    ///
+    /// Each factor is perturbed up and down, [`Psi`] is recomputed for both, and the IPM
+    /// ([`burke`]) is run. The direction with the highest log-likelihood is adopted if it
+    /// improves on the current one, updating the error models, `psi` and `log_likelihood` in
+    /// place. The step grows on improvement and shrinks every pass, resetting to
+    /// `config.step` once it falls to `config.min_step`.
+    ///
+    /// An IPM failure in one direction is logged and that direction is skipped; if both fail
+    /// the factor is left unchanged for this pass.
+    pub(crate) fn optimize<E: Equation>(&mut self, state: &mut FitState<E>) -> Result<()> {
+        let targets: Vec<(usize, OutputLabel, f64)> = state
+            .error_models
+            .iter()
+            .enumerate()
+            .filter(|(_, (_, em))| em.optimize())
+            .map(|(slot, (outeq, em))| Ok((slot, outeq.clone(), em.factor()?)))
+            .collect::<Result<_>>()?;
+
+        for (slot, outeq, factor) in targets {
+            let step = &mut self.steps[slot];
+            let gamma_up = factor * (1.0 + *step);
+            let gamma_down = factor / (1.0 + *step);
+
+            let up = evaluate_factor(state, &outeq, gamma_up, "up")?;
+            let down = evaluate_factor(state, &outeq, gamma_down, "down")?;
+
+            // Of the directions that improve on the current log-likelihood, keep the best.
+            let best = [up, down]
+                .into_iter()
+                .flatten()
+                .filter(|candidate| candidate.log_likelihood > state.log_likelihood)
+                .reduce(|best, candidate| {
+                    if candidate.log_likelihood > best.log_likelihood {
+                        candidate
+                    } else {
+                        best
+                    }
+                });
+
+            if let Some(best) = best {
+                state.error_models.set_factor(&outeq, best.factor)?;
+                state.log_likelihood = best.log_likelihood;
+                state.psi = best.psi;
+                *step *= self.config.growth;
+            }
+            *step *= self.config.shrink;
+            if *step <= self.config.min_step {
+                *step = self.config.step;
+            }
+        }
+        Ok(())
+    }
+}
+
+/// The fit obtained by setting one error model's factor to a trial value.
+struct Candidate {
+    factor: f64,
+    psi: Psi,
+    log_likelihood: f64,
+}
+
+/// Recompute [`Psi`] and the IPM log-likelihood with the factor of `outeq` set to `factor`.
 ///
-/// A failure of the IPM for one perturbation direction is treated as a warning
-/// (that direction is skipped); if both directions fail the factor is left
-/// unchanged for this pass.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn optimize_error_models<E: Equation + Send + 'static>(
-    equation: &E,
-    data: &Data,
-    theta: &Theta,
-    error_models: &mut AssayErrorModels,
-    gamma_delta: &mut [f64],
-    objf: &mut f64,
-    lambda: &mut Weights,
-    psi: &mut Psi,
-    config: &ErrorOptimConfig,
-) -> Result<()> {
-    error_models
-        .clone()
-        .iter_mut()
-        .enumerate()
-        .filter_map(|(slot, (outeq, em))| {
-            if em.optimize() {
-                Some((slot, outeq, em))
-            } else {
-                None
-            }
-        })
-        .try_for_each(|(slot, outeq, em)| -> Result<()> {
-            // Optimize the best value of gamma/lambda
+/// Returns `None` (after logging a warning) if the IPM fails for this factor.
+fn evaluate_factor<E: Equation>(
+    state: &FitState<E>,
+    outeq: &OutputLabel,
+    factor: f64,
+    direction: &str,
+) -> Result<Option<Candidate>> {
+    let mut error_models = state.error_models.clone();
+    error_models.set_factor(outeq, factor)?;
+    let psi = calculate_psi(
+        &state.equation,
+        &state.data,
+        &state.theta,
+        &error_models,
+        false,
+    )?;
 
-            let gamma_up = em.factor()? * (1.0 + gamma_delta[slot]);
-            let gamma_down = em.factor()? / (1.0 + gamma_delta[slot]);
-
-            let mut error_model_up = error_models.clone();
-            error_model_up.set_factor(outeq, gamma_up)?;
-
-            let mut error_model_down = error_models.clone();
-            error_model_down.set_factor(outeq, gamma_down)?;
-
-            let psi_up = calculate_psi(equation, data, theta, &error_model_up, false)?;
-            let psi_down = calculate_psi(equation, data, theta, &error_model_down, false)?;
-
-            // Treat errors in IPM, such as subjects with zero probability or non-finite
-            // likelihoods as warnings, and continue with the other direction. If both
-            // directions fail, we will not update the error model factor.
-            let up = match burke(&psi_up) {
-                Ok((lambda, objf)) => Some((lambda, objf)),
-                Err(err) => {
-                    tracing::warn!(
-                        "Error in IPM during optim (up) for outeq {}: {:?}",
-                        outeq,
-                        err
-                    );
-                    None
-                }
-            };
-            let down = match burke(&psi_down) {
-                Ok((lambda, objf)) => Some((lambda, objf)),
-                Err(err) => {
-                    tracing::warn!(
-                        "Error in IPM during optim (down) for outeq {}: {:?}",
-                        outeq,
-                        err
-                    );
-                    None
-                }
-            };
-
-            // Select the best improving candidate (if any) over the current
-            // objective. Among the two directions, the one with the higher
-            // objective function wins.
-            let mut best: Option<(f64, Weights, Psi, f64)> = None;
-            if let Some((lambda_up, objf_up)) = up {
-                if objf_up > *objf {
-                    best = Some((objf_up, lambda_up, psi_up, gamma_up));
-                }
-            }
-            if let Some((lambda_down, objf_down)) = down {
-                let threshold = best.as_ref().map_or(*objf, |(o, ..)| *o);
-                if objf_down > threshold {
-                    best = Some((objf_down, lambda_down, psi_down, gamma_down));
-                }
-            }
-            if let Some((new_objf, new_lambda, new_psi, gamma)) = best {
-                error_models.set_factor(outeq, gamma)?;
-                *objf = new_objf;
-                gamma_delta[slot] *= config.growth;
-                *lambda = new_lambda;
-                *psi = new_psi;
-            }
-            gamma_delta[slot] *= config.shrink;
-            if gamma_delta[slot] <= config.min_step {
-                gamma_delta[slot] = config.step;
-            }
-            Ok(())
-        })?;
-
-    Ok(())
+    match burke(&psi) {
+        Ok((_, log_likelihood)) => Ok(Some(Candidate {
+            factor,
+            psi,
+            log_likelihood,
+        })),
+        Err(err) => {
+            tracing::warn!(
+                "Error in IPM during optim ({}) for outeq {}: {:?}",
+                direction,
+                outeq,
+                err
+            );
+            Ok(None)
+        }
+    }
 }

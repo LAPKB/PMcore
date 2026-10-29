@@ -194,8 +194,9 @@ fn test_one_compartment_postprob() -> Result<()> {
     let result = EstimationProblem::nonparametric(eq, data, theta.clone(), error_models)?
         .fit_with(NonParametricAlgorithm::npmap())?;
 
-    // Check the results
-    assert_eq!(result.cycles(), 0);
+    // NPMAP is a single reweighting pass
+    assert_eq!(result.cycles(), 1);
+    assert_eq!(result.cycle_log().cycles().len(), 1);
 
     // Should be 100 points in theta (no change in points)
     assert_eq!(result.get_theta().nspp(), theta.nspp());
