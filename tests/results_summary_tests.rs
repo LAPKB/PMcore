@@ -49,7 +49,7 @@ fn test_nonparametric_fit_result_summary_surface() -> Result<()> {
     let error_models = AssayErrorModels::new().add("0", assay_error)?;
     let result =
         EstimationProblem::nonparametric(simple_equation(), simple_data(), prior, error_models)?
-            .fit_with(NonParametricAlgorithm::npag())?;
+            .fit_with(NpagConfig::new())?;
 
     let summary = result.summary();
 

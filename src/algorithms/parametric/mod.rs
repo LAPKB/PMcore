@@ -49,8 +49,8 @@ use pharmsol::prelude::simulator::Equation;
 /// // `problem.fit_with(config)` accepts the config directly.
 /// ```
 ///
-/// [`SaemConfig`] implements [`Algorithm`] by delegating to the matching enum variant, so
-/// configs can be passed to `fit_with` without converting them first.
+/// Anything that converts into a `ParametricAlgorithm`, including [`SaemConfig`], implements
+/// [`Algorithm`], so configs can be passed to `fit_with` without converting them first.
 #[derive(Debug, Clone)]
 pub enum ParametricAlgorithm {
     /// Stochastic Approximation Expectation-Maximization.
@@ -77,24 +77,19 @@ impl ParametricAlgorithm {
     }
 }
 
-impl<E: Equation + Send + 'static> Algorithm<E, Parametric> for ParametricAlgorithm {
+/// Every parametric algorithm (or its configuration) can be fitted directly.
+impl<E, A> Algorithm<E, Parametric> for A
+where
+    E: Equation,
+    A: Into<ParametricAlgorithm>,
+{
     type Output = ParametricResult<E>;
 
     fn fit(self, _problem: EstimationProblem<E, Parametric>) -> Result<Self::Output> {
-        match self {
-            Self::Saem(_config) => {
+        match self.into() {
+            ParametricAlgorithm::Saem(_config) => {
                 unimplemented!("SAEM fitting is not yet implemented")
             }
         }
-    }
-}
-
-// `SaemConfig` delegates to the matching `ParametricAlgorithm` variant so it can be passed
-// directly to `fit_with`, keeping its setters compile-time checked.
-impl<E: Equation + Send + 'static> Algorithm<E, Parametric> for SaemConfig {
-    type Output = ParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, Parametric>) -> Result<Self::Output> {
-        ParametricAlgorithm::from(self).fit(problem)
     }
 }

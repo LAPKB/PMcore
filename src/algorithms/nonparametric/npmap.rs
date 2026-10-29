@@ -1,18 +1,8 @@
-use crate::{
-    algorithms::{NonParametricRunner, Status, StopReason},
-    estimation::nonparametric::{
-        calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
-    },
-};
-
-use anyhow::{Context, Result};
-use pharmsol::prelude::{
-    data::{AssayErrorModels, Data},
-    simulator::Equation,
-};
-
-use crate::estimation::nonparametric::ipm::burke;
+use anyhow::Result;
+use pharmsol::prelude::simulator::Equation;
 use serde::{Deserialize, Serialize};
+
+use super::fit::{CycleOutcome, FitState, Runner};
 
 /// Configuration options for the non-parametric maximum a posteriori (NPMAP) algorithm
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -24,161 +14,81 @@ impl NpmapConfig {
     }
 }
 
-/// Non-parametric maximum a posteriori (NPMAP) algorithm
+/// Non-parametric maximum a posteriori (NPMAP) algorithm.
 ///
-/// This algorithm is a wrapper around the IPM algorithm that calculates the posterior probabilities of the support points
-/// given a prior distribution and the likelihood of the data.
+/// Reweights the prior support points by their likelihood given the data, in a single pass:
+/// the support points themselves are left unchanged.
 #[derive(Debug)]
-pub struct NPMAP<E: Equation + Send + 'static> {
-    equation: E,
-    psi: Psi,
-    theta: Theta,
-    w: Weights,
-    objf: f64,
-    cycle: usize,
-    status: Status,
-    data: Data,
-    cyclelog: CycleLog,
-    error_models: AssayErrorModels,
-    prior: Theta,
-}
+pub(crate) struct Npmap;
 
-impl<E: Equation + Send + 'static> NPMAP<E> {
-    pub(crate) fn from_parts(
-        equation: E,
-        data: Data,
-        error_models: AssayErrorModels,
-        theta: Theta,
-        _config: NpmapConfig,
-    ) -> Result<Self> {
-        Ok(Self {
-            equation,
-            psi: Psi::new(),
-            theta: theta.clone(),
-            w: Weights::default(),
-            objf: f64::INFINITY,
-            cycle: 0,
-            status: Status::Continue,
-            data,
-            cyclelog: CycleLog::new(),
-            error_models,
-            prior: theta,
-        })
+impl<E: Equation> Runner<E> for Npmap {
+    fn step(&mut self, state: &mut FitState<E>) -> Result<CycleOutcome> {
+        let solution = state.estimate(state.solution().theta().clone(), false)?;
+        state.set_solution(solution);
+        Ok(CycleOutcome::Converged)
     }
 }
 
-impl<E: Equation + Send + 'static> NonParametricRunner<E> for NPMAP<E> {
-    fn into_result(&self) -> Result<NonParametricResult<E>> {
-        NonParametricResult::new(
-            self.equation.clone(),
-            self.data.clone(),
-            self.error_models.clone(),
-            self.prior.clone(),
-            self.theta.clone(),
-            self.psi.clone(),
-            self.w.clone(),
-            self.objf,
-            self.cycle,
-            self.status.clone(),
-            self.cyclelog.clone(),
+#[cfg(test)]
+mod tests {
+    use crate::estimation::nonparametric::burke;
+    use crate::prelude::*;
+
+    use pharmsol::{fa, fetch_params, lag, Subject, SubjectBuilderExt};
+
+    fn equation() -> pharmsol::equation::ODE {
+        pharmsol::equation::ODE::new(
+            |x, p, _t, dx, b, _rateiv, _cov| {
+                fetch_params!(p, ke);
+                dx[0] = -ke * x[0] + b[0];
+            },
+            |_p, _t, _cov| lag! {},
+            |_p, _t, _cov| fa! {},
+            |_p, _t, _cov, _x| {},
+            |x, p, _t, _cov, y| {
+                fetch_params!(p, v);
+                y[0] = x[0] / v;
+            },
         )
+        .with_nstates(1)
+        .with_ndrugs(1)
+        .with_nout(1)
+        .with_metadata(
+            pharmsol::equation::metadata::new("npmap_test")
+                .parameters(["ke", "v"])
+                .states(["central"])
+                .outputs(["0"])
+                .route(pharmsol::equation::Route::bolus("0").to_state("central")),
+        )
+        .expect("metadata attachment should validate")
     }
 
-    fn error_models(&self) -> &AssayErrorModels {
-        &self.error_models
-    }
-
-    fn equation(&self) -> &E {
-        &self.equation
-    }
-
-    fn data(&self) -> &Data {
-        &self.data
-    }
-
-    fn likelihood(&self) -> f64 {
-        self.objf
-    }
-
-    fn increment_cycle(&mut self) -> usize {
-        0
-    }
-
-    fn cycle(&self) -> usize {
-        0
-    }
-
-    fn set_theta(&mut self, theta: Theta) {
-        self.theta = theta;
-    }
-
-    fn theta(&self) -> &Theta {
-        &self.theta
-    }
-
-    fn psi(&self) -> &Psi {
-        &self.psi
-    }
-
-    fn set_status(&mut self, status: Status) {
-        self.status = status;
-    }
-
-    fn status(&self) -> &Status {
-        &self.status
-    }
-
-    fn evaluation(&mut self) -> Result<Status> {
-        self.status = Status::Stop(StopReason::Converged);
-        Ok(self.status.clone())
-    }
-
-    fn estimation(&mut self) -> Result<()> {
-        self.psi = calculate_psi(
-            &self.equation,
-            &self.data,
-            &self.theta,
-            &self.error_models,
-            false,
+    #[test]
+    fn npmap_reports_neg2ll_like_every_other_algorithm() -> anyhow::Result<()> {
+        let data = Data::new(vec![Subject::builder("1")
+            .bolus(0.0, 100.0, 0)
+            .observation(1.0, 10.0, 0)
+            .observation(2.0, 8.0, 0)
+            .build()]);
+        let parameters = ParameterSpace::bounded()
+            .add("ke", 0.001, 3.0)
+            .add("v", 25.0, 250.0);
+        let error_models = AssayErrorModels::new().add(
+            "0",
+            AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
         )?;
-        (self.w, self.objf) = burke(&self.psi).context("Error in IPM")?;
+        let problem = EstimationProblem::nonparametric(
+            equation(),
+            data,
+            Theta::sobol(&parameters, 64)?,
+            error_models,
+        )?;
+
+        let result = problem.fit_with(NpmapConfig::new())?;
+
+        let (_, log_likelihood) = burke(result.psi())?;
+        approx::assert_relative_eq!(result.objf(), -2.0 * log_likelihood, epsilon = 1e-10);
+        assert_eq!(result.cycle_log().cycles()[0].objf(), result.objf());
         Ok(())
-    }
-
-    fn condensation(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn optimizations(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn expansion(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn log_cycle_state(&mut self) {
-        // NPMAP doesn't track last_objf, so we use 0.0 as the delta
-        let state = NPCycle::new(
-            self.cycle,
-            self.objf,
-            self.error_models.clone(),
-            self.theta.clone(),
-            self.w.clone(),
-            self.theta.nspp(),
-            0.0,
-            self.status.clone(),
-        );
-        self.cyclelog.push(state);
-    }
-
-    /// NPMAP is a single-pass reweighting: it evaluates the likelihood of the
-    /// fixed prior support points once, rather than iterating cycles.
-    fn fit(&mut self) -> Result<NonParametricResult<E>> {
-        self.estimation()?;
-        self.evaluation()?;
-        self.log_cycle_state();
-
-        self.into_result()
     }
 }

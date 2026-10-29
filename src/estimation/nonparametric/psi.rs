@@ -255,6 +255,42 @@ impl<'de> Deserialize<'de> for Psi {
     }
 }
 
+/// Some subjects have zero probability given the model: their likelihood is zero (or not a
+/// number) at every support point, so no weighting of the support points can explain their data.
+///
+/// Fits return this inside an [`anyhow::Error`]; recover it with
+/// [`downcast_ref`](anyhow::Error::downcast_ref) to see which subjects are affected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZeroProbabilityError {
+    subjects: Vec<String>,
+    total: usize,
+}
+
+impl ZeroProbabilityError {
+    pub(crate) fn new(subjects: Vec<String>, total: usize) -> Self {
+        Self { subjects, total }
+    }
+
+    /// The IDs of the affected subjects.
+    pub fn subjects(&self) -> &[String] {
+        &self.subjects
+    }
+}
+
+impl std::fmt::Display for ZeroProbabilityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "The probability of {}/{} subjects is zero given the model. Affected subjects: {:?}",
+            self.subjects.len(),
+            self.total,
+            self.subjects
+        )
+    }
+}
+
+impl std::error::Error for ZeroProbabilityError {}
+
 pub(crate) fn calculate_psi(
     equation: &impl Equation,
     subjects: &Data,
@@ -267,13 +303,64 @@ pub(crate) fn calculate_psi(
     let log_psi =
         log_likelihood_matrix(equation, subjects, &theta_ndarray, error_models, progress)?;
 
+    let zero = zero_probability_rows(&log_psi);
+    if !zero.is_empty() {
+        let all = subjects.subjects();
+        let ids = zero.iter().map(|&i| all[i].id().clone()).collect();
+        return Err(ZeroProbabilityError::new(ids, log_psi.nrows()).into());
+    }
+
     Psi::from_log_likelihoods(log_psi)
+}
+
+/// Rows (subjects) without a single log-likelihood above `-inf`, ignoring NaN.
+fn zero_probability_rows(log_likelihoods: &Array2<f64>) -> Vec<usize> {
+    log_likelihoods
+        .axis_iter(Axis(0))
+        .enumerate()
+        .filter(|(_, row)| {
+            row.iter().copied().fold(f64::NEG_INFINITY, f64::max) == f64::NEG_INFINITY
+        })
+        .map(|(i, _)| i)
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use ndarray::Array2;
+
+    #[test]
+    fn subjects_without_a_finite_log_likelihood_have_zero_probability() {
+        let log_likelihoods = Array2::from_shape_vec(
+            (3, 2),
+            vec![
+                -1.0,
+                -2.0,
+                f64::NEG_INFINITY,
+                f64::NAN,
+                -3.0,
+                f64::NEG_INFINITY,
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(zero_probability_rows(&log_likelihoods), vec![1]);
+    }
+
+    #[test]
+    fn zero_probability_error_survives_anyhow() {
+        let err: anyhow::Error = ZeroProbabilityError::new(vec!["7".into()], 10).into();
+
+        let zero = err
+            .downcast_ref::<ZeroProbabilityError>()
+            .expect("should downcast");
+        assert_eq!(zero.subjects(), ["7".to_string()]);
+        assert_eq!(
+            err.to_string(),
+            "The probability of 1/10 subjects is zero given the model. Affected subjects: [\"7\"]"
+        );
+    }
 
     #[test]
     fn log_likelihood_rows_are_scaled_before_exponentiation() -> Result<()> {

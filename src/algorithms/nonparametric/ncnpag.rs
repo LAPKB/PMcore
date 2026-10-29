@@ -1,21 +1,12 @@
-use crate::{
-    algorithms::{
-        nonparametric::{npag::NPAG, NpagConfig},
-        NonParametricRunner, Status, StopReason,
-    },
-    estimation::nonparametric::{
-        calculate_psi, CycleLog, NPCycle, NonParametricResult, Psi, Theta, Weights,
-    },
-};
-
 use anyhow::Result;
 use faer::Mat;
-use pharmsol::prelude::{
-    data::{AssayErrorModels, Data},
-    simulator::Equation,
-};
-
+use pharmsol::prelude::simulator::Equation;
 use serde::{Deserialize, Serialize};
+
+use super::fit::{CycleOutcome, Fit, FitState, Runner};
+use super::npag::{Npag, NpagConfig};
+use super::solution::Solution;
+use crate::estimation::nonparametric::{Theta, Weights};
 
 /// Configuration options for the non-collapsing NPAG (NCNPAG) algorithm.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -73,55 +64,22 @@ impl NcnpagConfig {
 ///
 /// The result is returned as a standard [`NonParametricResult`], so the
 /// `(theta, weights)` can be consumed exactly like any other fit.
-pub struct NCNPAG<E: Equation + Send + 'static> {
-    equation: E,
-    psi: Psi,
-    theta: Theta,
-    w: Weights,
-    objf: f64,
-    cycle: usize,
-    status: Status,
-    data: Data,
-    cyclelog: CycleLog,
-    error_models: AssayErrorModels,
-    prior: Theta,
-    cycles: usize,
-    progress: bool,
+#[derive(Debug)]
+pub(crate) struct Ncnpag {
+    config: NcnpagConfig,
 }
 
-impl<E: Equation + Send + 'static> NCNPAG<E> {
-    pub(crate) fn from_parts(
-        equation: E,
-        data: Data,
-        error_models: AssayErrorModels,
-        theta: Theta,
-        config: NcnpagConfig,
-    ) -> Result<Self> {
-        Ok(Self {
-            equation,
-            psi: Psi::new(),
-            theta: theta.clone(),
-            w: Weights::default(),
-            objf: f64::INFINITY,
-            cycle: 0,
-            status: Status::Continue,
-            data,
-            cyclelog: CycleLog::new(),
-            error_models,
-            prior: theta,
-            cycles: config.cycles,
-            progress: config.progress,
-        })
+impl Ncnpag {
+    pub(crate) fn new(config: NcnpagConfig) -> Self {
+        Self { config }
     }
 }
 
 /// Refine each support point with a full NPAG seeded from that single point,
 /// preserving the point's filter weight (NPAGFULL). Points whose refinement
 /// fails or produces no output are kept at their original location.
-fn refine_points<E: Equation + Send + 'static>(
-    equation: &E,
-    data: &Data,
-    error_models: &AssayErrorModels,
+fn refine_points<E: Equation>(
+    state: &FitState<E>,
     theta: &Theta,
     weights: &Weights,
     cycles: usize,
@@ -142,31 +100,23 @@ fn refine_points<E: Equation + Send + 'static>(
             progress,
             ..Default::default()
         };
-        let mut npag = NPAG::from_parts(
-            equation.clone(),
-            data.clone(),
-            error_models.clone(),
+        let npag = Npag::new(npag_config, &single_theta, state.error_models());
+        let nested = FitState::from_parts(
+            state.equation().clone(),
+            state.data().clone(),
+            state.error_models().clone(),
             single_theta,
-            npag_config,
-        )?;
-
-        #[allow(clippy::while_let_loop)]
-        let run = npag.initialize().and_then(|_| {
-            loop {
-                match npag.next_cycle()? {
-                    Status::Continue => continue,
-                    Status::Stop(_) => break,
-                }
-            }
-            Ok(())
-        });
+        );
+        let mut fit = Fit::new(nested, Box::new(npag), cycles);
+        let run = fit.run().map(|()| fit);
 
         match run {
-            Ok(()) if npag.theta().matrix().nrows() > 0 => {
-                let refined: Vec<f64> = npag.theta().matrix().row(0).iter().copied().collect();
+            Ok(fit) if fit.state().solution().theta().nspp() > 0 => {
+                let theta = fit.state().solution().theta();
+                let refined: Vec<f64> = theta.matrix().row(0).iter().copied().collect();
                 refined_points.push(refined);
             }
-            Ok(()) => {
+            Ok(_) => {
                 tracing::warn!(
                     "NCNPAG: refinement produced no points for support point {} — keeping original",
                     i + 1
@@ -199,96 +149,14 @@ fn refine_points<E: Equation + Send + 'static>(
     Ok((refined_theta, refined_weights))
 }
 
-/// Marginal log-likelihood of the data under a discrete `(psi, weights)` model.
-fn marginal_loglik(psi: &Psi, w: &Weights) -> f64 {
-    let m = psi.matrix();
-    (0..m.nrows())
-        .map(|s| {
-            let acc: f64 = (0..m.ncols()).map(|j| *m.get(s, j) * w[j]).sum();
-            acc.max(f64::MIN_POSITIVE).ln()
-        })
-        .sum::<f64>()
-        + psi.log_scale()
-}
-
-impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
-    fn into_result(&self) -> Result<NonParametricResult<E>> {
-        NonParametricResult::new(
-            self.equation.clone(),
-            self.data.clone(),
-            self.error_models.clone(),
-            self.prior.clone(),
-            self.theta.clone(),
-            self.psi.clone(),
-            self.w.clone(),
-            self.objf,
-            self.cycle,
-            self.status.clone(),
-            self.cyclelog.clone(),
-        )
-    }
-
-    fn error_models(&self) -> &AssayErrorModels {
-        &self.error_models
-    }
-
-    fn equation(&self) -> &E {
-        &self.equation
-    }
-
-    fn data(&self) -> &Data {
-        &self.data
-    }
-
-    fn likelihood(&self) -> f64 {
-        self.objf
-    }
-
-    fn increment_cycle(&mut self) -> usize {
-        0
-    }
-
-    fn cycle(&self) -> usize {
-        0
-    }
-
-    fn set_theta(&mut self, theta: Theta) {
-        self.theta = theta;
-    }
-
-    fn theta(&self) -> &Theta {
-        &self.theta
-    }
-
-    fn psi(&self) -> &Psi {
-        &self.psi
-    }
-
-    fn set_status(&mut self, status: Status) {
-        self.status = status;
-    }
-
-    fn status(&self) -> &Status {
-        &self.status
-    }
-
-    fn evaluation(&mut self) -> Result<Status> {
-        self.status = Status::Stop(StopReason::Converged);
-        Ok(self.status.clone())
-    }
-
-    fn estimation(&mut self) -> Result<()> {
+impl<E: Equation> Runner<E> for Ncnpag {
+    fn step(&mut self, state: &mut FitState<E>) -> Result<CycleOutcome> {
         // Likelihood of each fixed support point for the data.
-        let psi = calculate_psi(
-            &self.equation,
-            &self.data,
-            &self.theta,
-            &self.error_models,
-            false,
-        )?;
+        let mut theta = state.solution().theta().clone();
+        let psi = state.compute_psi(&theta, false)?;
 
         // Flat (uniform) prior: postⱼ ∝ ∏ᵢ P(dataᵢ | θⱼ). Accumulate in log space.
-        let n_points = self.theta.matrix().nrows();
+        let n_points = theta.nspp();
         let mut log_weights = vec![f64::NEG_INFINITY; n_points];
         for (j, slot) in log_weights.iter_mut().enumerate() {
             let mut log_weight = 0.0; // ln(uniform prior) is constant, drops out on normalization
@@ -343,92 +211,25 @@ impl<E: Equation + Send + 'static> NonParametricRunner<E> for NCNPAG<E> {
             .collect();
 
         // Filter theta and renormalize the surviving weights (NPAGFULL11).
-        self.theta.filter_indices(&keep);
+        theta.filter_indices(&keep);
         let kept: Vec<f64> = keep.iter().map(|&i| weights[i]).collect();
         let sum: f64 = kept.iter().sum();
-        self.w = Weights::from_vec(kept.iter().map(|w| w / sum).collect());
+        let mut weights = Weights::from_vec(kept.iter().map(|w| w / sum).collect());
 
         // NPAGFULL: refine each surviving point with a full NPAG seeded from it.
-        if self.cycles > 0 {
-            let (refined_theta, refined_weights) = refine_points(
-                &self.equation,
-                &self.data,
-                &self.error_models,
-                &self.theta,
-                &self.w,
-                self.cycles,
-                self.progress,
+        if self.config.cycles > 0 {
+            (theta, weights) = refine_points(
+                state,
+                &theta,
+                &weights,
+                self.config.cycles,
+                self.config.progress,
             )?;
-            self.theta = refined_theta;
-            self.w = refined_weights;
         }
 
         // Recompute psi over the final support points so psi/weights stay aligned.
-        self.psi = calculate_psi(
-            &self.equation,
-            &self.data,
-            &self.theta,
-            &self.error_models,
-            false,
-        )?;
-
-        self.objf = marginal_loglik(&self.psi, &self.w);
-        Ok(())
-    }
-
-    fn condensation(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn optimizations(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn expansion(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn log_cycle_state(&mut self) {
-        let state = NPCycle::new(
-            self.cycle,
-            self.objf,
-            self.error_models.clone(),
-            self.theta.clone(),
-            self.w.clone(),
-            self.theta.nspp(),
-            0.0,
-            self.status.clone(),
-        );
-        self.cyclelog.push(state);
-    }
-
-    /// NCNPAG is a single-pass reweighting: it evaluates the likelihood of the
-    /// fixed prior support points once, rather than iterating cycles.
-    fn fit(&mut self) -> Result<NonParametricResult<E>> {
-        self.estimation()?;
-        self.evaluation()?;
-        self.log_cycle_state();
-
-        self.into_result()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use approx::assert_relative_eq;
-    use ndarray::Array2;
-
-    #[test]
-    fn marginal_loglik_restores_subject_scaling() -> anyhow::Result<()> {
-        let log_likelihoods = Array2::from_shape_vec((2, 2), vec![-1000.0, -1001.0, -2.0, -4.0])?;
-        let psi = Psi::from_log_likelihoods(log_likelihoods)?;
-        let weights = Weights::from_vec(vec![0.6, 0.4]);
-
-        let expected = -1000.0 + (0.6 + 0.4 * (-1.0_f64).exp()).ln() - 2.0
-            + (0.6 + 0.4 * (-2.0_f64).exp()).ln();
-
-        assert_relative_eq!(marginal_loglik(&psi, &weights), expected, epsilon = 1e-12);
-        Ok(())
+        let psi = state.compute_psi(&theta, false)?;
+        state.set_solution(Solution::with_weights(theta, psi, weights));
+        Ok(CycleOutcome::Converged)
     }
 }

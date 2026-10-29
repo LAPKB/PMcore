@@ -47,8 +47,7 @@ fn main() -> Result<()> {
             "2",
             AssayErrorModel::proportional(ErrorPoly::new(1.0, 0.1, 0.0, 0.0), 5.0),
         )?;
-    EstimationProblem::nonparametric(eq, data, prior, error_models)?
-        .fit_with(NonParametricAlgorithm::npod())?;
+    EstimationProblem::nonparametric(eq, data, prior, error_models)?.fit_with(NpodConfig::new())?;
 
     Ok(())
 }

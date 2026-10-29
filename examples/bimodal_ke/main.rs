@@ -33,9 +33,9 @@ fn main() -> Result<()> {
 
     let problem = EstimationProblem::nonparametric(eq, data, prior, error_models)?;
 
-    let _result = problem.fit_with(NonParametricAlgorithm::npag())?;
+    let _result = problem.fit_with(NpagConfig::new())?;
 
-    _result.write_outputs("outputs/bimodal_ke", 0.0, 0.0)?;
+    _result.write_outputs("outputs/bimodal_ke", PredictionGrid::new())?;
 
     Ok(())
 }

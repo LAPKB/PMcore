@@ -116,7 +116,7 @@ fn concentration_target<E: Equation + EquationMetadataSource + Send + 'static>(
     )?
     .fit_with(NcnpagConfig::default())?;
 
-    let post_theta = posterior.get_theta().clone();
+    let post_theta = posterior.theta().clone();
     let post_weights = posterior.weights().clone();
     println!(
         "NCNPAG posterior: {} support points\n",

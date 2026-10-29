@@ -72,9 +72,10 @@ pub mod prelude {
         BoundedParameter, Parameter, ParameterScale, ParameterSpace, UnboundedParameter,
     };
 
-    pub use crate::algorithms::nonparametric::{CycleFlow, FitController, FitObserver};
+    pub use crate::algorithms::nonparametric::FitController;
     pub use crate::estimation::nonparametric::{
-        CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, Psi, Theta, Weights,
+        CycleLog, NPCycle, NPPredictions, NonParametricResult, Posterior, PredictionGrid, Psi,
+        Theta, Weights, ZeroProbabilityError,
     };
     pub use crate::iov::{DiffusionConfig, DiffusionOptimize, DiffusionResult};
     pub use crate::model::{EquationMetadataSource, ModelMetadata};
