@@ -60,6 +60,43 @@ impl NPPredictionRow {
     }
 }
 
+/// The times at which to predict, besides the observation times.
+///
+/// The default predicts at the observation times only. With an `idelta`, predictions are also
+/// made every `idelta` time units, up to `tad` time units after the last dose of each occasion.
+///
+/// ```
+/// use pmcore::prelude::*;
+///
+/// let grid = PredictionGrid::new().idelta(0.5).tad(12.0);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+pub struct PredictionGrid {
+    /// Interval between the added prediction times; `0` adds none.
+    pub idelta: f64,
+    /// How far past the last dose of each occasion to keep predicting.
+    pub tad: f64,
+}
+
+impl PredictionGrid {
+    /// Predictions at the observation times only.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Also predict every `idelta` time units.
+    pub fn idelta(mut self, idelta: f64) -> Self {
+        self.idelta = idelta;
+        self
+    }
+
+    /// Keep predicting `tad` time units past the last dose of each occasion.
+    pub fn tad(mut self, tad: f64) -> Self {
+        self.tad = tad;
+        self
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NPPredictions {
     predictions: Vec<NPPredictionRow>,
@@ -118,15 +155,14 @@ impl NPPredictions {
     }
 
     pub fn calculate(
-        equation: &(impl pharmsol::prelude::simulator::Equation + Sync),
+        equation: &impl pharmsol::prelude::simulator::Equation,
         data: &Data,
         theta: &Theta,
         w: &Weights,
         posterior: &Posterior,
-        idelta: f64,
-        tad: f64,
+        grid: PredictionGrid,
     ) -> Result<Self> {
-        let data = data.clone().expand(idelta, tad);
+        let data = data.expand(grid.idelta, grid.tad);
         let subjects = data.subjects();
 
         if subjects.len() != posterior.matrix().nrows() {

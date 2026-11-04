@@ -6,20 +6,36 @@
 //!
 //! # Available Algorithms
 //!
-//! - [`NPAG`](npag): Non-Parametric Adaptive Grid
-//! - [`NPOD`](npod): Non-Parametric Optimal Design
-//! - [`NPMAP`](npmap): Maximum a posteriori reweighting
+//! - [NPAG](npag): Non-Parametric Adaptive Grid
+//! - [NPOD](npod): Non-Parametric Optimal Design
+//! - [NPMAP](npmap): Maximum a posteriori reweighting
+//! - [NCNPAG](ncnpag): Non-collapsing NPAG
 //!
 //! # Algorithm Selection
 //!
 //! Use the [`NonParametricAlgorithm`] enum to select and configure an algorithm. Each
-//! variant wraps its algorithm-specific configuration struct (e.g. [`NpagConfig`]). The
-//! internal execution state used while fitting implements the [`NonParametricRunner`]
-//! trait, which defines the common interface for initialization, estimation, condensation,
-//! expansion, and convergence evaluation.
+//! variant wraps its algorithm-specific configuration struct (e.g. [`NpagConfig`]).
+//!
+//! # Structure
+//!
+//! Every algorithm runs on the same engine (see the `fit` module): the state shared by all
+//! algorithms (support points, likelihoods, weights, cycle log) lives in one place, and each
+//! algorithm only supplies what a single cycle does to it.
+//!
+//! # Stopping a running fit
+//!
+//! A fit started through [`fit_with`](crate::estimation::EstimationProblem::fit_with) or
+//! [`fit_controller`](crate::estimation::EstimationProblem::fit_controller) stops after
+//! the current cycle if a file named `stop` appears in the working directory, with
+//! [`StopReason::StopFile`](crate::algorithms::StopReason::StopFile). A `stop` file left over
+//! from an earlier run is removed when the fit starts.
 
 // Shared error-model factor optimization
 pub mod error_optim;
+
+// The engine every algorithm runs on.
+mod fit;
+mod solution;
 
 // Algorithm implementations
 pub mod ncnpag;
@@ -30,12 +46,6 @@ pub mod npod;
 // Incremental, observable fitting (stepping handle + per-cycle observers).
 pub mod controller;
 
-// Re-export algorithm structs
-pub use ncnpag::NCNPAG;
-pub use npag::NPAG;
-pub use npmap::NPMAP;
-pub use npod::NPOD;
-
 // Re-export per-algorithm configuration structs
 pub use error_optim::ErrorOptimConfig;
 pub use ncnpag::NcnpagConfig;
@@ -44,40 +54,50 @@ pub use npmap::NpmapConfig;
 pub use npod::NpodConfig;
 
 // Re-export the incremental fitting API
-pub use controller::{CycleFlow, FitController, FitObserver};
+pub use controller::FitController;
 
-use crate::algorithms::{Algorithm, NonParametricRunner};
+use crate::algorithms::Algorithm;
 use crate::estimation::nonparametric::NonParametricResult;
 use crate::estimation::{EstimationProblem, NonParametric};
 use anyhow::Result;
+use fit::{Fit, FitState, Runner};
+use ncnpag::Ncnpag;
+use npag::Npag;
+use npmap::Npmap;
+use npod::Npod;
 use pharmsol::prelude::simulator::Equation;
 
 /// The non-parametric algorithms supported by PMcore.
 ///
-/// Use the constructors to select an algorithm with its default configuration:
+/// To run an algorithm, pass its configuration struct straight to
+/// [`fit_with`](crate::estimation::EstimationProblem::fit_with) or
+/// [`fit_controller`](crate::estimation::EstimationProblem::fit_controller). Each one exposes
+/// only the settings valid for its algorithm:
 ///
 /// ```no_run
 /// use pmcore::prelude::*;
-///
-/// // Default NPAG configuration.
-/// let algorithm = NonParametricAlgorithm::npag();
+/// # fn run(problem: EstimationProblem<pmcore::prelude::ODE, NonParametric>) -> Result<()> {
+/// let result = problem.fit_with(NpagConfig::new().eps(0.1).max_cycles(500))?;
+/// # let _ = result; Ok(())
+/// # }
 /// ```
 ///
-/// To customize an algorithm, build its configuration struct (which exposes only the
-/// setters valid for that algorithm) and pass it directly to
-/// [`fit_with`](crate::estimation::EstimationProblem::fit_with):
+/// Use this enum when the algorithm is only known at runtime, for example when it comes from
+/// a settings file. Every configuration converts into it, and it can be passed to the same
+/// functions:
 ///
 /// ```no_run
 /// use pmcore::prelude::*;
-///
-/// // NPAG with a tighter convergence criterion and a cycle cap.
-/// let config = NpagConfig::new().eps(0.1).max_cycles(500);
-/// // `problem.fit_with(config)` accepts the config directly.
+/// # fn run(problem: EstimationProblem<pmcore::prelude::ODE, NonParametric>, use_npod: bool) -> Result<()> {
+/// let algorithm: NonParametricAlgorithm = if use_npod {
+///     NpodConfig::new().into()
+/// } else {
+///     NpagConfig::new().into()
+/// };
+/// let result = problem.fit_with(algorithm)?;
+/// # let _ = result; Ok(())
+/// # }
 /// ```
-///
-/// Each configuration type ([`NpagConfig`], [`NpodConfig`], [`NpmapConfig`]) implements
-/// [`Algorithm`] by delegating to the matching enum variant, so configs can be passed to
-/// `fit_with` without converting them first.
 #[derive(Debug, Clone)]
 pub enum NonParametricAlgorithm {
     /// Non-Parametric Adaptive Grid.
@@ -142,91 +162,48 @@ impl NonParametricAlgorithm {
         Self::Ncnpag(NcnpagConfig::default())
     }
 
-    /// Build the internal, mutable execution state (runner) for this algorithm.
+    /// Set up a fit of `problem` with this algorithm, ready to run its first cycle.
     ///
     /// Both [`fit`](Algorithm::fit) and the stepping
     /// [`FitController`](crate::algorithms::nonparametric::controller::FitController)
-    /// build on this primitive.
-    pub(crate) fn into_runner<E: Equation + Send + 'static>(
+    /// build on this.
+    pub(crate) fn start<E: Equation>(
         self,
         problem: EstimationProblem<E, NonParametric>,
-    ) -> Result<Box<dyn NonParametricRunner<E>>> {
-        // `problem.prior` is the prior `Theta` (which also carries the parameter
-        // space) and `problem.error_models` is strictly `AssayErrorModels`.
-        let runner: Box<dyn NonParametricRunner<E>> = match self {
-            Self::Npag(config) => Box::new(NPAG::from_parts(
-                problem.model.equation,
-                problem.data,
-                problem.error_models,
-                problem.prior,
-                config,
-            )?),
-            Self::Npod(config) => Box::new(NPOD::from_parts(
-                problem.model.equation,
-                problem.data,
-                problem.error_models,
-                problem.prior,
-                config,
-            )?),
-            Self::Npmap(config) => Box::new(NPMAP::from_parts(
-                problem.model.equation,
-                problem.data,
-                problem.error_models,
-                problem.prior,
-                config,
-            )?),
-            Self::Ncnpag(config) => Box::new(NCNPAG::from_parts(
-                problem.model.equation,
-                problem.data,
-                problem.error_models,
-                problem.prior,
-                config,
-            )?),
+    ) -> Result<Fit<E>> {
+        let state = FitState::new(problem);
+        let (runner, max_cycles): (Box<dyn Runner<E>>, usize) = match self {
+            Self::Npag(config) => {
+                let max_cycles = config.max_cycles;
+                let runner = Npag::new(config, state.solution().theta(), state.error_models());
+                (Box::new(runner), max_cycles)
+            }
+            Self::Npod(config) => {
+                let max_cycles = config.max_cycles;
+                (
+                    Box::new(Npod::new(config, state.error_models())),
+                    max_cycles,
+                )
+            }
+            // Single-pass algorithms.
+            Self::Npmap(_) => (Box::new(Npmap), 1),
+            Self::Ncnpag(config) => (Box::new(Ncnpag::new(config)), 1),
         };
-        Ok(runner)
+        Fit::new(state, runner, max_cycles).watch_stop_file()
     }
 }
 
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NonParametricAlgorithm {
+/// Every non-parametric algorithm (or its configuration) can be fitted directly.
+impl<E, A> Algorithm<E, NonParametric> for A
+where
+    E: Equation,
+    A: Into<NonParametricAlgorithm>,
+{
     type Output = NonParametricResult<E>;
 
     fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        let mut runner = self.into_runner(problem)?;
-        runner.fit()
-    }
-}
-
-// Each configuration struct delegates to its matching `NonParametricAlgorithm` variant so it
-// can be passed directly to `fit_with`. This keeps the variant-specific setters on the config
-// types (compile-time checked) while the enum remains the single source of fitting logic.
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpagConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        NonParametricAlgorithm::from(self).fit(problem)
-    }
-}
-
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpodConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        NonParametricAlgorithm::from(self).fit(problem)
-    }
-}
-
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NpmapConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        NonParametricAlgorithm::from(self).fit(problem)
-    }
-}
-
-impl<E: Equation + Send + 'static> Algorithm<E, NonParametric> for NcnpagConfig {
-    type Output = NonParametricResult<E>;
-
-    fn fit(self, problem: EstimationProblem<E, NonParametric>) -> Result<Self::Output> {
-        NonParametricAlgorithm::from(self).fit(problem)
+        let mut fit = self.into().start(problem)?;
+        fit.run()?;
+        fit.into_result()
     }
 }

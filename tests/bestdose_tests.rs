@@ -357,7 +357,7 @@ fn ncnpag_individualizes_toward_matching_point() -> Result<()> {
     assert!((weight_sum - 1.0).abs() < 1e-6);
 
     // The dominant support point matches the data-generating parameters.
-    let point = best_point(posterior.get_theta(), posterior.weights());
+    let point = best_point(posterior.theta(), posterior.weights());
     assert!(
         (point[0] - matching[0]).abs() < 0.05,
         "expected ke ≈ {}, got {}",
@@ -381,7 +381,7 @@ fn npmap_reweights_toward_matching_point() -> Result<()> {
     )?
     .fit_with(NpmapConfig::default())?;
 
-    let point = best_point(posterior.get_theta(), posterior.weights());
+    let point = best_point(posterior.theta(), posterior.weights());
     assert!(
         (point[0] - matching[0]).abs() < 0.05,
         "expected ke ≈ {}, got {}",
@@ -409,7 +409,7 @@ fn ncnpag_posterior_feeds_dose_optimization() -> Result<()> {
 
     let problem = BestDoseProblem::new(
         bolus_model(),
-        posterior.get_theta().clone(),
+        posterior.theta().clone(),
         posterior.weights().clone(),
     )?;
 

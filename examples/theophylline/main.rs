@@ -26,7 +26,7 @@ fn main() -> Result<()> {
         AssayErrorModel::proportional(ErrorPoly::new(0.1, 0.1, 0.0, 0.0), 2.0),
     )?;
     EstimationProblem::nonparametric(analytical, data, prior, error_models)?
-        .fit_with(NonParametricAlgorithm::npag())?;
+        .fit_with(NpagConfig::new())?;
 
     Ok(())
 }

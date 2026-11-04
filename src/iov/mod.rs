@@ -20,8 +20,8 @@
 //! use pmcore::iov::DiffusionOptimize;
 //! use pmcore::iov::DiffusionConfig;
 //!
-//! let r_ode = problem.fit_with(NPAG::default())?;
-//! let mut joint = r_ode.get_theta()
+//! let r_ode = problem.fit_with(NpagConfig::new())?;
+//! let mut joint = r_ode.theta()
 //!     .with_added_parameter("ske", 1e-6, 1.0, 0.01)?;
 //!
 //! let diff = sde.optimize_diffusion(

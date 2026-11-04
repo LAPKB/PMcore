@@ -3,8 +3,10 @@ use std::path::Path;
 use pharmsol::Equation;
 use serde::Serialize;
 
-use crate::algorithms::Status;
-use crate::estimation::nonparametric::{CycleLog, NPPredictions, Posterior, Psi, Theta, Weights};
+use crate::algorithms::{Status, StopReason};
+use crate::estimation::nonparametric::{
+    CycleLog, NPPredictions, Posterior, PredictionGrid, Psi, Theta, Weights,
+};
 
 use pharmsol::{AssayErrorModels, Data};
 
@@ -58,6 +60,7 @@ impl<E: Equation> NonParametricResult<E> {
         self.cycles
     }
 
+    /// The objective function, -2 × log-likelihood (`neg2ll` in `cycles.csv`).
     pub fn objf(&self) -> f64 {
         self.objf
     }
@@ -66,14 +69,25 @@ impl<E: Equation> NonParametricResult<E> {
         self.status.converged()
     }
 
-    pub fn get_theta(&self) -> &Theta {
+    /// How the fit ended.
+    pub fn status(&self) -> &Status {
+        &self.status
+    }
+
+    /// Why the fit stopped.
+    pub fn stop_reason(&self) -> Option<&StopReason> {
+        self.status.stop_reason()
+    }
+
+    /// The optimized support points.
+    pub fn theta(&self) -> &Theta {
         &self.theta
     }
 
     /// The prior distribution ([`Theta`]) that seeded the algorithm.
     ///
     /// This is the initial set of support points, as opposed to the optimized
-    /// solution returned by [`get_theta`](Self::get_theta).
+    /// solution returned by [`theta`](Self::theta).
     pub fn prior(&self) -> &Theta {
         &self.prior
     }
@@ -142,9 +156,9 @@ impl<E: Equation> NonParametricResult<E> {
     /// Compute predictions on demand. Nothing is cached on the result; callers
     /// that need the predictions repeatedly should hold on to the returned
     /// value themselves.
-    pub fn predictions(&self, idelta: f64, tad: f64) -> anyhow::Result<NPPredictions> {
+    pub fn predictions(&self, grid: PredictionGrid) -> anyhow::Result<NPPredictions> {
         let posterior = self.posterior()?;
-        self.predictions_with(&posterior, idelta, tad)
+        self.predictions_with(&posterior, grid)
     }
 
     /// Like [`predictions`](Self::predictions), but reuses an already-computed
@@ -152,8 +166,7 @@ impl<E: Equation> NonParametricResult<E> {
     fn predictions_with(
         &self,
         posterior: &Posterior,
-        idelta: f64,
-        tad: f64,
+        grid: PredictionGrid,
     ) -> anyhow::Result<NPPredictions> {
         NPPredictions::calculate(
             &self.equation,
@@ -161,8 +174,7 @@ impl<E: Equation> NonParametricResult<E> {
             &self.theta,
             &self.weights,
             posterior,
-            idelta,
-            tad,
+            grid,
         )
     }
 
@@ -316,10 +328,9 @@ impl<E: Equation> NonParametricResult<E> {
     /// Compute and write the population and posterior predictions to a CSV file
     /// readable by Pmetrics.
     ///
-    /// `idelta` is the interval used to densify the prediction grid and `tad` is
-    /// the additional time after the last event to simulate.
-    pub fn write_predictions(&self, path: &Path, idelta: f64, tad: f64) -> anyhow::Result<()> {
-        let predictions = self.predictions(idelta, tad)?;
+    /// `grid` sets the prediction times; see [`PredictionGrid`].
+    pub fn write_predictions(&self, path: &Path, grid: PredictionGrid) -> anyhow::Result<()> {
+        let predictions = self.predictions(grid)?;
         predictions.write(path)
     }
 
@@ -327,11 +338,11 @@ impl<E: Equation> NonParametricResult<E> {
     ///
     /// This includes the data, error models, prior, optimized support points,
     /// likelihoods, weights, objective function, status, cycle log, posterior
-    /// probabilities, and predictions. `idelta` and `tad` control the density of
-    /// the embedded predictions (see [`predictions`](Self::predictions)).
-    pub fn write_json(&self, path: &Path, idelta: f64, tad: f64) -> anyhow::Result<()> {
+    /// probabilities, and predictions. `grid` sets the prediction times; see
+    /// [`PredictionGrid`].
+    pub fn write_json(&self, path: &Path, grid: PredictionGrid) -> anyhow::Result<()> {
         let posterior = self.posterior()?;
-        let predictions = self.predictions_with(&posterior, idelta, tad)?;
+        let predictions = self.predictions_with(&posterior, grid)?;
         self.write_json_with(path, &posterior, &predictions)
     }
 
@@ -376,20 +387,18 @@ impl<E: Equation> NonParametricResult<E> {
     /// - `cycles.csv` — cycle log
     ///
     /// Use [`write_json`](Self::write_json) to explicitly write the complete result.
-    /// `idelta` and `tad` control the density of the predictions (see
-    /// [`predictions`](Self::predictions)).
+    /// `grid` sets the prediction times; see [`PredictionGrid`].
     pub fn write_outputs(
         &self,
         directory: impl AsRef<Path>,
-        idelta: f64,
-        tad: f64,
+        grid: PredictionGrid,
     ) -> anyhow::Result<()> {
         let dir = directory.as_ref();
         std::fs::create_dir_all(dir)?;
 
         // Compute the expensive artifacts a single time and reuse them.
         let posterior = self.posterior()?;
-        let predictions = self.predictions_with(&posterior, idelta, tad)?;
+        let predictions = self.predictions_with(&posterior, grid)?;
 
         self.write_theta(&dir.join("theta.csv"))?;
         self.write_posterior_with(&dir.join("posterior.csv"), &posterior)?;
@@ -487,13 +496,13 @@ mod tests {
             .fit_with(NpagConfig::new().max_cycles(2))
             .unwrap();
 
-        let n_spp = r1.get_theta().nspp();
+        let n_spp = r1.theta().nspp();
         assert!(n_spp > 0, "NPAG should produce support points");
 
         // Chain into NPOD — should complete without error
         let r2 = r1.chain(NpodConfig::new().max_cycles(1)).unwrap();
 
-        assert!(r2.get_theta().nspp() > 0);
+        assert!(r2.theta().nspp() > 0);
         assert_eq!(r2.data().subjects().len(), 1);
         assert_eq!(r2.cycles(), 1);
     }
