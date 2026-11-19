@@ -11,10 +11,6 @@ fn main() -> Result<()> {
         covariates: [ic_t],
         states: [drug_1_amount, drug_2_amount, total_bacteria, resistant_1, resistant_2],
         outputs: [outeq_1, outeq_2, outeq_3, outeq_4],
-        routes: [
-            bolus(input_1) -> drug_1_amount,
-            bolus(input_2) -> drug_2_amount,
-        ],
         diffeq: |x, _t, dx| {
 
             let e50_2r1 = e50_2s;
@@ -22,8 +18,8 @@ fn main() -> Result<()> {
             let h2r1 = h2s;
             let h1r2 = h1s;
 
-            dx[drug_1_amount] = -cl1 * x[drug_1_amount] / v1;
-            dx[drug_2_amount] = -cl2 * x[drug_2_amount] / v2;
+            dx[drug_1_amount] = bolus[input_1] - cl1 * x[drug_1_amount] / v1;
+            dx[drug_2_amount] = bolus[input_2] - cl2 * x[drug_2_amount] / v2;
 
             let xns = x[total_bacteria];
             let xnr1 = x[resistant_1];
@@ -32,20 +28,17 @@ fn main() -> Result<()> {
 
             let u_s = x[drug_1_amount] / (v1 * e50_1s);
             let v_s = x[drug_2_amount] / (v2 * e50_2s);
-            let w_s = alpha_s * u_s * v_s / (e50_1s * e50_2s);
-            let xm0best = get_e2(u_s, v_s, w_s, 1.0 / h1s, 1.0 / h2s, alpha_s);
+            let xm0best = estimate_effect_2(u_s, v_s, alpha_s, 1.0 / h1s, 1.0 / h2s);
             dx[total_bacteria] = xns * (kgs * e - kks * xm0best);
 
             let u_r1 = x[drug_1_amount] / (v1 * e50_1r1);
             let v_r1 = x[drug_2_amount] / (v2 * e50_2r1);
-            let w_r1 = alpha_r1 * u_r1 * v_r1 / (e50_1r1 * e50_2r1);
-            let xm0best = get_e2(u_r1, v_r1, w_r1, 1.0 / h1r1, 1.0 / h2r1, alpha_s);
+            let xm0best = estimate_effect_2(u_r1, v_r1, alpha_r1, 1.0 / h1r1, 1.0 / h2r1);
             dx[resistant_1] = xnr1 * (kgr1 * e - kkr1 * xm0best);
 
             let u_r2 = x[drug_1_amount] / (v1 * e50_1r2);
             let v_r2 = x[drug_2_amount] / (v2 * e50_2r2);
-            let w_r2 = alpha_r2 * u_r2 * v_r2 / (e50_1r2 * e50_2r2);
-            let xm0best = get_e2(u_r2, v_r2, w_r2, 1.0 / h1r2, 1.0 / h2r2, alpha_s);
+            let xm0best = estimate_effect_2(u_r2, v_r2, alpha_r2, 1.0 / h1r2, 1.0 / h2r2);
             dx[resistant_2] = xnr2 * (kgr2 * e - kkr2 * xm0best);
         },
         init: |_t, x| {

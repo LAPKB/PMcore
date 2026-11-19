@@ -88,7 +88,7 @@ pub mod prelude {
 
     // Items required by downstream code that are not part of `pharmsol::prelude`.
     pub use pharmsol::equation::{EquationTypes, Predictions};
-    pub use pharmsol::optimize::effect::get_e2;
+    pub use pharmsol::optimize::effect::{estimate_effect_2, estimate_effect_3};
     pub use pharmsol::{ODE, SDE};
 
     // Organized submodules mirroring pharmsol's grouping.

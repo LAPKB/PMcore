@@ -12,9 +12,8 @@ fn main() -> Result<()> {
         params: [ke, v],
         states: [central],
         outputs: [outeq_1],
-        routes: [bolus(input_1) -> central],
         diffeq: |x, _t, dx| {
-            dx[central] = -ke * x[central];
+            dx[central] = bolus[input_1] - ke * x[central];
         },
         out: |x, _t, y| {
             y[outeq_1] = x[central] / v;
