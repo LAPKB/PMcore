@@ -13,11 +13,11 @@ kind = ode
 
 params = ke, v
 states = central
-outputs = outeq_1
+outputs = 1
 
-dx(central) = infusion(input_1) - ke * central
+dx(central) = infusion(1) - ke * central
 
-out(outeq_1) = central / v
+out(1) = central / v
 "#;
 
 #[derive(Debug, Clone)]
@@ -58,9 +58,9 @@ fn legacy_equation() -> equation::ODE {
         equation::metadata::new("bimodal_ke_legacy")
             .parameters(["ke", "v"])
             .states(["central"])
-            .outputs(["outeq_1"])
+            .outputs(["1"])
             .route(
-                equation::Route::infusion("input_1")
+                equation::Route::infusion("1")
                     .to_state("central")
                     .inject_input_to_destination(),
             ),
@@ -75,12 +75,12 @@ fn macro_equation() -> equation::ODE {
         name: "bimodal_ke",
         params: [ke, v],
         states: [central],
-        outputs: [outeq_1],
+        outputs: [1],
         diffeq: |x, _t, dx| {
-            dx[central] = infusion[input_1] - ke * x[central];
+            dx[central] = infusion[1] - ke * x[central];
         },
         out: |x, _t, y| {
-            y[outeq_1] = x[central] / v;
+            y[1] = x[central] / v;
         },
     }
     .enable_cache()
@@ -111,7 +111,7 @@ fn run_case<E: pharmsol::Equation + Clone + Send + 'static + EquationMetadataSou
         .add("v", 25.0, 250.0);
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new().add(
-        "outeq_1",
+        "1",
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?;
     let result = EstimationProblem::nonparametric(equation, data, prior, error_models)?

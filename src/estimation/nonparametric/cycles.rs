@@ -2,7 +2,7 @@ use std::{fs::File, path::Path};
 
 use anyhow::Result;
 use csv::WriterBuilder;
-use pharmsol::{AssayErrorModel, AssayErrorModels};
+use pharmsol::{AssayErrorModel, AssayErrorModels, OutputLabel};
 use serde::Serialize;
 
 use crate::{
@@ -116,7 +116,7 @@ impl CycleLog {
         writer.write_field("nspp")?;
         if let Some(first_cycle) = self.cycles.first() {
             first_cycle.error_models.iter().try_for_each(
-                |(outeq, errmod): (usize, &AssayErrorModel)| -> Result<(), csv::Error> {
+                |(outeq, errmod): (&OutputLabel, &AssayErrorModel)| -> Result<(), csv::Error> {
                     match errmod {
                         AssayErrorModel::Additive { .. } => {
                             writer.write_field(format!("gamlam.{}", outeq))?;
@@ -155,7 +155,7 @@ impl CycleLog {
                 .unwrap();
 
             cycle.error_models.iter().try_for_each(
-                |(_, errmod): (usize, &AssayErrorModel)| -> Result<()> {
+                |(_, errmod): (&OutputLabel, &AssayErrorModel)| -> Result<()> {
                     match errmod {
                         AssayErrorModel::Additive { lambda: _, poly: _ } => {
                             writer.write_field(format!("{:.5}", errmod.factor()?))?;

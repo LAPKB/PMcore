@@ -11,12 +11,12 @@ fn main() -> Result<()> {
         name: "chain_example",
         params: [ke, v],
         states: [central],
-        outputs: [outeq_1],
+        outputs: [1],
         diffeq: |x, _t, dx| {
-            dx[central] = bolus[input_1] - ke * x[central];
+            dx[central] = bolus[1] - ke * x[central];
         },
         out: |x, _t, y| {
-            y[outeq_1] = x[central] / v;
+            y[1] = x[central] / v;
         },
     };
 
@@ -41,7 +41,7 @@ fn main() -> Result<()> {
         .add("v", 5.0, 50.0);
     let prior = Theta::sobol(&parameters, 100)?;
     let error_models = AssayErrorModels::new().add(
-        "outeq_1",
+        "1",
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?;
 

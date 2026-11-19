@@ -86,18 +86,19 @@ pub(crate) fn optimize_error_models<E: Equation + Send + 'static>(
     error_models
         .clone()
         .iter_mut()
-        .filter_map(|(outeq, em)| {
+        .enumerate()
+        .filter_map(|(slot, (outeq, em))| {
             if em.optimize() {
-                Some((outeq, em))
+                Some((slot, outeq, em))
             } else {
                 None
             }
         })
-        .try_for_each(|(outeq, em)| -> Result<()> {
+        .try_for_each(|(slot, outeq, em)| -> Result<()> {
             // Optimize the best value of gamma/lambda
 
-            let gamma_up = em.factor()? * (1.0 + gamma_delta[outeq]);
-            let gamma_down = em.factor()? / (1.0 + gamma_delta[outeq]);
+            let gamma_up = em.factor()? * (1.0 + gamma_delta[slot]);
+            let gamma_down = em.factor()? / (1.0 + gamma_delta[slot]);
 
             let mut error_model_up = error_models.clone();
             error_model_up.set_factor(outeq, gamma_up)?;
@@ -152,13 +153,13 @@ pub(crate) fn optimize_error_models<E: Equation + Send + 'static>(
             if let Some((new_objf, new_lambda, new_psi, gamma)) = best {
                 error_models.set_factor(outeq, gamma)?;
                 *objf = new_objf;
-                gamma_delta[outeq] *= config.growth;
+                gamma_delta[slot] *= config.growth;
                 *lambda = new_lambda;
                 *psi = new_psi;
             }
-            gamma_delta[outeq] *= config.shrink;
-            if gamma_delta[outeq] <= config.min_step {
-                gamma_delta[outeq] = config.step;
+            gamma_delta[slot] *= config.shrink;
+            if gamma_delta[slot] <= config.min_step {
+                gamma_delta[slot] = config.step;
             }
             Ok(())
         })?;

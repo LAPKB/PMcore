@@ -37,9 +37,7 @@ fn main() -> Result<()> {
         .repeat(1000, 0.01)
         .build();
 
-    let op = eq
-        .simulate_subject_dense(&subject, &[0.3, 0.2, 0.5], None)?
-        .0;
+    let op = eq.simulate(&subject, &[0.3, 0.2, 0.5], None)?.0;
 
     let times = op.flat_times();
     let pred = op.flat_predictions();

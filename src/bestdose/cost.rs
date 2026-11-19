@@ -267,9 +267,7 @@ pub(crate) fn evaluate<E: Equation>(
         let preds_i: Vec<f64> = match problem.target_type {
             Target::Concentration => {
                 // Simulate at observation times only
-                let pred = problem
-                    .eq
-                    .simulate_subject_dense(&target_subject, &spp, None)?;
+                let pred = problem.eq.simulate(&target_subject, &spp, None)?;
                 pred.0
                     .get_predictions()
                     .iter()
@@ -345,9 +343,7 @@ pub(crate) fn evaluate<E: Equation>(
                 let dense_subject = builder.build();
 
                 // Simulate at dense times
-                let pred = problem
-                    .eq
-                    .simulate_subject_dense(&dense_subject, &spp, None)?;
+                let pred = problem.eq.simulate(&dense_subject, &spp, None)?;
                 let dense_predictions_with_outeq = pred.0.get_predictions();
 
                 // Group predictions by outeq using the Prediction struct
@@ -355,8 +351,14 @@ pub(crate) fn evaluate<E: Equation>(
                     std::collections::HashMap::new();
 
                 for prediction in dense_predictions_with_outeq {
+                    let outeq = prediction.outeq().index().ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "BestDose AUC calculations require numeric prediction output labels; got `{}`",
+                            prediction.outeq()
+                        )
+                    })?;
                     outeq_predictions
-                        .entry(prediction.outeq())
+                        .entry(outeq)
                         .or_default()
                         .push(prediction.prediction());
                 }
@@ -474,9 +476,7 @@ pub(crate) fn evaluate<E: Equation>(
                 let dense_subject = builder.build();
 
                 // Simulate at dense times
-                let pred = problem
-                    .eq
-                    .simulate_subject_dense(&dense_subject, &spp, None)?;
+                let pred = problem.eq.simulate(&dense_subject, &spp, None)?;
                 let dense_predictions_with_outeq = pred.0.get_predictions();
 
                 // Group predictions by outeq
@@ -484,8 +484,14 @@ pub(crate) fn evaluate<E: Equation>(
                     std::collections::HashMap::new();
 
                 for prediction in dense_predictions_with_outeq {
+                    let outeq = prediction.outeq().index().ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "BestDose AUC calculations require numeric prediction output labels; got `{}`",
+                            prediction.outeq()
+                        )
+                    })?;
                     outeq_predictions
-                        .entry(prediction.outeq())
+                        .entry(outeq)
                         .or_default()
                         .push(prediction.prediction());
                 }

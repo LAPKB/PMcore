@@ -259,16 +259,15 @@ fn validate_nonparametric_error_models<E: Equation + EquationMetadataSource>(
     data: &Data,
     error_models: &AssayErrorModels,
 ) -> Result<()> {
-    // Bind the (label-first) error models to the equation. This resolves and
-    // validates that every declared output label maps to a valid model output.
-    let bound = model
+    // Validate that every declared error-model label names a model output.
+    model
         .equation
-        .bind_error_models(error_models)
+        .validate_error_models(error_models)
         .map_err(|e| anyhow!("invalid assay error model output(s): {e}"))?;
 
     // Collect the set of model output indices that are actually observed in the
     // data, resolving each observation's output label the same way the simulator
-    // does (exact name, then the `outeq_<N>` numeric alias).
+    // does (exact name match).
     let mut observed_outputs: BTreeSet<usize> = BTreeSet::new();
     let mut unresolved_labels: BTreeSet<String> = BTreeSet::new();
     for subject in data.subjects() {
@@ -276,7 +275,7 @@ fn validate_nonparametric_error_models<E: Equation + EquationMetadataSource>(
             for event in occasion.events() {
                 if let Event::Observation(obs) = event {
                     let label = obs.outeq().to_string();
-                    match resolve_output_index(model, &label) {
+                    match model.output_index(&label) {
                         Some(outeq) => {
                             observed_outputs.insert(outeq);
                         }
@@ -303,10 +302,10 @@ fn validate_nonparametric_error_models<E: Equation + EquationMetadataSource>(
 
     // Every observed output must have a (non-`None`) assay error model.
     for &outeq in &observed_outputs {
-        let has_model = matches!(
-            bound.error_model(outeq),
-            Ok(error_model) if *error_model != AssayErrorModel::None
-        );
+        let has_model = error_models.iter().any(|(label, error_model)| {
+            model.output_index(label.as_str()) == Some(outeq)
+                && *error_model != AssayErrorModel::None
+        });
 
         if !has_model {
             let label = model
@@ -322,21 +321,6 @@ fn validate_nonparametric_error_models<E: Equation + EquationMetadataSource>(
     }
 
     Ok(())
-}
-
-/// Resolves an observation output `label` to a model output index, mirroring the
-/// simulator: first by exact output name, then via the `outeq_<N>` numeric alias.
-fn resolve_output_index<E: Equation + EquationMetadataSource>(
-    model: &Model<E>,
-    label: &str,
-) -> Option<usize> {
-    model.output_index(label).or_else(|| {
-        if !label.is_empty() && label.bytes().all(|b| b.is_ascii_digit()) {
-            model.output_index(&format!("outeq_{label}"))
-        } else {
-            None
-        }
-    })
 }
 
 fn validate_parametric_error_models<E: Equation + EquationMetadataSource>(

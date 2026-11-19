@@ -9,12 +9,12 @@ fn create_equation() -> equation::ODE {
         name: "bimodal_ke",
         params: [ke, v],
         states: [central],
-        outputs: [outeq_1],
+        outputs: [1],
         diffeq: |x, _t, dx| {
-            dx[central] = infusion[input_1] - ke * x[central];
+            dx[central] = infusion[1] - ke * x[central];
         },
         out: |x, _t, y| {
-            y[outeq_1] = x[central] / v;
+            y[1] = x[central] / v;
         },
     }
 }
@@ -30,7 +30,7 @@ fn setup_npag() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
         .add("v", 25.0, 250.0);
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new().add(
-        "outeq_1",
+        "1",
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?;
     EstimationProblem::nonparametric(create_equation(), data, prior, error_models)
@@ -43,7 +43,7 @@ fn setup_npod() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
         .add("v", 25.0, 250.0);
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new().add(
-        "outeq_1",
+        "1",
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?;
     EstimationProblem::nonparametric(create_equation(), data, prior, error_models)
@@ -56,7 +56,7 @@ fn setup_postprob() -> Result<EstimationProblem<equation::ODE, NonParametric>> {
         .add("v", 25.0, 250.0);
     let prior = Theta::sobol_default(&parameters)?;
     let error_models = AssayErrorModels::new().add(
-        "outeq_1",
+        "1",
         AssayErrorModel::additive(ErrorPoly::new(0.0, 0.5, 0.0, 0.0), 0.0),
     )?;
     EstimationProblem::nonparametric(create_equation(), data, prior, error_models)

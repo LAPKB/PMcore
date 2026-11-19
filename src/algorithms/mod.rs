@@ -120,7 +120,7 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
                 let support_point: Vec<f64> = spp.iter().copied().collect();
                 let (pred, ll) = self
                     .equation()
-                    .simulate_subject_dense(subject, &support_point, Some(&error_model))
+                    .simulate(subject, &support_point, Some(&error_model))
                     .unwrap(); //TODO: Handle error
                 (i, support_point, pred.get_predictions(), ll)
             })
@@ -185,7 +185,7 @@ pub trait NonParametricRunner<E: Equation + Send + 'static>: Sync + Send + 'stat
             );
             tracing::debug!(
                 "\t\tOuteqs: {:?}",
-                preds.iter().map(|x| x.outeq()).collect::<Vec<usize>>()
+                preds.iter().map(|x| x.outeq()).collect::<Vec<_>>()
             );
             tracing::debug!(
                 "\t\tStates: {:?}",
